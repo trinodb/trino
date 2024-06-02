@@ -18,6 +18,8 @@ import com.google.common.hash.Hashing;
 import com.google.inject.Inject;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
+import io.trino.server.ExternalUriInfo;
+import io.trino.server.ExternalUriInfo.ExternalUriBuilder;
 import io.trino.server.security.AuthenticationException;
 import io.trino.server.security.Authenticator;
 import io.trino.spi.security.Identity;
@@ -26,8 +28,6 @@ import jakarta.ws.rs.core.Cookie;
 import jakarta.ws.rs.core.NewCookie;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.ResponseBuilder;
-import jakarta.ws.rs.core.UriBuilder;
-import jakarta.ws.rs.core.UriInfo;
 
 import javax.crypto.SecretKey;
 
@@ -42,7 +42,6 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
@@ -60,11 +59,8 @@ public class FormWebUiAuthenticationFilter
     private static final String TRINO_UI_COOKIE = "Trino-UI-Token";
     static final String TRINO_FORM_LOGIN = "Trino-Form-Login";
     static final String LOGIN_FORM = "/ui/login.html";
-    static final URI LOGIN_FORM_URI = URI.create(LOGIN_FORM);
     static final String DISABLED_LOCATION = "/ui/disabled.html";
-    static final URI DISABLED_LOCATION_URI = URI.create(DISABLED_LOCATION);
     public static final String UI_LOCATION = "/ui/";
-    static final URI UI_LOCATION_URI = URI.create(UI_LOCATION);
     static final String UI_LOGIN = "/ui/login";
     static final String UI_LOGOUT = "/ui/logout";
 
@@ -129,7 +125,7 @@ public class FormWebUiAuthenticationFilter
         if (username.isPresent()) {
             // if the authenticated user is requesting the login page, send them directly to the ui
             if (path.equals(LOGIN_FORM)) {
-                request.abortWith(redirectFromSuccessfulLoginResponse(request.getUriInfo().getRequestUri().getQuery()).build());
+                request.abortWith(redirectFromSuccessfulLoginResponse(ExternalUriInfo.from(request), request.getUriInfo().getRequestUri().getQuery()).build());
                 return;
             }
             setAuthenticatedIdentity(request, username.get());
@@ -143,7 +139,7 @@ public class FormWebUiAuthenticationFilter
         }
 
         if (!isAuthenticationEnabled(request.getSecurityContext().isSecure())) {
-            request.abortWith(Response.seeOther(DISABLED_LOCATION_URI).build());
+            request.abortWith(Response.seeOther(ExternalUriInfo.from(request).absolutePath(DISABLED_LOCATION)).build());
             return;
         }
 
@@ -152,29 +148,25 @@ public class FormWebUiAuthenticationFilter
         }
 
         // redirect to login page
-        request.abortWith(Response.seeOther(buildLoginFormURI(request.getUriInfo())).build());
+        request.abortWith(Response.seeOther(buildLoginFormURI(request)).build());
     }
 
-    private static URI buildLoginFormURI(UriInfo uriInfo)
+    private static URI buildLoginFormURI(ContainerRequestContext request)
     {
-        UriBuilder builder = uriInfo.getRequestUriBuilder()
-                .uri(LOGIN_FORM_URI);
+        ExternalUriBuilder builder = ExternalUriInfo.from(request).baseUriBuilder()
+                .path(LOGIN_FORM);
 
-        String path = uriInfo.getRequestUri().getPath();
-        if (!isNullOrEmpty(uriInfo.getRequestUri().getQuery())) {
-            path += "?" + uriInfo.getRequestUri().getQuery();
+        URI requestUri = request.getUriInfo().getRequestUri();
+        String path = requestUri.getPath();
+        if (!isNullOrEmpty(requestUri.getQuery())) {
+            path += "?" + requestUri.getQuery();
         }
 
         if (path.equals("/ui") || path.equals("/ui/")) {
             return builder.build();
         }
 
-        // this is a hack - the replaceQuery method encodes the value where the uri method just copies the value
-        try {
-            builder.uri(new URI(null, null, null, path, null));
-        }
-        catch (URISyntaxException _) {
-        }
+        builder.rawReplaceQuery(path);
 
         return builder.build();
     }
@@ -206,26 +198,27 @@ public class FormWebUiAuthenticationFilter
         // these paths should never be used with a protocol login, but the user might have this cached or linked, so redirect back to the main UI page.
         String path = request.getUriInfo().getRequestUri().getPath();
         if (path.equals(LOGIN_FORM) || path.equals(UI_LOGIN) || path.equals(UI_LOGOUT)) {
-            request.abortWith(Response.seeOther(UI_LOCATION_URI).build());
+            request.abortWith(Response.seeOther(ExternalUriInfo.from(request).absolutePath(UI_LOCATION)).build());
             return true;
         }
         return false;
     }
 
-    public static ResponseBuilder redirectFromSuccessfulLoginResponse(String redirectPath)
+    public static ResponseBuilder redirectFromSuccessfulLoginResponse(ExternalUriInfo externalUriInfo, String redirectPath)
     {
-        URI redirectLocation = UI_LOCATION_URI;
-
-        redirectPath = emptyToNull(redirectPath);
-        if (redirectPath != null) {
+        if (!isNullOrEmpty(redirectPath)) {
             try {
-                redirectLocation = new URI(redirectPath);
+                URI redirectLocation = new URI(redirectPath);
+                return Response.seeOther(externalUriInfo.baseUriBuilder()
+                        .path(redirectLocation.getPath())
+                        .rawReplaceQuery(redirectLocation.getRawQuery())
+                        .build());
             }
             catch (URISyntaxException _) {
             }
         }
 
-        return Response.seeOther(redirectLocation);
+        return Response.seeOther(externalUriInfo.absolutePath(UI_LOCATION));
     }
 
     public Optional<NewCookie[]> checkLoginCredentials(String username, String password, boolean secure)
@@ -290,7 +283,7 @@ public class FormWebUiAuthenticationFilter
         // these paths should never be used with a protocol login, but the user might have this cached or linked, so redirect back ot the main UI page.
         String path = request.getUriInfo().getRequestUri().getPath();
         if (path.equals(LOGIN_FORM) || path.equals(UI_LOGIN) || path.equals(UI_LOGOUT)) {
-            request.abortWith(Response.seeOther(UI_LOCATION_URI).build());
+            request.abortWith(Response.seeOther(ExternalUriInfo.from(request).absolutePath(UI_LOCATION)).build());
             return true;
         }
         return false;
