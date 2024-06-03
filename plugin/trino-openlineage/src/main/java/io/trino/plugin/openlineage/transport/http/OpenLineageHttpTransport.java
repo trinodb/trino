@@ -23,7 +23,6 @@ import io.trino.plugin.openlineage.transport.OpenLineageTransport;
 import java.net.URI;
 import java.util.Map;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OpenLineageHttpTransport
@@ -47,7 +46,7 @@ public class OpenLineageHttpTransport
         @Override
         public String getToken()
         {
-            return format("Bearer %s", this.token);
+            return "Bearer " + this.token;
         }
     }
 
