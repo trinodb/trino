@@ -36,14 +36,12 @@ public class OpenLineageHttpTransport
     private final Map<String, String> urlParams;
     private final Map<String, String> headers;
 
-    private static class ApiKeyTokenProvider
+    private record ApiKeyTokenProvider(String token)
             implements TokenProvider
     {
-        private final String token;
-
-        public ApiKeyTokenProvider(String token)
+        public ApiKeyTokenProvider
         {
-            this.token = requireNonNull(token);
+            requireNonNull(token);
         }
 
         @Override
