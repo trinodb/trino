@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.openlineage.config;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -27,14 +26,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.Locale.ENGLISH;
 
 public class OpenLineageListenerConfig
 {
     private OpenLineageTransport transport = OpenLineageTransport.CONSOLE;
     private URI trinoURI;
-    private List<OpenLineageTrinoFacet> disabledFacets = ImmutableList.of();
+    private Set<OpenLineageTrinoFacet> disabledFacets = ImmutableSet.of();
     private Optional<String> namespace = Optional.empty();
 
     private Set<QueryType> includeQueryTypes = ImmutableSet.<QueryType>builder()
@@ -83,13 +82,13 @@ public class OpenLineageListenerConfig
     public OpenLineageListenerConfig setIncludeQueryTypes(List<String> includeQueryTypes)
     {
         this.includeQueryTypes = includeQueryTypes.stream()
-                .map(String::trim)
+                .map(value -> value.toUpperCase(ENGLISH))
                 .map(QueryType::valueOf)
                 .collect(toImmutableSet());
         return this;
     }
 
-    public List<OpenLineageTrinoFacet> getDisabledFacets()
+    public Set<OpenLineageTrinoFacet> getDisabledFacets()
     {
         return disabledFacets;
     }
@@ -100,9 +99,9 @@ public class OpenLineageListenerConfig
             throws RuntimeException
     {
         this.disabledFacets = disabledFacets.stream()
-                .map(String::trim)
-                .map(OpenLineageTrinoFacet::fromText)
-                .collect(toImmutableList());
+                .map(value -> value.toUpperCase(ENGLISH))
+                .map(OpenLineageTrinoFacet::valueOf)
+                .collect(toImmutableSet());
         return this;
     }
 
