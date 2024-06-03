@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class OpenLineageHttpTransport
         implements OpenLineageTransport
 {
-    private final String url;
+    private final URI url;
     private final String endpoint;
     private final int timeout;
     private final ApiKeyTokenProvider apiKey;
@@ -64,11 +64,10 @@ public class OpenLineageHttpTransport
 
     @Override
     public HttpTransport buildTransport()
-            throws Exception
     {
         return new HttpTransport(
                 new HttpConfig(
-                        new URI(this.url),
+                        this.url,
                         this.endpoint,
                         null,
                         this.timeout,

@@ -17,6 +17,5 @@ import io.openlineage.client.transports.Transport;
 
 public interface OpenLineageTransport
 {
-    Transport buildTransport()
-            throws Exception;
+    Transport buildTransport();
 }
