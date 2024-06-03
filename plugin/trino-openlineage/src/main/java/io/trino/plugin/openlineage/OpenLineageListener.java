@@ -45,7 +45,6 @@ import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.resourcegroups.QueryType;
 
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
@@ -292,7 +291,7 @@ public class OpenLineageListener
         Optional<QueryOutputMetadata> outputs = ioMetadata.getOutput();
         if (outputs.isPresent()) {
             QueryOutputMetadata outputMetadata = outputs.get();
-            List<OutputColumnMetadata> outputColumns = outputMetadata.getColumns().orElse(new ArrayList<>());
+            List<OutputColumnMetadata> outputColumns = outputMetadata.getColumns().orElse(List.of());
 
             OpenLineage.ColumnLineageDatasetFacetFieldsBuilder columnLineageDatasetFacetFieldsBuilder = openLineage.newColumnLineageDatasetFacetFieldsBuilder();
 
