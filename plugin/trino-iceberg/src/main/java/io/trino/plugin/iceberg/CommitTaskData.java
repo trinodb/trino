@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import org.apache.iceberg.FileContent;
 
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -27,7 +28,8 @@ public record CommitTaskData(
         String partitionSpecJson,
         Optional<String> partitionDataJson,
         FileContent content,
-        Optional<String> referencedDataFile)
+        Optional<String> referencedDataFile,
+        Optional<List<Long>> fileSplitOffsets)
 {
     public CommitTaskData
     {
@@ -38,5 +40,6 @@ public record CommitTaskData(
         requireNonNull(partitionDataJson, "partitionDataJson is null");
         requireNonNull(content, "content is null");
         requireNonNull(referencedDataFile, "referencedDataFile is null");
+        requireNonNull(fileSplitOffsets, "fileSplitOffsets is null");
     }
 }
