@@ -62,35 +62,22 @@ public class OpenLineageListener
         implements EventListener
 {
     private static final Logger logger = Logger.get(OpenLineageListener.class);
+    private static final ObjectMapper QUERY_STATISTICS_MAPPER = new ObjectMapperProvider().get();
 
     private final OpenLineage openLineage = new OpenLineage(URI.create("https://github.com/trinodb/trino/plugin/trino-openlineage"));
     private final OpenLineageClient client;
     private final String jobNamespace;
     private final String datasetNamespace;
     private final Set<QueryType> includeQueryTypes;
-    private final ObjectMapper queryStatisticsMapper;
 
     @Inject
     public OpenLineageListener(OpenLineageClient client, OpenLineageListenerConfig listenerConfig)
     {
         this.client = requireNonNull(client, "client is null");
         requireNonNull(listenerConfig, "listenerConfig is null");
-
-        String defaultNamespace = listenerConfig.getTrinoURI().toString();
-
-        if (!listenerConfig.getTrinoURI().getScheme().isEmpty()) {
-            defaultNamespace = defaultNamespace.replace(listenerConfig.getTrinoURI().getScheme(), "trino");
-        }
-        else {
-            defaultNamespace = "trino://%s" + defaultNamespace;
-        }
-
-        this.jobNamespace = listenerConfig.getNamespace().orElse(defaultNamespace);
-        this.datasetNamespace = defaultNamespace;
-
+        this.jobNamespace = listenerConfig.getNamespace().orElse(defaultNamespace(listenerConfig.getTrinoURI()));
+        this.datasetNamespace = defaultNamespace(listenerConfig.getTrinoURI());
         this.includeQueryTypes = ImmutableSet.copyOf(listenerConfig.getIncludeQueryTypes());
-
-        this.queryStatisticsMapper = new ObjectMapperProvider().get();
     }
 
     @Override
@@ -180,7 +167,7 @@ public class OpenLineageListener
 
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
 
-        this.queryStatisticsMapper.convertValue(queryStatistics, HashMap.class).forEach(
+        QUERY_STATISTICS_MAPPER.convertValue(queryStatistics, HashMap.class).forEach(
                 (key, value) -> {
                     if (key != null && value != null) {
                         properties.put(key.toString(), value.toString());
@@ -353,5 +340,15 @@ public class OpenLineageListener
     private String getDatasetName(String catalogName, String schemaName, String tableName)
     {
         return format("%s.%s.%s", catalogName, schemaName, tableName);
+    }
+
+    private static String defaultNamespace(URI uri)
+    {
+        if (!uri.getScheme().isEmpty()) {
+            return uri.toString().replace(uri.getScheme(), "trino");
+        }
+        else {
+            return "trino://%s" + uri;
+        }
     }
 }
