@@ -73,7 +73,8 @@ public class OpenLineageListener
     @Inject
     public OpenLineageListener(OpenLineageClient client, OpenLineageListenerConfig listenerConfig)
     {
-        this.client = requireNonNull(client);
+        this.client = requireNonNull(client, "client is null");
+        requireNonNull(listenerConfig, "listenerConfig is null");
 
         String defaultNamespace = listenerConfig.getTrinoURI().toString();
 
