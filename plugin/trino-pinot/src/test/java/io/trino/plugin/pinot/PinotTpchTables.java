@@ -29,7 +29,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 
-import static io.trino.plugin.pinot.BasePinotConnectorSmokeTest.schemaRegistryAwareProducer;
+import static io.trino.plugin.pinot.TestPinotConnectorSmokeTest.schemaRegistryAwareProducer;
 import static java.time.temporal.ChronoUnit.SECONDS;
 
 public final class PinotTpchTables
