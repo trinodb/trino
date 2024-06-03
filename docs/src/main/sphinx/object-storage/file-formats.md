@@ -3,14 +3,6 @@
 Object storage connectors support one or more file formats specified by the
 underlying data source.
 
-In the case of serializable formats, only specific
-[SerDes](https://www.wikipedia.org/wiki/SerDes) are allowed:
-
-- RCText - RCFile `ColumnarSerDe`
-- RCBinary - RCFile `LazyBinaryColumnarSerDe`
-- JSON - `org.apache.hive.hcatalog.data.JsonSerDe`
-- CSV - `org.apache.hadoop.hive.serde2.OpenCSVSerde`
-
 (hive-orc-configuration)=
 ## ORC format configuration properties
 
@@ -108,7 +100,7 @@ with Parquet files performed by supported object storage connectors:
     `parquet_small_file_threshold`.
   - `3MB`
 * - `parquet.experimental.vectorized-decoding.enabled`
-  - Enable using Java Vector API for faster decoding of parquet files. 
+  - Enable using Java Vector API (SIMD) for faster decoding of parquet files.
     The equivalent catalog session property is
     `parquet_vectorized_decoding_enabled`.
   - `true`
