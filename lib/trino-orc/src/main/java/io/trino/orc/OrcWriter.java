@@ -122,6 +122,7 @@ public final class OrcWriter
 
     private long fileRowCount;
     private Optional<ColumnMetadata<ColumnStatistics>> fileStats;
+    private List<Long> stripeOffsets;
     private long fileStatsRetainedBytes;
 
     @Nullable
@@ -511,6 +512,9 @@ public final class OrcWriter
         fileStatsRetainedBytes = fileStats.map(stats -> stats.stream()
                 .mapToLong(ColumnStatistics::getRetainedSizeInBytes)
                 .sum()).orElse(0L);
+        stripeOffsets = closedStripes.stream()
+                .map(closedStripe -> closedStripe.getStripeInformation().getOffset())
+                .collect(toImmutableList());
         recordValidation(validation -> validation.setFileStatistics(fileStats));
 
         Map<String, Slice> userMetadata = this.userMetadata.entrySet().stream()
@@ -564,6 +568,12 @@ public final class OrcWriter
     {
         checkState(closed, "File statistics are not available until the writing has finished");
         return fileStats;
+    }
+
+    public List<Long> getStripeOffsets()
+    {
+        checkState(closed, "File stripe offsets are not available until the writing has finished");
+        return stripeOffsets;
     }
 
     private static Supplier<BloomFilterBuilder> getBloomFilterBuilder(OrcWriterOptions options, String columnName)

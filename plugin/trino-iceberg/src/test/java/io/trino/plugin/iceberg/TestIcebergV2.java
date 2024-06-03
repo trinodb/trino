@@ -844,7 +844,7 @@ public class TestIcebergV2
                                         JSON '{"1":"0","2":"ALGERIA","3":"0","4":" haggle. careful"}',
                                         JSON '{"1":"24","2":"VIETNAM","3":"4","4":"y final packaget"}',
                                         null,
-                                        null,
+                                        ARRAY[4L],
                                         null),
                                        (0,
                                         'ORC',

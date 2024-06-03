@@ -424,11 +424,12 @@ public class IcebergPageSink
                 writeContext.getPath(),
                 fileFormat,
                 writer.getWrittenBytes(),
-                new MetricsWrapper(writer.getMetrics()),
+                new MetricsWrapper(writer.getFileMetrics().metrics()),
                 PartitionSpecParser.toJson(partitionSpec),
                 writeContext.getPartitionData().map(PartitionData::toJson),
                 DATA,
-                Optional.empty());
+                Optional.empty(),
+                writer.getFileMetrics().splitOffsets());
 
         commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
     }
