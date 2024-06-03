@@ -74,11 +74,11 @@ public class PinotPageSourceProvider
             handles.add((PinotColumnHandle) handle);
         }
         PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
-        String query = generatePql(pinotTableHandle, handles, pinotSplit.getSuffix(), pinotSplit.getTimePredicate(), limitForSegmentQueries);
 
         switch (pinotSplit.getSplitType()) {
             case SEGMENT:
-                PinotDataFetcher pinotDataFetcher = pinotDataFetcherFactory.create(session, query, pinotSplit);
+                String segmentQuery = generatePql(pinotTableHandle, handles, pinotSplit.getSuffix(), pinotSplit.getTimePredicate(), limitForSegmentQueries);
+                PinotDataFetcher pinotDataFetcher = pinotDataFetcherFactory.create(session, segmentQuery, pinotSplit);
                 return new PinotSegmentPageSource(
                         targetSegmentPageSizeBytes,
                         handles,
@@ -92,7 +92,8 @@ public class PinotPageSourceProvider
                             dynamicTable.groupingColumns().size());
                 }
                 else {
-                    pinotQueryInfo = new PinotQueryInfo(pinotTableHandle.getTableName(), query, 0);
+                    String brokerQuery = generatePql(pinotTableHandle, handles, pinotSplit.getSuffix(), pinotSplit.getTimePredicate(), limitForSegmentQueries);
+                    pinotQueryInfo = new PinotQueryInfo(pinotTableHandle.getTableName(), brokerQuery, 0);
                 }
 
                 return new PinotBrokerPageSource(
