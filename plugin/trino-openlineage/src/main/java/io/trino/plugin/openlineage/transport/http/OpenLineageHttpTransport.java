@@ -23,6 +23,7 @@ import io.trino.plugin.openlineage.transport.OpenLineageTransport;
 import java.net.URI;
 import java.util.Map;
 
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class OpenLineageHttpTransport
@@ -55,7 +56,7 @@ public class OpenLineageHttpTransport
     {
         this.url = config.getUrl();
         this.endpoint = config.getEndpoint();
-        this.timeout = (int) config.getTimeout().toMillis();
+        this.timeout = toIntExact(config.getTimeout().toMillis());
         this.apiKey = config.getApiKey().map(ApiKeyTokenProvider::new).orElse(null);
         this.urlParams = config.getUrlParams();
         this.headers = config.getHeaders();
