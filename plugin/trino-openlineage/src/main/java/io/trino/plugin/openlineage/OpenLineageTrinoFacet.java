@@ -21,27 +21,8 @@ public enum OpenLineageTrinoFacet
     TRINO_QUERY_STATISTICS,
     TRINO_QUERY_CONTEXT;
 
-    final String text;
-
-    OpenLineageTrinoFacet()
+    public String asText()
     {
-        this.text = this.name().toLowerCase(ENGLISH);
-    }
-
-    public String getText()
-    {
-        return this.text;
-    }
-
-    public static OpenLineageTrinoFacet fromText(String text)
-            throws IllegalArgumentException
-    {
-        for (OpenLineageTrinoFacet facet : OpenLineageTrinoFacet.values()) {
-            if (facet.text.equals(text)) {
-                return facet;
-            }
-        }
-
-        throw new IllegalArgumentException(text);
+        return name().toLowerCase(ENGLISH);
     }
 }

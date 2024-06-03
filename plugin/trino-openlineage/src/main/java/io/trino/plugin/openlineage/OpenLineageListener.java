@@ -184,9 +184,9 @@ public class OpenLineageListener
     {
         RunFacetsBuilder runFacetsBuilder = getBaseRunFacetsBuilder(queryCreatedEvent.getContext());
 
-        runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_METADATA.getText(),
+        runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_METADATA.asText(),
                 getTrinoMetadataFacet(queryCreatedEvent.getMetadata()));
-        runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_QUERY_CONTEXT.getText(),
+        runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_QUERY_CONTEXT.asText(),
                 getTrinoQueryContextFacet(queryCreatedEvent.getContext()));
 
         return openLineage.newRunEventBuilder()
@@ -203,11 +203,11 @@ public class OpenLineageListener
 
         RunFacetsBuilder runFacetsBuilder = getBaseRunFacetsBuilder(queryCompletedEvent.getContext());
 
-        runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_METADATA.getText(),
+        runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_METADATA.asText(),
                 getTrinoMetadataFacet(queryCompletedEvent.getMetadata()));
-        runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_QUERY_CONTEXT.getText(),
+        runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_QUERY_CONTEXT.asText(),
                 getTrinoQueryContextFacet(queryCompletedEvent.getContext()));
-        runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_QUERY_STATISTICS.getText(),
+        runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_QUERY_STATISTICS.asText(),
                 getTrinoQueryStatisticsFacet(queryCompletedEvent.getStatistics()));
 
         if (failed) {
