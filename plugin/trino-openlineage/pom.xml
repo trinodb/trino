@@ -11,7 +11,7 @@
 
     <artifactId>trino-openlineage</artifactId>
     <packaging>trino-plugin</packaging>
-    <description>Trino - OpenLineage Event Listener</description>
+    <description>Trino - OpenLineage event listener</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
