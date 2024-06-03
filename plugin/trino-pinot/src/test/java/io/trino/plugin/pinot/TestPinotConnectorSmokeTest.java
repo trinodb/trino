@@ -16,9 +16,4 @@ package io.trino.plugin.pinot;
 public class TestPinotConnectorSmokeTest
         extends BasePinotConnectorSmokeTest
 {
-    @Override
-    protected boolean isSecured()
-    {
-        return false;
-    }
 }
