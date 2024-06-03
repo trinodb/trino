@@ -20,6 +20,7 @@ import io.trino.plugin.hive.coercions.DateCoercer.DateToVarcharCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.VarcharToDateCoercer;
 import io.trino.plugin.hive.coercions.DoubleToVarcharCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberToDoubleCoercer;
+import io.trino.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToDateCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToLongTimestampCoercer;
@@ -145,6 +146,16 @@ public final class OrcTypeTranslator
             if (fromOrcType == LONG) {
                 return Optional.of(createIntegerNumberToDecimalCoercer(BIGINT, decimalType));
             }
+        }
+        if ((fromOrcType == BYTE || fromOrcType == SHORT || fromOrcType == INT || fromOrcType == LONG) && toTrinoType instanceof VarcharType varcharType) {
+            Type fromType = switch (fromOrcType) {
+                case BYTE -> TINYINT;
+                case SHORT -> SMALLINT;
+                case INT -> INTEGER;
+                case LONG -> BIGINT;
+                default -> throw new UnsupportedOperationException("Unsupported ORC type: " + fromOrcType);
+            };
+            return Optional.of(new IntegerNumberToVarcharCoercer<>(fromType, varcharType));
         }
         return Optional.empty();
     }
