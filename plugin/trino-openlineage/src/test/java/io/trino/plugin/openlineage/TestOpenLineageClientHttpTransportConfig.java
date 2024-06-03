@@ -19,6 +19,7 @@ import io.airlift.units.Duration;
 import io.trino.plugin.openlineage.config.http.OpenLineageClientHttpTransportConfig;
 import org.junit.jupiter.api.Test;
 
+import java.net.URI;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -41,6 +42,7 @@ final class TestOpenLineageClientHttpTransportConfig
 
     @Test
     void testExplicitPropertyMappings()
+            throws Exception
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("openlineage-event-listener.transport.url", "http://testurl")
@@ -53,7 +55,7 @@ final class TestOpenLineageClientHttpTransportConfig
                 .buildOrThrow();
 
         OpenLineageClientHttpTransportConfig expected = new OpenLineageClientHttpTransportConfig()
-                .setUrl("http://testurl")
+                .setUrl(new URI("http://testurl"))
                 .setEndpoint("/test/endpoint")
                 .setApiKey("dummy")
                 .setTimeout(Duration.valueOf("30s"))
