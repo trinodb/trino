@@ -62,6 +62,7 @@ import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.MAX_WRITER_VERSION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkUnsupportedUniversalFormat;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkValidTableHandle;
@@ -139,7 +140,10 @@ public class VacuumProcedure
         catch (TrinoException e) {
             throw e;
         }
-        catch (Exception e) {
+        catch (IOException e) {
+            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failure when vacuuming %s.%s with retention %s: %s", schema, table, retention, e), e);
+        }
+        catch (RuntimeException e) {
             // This is not categorized as TrinoException. All possible external failures should be handled explicitly.
             throw new RuntimeException(format("Failure when vacuuming %s.%s with retention %s: %s", schema, table, retention, e), e);
         }
