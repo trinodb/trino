@@ -91,7 +91,7 @@ import static org.apache.pinot.spi.utils.JsonUtils.inputStreamToObject;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
-public abstract class BasePinotConnectorSmokeTest
+public class TestPinotConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
     private static final int MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES = 11;
