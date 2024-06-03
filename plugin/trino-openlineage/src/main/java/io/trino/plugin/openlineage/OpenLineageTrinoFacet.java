@@ -13,17 +13,19 @@
  */
 package io.trino.plugin.openlineage;
 
+import static java.util.Locale.ENGLISH;
+
 public enum OpenLineageTrinoFacet
 {
-    TRINO_METADATA("trino_metadata"),
-    TRINO_QUERY_STATISTICS("trino_query_statistics"),
-    TRINO_QUERY_CONTEXT("trino_query_context");
+    TRINO_METADATA,
+    TRINO_QUERY_STATISTICS,
+    TRINO_QUERY_CONTEXT;
 
     final String text;
 
-    OpenLineageTrinoFacet(String text)
+    OpenLineageTrinoFacet()
     {
-        this.text = text;
+        this.text = this.name().toLowerCase(ENGLISH);
     }
 
     public String getText()
