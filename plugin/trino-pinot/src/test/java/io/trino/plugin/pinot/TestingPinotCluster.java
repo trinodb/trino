@@ -21,6 +21,7 @@ import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
 import com.google.common.net.HttpHeaders;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StaticBodyGenerator;
 import io.airlift.http.client.jetty.JettyHttpClient;
@@ -88,7 +89,7 @@ public class TestingPinotCluster
 
     public TestingPinotCluster(Network network, boolean secured)
     {
-        httpClient = closer.register(new JettyHttpClient());
+        httpClient = closer.register(new JettyHttpClient(new HttpClientConfig().setHttp2Enabled(false)));  // temporary - reverted in Airlift
         zookeeper = new GenericContainer<>(parse("zookeeper:3.9"))
                 .withStartupAttempts(3)
                 .withNetwork(network)
