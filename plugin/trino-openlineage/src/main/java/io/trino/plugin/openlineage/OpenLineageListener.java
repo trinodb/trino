@@ -45,7 +45,6 @@ import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.resourcegroups.QueryType;
 
 import java.net.URI;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -56,6 +55,7 @@ import java.util.UUID;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 
 public class OpenLineageListener
@@ -192,7 +192,7 @@ public class OpenLineageListener
 
         return openLineage.newRunEventBuilder()
                     .eventType(RunEvent.EventType.START)
-                    .eventTime(queryCreatedEvent.getCreateTime().atZone(ZoneId.of("UTC")))
+                    .eventTime(queryCreatedEvent.getCreateTime().atZone(UTC))
                     .run(openLineage.newRunBuilder().runId(runID).facets(runFacetsBuilder.build()).build())
                     .job(getBaseJobBuilder(queryCreatedEvent.getMetadata()).build())
                     .build();
@@ -227,7 +227,7 @@ public class OpenLineageListener
                         failed
                                 ? RunEvent.EventType.FAIL
                                 : RunEvent.EventType.COMPLETE)
-                .eventTime(queryCompletedEvent.getEndTime().atZone(ZoneId.of("UTC")))
+                .eventTime(queryCompletedEvent.getEndTime().atZone(UTC))
                 .run(openLineage.newRunBuilder().runId(runID).facets(runFacetsBuilder.build()).build())
                 .job(getBaseJobBuilder(queryCompletedEvent.getMetadata()).build())
                 .inputs(buildInputs(queryCompletedEvent.getMetadata()))
