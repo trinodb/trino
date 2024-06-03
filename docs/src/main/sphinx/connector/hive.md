@@ -34,17 +34,24 @@ The coordinator and all workers must have network access to the Hive metastore
 and the storage system. Hive metastore access with the Thrift protocol defaults
 to using port 9083.
 
-Data files must be in a supported file format. Some file formats can be
-configured using file format configuration properties per catalog:
+Data files must be in a supported file format. File formats can be
+configured using the [`format` table property](hive-table-properties)
+and other specific properties:
 
 - {ref}`ORC <hive-orc-configuration>`
 - {ref}`Parquet <hive-parquet-configuration>`
 - Avro
-- RCText (RCFile using ColumnarSerDe)
-- RCBinary (RCFile using LazyBinaryColumnarSerDe)
+
+In the case of serializable formats, only specific
+[SerDes](https://www.wikipedia.org/wiki/SerDes) are allowed:
+
+- RCText - RCFile using `ColumnarSerDe`
+- RCBinary - RCFile using `LazyBinaryColumnarSerDe`
 - SequenceFile
-- JSON (using org.apache.hive.hcatalog.data.JsonSerDe)
-- CSV (using org.apache.hadoop.hive.serde2.OpenCSVSerde)
+- CSV - using `org.apache.hadoop.hive.serde2.OpenCSVSerde`
+- JSON - using `org.apache.hive.hcatalog.data.JsonSerDe`
+- OPENX_JSON - OpenX JSON SerDe from `org.openx.data.jsonserde.JsonSerDe`. Find
+  more [details about the Trino implementation in the source repository](https://github.com/trinodb/trino/tree/master/lib/trino-hive-formats/src/main/java/io/trino/hive/formats/line/openxjson/README.md).
 - TextFile
 
 (hive-configuration)=
@@ -783,9 +790,9 @@ WITH (format='CSV',
   -
 * - `format`
   - The table file format. Valid values include `ORC`, `PARQUET`, `AVRO`,
-    `RCBINARY`, `RCTEXT`, `SEQUENCEFILE`, `JSON`, `TEXTFILE`, `CSV`, and
-    `REGEX`. The catalog property `hive.storage-format` sets the default value
-    and can change it to a different default.
+    `RCBINARY`, `RCTEXT`, `SEQUENCEFILE`, `JSON`, `OPENX_JSON`, `TEXTFILE`,
+    `CSV`, and `REGEX`. The catalog property `hive.storage-format` sets the
+    default value and can change it to a different default.
   -
 * - `null_format`
   - The serialization format for `NULL` value. Requires TextFile, RCText, or
