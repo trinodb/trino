@@ -32,9 +32,7 @@ public class OpenLineageListenerFactory
     @Override
     public EventListener create(Map<String, String> config)
     {
-        Bootstrap app = new Bootstrap(
-                        new OpenLineageListenerModule());
-
+        Bootstrap app = new Bootstrap(new OpenLineageListenerModule());
         Injector injector = app
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(config)
