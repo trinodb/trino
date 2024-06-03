@@ -346,8 +346,6 @@ public class OpenLineageListener
         if (!uri.getScheme().isEmpty()) {
             return uri.toString().replace(uri.getScheme(), "trino");
         }
-        else {
-            return "trino://%s" + uri;
-        }
+        return "trino://" + uri;
     }
 }
