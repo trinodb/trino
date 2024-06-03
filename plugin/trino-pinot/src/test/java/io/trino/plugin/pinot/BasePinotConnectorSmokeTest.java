@@ -121,15 +121,13 @@ public abstract class BasePinotConnectorSmokeTest
 
     private static final DateTimeFormatter MILLIS_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneOffset.UTC);
 
-    protected abstract boolean isSecured();
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         TestingKafka kafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
         kafka.start();
-        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), isSecured()));
+        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), false));
         pinot.start();
 
         createAndPopulateAllTypesTopic(kafka, pinot);
