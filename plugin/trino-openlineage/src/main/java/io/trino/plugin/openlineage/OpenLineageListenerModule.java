@@ -65,7 +65,7 @@ public class OpenLineageListenerModule
         String[] disabledFacets = listenerConfig
                 .getDisabledFacets()
                 .stream()
-                .map(OpenLineageTrinoFacet::getText)
+                .map(OpenLineageTrinoFacet::asText)
                 .toArray(String[]::new);
 
         clientBuilder.disableFacets(disabledFacets);

@@ -19,12 +19,20 @@ import io.trino.plugin.openlineage.config.OpenLineageListenerConfig;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
-import java.util.Arrays;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.plugin.openlineage.OpenLineageTrinoFacet.TRINO_METADATA;
+import static io.trino.plugin.openlineage.OpenLineageTrinoFacet.TRINO_QUERY_STATISTICS;
+import static io.trino.spi.resourcegroups.QueryType.ALTER_TABLE_EXECUTE;
+import static io.trino.spi.resourcegroups.QueryType.DATA_DEFINITION;
+import static io.trino.spi.resourcegroups.QueryType.DELETE;
+import static io.trino.spi.resourcegroups.QueryType.INSERT;
+import static io.trino.spi.resourcegroups.QueryType.MERGE;
+import static io.trino.spi.resourcegroups.QueryType.SELECT;
+import static io.trino.spi.resourcegroups.QueryType.UPDATE;
 
 final class TestOpenLineageListenerConfig
 {
@@ -36,7 +44,13 @@ final class TestOpenLineageListenerConfig
                 .setTrinoURI(null)
                 .setNamespace(null)
                 .setDisabledFacets(ImmutableList.of())
-                .setIncludeQueryTypes(Arrays.stream("ALTER_TABLE_EXECUTE,DELETE,INSERT,MERGE,UPDATE,DATA_DEFINITION".split(",")).toList()));
+                .setIncludeQueryTypes(ImmutableList.of(
+                        ALTER_TABLE_EXECUTE.name(),
+                        DELETE.name(),
+                        INSERT.name(),
+                        MERGE.name(),
+                        UPDATE.name(),
+                        DATA_DEFINITION.name())));
     }
 
     @Test
@@ -54,8 +68,8 @@ final class TestOpenLineageListenerConfig
         OpenLineageListenerConfig expected = new OpenLineageListenerConfig()
                 .setTransport(OpenLineageTransport.HTTP)
                 .setTrinoURI(new URI("http://testtrino"))
-                .setIncludeQueryTypes(ImmutableList.of("SELECT", "DELETE"))
-                .setDisabledFacets(ImmutableList.of("trino_metadata", "trino_query_statistics"))
+                .setIncludeQueryTypes(ImmutableList.of(SELECT.name(), DELETE.name()))
+                .setDisabledFacets(ImmutableList.of(TRINO_METADATA.name(), TRINO_QUERY_STATISTICS.name()))
                 .setNamespace("testnamespace");
 
         assertFullMapping(properties, expected);
