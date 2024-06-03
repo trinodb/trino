@@ -67,20 +67,27 @@ public class TestHiveCoercionOnUnpartitionedTable
                             tinyint_to_smallint                TINYINT,
                             tinyint_to_int                     TINYINT,
                             tinyint_to_bigint                  TINYINT,
+                            tinyint_to_varchar                 TINYINT,
+                            tinyint_to_string                  TINYINT,
                             tinyint_to_double                  TINYINT,
                             tinyint_to_shortdecimal            TINYINT,
                             tinyint_to_longdecimal             TINYINT,
                             smallint_to_int                    SMALLINT,
                             smallint_to_bigint                 SMALLINT,
+                            smallint_to_varchar                SMALLINT,
+                            smallint_to_string                 SMALLINT,
                             smallint_to_double                 SMALLINT,
                             smallint_to_shortdecimal           SMALLINT,
                             smallint_to_longdecimal            SMALLINT,
                             int_to_bigint                      INT,
+                            int_to_varchar                     INT,
+                            int_to_string                      INT,
                             int_to_double                      INT,
                             int_to_shortdecimal                INT,
                             int_to_longdecimal                 INT,
                             bigint_to_double                   BIGINT,
                             bigint_to_varchar                  BIGINT,
+                            bigint_to_string                   BIGINT,
                             bigint_to_shortdecimal             BIGINT,
                             bigint_to_longdecimal              BIGINT,
                             float_to_double                    FLOAT,
@@ -229,7 +236,14 @@ public class TestHiveCoercionOnUnpartitionedTable
                 .put(columnContext("orc", "tinyint_to_smallint"), "Cannot read SQL type 'smallint' from ORC stream '.tinyint_to_smallint' of type BYTE")
                 .put(columnContext("orc", "tinyint_to_int"), "Cannot read SQL type 'integer' from ORC stream '.tinyint_to_int' of type BYTE")
                 .put(columnContext("orc", "tinyint_to_bigint"), "Cannot read SQL type 'bigint' from ORC stream '.tinyint_to_bigint' of type BYTE")
+                .put(columnContext("orc", "tinyint_to_varchar"), "Cannot read SQL type 'varchar' from ORC stream '.tinyint_to_varchar' of type BYTE")
+                .put(columnContext("orc", "tinyint_to_string"), "Cannot read SQL type 'varchar' from ORC stream '.tinyint_to_string' of type BYTE")
+                .put(columnContext("orc", "smallint_to_varchar"), "Cannot read SQL type 'varchar' from ORC stream '.smallint_to_varchar' of type SHORT")
+                .put(columnContext("orc", "smallint_to_string"), "Cannot read SQL type 'varchar' from ORC stream '.smallint_to_string' of type SHORT")
+                .put(columnContext("orc", "int_to_varchar"), "Cannot read SQL type 'varchar' from ORC stream '.int_to_varchar' of type INT")
+                .put(columnContext("orc", "int_to_string"), "Cannot read SQL type 'varchar' from ORC stream '.int_to_string' of type INT")
                 .put(columnContext("orc", "bigint_to_varchar"), "Cannot read SQL type 'varchar' from ORC stream '.bigint_to_varchar' of type LONG")
+                .put(columnContext("orc", "bigint_to_string"), "Cannot read SQL type 'varchar' from ORC stream '.bigint_to_string' of type LONG")
                 .put(columnContext("orc", "double_to_float"), "Cannot read SQL type 'real' from ORC stream '.double_to_float' of type DOUBLE")
                 .put(columnContext("orc", "longdecimal_to_shortdecimal"), "Decimal does not fit long (invalid table schema?)")
                 .put(columnContext("orc", "float_to_decimal"), "Cannot read SQL type 'decimal(10,5)' from ORC stream '.float_to_decimal' of type FLOAT")
@@ -261,13 +275,20 @@ public class TestHiveCoercionOnUnpartitionedTable
                 .put(columnContext("parquet", "special_string_to_boolean"), "Unsupported Trino column type (boolean) for Parquet column ([special_string_to_boolean] optional binary special_string_to_boolean (STRING))")
                 .put(columnContext("parquet", "numeric_string_to_boolean"), "Unsupported Trino column type (boolean) for Parquet column ([numeric_string_to_boolean] optional binary numeric_string_to_boolean (STRING))")
                 .put(columnContext("parquet", "varchar_to_boolean"), "Unsupported Trino column type (boolean) for Parquet column ([varchar_to_boolean] optional binary varchar_to_boolean (STRING))")
+                .put(columnContext("parquet", "tinyint_to_varchar"), "Unsupported Trino column type (varchar(30)) for Parquet column ([tinyint_to_varchar] optional int32 tinyint_to_varchar (INTEGER(8,true)))")
+                .put(columnContext("parquet", "tinyint_to_string"), "Unsupported Trino column type (varchar) for Parquet column ([tinyint_to_string] optional int32 tinyint_to_string (INTEGER(8,true)))")
                 .put(columnContext("parquet", "tinyint_to_shortdecimal"), "// TODO This coercion is giving incorrect result")
                 .put(columnContext("parquet", "tinyint_to_longdecimal"), "Unsupported Trino column type (decimal(20,2)) for Parquet column ([tinyint_to_longdecimal] optional int32 tinyint_to_longdecimal (INTEGER(8,true)))")
+                .put(columnContext("parquet", "smallint_to_varchar"), "Unsupported Trino column type (varchar(30)) for Parquet column ([smallint_to_varchar] optional int32 smallint_to_varchar (INTEGER(16,true)))")
+                .put(columnContext("parquet", "smallint_to_string"), "Unsupported Trino column type (varchar) for Parquet column ([smallint_to_string] optional int32 smallint_to_varchar (INTEGER(16,true)))")
                 .put(columnContext("parquet", "smallint_to_longdecimal"), "Unsupported Trino column type (decimal(20,2)) for Parquet column ([smallint_to_longdecimal] optional int32 smallint_to_longdecimal (INTEGER(16,true)))")
                 .put(columnContext("parquet", "smallint_to_shortdecimal"), "// TODO This coercion is giving incorrect result")
+                .put(columnContext("parquet", "int_to_varchar"), "Unsupported Trino column type (varchar(30)) for Parquet column ([int_to_varchar] optional int32 int_to_varchar (INTEGER(16,true)))")
+                .put(columnContext("parquet", "int_to_string"), "Unsupported Trino column type (varchar) for Parquet column ([int_to_string] optional int32 int_to_string (INTEGER(16,true)))")
                 .put(columnContext("parquet", "int_to_longdecimal"), "Unsupported Trino column type (decimal(20,2)) for Parquet column ([int_to_longdecimal] optional int32 int_to_longdecimal (INTEGER(32,true)))")
                 .put(columnContext("parquet", "int_to_shortdecimal"), "// TODO This coercion is giving incorrect result")
                 .put(columnContext("parquet", "bigint_to_varchar"), "Unsupported Trino column type (varchar) for Parquet column ([bigint_to_varchar] optional int64 bigint_to_varchar (INTEGER(64,true)))")
+                .put(columnContext("parquet", "bigint_to_string"), "Unsupported Trino column type (varchar) for Parquet column ([bigint_to_string] optional int64 bigint_to_string (INTEGER(64,true)))")
                 .put(columnContext("parquet", "bigint_to_shortdecimal"), "Unsupported Trino column type (decimal(10,2)) for Parquet column ([bigint_to_shortdecimal] optional int64 bigint_to_shortdecimal (INTEGER(64,true)))")
                 .put(columnContext("parquet", "bigint_to_longdecimal"), "Unsupported Trino column type (decimal(20,2)) for Parquet column ([bigint_to_longdecimal] optional int64 bigint_to_longdecimal (INTEGER(64,true)))")
                 .put(columnContext("parquet", "double_to_string"), "Unsupported Trino column type (varchar) for Parquet column ([double_to_string] optional double double_to_string)")
