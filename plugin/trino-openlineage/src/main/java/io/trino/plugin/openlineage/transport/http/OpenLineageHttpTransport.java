@@ -24,7 +24,6 @@ import java.net.URI;
 import java.util.Map;
 
 import static java.lang.Math.toIntExact;
-import static java.util.Objects.requireNonNull;
 
 public class OpenLineageHttpTransport
         implements OpenLineageTransport
@@ -32,24 +31,9 @@ public class OpenLineageHttpTransport
     private final URI url;
     private final String endpoint;
     private final int timeout;
-    private final ApiKeyTokenProvider apiKey;
+    private final TokenProvider tokenProvider;
     private final Map<String, String> urlParams;
     private final Map<String, String> headers;
-
-    private record ApiKeyTokenProvider(String token)
-            implements TokenProvider
-    {
-        public ApiKeyTokenProvider
-        {
-            requireNonNull(token);
-        }
-
-        @Override
-        public String getToken()
-        {
-            return "Bearer " + this.token;
-        }
-    }
 
     @Inject
     public OpenLineageHttpTransport(OpenLineageClientHttpTransportConfig config)
@@ -57,7 +41,7 @@ public class OpenLineageHttpTransport
         this.url = config.getUrl();
         this.endpoint = config.getEndpoint();
         this.timeout = toIntExact(config.getTimeout().toMillis());
-        this.apiKey = config.getApiKey().map(ApiKeyTokenProvider::new).orElse(null);
+        this.tokenProvider = config.getApiKey().map(OpenLineageHttpTransport::createTokenProvider).orElse(null);
         this.urlParams = config.getUrlParams();
         this.headers = config.getHeaders();
     }
@@ -71,9 +55,14 @@ public class OpenLineageHttpTransport
                         this.endpoint,
                         null,
                         this.timeout,
-                        this.apiKey,
+                        this.tokenProvider,
                         this.urlParams,
                         this.headers,
                         null));
+    }
+
+    private static TokenProvider createTokenProvider(String token)
+    {
+        return () -> "Bearer " + token;
     }
 }
