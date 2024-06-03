@@ -21,6 +21,7 @@ import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotNull;
 
+import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +33,7 @@ import static java.lang.String.format;
 
 public class OpenLineageClientHttpTransportConfig
 {
-    private String url;
+    private URI url;
     private String endpoint;
     private Optional<String> apiKey = Optional.empty();
     private Duration timeout = new Duration(5000, TimeUnit.MILLISECONDS);
@@ -40,14 +41,14 @@ public class OpenLineageClientHttpTransportConfig
     private Map<String, String> urlParams = new HashMap<>();
 
     @NotNull
-    public String getUrl()
+    public URI getUrl()
     {
         return url;
     }
 
     @Config("openlineage-event-listener.transport.url")
     @ConfigDescription("URL of receiving server. Explicitly set the scheme https:// to use symmetric encryption")
-    public OpenLineageClientHttpTransportConfig setUrl(String url)
+    public OpenLineageClientHttpTransportConfig setUrl(URI url)
     {
         this.url = url;
         return this;
