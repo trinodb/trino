@@ -62,4 +62,5 @@ T-Digest            <functions/tdigest>
 URL                 <functions/url>
 UUID                <functions/uuid>
 Window              <functions/window>
+XPath               <functions/xpath>
 ```
