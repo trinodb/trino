@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative.rule;
 
 import io.trino.Session;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -49,12 +50,8 @@ public class DistinctAggregationStrategyChooser
             // global distinct aggregation is computed using a single thread. MarkDistinct will help parallelize the execution.
             return true;
         }
-        if (aggregationNode.getGroupingKeys().size() > 1) {
-            // NDV stats for multiple grouping keys are unreliable, let's keep MarkDistinct for this case to avoid significant slowdown or OOM/too big hash table issues in case of
-            // overestimation of very small NDV with big number of distinct values inside the groups.
-            return true;
-        }
-        double numberOfDistinctValues = statsProvider.getStats(aggregationNode).getOutputRowCount();
+
+        double numberOfDistinctValues = getMinDistinctValueCountEstimate(aggregationNode, statsProvider);
         if (isNaN(numberOfDistinctValues)) {
             // if the estimate is unknown, use MarkDistinct to avoid query failure
             return true;
@@ -84,6 +81,19 @@ public class DistinctAggregationStrategyChooser
     private int getMaxNumberOfConcurrentThreadsForAggregation(Session session)
     {
         return taskCountEstimator.estimateHashedTaskCount(session) * getTaskConcurrency(session);
+    }
+
+    private double getMinDistinctValueCountEstimate(AggregationNode aggregationNode, StatsProvider statsProvider)
+    {
+        // NDV stats for multiple grouping keys are unreliable, let's pick a conservative lower bound by taking maximum NDV for all grouping keys.
+        // this assumes that grouping keys are 100% correlated.
+        // in the case of a lower correlation, the NDV can only be higher.
+        PlanNodeStatsEstimate sourceStats = statsProvider.getStats(aggregationNode.getSource());
+        return aggregationNode.getGroupingKeys()
+                .stream()
+                .filter(symbol -> !isNaN(sourceStats.getSymbolStatistics(symbol).getDistinctValuesCount()))
+                .map(symbol -> sourceStats.getSymbolStatistics(symbol).getDistinctValuesCount())
+                .max(Double::compareTo).orElse(Double.NaN);
     }
 
     private static boolean hasSingleDistinctAndNonDistincts(AggregationNode aggregationNode)
