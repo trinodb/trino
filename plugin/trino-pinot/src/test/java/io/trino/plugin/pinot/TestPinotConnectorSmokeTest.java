@@ -76,6 +76,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.common.io.Resources.getResource;
 import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -179,8 +180,8 @@ public class TestPinotConnectorSmokeTest
         allTypesRecordsBuilder.add(new ProducerRecord<>(ALL_TYPES_TABLE, null, createArrayNullRecord()));
         kafka.sendMessages(allTypesRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
 
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("alltypes_schema.json"), ALL_TYPES_TABLE);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("alltypes_realtimeSpec.json"), ALL_TYPES_TABLE);
+        pinot.createSchema("alltypes_schema.json", ALL_TYPES_TABLE);
+        pinot.addRealTimeTable("alltypes_realtimeSpec.json", ALL_TYPES_TABLE);
     }
 
     private void createAndPopulateStringTypeTopic(TestingKafka kafka, TestingPinotCluster pinot)
@@ -190,8 +191,8 @@ public class TestPinotConnectorSmokeTest
         List<ProducerRecord<String, GenericRecord>> records = ImmutableList.of(new ProducerRecord<>(STRING_TYPE_TABLE, null, createStringSingleQuoteRecord()));
         kafka.sendMessages(records.stream(), schemaRegistryAwareProducer(kafka));
 
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("string_schema.json"), STRING_TYPE_TABLE);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("string_realtimeSpec.json"), STRING_TYPE_TABLE);
+        pinot.createSchema("string_schema.json", STRING_TYPE_TABLE);
+        pinot.addRealTimeTable("string_realtimeSpec.json", STRING_TYPE_TABLE);
     }
 
     private void createAndPopulateMixedCaseTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
@@ -229,8 +230,8 @@ public class TestPinotConnectorSmokeTest
                 .build();
 
         kafka.sendMessages(mixedCaseProducerRecords.stream(), schemaRegistryAwareProducer(kafka));
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("mixed_case_schema.json"), MIXED_CASE_COLUMN_NAMES_TABLE);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("mixed_case_realtimeSpec.json"), MIXED_CASE_COLUMN_NAMES_TABLE);
+        pinot.createSchema("mixed_case_schema.json", MIXED_CASE_COLUMN_NAMES_TABLE);
+        pinot.addRealTimeTable("mixed_case_realtimeSpec.json", MIXED_CASE_COLUMN_NAMES_TABLE);
     }
 
     private void createAndPopulateMixedCaseDistinctTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
@@ -263,12 +264,12 @@ public class TestPinotConnectorSmokeTest
                 .build();
 
         kafka.sendMessages(mixedCaseDistinctProducerRecords.stream(), schemaRegistryAwareProducer(kafka));
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("mixed_case_distinct_schema.json"), MIXED_CASE_DISTINCT_TABLE);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("mixed_case_distinct_realtimeSpec.json"), MIXED_CASE_DISTINCT_TABLE);
+        pinot.createSchema("mixed_case_distinct_schema.json", MIXED_CASE_DISTINCT_TABLE);
+        pinot.addRealTimeTable("mixed_case_distinct_realtimeSpec.json", MIXED_CASE_DISTINCT_TABLE);
 
         // Create mixed case table name, populated from the mixed case topic
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("mixed_case_table_name_schema.json"), MIXED_CASE_TABLE_NAME);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("mixed_case_table_name_realtimeSpec.json"), MIXED_CASE_TABLE_NAME);
+        pinot.createSchema("mixed_case_table_name_schema.json", MIXED_CASE_TABLE_NAME);
+        pinot.addRealTimeTable("mixed_case_table_name_realtimeSpec.json", MIXED_CASE_TABLE_NAME);
     }
 
     private void createAndPopulateTooManyRowsTable(TestingKafka kafka, TestingPinotCluster pinot)
@@ -289,8 +290,8 @@ public class TestPinotConnectorSmokeTest
                     .build()));
         }
         kafka.sendMessages(tooManyRowsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("too_many_rows_schema.json"), TOO_MANY_ROWS_TABLE);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("too_many_rows_realtimeSpec.json"), TOO_MANY_ROWS_TABLE);
+        pinot.createSchema("too_many_rows_schema.json", TOO_MANY_ROWS_TABLE);
+        pinot.addRealTimeTable("too_many_rows_realtimeSpec.json", TOO_MANY_ROWS_TABLE);
     }
 
     private void createAndPopulateTooManyBrokerRowsTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
@@ -311,8 +312,8 @@ public class TestPinotConnectorSmokeTest
                     .build()));
         }
         kafka.sendMessages(tooManyBrokerRowsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("too_many_broker_rows_schema.json"), TOO_MANY_BROKER_ROWS_TABLE);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("too_many_broker_rows_realtimeSpec.json"), TOO_MANY_BROKER_ROWS_TABLE);
+        pinot.createSchema("too_many_broker_rows_schema.json", TOO_MANY_BROKER_ROWS_TABLE);
+        pinot.addRealTimeTable("too_many_broker_rows_realtimeSpec.json", TOO_MANY_BROKER_ROWS_TABLE);
     }
 
     private void createTheDuplicateTablesAndTopics(TestingKafka kafka, TestingPinotCluster pinot)
@@ -320,12 +321,12 @@ public class TestPinotConnectorSmokeTest
     {
         // Create the duplicate tables and topics
         kafka.createTopic(DUPLICATE_TABLE_LOWERCASE);
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("dup_table_lower_case_schema.json"), DUPLICATE_TABLE_LOWERCASE);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("dup_table_lower_case_realtimeSpec.json"), DUPLICATE_TABLE_LOWERCASE);
+        pinot.createSchema("dup_table_lower_case_schema.json", DUPLICATE_TABLE_LOWERCASE);
+        pinot.addRealTimeTable("dup_table_lower_case_realtimeSpec.json", DUPLICATE_TABLE_LOWERCASE);
 
         kafka.createTopic(DUPLICATE_TABLE_MIXED_CASE);
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("dup_table_mixed_case_schema.json"), DUPLICATE_TABLE_MIXED_CASE);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("dup_table_mixed_case_realtimeSpec.json"), DUPLICATE_TABLE_MIXED_CASE);
+        pinot.createSchema("dup_table_mixed_case_schema.json", DUPLICATE_TABLE_MIXED_CASE);
+        pinot.addRealTimeTable("dup_table_mixed_case_realtimeSpec.json", DUPLICATE_TABLE_MIXED_CASE);
     }
 
     private void createAndPopulateDateTimeFieldsTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
@@ -356,8 +357,8 @@ public class TestPinotConnectorSmokeTest
                         .build()))
                 .build();
         kafka.sendMessages(dateTimeFieldsProducerRecords.stream(), schemaRegistryAwareProducer(kafka));
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("date_time_fields_schema.json"), DATE_TIME_FIELDS_TABLE);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("date_time_fields_realtimeSpec.json"), DATE_TIME_FIELDS_TABLE);
+        pinot.createSchema("date_time_fields_schema.json", DATE_TIME_FIELDS_TABLE);
+        pinot.addRealTimeTable("date_time_fields_realtimeSpec.json", DATE_TIME_FIELDS_TABLE);
     }
 
     private void createAndPopulateJsonTypeTable(TestingKafka kafka, TestingPinotCluster pinot)
@@ -381,9 +382,9 @@ public class TestPinotConnectorSmokeTest
                     .build()));
         }
         kafka.sendMessages(jsonTableRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("json_schema.json"), JSON_TYPE_TABLE);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("json_realtimeSpec.json"), JSON_TYPE_TABLE);
-        pinot.addOfflineTable(getClass().getClassLoader().getResourceAsStream("json_offlineSpec.json"), JSON_TYPE_TABLE);
+        pinot.createSchema("json_schema.json", JSON_TYPE_TABLE);
+        pinot.addRealTimeTable("json_realtimeSpec.json", JSON_TYPE_TABLE);
+        pinot.addOfflineTable("json_offlineSpec.json", JSON_TYPE_TABLE);
     }
 
     private void createAndPopulateJsonTable(TestingKafka kafka, TestingPinotCluster pinot)
@@ -401,8 +402,8 @@ public class TestPinotConnectorSmokeTest
                 new ProducerRecord<>(JSON_TABLE, key++, TestingJsonRecord.of("vendor6", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(8.5F, 10.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12)),
                 new ProducerRecord<>(JSON_TABLE, key, TestingJsonRecord.of("vendor7", "Los Angeles", Arrays.asList("foo6", "bar3", "baz2"), Arrays.asList(10, 11, 12), Arrays.asList(9.5F, 10.5F), Arrays.asList(10_000.5D, 20_000.335D, -3.7D), Arrays.asList(10_000L, 20_000_000L, -37L), 12))));
 
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("schema.json"), JSON_TABLE);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("realtimeSpec.json"), JSON_TABLE);
+        pinot.createSchema("schema.json", JSON_TABLE);
+        pinot.addRealTimeTable("realtimeSpec.json", JSON_TABLE);
     }
 
     private void createAndPopulateMixedCaseHybridTablesAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
@@ -416,9 +417,9 @@ public class TestPinotConnectorSmokeTest
                 .name("updatedAt").type().longType().noDefault()
                 .endRecord();
 
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("hybrid_schema.json"), HYBRID_TABLE_NAME);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("hybrid_realtimeSpec.json"), HYBRID_TABLE_NAME);
-        pinot.addOfflineTable(getClass().getClassLoader().getResourceAsStream("hybrid_offlineSpec.json"), HYBRID_TABLE_NAME);
+        pinot.createSchema("hybrid_schema.json", HYBRID_TABLE_NAME);
+        pinot.addRealTimeTable("hybrid_realtimeSpec.json", HYBRID_TABLE_NAME);
+        pinot.addOfflineTable("hybrid_offlineSpec.json", HYBRID_TABLE_NAME);
 
         Instant startInstant = initialUpdatedAt.truncatedTo(DAYS);
         List<ProducerRecord<String, GenericRecord>> hybridProducerRecords = ImmutableList.<ProducerRecord<String, GenericRecord>>builder()
@@ -455,7 +456,7 @@ public class TestPinotConnectorSmokeTest
                 row.putValue("updatedAt", startInstant.plus(1, DAYS).plusMillis(1000L * (i - 4)).toEpochMilli());
                 offlineRowsBuilder.add(row);
             }
-            Path segmentPath = createSegment(getClass().getClassLoader().getResourceAsStream("hybrid_offlineSpec.json"), getClass().getClassLoader().getResourceAsStream("hybrid_schema.json"), new GenericRowRecordReader(offlineRowsBuilder.build()), temporaryDirectory.toString(), 0);
+            Path segmentPath = createSegment("hybrid_offlineSpec.json", "hybrid_schema.json", new GenericRowRecordReader(offlineRowsBuilder.build()), temporaryDirectory.toString(), 0);
             pinot.publishOfflineSegment("hybrid", segmentPath);
 
             offlineRowsBuilder = ImmutableList.builder();
@@ -468,7 +469,7 @@ public class TestPinotConnectorSmokeTest
                 row.putValue("updatedAt", startInstant.minus(1, DAYS).plusMillis(1000L * (i - 7)).toEpochMilli());
                 offlineRowsBuilder.add(row);
             }
-            segmentPath = createSegment(getClass().getClassLoader().getResourceAsStream("hybrid_offlineSpec.json"), getClass().getClassLoader().getResourceAsStream("hybrid_schema.json"), new GenericRowRecordReader(offlineRowsBuilder.build()), temporaryDirectory.toString(), 1);
+            segmentPath = createSegment("hybrid_offlineSpec.json", "hybrid_schema.json", new GenericRowRecordReader(offlineRowsBuilder.build()), temporaryDirectory.toString(), 1);
             pinot.publishOfflineSegment("hybrid", segmentPath);
         }
         finally {
@@ -492,8 +493,8 @@ public class TestPinotConnectorSmokeTest
         reservedKeywordRecordsBuilder.add(new ProducerRecord<>(RESERVED_KEYWORD_TABLE, "key0", new GenericRecordBuilder(reservedKeywordAvroSchema).set("date", "2021-09-30").set("as", "foo").set("updatedAt", initialUpdatedAt.plusMillis(1000).toEpochMilli()).build()));
         reservedKeywordRecordsBuilder.add(new ProducerRecord<>(RESERVED_KEYWORD_TABLE, "key1", new GenericRecordBuilder(reservedKeywordAvroSchema).set("date", "2021-10-01").set("as", "bar").set("updatedAt", initialUpdatedAt.plusMillis(2000).toEpochMilli()).build()));
         kafka.sendMessages(reservedKeywordRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("reserved_keyword_schema.json"), RESERVED_KEYWORD_TABLE);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("reserved_keyword_realtimeSpec.json"), RESERVED_KEYWORD_TABLE);
+        pinot.createSchema("reserved_keyword_schema.json", RESERVED_KEYWORD_TABLE);
+        pinot.addRealTimeTable("reserved_keyword_realtimeSpec.json", RESERVED_KEYWORD_TABLE);
     }
 
     private void createAndPopulateHavingQuotesInColumnNames(TestingKafka kafka, TestingPinotCluster pinot)
@@ -509,8 +510,8 @@ public class TestPinotConnectorSmokeTest
         quotesInColumnNameRecordsBuilder.add(new ProducerRecord<>(QUOTES_IN_COLUMN_NAME_TABLE, "key0", new GenericRecordBuilder(quotesInColumnNameAvroSchema).set("non_quoted", "Foo").set("updatedAt", initialUpdatedAt.plusMillis(1000).toEpochMilli()).build()));
         quotesInColumnNameRecordsBuilder.add(new ProducerRecord<>(QUOTES_IN_COLUMN_NAME_TABLE, "key1", new GenericRecordBuilder(quotesInColumnNameAvroSchema).set("non_quoted", "Bar").set("updatedAt", initialUpdatedAt.plusMillis(2000).toEpochMilli()).build()));
         kafka.sendMessages(quotesInColumnNameRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("quotes_in_column_name_schema.json"), QUOTES_IN_COLUMN_NAME_TABLE);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("quotes_in_column_name_realtimeSpec.json"), QUOTES_IN_COLUMN_NAME_TABLE);
+        pinot.createSchema("quotes_in_column_name_schema.json", QUOTES_IN_COLUMN_NAME_TABLE);
+        pinot.addRealTimeTable("quotes_in_column_name_realtimeSpec.json", QUOTES_IN_COLUMN_NAME_TABLE);
     }
 
     private void createAndPopulateHavingMultipleColumnsWithDuplicateValues(TestingKafka kafka, TestingPinotCluster pinot)
@@ -576,8 +577,8 @@ public class TestPinotConnectorSmokeTest
                 .build()));
 
         kafka.sendMessages(duplicateValuesInColumnsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("duplicate_values_in_columns_schema.json"), DUPLICATE_VALUES_IN_COLUMNS_TABLE);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("duplicate_values_in_columns_realtimeSpec.json"), DUPLICATE_VALUES_IN_COLUMNS_TABLE);
+        pinot.createSchema("duplicate_values_in_columns_schema.json", DUPLICATE_VALUES_IN_COLUMNS_TABLE);
+        pinot.addRealTimeTable("duplicate_values_in_columns_realtimeSpec.json", DUPLICATE_VALUES_IN_COLUMNS_TABLE);
     }
 
     @Override
@@ -597,9 +598,12 @@ public class TestPinotConnectorSmokeTest
         };
     }
 
-    private static Path createSegment(InputStream tableConfigInputStream, InputStream pinotSchemaInputStream, RecordReader recordReader, String outputDirectory, int sequenceId)
+    private static Path createSegment(String tableConfigResourceName, String pinotSchemaResourceName, RecordReader recordReader, String outputDirectory, int sequenceId)
     {
         try {
+            InputStream tableConfigInputStream = getResource(tableConfigResourceName).openStream();
+            InputStream pinotSchemaInputStream = getResource(pinotSchemaResourceName).openStream();
+
             org.apache.pinot.spi.data.Schema pinotSchema = org.apache.pinot.spi.data.Schema.fromInputStream(pinotSchemaInputStream);
             TableConfig tableConfig = inputStreamToObject(tableConfigInputStream, TableConfig.class);
             String tableName = TableNameBuilder.extractRawTableName(tableConfig.getTableName());
