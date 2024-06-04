@@ -100,6 +100,7 @@ public class TestPinotConnectorSmokeTest
     // If a broker query does not supply a limit, pinot defaults to 10 rows
     private static final int DEFAULT_PINOT_LIMIT_FOR_BROKER_QUERIES = 10;
     private static final String ALL_TYPES_TABLE = "alltypes";
+    private static final String ALL_TYPES_NULLABLE_TABLE = "alltypes_nullable";
     private static final String STRING_TYPE_TABLE = "string_type_table";
     private static final String DATE_TIME_FIELDS_TABLE = "date_time_fields";
     private static final String MIXED_CASE_COLUMN_NAMES_TABLE = "mixed_case";
@@ -131,7 +132,8 @@ public class TestPinotConnectorSmokeTest
         TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), false));
         pinot.start();
 
-        createAndPopulateAllTypesTopic(kafka, pinot);
+        createAndPopulateAllTypesTopic(kafka, pinot, ALL_TYPES_TABLE);
+        createAndPopulateAllTypesTopic(kafka, pinot, ALL_TYPES_NULLABLE_TABLE);
         createAndPopulateStringTypeTopic(kafka, pinot);
         createAndPopulateMixedCaseTableAndTopic(kafka, pinot);
         createAndPopulateMixedCaseDistinctTableAndTopic(kafka, pinot);
@@ -155,16 +157,16 @@ public class TestPinotConnectorSmokeTest
                 .build();
     }
 
-    static void createAndPopulateAllTypesTopic(TestingKafka kafka, TestingPinotCluster pinot)
+    static void createAndPopulateAllTypesTopic(TestingKafka kafka, TestingPinotCluster pinot, String tableName)
             throws Exception
     {
         // Create and populate the all_types topic and table
-        kafka.createTopic(ALL_TYPES_TABLE);
+        kafka.createTopic(tableName);
 
         ImmutableList.Builder<ProducerRecord<String, GenericRecord>> allTypesRecordsBuilder = ImmutableList.builder();
         for (int i = 0, step = 1200; i < MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES - 2; i++) {
             int offset = i * step;
-            allTypesRecordsBuilder.add(new ProducerRecord<>(ALL_TYPES_TABLE, "key" + i * step,
+            allTypesRecordsBuilder.add(new ProducerRecord<>(tableName, "key" + i * step,
                     createTestRecord(
                             Arrays.asList("string_" + offset, "string1_" + (offset + 1), "string2_" + (offset + 2)),
                             true,
@@ -176,12 +178,12 @@ public class TestPinotConnectorSmokeTest
                             initialUpdatedAt.plusMillis(offset).toEpochMilli())));
         }
 
-        allTypesRecordsBuilder.add(new ProducerRecord<>(ALL_TYPES_TABLE, null, createNullRecord()));
-        allTypesRecordsBuilder.add(new ProducerRecord<>(ALL_TYPES_TABLE, null, createArrayNullRecord()));
+        allTypesRecordsBuilder.add(new ProducerRecord<>(tableName, null, createNullRecord()));
+        allTypesRecordsBuilder.add(new ProducerRecord<>(tableName, null, createArrayNullRecord()));
         kafka.sendMessages(allTypesRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
 
-        pinot.createSchema("alltypes_schema.json", ALL_TYPES_TABLE);
-        pinot.addRealTimeTable("alltypes_realtimeSpec.json", ALL_TYPES_TABLE);
+        pinot.createSchema(tableName + "_schema.json", tableName);
+        pinot.addRealTimeTable(tableName + "_realtimeSpec.json", tableName);
     }
 
     static void createAndPopulateStringTypeTopic(TestingKafka kafka, TestingPinotCluster pinot)
@@ -1276,6 +1278,19 @@ public class TestPinotConnectorSmokeTest
 
     @Test
     public void testNullBehavior()
+    {
+        assertThat(query("SELECT int_col FROM alltypes_nullable WHERE string_col IS NULL"))
+                .matches("VALUES CAST(NULL AS INTEGER)");
+
+        assertThat(query("SELECT count(*) FROM alltypes_nullable"))
+                .isNotFullyPushedDown(AggregationNode.class);
+
+        assertThat(query("SELECT COUNT(*) FROM alltypes_nullable WHERE long_col != -3147483645"))
+                .isNotFullyPushedDown(AggregationNode.class);
+    }
+
+    @Test
+    public void testDefaultNullBehavior()
     {
         // Verify the null behavior of pinot:
 
