@@ -53,7 +53,6 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
 import static io.trino.client.OkHttpUtil.basicAuth;
-import static io.trino.client.OkHttpUtil.disableHttp2;
 import static io.trino.client.OkHttpUtil.setupAlternateHostnameVerification;
 import static io.trino.client.OkHttpUtil.setupCookieJar;
 import static io.trino.client.OkHttpUtil.setupHttpProxy;
@@ -614,7 +613,6 @@ public class TrinoUri
             throws SQLException
     {
         try {
-            disableHttp2(builder);
             setupCookieJar(builder);
             setupSocksProxy(builder, socksProxy);
             setupHttpProxy(builder, httpProxy);
