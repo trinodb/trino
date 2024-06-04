@@ -148,7 +148,8 @@ public class TestPinotConnectorSmokeTest
         return PinotQueryRunner.builder()
                 .setKafka(kafka)
                 .setPinot(pinot)
-                .addPinotProperties(pinotProperties())
+                .addPinotProperty("pinot.max-rows-per-split-for-segment-queries", String.valueOf(MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
+                .addPinotProperty("pinot.max-rows-for-broker-queries", String.valueOf(MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES))
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
@@ -594,20 +595,6 @@ public class TestPinotConnectorSmokeTest
                  SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
-    }
-
-    private Map<String, String> pinotProperties()
-    {
-        return ImmutableMap.<String, String>builder()
-                .put("pinot.max-rows-per-split-for-segment-queries", String.valueOf(MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
-                .put("pinot.max-rows-for-broker-queries", String.valueOf(MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES))
-                .putAll(additionalPinotProperties())
-                .buildOrThrow();
-    }
-
-    protected Map<String, String> additionalPinotProperties()
-    {
-        return ImmutableMap.of();
     }
 
     private static Path createSegment(InputStream tableConfigInputStream, InputStream pinotSchemaInputStream, RecordReader recordReader, String outputDirectory, int sequenceId)
