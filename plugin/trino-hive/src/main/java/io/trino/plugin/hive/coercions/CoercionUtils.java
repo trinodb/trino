@@ -75,6 +75,7 @@ import static io.trino.plugin.hive.coercions.DecimalCoercers.createDoubleToDecim
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createIntegerNumberToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DoubleToVarcharCoercers.createDoubleToVarcharCoercer;
+import static io.trino.plugin.hive.coercions.FloatToVarcharCoercers.createFloatToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.VarcharToIntegralNumericCoercers.createVarcharToIntegerNumberCoercer;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
@@ -230,6 +231,9 @@ public final class CoercionUtils
         }
         if (fromType instanceof DateType && toType instanceof VarcharType toVarcharType) {
             return Optional.of(new DateToVarcharCoercer(toVarcharType));
+        }
+        if (fromType == REAL && toType instanceof VarcharType toVarcharType) {
+            return Optional.of(createFloatToVarcharCoercer(toVarcharType, coercionContext.isOrcFile));
         }
         if (fromType == DOUBLE && toType instanceof VarcharType toVarcharType) {
             return Optional.of(createDoubleToVarcharCoercer(toVarcharType, coercionContext.isOrcFile));

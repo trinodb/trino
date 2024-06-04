@@ -131,6 +131,9 @@ public abstract class BaseTestHiveCoercion
                 "bigint_to_shortdecimal",
                 "bigint_to_longdecimal",
                 "float_to_double",
+                "float_to_string",
+                "float_to_bounded_varchar",
+                "float_infinity_to_string",
                 "double_to_float",
                 "double_to_string",
                 "double_to_bounded_varchar",
@@ -257,6 +260,9 @@ public abstract class BaseTestHiveCoercion
                         "  9223372, " +
                         "  9223372036, " +
                         "  REAL '0.5', " +
+                        "  REAL '0.5', " +
+                        "  REAL '0.5', " +
+                        "  REAL 'Infinity', " +
                         "  DOUBLE '0.5', " +
                         "  DOUBLE '12345.12345', " +
                         "  DOUBLE '12345.12345', " +
@@ -355,6 +361,9 @@ public abstract class BaseTestHiveCoercion
                         "  -9223372, " +
                         "  -9223372036, " +
                         "  REAL '-1.5', " +
+                        "  REAL '-1.5', " +
+                        "  REAL 'NaN', " +
+                        "  REAL '-Infinity', " +
                         "  DOUBLE '-1.5', " +
                         "  DOUBLE 'NaN', " +
                         "  DOUBLE '-12345.12345', " +
@@ -593,6 +602,9 @@ public abstract class BaseTestHiveCoercion
                 .put("float_to_double", ImmutableList.of(
                         0.5,
                         -1.5))
+                .put("float_to_string", ImmutableList.of("0.5", "-1.5"))
+                .put("float_to_bounded_varchar", Arrays.asList("0.5", coercedNaN))
+                .put("float_infinity_to_string", ImmutableList.of("Infinity", "-Infinity"))
                 .put("double_to_float", ImmutableList.of(0.5, -1.5))
                 .put("double_to_string", Arrays.asList("12345.12345", coercedNaN))
                 .put("double_to_bounded_varchar", ImmutableList.of("12345.12345", "-12345.12345"))
@@ -1107,6 +1119,9 @@ public abstract class BaseTestHiveCoercion
                 row("bigint_to_shortdecimal", "decimal(10,2)"),
                 row("bigint_to_longdecimal", "decimal(20,2)"),
                 row("float_to_double", "double"),
+                row("float_to_string", "varchar"),
+                row("float_to_bounded_varchar", "varchar(12)"),
+                row("float_infinity_to_string", "varchar"),
                 row("double_to_float", "real"),
                 row("double_to_string", "varchar"),
                 row("double_to_bounded_varchar", "varchar(12)"),
@@ -1213,6 +1228,9 @@ public abstract class BaseTestHiveCoercion
                 .put("bigint_to_shortdecimal", DECIMAL)
                 .put("bigint_to_longdecimal", DECIMAL)
                 .put("float_to_double", DOUBLE)
+                .put("float_to_string", VARCHAR)
+                .put("float_to_bounded_varchar", VARCHAR)
+                .put("float_infinity_to_string", VARCHAR)
                 .put("double_to_float", floatType)
                 .put("double_to_string", VARCHAR)
                 .put("double_to_bounded_varchar", VARCHAR)
@@ -1327,6 +1345,9 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_shortdecimal bigint_to_shortdecimal decimal(10,2)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_longdecimal bigint_to_longdecimal decimal(20,2)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_string float_to_string string", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_bounded_varchar float_to_bounded_varchar varchar(12)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_infinity_to_string float_infinity_to_string string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_float double_to_float %s", tableName, floatType));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_string double_to_string string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_bounded_varchar double_to_bounded_varchar varchar(12)", tableName));
