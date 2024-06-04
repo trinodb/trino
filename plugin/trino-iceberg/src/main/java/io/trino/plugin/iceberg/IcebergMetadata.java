@@ -250,6 +250,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.firstSnapshotAfter;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
+import static io.trino.plugin.iceberg.IcebergUtil.getColumnsWithNested;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
@@ -606,7 +607,7 @@ public class IcebergMetadata
         DiscretePredicates discretePredicates = null;
         if (!partitionSourceIds.isEmpty()) {
             // Extract identity partition columns
-            Map<Integer, IcebergColumnHandle> columns = getColumns(icebergTable.schema(), typeManager).stream()
+            Map<Integer, IcebergColumnHandle> columns = getColumnsWithNested(icebergTable.schema(), typeManager).stream()
                     .filter(column -> partitionSourceIds.contains(column.getId()))
                     .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
 

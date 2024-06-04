@@ -296,6 +296,13 @@ public final class IcebergUtil
                 .collect(toImmutableList());
     }
 
+    public static List<IcebergColumnHandle> getColumnsWithNested(Schema schema, TypeManager typeManager)
+    {
+        return schema.idToName().keySet().stream()
+                .map(id -> getColumnHandle(schema.findField(id), typeManager))
+                .collect(toImmutableList());
+    }
+
     public static List<ColumnMetadata> getColumnMetadatas(Schema schema, TypeManager typeManager)
     {
         List<NestedField> icebergColumns = schema.columns();

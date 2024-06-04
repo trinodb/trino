@@ -502,6 +502,13 @@ public class TestIcebergSparkCompatibility
                         "  TBLPROPERTIES ('format-version'=2)",
                 sparkTableName));
 
+        onSpark().executeQuery(format(
+                        "INSERT INTO %s SELECT 1, named_struct('nested','aa','nested_another','bb')",
+                sparkTableName));
+
+        assertThat(onTrino().executeQuery("SELECT id, parent.nested, parent.nested_another FROM " + trinoTableName))
+                .containsOnly(row(1, "aa", "bb"));
+
         assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (2, ROW('b'))"))
                 .hasMessageContaining("Partitioning by nested field is unsupported: parent.nested");
         assertQueryFailure(() -> onTrino().executeQuery("UPDATE " + trinoTableName + " SET id = 2"))
