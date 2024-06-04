@@ -154,7 +154,6 @@ import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
-import static io.trino.plugin.hive.metastore.MetastoreUtil.ALLOWED_TO_DROP_TABLE_SERDES;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.spi.security.Identity.ofUser;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
@@ -5141,12 +5140,19 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testDropColumnWithUnsupportedSerDe()
     {
-        for(HiveStorageFormat format : ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON, HiveStorageFormat.RCBINARY)) {
-            @Language("SQL") String createAvroTable = format("CREATE TABLE test_drop_avro (x int, y int) WITH (format = '%s')", format);
-            assertUpdate(createAvroTable);
-            assertQueryFails("ALTER TABLE test_drop_avro DROP COLUMN x", "Cannot drop columns due to incompatible SerDe format");
-            assertUpdate("DROP TABLE test_drop_avro");
-        }
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.AVRO);
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.RCBINARY);
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.JSON);
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.OPENX_JSON);
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.CSV);
+    }
+
+    private void testDropColumnWithUnsupportedSerDe(HiveStorageFormat format)
+    {
+        String tableName = format("test_drop_column_%s", format.name().toLowerCase(Locale.ROOT));
+        assertUpdate(format("CREATE TABLE %s (x varchar, y varchar) WITH (format = '%s')", tableName, format));
+        assertQueryFails(format("ALTER TABLE %s DROP COLUMN x", tableName), "Cannot drop columns due to incompatible SerDe format");
+        assertUpdate(format("DROP TABLE %s", tableName));
     }
 
     @Test
@@ -5671,7 +5677,7 @@ public abstract class BaseHiveConnectorTest
         String tableName = testReadWithPartitionSchemaMismatchAddedColumns(session, format);
 
         // with mapping by name also test behavior with dropping columns
-        if (ALLOWED_TO_DROP_TABLE_SERDES.contains(format.getSerde())) {
+        if (format.supportsColumnDropOperation()) {
             // start with table with a, b, c, _part
             // drop b
             assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN b");
@@ -9391,7 +9397,7 @@ public abstract class BaseHiveConnectorTest
     {
         ImmutableList.Builder<TestingHiveStorageFormat> formats = ImmutableList.builder();
         for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
-            if (ALLOWED_TO_DROP_TABLE_SERDES.contains(hiveStorageFormat.getSerde())) {
+            if (hiveStorageFormat.supportsColumnDropOperation()) {
                 formats.add(new TestingHiveStorageFormat(getSession(), hiveStorageFormat));
             }
         }

@@ -27,6 +27,7 @@ import io.trino.hive.thrift.metastore.ResourceType;
 import io.trino.hive.thrift.metastore.ResourceUri;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.PartitionOfflineException;
 import io.trino.plugin.hive.TableOfflineException;
 import io.trino.spi.TrinoException;
@@ -70,10 +71,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.hash.Hashing.sha256;
 import static com.google.common.io.BaseEncoding.base64Url;
 import static io.trino.hive.formats.HiveClassNames.AVRO_SERDE_CLASS;
-import static io.trino.hive.formats.HiveClassNames.COLUMNAR_SERDE_CLASS;
-import static io.trino.hive.formats.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
-import static io.trino.hive.formats.HiveClassNames.ORC_SERDE_CLASS;
-import static io.trino.hive.formats.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.BUCKET_COUNT;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.BUCKET_FIELD_NAME;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
@@ -88,6 +85,7 @@ import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_LITERAL_KEY;
 import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static io.trino.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
+import static io.trino.plugin.hive.HiveStorageFormat.getHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.SparkMetastoreUtil.getSparkBasicStatistics;
 import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
@@ -110,7 +108,6 @@ public final class MetastoreUtil
     public static final String RAW_DATA_SIZE = "rawDataSize";
     public static final String TOTAL_SIZE = "totalSize";
     public static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
-    public static final Set<String> ALLOWED_TO_DROP_TABLE_SERDES = ImmutableSet.of(LAZY_SIMPLE_SERDE_CLASS, COLUMNAR_SERDE_CLASS, PARQUET_HIVE_SERDE_CLASS, ORC_SERDE_CLASS);
 
     public static Map<String, String> getHiveSchema(Table table)
     {
@@ -245,8 +242,8 @@ public final class MetastoreUtil
         return AVRO.getSerde().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
                 ((table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null)) ||
-                 (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
-                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null)));
+                        (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
+                                (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null)));
     }
 
     public static String makePartitionName(Table table, Partition partition)
@@ -309,7 +306,7 @@ public final class MetastoreUtil
         if (table.getDataColumns().size() <= 1) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot drop the only non-partition column in a table");
         }
-        if (!ALLOWED_TO_DROP_TABLE_SERDES.contains(table.getStorage().getStorageFormat().getSerde())) {
+        if (!getHiveStorageFormat(table.getStorage().getStorageFormat()).map(HiveStorageFormat::supportsColumnDropOperation).orElse(false)) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot drop columns due to incompatible SerDe format");
         }
     }
