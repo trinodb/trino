@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.pinot;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.pinot.client.PinotDataFetcher;
@@ -32,8 +33,10 @@ import io.trino.spi.type.VarcharType;
 import org.apache.pinot.common.datatable.DataTable;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataSchema.ColumnDataType;
+import org.roaringbitmap.RoaringBitmap;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -134,17 +137,35 @@ public class PinotSegmentPageSource
             estimatedMemoryUsageInBytes += currentDataTable.estimatedSizeInBytes();
             pageSizeBytes += currentDataTable.estimatedSizeInBytes();
             pageBuilder.declarePositions(currentDataTable.dataTable().getNumberOfRows());
+            Map<Integer, RoaringBitmap> nullRowIds = buildColumnIdToNullRowId(currentDataTable.dataTable(), columnHandles);
             for (int rowIndex = 0; rowIndex < currentDataTable.dataTable().getNumberOfRows(); rowIndex++) {
                 for (int columnHandleIdx = 0; columnHandleIdx < columnHandles.size(); columnHandleIdx++) {
                     BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(columnHandleIdx);
                     Type columnType = columnTypes.get(columnHandleIdx);
                     // Write a block for each column in the original order.
-                    writeBlock(blockBuilder, columnType, rowIndex, columnHandleIdx);
+                    if (nullRowIds.containsKey(columnHandleIdx) && nullRowIds.get(columnHandleIdx).contains(rowIndex)) {
+                        blockBuilder.appendNull();
+                    }
+                    else {
+                        writeBlock(blockBuilder, columnType, rowIndex, columnHandleIdx);
+                    }
                 }
             }
         }
 
         return pageBuilder.build();
+    }
+
+    private static Map<Integer, RoaringBitmap> buildColumnIdToNullRowId(DataTable dataTable, List<PinotColumnHandle> columnHandles)
+    {
+        ImmutableMap.Builder<Integer, RoaringBitmap> nullRowIds = ImmutableMap.builder();
+        for (int i = 0; i < columnHandles.size(); i++) {
+            RoaringBitmap nullRowId = dataTable.getNullRowIds(i);
+            if (nullRowId != null) {
+                nullRowIds.put(i, nullRowId);
+            }
+        }
+        return nullRowIds.buildOrThrow();
     }
 
     @Override
