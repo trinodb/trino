@@ -155,7 +155,7 @@ public class TestPinotConnectorSmokeTest
                 .build();
     }
 
-    private void createAndPopulateAllTypesTopic(TestingKafka kafka, TestingPinotCluster pinot)
+    static void createAndPopulateAllTypesTopic(TestingKafka kafka, TestingPinotCluster pinot)
             throws Exception
     {
         // Create and populate the all_types topic and table
@@ -184,7 +184,7 @@ public class TestPinotConnectorSmokeTest
         pinot.addRealTimeTable("alltypes_realtimeSpec.json", ALL_TYPES_TABLE);
     }
 
-    private void createAndPopulateStringTypeTopic(TestingKafka kafka, TestingPinotCluster pinot)
+    static void createAndPopulateStringTypeTopic(TestingKafka kafka, TestingPinotCluster pinot)
             throws Exception
     {
         kafka.createTopic(STRING_TYPE_TABLE);
@@ -195,7 +195,7 @@ public class TestPinotConnectorSmokeTest
         pinot.addRealTimeTable("string_realtimeSpec.json", STRING_TYPE_TABLE);
     }
 
-    private void createAndPopulateMixedCaseTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
+    static void createAndPopulateMixedCaseTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
             throws Exception
     {
         // Create and populate mixed case table and topic
@@ -234,7 +234,7 @@ public class TestPinotConnectorSmokeTest
         pinot.addRealTimeTable("mixed_case_realtimeSpec.json", MIXED_CASE_COLUMN_NAMES_TABLE);
     }
 
-    private void createAndPopulateMixedCaseDistinctTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
+    static void createAndPopulateMixedCaseDistinctTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
             throws Exception
     {
         // Create and populate mixed case distinct table and topic
@@ -272,7 +272,7 @@ public class TestPinotConnectorSmokeTest
         pinot.addRealTimeTable("mixed_case_table_name_realtimeSpec.json", MIXED_CASE_TABLE_NAME);
     }
 
-    private void createAndPopulateTooManyRowsTable(TestingKafka kafka, TestingPinotCluster pinot)
+    static void createAndPopulateTooManyRowsTable(TestingKafka kafka, TestingPinotCluster pinot)
             throws Exception
     {
         // Create and populate too many rows table and topic
@@ -294,7 +294,7 @@ public class TestPinotConnectorSmokeTest
         pinot.addRealTimeTable("too_many_rows_realtimeSpec.json", TOO_MANY_ROWS_TABLE);
     }
 
-    private void createAndPopulateTooManyBrokerRowsTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
+    static void createAndPopulateTooManyBrokerRowsTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
             throws Exception
     {
         // Create and populate too many broker rows table and topic
@@ -316,7 +316,7 @@ public class TestPinotConnectorSmokeTest
         pinot.addRealTimeTable("too_many_broker_rows_realtimeSpec.json", TOO_MANY_BROKER_ROWS_TABLE);
     }
 
-    private void createTheDuplicateTablesAndTopics(TestingKafka kafka, TestingPinotCluster pinot)
+    static void createTheDuplicateTablesAndTopics(TestingKafka kafka, TestingPinotCluster pinot)
             throws Exception
     {
         // Create the duplicate tables and topics
@@ -329,7 +329,7 @@ public class TestPinotConnectorSmokeTest
         pinot.addRealTimeTable("dup_table_mixed_case_realtimeSpec.json", DUPLICATE_TABLE_MIXED_CASE);
     }
 
-    private void createAndPopulateDateTimeFieldsTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
+    static void createAndPopulateDateTimeFieldsTableAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
             throws Exception
     {
         // Create and populate date time fields table and topic
@@ -361,7 +361,7 @@ public class TestPinotConnectorSmokeTest
         pinot.addRealTimeTable("date_time_fields_realtimeSpec.json", DATE_TIME_FIELDS_TABLE);
     }
 
-    private void createAndPopulateJsonTypeTable(TestingKafka kafka, TestingPinotCluster pinot)
+    static void createAndPopulateJsonTypeTable(TestingKafka kafka, TestingPinotCluster pinot)
             throws Exception
     {
         // Create json type table
@@ -387,7 +387,7 @@ public class TestPinotConnectorSmokeTest
         pinot.addOfflineTable("json_offlineSpec.json", JSON_TYPE_TABLE);
     }
 
-    private void createAndPopulateJsonTable(TestingKafka kafka, TestingPinotCluster pinot)
+    static void createAndPopulateJsonTable(TestingKafka kafka, TestingPinotCluster pinot)
             throws Exception
     {
         // Create json table
@@ -406,7 +406,7 @@ public class TestPinotConnectorSmokeTest
         pinot.addRealTimeTable("realtimeSpec.json", JSON_TABLE);
     }
 
-    private void createAndPopulateMixedCaseHybridTablesAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
+    static void createAndPopulateMixedCaseHybridTablesAndTopic(TestingKafka kafka, TestingPinotCluster pinot)
             throws Exception
     {
         // Create and populate mixed case table and topic
@@ -479,7 +479,7 @@ public class TestPinotConnectorSmokeTest
         kafka.sendMessages(hybridProducerRecords.stream(), schemaRegistryAwareProducer(kafka));
     }
 
-    private void createAndPopulateTableHavingReservedKeywordColumnNames(TestingKafka kafka, TestingPinotCluster pinot)
+    static void createAndPopulateTableHavingReservedKeywordColumnNames(TestingKafka kafka, TestingPinotCluster pinot)
             throws Exception
     {
         // Create a table having reserved keyword column names
@@ -497,7 +497,7 @@ public class TestPinotConnectorSmokeTest
         pinot.addRealTimeTable("reserved_keyword_realtimeSpec.json", RESERVED_KEYWORD_TABLE);
     }
 
-    private void createAndPopulateHavingQuotesInColumnNames(TestingKafka kafka, TestingPinotCluster pinot)
+    static void createAndPopulateHavingQuotesInColumnNames(TestingKafka kafka, TestingPinotCluster pinot)
             throws Exception
     {
         // Create a table having quotes in column names
@@ -514,7 +514,7 @@ public class TestPinotConnectorSmokeTest
         pinot.addRealTimeTable("quotes_in_column_name_realtimeSpec.json", QUOTES_IN_COLUMN_NAME_TABLE);
     }
 
-    private void createAndPopulateHavingMultipleColumnsWithDuplicateValues(TestingKafka kafka, TestingPinotCluster pinot)
+    static void createAndPopulateHavingMultipleColumnsWithDuplicateValues(TestingKafka kafka, TestingPinotCluster pinot)
             throws Exception
     {
         // Create a table having multiple columns with duplicate values
