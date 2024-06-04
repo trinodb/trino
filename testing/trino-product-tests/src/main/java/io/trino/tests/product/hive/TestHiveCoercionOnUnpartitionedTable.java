@@ -287,6 +287,7 @@ public class TestHiveCoercionOnUnpartitionedTable
                 .put(columnContext("parquet", "short_decimal_to_varchar"), "// TODO This coercion is giving incorrect result")
                 .put(columnContext("parquet", "long_decimal_to_varchar"), "// TODO This coercion is giving incorrect result")
                 .put(columnContext("parquet", "float_to_decimal"), "Unsupported Trino column type (decimal(10,5)) for Parquet column ([float_to_decimal] optional float float_to_decimal)")
+                .put(columnContext("parquet", "double_to_float"), "Unsupported Trino column type (real) for Parquet column ([double_to_float] optional double double_to_float)")
                 .put(columnContext("parquet", "double_to_decimal"), "Unsupported Trino column type (decimal(10,5)) for Parquet column ([double_to_decimal] optional double double_to_decimal)")
                 .put(columnContext("parquet", "decimal_to_float"), "Unsupported Trino column type (double) for Parquet column ([decimal_to_float] optional fixed_len_byte_array(5) decimal_to_float (DECIMAL(10,5)))")
                 .put(columnContext("parquet", "decimal_to_double"), "Unsupported Trino column type (double) for Parquet column ([decimal_to_double] optional fixed_len_byte_array(5) decimal_to_double (DECIMAL(10,5)))")
@@ -378,6 +379,7 @@ public class TestHiveCoercionOnUnpartitionedTable
                 .put(columnContext("3.1", "parquet", "timestamp_map_to_map"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.TimestampWritableV2")
                 .put(columnContext("3.1", "parquet", "string_to_timestamp"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.TimestampWritableV2")
                 .put(columnContext("3.1", "parquet", "timestamp_to_date"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.TimestampWritableV2")
+                .put(columnContext("3.1", "parquet", "double_to_float"), "org.apache.hadoop.hive.serde2.io.DoubleWritable cannot be cast to org.apache.hadoop.io.FloatWritable")
                 .buildOrThrow();
     }
 }
