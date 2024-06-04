@@ -14,6 +14,7 @@
 package io.trino.plugin.pinot;
 
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.plugin.pinot.client.PinotDataFetcher;
 import io.trino.plugin.pinot.query.DynamicTable;
@@ -42,6 +43,8 @@ public class PinotPageSourceProvider
     private final int limitForBrokerQueries;
     private final long targetSegmentPageSizeBytes;
     private final PinotDataFetcher.Factory pinotDataFetcherFactory;
+
+    private static final Logger LOG = Logger.get(PinotPageSourceProvider.class);
 
     @Inject
     public PinotPageSourceProvider(
@@ -75,7 +78,7 @@ public class PinotPageSourceProvider
         }
         PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
         String query = generatePql(pinotTableHandle, handles, pinotSplit.getSuffix(), pinotSplit.getTimePredicate(), limitForSegmentQueries);
-
+        LOG.debug("Pinot query: %s", query);
         switch (pinotSplit.getSplitType()) {
             case SEGMENT:
                 PinotDataFetcher pinotDataFetcher = pinotDataFetcherFactory.create(session, query, pinotSplit);
