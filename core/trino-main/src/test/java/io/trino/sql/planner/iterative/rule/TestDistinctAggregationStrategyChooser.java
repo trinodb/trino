@@ -57,6 +57,27 @@ public class TestDistinctAggregationStrategyChooser
     private static final TaskCountEstimator TASK_COUNT_ESTIMATOR = new TaskCountEstimator(() -> NODE_COUNT);
 
     @Test
+    public void testSingleStepPreferredForHighCardinalitySingleGroupByKey()
+    {
+        DistinctAggregationStrategyChooser aggregationStrategyChooser = createDistinctAggregationStrategyChooser(TASK_COUNT_ESTIMATOR);
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
+        Symbol groupingKey = symbolAllocator.newSymbol("groupingKey", BIGINT);
+
+        ValuesNode source = new ValuesNode(new PlanNodeId("source"), 1_000_000);
+        AggregationNode aggregationNode = singleAggregation(
+                new PlanNodeId("aggregation"),
+                source,
+                ImmutableMap.of(),
+                singleGroupingSet(ImmutableList.of(groupingKey)));
+        Rule.Context context = context(
+                ImmutableMap.of(source, new PlanNodeStatsEstimate(1_000_000, ImmutableMap.of(
+                        groupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(1_000_000).build()))),
+                symbolAllocator);
+
+        assertThat(aggregationStrategyChooser.shouldAddMarkDistinct(aggregationNode, context.getSession(), context.getStatsProvider())).isFalse();
+    }
+
+    @Test
     public void testSingleStepPreferredForHighCardinalityMultipleGroupByKeys()
     {
         DistinctAggregationStrategyChooser aggregationStrategyChooser = createDistinctAggregationStrategyChooser(TASK_COUNT_ESTIMATOR);
@@ -77,7 +98,7 @@ public class TestDistinctAggregationStrategyChooser
                         highCardinalityGroupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(1_000_000).build()))),
                 symbolAllocator);
 
-        assertThat(aggregationStrategyChooser.shouldAddMarkDistinct(aggregationNode, context.getSession(), context.getStatsProvider())).isTrue();
+        assertThat(aggregationStrategyChooser.shouldAddMarkDistinct(aggregationNode, context.getSession(), context.getStatsProvider())).isFalse();
     }
 
     @Test
