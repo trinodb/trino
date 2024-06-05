@@ -13,21 +13,29 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 
 public class BigQueryEmptyProjectionPageSource
         implements ConnectorPageSource
 {
+    // This is used whenever a query doesn't reference any data columns.
+    // We need to limit the number of rows per page in case there are projections
+    // in the query that can cause page sizes to explode. For example: SELECT rand() FROM some_table
+    // TODO (https://github.com/trinodb/trino/issues/16824) allow connector to return pages of arbitrary row count and handle this gracefully in engine
+    private static final int MAX_RLE_PAGE_SIZE = DEFAULT_MAX_PAGE_SIZE_IN_BYTES / SIZE_OF_LONG;
+
     private final long numberOfRows;
-    private boolean finished;
+    private long outputRows;
 
     public BigQueryEmptyProjectionPageSource(long numberOfRows)
     {
         this.numberOfRows = numberOfRows;
-        this.finished = false;
     }
 
     @Override
@@ -45,18 +53,15 @@ public class BigQueryEmptyProjectionPageSource
     @Override
     public boolean isFinished()
     {
-        return finished;
+        return outputRows == numberOfRows;
     }
 
     @Override
     public Page getNextPage()
     {
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of());
-        for (long i = 0; i < numberOfRows; i++) {
-            pageBuilder.declarePosition();
-        }
-        finished = true;
-        return pageBuilder.build();
+        int positionCount = toIntExact(min(MAX_RLE_PAGE_SIZE, numberOfRows - outputRows));
+        outputRows += positionCount;
+        return new Page(positionCount);
     }
 
     @Override
