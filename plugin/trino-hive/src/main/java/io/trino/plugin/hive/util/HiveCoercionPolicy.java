@@ -74,7 +74,8 @@ public final class HiveCoercionPolicy
                     toHiveType.equals(HIVE_TIMESTAMP);
         }
         if (fromType instanceof CharType) {
-            return toType instanceof CharType;
+            return toType instanceof CharType ||
+                    toType instanceof VarcharType;
         }
         if (toType instanceof VarcharType) {
             return fromHiveType.equals(HIVE_BOOLEAN) ||

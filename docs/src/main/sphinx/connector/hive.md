@@ -611,7 +611,7 @@ type conversions.
   - `BOOLEAN`, `TINYINT`, `SMALLINT`, `INTEGER`, `BIGINT`, `REAL`, `DOUBLE`, `TIMESTAMP`, `DATE`, `CHAR` as well as
     narrowing conversions for `VARCHAR`
 * - `CHAR`
-  - narrowing conversions for `CHAR`
+  - `VARCHAR`, narrowing conversions for `CHAR`
 * - `TINYINT`
   - `VARCHAR`, `SMALLINT`, `INTEGER`, `BIGINT`, `DOUBLE`, `DECIMAL`
 * - `SMALLINT`
