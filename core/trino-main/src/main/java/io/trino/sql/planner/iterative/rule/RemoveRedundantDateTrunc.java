@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -23,7 +24,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 
 import java.util.Locale;
 
@@ -53,12 +54,12 @@ public class RemoveRedundantDateTrunc
             extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
         private final Session session;
-        private final PlannerContext plannerContext;
+        private final IrExpressionEvaluator evaluator;
 
         public Visitor(Session session, PlannerContext plannerContext)
         {
             this.session = requireNonNull(session, "session is null");
-            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+            evaluator = new IrExpressionEvaluator(plannerContext);
         }
 
         @Override
@@ -69,7 +70,7 @@ public class RemoveRedundantDateTrunc
                 Expression unitExpression = node.arguments().get(0);
                 Expression argument = node.arguments().get(1);
                 if (argument.type() == DATE && unitExpression.type() instanceof VarcharType && unitExpression instanceof Constant) {
-                    Slice unitValue = (Slice) new IrExpressionInterpreter(unitExpression, plannerContext, session).evaluate();
+                    Slice unitValue = (Slice) evaluator.evaluate(unitExpression, session, ImmutableMap.of());
                     if (unitValue != null && "day".equals(unitValue.toStringUtf8().toLowerCase(Locale.ENGLISH))) {
                         // date_trunc(day, a_date) is a no-op
                         return treeRewriter.rewrite(argument, context);

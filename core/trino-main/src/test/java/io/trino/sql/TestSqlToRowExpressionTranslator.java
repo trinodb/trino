@@ -19,7 +19,6 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
 import org.junit.jupiter.api.Test;
@@ -31,6 +30,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.relational.Expressions.constant;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,6 +80,6 @@ public class TestSqlToRowExpressionTranslator
     private Expression simplifyExpression(Expression expression)
     {
         // Testing simplified expressions is important, since simplification may create CASTs or function calls that cannot be simplified by the ExpressionOptimizer
-        return new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION).optimize();
+        return newOptimizer(PLANNER_CONTEXT).process(expression, TEST_SESSION, ImmutableMap.of()).orElse(expression);
     }
 }

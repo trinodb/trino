@@ -62,6 +62,7 @@ import static io.trino.sql.ir.IrUtils.extractPredicates;
 import static io.trino.sql.ir.IrUtils.logicalExpression;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
@@ -529,7 +530,7 @@ public class TestSimplifyExpressions
 
     private static void assertSimplifies(Expression expression, Expression expected)
     {
-        Expression simplified = normalize(rewrite(expression, TEST_SESSION, PLANNER_CONTEXT));
+        Expression simplified = normalize(rewrite(expression, TEST_SESSION, newOptimizer(PLANNER_CONTEXT)));
         assertThat(simplified).isEqualTo(normalize(expected));
     }
 
@@ -653,7 +654,7 @@ public class TestSimplifyExpressions
 
     private static void assertSimplifiesNumericTypes(Expression expression, Expression expected)
     {
-        Expression rewritten = rewrite(expression, TEST_SESSION, PLANNER_CONTEXT);
+        Expression rewritten = rewrite(expression, TEST_SESSION, newOptimizer(PLANNER_CONTEXT));
         assertThat(normalize(rewritten)).isEqualTo(normalize(expected));
     }
 
