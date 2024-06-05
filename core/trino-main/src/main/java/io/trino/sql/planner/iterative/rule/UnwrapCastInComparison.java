@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.metadata.OperatorNotFoundException;
@@ -41,7 +42,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.type.TypeCoercion;
 
 import java.lang.invoke.MethodHandle;
@@ -77,6 +78,7 @@ import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -143,12 +145,14 @@ public class UnwrapCastInComparison
         private final PlannerContext plannerContext;
         private final Session session;
         private final InterpretedFunctionInvoker functionInvoker;
+        private final IrExpressionOptimizer optimizer;
 
         public Visitor(PlannerContext plannerContext, Session session)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
+            this.optimizer = newOptimizer(plannerContext);
         }
 
         @Override
@@ -165,7 +169,7 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Expression right = new IrExpressionInterpreter(expression.right(), plannerContext, session).optimize();
+            Expression right = optimizer.process(expression.right(), session, ImmutableMap.of()).orElse(expression.right());
 
             Comparison.Operator operator = expression.operator();
 

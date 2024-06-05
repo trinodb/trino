@@ -22,7 +22,6 @@ import io.trino.matching.Pattern;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Row;
-import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.iterative.Rule;
@@ -30,6 +29,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -38,6 +38,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.NULL_BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
@@ -119,11 +120,12 @@ public class PushFilterIntoValues
                 mapping.put(valuesNode.getOutputSymbols().get(i), row.items().get(i));
             }
             Expression rewrittenPredicate = inlineSymbols(mapping.buildOrThrow(), predicate);
-            Expression optimizedPredicate = new IrExpressionInterpreter(rewrittenPredicate, plannerContext, context.getSession()).optimize();
-            if (optimizedPredicate.equals(TRUE)) {
+            Optional<Expression> optimizedPredicate = newOptimizer(plannerContext).process(rewrittenPredicate, context.getSession(), ImmutableMap.of());
+
+            if (optimizedPredicate.isPresent() && optimizedPredicate.get().equals(TRUE)) {
                 filteredRows.add(row);
             }
-            else if (optimizedPredicate.equals(FALSE) || optimizedPredicate.equals(NULL_BOOLEAN)) {
+            else if (optimizedPredicate.isPresent() && (optimizedPredicate.get().equals(FALSE) || optimizedPredicate.get().equals(NULL_BOOLEAN))) {
                 // skip row
                 optimized = true;
             }

@@ -15,6 +15,7 @@ package io.trino.cost;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.inject.Inject;
 import io.trino.Session;
@@ -31,7 +32,6 @@ import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.util.DisjointSet;
 import jakarta.annotation.Nullable;
@@ -62,6 +62,7 @@ import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isInfinite;
@@ -99,7 +100,7 @@ public class FilterStatsCalculator
     private Expression simplifyExpression(Session session, Expression predicate)
     {
         // TODO reuse io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite
-        Expression value = new IrExpressionInterpreter(predicate, plannerContext, session).optimize();
+        Expression value = newOptimizer(plannerContext).process(predicate, session, ImmutableMap.of()).orElse(predicate);
 
         if (value instanceof Constant constant && constant.value() == null) {
             // Expression evaluates to SQL null, which in Filter is equivalent to false. This assumes the expression is a top-level expression (eg. not in NOT).
