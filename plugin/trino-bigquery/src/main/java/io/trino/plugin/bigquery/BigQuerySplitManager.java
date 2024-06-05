@@ -115,9 +115,9 @@ public class BigQuerySplitManager
 
         TableId remoteTableId = bigQueryTableHandle.asPlainTable().getRemoteTableName().toTableId();
         TableDefinition.Type tableType = TableDefinition.Type.valueOf(bigQueryTableHandle.asPlainTable().getType());
-        List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.projectedColumns()) ?
-                createEmptyProjection(session, tableType, remoteTableId, actualParallelism, filter) :
-                readFromBigQuery(session, tableType, remoteTableId, bigQueryTableHandle.projectedColumns(), actualParallelism, tableConstraint);
+        List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.projectedColumns())
+                ? createEmptyProjection(session, tableType, remoteTableId, actualParallelism, filter)
+                : readFromBigQuery(session, tableType, remoteTableId, bigQueryTableHandle.projectedColumns(), actualParallelism, tableConstraint);
         return new FixedSplitSource(splits);
     }
 
