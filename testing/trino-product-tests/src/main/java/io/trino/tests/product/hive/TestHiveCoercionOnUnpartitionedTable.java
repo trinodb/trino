@@ -235,13 +235,6 @@ public class TestHiveCoercionOnUnpartitionedTable
     {
         // TODO: These expected failures should be fixed.
         return ImmutableMap.<ColumnContext, String>builder()
-                // ORC
-                .put(columnContext("orc", "row_to_row"), "Cannot read SQL type 'smallint' from ORC stream '.row_to_row.ti2si' of type BYTE")
-                .put(columnContext("orc", "list_to_list"), "Cannot read SQL type 'integer' from ORC stream '.list_to_list.item.ti2int' of type BYTE")
-                .put(columnContext("orc", "map_to_map"), "Cannot read SQL type 'integer' from ORC stream '.map_to_map.key' of type BYTE")
-                .put(columnContext("orc", "timestamp_row_to_row"), "Cannot read SQL type 'varchar' from ORC stream '.timestamp_row_to_row.timestamp2string' of type TIMESTAMP with attributes {}")
-                .put(columnContext("orc", "timestamp_list_to_list"), "Cannot read SQL type 'varchar' from ORC stream '.timestamp_row_to_row.timestamp2string' of type TIMESTAMP with attributes {}")
-                .put(columnContext("orc", "timestamp_map_to_map"), "Cannot read SQL type 'varchar' from ORC stream '.timestamp_row_to_row.timestamp2string' of type TIMESTAMP with attributes {}")
                 // PARQUET
                 .put(columnContext("parquet", "row_to_row"), "Unsupported Trino column type (varchar) for Parquet column ([row_to_row, bi2vc] optional int64 bi2vc (INTEGER(64,true)))")
                 .put(columnContext("parquet", "list_to_list"), "Unsupported Trino column type (varchar) for Parquet column ([list_to_list, list, element, bi2vc] optional int64 bi2vc (INTEGER(64,true)))")

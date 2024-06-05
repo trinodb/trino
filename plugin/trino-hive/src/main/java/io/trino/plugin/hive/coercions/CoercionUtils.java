@@ -367,7 +367,7 @@ public final class CoercionUtils
         return Optional.of(new StructCoercer(RowType.from(fromField.build()), RowType.from(toField.build()), coercers.build()));
     }
 
-    private static class ListCoercer
+    public static class ListCoercer
             extends TypeCoercer<ArrayType, ArrayType>
     {
         private final TypeCoercer<? extends Type, ? extends Type> elementCoercer;
@@ -399,7 +399,7 @@ public final class CoercionUtils
         }
     }
 
-    private static class MapCoercer
+    public static class MapCoercer
             extends TypeCoercer<MapType, MapType>
     {
         private final Optional<TypeCoercer<? extends Type, ? extends Type>> keyCoercer;
@@ -438,7 +438,7 @@ public final class CoercionUtils
         }
     }
 
-    private static class StructCoercer
+    public static class StructCoercer
             extends TypeCoercer<RowType, RowType>
     {
         private final List<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercers;
