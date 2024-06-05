@@ -10,7 +10,6 @@ values in the count. The `coalesce` function can be used to convert null into
 zero.
 
 (aggregate-function-ordering-during-aggregation)=
-
 ## Ordering during aggregation
 
 Some aggregate functions such as {func}`array_agg` produce different results
@@ -23,7 +22,6 @@ array_agg(x ORDER BY x, y, z)
 ```
 
 (aggregate-function-filtering-during-aggregation)=
-
 ## Filtering during aggregation
 
 The `FILTER` keyword can be used to remove rows from aggregation processing

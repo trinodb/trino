@@ -103,7 +103,6 @@ WITH (
 ```
 
 (blackhole-sql-support)=
-
 ## SQL support
 
 The connector provides {ref}`globally available <sql-globally-available>`,

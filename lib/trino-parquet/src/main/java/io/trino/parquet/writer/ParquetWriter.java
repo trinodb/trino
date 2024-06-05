@@ -34,7 +34,6 @@ import io.trino.parquet.writer.ColumnWriter.BufferData;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
-import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.BloomFilterAlgorithm;
 import org.apache.parquet.format.BloomFilterCompression;
@@ -88,7 +87,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 
 public class ParquetWriter
         implements Closeable
@@ -439,15 +437,9 @@ public class ParquetWriter
 
     private void initColumnWriters()
     {
-        ParquetProperties parquetProperties = ParquetProperties.builder()
-                .withWriterVersion(PARQUET_1_0)
-                .withPageSize(writerOption.getMaxPageSize())
-                .build();
-
         this.columnWriters = ParquetWriters.getColumnWriters(
                 messageType,
                 primitiveTypes,
-                parquetProperties,
                 compressionCodec,
                 writerOption,
                 parquetTimeZone);

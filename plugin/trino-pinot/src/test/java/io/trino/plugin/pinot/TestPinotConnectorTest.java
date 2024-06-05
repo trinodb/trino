@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.pinot;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -22,8 +21,6 @@ import io.trino.testing.kafka.TestingKafka;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.pinot.PinotQueryRunner.createPinotQueryRunner;
-import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,14 +34,14 @@ public class TestPinotConnectorTest
     {
         TestingKafka kafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
         kafka.start();
-        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), false, PINOT_LATEST_IMAGE_NAME));
+        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), false));
         pinot.start();
 
-        return createPinotQueryRunner(
-                kafka,
-                pinot,
-                ImmutableMap.of("pinot.grpc.enabled", "true"),
-                REQUIRED_TPCH_TABLES);
+        return PinotQueryRunner.builder()
+                .setKafka(kafka)
+                .setPinot(pinot)
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Override
@@ -152,15 +149,15 @@ public class TestPinotConnectorTest
                 .isEqualTo("""
                         CREATE TABLE pinot.default.orders (
                            clerk varchar,
-                           orderkey bigint,
-                           orderstatus varchar,
-                           updated_at_seconds bigint,
-                           custkey bigint,
-                           totalprice double,
                            comment varchar,
+                           custkey bigint,
                            orderdate date,
+                           orderkey bigint,
                            orderpriority varchar,
-                           shippriority integer
+                           orderstatus varchar,
+                           shippriority integer,
+                           totalprice double,
+                           updated_at_seconds bigint
                         )""");
     }
 

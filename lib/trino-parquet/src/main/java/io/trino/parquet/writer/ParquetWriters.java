@@ -44,7 +44,6 @@ import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.bloomfilter.BlockSplitBloomFilter;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
@@ -66,6 +65,8 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
+import static io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter.newDefinitionLevelWriter;
+import static io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter.newRepetitionLevelWriter;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -88,6 +89,7 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
 final class ParquetWriters
 {
+    private static final int DEFAULT_DICTIONARY_PAGE_SIZE = 1024 * 1024;
     static final int BLOOM_FILTER_EXPECTED_ENTRIES = 100_000;
 
     private ParquetWriters() {}
@@ -166,16 +168,14 @@ final class ParquetWriters
     static List<ColumnWriter> getColumnWriters(
             MessageType messageType,
             Map<List<String>, Type> trinoTypes,
-            ParquetProperties parquetProperties,
             CompressionCodec compressionCodec,
             ParquetWriterOptions writerOptions,
             Optional<DateTimeZone> parquetTimeZone)
     {
-        TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(parquetProperties);
+        TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(writerOptions.getMaxPageSize(), DEFAULT_DICTIONARY_PAGE_SIZE);
         WriteBuilder writeBuilder = new WriteBuilder(
                 messageType,
                 trinoTypes,
-                parquetProperties,
                 valuesWriterFactory,
                 compressionCodec,
                 writerOptions,
@@ -189,9 +189,9 @@ final class ParquetWriters
     {
         private final MessageType type;
         private final Map<List<String>, Type> trinoTypes;
-        private final ParquetProperties parquetProperties;
         private final TrinoValuesWriterFactory valuesWriterFactory;
         private final CompressionCodec compressionCodec;
+        private final int maxPageSize;
         private final int pageValueCountLimit;
         private final Set<String> bloomFilterColumns;
         private final Optional<DateTimeZone> parquetTimeZone;
@@ -202,7 +202,6 @@ final class ParquetWriters
         WriteBuilder(
                 MessageType messageType,
                 Map<List<String>, Type> trinoTypes,
-                ParquetProperties parquetProperties,
                 TrinoValuesWriterFactory valuesWriterFactory,
                 CompressionCodec compressionCodec,
                 ParquetWriterOptions writerOptions,
@@ -210,10 +209,10 @@ final class ParquetWriters
         {
             this.type = requireNonNull(messageType, "messageType is null");
             this.trinoTypes = requireNonNull(trinoTypes, "trinoTypes is null");
-            this.parquetProperties = requireNonNull(parquetProperties, "parquetProperties is null");
             this.valuesWriterFactory = requireNonNull(valuesWriterFactory, "valuesWriterFactory is null");
             this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
-            this.pageValueCountLimit = requireNonNull(writerOptions, "writerOptions is null").getMaxPageValueCount();
+            this.maxPageSize = writerOptions.getMaxPageSize();
+            this.pageValueCountLimit = writerOptions.getMaxPageValueCount();
             this.maxBloomFilterSize = writerOptions.getMaxBloomFilterSize();
             this.bloomFilterColumns = requireNonNull(writerOptions.getBloomFilterColumns(), "bloomFilterColumns is null");
             this.bloomFilterFpp = writerOptions.getBLoomFilterFpp();
@@ -270,10 +269,10 @@ final class ParquetWriters
             return new PrimitiveColumnWriter(
                     columnDescriptor,
                     getValueWriter(valuesWriterFactory.newValuesWriter(columnDescriptor, bloomFilter), trinoType, columnDescriptor.getPrimitiveType(), parquetTimeZone),
-                    parquetProperties.newDefinitionLevelWriter(columnDescriptor),
-                    parquetProperties.newRepetitionLevelWriter(columnDescriptor),
+                    newDefinitionLevelWriter(columnDescriptor, maxPageSize),
+                    newRepetitionLevelWriter(columnDescriptor, maxPageSize),
                     compressionCodec,
-                    parquetProperties.getPageSizeThreshold(),
+                    maxPageSize,
                     pageValueCountLimit,
                     bloomFilter);
         }

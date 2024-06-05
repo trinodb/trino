@@ -38,6 +38,49 @@ public final class TestData
 {
     private TestData() {}
 
+    public enum UnsignedIntsGenerator
+    {
+        RANDOM {
+            @Override
+            public int[] getData(int size, int bitWidth)
+            {
+                Random random = new Random((long) size * bitWidth);
+                int[] values = new int[size];
+                for (int i = 0; i < size; i++) {
+                    values[i] = randomUnsignedInt(random, bitWidth);
+                }
+                return values;
+            }
+        },
+        MIXED_AND_GROUPS_SMALL {
+            @Override
+            public int[] getData(int size, int bitWidth)
+            {
+                Random random = new Random((long) size * bitWidth);
+                return generateMixedData(random, size, 13, bitWidth);
+            }
+        },
+        MIXED_AND_GROUPS_LARGE {
+            @Override
+            public int[] getData(int size, int bitWidth)
+            {
+                Random random = new Random((long) size * bitWidth);
+                return generateMixedData(random, size, 67, bitWidth);
+            }
+        },
+        MIXED_AND_GROUPS_HUGE {
+            @Override
+            public int[] getData(int size, int bitWidth)
+            {
+                Random random = new Random((long) size * bitWidth);
+                return generateMixedData(random, size, 997, bitWidth);
+            }
+        },
+        /**/;
+
+        public abstract int[] getData(int size, int bitWidth);
+    }
+
     // Based on org.apache.parquet.schema.Types.BasePrimitiveBuilder.maxPrecision to determine the max decimal precision supported by INT32/INT64
     public static int maxPrecision(int numBytes)
     {
@@ -94,29 +137,6 @@ public final class TestData
             }
         }
         boolean[] result = new boolean[size];
-        mixedList.getElements(0, result, 0, size);
-        return result;
-    }
-
-    public static int[] generateMixedData(Random r, int size, int maxGroupSize, int bitWidth)
-    {
-        IntList mixedList = new IntArrayList();
-        while (mixedList.size() < size) {
-            boolean isGroup = r.nextBoolean();
-            int groupSize = r.nextInt(maxGroupSize);
-            if (isGroup) {
-                int value = randomInt(r, bitWidth);
-                for (int i = 0; i < groupSize; i++) {
-                    mixedList.add(value);
-                }
-            }
-            else {
-                for (int i = 0; i < groupSize; i++) {
-                    mixedList.add(randomInt(r, bitWidth));
-                }
-            }
-        }
-        int[] result = new int[size];
         mixedList.getElements(0, result, 0, size);
         return result;
     }
@@ -201,6 +221,29 @@ public final class TestData
         }
 
         return data;
+    }
+
+    private static int[] generateMixedData(Random r, int size, int maxGroupSize, int bitWidth)
+    {
+        IntList mixedList = new IntArrayList();
+        while (mixedList.size() < size) {
+            boolean isGroup = r.nextBoolean();
+            int groupSize = r.nextInt(maxGroupSize);
+            if (isGroup) {
+                int value = randomUnsignedInt(r, bitWidth);
+                for (int i = 0; i < groupSize; i++) {
+                    mixedList.add(value);
+                }
+            }
+            else {
+                for (int i = 0; i < groupSize; i++) {
+                    mixedList.add(randomUnsignedInt(r, bitWidth));
+                }
+            }
+        }
+        int[] result = new int[size];
+        mixedList.getElements(0, result, 0, size);
+        return result;
     }
 
     private static int propagateSignBit(int value, int bitsToPad)

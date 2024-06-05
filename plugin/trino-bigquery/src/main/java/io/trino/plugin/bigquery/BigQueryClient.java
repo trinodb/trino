@@ -19,9 +19,8 @@ import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
-import com.google.cloud.bigquery.InsertAllRequest;
-import com.google.cloud.bigquery.InsertAllResponse;
 import com.google.cloud.bigquery.Job;
+import com.google.cloud.bigquery.JobException;
 import com.google.cloud.bigquery.JobInfo;
 import com.google.cloud.bigquery.JobStatistics;
 import com.google.cloud.bigquery.JobStatistics.QueryStatistics;
@@ -61,6 +60,7 @@ import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
 import static com.google.cloud.bigquery.TableDefinition.Type.SNAPSHOT;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -84,6 +84,7 @@ import static java.util.stream.Collectors.joining;
 public class BigQueryClient
 {
     private static final Logger log = Logger.get(BigQueryClient.class);
+    private static final int PAGE_SIZE = 100;
 
     static final Set<TableDefinition.Type> TABLE_TYPES = ImmutableSet.of(TABLE, VIEW, MATERIALIZED_VIEW, EXTERNAL, SNAPSHOT);
 
@@ -123,6 +124,11 @@ public class BigQueryClient
 
     public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
     {
+        return toRemoteDataset(projectId, datasetName, () -> listDatasetIds(projectId));
+    }
+
+    public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName, Supplier<List<DatasetId>> datasetIds)
+    {
         requireNonNull(projectId, "projectId is null");
         requireNonNull(datasetName, "datasetName is null");
         verify(datasetName.codePoints().noneMatch(Character::isUpperCase), "Expected schema name from internal metadata to be lowercase: %s", datasetName);
@@ -131,7 +137,7 @@ public class BigQueryClient
         }
 
         Map<String, Optional<RemoteDatabaseObject>> mapping = new HashMap<>();
-        for (DatasetId datasetId : listDatasetIds(projectId)) {
+        for (DatasetId datasetId : datasetIds.get()) {
             mapping.merge(
                     datasetId.getDataset().toLowerCase(ENGLISH),
                     Optional.of(RemoteDatabaseObject.of(datasetId.getDataset())),
@@ -201,7 +207,13 @@ public class BigQueryClient
 
     public Optional<TableInfo> getTable(TableId remoteTableId)
     {
-        return Optional.ofNullable(bigQuery.getTable(remoteTableId));
+        try {
+            return Optional.ofNullable(bigQuery.getTable(remoteTableId));
+        }
+        catch (BigQueryException e) {
+            // getTable method throws an exception in some situations, e.g. wild card tables
+            return Optional.empty();
+        }
     }
 
     public TableInfo getCachedTable(Duration viewExpiration, TableInfo remoteTableId, List<String> requiredColumns, Optional<String> filter)
@@ -240,7 +252,7 @@ public class BigQueryClient
         return datasetId.getDataset();
     }
 
-    public Iterable<DatasetId> listDatasetIds(String projectId)
+    public List<DatasetId> listDatasetIds(String projectId)
     {
         try {
             return remoteDatasetIdCache.get(projectId);
@@ -253,7 +265,7 @@ public class BigQueryClient
     private List<DatasetId> listDatasetIdsFromBigQuery(String projectId)
     {
         // BigQuery.listDatasets returns partial information on each dataset. See javadoc for more details.
-        return stream(bigQuery.listDatasets(projectId).iterateAll())
+        return stream(bigQuery.listDatasets(projectId, BigQuery.DatasetListOption.pageSize(PAGE_SIZE)).iterateAll())
                 .map(Dataset::getDatasetId)
                 .collect(toImmutableList());
     }
@@ -263,7 +275,7 @@ public class BigQueryClient
         // BigQuery.listTables returns partial information on each table. See javadoc for more details.
         Iterable<Table> allTables;
         try {
-            allTables = bigQuery.listTables(remoteDatasetId).iterateAll();
+            allTables = bigQuery.listTables(remoteDatasetId, BigQuery.TableListOption.pageSize(PAGE_SIZE)).iterateAll();
         }
         catch (BigQueryException e) {
             throw new TrinoException(BIGQUERY_LISTING_TABLE_ERROR, "Failed to retrieve tables from BigQuery", e);
@@ -282,6 +294,7 @@ public class BigQueryClient
     public void createSchema(DatasetInfo datasetInfo)
     {
         bigQuery.create(datasetInfo);
+        remoteDatasetIdCache.invalidate(datasetInfo.getDatasetId().getProject());
     }
 
     public void dropSchema(DatasetId datasetId, boolean cascade)
@@ -292,6 +305,7 @@ public class BigQueryClient
         else {
             bigQuery.delete(datasetId);
         }
+        remoteDatasetIdCache.invalidate(datasetId.getProject());
     }
 
     public void createTable(TableInfo tableInfo)
@@ -332,6 +346,9 @@ public class BigQueryClient
                 .build();
         try {
             return bigQuery.query(jobWithQueryLabel);
+        }
+        catch (BigQueryException | JobException e) {
+            throw new TrinoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, "Failed to run the query: " + firstNonNull(e.getMessage(), e), e);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -381,15 +398,6 @@ public class BigQueryClient
     {
         String tableName = fullTableName(table);
         return format("SELECT %s FROM `%s`", formattedColumns, tableName);
-    }
-
-    public void insert(InsertAllRequest insertAllRequest)
-    {
-        InsertAllResponse response = bigQuery.insertAll(insertAllRequest);
-        if (response.hasErrors()) {
-            // Note that BigQuery doesn't rollback inserted rows
-            throw new TrinoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, format("Failed to insert rows: %s", response.getInsertErrors()));
-        }
     }
 
     private static String fullTableName(TableId remoteTableId)

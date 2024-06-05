@@ -944,11 +944,11 @@ public class TestAnalyzer
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessage("line 1:15: Table 'tpch.s1.foo' does not exist");
         assertFails("SELECT * FROM foo FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'")
-                .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("line 1:15: Table 'tpch.s1.foo' does not exist");
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
         assertFails("SELECT * FROM foo FOR VERSION AS OF 'version1'")
-                .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("line 1:15: Table 'tpch.s1.foo' does not exist");
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
         // table name containing dots
         assertFails("SELECT * FROM \"table.not.existing\"")
                 .hasErrorCode(TABLE_NOT_FOUND)

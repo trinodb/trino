@@ -410,7 +410,7 @@ public class AzureBlobFileSystemExchangeStorage
                     int length = (int) min(blockSize, fileSize - fileOffset);
 
                     int finalBufferFill = bufferFill;
-                    FluentFuture<Void> downloadFuture = FluentFuture.from(toListenableFuture(blockBlobAsyncClient.downloadWithResponse(new BlobRange(fileOffset, (long) length), null, null, false).toFuture()))
+                    FluentFuture<Void> downloadFuture = FluentFuture.from(toListenableFuture(blockBlobAsyncClient.downloadStreamWithResponse(new BlobRange(fileOffset, (long) length), null, null, false).toFuture()))
                             .transformAsync(response -> toListenableFuture(response.getValue().collectList().toFuture()), directExecutor())
                             .transform(byteBuffers -> {
                                 int offset = finalBufferFill;

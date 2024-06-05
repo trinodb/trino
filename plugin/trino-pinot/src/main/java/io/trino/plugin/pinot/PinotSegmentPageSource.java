@@ -134,11 +134,13 @@ public class PinotSegmentPageSource
             estimatedMemoryUsageInBytes += currentDataTable.estimatedSizeInBytes();
             pageSizeBytes += currentDataTable.estimatedSizeInBytes();
             pageBuilder.declarePositions(currentDataTable.dataTable().getNumberOfRows());
-            for (int columnHandleIdx = 0; columnHandleIdx < columnHandles.size(); columnHandleIdx++) {
-                BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(columnHandleIdx);
-                Type columnType = columnTypes.get(columnHandleIdx);
-                // Write a block for each column in the original order.
-                writeBlock(blockBuilder, columnType, columnHandleIdx);
+            for (int rowIndex = 0; rowIndex < currentDataTable.dataTable().getNumberOfRows(); rowIndex++) {
+                for (int columnHandleIdx = 0; columnHandleIdx < columnHandles.size(); columnHandleIdx++) {
+                    BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(columnHandleIdx);
+                    Type columnType = columnTypes.get(columnHandleIdx);
+                    // Write a block for each column in the original order.
+                    writeBlock(blockBuilder, columnType, rowIndex, columnHandleIdx);
+                }
             }
         }
 
@@ -162,33 +164,34 @@ public class PinotSegmentPageSource
      *
      * @param blockBuilder blockBuilder for the current column
      * @param columnType type of the column
+     * @param rowIdx row index
      * @param columnIdx column index
      */
 
-    private void writeBlock(BlockBuilder blockBuilder, Type columnType, int columnIdx)
+    private void writeBlock(BlockBuilder blockBuilder, Type columnType, int rowIdx, int columnIdx)
     {
         Class<?> javaType = columnType.getJavaType();
         DataSchema.ColumnDataType pinotColumnType = currentDataTable.dataTable().getDataSchema().getColumnDataType(columnIdx);
         if (javaType.equals(boolean.class)) {
-            writeBooleanBlock(blockBuilder, columnType, columnIdx);
+            writeBooleanBlock(blockBuilder, columnType, rowIdx, columnIdx);
         }
         else if (javaType.equals(long.class)) {
             if (columnType instanceof TimestampType) {
                 // Pinot TimestampType is always ShortTimestampType.
-                writeShortTimestampBlock(blockBuilder, columnType, columnIdx);
+                writeShortTimestampBlock(blockBuilder, columnType, rowIdx, columnIdx);
             }
             else {
-                writeLongBlock(blockBuilder, columnType, columnIdx);
+                writeLongBlock(blockBuilder, columnType, rowIdx, columnIdx);
             }
         }
         else if (javaType.equals(double.class)) {
-            writeDoubleBlock(blockBuilder, columnType, columnIdx);
+            writeDoubleBlock(blockBuilder, columnType, rowIdx, columnIdx);
         }
         else if (javaType.equals(Slice.class)) {
-            writeSliceBlock(blockBuilder, columnType, columnIdx);
+            writeSliceBlock(blockBuilder, columnType, rowIdx, columnIdx);
         }
         else if (javaType.equals(Block.class)) {
-            writeArrayBlock(blockBuilder, columnType, columnIdx);
+            writeArrayBlock(blockBuilder, columnType, rowIdx, columnIdx);
         }
         else {
             throw new TrinoException(
@@ -199,55 +202,43 @@ public class PinotSegmentPageSource
         }
     }
 
-    private void writeBooleanBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
+    private void writeBooleanBlock(BlockBuilder blockBuilder, Type columnType, int rowIndex, int columnIndex)
     {
-        for (int i = 0; i < currentDataTable.dataTable().getNumberOfRows(); i++) {
-            columnType.writeBoolean(blockBuilder, getBoolean(i, columnIndex));
-            completedBytes++;
-        }
+        columnType.writeBoolean(blockBuilder, getBoolean(rowIndex, columnIndex));
+        completedBytes++;
     }
 
-    private void writeLongBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
+    private void writeLongBlock(BlockBuilder blockBuilder, Type columnType, int rowIndex, int columnIndex)
     {
-        for (int i = 0; i < currentDataTable.dataTable().getNumberOfRows(); i++) {
-            columnType.writeLong(blockBuilder, getLong(i, columnIndex));
-            completedBytes += Long.BYTES;
-        }
+        columnType.writeLong(blockBuilder, getLong(rowIndex, columnIndex));
+        completedBytes += Long.BYTES;
     }
 
-    private void writeDoubleBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
+    private void writeDoubleBlock(BlockBuilder blockBuilder, Type columnType, int rowIndex, int columnIndex)
     {
-        for (int i = 0; i < currentDataTable.dataTable().getNumberOfRows(); i++) {
-            columnType.writeDouble(blockBuilder, getDouble(i, columnIndex));
-            completedBytes += Double.BYTES;
-        }
+        columnType.writeDouble(blockBuilder, getDouble(rowIndex, columnIndex));
+        completedBytes += Double.BYTES;
     }
 
-    private void writeSliceBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
+    private void writeSliceBlock(BlockBuilder blockBuilder, Type columnType, int rowIndex, int columnIndex)
     {
-        for (int i = 0; i < currentDataTable.dataTable().getNumberOfRows(); i++) {
-            Slice slice = getSlice(i, columnIndex);
-            columnType.writeSlice(blockBuilder, slice, 0, slice.length());
-            completedBytes += slice.getBytes().length;
-        }
+        Slice slice = getSlice(rowIndex, columnIndex);
+        columnType.writeSlice(blockBuilder, slice, 0, slice.length());
+        completedBytes += slice.getBytes().length;
     }
 
-    private void writeArrayBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
+    private void writeArrayBlock(BlockBuilder blockBuilder, Type columnType, int rowIndex, int columnIndex)
     {
-        for (int i = 0; i < currentDataTable.dataTable().getNumberOfRows(); i++) {
-            Block block = getArrayBlock(i, columnIndex);
-            columnType.writeObject(blockBuilder, block);
-            completedBytes += block.getSizeInBytes();
-        }
+        Block block = getArrayBlock(rowIndex, columnIndex);
+        columnType.writeObject(blockBuilder, block);
+        completedBytes += block.getSizeInBytes();
     }
 
-    private void writeShortTimestampBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
+    private void writeShortTimestampBlock(BlockBuilder blockBuilder, Type columnType, int rowIndex, int columnIndex)
     {
-        for (int i = 0; i < currentDataTable.dataTable().getNumberOfRows(); i++) {
-            // Trino is using micros since epoch for ShortTimestampType, Pinot uses millis since epoch.
-            columnType.writeLong(blockBuilder, PinotTimestamps.toMicros(getLong(i, columnIndex)));
-            completedBytes += Long.BYTES;
-        }
+        // Trino is using micros since epoch for ShortTimestampType, Pinot uses millis since epoch.
+        columnType.writeLong(blockBuilder, PinotTimestamps.toMicros(getLong(rowIndex, columnIndex)));
+        completedBytes += Long.BYTES;
     }
 
     private Type getType(int columnIndex)

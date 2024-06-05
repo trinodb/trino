@@ -38,7 +38,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
-abstract class AbstractTestHiveMetastore
+public abstract class AbstractTestHiveMetastore
 {
     protected abstract HiveMetastore getMetastore();
 

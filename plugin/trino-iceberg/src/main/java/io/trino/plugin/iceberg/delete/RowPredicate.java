@@ -13,10 +13,12 @@
  */
 package io.trino.plugin.iceberg.delete;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.spi.Page;
 
 import static java.util.Objects.requireNonNull;
 
+@ThreadSafe
 public interface RowPredicate
 {
     boolean test(Page page, int position);

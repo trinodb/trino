@@ -31,8 +31,19 @@ import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.TrinoViewHiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
+import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
+import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
+import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.QueryRunner;
+import org.apache.iceberg.BaseTable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -44,12 +55,14 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 
 public final class IcebergTestUtils
 {
-    private IcebergTestUtils()
-    { }
+    private IcebergTestUtils() {}
 
     public static Session withSmallRowGroups(Session session)
     {
@@ -144,5 +157,27 @@ public final class IcebergTestUtils
     {
         return ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG))
                 .getInjector().getInstance(TrinoFileSystemFactory.class);
+    }
+
+    public static BaseTable loadTable(String tableName,
+            HiveMetastore metastore,
+            TrinoFileSystemFactory fileSystemFactory,
+            String catalogName,
+            String schemaName)
+    {
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
+        CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
+        TrinoCatalog catalog = new TrinoHiveCatalog(
+                new CatalogName(catalogName),
+                cachingHiveMetastore,
+                new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
+                fileSystemFactory,
+                new TestingTypeManager(),
+                tableOperationsProvider,
+                false,
+                false,
+                false,
+                new IcebergConfig().isHideMaterializedViewStorageTable());
+        return (BaseTable) loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName(schemaName, tableName));
     }
 }

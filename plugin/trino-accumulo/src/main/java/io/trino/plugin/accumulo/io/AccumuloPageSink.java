@@ -93,8 +93,8 @@ public class AccumuloPageSink
 
         // Fetch the row ID ordinal, throwing an exception if not found for safety
         this.rowIdOrdinal = columns.stream()
-                .filter(columnHandle -> columnHandle.getName().equals(table.getRowId()))
-                .map(AccumuloColumnHandle::getOrdinal)
+                .filter(columnHandle -> columnHandle.name().equals(table.getRowId()))
+                .map(AccumuloColumnHandle::ordinal)
                 .findAny()
                 .orElseThrow(() -> new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Row ID ordinal not found"));
         this.serializer = table.getSerializerInstance();
@@ -152,17 +152,17 @@ public class AccumuloPageSink
         mutation.put(ROW_ID_COLUMN, ROW_ID_COLUMN, new Value(value.copyBytes()));
         for (AccumuloColumnHandle columnHandle : columns) {
             // Skip the row ID ordinal
-            if (columnHandle.getOrdinal() == rowIdOrdinal) {
+            if (columnHandle.ordinal() == rowIdOrdinal) {
                 continue;
             }
 
             // If the value of the field is not null
-            if (!row.getField(columnHandle.getOrdinal()).isNull()) {
+            if (!row.getField(columnHandle.ordinal()).isNull()) {
                 // Serialize the value to the text
-                setText(row.getField(columnHandle.getOrdinal()), value, serializer);
+                setText(row.getField(columnHandle.ordinal()), value, serializer);
 
                 // And add the bytes to the Mutation
-                mutation.put(columnHandle.getFamily().get(), columnHandle.getQualifier().get(), new Value(value.copyBytes()));
+                mutation.put(columnHandle.family().get(), columnHandle.qualifier().get(), new Value(value.copyBytes()));
             }
         }
 
@@ -230,7 +230,7 @@ public class AccumuloPageSink
             // For each channel within the page, i.e. column
             for (int channel = 0; channel < page.getChannelCount(); ++channel) {
                 // Get the type for this channel
-                Type type = columns.get(channel).getType();
+                Type type = columns.get(channel).type();
 
                 // Read the value from the page and append the field to the row
                 row.addField(TypeUtils.readNativeValue(type, page.getBlock(channel), position), type);

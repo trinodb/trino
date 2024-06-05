@@ -542,6 +542,12 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public boolean isView(Session session, QualifiedObjectName viewName)
+        {
+            return getView(session, viewName).isPresent();
+        }
+
+        @Override
         public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
         {
             checkArgument(replace || !views.containsKey(viewName.asSchemaTableName()));

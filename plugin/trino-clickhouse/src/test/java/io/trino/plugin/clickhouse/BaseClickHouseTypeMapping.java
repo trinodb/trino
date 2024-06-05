@@ -442,8 +442,8 @@ public abstract class BaseClickHouseTypeMapping
     @Test
     public void testClickHouseChar()
     {
-        // ClickHouse char is FixedString, which is arbitrary bytes
-        SqlDataTypeTest.create()
+        // ClickHouse char is String, which is arbitrary bytes
+        textAsBinaryRoundTripTest("char(255)")
                 // plain
                 .addRoundTrip("char(10)", "'text_a'", VARBINARY, "to_utf8('text_a')")
                 .addRoundTrip("char(255)", "'text_b'", VARBINARY, "to_utf8('text_b')")
@@ -455,6 +455,18 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip("Nullable(char(10))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
                 .addRoundTrip("Nullable(char(10))", "'text_a'", VARBINARY, "to_utf8('text_a')")
                 .addRoundTrip("Nullable(char(1))", "'😂'", VARBINARY, "to_utf8('😂')")
+                .addRoundTrip("Nullable(char(255))", "''", VARBINARY, "X''")
+                // low-cardinality
+                .addRoundTrip("LowCardinality(char(10))", "'text_a'", VARBINARY, "to_utf8('text_a')")
+                .addRoundTrip("LowCardinality(char(255))", "'text_b'", VARBINARY, "to_utf8('text_b')")
+                .addRoundTrip("LowCardinality(char(5))", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("LowCardinality(char(32))", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("LowCardinality(char(1))", "'😂'", VARBINARY, "to_utf8('😂')")
+                .addRoundTrip("LowCardinality(char(77))", "'Ну, погоди!'", VARBINARY, "to_utf8('Ну, погоди!')")
+                // low-cardinality nullable
+                .addRoundTrip("LowCardinality(Nullable(char(10)))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("LowCardinality(Nullable(char(10)))", "'text_a'", VARBINARY, "to_utf8('text_a')")
+                .addRoundTrip("LowCardinality(Nullable(char(1)))", "'😂'", VARBINARY, "to_utf8('😂')")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_char"));
 
         // Set map_string_as_varchar session property as true
@@ -470,6 +482,17 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip("Nullable(char(10))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
                 .addRoundTrip("Nullable(char(10))", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
                 .addRoundTrip("Nullable(char(1))", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                // low-cardinality
+                .addRoundTrip("LowCardinality(char(10))", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("LowCardinality(char(255))", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("LowCardinality(char(5))", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("LowCardinality(char(32))", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("LowCardinality(char(1))", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("LowCardinality(char(77))", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
+                // low-cardinality nullable
+                .addRoundTrip("LowCardinality(Nullable(char(10)))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(char(10)))", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(char(1)))", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
                 .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndInsert("tpch.test_char"));
     }
 
@@ -480,10 +503,22 @@ public abstract class BaseClickHouseTypeMapping
                 // plain
                 .addRoundTrip("FixedString(10)", "'c12345678b'", VARBINARY, "to_utf8('c12345678b')")
                 .addRoundTrip("FixedString(10)", "'c123'", VARBINARY, "to_utf8('c123\0\0\0\0\0\0')")
+                .addRoundTrip("FixedString(10)", "'\\x68\\x65\\x6C\\x6C\\x6F'", VARBINARY, "to_utf8('hello\0\0\0\0\0')")
+                .addRoundTrip("FixedString(10)", "'\\x00\\x00\\x00\\x00\\x00\\x00'", VARBINARY, "X'00000000000000000000'")
                 // nullable
                 .addRoundTrip("Nullable(FixedString(10))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
                 .addRoundTrip("Nullable(FixedString(10))", "'c12345678b'", VARBINARY, "to_utf8('c12345678b')")
                 .addRoundTrip("Nullable(FixedString(10))", "'c123'", VARBINARY, "to_utf8('c123\0\0\0\0\0\0')")
+                .addRoundTrip("Nullable(FixedString(10))", "'\\x00\\x00\\x00\\x00\\x00\\x00'", VARBINARY, "X'00000000000000000000'")
+                // low-cardinality
+                .addRoundTrip("LowCardinality(FixedString(10))", "'c12345678b'", VARBINARY, "to_utf8('c12345678b')")
+                .addRoundTrip("LowCardinality(FixedString(10))", "'c123'", VARBINARY, "to_utf8('c123\0\0\0\0\0\0')")
+                .addRoundTrip("LowCardinality(FixedString(10))", "'\\x00\\x00\\x00\\x00\\x00\\x00'", VARBINARY, "X'00000000000000000000'")
+                // low-cardinality nullable
+                .addRoundTrip("LowCardinality(Nullable(FixedString(10)))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("LowCardinality(Nullable(FixedString(10)))", "'c12345678b'", VARBINARY, "to_utf8('c12345678b')")
+                .addRoundTrip("LowCardinality(Nullable(FixedString(10)))", "'c123'", VARBINARY, "to_utf8('c123\0\0\0\0\0\0')")
+                .addRoundTrip("LowCardinality(Nullable(FixedString(10)))", "'\\x00\\x00\\x00\\x00\\x00\\x00'", VARBINARY, "X'00000000000000000000'")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_fixed_string"));
 
         // Set map_string_as_varchar session property as true
@@ -491,10 +526,25 @@ public abstract class BaseClickHouseTypeMapping
                 // plain
                 .addRoundTrip("FixedString(10)", "'c12345678b'", VARCHAR, "CAST('c12345678b' AS varchar)")
                 .addRoundTrip("FixedString(10)", "'c123'", VARCHAR, "CAST('c123\0\0\0\0\0\0' AS varchar)")
+                .addRoundTrip("FixedString(10)", "'\\x68\\x65\\x6C\\x6C\\x6F'", VARCHAR, "CAST('hello\0\0\0\0\0' as varchar)")
+                .addRoundTrip("FixedString(10)", "'\\x00\\x00\\x00\\x00\\x00\\x00'", VARCHAR, "CAST('\0\0\0\0\0\0\0\0\0\0' as varchar)")
                 // nullable
                 .addRoundTrip("Nullable(FixedString(10))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
                 .addRoundTrip("Nullable(FixedString(10))", "'c12345678b'", VARCHAR, "CAST('c12345678b' AS varchar)")
                 .addRoundTrip("Nullable(FixedString(10))", "'c123'", VARCHAR, "CAST('c123\0\0\0\0\0\0' AS varchar)")
+                .addRoundTrip("Nullable(FixedString(10))", "'\\x68\\x65\\x6C\\x6C\\x6F'", VARCHAR, "CAST('hello\0\0\0\0\0' as varchar)")
+                .addRoundTrip("Nullable(FixedString(10))", "'\\x00\\x00\\x00\\x00\\x00\\x00'", VARCHAR, "CAST('\0\0\0\0\0\0\0\0\0\0' as varchar)")
+                // low-cardinality
+                .addRoundTrip("LowCardinality(FixedString(10))", "'c12345678b'", VARCHAR, "CAST('c12345678b' AS varchar)")
+                .addRoundTrip("LowCardinality(FixedString(10))", "'c123'", VARCHAR, "CAST('c123\0\0\0\0\0\0' AS varchar)")
+                .addRoundTrip("LowCardinality(FixedString(10))", "'\\x68\\x65\\x6C\\x6C\\x6F'", VARCHAR, "CAST('hello\0\0\0\0\0' as varchar)")
+                .addRoundTrip("LowCardinality(FixedString(10))", "'\\x00\\x00\\x00\\x00\\x00\\x00'", VARCHAR, "CAST('\0\0\0\0\0\0\0\0\0\0' as varchar)")
+                // low-cardinality nullable
+                .addRoundTrip("LowCardinality(Nullable(FixedString(10)))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(FixedString(10)))", "'c12345678b'", VARCHAR, "CAST('c12345678b' AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(FixedString(10)))", "'c123'", VARCHAR, "CAST('c123\0\0\0\0\0\0' AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(FixedString(10)))", "'\\x68\\x65\\x6C\\x6C\\x6F'", VARCHAR, "CAST('hello\0\0\0\0\0' as varchar)")
+                .addRoundTrip("LowCardinality(Nullable(FixedString(10)))", "'\\x00\\x00\\x00\\x00\\x00\\x00'", VARCHAR, "CAST('\0\0\0\0\0\0\0\0\0\0' as varchar)")
                 .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndInsert("tpch.test_fixed_string"));
     }
 
@@ -528,24 +578,114 @@ public abstract class BaseClickHouseTypeMapping
     @Test
     public void testClickHouseVarchar()
     {
-        // TODO add more test cases
         // ClickHouse varchar is String, which is arbitrary bytes
-        SqlDataTypeTest.create()
+        textAsBinaryRoundTripTest("varchar(255)")
                 // plain
                 .addRoundTrip("varchar(30)", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("varchar(10)", "'text_a'", VARBINARY, "to_utf8('text_a')")
+                .addRoundTrip("varchar(255)", "'text_b'", VARBINARY, "to_utf8('text_b')")
+                .addRoundTrip("varchar(5)", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("varchar(32)", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("varchar(1)", "'😂'", VARBINARY, "to_utf8('😂')")
+                .addRoundTrip("varchar(77)", "'Ну, погоди!'", VARBINARY, "to_utf8('Ну, погоди!')")
                 // nullable
                 .addRoundTrip("Nullable(varchar(30))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
                 .addRoundTrip("Nullable(varchar(30))", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("Nullable(varchar(10))", "'text_a'", VARBINARY, "to_utf8('text_a')")
+                .addRoundTrip("Nullable(varchar(255))", "'text_b'", VARBINARY, "to_utf8('text_b')")
+                .addRoundTrip("Nullable(varchar(5))", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("Nullable(varchar(32))", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("Nullable(varchar(1))", "'😂'", VARBINARY, "to_utf8('😂')")
+                .addRoundTrip("Nullable(varchar(77))", "'Ну, погоди!'", VARBINARY, "to_utf8('Ну, погоди!')")
+                // low-cardinality
+                .addRoundTrip("LowCardinality(varchar(30))", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("LowCardinality(varchar(10))", "'text_a'", VARBINARY, "to_utf8('text_a')")
+                .addRoundTrip("LowCardinality(varchar(255))", "'text_b'", VARBINARY, "to_utf8('text_b')")
+                .addRoundTrip("LowCardinality(varchar(5))", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("LowCardinality(varchar(32))", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("LowCardinality(varchar(1))", "'😂'", VARBINARY, "to_utf8('😂')")
+                .addRoundTrip("LowCardinality(varchar(77))", "'Ну, погоди!'", VARBINARY, "to_utf8('Ну, погоди!')")
+                // low-cardinality nullable
+                .addRoundTrip("LowCardinality(Nullable(varchar(30)))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("LowCardinality(Nullable(varchar(30)))", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("LowCardinality(Nullable(varchar(10)))", "'text_a'", VARBINARY, "to_utf8('text_a')")
+                .addRoundTrip("LowCardinality(Nullable(varchar(255)))", "'text_b'", VARBINARY, "to_utf8('text_b')")
+                .addRoundTrip("LowCardinality(Nullable(varchar(5)))", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("LowCardinality(Nullable(varchar(32)))", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("LowCardinality(Nullable(varchar(1)))", "'😂'", VARBINARY, "to_utf8('😂')")
+                .addRoundTrip("LowCardinality(Nullable(varchar(77)))", "'Ну, погоди!'", VARBINARY, "to_utf8('Ну, погоди!')")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_varchar"));
 
         // Set map_string_as_varchar session property as true
         SqlDataTypeTest.create()
                 // plain
                 .addRoundTrip("varchar(30)", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                .addRoundTrip("varchar(10)", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("varchar(255)", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("varchar(5)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar(32)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar(1)", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("varchar(77)", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
                 // nullable
                 .addRoundTrip("Nullable(varchar(30))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
                 .addRoundTrip("Nullable(varchar(30))", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                .addRoundTrip("Nullable(varchar(10))", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("Nullable(varchar(255))", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("Nullable(varchar(5))", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("Nullable(varchar(32))", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("Nullable(varchar(1))", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("Nullable(varchar(77))", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
+                // low-cardinality
+                .addRoundTrip("LowCardinality(varchar(30))", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                .addRoundTrip("LowCardinality(varchar(10))", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("LowCardinality(varchar(255))", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("LowCardinality(varchar(5))", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("LowCardinality(varchar(32))", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("LowCardinality(varchar(1))", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("LowCardinality(varchar(77))", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
+                // low-cardinality nullable
+                .addRoundTrip("LowCardinality(Nullable(varchar(30)))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(varchar(30)))", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(varchar(10)))", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(varchar(255)))", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(varchar(5)))", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(varchar(32)))", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(varchar(1)))", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(varchar(77)))", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
                 .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndInsert("tpch.test_varchar"));
+    }
+
+    private static SqlDataTypeTest textAsBinaryRoundTripTest(String inputType)
+    {
+        String nullInputType = format("Nullable(%s)", inputType);
+        String lowCardInputType = format("LowCardinality(%s)", inputType);
+        String nullLowCardInputType = format("LowCardinality(Nullable(%s))", inputType);
+
+        return SqlDataTypeTest.create()
+                .addRoundTrip(inputType, "''", VARBINARY, "X''")
+                .addRoundTrip(inputType, "'\\x68\\x65\\x6C\\x6C\\x6F'", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip(inputType, "'\\x50\\x69\\xC4\\x99\\x6B\\x6E\\x61\\x20\\xC5\\x82\\xC4\\x85\\x6B\\x61\\x20\\x77\\x20\\xE6\\x9D\\xB1\\xE4\\xBA\\xAC\\xE9\\x83\\xBD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip(inputType, "'\\x42\\x61\\x67\\x20\\x66\\x75\\x6C\\x6C\\x20\\x6F\\x66\\x20\\xF0\\x9F\\x92\\xB0'", VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip(inputType, "'\\x00\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\x0D\\xF9\\x36\\x7A\\xA7\\x00\\x00\\x00'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
+                .addRoundTrip(inputType, "'\\x00\\x00\\x00\\x00\\x00\\x00'", VARBINARY, "X'000000000000'")
+                .addRoundTrip(nullInputType, "''", VARBINARY, "X''")
+                .addRoundTrip(nullInputType, "'\\x68\\x65\\x6C\\x6C\\x6F'", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip(nullInputType, "'\\x50\\x69\\xC4\\x99\\x6B\\x6E\\x61\\x20\\xC5\\x82\\xC4\\x85\\x6B\\x61\\x20\\x77\\x20\\xE6\\x9D\\xB1\\xE4\\xBA\\xAC\\xE9\\x83\\xBD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip(nullInputType, "'\\x42\\x61\\x67\\x20\\x66\\x75\\x6C\\x6C\\x20\\x6F\\x66\\x20\\xF0\\x9F\\x92\\xB0'", VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip(nullInputType, "'\\x00\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\x0D\\xF9\\x36\\x7A\\xA7\\x00\\x00\\x00'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
+                .addRoundTrip(nullInputType, "'\\x00\\x00\\x00\\x00\\x00\\x00'", VARBINARY, "X'000000000000'")
+                .addRoundTrip(lowCardInputType, "''", VARBINARY, "X''")
+                .addRoundTrip(lowCardInputType, "'\\x68\\x65\\x6C\\x6C\\x6F'", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip(lowCardInputType, "'\\x50\\x69\\xC4\\x99\\x6B\\x6E\\x61\\x20\\xC5\\x82\\xC4\\x85\\x6B\\x61\\x20\\x77\\x20\\xE6\\x9D\\xB1\\xE4\\xBA\\xAC\\xE9\\x83\\xBD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip(lowCardInputType, "'\\x42\\x61\\x67\\x20\\x66\\x75\\x6C\\x6C\\x20\\x6F\\x66\\x20\\xF0\\x9F\\x92\\xB0'", VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip(lowCardInputType, "'\\x00\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\x0D\\xF9\\x36\\x7A\\xA7\\x00\\x00\\x00'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
+                .addRoundTrip(lowCardInputType, "'\\x00\\x00\\x00\\x00\\x00\\x00'", VARBINARY, "X'000000000000'")
+                .addRoundTrip(nullLowCardInputType, "''", VARBINARY, "X''")
+                .addRoundTrip(nullLowCardInputType, "'\\x68\\x65\\x6C\\x6C\\x6F'", VARBINARY, "to_utf8('hello')")
+                .addRoundTrip(nullLowCardInputType, "'\\x50\\x69\\xC4\\x99\\x6B\\x6E\\x61\\x20\\xC5\\x82\\xC4\\x85\\x6B\\x61\\x20\\x77\\x20\\xE6\\x9D\\xB1\\xE4\\xBA\\xAC\\xE9\\x83\\xBD'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip(nullLowCardInputType, "'\\x42\\x61\\x67\\x20\\x66\\x75\\x6C\\x6C\\x20\\x6F\\x66\\x20\\xF0\\x9F\\x92\\xB0'", VARBINARY, "to_utf8('Bag full of 💰')")
+                .addRoundTrip(nullLowCardInputType, "'\\x00\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\x0D\\xF9\\x36\\x7A\\xA7\\x00\\x00\\x00'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
+                .addRoundTrip(nullLowCardInputType, "'\\x00\\x00\\x00\\x00\\x00\\x00'", VARBINARY, "X'000000000000'");
     }
 
     @Test
@@ -555,18 +695,76 @@ public abstract class BaseClickHouseTypeMapping
         SqlDataTypeTest.create()
                 // plain
                 .addRoundTrip("String", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("String", "'text_a'", VARBINARY, "to_utf8('text_a')")
+                .addRoundTrip("String", "'text_b'", VARBINARY, "to_utf8('text_b')")
+                .addRoundTrip("String", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("String", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("String", "'😂'", VARBINARY, "to_utf8('😂')")
+                .addRoundTrip("String", "'Ну, погоди!'", VARBINARY, "to_utf8('Ну, погоди!')")
                 // nullable
                 .addRoundTrip("Nullable(String)", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
                 .addRoundTrip("Nullable(String)", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("Nullable(String)", "'text_a'", VARBINARY, "to_utf8('text_a')")
+                .addRoundTrip("Nullable(String)", "'text_b'", VARBINARY, "to_utf8('text_b')")
+                .addRoundTrip("Nullable(String)", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("Nullable(String)", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("Nullable(String)", "'😂'", VARBINARY, "to_utf8('😂')")
+                .addRoundTrip("Nullable(String)", "'Ну, погоди!'", VARBINARY, "to_utf8('Ну, погоди!')")
+                // low-cardinality
+                .addRoundTrip("LowCardinality(String)", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("LowCardinality(String)", "'text_a'", VARBINARY, "to_utf8('text_a')")
+                .addRoundTrip("LowCardinality(String)", "'text_b'", VARBINARY, "to_utf8('text_b')")
+                .addRoundTrip("LowCardinality(String)", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("LowCardinality(String)", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("LowCardinality(String)", "'😂'", VARBINARY, "to_utf8('😂')")
+                .addRoundTrip("LowCardinality(String)", "'Ну, погоди!'", VARBINARY, "to_utf8('Ну, погоди!')")
+                // low-cardinality nullable
+                .addRoundTrip("LowCardinality(Nullable(String))", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
+                .addRoundTrip("LowCardinality(Nullable(String))", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("LowCardinality(Nullable(String))", "'text_a'", VARBINARY, "to_utf8('text_a')")
+                .addRoundTrip("LowCardinality(Nullable(String))", "'text_b'", VARBINARY, "to_utf8('text_b')")
+                .addRoundTrip("LowCardinality(Nullable(String))", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("LowCardinality(Nullable(String))", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("LowCardinality(Nullable(String))", "'😂'", VARBINARY, "to_utf8('😂')")
+                .addRoundTrip("LowCardinality(Nullable(String))", "'Ну, погоди!'", VARBINARY, "to_utf8('Ну, погоди!')")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_varchar"));
 
         // Set map_string_as_varchar session property as true
         SqlDataTypeTest.create()
                 // plain
                 .addRoundTrip("String", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                .addRoundTrip("String", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("String", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("String", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("String", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("String", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("String", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
                 // nullable
                 .addRoundTrip("Nullable(String)", "NULL", VARCHAR, "CAST(NULL AS varchar)")
                 .addRoundTrip("Nullable(String)", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                .addRoundTrip("Nullable(String)", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("Nullable(String)", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("Nullable(String)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("Nullable(String)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("Nullable(String)", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("Nullable(String)", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
+                // low-cardinality
+                .addRoundTrip("LowCardinality(String)", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                .addRoundTrip("LowCardinality(String)", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("LowCardinality(String)", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("LowCardinality(String)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("LowCardinality(String)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("LowCardinality(String)", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("LowCardinality(String)", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
+                // low-cardinality nullable
+                .addRoundTrip("LowCardinality(Nullable(String))", "NULL", VARCHAR, "CAST(NULL AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(String))", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(String))", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(String))", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(String))", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(String))", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(String))", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("LowCardinality(Nullable(String))", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
                 .execute(getQueryRunner(), mapStringAsVarcharSession(), clickhouseCreateAndInsert("tpch.test_varchar"));
     }
 
@@ -576,6 +774,12 @@ public abstract class BaseClickHouseTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar(30)", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
                 .addRoundTrip("varchar(30)", "'Piękna łąka w 東京都'", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
+                .addRoundTrip("varchar(10)", "'text_a'", VARBINARY, "to_utf8('text_a')")
+                .addRoundTrip("varchar(255)", "'text_b'", VARBINARY, "to_utf8('text_b')")
+                .addRoundTrip("varchar(5)", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("varchar(32)", "'攻殻機動隊'", VARBINARY, "to_utf8('攻殻機動隊')")
+                .addRoundTrip("varchar(1)", "'😂'", VARBINARY, "to_utf8('😂')")
+                .addRoundTrip("varchar(77)", "'Ну, погоди!'", VARBINARY, "to_utf8('Ну, погоди!')")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect(mapStringAsVarcharSession(), "test_varchar"));
 
@@ -583,6 +787,12 @@ public abstract class BaseClickHouseTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("varchar(30)", "NULL", VARCHAR, "CAST(NULL AS varchar)")
                 .addRoundTrip("varchar(30)", "'Piękna łąka w 東京都'", VARCHAR, "CAST('Piękna łąka w 東京都' AS varchar)")
+                .addRoundTrip("varchar(10)", "'text_a'", VARCHAR, "CAST('text_a' AS varchar)")
+                .addRoundTrip("varchar(255)", "'text_b'", VARCHAR, "CAST('text_b' AS varchar)")
+                .addRoundTrip("varchar(5)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar(32)", "'攻殻機動隊'", VARCHAR, "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar(1)", "'😂'", VARCHAR, "CAST('😂' AS varchar)")
+                .addRoundTrip("varchar(77)", "'Ну, погоди!'", VARCHAR, "CAST('Ну, погоди!' AS varchar)")
                 .execute(getQueryRunner(), mapStringAsVarcharSession(), trinoCreateAsSelect("test_varchar"))
                 .execute(getQueryRunner(), mapStringAsVarcharSession(), trinoCreateAsSelect(mapStringAsVarcharSession(), "test_varchar"));
     }

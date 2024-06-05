@@ -17,7 +17,6 @@ Follow the steps in this topic to inspect and validate key and certificate in
 PEM files. See {ref}`troubleshooting-keystore` to validate JKS keystores.
 
 (inspect-pems)=
-
 ## Inspect PEM file
 
 The file name extensions shown on this page are examples only; there is no
@@ -73,7 +72,6 @@ The file can show a single certificate section, or more than one to express a
 chain of authorities, each certifying the previous.
 
 (validate-pems)=
-
 ## Validate PEM key section
 
 This page presumes your system provides the `openssl` command from OpenSSL 1.1

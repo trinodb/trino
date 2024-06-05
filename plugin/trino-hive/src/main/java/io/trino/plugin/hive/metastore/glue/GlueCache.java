@@ -81,4 +81,6 @@ public interface GlueCache
     Collection<LanguageFunction> getFunction(String databaseName, String functionName, Supplier<Collection<LanguageFunction>> loader);
 
     void invalidateFunction(String databaseName, String functionName);
+
+    void flushCache();
 }

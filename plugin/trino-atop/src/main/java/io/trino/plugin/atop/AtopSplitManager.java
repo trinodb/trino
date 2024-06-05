@@ -78,7 +78,7 @@ public class AtopSplitManager
                                 packDateTimeWithZone(splitEnd.toInstant().toEpochMilli(), UTC_KEY),
                                 true)),
                         false);
-                if (tableHandle.getStartTimeConstraint().overlaps(splitDomain) && tableHandle.getEndTimeConstraint().overlaps(splitDomain)) {
+                if (tableHandle.startTimeConstraint().overlaps(splitDomain) && tableHandle.endTimeConstraint().overlaps(splitDomain)) {
                     splits.add(new AtopSplit(node.getHostAndPort(), start.toEpochSecond(), start.getZone().getId()));
                 }
                 start = start.plusDays(1).withHour(0).withMinute(0).withSecond(0).withNano(0);

@@ -158,7 +158,6 @@ WHERE url = 'https://github.com/trinodb/trino.git'
 ```
 
 (connector-metadata)=
-
 ## ConnectorMetadata
 
 The connector metadata interface allows Trino to get a lists of schemas,
@@ -258,7 +257,6 @@ implements, like the `ConnectorRecordSetProvider` or
 `ConnectorPageSourceProvider`.
 
 (connector-limit-pushdown)=
-
 ### Limit and top-N pushdown
 
 When executing a `SELECT` query with `LIMIT` or `ORDER BY` clauses,
@@ -296,7 +294,6 @@ error code and an actionable message, to let users know how to write a valid
 query.
 
 (dev-predicate-pushdown)=
-
 ### Predicate pushdown
 
 When executing a query with a `WHERE` clause, the query plan can
@@ -606,7 +603,6 @@ conjuncts are returned as `remainingExpression` and are evaluated by
 the Trino engine.
 
 (connector-split-manager)=
-
 ## ConnectorSplitManager
 
 The split manager partitions the data for a table into the individual chunks
@@ -617,7 +613,6 @@ strategy here is to simply return a single split for the entire table. This is
 the strategy employed by the Example HTTP connector.
 
 (connector-record-set-provider)=
-
 ## ConnectorRecordSetProvider
 
 Given a split, a table handle, and a list of columns, the record set provider
@@ -795,7 +790,6 @@ private SqlMap encodeMap(Map<String, ?> map)
 ```
 
 (connector-page-source-provider)=
-
 ## ConnectorPageSourceProvider
 
 Given a split, a table handle, and a list of columns, the page source provider
@@ -813,7 +807,6 @@ individual records from a record set provider into pages adds overheads during
 query execution.
 
 (connector-page-sink-provider)=
-
 ## ConnectorPageSinkProvider
 
 Given an insert table handle, the page sink provider is responsible for

@@ -104,12 +104,14 @@ public final class DeltaLakeSchemaSupport
     private static final String IDENTITY_COLUMNS_FEATURE_NAME = "identityColumns";
     private static final String INVARIANTS_FEATURE_NAME = "invariants";
     public static final String TIMESTAMP_NTZ_FEATURE_NAME = "timestampNtz";
+    public static final String VACUUM_PROTOCOL_CHECK_FEATURE_NAME = "vacuumProtocolCheck";
     public static final String V2_CHECKPOINT_FEATURE_NAME = "v2Checkpoint";
 
     private static final Set<String> SUPPORTED_READER_FEATURES = ImmutableSet.<String>builder()
             .add(COLUMN_MAPPING_FEATURE_NAME)
             .add(TIMESTAMP_NTZ_FEATURE_NAME)
             .add(DELETION_VECTORS_FEATURE_NAME)
+            .add(VACUUM_PROTOCOL_CHECK_FEATURE_NAME)
             .add(V2_CHECKPOINT_FEATURE_NAME)
             .build();
     private static final Set<String> SUPPORTED_WRITER_FEATURES = ImmutableSet.<String>builder()
@@ -119,6 +121,7 @@ public final class DeltaLakeSchemaSupport
             .add(CHANGE_DATA_FEED_FEATURE_NAME)
             .add(COLUMN_MAPPING_FEATURE_NAME)
             .add(TIMESTAMP_NTZ_FEATURE_NAME)
+            .add(VACUUM_PROTOCOL_CHECK_FEATURE_NAME)
             .build();
 
     public enum ColumnMappingMode

@@ -13,17 +13,16 @@
  */
 package io.trino.plugin.prometheus;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.Session;
+import io.trino.plugin.base.util.Closables;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -34,42 +33,47 @@ public final class PrometheusQueryRunner
 {
     private PrometheusQueryRunner() {}
 
-    // TODO convert to builder
-    public static QueryRunner createPrometheusQueryRunner(PrometheusServer server, Map<String, String> connectorProperties)
-            throws Exception
+    public static Builder builder(PrometheusServer prometheusServer)
     {
-        return createPrometheusQueryRunner(server, ImmutableMap.of(), connectorProperties);
+        return new Builder()
+                .addConnectorProperty("prometheus.uri", prometheusServer.getUri().toString());
     }
 
-    // TODO convert to builder
-    private static QueryRunner createPrometheusQueryRunner(PrometheusServer server, Map<String, String> coordinatorProperties, Map<String, String> connectorProperties)
-            throws Exception
+    public static class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        QueryRunner queryRunner = null;
-        try {
-            queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setCoordinatorProperties(coordinatorProperties)
-                    .build();
+        private final Map<String, String> connectorProperties = new HashMap<>();
 
-            queryRunner.installPlugin(new PrometheusPlugin());
-            // note: additional copy via ImmutableList so that if fails on nulls
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("prometheus.uri", server.getUri().toString());
-            queryRunner.createCatalog("prometheus", "prometheus", connectorProperties);
+        protected Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog("prometheus")
+                    .setSchema("default")
+                    .build());
+        }
+
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperty(String key, String value)
+        {
+            this.connectorProperties.put(key, value);
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new PrometheusPlugin());
+                queryRunner.createCatalog("prometheus", "prometheus", connectorProperties);
+            }
+            catch (Throwable e) {
+                Closables.closeAllSuppress(e, queryRunner);
+                throw e;
+            }
             return queryRunner;
         }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
-    }
-
-    private static Session createSession()
-    {
-        return testSessionBuilder()
-                .setCatalog("prometheus")
-                .setSchema("default")
-                .build();
     }
 
     public static PrometheusClient createPrometheusClient(PrometheusServer server)
@@ -86,7 +90,9 @@ public final class PrometheusQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        QueryRunner queryRunner = createPrometheusQueryRunner(new PrometheusServer(), ImmutableMap.of("http-server.http.port", "8080"), ImmutableMap.of());
+        QueryRunner queryRunner = builder(new PrometheusServer())
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .build();
         Logger log = Logger.get(PrometheusQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

@@ -35,14 +35,16 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.NotFoundException;
+import io.trino.spi.connector.RelationColumnsMetadata;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
@@ -51,10 +53,14 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.Type;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.truncate;
@@ -69,6 +75,8 @@ import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validTableName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
+import static io.trino.spi.connector.RelationColumnsMetadata.forTable;
+import static io.trino.spi.connector.RelationCommentMetadata.forRelation;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SaveMode.REPLACE;
 import static java.lang.String.format;
@@ -111,10 +119,13 @@ public class CassandraMetadata
                 .collect(toImmutableList());
     }
 
-    @SuppressWarnings("deprecation") // TODO Implement getTableHandle(ConnectorSession, SchemaTableName, Optional, Optional) method
     @Override
-    public CassandraTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public CassandraTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         requireNonNull(tableName, "tableName is null");
         try {
             return new CassandraTableHandle(cassandraSession.getTable(tableName).tableHandle());
@@ -199,29 +210,55 @@ public class CassandraMetadata
         return columnHandles.buildOrThrow();
     }
 
-    @SuppressWarnings("deprecation") // TODO Implement streamTableColumns method
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
-        requireNonNull(prefix, "prefix is null");
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(session, prefix)) {
+        Map<SchemaTableName, RelationColumnsMetadata> relationColumns = new HashMap<>();
+
+        for (CassandraTable table : listCassandraTables(session, schemaName)) {
             try {
-                columns.put(tableName, getTableMetadata(tableName).getColumns());
+                SchemaTableName tableName = table.tableHandle().getSchemaTableName();
+                relationColumns.put(tableName, forTable(tableName, table.columns().stream()
+                        .map(CassandraColumnHandle::getColumnMetadata)
+                        .collect(toImmutableList())));
             }
             catch (NotFoundException e) {
                 // table disappeared during listing operation
             }
         }
-        return columns.buildOrThrow();
+
+        return relationFilter.apply(relationColumns.keySet()).stream()
+                .map(relationColumns::get)
+                .iterator();
     }
 
-    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
+    private List<CassandraTable> listCassandraTables(ConnectorSession session, Optional<String> schemaName)
     {
-        if (prefix.getTable().isEmpty()) {
-            return listTables(session, prefix.getSchema());
+        ImmutableList.Builder<CassandraTable> tables = ImmutableList.builder();
+        for (String schema : listSchemas(session, schemaName)) {
+            try {
+                cassandraSession.listTables(schema).forEach(tables::add);
+            }
+            catch (SchemaNotFoundException e) {
+                // schema disappeared during listing operation
+            }
         }
-        return ImmutableList.of(prefix.toSchemaTableName());
+        return tables.build();
+    }
+
+    @Override
+    public Iterator<RelationCommentMetadata> streamRelationComments(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        Map<SchemaTableName, RelationCommentMetadata> relationColumns = new HashMap<>();
+
+        for (SchemaTableName schemaTableName : listTables(session, schemaName)) {
+            // Set empty comments because the connector doesn't support table comments
+            relationColumns.put(schemaTableName, forRelation(schemaTableName, Optional.empty()));
+        }
+
+        return relationFilter.apply(relationColumns.keySet()).stream()
+                .map(relationColumns::get)
+                .iterator();
     }
 
     @Override

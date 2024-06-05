@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>449-SNAPSHOT</version>
+    <version>450-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -75,6 +75,7 @@
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>
         <module>plugin/trino-http-event-listener</module>
+        <module>plugin/trino-http-server-event-listener</module>
         <module>plugin/trino-hudi</module>
         <module>plugin/trino-iceberg</module>
         <module>plugin/trino-ignite</module>
@@ -90,6 +91,7 @@
         <module>plugin/trino-mysql</module>
         <module>plugin/trino-mysql-event-listener</module>
         <module>plugin/trino-opa</module>
+        <module>plugin/trino-openlineage</module>
         <module>plugin/trino-opensearch</module>
         <module>plugin/trino-oracle</module>
         <module>plugin/trino-password-authenticators</module>
@@ -141,7 +143,7 @@
     <properties>
         <project.build.targetJdk>22</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
-        <project.build.outputTimestamp>2024-05-16T00:57:34Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2024-05-31T20:56:12Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
@@ -161,8 +163,6 @@
            - had forward change at midnight (1970-01-01 00:00:00 clocks turned forward 1 hour)
           -->
         <air.test.timezone>America/Bahia_Banderas</air.test.timezone>
-        <air.test.parallel>methods</air.test.parallel>
-        <air.test.thread-count>2</air.test.thread-count>
         <!-- Be conservative about memory allotment, because tests start background process (e.g. docker containers) -->
         <air.test.jvmsize>3g</air.test.jvmsize>
         <!-- G1 default region size for a small heap is 1MB. Tests (TestHiveConnectorTest.testMultipleWritersWhenTaskScaleWritersIsEnabled) in particular
@@ -186,12 +186,12 @@
         <dep.alluxio.version>312</dep.alluxio.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
         <dep.avro.version>1.11.3</dep.avro.version>
-        <dep.aws-sdk.version>1.12.721</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.734</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.5.1</dep.confluent.version>
-        <dep.docker.images.version>94</dep.docker.images.version>
+        <dep.docker.images.version>96</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
-        <dep.errorprone.version>2.27.1</dep.errorprone.version>
+        <dep.errorprone.version>2.28.0</dep.errorprone.version>
         <dep.flyway.version>10.13.0</dep.flyway.version>
         <dep.google.http.client.version>1.44.1</dep.google.http.client.version>
         <dep.guava.version>33.2.0-jre</dep.guava.version>
@@ -206,7 +206,7 @@
         <dep.parquet.version>1.14.0</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.3</dep.protobuf.version>
-        <dep.snowflake.version>3.16.0</dep.snowflake.version>
+        <dep.snowflake.version>3.16.1</dep.snowflake.version>
         <dep.swagger.version>2.2.22</dep.swagger.version>
         <dep.takari.version>2.1.5</dep.takari.version>
         <dep.tcnative.version>2.0.65.Final</dep.tcnative.version>
@@ -229,7 +229,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.39.0</version>
+                <version>26.40.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -261,7 +261,7 @@
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-bom</artifactId>
-                <version>1.63.0</version>
+                <version>1.64.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -269,7 +269,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.1.109.Final</version>
+                <version>4.1.110.Final</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -309,7 +309,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.25.51</version>
+                <version>2.25.64</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -317,7 +317,7 @@
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
-                <version>3.8.0</version>
+                <version>3.9.1</version>
             </dependency>
 
             <dependency>
@@ -502,13 +502,13 @@
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.6.0</version>
+                <version>6.6.1</version>
             </dependency>
 
             <dependency>
                 <groupId>com.google.auto.value</groupId>
                 <artifactId>auto-value-annotations</artifactId>
-                <version>1.10.4</version>
+                <version>1.11.0</version>
             </dependency>
 
             <dependency>
@@ -528,7 +528,7 @@
             <dependency>
                 <groupId>com.google.code.gson</groupId>
                 <artifactId>gson</artifactId>
-                <version>2.10.1</version>
+                <version>2.11.0</version>
             </dependency>
 
             <dependency>
@@ -582,7 +582,7 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>12.6.1.jre11</version>
+                <version>12.6.2.jre11</version>
             </dependency>
 
             <dependency>
@@ -594,13 +594,13 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>9.39.1</version>
+                <version>9.39.3</version>
             </dependency>
 
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.10.1</version>
+                <version>11.12</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
@@ -637,7 +637,7 @@
             <dependency>
                 <groupId>commons-cli</groupId>
                 <artifactId>commons-cli</artifactId>
-                <version>1.7.0</version>
+                <version>1.8.0</version>
             </dependency>
 
             <dependency>
@@ -667,7 +667,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor</artifactId>
-                <version>0.26</version>
+                <version>0.27</version>
             </dependency>
 
             <dependency>
@@ -920,7 +920,7 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
-                <version>3.6.5</version>
+                <version>3.6.6</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
@@ -1517,7 +1517,7 @@
             <dependency>
                 <groupId>io.trino.benchto</groupId>
                 <artifactId>benchto-driver</artifactId>
-                <version>0.26</version>
+                <version>0.29</version>
             </dependency>
 
             <dependency>
@@ -1767,7 +1767,7 @@
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-compress</artifactId>
-                <version>1.26.1</version>
+                <version>1.26.2</version>
             </dependency>
 
             <dependency>
@@ -1894,7 +1894,7 @@
             <dependency>
                 <groupId>org.apache.maven</groupId>
                 <artifactId>maven-model</artifactId>
-                <version>3.9.6</version>
+                <version>3.9.7</version>
             </dependency>
 
             <dependency>
@@ -2067,7 +2067,7 @@
             <dependency>
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-xml</artifactId>
-                <version>4.0.3</version>
+                <version>4.0.4</version>
             </dependency>
 
             <dependency>
@@ -2290,7 +2290,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-wrapper-plugin</artifactId>
-                    <version>3.3.1</version>
+                    <version>3.3.2</version>
                 </plugin>
 
                 <plugin>
@@ -2390,6 +2390,12 @@
                                     <include>org.yaml:snakeyaml:2.+</include>
                                 </includes>
                             </bannedDependencies>
+                            <RestrictImports>
+                                <bannedImports>
+                                    <bannedImport>com.google.api.client.util.Preconditions</bannedImport>
+                                    <bannedImport>com.google.api.client.util.Preconditions.*</bannedImport>
+                                </bannedImports>
+                            </RestrictImports>
                             <requireProfileIdsExist />
                             <requirePropertyDiverges>
                                 <property>project.description</property>
@@ -2559,7 +2565,7 @@
             <plugin>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-maven-plugin</artifactId>
-                <version>14</version>
+                <version>15</version>
                 <extensions>true</extensions>
             </plugin>
 

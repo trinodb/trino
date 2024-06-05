@@ -20,7 +20,6 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.Region;
@@ -47,7 +46,7 @@ final class S3ClientFactory
     private AmazonS3 createAwsS3Client()
     {
         String region = requireNonNull(System.getenv("AWS_REGION"), "AWS_REGION is null");
-        return AmazonS3Client.builder().withRegion(Regions.fromName(region)).build();
+        return AmazonS3Client.builder().withRegion(region).build();
     }
 
     private AmazonS3 createMinioS3Client()

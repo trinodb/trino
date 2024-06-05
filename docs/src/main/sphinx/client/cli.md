@@ -18,7 +18,6 @@ newer. Older versions typically work, but only a subset is regularly tested.
 Versions before 350 are not supported.
 
 (cli-installation)=
-
 ## Installation
 
 Download {maven_download}`cli`, rename it to `trino`, make it executable with
@@ -214,7 +213,6 @@ to find out URL parameter names. For example:
 ```
 
 (cli-tls)=
-
 ## TLS/HTTPS
 
 Trino is typically available with an HTTPS URL. This means that all network
@@ -271,14 +269,12 @@ certificate usage:
 :::
 
 (cli-authentication)=
-
 ## Authentication
 
 The Trino CLI supports many {doc}`/security/authentication-types` detailed in
 the following sections:
 
 (cli-username-password-auth)=
-
 ### Username and password authentication
 
 Username and password authentication is typically configured in a cluster using
@@ -308,7 +304,6 @@ to provide a password to connect with the CLI.
 ```
 
 (cli-external-sso-auth)=
-
 ### External authentication - SSO
 
 Use the `--external-authentication` option for browser-based SSO
@@ -332,7 +327,6 @@ The detailed behavior is as follows:
 - Expired tokens force you to log in again.
 
 (cli-certificate-auth)=
-
 ### Certificate authentication
 
 Use the following CLI arguments to connect to a cluster that uses
@@ -357,14 +351,12 @@ authentication with the CLI; instead, they control the client's trust of the
 server's certificate.
 
 (cli-jwt-auth)=
-
 ### JWT authentication
 
 To access a Trino cluster configured to use {doc}`/security/jwt`, use the
 `--access-token=<token>` option to pass a JWT to the server.
 
 (cli-kerberos-auth)=
-
 ### Kerberos authentication
 
 The Trino CLI can connect to a Trino cluster that has {doc}`/security/kerberos`
@@ -415,7 +407,6 @@ The following table lists the available options for Kerberos authentication:
 :::
 
 (cli-kerberos-debug)=
-
 #### Additional Kerberos debugging information
 
 You can enable additional Kerberos debugging information for the Trino CLI
@@ -450,7 +441,6 @@ such as `more` or [pspg](https://github.com/okbob/pspg),
 or it can be set to an empty value to completely disable pagination.
 
 (cli-history)=
-
 ## History
 
 The CLI keeps a history of your previously used commands. You can access your
@@ -600,7 +590,6 @@ SELECT nationkey, name, region FROM tpch.sf1.nation LIMIT 3
 ```
 
 (cli-output-format)=
-
 ## Output formats
 
 The Trino CLI provides the options `--output-format`
@@ -645,7 +634,6 @@ and `CSV` in non-interactive mode.
 :::
 
 (cli-troubleshooting)=
-
 ## Troubleshooting
 
 If something goes wrong, you see an error message:

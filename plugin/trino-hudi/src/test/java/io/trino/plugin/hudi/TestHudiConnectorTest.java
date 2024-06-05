@@ -13,14 +13,12 @@
  */
 package io.trino.plugin.hudi;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
 import static io.trino.plugin.hudi.testing.HudiTestUtils.COLUMNS_TO_HIDE;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -31,9 +29,10 @@ public class TestHudiConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createHudiQueryRunner(
-                ImmutableMap.of("hudi.columns-to-hide", COLUMNS_TO_HIDE),
-                new TpchHudiTablesInitializer(REQUIRED_TPCH_TABLES));
+        return HudiQueryRunner.builder()
+                .addConnectorProperty("hudi.columns-to-hide", COLUMNS_TO_HIDE)
+                .setDataLoader(new TpchHudiTablesInitializer(REQUIRED_TPCH_TABLES))
+                .build();
     }
 
     @Override

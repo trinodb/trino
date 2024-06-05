@@ -290,9 +290,9 @@ public abstract class AbstractPredicatePushdownTest
                         join(LEFT, builder -> builder
                                 .equiCriteria("A", "B")
                                 .left(
-                                        assignUniqueId("unique", filter(new Comparison(EQUAL, new Reference(INTEGER, "A"), new Constant(INTEGER, 1L)), values("A"))))
+                                        assignUniqueId("unique", values("A")))
                                 .right(
-                                        filter(new Comparison(EQUAL, new Constant(INTEGER, 1L), new Reference(INTEGER, "B")), values("B"))))));
+                                        values("B")))));
     }
 
     @Test
@@ -480,8 +480,7 @@ public abstract class AbstractPredicatePushdownTest
                                                         ImmutableMap.of(
                                                                 "ORDERSTATUS", "orderstatus",
                                                                 "ORDERKEY", "orderkey")))),
-                                anyTree(
-                                        values("COL")))));
+                                values())));
     }
 
     @Test

@@ -211,7 +211,6 @@ No other types are supported.
 ```
 
 (snowflake-sql-support)=
-
 ## SQL support
 
 The connector provides read access and write access to data and metadata in
@@ -228,6 +227,69 @@ statements, the connector supports the following features:
 - {doc}`/sql/alter-table`
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`
+
+## Table functions
+
+The connector provides specific [table functions](/functions/table) to
+access Snowflake.
+
+(snowflake-query-function)=
+### `query(varchar) -> table`
+
+The `query` function allows you to query the underlying database directly. It
+requires syntax native to Snowflake, because the full query is pushed down and
+processed in Snowflake. This can be useful for accessing native features which
+are not available in Trino or for improving query performance in situations
+where running a query natively may be faster.
+
+Find details about the SQL support of Snowflake that you can use in the query in
+the [Snowflake SQL Command
+Reference](https://docs.snowflake.com/en/sql-reference-commands), including
+[PIVOT](https://docs.snowflake.com/en/sql-reference/constructs/pivot), [lateral
+joins](https://docs.snowflake.com/en/sql-reference/constructs/join-lateral) and
+other statements and functions.
+
+```{include} query-passthrough-warning.fragment
+```
+
+As a simple example, query the `example` catalog and select an entire table:
+
+```
+SELECT
+  *
+FROM
+  TABLE(
+    example.system.query(
+      query => 'SELECT
+        *
+      FROM
+        tpch.nation'
+    )
+  );
+```
+
+As a practical example, you can use the Snowflake SQL support for
+[PIVOT](https://docs.snowflake.com/en/sql-reference/constructs/pivot) to pivot
+on all distinct column values automatically with a dynamic pivot.
+
+```
+SELECT
+  *
+FROM
+  TABLE(
+    example.system.query(
+      query => '
+        SELECT *
+        FROM quarterly_sales
+          PIVOT(SUM(amount) FOR quarter IN (ANY ORDER BY quarter))
+        ORDER BY empid;
+      '
+    )
+  );
+```
+
+```{include} query-table-function-ordering.fragment
+```
 
 ## Performance
 

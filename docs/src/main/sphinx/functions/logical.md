@@ -1,5 +1,4 @@
 (logical-operators)=
-
 # Logical operators
 
 ## Logical operators

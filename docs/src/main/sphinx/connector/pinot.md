@@ -11,7 +11,7 @@ The Pinot connector allows Trino to query data stored in
 
 To connect to Pinot, you need:
 
-- Pinot 0.11.0 or higher.
+- Pinot 1.1.0 or higher.
 - Network access from the Trino coordinator and workers to the Pinot controller
   nodes. Port 8098 is the default port.
 
@@ -44,8 +44,7 @@ This can be the ip or the FDQN, the url scheme (`http://`) is optional.
 | `pinot.broker.authentication.type`                     | No       | Pinot authentication method for broker requests. Allowed values are `NONE` and `PASSWORD` - defaults to `NONE` which is no authentication.                                                                                                                                |
 | `pinot.broker.authentication.user`                     | No       | Broker username for basic authentication method.                                                                                                                                                                                                                          |
 | `pinot.broker.authentication.password`                 | No       | Broker password for basic authentication method.                                                                                                                                                                                                                          |
-| `pinot.max-rows-per-split-for-segment-queries`         | No       | Fail query if Pinot server split returns more rows than configured, default to `50,000` for non-gRPC connection, `2,147,483,647` for gRPC connection.                                                                                                                     |
-| `pinot.estimated-size-in-bytes-for-non-numeric-column` | No       | Estimated byte size for non-numeric column for page pre-allocation in non-gRPC connection, default is `20`.                                                                                                                                                               |
+| `pinot.max-rows-per-split-for-segment-queries`         | No       | Fail query if Pinot server split returns more rows than configured, default to `2,147,483,647`.                                                                                                                     |
 | `pinot.prefer-broker-queries`                          | No       | Pinot query plan prefers to query Pinot broker, default is `true`.                                                                                                                                                                                                        |
 | `pinot.forbid-segment-queries`                         | No       | Forbid parallel querying and force all querying to happen via the broker, default is `false`.                                                                                                                                                                             |
 | `pinot.segments-per-split`                             | No       | The number of segments processed in a split. Setting this higher reduces the number of requests made to Pinot. This is useful for smaller Pinot clusters, default is `1`.                                                                                                 |
@@ -69,7 +68,6 @@ If `pinot.controller-urls` uses `https` scheme then TLS is enabled for all conne
 
 | Property name                         | Required | Description                                                          |
 | ------------------------------------- | -------- | -------------------------------------------------------------------- |
-| `pinot.grpc.enabled`                  | No       | Use gRPC endpoint for Pinot server queries, default is `true`.       |
 | `pinot.grpc.port`                     | No       | Pinot gRPC port, default to `8090`.                                  |
 | `pinot.grpc.max-inbound-message-size` | No       | Max inbound message bytes when init gRPC client, default is `128MB`. |
 | `pinot.grpc.use-plain-text`           | No       | Use plain text for gRPC communication, default to `true`.            |
@@ -141,7 +139,6 @@ TOP 30000
 ```
 
 (pinot-type-mapping)=
-
 ## Type mapping
 
 Because Trino and Pinot each support types that the other does not, this
@@ -202,7 +199,6 @@ types the null value is encoded as `MIN_VALUE` for that type.
 For Pinot `STRING` type, the value `null` is interpreted as a `NULL` value.
 
 (pinot-sql-support)=
-
 ## SQL support
 
 The connector provides {ref}`globally available <sql-globally-available>` and
@@ -210,7 +206,6 @@ The connector provides {ref}`globally available <sql-globally-available>` and
 metadata in Pinot.
 
 (pinot-pushdown)=
-
 ## Pushdown
 
 The connector supports pushdown for a number of operations:

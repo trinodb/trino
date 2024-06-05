@@ -36,6 +36,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
@@ -49,10 +50,12 @@ import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -87,6 +90,8 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUS
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CANCELLATION;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DYNAMIC_FILTER_PUSHDOWN;
@@ -119,6 +124,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseJdbcConnectorTest
@@ -1454,6 +1460,130 @@ public abstract class BaseJdbcConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_enabled", "true")
                 .build();
+    }
+
+    @Test
+    public void testBulkColumnListingOptions()
+    {
+        if (hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
+            String schemaName = "test_columns_listing_" + randomNameSuffix();
+            assertUpdate("CREATE SCHEMA " + schemaName);
+            try {
+                try (TestTable newNation = new TestTable(
+                        getQueryRunner()::execute,
+                        schemaName + ".nation",
+                        "(name varchar(25), nationkey bigint)");
+                        TestTable newRegion = new TestTable(
+                                getQueryRunner()::execute,
+                                schemaName + ".region",
+                                "(name varchar(25), regionkey bigint)")) {
+                    if (hasBehavior(SUPPORTS_COMMENT_ON_TABLE)) {
+                        assertUpdate("COMMENT ON TABLE " + newNation.getName() + " IS 'tmp nation copy comment'");
+                    }
+                    String newNationName = newNation.getName().replaceFirst("^" + Pattern.quote(schemaName) + ".", "");
+                    String newRegionName = newRegion.getName().replaceFirst("^" + Pattern.quote(schemaName) + ".", "");
+                    testBulkColumnListingOptions(Optional.of(schemaName), Optional.of(newNationName), Optional.of(newRegionName));
+                }
+            }
+            finally {
+                assertUpdate("DROP SCHEMA " + schemaName);
+            }
+            return;
+        }
+
+        testBulkColumnListingOptions(Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    private void testBulkColumnListingOptions(Optional<String> temporarySchema, Optional<String> temporaryNationTable, Optional<String> temporaryRegionTable)
+    {
+        for (boolean bulkListColumns : List.of(false, true)) {
+            try {
+                testBulkColumnListingOptions(temporarySchema, temporaryNationTable, temporaryRegionTable, bulkListColumns);
+            }
+            catch (RuntimeException | AssertionError e) {
+                fail("Failure for bulkListColumns " + bulkListColumns, e);
+            }
+        }
+    }
+
+    private void testBulkColumnListingOptions(Optional<String> temporarySchema, Optional<String> temporaryNationTable, Optional<String> temporaryRegionTable, boolean bulkListColumns)
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalogName, JdbcMetadataSessionProperties.BULK_LIST_COLUMNS, Boolean.toString(bulkListColumns))
+                .build();
+
+        try {
+            computeActual(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA");
+        }
+        catch (QueryFailedException maybeExpected) {
+            // Perhaps given mode is not supported
+            assertThat(maybeExpected)
+                    .hasMessage("Error listing table columns for catalog %s: The requested column listing mode is not supported".formatted(catalogName));
+            return;
+        }
+
+        if (temporarySchema.isPresent()) {
+            // Hack for Druid, where numeric columns are NOT NULL by default
+            String numericNullable = (String) computeScalar("""
+                    SELECT is_nullable FROM information_schema.columns
+                    WHERE table_schema = CURRENT_SCHEMA AND table_name = 'nation' AND column_name = 'nationkey'
+                    """);
+
+            // information_schema.columns for single, isolated schema
+            assertThat(query(session, """
+                            SELECT table_name, column_name, is_nullable FROM information_schema.columns
+                            WHERE table_schema = '%s'
+                    """.formatted(temporarySchema.get())))
+                    .skippingTypesCheck()
+                    .matches("""
+                            VALUES
+                                ('%1$s', 'nationkey', '%3$s')
+                              , ('%1$s', 'name', 'YES')
+                              , ('%2$s', 'regionkey', '%3$s')
+                              , ('%2$s', 'name', 'YES')
+                            """.formatted(temporaryNationTable.orElseThrow(), temporaryRegionTable.orElseThrow(), numericNullable));
+
+            // system.jdbc.columns for single, isolated schema
+            assertThat(query(session, """
+                            SELECT table_name, column_name, is_nullable FROM system.jdbc.columns
+                            WHERE table_cat = CURRENT_CATALOG AND table_schem = '%s'
+                    """.formatted(temporarySchema.get())))
+                    .skippingTypesCheck()
+                    .matches("""
+                            VALUES
+                                ('%1$s', 'nationkey', '%3$s')
+                              , ('%1$s', 'name', 'YES')
+                              , ('%2$s', 'regionkey', '%3$s')
+                              , ('%2$s', 'name', 'YES')
+                            """.formatted(temporaryNationTable.orElseThrow(), temporaryRegionTable.orElseThrow(), numericNullable));
+        }
+
+        // information_schema.columns for single schema with more tables
+        assertThat(query(session, """
+                        SELECT table_name, column_name, is_nullable FROM information_schema.columns
+                        WHERE table_schema = CURRENT_SCHEMA
+                        AND ((column_name LIKE 'n_me' AND table_name IN ('customer', 'nation')) OR rand() = 42) -- not pushed down into connector
+                """))
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES
+                            ('customer', 'name', 'YES')
+                          , ('nation', 'name', 'YES')
+                        """);
+
+        // system.jdbc.columns for single schema with more tables
+        assertThat(query(session, """
+                        SELECT table_name, column_name, is_nullable FROM system.jdbc.columns
+                        WHERE table_cat = CURRENT_CATALOG AND table_schem = CURRENT_SCHEMA
+                        AND ((column_name LIKE 'n_me' AND table_name IN ('customer', 'nation')) OR rand() = 42) -- not pushed down into connector
+                """))
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES
+                            ('customer', 'name', 'YES')
+                          , ('nation', 'name', 'YES')
+                        """);
     }
 
     @Test

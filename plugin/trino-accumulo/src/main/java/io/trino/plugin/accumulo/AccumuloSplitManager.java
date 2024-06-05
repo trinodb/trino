@@ -79,8 +79,8 @@ public class AccumuloSplitManager
         ImmutableList.Builder<ConnectorSplit> cSplits = ImmutableList.builder();
         for (TabletSplitMetadata splitMetadata : tabletSplits) {
             AccumuloSplit split = new AccumuloSplit(
-                    splitMetadata.getRanges().stream().map(SerializedRange::serialize).collect(Collectors.toList()),
-                    splitMetadata.getHostPort());
+                    splitMetadata.ranges().stream().map(SerializedRange::serialize).collect(Collectors.toList()),
+                    splitMetadata.hostPort());
             cSplits.add(split);
         }
 
@@ -92,7 +92,7 @@ public class AccumuloSplitManager
         if (constraint.getDomains().isPresent()) {
             for (Entry<ColumnHandle, Domain> columnDomain : constraint.getDomains().get().entrySet()) {
                 AccumuloColumnHandle col = (AccumuloColumnHandle) columnDomain.getKey();
-                if (col.getName().equals(rowIdName)) {
+                if (col.name().equals(rowIdName)) {
                     return Optional.of(columnDomain.getValue());
                 }
             }
@@ -114,14 +114,14 @@ public class AccumuloSplitManager
         constraint.getDomains().orElseThrow().forEach((handle, domain) -> {
             AccumuloColumnHandle columnHandle = (AccumuloColumnHandle) handle;
 
-            if (!columnHandle.getName().equals(rowIdName)) {
+            if (!columnHandle.name().equals(rowIdName)) {
                 // Family and qualifier will exist for non-row ID columns
                 constraintBuilder.add(new AccumuloColumnConstraint(
-                        columnHandle.getName(),
-                        columnHandle.getFamily().get(),
-                        columnHandle.getQualifier().get(),
+                        columnHandle.name(),
+                        columnHandle.family().get(),
+                        columnHandle.qualifier().get(),
                         Optional.of(domain),
-                        columnHandle.isIndexed()));
+                        columnHandle.indexed()));
             }
         });
 

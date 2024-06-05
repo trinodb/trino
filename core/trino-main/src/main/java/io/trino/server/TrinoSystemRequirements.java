@@ -27,6 +27,7 @@ import java.lang.management.ManagementFactory;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -36,6 +37,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.util.regex.Pattern.quote;
 
@@ -46,7 +48,13 @@ final class TrinoSystemRequirements
 
     private TrinoSystemRequirements() {}
 
-    public static void verifyJvmRequirements()
+    public static void verifySystemRequirements()
+    {
+        verifyJvmRequirements();
+        verifySystemTimeIsReasonable();
+    }
+
+    private static void verifyJvmRequirements()
     {
         verifyJavaVersion();
         verify64BitJvm();
@@ -128,7 +136,7 @@ final class TrinoSystemRequirements
         if (Runtime.version().compareTo(Version.parse("22.0.2")) < 0) {
             Optional<String> collectionsKeepPinned = getJvmConfigurationFlag("XX:G1NumCollectionsKeepPinned");
             int requiredValue = 10000000;
-            if (collectionsKeepPinned.isEmpty() || collectionsKeepPinned.map(Integer::parseInt).orElse(0) < requiredValue) {
+            if (collectionsKeepPinned.isEmpty() || parseInt(collectionsKeepPinned.get()) < requiredValue) {
                 failRequirement("Trino requires -XX:+UnlockDiagnosticVMOptions -XX:G1NumCollectionsKeepPinned=%d on Java versions lower than 22.0.2 due to JDK-8329528", requiredValue);
             }
         }
@@ -182,24 +190,30 @@ final class TrinoSystemRequirements
      * Perform a sanity check to make sure that the year is reasonably current, to guard against
      * issues in third party libraries.
      */
-    public static void verifySystemTimeIsReasonable()
+    private static void verifySystemTimeIsReasonable()
     {
         int currentYear = DateTime.now().year().get();
-        if (currentYear < 2022) {
+        if (currentYear < 2024) {
             failRequirement("Trino requires the system time to be current (found year %s)", currentYear);
         }
     }
 
-    private static Optional<String> getJvmConfigurationFlag(String pattern)
+    private static Optional<String> getJvmConfigurationFlag(String flag)
     {
-        Pattern compiled = Pattern.compile("-%s=(.*)".formatted(quote(pattern)), Pattern.DOTALL);
-        return ManagementFactory.getRuntimeMXBean()
-                .getInputArguments()
-                .stream()
-                .map(compiled::matcher)
-                .filter(Matcher::matches)
-                .map(matcher -> matcher.group(1))
-                .findFirst();
+        Pattern pattern = Pattern.compile("-%s=(.*)".formatted(quote(flag)), Pattern.DOTALL);
+        Optional<String> matched = Optional.empty();
+        List<String> matching = new ArrayList<>(1);
+        for (String argument : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
+            Matcher matcher = pattern.matcher(argument);
+            if (matcher.matches()) {
+                matched = Optional.of(matcher.group(1));
+                matching.add(argument);
+            }
+        }
+        if (matching.size() > 1) {
+            failRequirement("Multiple JVM configuration flags matched %s: %s", pattern.pattern(), matching);
+        }
+        return matched;
     }
 
     @FormatMethod

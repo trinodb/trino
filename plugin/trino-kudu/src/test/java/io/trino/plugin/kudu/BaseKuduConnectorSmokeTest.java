@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
 import static io.trino.plugin.kudu.TestKuduConnectorTest.REGION_COLUMNS;
 import static io.trino.plugin.kudu.TestKuduConnectorTest.createKuduTableForWrites;
 import static io.trino.plugin.kudu.TestingKuduServer.EARLIEST_TAG;
@@ -40,9 +39,10 @@ public abstract class BaseKuduConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createKuduQueryRunnerTpch(
-                closeAfterClass(new TestingKuduServer(getKuduServerVersion())),
-                getKuduSchemaEmulationPrefix(), REQUIRED_TPCH_TABLES);
+        return KuduQueryRunnerFactory.builder(closeAfterClass(new TestingKuduServer(getKuduServerVersion())))
+                .setKuduSchemaEmulationPrefix(getKuduSchemaEmulationPrefix())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Override

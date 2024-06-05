@@ -185,6 +185,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.TopologicalOrderSubPlanVisitor.sortPlanInTopologicalOrder;
 import static io.trino.tracing.TrinoAttributes.FAILURE_MESSAGE;
 import static io.trino.util.Failures.toFailure;
+import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
@@ -1922,7 +1923,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private boolean taskDescriptorLoadingActive;
         private boolean exchangeClosed;
 
-        private final long startTime = System.currentTimeMillis();
+        private final long startTime;
         private OptionalLong nonSpeculativeSwitchTime;
 
         private MemoryRequirements initialMemoryRequirements;
@@ -1956,7 +1957,8 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.schedulingPriority = schedulingPriority;
             this.eager = eager;
             this.speculative = speculative;
-            this.nonSpeculativeSwitchTime = speculative ? OptionalLong.empty() : OptionalLong.of(System.currentTimeMillis());
+            this.startTime = System.nanoTime();
+            this.nonSpeculativeSwitchTime = speculative ? OptionalLong.empty() : OptionalLong.of(startTime);
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             outputDataSize = new long[sinkPartitioningScheme.getPartitionCount()];
             sinkOutputSelectorBuilder = ExchangeSourceOutputSelector.builder(ImmutableSet.of(exchange.getId()));
@@ -2033,7 +2035,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             checkArgument(!speculative || this.speculative, "cannot mark non-speculative stage as speculative");
             if (this.speculative && !speculative) {
-                nonSpeculativeSwitchTime = OptionalLong.of(System.currentTimeMillis());
+                nonSpeculativeSwitchTime = OptionalLong.of(System.nanoTime());
             }
             this.speculative = speculative;
         }
@@ -2367,16 +2369,12 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private void recordFinishStats()
         {
-            long finishTime = System.currentTimeMillis();
+            long finishTime = System.nanoTime();
             long nonSpeculativeSwitchTime = this.nonSpeculativeSwitchTime.orElse(finishTime);
-
-            double speculativeExecutionFraction = ((double) nonSpeculativeSwitchTime - (double) startTime) / ((double) finishTime - (double) startTime);
-            if (Double.isFinite(speculativeExecutionFraction)) {
-                stageExecutionStats.recordStageSpeculativeExecutionFraction(speculativeExecutionFraction);
-            }
-            else {
-                stageExecutionStats.recordStageSpeculativeExecutionFraction(1.0);
-            }
+            stageExecutionStats.recordStageSpeculativeExecutionFraction(clamp(
+                    ((double) nonSpeculativeSwitchTime - startTime) / (finishTime - startTime),
+                    0.0,
+                    1.0));
         }
 
         private void updateOutputSize(SpoolingOutputStats.Snapshot taskOutputStats)
@@ -2807,9 +2805,9 @@ public class EventDrivenFaultTolerantQueryScheduler
         public SpoolingOutputStats.Snapshot taskFinished(TaskId taskId)
         {
             RemoteTask remoteTask = tasks.get(taskId);
+            checkState(runningTasks.remove(taskId), "task %s already marked as finished", taskId);
             checkArgument(remoteTask != null, "task not found: %s", taskId);
             SpoolingOutputStats.Snapshot outputStats = remoteTask.retrieveAndDropSpoolingOutputStats();
-            runningTasks.remove(taskId);
             tasks.values().forEach(RemoteTask::abort);
             finished = true;
             // task descriptor has been created
@@ -2821,7 +2819,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public void taskFailed(TaskId taskId)
         {
-            runningTasks.remove(taskId);
+            checkState(runningTasks.remove(taskId), "task %s already marked as finished", taskId);
             failureObserved = true;
             remainingAttempts--;
         }

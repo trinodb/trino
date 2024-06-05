@@ -105,23 +105,6 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Returns a table handle for the specified table name, or {@code null} if {@code tableName} relation does not exist
-     * or is not a table (e.g. is a view, or a materialized view).
-     *
-     * @throws TrinoException implementation can throw this exception when {@code tableName} refers to a table that
-     * cannot be queried.
-     * @see #getView(ConnectorSession, SchemaTableName)
-     * @see #getMaterializedView(ConnectorSession, SchemaTableName)
-     * @deprecated Implement {@link #getTableHandle(ConnectorSession, SchemaTableName, Optional, Optional)}.
-     */
-    @Nullable
-    @Deprecated
-    default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
-    {
-        return null;
-    }
-
-    /**
      * Returns a table handle for the specified table name and version, or {@code null} if {@code tableName} relation does not exist
      * or is not a table (e.g. is a view, or a materialized view).
      *
@@ -137,15 +120,7 @@ public interface ConnectorMetadata
             Optional<ConnectorTableVersion> startVersion,
             Optional<ConnectorTableVersion> endVersion)
     {
-        ConnectorTableHandle tableHandle = getTableHandle(session, tableName);
-        if (tableHandle == null) {
-            // Not found
-            return null;
-        }
-        if (startVersion.isEmpty() && endVersion.isEmpty()) {
-            return tableHandle;
-        }
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is not implemented");
     }
 
     /**
@@ -955,10 +930,33 @@ public interface ConnectorMetadata
      * @param mergeTableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
      * @param fragments All fragments returned by the merge plan
      * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
+     *
+     * @deprecated Use {@link #finishMerge(ConnectorSession, ConnectorMergeTableHandle, List, Collection, Collection)}
      */
+    @Deprecated
     default void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginMerge() is implemented without finishMerge()");
+    }
+
+    /**
+     * Finish a merge query
+     *
+     * @param session The session
+     * @param mergeTableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
+     * @param sourceTableHandles All source table handles belonging to the connector from which the operation is reading data
+     * @param fragments All fragments returned by the merge plan
+     * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
+     */
+    default void finishMerge(
+            ConnectorSession session,
+            ConnectorMergeTableHandle mergeTableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
+        // Delegate to deprecated SPI to not break existing connectors
+        finishMerge(session, mergeTableHandle, fragments, computedStatistics);
     }
 
     /**
@@ -1039,12 +1037,20 @@ public interface ConnectorMetadata
      * Gets the view data for the specified view name. Returns {@link Optional#empty()} if {@code viewName}
      * relation does not or is not a view (e.g. is a table, or a materialized view).
      *
-     * @see #getTableHandle(ConnectorSession, SchemaTableName)
+     * @see #getTableHandle(ConnectorSession, SchemaTableName, Optional, Optional)
      * @see #getMaterializedView(ConnectorSession, SchemaTableName)
      */
     default Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Is the specified table a view.
+     */
+    default boolean isView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return getView(session, viewName).isPresent();
     }
 
     /**
@@ -1748,7 +1754,7 @@ public interface ConnectorMetadata
      * Gets the materialized view data for the specified materialized view name. Returns {@link Optional#empty()}
      * if {@code viewName} relation does not or is not a materialized view (e.g. is a table, or a view).
      *
-     * @see #getTableHandle(ConnectorSession, SchemaTableName)
+     * @see #getTableHandle(ConnectorSession, SchemaTableName, Optional, Optional)
      * @see #getView(ConnectorSession, SchemaTableName)
      */
     default Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)

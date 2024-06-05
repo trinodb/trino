@@ -23,7 +23,6 @@ provide further information about Trino and the concepts in use.
 :::
 
 (trino-concept-architecture)=
-
 ## Architecture
 
 Trino is a distributed query engine that processes data in parallel across
@@ -33,7 +32,6 @@ multiple servers. There are two types of Trino servers,
 servers and other components of Trino's architecture.
 
 (trino-concept-cluster)=
-
 ### Cluster
 
 A Trino cluster consists of a {ref}`coordinator <trino-concept-coordinator>` and
@@ -49,7 +47,6 @@ runs Trino in one JVM instance, and processing is parallelized further using
 threads.
 
 (trino-concept-coordinator)=
-
 ### Coordinator
 
 The Trino coordinator is the server that is responsible for parsing
@@ -69,7 +66,6 @@ Trino workers.
 Coordinators communicate with workers and clients using a REST API.
 
 (trino-concept-worker)=
-
 ### Worker
 
 A Trino worker is a server in a Trino installation, which is responsible
@@ -86,7 +82,6 @@ Workers communicate with other workers and Trino coordinators
 using a REST API.
 
 (trino-concept-data-sources)=
-
 ## Data sources
 
 Throughout this documentation, you'll read terms such as connector,
@@ -121,7 +116,6 @@ cluster that both use the Hive connector, allowing you to query data
 from both Hive clusters, even within the same SQL query.
 
 (trino-concept-catalog)=
-
 ### Catalog
 
 A Trino catalog contains schemas and references a data source via a
@@ -190,7 +184,6 @@ and other components and data sources working in concert to produce a
 result.
 
 (trino-concept-stage)=
-
 ### Stage
 
 When Trino executes a query, it does so by breaking up the execution
@@ -207,7 +200,6 @@ model a distributed query plan, but stages themselves don't run on
 Trino workers.
 
 (trino-concept-task)=
-
 ### Task
 
 As mentioned in the previous section, stages model a particular
@@ -224,7 +216,6 @@ parallel by a series of tasks, a task is executing in parallel with a
 series of drivers.
 
 (trino-concept-splits)=
-
 ### Split
 
 Tasks operate on splits, which are sections of a larger data

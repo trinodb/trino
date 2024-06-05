@@ -25,7 +25,6 @@ You need to perform the following steps:
 - Detail the events to send in the {ref}`http-event-listener-configuration` section.
 
 (http-event-listener-configuration)=
-
 ## Configuration
 
 To configure the HTTP event listener plugin, create an event listener properties
@@ -104,7 +103,6 @@ event-listener.config-files=etc/http-event-listener.properties,...
 :::
 
 (http-event-listener-custom-headers)=
-
 ### Custom HTTP headers
 
 Providing custom HTTP headers is a useful mechanism for sending metadata along with

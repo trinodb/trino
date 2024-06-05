@@ -65,14 +65,12 @@ ones listed by `SHOW SCHEMAS`. The `tiny` schema is an alias for scale
 factor `0.01`, which is a very small data set useful for testing.
 
 (tpch-type-mapping)=
-
 ## Type mapping
 
 Trino supports all data types used within the TPCH schemas so no mapping
 is required.
 
 (tpch-sql-support)=
-
 ## SQL support
 
 The connector provides {ref}`globally available <sql-globally-available>` and

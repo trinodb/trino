@@ -172,7 +172,6 @@ ldap.group-auth-pattern=(&(|(memberOf=CN=normal_group,DC=corp,DC=com)(memberOf=C
 ```
 
 (cli-ldap)=
-
 ## Trino CLI
 
 ### Environment configuration

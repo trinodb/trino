@@ -49,7 +49,6 @@ use {doc}`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
 (clickhouse-tls)=
-
 ### Connection security
 
 If you have TLS configured with a globally-trusted certificate installed on your
@@ -170,7 +169,6 @@ Currently the connector only supports `Log` and `MergeTree` table engines
 in create table statement. `ReplicatedMergeTree` engine is not yet supported.
 
 (clickhouse-type-mapping)=
-
 ## Type mapping
 
 Because Trino and ClickHouse each support types that the other does not, this
@@ -320,7 +318,6 @@ No other types are supported.
 ```
 
 (clickhouse-sql-support)=
-
 ## SQL support
 
 The connector provides read and write access to data and metadata in
@@ -341,7 +338,6 @@ The connector includes a number of performance improvements, detailed in the
 following sections.
 
 (clickhouse-pushdown)=
-
 ### Pushdown
 
 The connector supports pushdown for a number of operations:
@@ -360,5 +356,5 @@ The connector supports pushdown for a number of operations:
 ```{include} pushdown-correctness-behavior.fragment
 ```
 
-```{include} no-pushdown-text-type.fragment
+```{include} no-inequality-pushdown-text-type.fragment
 ```

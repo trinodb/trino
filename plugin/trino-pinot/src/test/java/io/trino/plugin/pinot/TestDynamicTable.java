@@ -171,12 +171,12 @@ public class TestDynamicTable
                 AND CASE origincityname WHEN 'nyc' THEN 'pizza' WHEN 'la' THEN 'burrito' WHEN 'boston' THEN 'clam chowder'
                 ELSE 'burger' END != 'salad'""".formatted(tableName);
         String expected = """
-                SELECT "FlightNum", "AirlineID"\
-                 FROM %s\
-                 WHERE AND((CASE WHEN equals("CancellationCode", 'strike')\
-                 THEN '3' ELSE '4' END) != '5', (CASE WHEN equals("OriginCityName", 'nyc')\
-                 THEN 'pizza' WHEN equals("OriginCityName", 'la') THEN 'burrito' WHEN equals("OriginCityName", 'boston')\
-                 THEN 'clam chowder' ELSE 'burger' END) != 'salad') LIMIT 10""".formatted(tableName);
+                SELECT "FlightNum", "AirlineID" \
+                FROM %s \
+                WHERE AND((CASE WHEN equals("CancellationCode", 'strike') THEN '3' ELSE '4' END) != '5', \
+                (CASE WHEN equals("OriginCityName", 'nyc') THEN 'pizza' WHEN equals("OriginCityName", 'la') THEN 'burrito' WHEN equals("OriginCityName", 'boston') THEN 'clam chowder' \
+                ELSE 'burger' END) != 'salad') LIMIT 10""".formatted(tableName);
+
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expected);
     }
@@ -321,11 +321,12 @@ public class TestDynamicTable
 
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         String expectedPql = """
-                SELECT datetimeconvert("DaysSinceEpoch", '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '15:MINUTES'),\
-                 not_equals(CASE WHEN equals("OriginCityName", 'nyc') THEN 'pizza' WHEN equals("OriginCityName", 'la') THEN 'burrito' WHEN equals(\"OriginCityName\", 'boston') THEN 'clam chowder' ELSE 'burger' END, 'salad'),\
-                 timeconvert("DaysSinceEpoch", 'SECONDS', 'MINUTES') AS "foo"\
-                 FROM %s\
-                 LIMIT 70""".formatted(tableNameWithSuffix);
+                SELECT datetimeconvert("DaysSinceEpoch", '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '15:MINUTES'), \
+                not_equals(CASE WHEN equals("OriginCityName", 'nyc') THEN 'pizza' WHEN equals("OriginCityName", 'la') THEN 'burrito' WHEN equals("OriginCityName", 'boston') THEN 'clam chowder' ELSE 'burger' END, 'salad'), \
+                timeconvert("DaysSinceEpoch", 'SECONDS', 'MINUTES') AS "foo" \
+                FROM %s \
+                LIMIT 70""".formatted(tableNameWithSuffix);
+
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
         assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }
@@ -348,17 +349,16 @@ public class TestDynamicTable
 
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         String expectedPql = """
-                SELECT datetimeconvert("DaysSinceEpoch", '1:SECONDS:EPOCH',\
-                 '1:MILLISECONDS:EPOCH', '15:MINUTES'), count(*) AS "bar",\
-                 not_equals(CASE WHEN equals("OriginCityName", 'nyc') THEN 'pizza' WHEN equals("OriginCityName", 'la') THEN 'burrito'\
-                 WHEN equals("OriginCityName", 'boston') THEN 'clam chowder' ELSE 'burger' END, 'salad'),\
-                 timeconvert("DaysSinceEpoch", 'SECONDS', 'MINUTES') AS "foo",\
-                 max("AirTime") AS "baz"\
-                 FROM %s\
-                 GROUP BY datetimeconvert("DaysSinceEpoch", '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '15:MINUTES'),\
-                 not_equals(CASE WHEN equals("OriginCityName", 'nyc') THEN 'pizza' WHEN equals("OriginCityName", 'la') THEN 'burrito' WHEN equals("OriginCityName", 'boston') THEN 'clam chowder' ELSE 'burger' END, 'salad'),\
-                 timeconvert("DaysSinceEpoch", 'SECONDS', 'MINUTES')\
-                 LIMIT 70""".formatted(tableNameWithSuffix);
+                SELECT datetimeconvert("DaysSinceEpoch", '1:SECONDS:EPOCH', \
+                '1:MILLISECONDS:EPOCH', '15:MINUTES'), count(*) AS "bar", \
+                not_equals(CASE WHEN equals("OriginCityName", 'nyc') THEN 'pizza' \
+                WHEN equals("OriginCityName", 'la') THEN 'burrito' WHEN equals("OriginCityName", 'boston') THEN 'clam chowder' ELSE 'burger' END, 'salad'), \
+                timeconvert("DaysSinceEpoch", 'SECONDS', 'MINUTES') AS "foo", max("AirTime") AS "baz" FROM %s \
+                GROUP BY datetimeconvert("DaysSinceEpoch", '1:SECONDS:EPOCH', '1:MILLISECONDS:EPOCH', '15:MINUTES'), \
+                not_equals(CASE WHEN equals("OriginCityName", 'nyc') THEN 'pizza' WHEN equals("OriginCityName", 'la') THEN 'burrito' WHEN equals("OriginCityName", 'boston') THEN 'clam chowder' ELSE 'burger' END, 'salad'), \
+                timeconvert("DaysSinceEpoch", 'SECONDS', 'MINUTES') \
+                LIMIT 70""".formatted(tableNameWithSuffix);
+
         assertThat(extractPql(dynamicTable, TupleDomain.all())).isEqualTo(expectedPql);
         assertThat(dynamicTable.tableName()).isEqualTo(tableName);
     }

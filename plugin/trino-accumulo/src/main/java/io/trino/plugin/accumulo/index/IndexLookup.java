@@ -180,13 +180,13 @@ public class IndexLookup
     {
         ImmutableListMultimap.Builder<AccumuloColumnConstraint, Range> builder = ImmutableListMultimap.builder();
         for (AccumuloColumnConstraint columnConstraint : constraints) {
-            if (columnConstraint.isIndexed()) {
-                for (Range range : getRangesFromDomain(columnConstraint.getDomain(), serializer)) {
+            if (columnConstraint.indexed()) {
+                for (Range range : getRangesFromDomain(columnConstraint.domain(), serializer)) {
                     builder.put(columnConstraint, range);
                 }
             }
             else {
-                LOG.warn("Query contains constraint on non-indexed column %s. Is it worth indexing?", columnConstraint.getName());
+                LOG.warn("Query contains constraint on non-indexed column %s. Is it worth indexing?", columnConstraint.name());
             }
         }
         return builder.build();
@@ -323,7 +323,7 @@ public class IndexLookup
                 scan.setRanges(constraintEntry.getValue());
 
                 // Fetch the column family for this specific column
-                scan.fetchColumnFamily(new Text(Indexer.getIndexColumnFamily(constraintEntry.getKey().getFamily().getBytes(UTF_8), constraintEntry.getKey().getQualifier().getBytes(UTF_8)).array()));
+                scan.fetchColumnFamily(new Text(Indexer.getIndexColumnFamily(constraintEntry.getKey().family().getBytes(UTF_8), constraintEntry.getKey().qualifier().getBytes(UTF_8)).array()));
 
                 // For each entry in the scanner
                 Text tmpQualifier = new Text();
@@ -337,7 +337,7 @@ public class IndexLookup
                     }
                 }
 
-                LOG.debug("Retrieved %d ranges for index column %s", columnRanges.size(), constraintEntry.getKey().getName());
+                LOG.debug("Retrieved %d ranges for index column %s", columnRanges.size(), constraintEntry.getKey().name());
                 scan.close();
                 return columnRanges;
             }));

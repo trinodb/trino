@@ -20,6 +20,7 @@ import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
 import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
 import io.trino.parquet.writer.repdef.RepLevelWriterProvider;
 import io.trino.parquet.writer.repdef.RepLevelWriterProviders;
+import io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter;
 import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
 import io.trino.plugin.base.io.ChunkedSliceOutput;
 import jakarta.annotation.Nullable;
@@ -28,7 +29,6 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.CompressionCodec;
@@ -75,8 +75,8 @@ public class PrimitiveColumnWriter
     private final CompressionCodec compressionCodec;
 
     private final PrimitiveValueWriter primitiveValueWriter;
-    private final ValuesWriter definitionLevelWriter;
-    private final ValuesWriter repetitionLevelWriter;
+    private final ColumnDescriptorValuesWriter definitionLevelWriter;
+    private final ColumnDescriptorValuesWriter repetitionLevelWriter;
 
     private boolean closed;
     private boolean getDataStreamsCalled;
@@ -113,8 +113,8 @@ public class PrimitiveColumnWriter
     public PrimitiveColumnWriter(
             ColumnDescriptor columnDescriptor,
             PrimitiveValueWriter primitiveValueWriter,
-            ValuesWriter definitionLevelWriter,
-            ValuesWriter repetitionLevelWriter,
+            ColumnDescriptorValuesWriter definitionLevelWriter,
+            ColumnDescriptorValuesWriter repetitionLevelWriter,
             CompressionCodec compressionCodec,
             int pageSizeThreshold,
             int pageValueCountLimit,

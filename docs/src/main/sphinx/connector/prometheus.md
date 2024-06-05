@@ -117,7 +117,6 @@ is optional and not required unless your Prometheus setup requires it.
 `prometheus.auth.http.header.name` allows you to use a custom header name for bearer token. Default value is `Authorization`.
 
 (prometheus-type-mapping)=
-
 ## Type mapping
 
 Because Trino and Prometheus each support types that the other does not, this
@@ -159,7 +158,6 @@ SELECT * FROM example.default.up;
 ```
 
 (prometheus-sql-support)=
-
 ## SQL support
 
 The connector provides {ref}`globally available <sql-globally-available>` and

@@ -270,7 +270,7 @@ public final class MetadataReader
                 && statistics.isSetMin() && statistics.isSetMax()  // the min,max fields used for UTF8 before Parquet PARQUET-1025
                 && columnStatistics.genericGetMin() == null && columnStatistics.genericGetMax() == null
                 && !CorruptStatistics.shouldIgnoreStatistics(fileCreatedBy.orElse(null), type.getPrimitiveTypeName())) {
-            tryReadOldUtf8Stats(statistics, (BinaryStatistics) columnStatistics);
+            columnStatistics = tryReadOldUtf8Stats(statistics, (BinaryStatistics) columnStatistics);
         }
 
         return columnStatistics;
@@ -294,7 +294,7 @@ public final class MetadataReader
                 .orElse(FALSE);
     }
 
-    private static void tryReadOldUtf8Stats(Statistics statistics, BinaryStatistics columnStatistics)
+    private static org.apache.parquet.column.statistics.Statistics<?> tryReadOldUtf8Stats(Statistics statistics, BinaryStatistics columnStatistics)
     {
         byte[] min = statistics.getMin();
         byte[] max = statistics.getMax();
@@ -324,7 +324,7 @@ public final class MetadataReader
             }
             if (maxGoodLength == 0) {
                 // We can return just min bound, but code downstream likely expects both are present or both are absent.
-                return;
+                return columnStatistics;
             }
 
             min = Arrays.copyOf(min, minGoodLength);
@@ -332,10 +332,12 @@ public final class MetadataReader
             max[maxGoodLength - 1]++;
         }
 
-        columnStatistics.setMinMaxFromBytes(min, max);
-        if (!columnStatistics.isNumNullsSet() && statistics.isSetNull_count()) {
-            columnStatistics.setNumNulls(statistics.getNull_count());
-        }
+        return org.apache.parquet.column.statistics.Statistics
+                .getBuilderForReading(columnStatistics.type())
+                       .withMin(min)
+                       .withMax(max)
+                       .withNumNulls(!columnStatistics.isNumNullsSet() && statistics.isSetNull_count() ? statistics.getNull_count() : columnStatistics.getNumNulls())
+                       .build();
     }
 
     private static boolean isAscii(byte b)

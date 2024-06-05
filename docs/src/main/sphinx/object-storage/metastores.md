@@ -10,7 +10,6 @@ partition projection metadata or implement first class support for Avro tables.
 These requirements are discussed later in this topic.
 
 (general-metastore-properties)=
-
 ## General metastore configuration properties
 
 The following table describes general metastore configuration properties, most
@@ -45,7 +44,8 @@ are also available. They are discussed later in this topic.
     Iceberg connector to configures different Iceberg metadata catalogs.
 
     You must set this property in all Iceberg catalog property files. Valid
-    values are `HIVE_METASTORE`, `GLUE`, `JDBC`, `REST`, and `NESSIE`.
+    values are `hive_metastore`, `glue`, `jdbc`, `rest`, `nessie`, and
+    `snowflake`.
   -
 * - `hive.metastore-cache.cache-partitions`
   - Enable caching for partition metadata. You can disable caching to avoid
@@ -328,7 +328,6 @@ allowed to impersonate the current Trino user, as discussed in the section
 Keytab files must be distributed to every node in the Trino cluster.
 
 (hive-glue-metastore)=
-
 ## AWS Glue catalog configuration properties
 
 In order to use an AWS Glue catalog, you must configure your catalog file as
@@ -417,7 +416,6 @@ properties:
 :::
 
 (iceberg-glue-catalog)=
-
 ### Iceberg-specific Glue catalog configuration properties
 
 When using the Glue catalog, the Iceberg connector supports the same
@@ -450,7 +448,6 @@ Iceberg-specific REST, Nessie or JDBC metadata catalogs, as discussed in this
 section.
 
 (iceberg-rest-catalog)=
-
 ### REST catalog
 
 In order to use the Iceberg REST catalog, configure the catalog type
@@ -493,11 +490,12 @@ iceberg.catalog.type=rest
 iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
 ```
 
-The REST catalog does not support [view management](sql-view-management) or
-[materialized view management](sql-materialized-view-management).
+The REST catalog supports [view management](sql-view-management) 
+using the [Iceberg View specification](https://iceberg.apache.org/view-spec/).
+
+The REST catalog does not support [materialized view management](sql-materialized-view-management).
 
 (iceberg-jdbc-catalog)=
-
 ### JDBC catalog
 
 The Iceberg JDBC catalog is supported for the Iceberg connector.  At a minimum,
@@ -535,7 +533,6 @@ The JDBC catalog does not support [view management](sql-view-management) or
 [materialized view management](sql-materialized-view-management).
 
 (iceberg-nessie-catalog)=
-
 ### Nessie catalog
 
 In order to use a Nessie catalog, configure the catalog type with
@@ -584,7 +581,6 @@ The Nessie catalog does not support [view management](sql-view-management) or
 [materialized view management](sql-materialized-view-management).
 
 (iceberg-snowflake-catalog)=
-
 ### Snowflake catalog
 
 In order to use a Snowflake catalog, configure the catalog type with
@@ -619,8 +615,22 @@ iceberg.snowflake-catalog.password=secret
 iceberg.snowflake-catalog.database=db
 ```
 
-(partition-projection)=
+When using the Snowflake catalog, data management tasks such as creating tables,
+must be performed in Snowflake because using the catalog from external systems
+like Trino only supports `SELECT` queries and other [read operations](sql-read-operations).
 
+Additionally, the [Snowflake-created Iceberg
+tables](https://docs.snowflake.com/en/sql-reference/sql/create-iceberg-table-snowflake)
+do not expose partitioning information, which prevents efficient parallel reads
+and therefore can have significant negative performance implications.
+
+The Snowflake catalog does not support [view management](sql-view-management) or
+[materialized view management](sql-materialized-view-management).
+
+Further information is available in the [Snowflake catalog
+documentation](https://docs.snowflake.com/en/user-guide/tables-iceberg-catalog).
+
+(partition-projection)=
 ## Access tables with Athena partition projection metadata
 
 [Partition projection](https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html)

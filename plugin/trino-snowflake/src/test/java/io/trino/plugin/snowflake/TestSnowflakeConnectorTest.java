@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.snowflake;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -31,7 +30,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.nullToEmpty;
-import static io.trino.plugin.snowflake.SnowflakeQueryRunner.createSnowflakeQueryRunner;
 import static io.trino.plugin.snowflake.TestingSnowflakeServer.TEST_SCHEMA;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -55,7 +53,9 @@ public class TestSnowflakeConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createSnowflakeQueryRunner(ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return SnowflakeQueryRunner.builder()
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Override
@@ -376,6 +376,14 @@ public class TestSnowflakeConnectorTest
     @Disabled
     @Override
     public void testSelectInformationSchemaColumns()
+    {
+        // TODO https://github.com/trinodb/trino/issues/21157 Enable this test after fixing the timeout issue
+    }
+
+    @Test
+    @Disabled
+    @Override
+    public void testBulkColumnListingOptions()
     {
         // TODO https://github.com/trinodb/trino/issues/21157 Enable this test after fixing the timeout issue
     }

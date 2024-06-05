@@ -13,9 +13,10 @@
  */
 package io.trino.plugin.pinot;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
-import io.trino.Session;
 import io.trino.plugin.pinot.client.PinotHostMapper;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -24,13 +25,13 @@ import io.trino.testing.kafka.TestingKafka;
 import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.pinot.PinotTpchTables.createTpchTables;
-import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
@@ -43,49 +44,84 @@ public final class PinotQueryRunner
 
     public static final String PINOT_CATALOG = "pinot";
 
-    // TODO convert to builder
-    public static QueryRunner createPinotQueryRunner(
-            TestingKafka kafka,
-            TestingPinotCluster pinot,
-            Map<String, String> extraPinotProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
+    public static Builder builder()
     {
-        return createPinotQueryRunner(kafka, pinot, ImmutableMap.of(), extraPinotProperties, tables);
+        return new Builder();
     }
 
-    // TODO convert to builder
-    private static QueryRunner createPinotQueryRunner(
-            TestingKafka kafka,
-            TestingPinotCluster pinot,
-            Map<String, String> coordinatorProperties,
-            Map<String, String> extraPinotProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
+    public static class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setCoordinatorProperties(coordinatorProperties)
-                .build();
+        private TestingKafka kafka;
+        private TestingPinotCluster pinot;
+        private final ImmutableMap.Builder<String, String> pinotProperties = ImmutableMap.builder();
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-        queryRunner.installPlugin(new PinotPlugin(Optional.of(binder -> newOptionalBinder(binder, PinotHostMapper.class).setBinding()
-                .toInstance(new TestingPinotHostMapper(pinot.getBrokerHostAndPort(), pinot.getServerHostAndPort(), pinot.getServerGrpcHostAndPort())))));
-        extraPinotProperties = new HashMap<>(ImmutableMap.copyOf(extraPinotProperties));
-        extraPinotProperties.put("pinot.controller-urls", pinot.getControllerConnectString());
-        queryRunner.createCatalog(PINOT_CATALOG, "pinot", extraPinotProperties);
+        private Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog(PINOT_CATALOG)
+                    .setSchema("default")
+                    .build());
+        }
 
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
-        createTpchTables(kafka, pinot, queryRunner, tables);
+        @CanIgnoreReturnValue
+        public Builder setKafka(TestingKafka kafka)
+        {
+            this.kafka = kafka;
+            return this;
+        }
 
-        return queryRunner;
-    }
+        @CanIgnoreReturnValue
+        public Builder setPinot(TestingPinotCluster pinot)
+        {
+            this.pinot = pinot;
+            return this;
+        }
 
-    private static Session createSession()
-    {
-        return testSessionBuilder()
-                .setCatalog(PINOT_CATALOG)
-                .setSchema("default")
-                .build();
+        @CanIgnoreReturnValue
+        public Builder addPinotProperties(Map<String, String> pinotProperties)
+        {
+            this.pinotProperties.putAll(pinotProperties);
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder addPinotProperty(String key, String value)
+        {
+            pinotProperties.put(key, value);
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder setInitialTables(List<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(initialTables);
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new PinotPlugin(Optional.of(binder -> newOptionalBinder(binder, PinotHostMapper.class).setBinding()
+                        .toInstance(new TestingPinotHostMapper(pinot.getBrokerHostAndPort(), pinot.getServerHostAndPort(), pinot.getServerGrpcHostAndPort())))));
+                Map<String, String> extraPinotProperties = new HashMap<>(pinotProperties.buildOrThrow());
+                extraPinotProperties.put("pinot.controller-urls", pinot.getControllerConnectString());
+                queryRunner.createCatalog(PINOT_CATALOG, "pinot", extraPinotProperties);
+
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+                createTpchTables(kafka, pinot, queryRunner, initialTables);
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+            return queryRunner;
+        }
     }
 
     public static void main(String[] args)
@@ -93,14 +129,16 @@ public final class PinotQueryRunner
     {
         TestingKafka kafka = TestingKafka.createWithSchemaRegistry();
         kafka.start();
-        TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork(), false, PINOT_LATEST_IMAGE_NAME);
+        TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork(), false);
         pinot.start();
-        QueryRunner queryRunner = createPinotQueryRunner(
-                kafka,
-                pinot,
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of("pinot.segments-per-split", "10"),
-                Set.of(REGION, NATION, ORDERS, CUSTOMER));
+        QueryRunner queryRunner = builder()
+                .setKafka(kafka)
+                .setPinot(pinot)
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .addPinotProperty("pinot.segments-per-split", "10")
+                .setInitialTables(List.of(REGION, NATION, ORDERS, CUSTOMER))
+                .build();
+
         Logger log = Logger.get(PinotQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

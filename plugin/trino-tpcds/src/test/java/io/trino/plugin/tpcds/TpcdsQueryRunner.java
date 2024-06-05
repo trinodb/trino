@@ -13,56 +13,57 @@
  */
 package io.trino.plugin.tpcds;
 
-import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.trino.Session;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 
-import java.util.Map;
-
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class TpcdsQueryRunner
 {
     private TpcdsQueryRunner() {}
 
-    // TODO convert to builder
-    public static QueryRunner createQueryRunner()
-            throws Exception
+    public static Builder builder()
     {
-        return createQueryRunner(ImmutableMap.of());
+        return new Builder();
     }
 
-    // TODO convert to builder
-    private static QueryRunner createQueryRunner(Map<String, String> coordinatorProperties)
-            throws Exception
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        Session session = testSessionBuilder()
-                .setSource("test")
-                .setCatalog("tpcds")
-                .setSchema("sf1")
-                .build();
-
-        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setCoordinatorProperties(coordinatorProperties)
-                .build();
-
-        try {
-            queryRunner.installPlugin(new TpcdsPlugin());
-            queryRunner.createCatalog("tpcds", "tpcds");
-            return queryRunner;
+        private Builder()
+        {
+            super(testSessionBuilder()
+                    .setSource("test")
+                    .setCatalog("tpcds")
+                    .setSchema("sf1")
+                    .build());
         }
-        catch (Exception e) {
-            queryRunner.close();
-            throw e;
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpcdsPlugin());
+                queryRunner.createCatalog("tpcds", "tpcds");
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
         }
     }
 
     public static void main(String[] args)
             throws Exception
     {
-        QueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        QueryRunner queryRunner = builder()
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .build();
         Logger log = Logger.get(TpcdsQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

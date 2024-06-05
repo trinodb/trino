@@ -14,17 +14,16 @@
 package io.trino.plugin.hive.metastore.file;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.metastore.AbstractTestHiveMetastore;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -36,62 +35,66 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.hive.formats.HiveClassNames.HUDI_PARQUET_INPUT_FORMAT;
 import static io.trino.hive.formats.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
-import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@TestInstance(PER_CLASS)
-@Execution(CONCURRENT)
-public class TestFileHiveMetastore
+final class TestFileHiveMetastore
+        extends AbstractTestHiveMetastore
 {
-    private Path tmpDir;
-    private FileHiveMetastore metastore;
+    private final Path tempDir;
+    private final HiveMetastore metastore;
 
-    @BeforeAll
-    public void setUp()
+    TestFileHiveMetastore()
             throws IOException
     {
-        tmpDir = createTempDirectory(getClass().getSimpleName());
+        tempDir = createTempDirectory("test");
+        LocalFileSystemFactory fileSystemFactory = new LocalFileSystemFactory(tempDir);
 
         metastore = new FileHiveMetastore(
                 new NodeVersion("testversion"),
-                HDFS_FILE_SYSTEM_FACTORY,
-                new HiveMetastoreConfig().isHideDeltaLakeTables(),
+                fileSystemFactory,
+                false,
                 new FileHiveMetastoreConfig()
-                        .setCatalogDirectory(tmpDir.toString())
+                        .setCatalogDirectory("local:///")
+                        .setMetastoreUser("test")
                         .setDisableLocationChecks(true));
-
-        metastore.createDatabase(Database.builder()
-                .setDatabaseName("default")
-                .setOwnerName(Optional.of("test"))
-                .setOwnerType(Optional.of(USER))
-                .build());
     }
 
     @AfterAll
-    public void tearDown()
+    void tearDown()
             throws IOException
     {
-        deleteRecursively(tmpDir, ALLOW_INSECURE);
-        metastore = null;
-        tmpDir = null;
+        deleteRecursively(tempDir, ALLOW_INSECURE);
+    }
+
+    @Override
+    protected HiveMetastore getMetastore()
+    {
+        return metastore;
     }
 
     @Test
     public void testPreserveHudiInputFormat()
     {
+        String databaseName = "test_database_" + randomNameSuffix();
+        Database.Builder database = Database.builder()
+                .setDatabaseName(databaseName)
+                .setParameters(Map.of(TRINO_QUERY_ID_NAME, "query_id"))
+                .setOwnerName(Optional.empty())
+                .setOwnerType(Optional.empty());
+        getMetastore().createDatabase(database.build());
+
         StorageFormat storageFormat = StorageFormat.create(PARQUET_HIVE_SERDE_CLASS, HUDI_PARQUET_INPUT_FORMAT, MAPRED_PARQUET_OUTPUT_FORMAT_CLASS);
 
+        String tableName = "some_table_name" + randomNameSuffix();
         Table table = Table.builder()
-                .setDatabaseName("default")
-                .setTableName("some_table_name" + randomNameSuffix())
+                .setDatabaseName(databaseName)
+                .setTableName(tableName)
                 .setTableType(EXTERNAL_TABLE.name())
                 .setOwner(Optional.of("public"))
                 .addDataColumn(new Column("foo", HIVE_INT, Optional.empty(), Map.of()))
@@ -103,11 +106,13 @@ public class TestFileHiveMetastore
 
         metastore.createTable(table, NO_PRIVILEGES);
 
-        Table saved = metastore.getTable(table.getDatabaseName(), table.getTableName()).orElseThrow();
+        Table saved = metastore.getTable(databaseName, tableName).orElseThrow();
 
         assertThat(saved.getStorage())
                 .isEqualTo(table.getStorage());
 
-        metastore.dropTable(table.getDatabaseName(), table.getTableName(), false);
+        metastore.dropTable(databaseName, tableName, false);
+
+        getMetastore().dropDatabase(databaseName, false);
     }
 }

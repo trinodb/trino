@@ -34,7 +34,6 @@ public class GlueMetastoreStats
     private final AwsApiCallStats getPartitionNames = new AwsApiCallStats();
     private final AwsApiCallStats getPartitions = new AwsApiCallStats();
     private final AwsApiCallStats getPartition = new AwsApiCallStats();
-    private final AwsApiCallStats getPartitionByName = new AwsApiCallStats();
     private final AwsApiCallStats createPartitions = new AwsApiCallStats();
     private final AwsApiCallStats deletePartition = new AwsApiCallStats();
     private final AwsApiCallStats updatePartition = new AwsApiCallStats();
@@ -143,13 +142,6 @@ public class GlueMetastoreStats
     public AwsApiCallStats getGetPartition()
     {
         return getPartition;
-    }
-
-    @Managed
-    @Nested
-    public AwsApiCallStats getGetPartitionByName()
-    {
-        return getPartitionByName;
     }
 
     @Managed

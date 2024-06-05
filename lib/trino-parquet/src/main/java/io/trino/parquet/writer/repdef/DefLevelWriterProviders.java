@@ -13,13 +13,13 @@
  */
 package io.trino.parquet.writer.repdef;
 
+import io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.RowBlock;
-import org.apache.parquet.column.values.ValuesWriter;
 
 import java.util.Optional;
 
@@ -65,7 +65,7 @@ public class DefLevelWriterProviders
         }
 
         @Override
-        public DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriter, ValuesWriter encoder)
+        public DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriter, ColumnDescriptorValuesWriter encoder)
         {
             checkArgument(nestedWriter.isEmpty(), "nestedWriter should be empty for primitive definition level writer");
             return new DefinitionLevelWriter()
@@ -84,9 +84,7 @@ public class DefLevelWriterProviders
                     checkValidPosition(offset, positionsCount, block.getPositionCount());
                     int nonNullsCount = 0;
                     if (!block.mayHaveNull()) {
-                        for (int position = offset; position < offset + positionsCount; position++) {
-                            encoder.writeInteger(maxDefinitionLevel);
-                        }
+                        encoder.writeRepeatInteger(maxDefinitionLevel, positionsCount);
                         nonNullsCount = positionsCount;
                     }
                     else {
@@ -117,7 +115,7 @@ public class DefLevelWriterProviders
         }
 
         @Override
-        public DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriterOptional, ValuesWriter encoder)
+        public DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriterOptional, ColumnDescriptorValuesWriter encoder)
         {
             checkArgument(nestedWriterOptional.isPresent(), "nestedWriter should be present for column row definition level writer");
             return new DefinitionLevelWriter()
@@ -180,7 +178,7 @@ public class DefLevelWriterProviders
         }
 
         @Override
-        public DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriterOptional, ValuesWriter encoder)
+        public DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriterOptional, ColumnDescriptorValuesWriter encoder)
         {
             checkArgument(nestedWriterOptional.isPresent(), "nestedWriter should be present for column map definition level writer");
             return new DefinitionLevelWriter()
@@ -265,7 +263,7 @@ public class DefLevelWriterProviders
         }
 
         @Override
-        public DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriterOptional, ValuesWriter encoder)
+        public DefinitionLevelWriter getDefinitionLevelWriter(Optional<DefinitionLevelWriter> nestedWriterOptional, ColumnDescriptorValuesWriter encoder)
         {
             checkArgument(nestedWriterOptional.isPresent(), "nestedWriter should be present for column map definition level writer");
             return new DefinitionLevelWriter()

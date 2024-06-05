@@ -670,7 +670,7 @@ public class ArrayType
 
         if (array instanceof DictionaryBlock dictionaryBlock) {
             ValueBlock valuesBlock = dictionaryBlock.getDictionary();
-            for (int position = 0; position < valuesBlock.getPositionCount(); position++) {
+            for (int position = 0; position < dictionaryBlock.getPositionCount(); position++) {
                 int index = dictionaryBlock.getId(position);
                 if (valuesBlock.isNull(index)) {
                     return true;

@@ -45,14 +45,12 @@ DROP TABLE example.default.nation;
 ```
 
 (memory-type-mapping)=
-
 ## Type mapping
 
 Trino supports all data types used within the Memory schemas so no mapping is
 required.
 
 (memory-sql-support)=
-
 ## SQL support
 
 The connector provides read and write access to temporary data and metadata
@@ -76,7 +74,6 @@ immediately. It is instead released after the next write operation to the
 catalog.
 
 (memory-dynamic-filtering)=
-
 ## Dynamic filtering
 
 The Memory connector supports the {doc}`dynamic filtering </admin/dynamic-filtering>` optimization.

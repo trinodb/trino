@@ -47,7 +47,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.sql.tree.IntervalLiteral.IntervalField;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
-import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -182,29 +181,6 @@ public final class DateTimeUtils
     {
         DateTime dateTime = TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).withOffsetParsed().parseDateTime(timestampWithTimeZone);
         return packDateTimeWithZone(dateTime);
-    }
-
-    private static final DateTimeFormatter TIME_FORMATTER;
-
-    static {
-        DateTimeParser[] timeWithoutTimeZoneParser = {
-                DateTimeFormat.forPattern("H:m").getParser(),
-                DateTimeFormat.forPattern("H:m:s").getParser(),
-                DateTimeFormat.forPattern("H:m:s.SSS").getParser()};
-        DateTimePrinter timeWithoutTimeZonePrinter = DateTimeFormat.forPattern("HH:mm:ss.SSS").getPrinter();
-        TIME_FORMATTER = new DateTimeFormatterBuilder().append(timeWithoutTimeZonePrinter, timeWithoutTimeZoneParser).toFormatter().withZoneUTC();
-    }
-
-    /**
-     * Parse a string (without a zone) as a value of TIME type, interpreted in {@code timeZoneKey} zone.
-     *
-     * @return stack representation of legacy TIME type
-     * @deprecated applicable in legacy timestamp semantics only
-     */
-    @Deprecated
-    public static long parseLegacyTime(TimeZoneKey timeZoneKey, String value)
-    {
-        return TIME_FORMATTER.withZone(getDateTimeZone(timeZoneKey)).parseMillis(value);
     }
 
     private static final int YEAR_FIELD = 0;

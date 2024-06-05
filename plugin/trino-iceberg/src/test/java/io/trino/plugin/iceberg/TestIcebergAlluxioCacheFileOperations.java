@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.opentelemetry.api.common.Attributes;
-import io.trino.plugin.iceberg.TestIcebergFileOperations.FileType;
+import io.trino.plugin.iceberg.util.FileOperationUtils;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -34,10 +34,10 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.DATA;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.MANIFEST;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.METADATA_JSON;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.SNAPSHOT;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DATA;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.MANIFEST;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.SNAPSHOT;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
@@ -152,12 +152,12 @@ public class TestIcebergAlluxioCacheFileOperations
                 .collect(toCollection(HashMultiset::create));
     }
 
-    private record CacheOperation(String operationName, FileType fileType)
+    private record CacheOperation(String operationName, FileOperationUtils.FileType fileType)
     {
         public static CacheOperation create(String operationName, Attributes attributes)
         {
             String path = requireNonNull(attributes.get(CACHE_FILE_LOCATION));
-            return new CacheOperation(operationName, FileType.fromFilePath(path));
+            return new CacheOperation(operationName, FileOperationUtils.FileType.fromFilePath(path));
         }
     }
 

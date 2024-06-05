@@ -46,6 +46,7 @@ import java.util.EnumSet;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.google.inject.multibindings.ProvidesIntoOptional.Type.DEFAULT;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -96,6 +97,12 @@ public class GlueMetastoreModule
         boolean enabled = nodeManager.getCurrentNode().isCoordinator() &&
                 (metadataCacheTtl.toMillis() > 0 || statsCacheTtl.toMillis() > 0);
 
+        checkState(config.getMetastoreRefreshInterval().isEmpty(), "Metastore refresh interval is not supported with Glue v2");
+        checkState(config.isPartitionCacheEnabled(), "Disabling partitions cache is not supported with Glue v2");
+        checkState(config.isCacheMissing(), "Disabling cache missing is not supported with Glue v2");
+        checkState(config.isCacheMissingPartitions(), "Disabling cache missing partitions is not supported with Glue v2");
+        checkState(config.isCacheMissingStats(), "Disabling cache missing stats is not supported with Glue v2");
+
         if (enabled) {
             return new InMemoryGlueCache(metadataCacheTtl, statsCacheTtl, config.getMetastoreCacheMaximumSize());
         }
@@ -137,6 +144,7 @@ public class GlueMetastoreModule
             glue.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
                     .refreshRequest(request -> request
                             .roleArn(config.getIamRole().get())
+                            .roleSessionName("trino-session")
                             .externalId(config.getExternalId().orElse(null)))
                     .stsClient(sts.build())
                     .asyncCredentialUpdateEnabled(true)

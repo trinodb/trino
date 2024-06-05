@@ -79,7 +79,7 @@ public class AccumuloRecordSet
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (AccumuloColumnHandle column : columnHandles) {
-            types.add(column.getType());
+            types.add(column.type());
         }
         this.columnTypes = types.build();
 

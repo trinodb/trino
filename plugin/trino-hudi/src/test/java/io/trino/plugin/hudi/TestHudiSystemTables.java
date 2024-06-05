@@ -13,13 +13,10 @@
  */
 package io.trino.plugin.hudi;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
-
-import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
 
 public class TestHudiSystemTables
         extends AbstractTestQueryFramework
@@ -28,7 +25,9 @@ public class TestHudiSystemTables
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createHudiQueryRunner(ImmutableMap.of(), new ResourceHudiTablesInitializer());
+        return HudiQueryRunner.builder()
+                .setDataLoader(new ResourceHudiTablesInitializer())
+                .build();
     }
 
     @Test

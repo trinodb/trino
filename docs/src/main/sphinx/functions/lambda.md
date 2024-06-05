@@ -1,5 +1,4 @@
 (lambda-expressions)=
-
 # Lambda expressions
 
 Lambda expressions are anonymous functions which are passed as

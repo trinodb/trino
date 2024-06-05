@@ -13,7 +13,6 @@ Using {doc}`TLS <tls>` and {doc}`a configured shared secret
 ## Environment configuration
 
 (server-kerberos-services)=
-
 ### Kerberos services
 
 You will need a Kerberos {abbr}`KDC (Key Distribution Center)` running on a
@@ -23,7 +22,6 @@ used with Kerberos-enabled services. KDCs typically run on port 88, which is
 the IANA-assigned port for Kerberos.
 
 (server-kerberos-configuration)=
-
 ### MIT Kerberos configuration
 
 Kerberos needs to be configured on the Trino coordinator. At a minimum, there needs
@@ -49,7 +47,6 @@ different implementation of the Kerberos protocol, you will need to adapt the
 configuration to your environment.
 
 (server-kerberos-principals)=
-
 ### Kerberos principals and keytab files
 
 The Trino coordinator needs a Kerberos principal, as do users who are going to
@@ -147,7 +144,6 @@ implementation being configured. See {doc}`/develop/system-access-control` for
 details.
 
 (coordinator-troubleshooting)=
-
 ## User mapping
 
 After authenticating with Kerberos, the Trino server receives the user's
@@ -191,7 +187,6 @@ Verify the password for a keystore file and view its contents using
 {ref}`troubleshooting-keystore`.
 
 (kerberos-debug)=
-
 ### Additional Kerberos debugging information
 
 You can enable additional Kerberos debugging information for the Trino
@@ -219,7 +214,6 @@ flag, and [Troubleshooting](https://docs.oracle.com/en/java/javase/11/security/t
 more details about the Java GSS-API and Kerberos issues.
 
 (server-additional-resources)=
-
 ### Additional resources
 
 [Common Kerberos Error Messages (A-M)](http://docs.oracle.com/cd/E19253-01/816-4557/trouble-6/index.html)

@@ -554,7 +554,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void finishMerge(Session session, MergeHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public void finishMerge(Session session, MergeHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         throw new UnsupportedOperationException();
     }
@@ -585,6 +585,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isView(Session session, QualifiedObjectName viewName)
     {
         throw new UnsupportedOperationException();
     }

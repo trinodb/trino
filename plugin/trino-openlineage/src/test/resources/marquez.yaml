@@ -1,0 +1,30 @@
+server:
+    applicationConnectors:
+        - type: http
+          port: ${MARQUEZ_PORT:-5000}
+          httpCompliance: RFC7230_LEGACY
+    adminConnectors:
+        - type: http
+          port: ${MARQUEZ_ADMIN_PORT:-5001}
+
+db:
+    driverClass: org.postgresql.Driver
+    url: ${POSTGRES_URL:-jdbc:postgresql://postgres:5432/marquez}
+    user: ${POSTGRESQL_USER:-marquez}
+    password: ${POSTGRESQL_PASSWORD:-marquez}
+
+migrateOnStartup: true
+
+graphql:
+    enabled: true
+
+logging:
+    level: INFO
+    appenders:
+        - type: console
+
+tags:
+    - name: PII
+      description: Personally identifiable information
+    - name: SENSITIVE
+      description: Contains sensitive information

@@ -9253,6 +9253,13 @@ public abstract class BaseHiveConnectorTest
         }
     }
 
+    @Test
+    public void testFlushMetadataDisabled()
+    {
+        // Flushing metadata cache does not fail even if cache is disabled
+        assertQuerySucceeds("CALL system.flush_metadata_cache()");
+    }
+
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
 
     private Session getParallelWriteSession(Session baseSession)

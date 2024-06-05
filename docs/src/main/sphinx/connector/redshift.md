@@ -43,7 +43,6 @@ use {doc}`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
 (redshift-tls)=
-
 ### Connection security
 
 If you have TLS configured with a globally-trusted certificate installed on your
@@ -129,14 +128,12 @@ If you used a different name for your catalog properties file, use that catalog
 name instead of `example` in the above examples.
 
 (redshift-type-mapping)=
-
 ## Type mapping
 
 ```{include} jdbc-type-mapping.fragment
 ```
 
 (redshift-sql-support)=
-
 ## SQL support
 
 The connector provides read access and write access to data and metadata in
@@ -163,7 +160,6 @@ statements, the connector supports the following features:
 ```
 
 (redshift-fte-support)=
-
 ## Fault-tolerant execution support
 
 The connector supports {doc}`/admin/fault-tolerant-execution` of query
@@ -175,7 +171,6 @@ The connector provides specific {doc}`table functions </functions/table>` to
 access Redshift.
 
 (redshift-query-function)=
-
 ### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It

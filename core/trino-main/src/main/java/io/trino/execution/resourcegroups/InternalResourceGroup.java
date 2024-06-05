@@ -104,7 +104,7 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private SchedulingPolicy schedulingPolicy = FAIR;
     @GuardedBy("root")
-    private boolean jmxExport = true;
+    private boolean jmxExport;
 
     // Live data structures
     // ====================

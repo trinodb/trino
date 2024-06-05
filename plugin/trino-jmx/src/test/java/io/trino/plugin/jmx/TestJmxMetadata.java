@@ -70,7 +70,7 @@ public class TestJmxMetadata
     @Test
     public void testGetTableHandle()
     {
-        JmxTableHandle handle = metadata.getTableHandle(SESSION, RUNTIME_TABLE);
+        JmxTableHandle handle = metadata.getTableHandle(SESSION, RUNTIME_TABLE, Optional.empty(), Optional.empty());
         assertThat(handle.objectNames()).isEqualTo(ImmutableList.of(RUNTIME_OBJECT));
 
         List<JmxColumnHandle> columns = handle.columnHandles();
@@ -82,7 +82,7 @@ public class TestJmxMetadata
     @Test
     public void testGetTimeTableHandle()
     {
-        JmxTableHandle handle = metadata.getTableHandle(SESSION, RUNTIME_HISTORY_TABLE);
+        JmxTableHandle handle = metadata.getTableHandle(SESSION, RUNTIME_HISTORY_TABLE, Optional.empty(), Optional.empty());
         assertThat(handle.objectNames()).isEqualTo(ImmutableList.of(RUNTIME_OBJECT));
 
         List<JmxColumnHandle> columns = handle.columnHandles();
@@ -95,7 +95,7 @@ public class TestJmxMetadata
     @Test
     public void testGetCumulativeTableHandle()
     {
-        JmxTableHandle handle = metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "java.lang:*"));
+        JmxTableHandle handle = metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "java.lang:*"), Optional.empty(), Optional.empty());
         assertThat(handle.objectNames()).contains(RUNTIME_OBJECT);
         assertThat(handle.objectNames()).hasSizeGreaterThan(1);
 
@@ -105,16 +105,16 @@ public class TestJmxMetadata
         assertThat(columns).contains(new JmxColumnHandle("Name", createUnboundedVarcharType()));
         assertThat(columns).contains(new JmxColumnHandle("StartTime", BIGINT));
 
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "*java.lang:type=Runtime*")).objectNames()).contains(RUNTIME_OBJECT);
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "java.lang:*=Runtime")).objectNames()).contains(RUNTIME_OBJECT);
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "*")).objectNames()).contains(RUNTIME_OBJECT);
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "*:*")).objectNames()).contains(RUNTIME_OBJECT);
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "*java.lang:type=Runtime*"), Optional.empty(), Optional.empty()).objectNames()).contains(RUNTIME_OBJECT);
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "java.lang:*=Runtime"), Optional.empty(), Optional.empty()).objectNames()).contains(RUNTIME_OBJECT);
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "*"), Optional.empty(), Optional.empty()).objectNames()).contains(RUNTIME_OBJECT);
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "*:*"), Optional.empty(), Optional.empty()).objectNames()).contains(RUNTIME_OBJECT);
     }
 
     @Test
     public void testGetCumulativeTableHandleForHistorySchema()
     {
-        JmxTableHandle handle = metadata.getTableHandle(SESSION, new SchemaTableName(HISTORY_SCHEMA_NAME, PATTERN));
+        JmxTableHandle handle = metadata.getTableHandle(SESSION, new SchemaTableName(HISTORY_SCHEMA_NAME, PATTERN), Optional.empty(), Optional.empty());
         assertThat(handle.objectNames()).contains(RUNTIME_OBJECT);
         assertThat(handle.objectNames()).hasSizeGreaterThan(1);
 
@@ -125,16 +125,16 @@ public class TestJmxMetadata
         assertThat(columns).contains(new JmxColumnHandle("Name", createUnboundedVarcharType()));
         assertThat(columns).contains(new JmxColumnHandle("StartTime", BIGINT));
 
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(HISTORY_SCHEMA_NAME, "*java.lang:type=Runtime*")).objectNames()).contains(RUNTIME_OBJECT);
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(HISTORY_SCHEMA_NAME, "java.lang:*=Runtime")).objectNames()).contains(RUNTIME_OBJECT);
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(HISTORY_SCHEMA_NAME, "*")).objectNames()).contains(RUNTIME_OBJECT);
-        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(HISTORY_SCHEMA_NAME, "*:*")).objectNames()).contains(RUNTIME_OBJECT);
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(HISTORY_SCHEMA_NAME, "*java.lang:type=Runtime*"), Optional.empty(), Optional.empty()).objectNames()).contains(RUNTIME_OBJECT);
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(HISTORY_SCHEMA_NAME, "java.lang:*=Runtime"), Optional.empty(), Optional.empty()).objectNames()).contains(RUNTIME_OBJECT);
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(HISTORY_SCHEMA_NAME, "*"), Optional.empty(), Optional.empty()).objectNames()).contains(RUNTIME_OBJECT);
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName(HISTORY_SCHEMA_NAME, "*:*"), Optional.empty(), Optional.empty()).objectNames()).contains(RUNTIME_OBJECT);
     }
 
     @Test
     public void testApplyFilterWithoutConstraint()
     {
-        JmxTableHandle handle = metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "java.lang:*"));
+        JmxTableHandle handle = metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "java.lang:*"), Optional.empty(), Optional.empty());
         Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = metadata.applyFilter(SESSION, handle, new Constraint(TupleDomain.all()));
 
         assertThat(result).isNotPresent();
@@ -143,7 +143,7 @@ public class TestJmxMetadata
     @Test
     public void testApplyFilterWithConstraint()
     {
-        JmxTableHandle handle = metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "java.lang:*"));
+        JmxTableHandle handle = metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "java.lang:*"), Optional.empty(), Optional.empty());
 
         JmxColumnHandle nodeColumnHandle = new JmxColumnHandle("node", createUnboundedVarcharType());
         NullableValue nodeColumnValue = NullableValue.of(createUnboundedVarcharType(), utf8Slice(localNode.getNodeIdentifier()));
@@ -165,7 +165,7 @@ public class TestJmxMetadata
     @Test
     public void testApplyFilterWithSameConstraint()
     {
-        JmxTableHandle handle = metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "java.lang:*"));
+        JmxTableHandle handle = metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "java.lang:*"), Optional.empty(), Optional.empty());
 
         JmxColumnHandle columnHandle = new JmxColumnHandle("node", createUnboundedVarcharType());
         TupleDomain<ColumnHandle> nodeTupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(columnHandle, NullableValue.of(createUnboundedVarcharType(), utf8Slice(localNode.getNodeIdentifier()))));

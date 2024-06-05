@@ -13,56 +13,15 @@
  */
 package io.trino.plugin.atop;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 
-import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class AtopColumnHandle
+public record AtopColumnHandle(String name)
         implements ColumnHandle
 {
-    private final String name;
-
-    @JsonCreator
-    public AtopColumnHandle(@JsonProperty("name") String name)
+    public AtopColumnHandle
     {
-        this.name = requireNonNull(name, "name is null");
-    }
-
-    @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(name);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        AtopColumnHandle other = (AtopColumnHandle) obj;
-        return Objects.equals(this.name, other.name);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("name", name)
-                .toString();
+        requireNonNull(name, "name is null");
     }
 }

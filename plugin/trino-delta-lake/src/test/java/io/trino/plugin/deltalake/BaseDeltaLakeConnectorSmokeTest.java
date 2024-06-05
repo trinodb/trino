@@ -292,14 +292,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     protected abstract String bucketUrl();
 
     @Test
-    public void testCharTypeIsNotSupported()
-    {
-        String tableName = "test_char_type_not_supported" + randomNameSuffix();
-        assertQueryFails("CREATE TABLE " + tableName + " (a int, b CHAR(5)) WITH (location = '" + getLocationForTable(bucketName, tableName) + "')",
-                "Unsupported type: char\\(5\\)");
-    }
-
-    @Test
     public void testCreateTableInNonexistentSchemaFails()
     {
         String tableName = "test_create_table_in_nonexistent_schema_" + randomNameSuffix();
@@ -1444,6 +1436,49 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         "('col', null, 1.0, 0.0, null, 1, 1)," +
                         "('unsupported', null, 1.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 1.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateOrReplaceCheckpointing()
+    {
+        String tableName = "test_create_or_replace_checkpointing_" + randomNameSuffix();
+        assertUpdate(
+                format("CREATE OR REPLACE TABLE %s (a_number, a_string) " +
+                                " WITH (location = '%s', " +
+                                "       partitioned_by = ARRAY['a_number']) " +
+                                " AS VALUES (1, 'ala')",
+                        tableName,
+                        getLocationForTable(bucketName, tableName)),
+                1);
+        String transactionLogDirectory = format("%s/_delta_log", tableName);
+
+        assertUpdate(format("INSERT INTO %s VALUES (2, 'kota'), (3, 'psa')", tableName), 2);
+        assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(0);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1,'ala'),  (2,'kota'), (3, 'psa')");
+
+        // replace table
+        assertUpdate(
+                format("CREATE OR REPLACE TABLE %s (a_number integer) " +
+                                " WITH (checkpoint_interval = 2)",
+                        tableName));
+        assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
+        assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
+
+        assertUpdate(format("INSERT INTO " + tableName + " VALUES 1", tableName), 1);
+        assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+
+        // replace table with selection
+        assertUpdate(
+                format("CREATE OR REPLACE TABLE %s (a_string) " +
+                                " WITH (checkpoint_interval = 2) " +
+                                " AS VALUES 'bobra', 'kreta'",
+                        tableName),
+                2);
+        assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES 'bobra', 'kreta'");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -2648,6 +2683,72 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                                 (1, 'DELETE', 'WriteSerializable'),
                                 (2, 'DELETE', 'WriteSerializable'),
                                 (3, 'DELETE', 'WriteSerializable')
+                            """);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, SECONDS));
+        }
+    }
+
+    @RepeatedTest(3)
+    public void testConcurrentMergeReconciliation()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_merges_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioned_by = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, 30), (31, 40)", 4);
+        // Add more files in the partition 30
+        assertUpdate("INSERT INTO " + tableName + " VALUES (22, 30)", 1);
+
+
+        try {
+            // merge data concurrently by using non-overlapping partition predicate
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                // No source table handles are employed for this MERGE statement, which causes a blind insert
+                                getQueryRunner().execute("""
+                                        MERGE INTO %s t USING (VALUES (12, 20)) AS s(a, part)
+                                          ON (FALSE)
+                                            WHEN NOT MATCHED THEN INSERT (a, part) VALUES(s.a, s.part)
+                                        """.formatted(tableName));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("""
+                                        MERGE INTO %s t USING (VALUES (21, 30)) AS s(a, part)
+                                          ON (t.part = s.part)
+                                            WHEN MATCHED THEN DELETE
+                                        """.formatted(tableName));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("""
+                                        MERGE INTO %s t USING (VALUES (32, 40)) AS s(a, part)
+                                          ON (t.part = s.part)
+                                            WHEN MATCHED THEN UPDATE SET a = s.a
+                                        """.formatted(tableName));
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (12, 20), (32, 40)");
+            assertQuery("SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
+                    """
+                            VALUES
+                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                                ('WRITE', 'WriteSerializable', true),
+                                ('MERGE', 'WriteSerializable', true),
+                                ('MERGE', 'WriteSerializable', false),
+                                ('MERGE', 'WriteSerializable', false)
                             """);
         }
         finally {

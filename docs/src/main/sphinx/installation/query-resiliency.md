@@ -74,9 +74,9 @@ fault-tolerant execution with an S3-based exchange:
        base-directories=s3://exchange-spooling-bucket-1,s3://exchange-spooling-bucket-2
 
    additionalExchangeManagerProperties:
-     s3.region=us-west-1
-     s3.aws-access-key=example-access-key
-     s3.aws-secret-key=example-secret-key
+     exchange.s3.region=us-west-1
+     exchange.s3.aws-access-key=example-access-key
+     exchange.s3.aws-secret-key=example-secret-key
    ```
 
    In non-Kubernetes installations, the same properties must be defined in an
