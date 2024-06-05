@@ -60,12 +60,12 @@ public class TestMultipleDistinctAggregationToMarkDistinct
         tester().assertThat(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", ImmutableList.of(new Reference(BIGINT, "input1"))), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("count", ImmutableList.of(new Reference(BIGINT, "input2"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", ImmutableList.of(new Reference(BIGINT, "input1"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("count", ImmutableList.of(new Reference(BIGINT, "input2"))), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(
-                                        p.symbol("input1"),
-                                        p.symbol("input2")))))
+                                        p.symbol("input1", BIGINT),
+                                        p.symbol("input2", BIGINT)))))
                 .doesNotFire();
     }
 
@@ -75,11 +75,11 @@ public class TestMultipleDistinctAggregationToMarkDistinct
         tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1"))), ImmutableList.of(BIGINT))
                         .source(
                                 p.values(
-                                        p.symbol("input1"),
-                                        p.symbol("input2")))))
+                                        p.symbol("input1", BIGINT),
+                                        p.symbol("input2", BIGINT)))))
                 .doesNotFire();
     }
 
@@ -89,10 +89,10 @@ public class TestMultipleDistinctAggregationToMarkDistinct
         tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("sum", true, ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
                         .source(
-                                p.values(p.symbol("input")))))
+                                p.values(p.symbol("input", BIGINT)))))
                 .doesNotFire();
     }
 
@@ -111,32 +111,32 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                         .source(
                                 p.project(
                                         Assignments.builder()
-                                                .putIdentity(p.symbol("input1"))
-                                                .putIdentity(p.symbol("input2"))
+                                                .putIdentity(p.symbol("input1", BIGINT))
+                                                .putIdentity(p.symbol("input2", BIGINT))
                                                 .put(p.symbol("filter1", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "input2"), new Constant(INTEGER, 0L)))
                                                 .put(p.symbol("filter2", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "input1"), new Constant(INTEGER, 0L)))
                                                 .build(),
                                         p.values(
-                                                p.symbol("input1"),
-                                                p.symbol("input2"))))))
+                                                p.symbol("input1", BIGINT),
+                                                p.symbol("input2", BIGINT))))))
                 .doesNotFire();
 
         tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1")), new Symbol(UNKNOWN, "filter1")), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input2"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1")), new Symbol(UNKNOWN, "filter1")), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input2"))), ImmutableList.of(BIGINT))
                         .source(
                                 p.project(
                                         Assignments.builder()
-                                                .putIdentity(p.symbol("input1"))
-                                                .putIdentity(p.symbol("input2"))
+                                                .putIdentity(p.symbol("input1", BIGINT))
+                                                .putIdentity(p.symbol("input2", BIGINT))
                                                 .put(p.symbol("filter1", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "input2"), new Constant(INTEGER, 0L)))
                                                 .put(p.symbol("filter2", BOOLEAN), new Comparison(GREATER_THAN, new Reference(INTEGER, "input1"), new Constant(INTEGER, 0L)))
                                                 .build(),
                                         p.values(
-                                                p.symbol("input1"),
-                                                p.symbol("input2"))))))
+                                                p.symbol("input1", BIGINT),
+                                                p.symbol("input2", BIGINT))))))
                 .doesNotFire();
     }
 
@@ -146,10 +146,10 @@ public class TestMultipleDistinctAggregationToMarkDistinct
         tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
-                        .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1"))), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input2"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input2"))), ImmutableList.of(BIGINT))
                         .source(
-                                p.values(p.symbol("input1"), p.symbol("input2")))))
+                                p.values(p.symbol("input1", BIGINT), p.symbol("input2", BIGINT)))))
                 .matches(aggregation(
                         globalAggregation(),
                         ImmutableMap.of(
@@ -174,11 +174,11 @@ public class TestMultipleDistinctAggregationToMarkDistinct
         PlanNodeId aggregationNodeId = new PlanNodeId("aggregationNodeId");
         Function<PlanBuilder, PlanNode> plan = p -> p.aggregation(builder -> builder
                 .nodeId(aggregationNodeId)
-                .singleGroupingSet(p.symbol("key"))
-                .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
-                .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
+                .singleGroupingSet(p.symbol("key", BIGINT))
+                .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
+                .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
                 .source(
-                        p.values(p.symbol("input"), p.symbol("key"))));
+                        p.values(p.symbol("input", BIGINT), p.symbol("key", BIGINT))));
         PlanMatchPattern expectedMarkDistinct = aggregation(
                 singleGroupingSet("key"),
                 ImmutableMap.of(
@@ -227,11 +227,11 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                 .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(50 * clusterThreadCount).build())
                 .on(p -> p.aggregation(builder -> builder
                         .nodeId(aggregationNodeId)
-                        .singleGroupingSet(p.symbol("key"))
-                        .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1"))), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input2"))), ImmutableList.of(BIGINT))
+                        .singleGroupingSet(p.symbol("key", BIGINT))
+                        .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input1"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input2"))), ImmutableList.of(BIGINT))
                         .source(
-                                p.values(p.symbol("input1"), p.symbol("input2"), p.symbol("key")))))
+                                p.values(p.symbol("input1", BIGINT), p.symbol("input2", BIGINT), p.symbol("key", BIGINT)))))
                 .doesNotFire();
 
         // big NDV
@@ -258,11 +258,11 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                 .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(1000 * clusterThreadCount).build())
                 .on(p -> p.aggregation(builder -> builder
                         .nodeId(aggregationNodeId)
-                        .singleGroupingSet(p.symbol("key1"), p.symbol("key2"))
-                        .addAggregation(p.symbol("output1"), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
-                        .addAggregation(p.symbol("output2"), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
+                        .singleGroupingSet(p.symbol("key1", BIGINT), p.symbol("key2", BIGINT))
+                        .addAggregation(p.symbol("output1", BIGINT), PlanBuilder.aggregation("count", true, ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
+                        .addAggregation(p.symbol("output2", BIGINT), PlanBuilder.aggregation("sum", ImmutableList.of(new Reference(BIGINT, "input"))), ImmutableList.of(BIGINT))
                         .source(
-                                p.values(p.symbol("input"), p.symbol("key1"), p.symbol("key2")))))
+                                p.values(p.symbol("input", BIGINT), p.symbol("key1", BIGINT), p.symbol("key2", BIGINT)))))
                 .matches(aggregation(
                         singleGroupingSet("key1", "key2"),
                         ImmutableMap.of(
