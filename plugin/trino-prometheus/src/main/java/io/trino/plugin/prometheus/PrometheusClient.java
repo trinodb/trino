@@ -220,9 +220,11 @@ public class PrometheusClient
         String token = useBearer ? "Bearer " + accessToken : accessToken;
         return chain -> {
             Request.Builder requestBuilder = chain.request().newBuilder().addHeader(httpAuthHeaderName, token);
+
             for (Map.Entry<String, String> entry : additionalHeaders.entrySet()) {
                 requestBuilder.addHeader(entry.getKey(), entry.getValue());
             }
+
             return chain.proceed(requestBuilder.build());
         };
     }
