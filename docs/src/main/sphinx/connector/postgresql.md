@@ -53,7 +53,7 @@ properties files.
 
 ### Access to system tables
 
-The PostgreSQL connector supports reading [PostgreSQ catalog
+The PostgreSQL connector supports reading [PostgreSQL catalog
 tables](https://www.postgresql.org/docs/current/catalogs.html), such as
 `pg_namespace`. The functionality is turned off by default, and can be enabled
 using the `postgresql.include-system-tables` configuration property.
