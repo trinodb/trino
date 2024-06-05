@@ -58,8 +58,6 @@ import static io.trino.plugin.bigquery.BigQuerySessionProperties.isSkipViewMater
 import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.IntStream.range;
 import static org.apache.arrow.vector.ipc.message.MessageSerializer.deserializeSchema;
 
 public class BigQuerySplitManager
@@ -116,7 +114,7 @@ public class BigQuerySplitManager
         TableId remoteTableId = bigQueryTableHandle.asPlainTable().getRemoteTableName().toTableId();
         TableDefinition.Type tableType = TableDefinition.Type.valueOf(bigQueryTableHandle.asPlainTable().getType());
         List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.projectedColumns())
-                ? createEmptyProjection(session, tableType, remoteTableId, actualParallelism, filter)
+                ? createEmptyProjection(session, tableType, remoteTableId, filter)
                 : readFromBigQuery(session, tableType, remoteTableId, bigQueryTableHandle.projectedColumns(), actualParallelism, tableConstraint);
         return new FixedSplitSource(splits);
     }
@@ -167,14 +165,14 @@ public class BigQuerySplitManager
         return readSessionCreator.create(session, remoteTableId, projectedColumnsNames, filter, actualParallelism);
     }
 
-    private List<BigQuerySplit> createEmptyProjection(ConnectorSession session, TableDefinition.Type tableType, TableId remoteTableId, int actualParallelism, Optional<String> filter)
+    private List<BigQuerySplit> createEmptyProjection(ConnectorSession session, TableDefinition.Type tableType, TableId remoteTableId, Optional<String> filter)
     {
         if (!TABLE_TYPES.contains(tableType)) {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported table type: " + tableType);
         }
 
         BigQueryClient client = bigQueryClientFactory.create(session);
-        log.debug("createEmptyProjection(tableId=%s, actualParallelism=%s, filter=[%s])", remoteTableId, actualParallelism, filter);
+        log.debug("createEmptyProjection(tableId=%s, filter=[%s])", remoteTableId, filter);
         try {
             // Note that we cannot use row count from TableInfo because for writes via insertAll/streaming API the number is incorrect until the streaming buffer is flushed
             // (and there's no mechanism to trigger an on-demand flush). This can lead to incorrect results for queries with empty projections.
@@ -182,13 +180,7 @@ public class BigQuerySplitManager
             TableResult result = client.executeQuery(session, sql);
             long numberOfRows = result.iterateAll().iterator().next().getFirst().getLongValue();
 
-            long rowsPerSplit = numberOfRows / actualParallelism;
-            long remainingRows = numberOfRows - (rowsPerSplit * actualParallelism); // need to be added to one fo the split due to integer division
-            List<BigQuerySplit> splits = range(0, actualParallelism)
-                    .mapToObj(_ -> BigQuerySplit.emptyProjection(rowsPerSplit))
-                    .collect(toList());
-            splits.set(0, BigQuerySplit.emptyProjection(rowsPerSplit + remainingRows));
-            return splits;
+            return ImmutableList.of(BigQuerySplit.emptyProjection(numberOfRows));
         }
         catch (BigQueryException e) {
             throw new TrinoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, "Failed to compute empty projection", e);
