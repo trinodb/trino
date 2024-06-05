@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.event.client.EventModule;
 import io.airlift.http.server.HttpServerModule;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
@@ -54,6 +55,7 @@ public class HttpServerEventListenerFactory
                 new JsonModule(),
                 new JaxrsModule(),
                 testing ? new TestingHttpServerModule() : new HttpServerModule(),
+                new EventModule(),
                 binder -> {
                     jsonCodecBinder(binder).bindJsonCodec(QueryCompletedEvent.class);
                     configBinder(binder).bindConfig(HttpServerEventListenerConfig.class);
