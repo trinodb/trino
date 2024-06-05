@@ -164,9 +164,7 @@ public class PrometheusConnectorConfig
     @ConfigDescription("Additional headers to be sent with the HTTP request to Prometheus")
     public PrometheusConnectorConfig setAdditionalHeaders(String additionalHeaders)
     {
-        if (additionalHeaders == null || additionalHeaders.isEmpty()) {
-            return this;
-        } else {
+        if (additionalHeaders != null && !additionalHeaders.isEmpty()) {
             String[] headerPairs = additionalHeaders.split(",");
             for (String headerPair : headerPairs) {
                 String[] headerParts = headerPair.split("=");
@@ -175,8 +173,8 @@ public class PrometheusConnectorConfig
                 }
                 this.additionalHeaders.putIfAbsent(headerParts[0], headerParts[1]);
             }
-            return this;
         }
+        return this;
     }
 
     @MinDuration("1s")
