@@ -121,6 +121,9 @@ public abstract class BaseTestTableFormats
                     row(11, "with%%percents"),
                     row(12, "with space"));
             assertThat(onTrino().executeQuery(format("SELECT * FROM %1$s.test.%2$s", getCatalogName(), tableName))).containsOnly(expectedRows);
+            if (!getCatalogName().equalsIgnoreCase("delta")) { // must be skipped for delta since the env is not integrated with spark3-delta container
+                assertThat(onSpark().executeQuery(format("SELECT * FROM %1$s.test.%2$s", getSparkCatalog(), tableName))).containsOnly(expectedRows);
+            }
         }
         finally {
             onTrino().executeQuery("DROP TABLE %1$s.test.%2$s".formatted(getCatalogName(), tableName));
