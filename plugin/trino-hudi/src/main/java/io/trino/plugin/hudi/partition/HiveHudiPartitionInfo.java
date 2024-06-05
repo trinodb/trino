@@ -38,6 +38,8 @@ import static java.lang.String.format;
 public class HiveHudiPartitionInfo
         implements HudiPartitionInfo
 {
+    public static final String NON_PARTITION = "";
+
     private final Table table;
     private final List<HiveColumnHandle> partitionColumnHandles;
     private final TupleDomain<HiveColumnHandle> constraintSummary;
@@ -61,7 +63,7 @@ public class HiveHudiPartitionInfo
         this.hivePartitionName = hivePartitionName;
         this.partitionColumns = partitionColumns;
         if (partitionColumns.isEmpty()) {
-            this.relativePartitionPath = "";
+            this.relativePartitionPath = NON_PARTITION;
             this.hivePartitionKeys = Collections.emptyList();
         }
         this.hiveMetastore = hiveMetastore;
@@ -88,7 +90,7 @@ public class HiveHudiPartitionInfo
     @Override
     public boolean doesMatchPredicates()
     {
-        if (hivePartitionName.equals("")) {
+        if (hivePartitionName.equals(NON_PARTITION)) {
             hivePartitionKeys = ImmutableList.of();
             return true;
         }
@@ -123,7 +125,7 @@ public class HiveHudiPartitionInfo
                 baseLocationParent == null ? 0 : baseLocationParent.length());
         // Partition-Path could be empty for non-partitioned tables
         boolean isNonPartitionedTable = partitionStartIndex + baseLocationName.length() == fullPartitionPath.length();
-        return isNonPartitionedTable ? "" : fullPartitionPath.substring(partitionStartIndex + baseLocationName.length() + 1);
+        return isNonPartitionedTable ? NON_PARTITION : fullPartitionPath.substring(partitionStartIndex + baseLocationName.length() + 1);
     }
 
     @Override

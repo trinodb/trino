@@ -25,6 +25,8 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.hudi.partition.HiveHudiPartitionInfo.NON_PARTITION;
+
 public class HudiPartitionInfoLoader
         implements Runnable
 {
@@ -64,7 +66,7 @@ public class HudiPartitionInfoLoader
     {
         Optional<HudiPartitionInfo> partitionInfo = hudiDirectoryLister.getPartitionInfo(partitionName);
         partitionInfo.ifPresent(hudiPartitionInfo -> {
-            if (hudiPartitionInfo.doesMatchPredicates() || partitionName.equals("")) {
+            if (hudiPartitionInfo.doesMatchPredicates() || partitionName.equals(NON_PARTITION)) {
                 List<HivePartitionKey> partitionKeys = hudiPartitionInfo.getHivePartitionKeys();
                 List<HudiFileStatus> partitionFiles = hudiDirectoryLister.listStatus(hudiPartitionInfo);
                 partitionFiles.stream()
