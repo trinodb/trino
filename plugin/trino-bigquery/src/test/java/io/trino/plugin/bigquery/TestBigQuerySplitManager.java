@@ -113,8 +113,7 @@ public class TestBigQuerySplitManager
                 table.projectedColumns().orElseThrow().stream()
                         .map(BigQueryColumnHandle::name)
                         .collect(toImmutableList()),
-                buildFilter(table.constraint()),
-                1);
+                buildFilter(table.constraint()));
     }
 
     private void onBigQuery(@Language("SQL") String sql)

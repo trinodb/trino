@@ -82,14 +82,6 @@ one for the sales and one for analytics, you can create two properties files in
 having `connector.name=bigquery` but with different `project-id`. This will
 create the two catalogs, `sales` and `analytics` respectively.
 
-### Configuring partitioning
-
-By default the connector creates one partition per 400MB in the table being
-read (before filtering). This should roughly correspond to the maximum number
-of readers supported by the BigQuery Storage API. This can be configured
-explicitly with the `bigquery.parallelism` property. BigQuery may limit the
-number of partitions based on server constraints.
-
 (bigquery-arrow-serialization-support)=
 ### Arrow serialization support
 
@@ -134,9 +126,6 @@ a few caveats:
 * - `bigquery.parent-project-id`
   - The project ID Google Cloud Project to bill for the export.
   - Taken from the service account
-* - `bigquery.parallelism`
-  - The number of partitions to split the data into.
-  - The number of executors
 * - `bigquery.views-enabled`
   - Enables the connector to read from views and not only tables. Please read 
     [this section](bigquery-reading-from-views) before enabling this feature.
