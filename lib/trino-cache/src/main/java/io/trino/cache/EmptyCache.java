@@ -138,7 +138,7 @@ class EmptyCache<K, V>
     @Override
     public ConcurrentMap<K, V> asMap()
     {
-        return new ConcurrentMap<K, V>()
+        return new ConcurrentMap<>()
         {
             @Override
             public V putIfAbsent(K key, V value)

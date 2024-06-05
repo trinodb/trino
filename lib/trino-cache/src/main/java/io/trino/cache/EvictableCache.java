@@ -283,7 +283,7 @@ class EvictableCache<K, V>
     @Override
     public ConcurrentMap<K, V> asMap()
     {
-        return new ConcurrentMap<K, V>()
+        return new ConcurrentMap<>()
         {
             private final ConcurrentMap<Token<K>, V> dataCacheMap = dataCache.asMap();
 
