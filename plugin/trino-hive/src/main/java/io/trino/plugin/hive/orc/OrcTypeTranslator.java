@@ -13,10 +13,15 @@
  */
 package io.trino.plugin.hive.orc;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.orc.OrcColumn;
 import io.trino.orc.metadata.OrcType;
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
 import io.trino.plugin.hive.coercions.BooleanCoercer.BooleanToVarcharCoercer;
 import io.trino.plugin.hive.coercions.BooleanCoercer.OrcVarcharToBooleanCoercer;
+import io.trino.plugin.hive.coercions.CoercionUtils.ListCoercer;
+import io.trino.plugin.hive.coercions.CoercionUtils.MapCoercer;
+import io.trino.plugin.hive.coercions.CoercionUtils.StructCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.DateToVarcharCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.VarcharToDateCoercer;
 import io.trino.plugin.hive.coercions.DoubleToFloatCoercer;
@@ -32,21 +37,28 @@ import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.plugin.hive.coercions.VarcharToDoubleCoercer;
 import io.trino.plugin.hive.coercions.VarcharToFloatCoercer;
 import io.trino.plugin.hive.coercions.VarcharToIntegralNumericCoercers.OrcVarcharToIntegralNumericCoercer;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RealType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 
+import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.BOOLEAN;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.BYTE;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.DATE;
@@ -54,9 +66,12 @@ import static io.trino.orc.metadata.OrcType.OrcTypeKind.DECIMAL;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.DOUBLE;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.FLOAT;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.INT;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.LIST;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.LONG;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.MAP;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.SHORT;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.STRING;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.VARCHAR;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToDecimalCoercer;
@@ -79,7 +94,7 @@ public final class OrcTypeTranslator
 {
     private OrcTypeTranslator() {}
 
-    public static Optional<TypeCoercer<? extends Type, ? extends Type>> createCoercer(OrcType fromOrcType, Type toTrinoType)
+    public static Optional<TypeCoercer<? extends Type, ? extends Type>> createCoercer(OrcType fromOrcType, List<OrcColumn> nestedColumns, Type toTrinoType)
     {
         OrcTypeKind fromOrcTypeKind = fromOrcType.getOrcTypeKind();
 
@@ -197,6 +212,78 @@ public final class OrcTypeTranslator
             };
         }
 
+        if (fromOrcType.getOrcTypeKind() == STRUCT && toTrinoType instanceof RowType rowType) {
+            ImmutableList.Builder<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercersBuilder = ImmutableList.builder();
+            ImmutableList.Builder<RowType.Field> fromField = ImmutableList.builder();
+            ImmutableList.Builder<RowType.Field> toField = ImmutableList.builder();
+
+            List<String> fromStructFieldName = fromOrcType.getFieldNames();
+            List<String> toStructFieldNames = rowType.getFields().stream()
+                    .map(RowType.Field::getName)
+                    .map(Optional::get)
+                    .collect(toImmutableList());
+
+            for (int i = 0; i < toStructFieldNames.size(); i++) {
+                if (i >= fromStructFieldName.size()) {
+                    toField.add(new RowType.Field(
+                            Optional.of(toStructFieldNames.get(i)),
+                            rowType.getFields().get(i).getType()));
+                    coercersBuilder.add(Optional.empty());
+                }
+                else {
+                    // If the field names are not in correct order don't apply coercion
+                    if (!fromStructFieldName.get(i).equalsIgnoreCase(toStructFieldNames.get(i))) {
+                        return Optional.empty();
+                    }
+                    Optional<TypeCoercer<? extends Type, ? extends Type>> coercer = createCoercer(
+                            nestedColumns.get(i).getColumnType(),
+                            nestedColumns.get(i).getNestedColumns(),
+                            rowType.getFields().get(i).getType());
+                    coercersBuilder.add(coercer);
+
+                    Type rowFieldType = rowType.getFields().get(i).getType();
+                    fromField.add(new RowType.Field(
+                            Optional.of(fromStructFieldName.get(i)),
+                            coercer.map(TypeCoercer::getFromType).orElse(rowFieldType)));
+                    toField.add(new RowType.Field(
+                            Optional.of(toStructFieldNames.get(i)),
+                            coercer.map(TypeCoercer::getToType).orElse(rowFieldType)));
+                }
+            }
+
+            List<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercers = coercersBuilder.build();
+
+            if (coercers.stream().anyMatch(Optional::isPresent)) {
+                return Optional.of(new StructCoercer(RowType.from(fromField.build()), RowType.from(toField.build()), coercers));
+            }
+
+            return Optional.empty();
+        }
+
+        if (fromOrcType.getOrcTypeKind() == LIST && toTrinoType instanceof ArrayType arrayType) {
+            return createCoercer(getOnlyElement(nestedColumns).getColumnType(), getOnlyElement(nestedColumns).getNestedColumns(), arrayType.getElementType())
+                    .map(elementCoercer -> new ListCoercer(new ArrayType(elementCoercer.getFromType()), new ArrayType(elementCoercer.getToType()), elementCoercer));
+        }
+
+        if (fromOrcType.getOrcTypeKind() == MAP && toTrinoType instanceof MapType mapType) {
+            Optional<TypeCoercer<? extends Type, ? extends Type>> keyCoercer = createCoercer(nestedColumns.get(0).getColumnType(), nestedColumns.get(0).getNestedColumns(), mapType.getKeyType());
+            Optional<TypeCoercer<? extends Type, ? extends Type>> valueCoercer = createCoercer(nestedColumns.get(1).getColumnType(), nestedColumns.get(1).getNestedColumns(), mapType.getValueType());
+            TypeOperators typeOperators = new TypeOperators();
+            MapType fromType = new MapType(
+                    keyCoercer.map(TypeCoercer::getFromType).orElseGet(mapType::getKeyType),
+                    valueCoercer.map(TypeCoercer::getFromType).orElseGet(mapType::getValueType),
+                    typeOperators);
+
+            MapType toType = new MapType(
+                    keyCoercer.map(TypeCoercer::getToType).orElseGet(mapType::getKeyType),
+                    valueCoercer.map(TypeCoercer::getToType).orElseGet(mapType::getKeyType),
+                    typeOperators);
+
+            if (keyCoercer.isPresent() || valueCoercer.isPresent()) {
+                return Optional.of(new MapCoercer(fromType, toType, keyCoercer, valueCoercer));
+            }
+            return Optional.empty();
+        }
         return Optional.empty();
     }
 
