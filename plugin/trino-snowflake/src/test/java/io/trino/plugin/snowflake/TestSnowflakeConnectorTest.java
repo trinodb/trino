@@ -381,6 +381,14 @@ public class TestSnowflakeConnectorTest
     }
 
     @Test
+    @Disabled
+    @Override
+    public void testBulkColumnListingOptions()
+    {
+        // TODO https://github.com/trinodb/trino/issues/21157 Enable this test after fixing the timeout issue
+    }
+
+    @Test
     @Override // Override because for approx_set(nationkey) a ProjectNode is present above the TableScanNode. It's used to project decimals to doubles.
     public void testAggregationWithUnsupportedResultType()
     {
