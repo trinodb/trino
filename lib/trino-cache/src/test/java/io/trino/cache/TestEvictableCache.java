@@ -475,6 +475,9 @@ public class TestEvictableCache
                 assertThat(threadA.get()).isEqualTo("stale value");
                 assertThat(threadB.get()).isEqualTo("fresh value");
             }
+            catch (AssertionError e) {
+                throw new AssertionError("Error for invalidation=%s: %s".formatted(invalidation, e.getMessage()), e);
+            }
             finally {
                 executor.shutdownNow();
                 assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
@@ -547,6 +550,9 @@ public class TestEvictableCache
 
                 assertThat(remoteState.get()).isEqualTo(2 * 3 * 5 * 7);
                 assertThat((long) cache.get(key, remoteState::get)).isEqualTo(remoteState.get());
+            }
+            catch (AssertionError e) {
+                throw new AssertionError("Error for invalidation=%s: %s".formatted(invalidation, e.getMessage()), e);
             }
             finally {
                 executor.shutdownNow();
