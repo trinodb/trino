@@ -148,6 +148,12 @@ public final class CoercionUtils
             }
             return Optional.empty();
         }
+        if (fromType instanceof CharType fromCharType && toType instanceof VarcharType toVarcharType) {
+            if (!toVarcharType.isUnbounded() && toVarcharType.getBoundedLength() < fromCharType.getLength()) {
+                return Optional.of(new CharToVarcharCoercer(fromCharType, toVarcharType));
+            }
+            return Optional.empty();
+        }
         if (fromHiveType.equals(HIVE_BYTE)) {
             if (toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
                 return Optional.of(new IntegerNumberUpscaleCoercer<>(fromType, toType));

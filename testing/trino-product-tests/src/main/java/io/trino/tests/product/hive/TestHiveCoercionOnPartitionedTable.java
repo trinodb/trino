@@ -189,6 +189,9 @@ public class TestHiveCoercionOnPartitionedTable
                         "    date_to_bounded_varchar            DATE," +
                         "    char_to_bigger_char                CHAR(3)," +
                         "    char_to_smaller_char               CHAR(3)," +
+                        "    char_to_string                     CHAR(3)," +
+                        "    char_to_bigger_varchar             CHAR(3)," +
+                        "    char_to_smaller_varchar            CHAR(3)," +
                         "    string_to_char                     STRING," +
                         "    varchar_to_bigger_char             VARCHAR(4)," +
                         "    varchar_to_smaller_char            VARCHAR(20)," +

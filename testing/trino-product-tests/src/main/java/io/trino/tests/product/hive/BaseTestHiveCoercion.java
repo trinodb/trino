@@ -183,6 +183,9 @@ public abstract class BaseTestHiveCoercion
                 "date_to_bounded_varchar",
                 "char_to_bigger_char",
                 "char_to_smaller_char",
+                "char_to_string",
+                "char_to_bigger_varchar",
+                "char_to_smaller_varchar",
                 "string_to_char",
                 "varchar_to_bigger_char",
                 "varchar_to_smaller_char",
@@ -312,6 +315,9 @@ public abstract class BaseTestHiveCoercion
                         "  DATE '2000-04-13', " +
                         "  'abc', " +
                         "  'abc', " +
+                        "  'ab', " +
+                        "  'cd', " +
+                        "  'a', " +
                         "  'Bigger Value', " +
                         "  'Hi  ', " +
                         "  'TrinoDB', " +
@@ -413,6 +419,9 @@ public abstract class BaseTestHiveCoercion
                         "  DATE '1900-01-01', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
+                        "  '\uD83D\uDCB0\uD83D\uDCB0', " +
+                        "  '\uD83D\uDCB0\uD83D\uDCB0', " +
+                        "  '\uD83D\uDCB0', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '\uD83D\uDCB0 \uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '\uD83D\uDCB0 \uD83D\uDCB0', " +
@@ -733,6 +742,15 @@ public abstract class BaseTestHiveCoercion
                 .put("char_to_smaller_char", ImmutableList.of(
                         "ab",
                         "\uD83D\uDCB0\uD83D\uDCB0"))
+                .put("char_to_string", ImmutableList.of(
+                        "ab",
+                        "\uD83D\uDCB0\uD83D\uDCB0"))
+                .put("char_to_bigger_varchar", ImmutableList.of(
+                        "cd",
+                        "\uD83D\uDCB0\uD83D\uDCB0"))
+                .put("char_to_smaller_varchar", ImmutableList.of(
+                        "a",
+                        "\uD83D\uDCB0"))
                 .put("timestamp_millis_to_date", ImmutableList.of(
                         java.sql.Date.valueOf("2022-12-31"),
                         java.sql.Date.valueOf("1970-01-01")))
@@ -1171,6 +1189,9 @@ public abstract class BaseTestHiveCoercion
                 row("date_to_bounded_varchar", "varchar(12)"),
                 row("char_to_bigger_char", "char(4)"),
                 row("char_to_smaller_char", "char(2)"),
+                row("char_to_string", "varchar"),
+                row("char_to_bigger_varchar", "varchar(4)"),
+                row("char_to_smaller_varchar", "varchar(2)"),
                 row("string_to_char", "char(1)"),
                 row("varchar_to_bigger_char", "char(6)"),
                 row("varchar_to_smaller_char", "char(2)"),
@@ -1280,6 +1301,9 @@ public abstract class BaseTestHiveCoercion
                 .put("date_to_bounded_varchar", VARCHAR)
                 .put("char_to_bigger_char", CHAR)
                 .put("char_to_smaller_char", CHAR)
+                .put("char_to_string", VARCHAR)
+                .put("char_to_bigger_varchar", VARCHAR)
+                .put("char_to_smaller_varchar", VARCHAR)
                 .put("string_to_char", CHAR)
                 .put("varchar_to_bigger_char", CHAR)
                 .put("varchar_to_smaller_char", CHAR)
@@ -1397,6 +1421,9 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_special_double varchar_to_special_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_bigger_char char_to_bigger_char char(4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_smaller_char char_to_smaller_char char(2)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_string char_to_string string", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_bigger_varchar char_to_bigger_varchar varchar(4)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_smaller_varchar char_to_smaller_varchar varchar(2)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN string_to_char string_to_char char(1)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_bigger_char varchar_to_bigger_char char(6)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_smaller_char varchar_to_smaller_char char(2)", tableName));
