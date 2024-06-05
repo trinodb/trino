@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigHidden;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -34,6 +35,7 @@ import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
+@DefunctConfig("bigquery.parallelism")
 public class BigQueryConfig
 {
     public static final int DEFAULT_MAX_READ_ROWS_RETRIES = 3;
@@ -42,7 +44,6 @@ public class BigQueryConfig
 
     private Optional<String> projectId = Optional.empty();
     private Optional<String> parentProjectId = Optional.empty();
-    private Optional<Integer> parallelism = Optional.empty();
     private boolean viewsEnabled;
     private boolean arrowSerializationEnabled = true;
     private Duration viewExpireDuration = new Duration(24, HOURS);
@@ -87,20 +88,6 @@ public class BigQueryConfig
     public BigQueryConfig setParentProjectId(String parentProjectId)
     {
         this.parentProjectId = Optional.ofNullable(parentProjectId);
-        return this;
-    }
-
-    public Optional<Integer> getParallelism()
-    {
-        return parallelism;
-    }
-
-    @Config("bigquery.parallelism")
-    @ConfigDescription("The number of partitions to split the data into.")
-    public BigQueryConfig setParallelism(Integer parallelism)
-    {
-        this.parallelism = Optional.ofNullable(parallelism);
-
         return this;
     }
 
