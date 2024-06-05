@@ -359,7 +359,7 @@ public class OrcPageSourceFactory
                 Type readType = column.getType();
                 if (orcColumn != null) {
                     int sourceIndex = fileReadColumns.size();
-                    Optional<TypeCoercer<?, ?>> coercer = createCoercer(orcColumn.getColumnType(), readType);
+                    Optional<TypeCoercer<?, ?>> coercer = createCoercer(orcColumn.getColumnType(), orcColumn.getNestedColumns(), readType);
                     if (coercer.isPresent()) {
                         fileReadTypes.add(coercer.get().getFromType());
                         columnAdaptations.add(ColumnAdaptation.coercedColumn(sourceIndex, coercer.get()));
