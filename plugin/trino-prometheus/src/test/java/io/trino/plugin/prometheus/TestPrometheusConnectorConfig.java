@@ -42,7 +42,7 @@ public class TestPrometheusConnectorConfig
                 .setCacheDuration(new Duration(30, SECONDS))
                 .setBearerTokenFile(null)
                 .setHttpAuthHeaderName(HttpHeaders.AUTHORIZATION)
-                .setAdditionalHeaders("X-Origin=default,X-Scope=internal")
+                .setAdditionalHeaders(null)
                 .setUser(null)
                 .setPassword(null)
                 .setReadTimeout(new Duration(10, SECONDS))

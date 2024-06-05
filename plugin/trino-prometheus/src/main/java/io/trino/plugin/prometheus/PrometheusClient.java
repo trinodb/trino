@@ -36,10 +36,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Verify.verify;
@@ -74,7 +71,7 @@ public class PrometheusClient
 
         Builder clientBuilder = new Builder().readTimeout(Duration.ofMillis(config.getReadTimeout().toMillis()));
         setupBasicAuth(clientBuilder, config.getUser(), config.getPassword());
-        setupTokenAuth(clientBuilder, getBearerAuthInfoFromFile(config.getBearerTokenFile()), config.getHttpAuthHeaderName());
+        setupTokenAuth(clientBuilder, getBearerAuthInfoFromFile(config.getBearerTokenFile()), config.getHttpAuthHeaderName(), config.getAdditionalHeaders());
         this.httpClient = clientBuilder.build();
 
         URI prometheusMetricsUri = getPrometheusMetricsURI(config.getPrometheusURI());
@@ -194,9 +191,9 @@ public class PrometheusClient
         }
     }
 
-    private static void setupTokenAuth(OkHttpClient.Builder clientBuilder, Optional<String> accessToken, String httpAuthHeaderName)
+    private static void setupTokenAuth(OkHttpClient.Builder clientBuilder, Optional<String> accessToken, String httpAuthHeaderName, Map<String, String> additionalHeaders)
     {
-        accessToken.ifPresent(token -> clientBuilder.addInterceptor(tokenAuth(token, httpAuthHeaderName)));
+        accessToken.ifPresent(token -> clientBuilder.addInterceptor(tokenAuth(token, httpAuthHeaderName, additionalHeaders)));
     }
 
     private static Interceptor basicAuth(String user, String password)
@@ -213,13 +210,17 @@ public class PrometheusClient
                 .build());
     }
 
-    private static Interceptor tokenAuth(String accessToken, String httpAuthHeaderName)
+    private static Interceptor tokenAuth(String accessToken, String httpAuthHeaderName, Map<String, String> additionalHeaders)
     {
         requireNonNull(accessToken, "accessToken is null");
         boolean useBearer = httpAuthHeaderName.equals(AUTHORIZATION);
         String token = useBearer ? "Bearer " + accessToken : accessToken;
-        return chain -> chain.proceed(chain.request().newBuilder()
-                .addHeader(httpAuthHeaderName, token)
-                .build());
+        return chain -> {
+            Request.Builder requestBuilder = chain.request().newBuilder().addHeader(httpAuthHeaderName, token);
+            for (Map.Entry<String, String> entry : additionalHeaders.entrySet()) {
+                requestBuilder.addHeader(entry.getKey(), entry.getValue());
+            }
+            return chain.proceed(requestBuilder.build());
+        };
     }
 }
