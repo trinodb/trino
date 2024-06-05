@@ -568,21 +568,15 @@ public class TestEvictableLoadingCache
                     assertThat(loadOngoing.await(10, SECONDS)).isTrue(); // 1
 
                     switch (invalidation) {
-                        case INVALIDATE_KEY:
-                            cache.invalidate(key);
-                            break;
-                        case INVALIDATE_PREDEFINED_KEYS:
-                            cache.invalidateAll(ImmutableList.of(key));
-                            break;
-                        case INVALIDATE_SELECTED_KEYS:
+                        case INVALIDATE_KEY -> cache.invalidate(key);
+                        case INVALIDATE_PREDEFINED_KEYS -> cache.invalidateAll(ImmutableList.of(key));
+                        case INVALIDATE_SELECTED_KEYS -> {
                             Set<Integer> keys = cache.asMap().keySet().stream()
                                     .filter(foundKey -> (int) foundKey == key)
                                     .collect(toImmutableSet());
                             cache.invalidateAll(keys);
-                            break;
-                        case INVALIDATE_ALL:
-                            cache.invalidateAll();
-                            break;
+                        }
+                        case INVALIDATE_ALL -> cache.invalidateAll();
                     }
 
                     remoteState.put(key, "fresh value");
@@ -642,21 +636,15 @@ public class TestEvictableLoadingCache
 
                             // invalidate
                             switch (invalidation) {
-                                case INVALIDATE_KEY:
-                                    cache.invalidate(key);
-                                    break;
-                                case INVALIDATE_PREDEFINED_KEYS:
-                                    cache.invalidateAll(ImmutableList.of(key));
-                                    break;
-                                case INVALIDATE_SELECTED_KEYS:
+                                case INVALIDATE_KEY -> cache.invalidate(key);
+                                case INVALIDATE_PREDEFINED_KEYS -> cache.invalidateAll(ImmutableList.of(key));
+                                case INVALIDATE_SELECTED_KEYS -> {
                                     Set<Integer> keys = cache.asMap().keySet().stream()
                                             .filter(foundKey -> (int) foundKey == key)
                                             .collect(toImmutableSet());
                                     cache.invalidateAll(keys);
-                                    break;
-                                case INVALIDATE_ALL:
-                                    cache.invalidateAll();
-                                    break;
+                                }
+                                case INVALIDATE_ALL -> cache.invalidateAll();
                             }
 
                             // read through cache
