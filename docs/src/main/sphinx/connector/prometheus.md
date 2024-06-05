@@ -40,6 +40,7 @@ prometheus.read-timeout=10s
 ## Configuration properties
 
 The following configuration properties are available:
+
 :::{list-table} Prometheus configuration properties
 :widths: 30, 55, 15
 :header-rows: 1
