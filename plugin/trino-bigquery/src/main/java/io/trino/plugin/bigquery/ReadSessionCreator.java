@@ -75,7 +75,7 @@ public class ReadSessionCreator
         this.maxCreateReadSessionRetries = maxCreateReadSessionRetries;
     }
 
-    public ReadSession create(ConnectorSession session, TableId remoteTable, List<String> selectedFields, Optional<String> filter, int parallelism)
+    public ReadSession create(ConnectorSession session, TableId remoteTable, List<String> selectedFields, Optional<String> filter, int currentWorkerCount)
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
         TableInfo tableDetails = client.getTable(remoteTable)
@@ -98,13 +98,15 @@ public class ReadSessionCreator
                         .setBufferCompression(ZSTD)
                         .build());
             }
+            // At least 100 to cater for cluster scale up
+            int desiredParallelism = Math.min(currentWorkerCount * 3, 100);
             CreateReadSessionRequest createReadSessionRequest = CreateReadSessionRequest.newBuilder()
                     .setParent("projects/" + client.getParentProjectId())
                     .setReadSession(ReadSession.newBuilder()
                             .setDataFormat(format)
                             .setTable(toTableResourceName(actualTable.getTableId()))
                             .setReadOptions(readOptions))
-                    .setMaxStreamCount(parallelism)
+                    .setPreferredMinStreamCount(desiredParallelism)
                     .build();
 
             return Failsafe.with(RetryPolicy.builder()
