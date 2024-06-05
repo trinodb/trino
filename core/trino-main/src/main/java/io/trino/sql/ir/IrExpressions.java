@@ -17,11 +17,16 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.type.RowType;
 import io.trino.sql.PlannerContext;
 import io.trino.type.TypeCoercion;
 
+import java.util.List;
+
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -39,6 +44,26 @@ public class IrExpressions
     public static Expression ifExpression(Expression condition, Expression trueCase, Expression falseCase)
     {
         return new Case(ImmutableList.of(new WhenClause(condition, trueCase)), falseCase);
+    }
+
+    public static Constant row(List<Constant> fields)
+    {
+        RowType type = RowType.anonymous(fields.stream()
+                .map(Constant::type)
+                .toList());
+
+        return new Constant(
+                type,
+                buildRowValue(type, builders -> {
+                    for (int i = 0; i < fields.size(); ++i) {
+                        writeNativeValue(fields.get(i).type(), builders.get(i), fields.get(i).value());
+                    }
+                }));
+    }
+
+    public static boolean isConstantNull(Expression expression)
+    {
+        return expression instanceof Constant constant && constant.value() == null;
     }
 
     public static boolean mayFail(PlannerContext plannerContext, Expression expression)

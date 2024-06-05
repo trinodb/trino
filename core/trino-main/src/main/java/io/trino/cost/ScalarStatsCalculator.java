@@ -13,6 +13,7 @@
  */
 package io.trino.cost;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -30,7 +31,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 
 import java.util.OptionalDouble;
@@ -43,6 +43,7 @@ import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.util.MoreMath.max;
 import static io.trino.util.MoreMath.min;
 import static java.lang.Double.NaN;
@@ -129,7 +130,7 @@ public class ScalarStatsCalculator
                 return processArithmetic(node);
             }
 
-            Expression value = new IrExpressionInterpreter(node, plannerContext, session).optimize();
+            Expression value = newOptimizer(plannerContext).process(node, session, ImmutableMap.of()).orElse(node);
 
             if (value instanceof Constant constant && constant.value() == null) {
                 return nullStatsEstimate();

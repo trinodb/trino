@@ -194,6 +194,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Lambda;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.planner.optimizations.IndexJoinOptimizer;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -872,10 +873,12 @@ public class LocalExecutionPlanner
             extends PlanVisitor<PhysicalOperation, LocalExecutionPlanContext>
     {
         private final Session session;
+        private final IrExpressionEvaluator evaluator;
 
         private Visitor(Session session)
         {
             this.session = session;
+            evaluator = new IrExpressionEvaluator(plannerContext);
         }
 
         @Override
@@ -2118,7 +2121,7 @@ public class LocalExecutionPlanner
                     Expression row = node.getRows().get().get(i);
                     checkState(row.type() instanceof RowType, "unexpected type of Values row: %s", row.type());
                     // evaluate the literal value
-                    SqlRow result = (SqlRow) new IrExpressionInterpreter(row, plannerContext, session).evaluate();
+                    SqlRow result = (SqlRow) evaluator.evaluate(row, session, ImmutableMap.of());
                     int rawIndex = result.getRawIndex();
                     for (int j = 0; j < outputTypes.size(); j++) {
                         // divide row into fields

@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.LongTimestamp;
@@ -30,7 +31,7 @@ import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -48,6 +49,7 @@ import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.sql.ir.Logical.and;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.type.DateTimes.scaleFactor;
 import static java.lang.Math.multiplyExact;
@@ -94,13 +96,13 @@ public class UnwrapYearInComparison
     private static class Visitor
             extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
-        private final PlannerContext plannerContext;
+        private final IrExpressionOptimizer optimizer;
         private final Metadata metadata;
         private final Session session;
 
         public Visitor(PlannerContext plannerContext, Session session)
         {
-            this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+            this.optimizer = newOptimizer(plannerContext);
             this.metadata = plannerContext.getMetadata();
             this.session = requireNonNull(session, "session is null");
         }
@@ -153,7 +155,7 @@ public class UnwrapYearInComparison
             Expression argument = getOnlyElement(call.arguments());
             Type argumentType = argument.type();
 
-            Expression right = new IrExpressionInterpreter(expression.right(), plannerContext, session).optimize();
+            Expression right = optimizer.process(expression.right(), session, ImmutableMap.of()).orElse(expression.right());
 
             if (right instanceof Constant constant && constant.value() == null) {
                 return switch (expression.operator()) {
