@@ -19,8 +19,11 @@ import io.trino.plugin.hive.coercions.BooleanCoercer.BooleanToVarcharCoercer;
 import io.trino.plugin.hive.coercions.BooleanCoercer.OrcVarcharToBooleanCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.DateToVarcharCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.VarcharToDateCoercer;
+import io.trino.plugin.hive.coercions.DoubleToFloatCoercer;
+import io.trino.plugin.hive.coercions.FloatToDoubleCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberToDoubleCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
+import io.trino.plugin.hive.coercions.IntegerNumberUpscaleCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToDateCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToLongTimestampCoercer;
@@ -56,8 +59,14 @@ import static io.trino.orc.metadata.OrcType.OrcTypeKind.SHORT;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.STRING;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.VARCHAR;
+import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToDecimalCoercer;
+import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToDoubleCoercer;
+import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToInteger;
+import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToRealCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToVarcharCoercer;
+import static io.trino.plugin.hive.coercions.DecimalCoercers.createDoubleToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createIntegerNumberToDecimalCoercer;
+import static io.trino.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DoubleToVarcharCoercers.createDoubleToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.FloatToVarcharCoercers.createFloatToVarcharCoercer;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -83,6 +92,9 @@ public final class OrcTypeTranslator
 
         if (fromOrcTypeKind == BYTE) {
             return switch (toTrinoType) {
+                case SmallintType smallintType -> Optional.of(new IntegerNumberUpscaleCoercer<>(TINYINT, smallintType));
+                case IntegerType integerType -> Optional.of(new IntegerNumberUpscaleCoercer<>(TINYINT, integerType));
+                case BigintType bigintType -> Optional.of(new IntegerNumberUpscaleCoercer<>(TINYINT, bigintType));
                 case DoubleType ignored -> Optional.of(new IntegerNumberToDoubleCoercer<>(TINYINT));
                 case DecimalType decimalType -> Optional.of(createIntegerNumberToDecimalCoercer(TINYINT, decimalType));
                 case VarcharType varcharType -> Optional.of(new IntegerNumberToVarcharCoercer<>(TINYINT, varcharType));
@@ -92,6 +104,8 @@ public final class OrcTypeTranslator
 
         if (fromOrcTypeKind == SHORT) {
             return switch (toTrinoType) {
+                case IntegerType integerType -> Optional.of(new IntegerNumberUpscaleCoercer<>(SMALLINT, integerType));
+                case BigintType bigintType -> Optional.of(new IntegerNumberUpscaleCoercer<>(SMALLINT, bigintType));
                 case DoubleType ignored -> Optional.of(new IntegerNumberToDoubleCoercer<>(SMALLINT));
                 case DecimalType decimalType -> Optional.of(createIntegerNumberToDecimalCoercer(SMALLINT, decimalType));
                 case VarcharType varcharType -> Optional.of(new IntegerNumberToVarcharCoercer<>(SMALLINT, varcharType));
@@ -101,6 +115,7 @@ public final class OrcTypeTranslator
 
         if (fromOrcTypeKind == INT) {
             return switch (toTrinoType) {
+                case BigintType bigintType -> Optional.of(new IntegerNumberUpscaleCoercer<>(INTEGER, bigintType));
                 case DoubleType ignored -> Optional.of(new IntegerNumberToDoubleCoercer<>(INTEGER));
                 case DecimalType decimalType -> Optional.of(createIntegerNumberToDecimalCoercer(INTEGER, decimalType));
                 case VarcharType varcharType -> Optional.of(new IntegerNumberToVarcharCoercer<>(INTEGER, varcharType));
@@ -119,6 +134,8 @@ public final class OrcTypeTranslator
 
         if (fromOrcTypeKind == FLOAT) {
             return switch (toTrinoType) {
+                case DoubleType ignored -> Optional.of(new FloatToDoubleCoercer());
+                case DecimalType decimalType -> Optional.of(createRealToDecimalCoercer(decimalType));
                 case VarcharType varcharType -> Optional.of(createFloatToVarcharCoercer(varcharType, true));
                 default -> Optional.empty();
             };
@@ -126,6 +143,8 @@ public final class OrcTypeTranslator
 
         if (fromOrcTypeKind == DOUBLE) {
             return switch (toTrinoType) {
+                case RealType ignored -> Optional.of(new DoubleToFloatCoercer());
+                case DecimalType decimalType -> Optional.of(createDoubleToDecimalCoercer(decimalType));
                 case VarcharType varcharType -> Optional.of(createDoubleToVarcharCoercer(varcharType, true));
                 default -> Optional.empty();
             };
@@ -134,6 +153,13 @@ public final class OrcTypeTranslator
         if (fromOrcTypeKind == DECIMAL) {
             DecimalType sourceType = DecimalType.createDecimalType(fromOrcType.getPrecision().orElseThrow(), fromOrcType.getScale().orElseThrow());
             return switch (toTrinoType) {
+                case TinyintType tinyintType -> Optional.of(createDecimalToInteger(sourceType, tinyintType));
+                case SmallintType smallintType -> Optional.of(createDecimalToInteger(sourceType, smallintType));
+                case IntegerType integerType -> Optional.of(createDecimalToInteger(sourceType, integerType));
+                case BigintType bigintType -> Optional.of(createDecimalToInteger(sourceType, bigintType));
+                case RealType ignored -> Optional.of(createDecimalToRealCoercer(sourceType));
+                case DoubleType ignored -> Optional.of(createDecimalToDoubleCoercer(sourceType));
+                case DecimalType decimalType -> Optional.of(createDecimalToDecimalCoercer(sourceType, decimalType));
                 case VarcharType varcharType -> Optional.of(createDecimalToVarcharCoercer(sourceType, varcharType));
                 default -> Optional.empty();
             };
