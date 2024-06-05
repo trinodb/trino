@@ -79,6 +79,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -199,6 +200,18 @@ public class SnowflakeClient
                         .add(new ImplementRegrIntercept())
                         .add(new ImplementRegrSlope())
                         .build());
+    }
+
+    @Override
+    protected ResultSet getAllTableColumns(Connection connection, Optional<String> remoteSchemaName)
+            throws SQLException
+    {
+        DatabaseMetaData metadata = connection.getMetaData();
+        return metadata.getColumns(
+                metadata.getConnection().getCatalog(),
+                escapeObjectNameForMetadataQuery(remoteSchemaName, metadata.getSearchStringEscape()).orElse(null),
+                null,
+                null);
     }
 
     @Override

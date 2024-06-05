@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
@@ -47,6 +48,7 @@ public class SnowflakeClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SnowflakeClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setBulkListColumns(true));
         configBinder(binder).bindConfig(SnowflakeConfig.class);
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
