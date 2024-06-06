@@ -106,6 +106,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.tracing.TrinoAttributes;
+import io.trino.util.Failures;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -2324,8 +2325,17 @@ public class EventDrivenFaultTolerantQueryScheduler
 
             int partitionId = taskId.getPartitionId();
             StagePartition partition = getStagePartition(partitionId);
+            Optional<SpoolingOutputStats.Snapshot> outputStats = partition.taskFinished(taskId);
+
+            if (outputStats.isEmpty()) {
+                // it is rare but possible to get empty spooling output stats for task which completed successfully.
+                // As we need this information in FTE mode we need to fail such task artificially
+                log.warn("Failing task " + taskId + " because we received empty spooling output stats");
+                taskFailed(taskId, Failures.toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "Treating FINISHED task as FAILED because we received empty spooling output stats")), taskStatus);
+                return;
+            }
+
             exchange.sinkFinished(partition.getExchangeSinkHandle(), taskId.getAttemptId());
-            SpoolingOutputStats.Snapshot outputStats = partition.taskFinished(taskId);
 
             if (!partition.isRunning()) {
                 runningPartitions.remove(partitionId);
@@ -2336,7 +2346,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 return;
             }
 
-            updateOutputSize(outputStats);
+            updateOutputSize(outputStats.orElseThrow());
 
             partitionMemoryEstimator.registerPartitionFinished(
                     partition.getMemoryRequirements(),
@@ -2802,12 +2812,22 @@ public class EventDrivenFaultTolerantQueryScheduler
             runningTasks.add(taskId);
         }
 
-        public SpoolingOutputStats.Snapshot taskFinished(TaskId taskId)
+        public Optional<SpoolingOutputStats.Snapshot> taskFinished(TaskId taskId)
         {
             RemoteTask remoteTask = tasks.get(taskId);
-            checkState(runningTasks.remove(taskId), "task %s already marked as finished", taskId);
             checkArgument(remoteTask != null, "task not found: %s", taskId);
-            SpoolingOutputStats.Snapshot outputStats = remoteTask.retrieveAndDropSpoolingOutputStats();
+            Optional<SpoolingOutputStats.Snapshot> outputStats = remoteTask.retrieveAndDropSpoolingOutputStats();
+            if (outputStats.isEmpty()) {
+                // It is rare but possible to get empty spooling output stats for task which completed successfully.
+                // This may happen if we observe FINISHED task state based on received TaskStatus but are later on unable to
+                // successfully retrieve TaskInfo. In such case we are building final TaskInfo based on last known taskInfo, just
+                // updating the taskState field. The spooling output stats will not be present.
+                // As we need this information in FTE mode we need to fail such task artificially
+                // (see EventDrivenFaultTolerantQueryScheduler.StageExecution.taskFinished)
+                return outputStats;
+            }
+            checkState(runningTasks.remove(taskId), "task %s already marked as finished", taskId);
+
             tasks.values().forEach(RemoteTask::abort);
             finished = true;
             // task descriptor has been created
