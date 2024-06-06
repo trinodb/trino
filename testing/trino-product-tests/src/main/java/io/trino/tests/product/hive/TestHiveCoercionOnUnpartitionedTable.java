@@ -158,6 +158,8 @@ public class TestHiveCoercionOnUnpartitionedTable
                             timestamp_to_smaller_varchar       TIMESTAMP,
                             smaller_varchar_to_timestamp       VARCHAR(4),
                             varchar_to_timestamp               STRING,
+                            binary_to_string                   BINARY,
+                            binary_to_smaller_varchar          BINARY,
                             id                                 BIGINT)
                        STORED AS\s""" + fileFormat);
     }
@@ -351,6 +353,8 @@ public class TestHiveCoercionOnUnpartitionedTable
                 .put(columnContext("3.1", "parquet", "string_to_timestamp"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.TimestampWritableV2")
                 .put(columnContext("3.1", "parquet", "timestamp_to_date"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.TimestampWritableV2")
                 .put(columnContext("3.1", "parquet", "double_to_float"), "org.apache.hadoop.hive.serde2.io.DoubleWritable cannot be cast to org.apache.hadoop.io.FloatWritable")
+                .put(columnContext("3.1", "parquet", "binary_to_string"), "org.apache.hadoop.io.BytesWritable cannot be cast to org.apache.hadoop.hive.serde2.io.HiveVarcharWritable")
+                .put(columnContext("3.1", "parquet", "binary_to_smaller_varchar"), "org.apache.hadoop.io.BytesWritable cannot be cast to org.apache.hadoop.hive.serde2.io.HiveVarcharWritable")
                 .buildOrThrow();
     }
 }

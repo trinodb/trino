@@ -202,7 +202,9 @@ public class TestHiveCoercionOnPartitionedTable
                         "    timestamp_to_bounded_varchar       TIMESTAMP," +
                         "    timestamp_to_smaller_varchar       TIMESTAMP," +
                         "    smaller_varchar_to_timestamp       VARCHAR(4)," +
-                        "    varchar_to_timestamp               STRING" +
+                        "    varchar_to_timestamp               STRING," +
+                        "    binary_to_string                   BINARY," +
+                        "    binary_to_smaller_varchar          BINARY" +
                         ") " +
                         "PARTITIONED BY (id BIGINT) " +
                         rowFormat.map(s -> format("ROW FORMAT %s ", s)).orElse("") +
