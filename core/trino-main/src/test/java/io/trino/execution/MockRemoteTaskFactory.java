@@ -521,7 +521,7 @@ public class MockRemoteTaskFactory
         }
 
         @Override
-        public SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats()
+        public Optional<SpoolingOutputStats.Snapshot> retrieveAndDropSpoolingOutputStats()
         {
             throw new UnsupportedOperationException();
         }

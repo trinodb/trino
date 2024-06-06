@@ -23,6 +23,7 @@ import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.SpanBuilder;
@@ -60,6 +61,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class TaskInfoFetcher
 {
     private static final Logger log = Logger.get(TaskInfoFetcher.class);
+
+    private static final SpoolingOutputStats.Snapshot ALREADY_RETRIEVED_MARKER = new SpoolingOutputStats.Snapshot(Slices.EMPTY_SLICE, 0);
 
     private final TaskId taskId;
     private final Consumer<Throwable> onFail;
@@ -180,15 +183,15 @@ public class TaskInfoFetcher
         fireOnceStateChangeListener.stateChanged(finalTaskInfo.get());
     }
 
-    public SpoolingOutputStats.Snapshot retrieveAndDropSpoolingOutputStats()
+    public Optional<SpoolingOutputStats.Snapshot> retrieveAndDropSpoolingOutputStats()
     {
         Optional<TaskInfo> finalTaskInfo = this.finalTaskInfo.get();
         checkState(finalTaskInfo.isPresent(), "finalTaskInfo must be present");
         TaskState taskState = finalTaskInfo.get().taskStatus().getState();
         checkState(taskState == TaskState.FINISHED, "task must be FINISHED, got: %s", taskState);
-        SpoolingOutputStats.Snapshot result = spoolingOutputStats.getAndSet(null);
-        checkState(result != null, "spooling output stats is not available");
-        return result;
+        SpoolingOutputStats.Snapshot result = spoolingOutputStats.getAndSet(ALREADY_RETRIEVED_MARKER);
+        checkState(result != ALREADY_RETRIEVED_MARKER, "spooling output stats were already retrieved");
+        return Optional.ofNullable(result);
     }
 
     private synchronized void scheduleUpdate()
