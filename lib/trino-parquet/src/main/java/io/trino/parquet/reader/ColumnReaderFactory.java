@@ -265,6 +265,9 @@ public final class ColumnReaderFactory
             return createColumnReader(field, valueDecoders::getBinaryDecoder, BINARY_ADAPTER, memoryContext);
         }
         if ((VARBINARY.equals(type) || VARCHAR.equals(type)) && primitiveType == FIXED_LEN_BYTE_ARRAY) {
+            if (annotation instanceof DecimalLogicalTypeAnnotation) {
+                throw unsupportedException(type, field);
+            }
             return createColumnReader(field, valueDecoders::getFixedWidthBinaryDecoder, BINARY_ADAPTER, memoryContext);
         }
         if (UUID.equals(type) && primitiveType == FIXED_LEN_BYTE_ARRAY) {
