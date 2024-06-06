@@ -53,6 +53,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import java.util.List;
@@ -79,6 +80,7 @@ import static io.trino.plugin.hive.coercions.DecimalCoercers.createIntegerNumber
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DoubleToVarcharCoercers.createDoubleToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.FloatToVarcharCoercers.createFloatToVarcharCoercer;
+import static io.trino.plugin.hive.coercions.VarbinaryToVarcharCoercers.createVarbinaryToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.VarcharToIntegralNumericCoercers.createVarcharToIntegerNumberCoercer;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
@@ -271,6 +273,10 @@ public final class CoercionUtils
                     (StructTypeInfo) fromHiveTypeStruct.getTypeInfo(),
                     (StructTypeInfo) toHiveTypeStruct.getTypeInfo(),
                     coercionContext);
+        }
+
+        if (fromType instanceof VarbinaryType && toType instanceof VarcharType varcharType) {
+            return Optional.of(createVarbinaryToVarcharCoercer(varcharType, coercionContext.storageFormat()));
         }
 
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));

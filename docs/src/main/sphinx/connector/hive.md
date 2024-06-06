@@ -631,6 +631,8 @@ type conversions.
   - `VARCHAR`
 * - `TIMESTAMP`
   - `VARCHAR`, `DATE`
+* - `VARBINARY`
+  - `VARCHAR` 
 :::
 
 Any conversion failure results in null, which is the same behavior
