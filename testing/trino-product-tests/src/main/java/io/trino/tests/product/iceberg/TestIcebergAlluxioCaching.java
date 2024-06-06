@@ -27,7 +27,6 @@ import static io.trino.tests.product.utils.QueryAssertions.assertEventually;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestIcebergAlluxioCaching
         extends ProductTest
@@ -70,8 +69,8 @@ public class TestIcebergAlluxioCaching
                     // query via caching catalog should read exclusively from cache
                     CacheStats afterQueryCacheStats = getCacheStats("iceberg");
                     assertGreaterThan(afterQueryCacheStats.cacheReads(), beforeQueryCacheStats.cacheReads());
-                    assertEquals(afterQueryCacheStats.externalReads(), beforeQueryCacheStats.externalReads());
-                    assertEquals(afterQueryCacheStats.cacheSpaceUsed(), beforeQueryCacheStats.cacheSpaceUsed());
+                    assertThat(afterQueryCacheStats.externalReads()).isEqualTo(beforeQueryCacheStats.externalReads());
+                    assertThat(afterQueryCacheStats.cacheSpaceUsed()).isEqualTo(beforeQueryCacheStats.cacheSpaceUsed());
                 });
 
         onTrino().executeQuery("DROP TABLE " + nonCachedTableName);

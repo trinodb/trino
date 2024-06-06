@@ -50,7 +50,6 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 @Requires({
         ImmutableNationTable.class,
@@ -309,12 +308,12 @@ public abstract class AbstractTestHiveViews
 
         QueryResult actualResult = onTrino().executeQuery(format(showCreateViewSql, "hive"));
         assertThat(actualResult).hasRowsCount(1);
-        assertEquals((String) actualResult.getOnlyValue(), format(expectedResult, "hive"));
+        assertThat((String) actualResult.getOnlyValue()).isEqualTo(format(expectedResult, "hive"));
 
         // Verify the translated view sql for a catalog other than "hive", which is configured to the same metastore
         actualResult = onTrino().executeQuery(format(showCreateViewSql, "hive_with_external_writes"));
         assertThat(actualResult).hasRowsCount(1);
-        assertEquals((String) actualResult.getOnlyValue(), format(expectedResult, "hive_with_external_writes"));
+        assertThat((String) actualResult.getOnlyValue()).isEqualTo(format(expectedResult, "hive_with_external_writes"));
     }
 
     /**
