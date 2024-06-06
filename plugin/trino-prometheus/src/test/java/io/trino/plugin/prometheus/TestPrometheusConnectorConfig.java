@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HttpHeaders;
 import com.google.inject.ConfigurationException;
 import io.airlift.units.Duration;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -29,6 +30,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.Assert.assertThrows;
 
 public class TestPrometheusConnectorConfig
 {
@@ -63,7 +65,7 @@ public class TestPrometheusConnectorConfig
                 .put("prometheus.auth.password", "password")
                 .put("prometheus.read-timeout", "30s")
                 .put("prometheus.case-insensitive-name-matching", "true")
-                .put("prometheus.http.additional.headers", "X-Origin=default,X-Scope=internal")
+                .put("prometheus.http.additional.headers", "key\\:1:value\\,1, key\\,2:value\\:2")
                 .buildOrThrow();
 
         URI uri = URI.create("file://test.json");
@@ -78,7 +80,7 @@ public class TestPrometheusConnectorConfig
         expected.setPassword("password");
         expected.setReadTimeout(new Duration(30, SECONDS));
         expected.setCaseInsensitiveNameMatching(true);
-        expected.setAdditionalHeaders("X-Origin=default,X-Scope=internal");
+        expected.setAdditionalHeaders("key\\:1:value\\,1, key\\,2:value\\:2");
         assertFullMapping(properties, expected);
     }
 
@@ -93,6 +95,22 @@ public class TestPrometheusConnectorConfig
         assertThatThrownBy(config::checkConfig)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("prometheus.max.query.range.duration must be greater than prometheus.query.chunk.size.duration");
+    }
+
+    @Test
+    public void testFailOnAdditionalHeadersContainAuthHeaderName() {
+        PrometheusConnectorConfig config = new PrometheusConnectorConfig();
+        config.setHttpAuthHeaderName("Authorization");
+        String additionalHeaders = "Authorization: test";
+
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            config.setAdditionalHeaders(additionalHeaders);
+        });
+
+        String expectedMessage = "Additional headers can not include: Authorization";
+        String actualMessage = exception.getMessage();
+
+        Assertions.assertTrue(actualMessage.contains(expectedMessage));
     }
 
     @Test

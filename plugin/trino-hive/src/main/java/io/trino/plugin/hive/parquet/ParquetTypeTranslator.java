@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.parquet;
 
 import io.trino.plugin.hive.coercions.IntegerNumberToDoubleCoercer;
+import io.trino.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Type;
@@ -49,6 +50,14 @@ public final class ParquetTypeTranslator
             }
         }
         if (toTrinoType instanceof VarcharType varcharType) {
+            if (isIntegerAnnotationAndPrimitive(typeAnnotation, fromParquetType)) {
+                if (fromParquetType == INT32) {
+                    return Optional.of(new IntegerNumberToVarcharCoercer<>(INTEGER, varcharType));
+                }
+                if (fromParquetType == INT64) {
+                    return Optional.of(new IntegerNumberToVarcharCoercer<>(BIGINT, varcharType));
+                }
+            }
             if (fromParquetType == INT96) {
                 return Optional.of(new LongTimestampToVarcharCoercer(TIMESTAMP_NANOS, varcharType));
             }

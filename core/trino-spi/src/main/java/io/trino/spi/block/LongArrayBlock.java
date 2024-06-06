@@ -224,6 +224,12 @@ public final class LongArrayBlock
         return "LongArrayBlock{positionCount=" + getPositionCount() + '}';
     }
 
+    @Override
+    public Optional<ByteArrayBlock> getNulls()
+    {
+        return BlockUtil.getNulls(valueIsNull, arrayOffset, positionCount);
+    }
+
     int getRawValuesOffset()
     {
         return arrayOffset;

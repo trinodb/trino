@@ -225,6 +225,12 @@ public final class IntArrayBlock
         return "IntArrayBlock{positionCount=" + getPositionCount() + '}';
     }
 
+    @Override
+    public Optional<ByteArrayBlock> getNulls()
+    {
+        return BlockUtil.getNulls(valueIsNull, arrayOffset, positionCount);
+    }
+
     boolean[] getRawValueIsNull()
     {
         return valueIsNull;

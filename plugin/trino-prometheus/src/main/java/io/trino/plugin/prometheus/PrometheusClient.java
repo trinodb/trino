@@ -73,8 +73,10 @@ public class PrometheusClient
         requireNonNull(typeManager, "typeManager is null");
 
         Builder clientBuilder = new Builder().readTimeout(Duration.ofMillis(config.getReadTimeout().toMillis()));
-        setupBasicAuth(clientBuilder, config.getUser(), config.getPassword());
-        setupTokenAuth(clientBuilder, getBearerAuthInfoFromFile(config.getBearerTokenFile()), config.getHttpAuthHeaderName(), config.getAdditionalHeaders());
+
+        Map<String, String> additionalHeaders =  config.getAdditionalHeaders();
+        setupBasicAuth(clientBuilder, config.getUser(), config.getPassword(), additionalHeaders);
+        setupTokenAuth(clientBuilder, getBearerAuthInfoFromFile(config.getBearerTokenFile()), config.getHttpAuthHeaderName(), additionalHeaders);
         this.httpClient = clientBuilder.build();
 
         URI prometheusMetricsUri = getPrometheusMetricsURI(config.getPrometheusURI());
@@ -187,10 +189,10 @@ public class PrometheusClient
         });
     }
 
-    private static void setupBasicAuth(OkHttpClient.Builder clientBuilder, Optional<String> user, Optional<String> password)
+    private static void setupBasicAuth(OkHttpClient.Builder clientBuilder, Optional<String> user, Optional<String> password, Map<String, String> additionalHeaders)
     {
         if (user.isPresent() && password.isPresent()) {
-            clientBuilder.addInterceptor(basicAuth(user.get(), password.get()));
+            clientBuilder.addInterceptor(basicAuth(user.get(), password.get(), additionalHeaders));
         }
     }
 
@@ -199,7 +201,7 @@ public class PrometheusClient
         accessToken.ifPresent(token -> clientBuilder.addInterceptor(tokenAuth(token, httpAuthHeaderName, additionalHeaders)));
     }
 
-    private static Interceptor basicAuth(String user, String password)
+    private static Interceptor basicAuth(String user, String password, Map<String, String> additionalHeaders)
     {
         requireNonNull(user, "user is null");
         requireNonNull(password, "password is null");
@@ -208,9 +210,11 @@ public class PrometheusClient
         }
 
         String credential = Credentials.basic(user, password);
-        return chain -> chain.proceed(chain.request().newBuilder()
-                .header(AUTHORIZATION, credential)
-                .build());
+        return chain -> {
+            Request.Builder requestBuilder = chain.request().newBuilder().header(AUTHORIZATION, credential);
+            additionalHeaders.forEach(requestBuilder::addHeader);
+            return chain.proceed(requestBuilder.build());
+        };
     }
 
     private static Interceptor tokenAuth(String accessToken, String httpAuthHeaderName, Map<String, String> additionalHeaders)
@@ -220,11 +224,7 @@ public class PrometheusClient
         String token = useBearer ? "Bearer " + accessToken : accessToken;
         return chain -> {
             Request.Builder requestBuilder = chain.request().newBuilder().addHeader(httpAuthHeaderName, token);
-
-            for (Map.Entry<String, String> entry : additionalHeaders.entrySet()) {
-                requestBuilder.addHeader(entry.getKey(), entry.getValue());
-            }
-
+            additionalHeaders.forEach(requestBuilder::addHeader);
             return chain.proceed(requestBuilder.build());
         };
     }

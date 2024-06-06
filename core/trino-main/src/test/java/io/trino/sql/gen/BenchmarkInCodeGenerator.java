@@ -27,6 +27,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 import org.junit.jupiter.api.Test;
@@ -81,6 +82,9 @@ public class BenchmarkInCodeGenerator
 
         @Param({"0.0", "0.05", "0.50", "1.0"})
         private double hitRate;
+
+        @Param({"true", "false"})
+        public boolean columnarEvaluationEnabled;
 
         private Page inputPage;
         private PageProcessor processor;
@@ -180,7 +184,11 @@ public class BenchmarkInCodeGenerator
             RowExpression filter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
 
             FunctionManager functionManager = createTestingFunctionManager();
-            processor = new ExpressionCompiler(functionManager, new PageFunctionCompiler(functionManager, 0)).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();
+            processor = new ExpressionCompiler(
+                    functionManager,
+                    new PageFunctionCompiler(functionManager, 0),
+                    new ColumnarFilterCompiler(functionManager, 0))
+                    .compilePageProcessor(columnarEvaluationEnabled, Optional.of(filter), ImmutableList.of(project), Optional.empty()).get();
         }
     }
 
@@ -198,9 +206,12 @@ public class BenchmarkInCodeGenerator
     @Test
     public void testBenchmarkInCodeGenerator()
     {
-        BenchmarkData benchmarkData = new BenchmarkData();
-        benchmarkData.setup();
-        benchmark(benchmarkData);
+        for (boolean columnarEvaluationEnabled : ImmutableList.of(true, false)) {
+            BenchmarkData benchmarkData = new BenchmarkData();
+            benchmarkData.columnarEvaluationEnabled = columnarEvaluationEnabled;
+            benchmarkData.setup();
+            benchmark(benchmarkData);
+        }
     }
 
     public static void main(String[] args)

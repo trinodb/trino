@@ -14,6 +14,7 @@
 package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HttpHeaders;
 import com.google.inject.ConfigurationException;
 import com.google.inject.spi.Message;
@@ -43,8 +44,8 @@ public class PrometheusConnectorConfig
     private File bearerTokenFile;
     private String user;
     private String password;
-    private final Map<String, String> additionalHeaders = new HashMap<>();
     private boolean caseInsensitiveNameMatching;
+    private Map<String, String> additionalHeaders = ImmutableMap.of();
 
     @NotNull
     public URI getPrometheusURI()
@@ -155,28 +156,6 @@ public class PrometheusConnectorConfig
         return this;
     }
 
-    public Map<String, String> getAdditionalHeaders()
-    {
-        return this.additionalHeaders;
-    }
-
-    @Config("prometheus.http.additional.headers")
-    @ConfigDescription("Additional headers to be sent with the HTTP request to Prometheus")
-    public PrometheusConnectorConfig setAdditionalHeaders(String additionalHeaders)
-    {
-        if (additionalHeaders != null && !additionalHeaders.isEmpty()) {
-            String[] headerPairs = additionalHeaders.split(",");
-            for (String headerPair : headerPairs) {
-                String[] headerParts = headerPair.split("=");
-                if (headerParts.length != 2) {
-                    throw new IllegalArgumentException("Invalid header format: " + headerPair);
-                }
-                this.additionalHeaders.putIfAbsent(headerParts[0], headerParts[1]);
-            }
-        }
-        return this;
-    }
-
     @MinDuration("1s")
     public Duration getReadTimeout()
     {
@@ -201,6 +180,42 @@ public class PrometheusConnectorConfig
     public PrometheusConnectorConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
     {
         this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        return this;
+    }
+
+    public Map<String, String> getAdditionalHeaders()
+    {
+        return additionalHeaders;
+    }
+
+    @Config("prometheus.http.additional.headers")
+    @ConfigDescription("Comma separated key:value pairs to be sent with the HTTP request to Prometheus as additional headers")
+    public PrometheusConnectorConfig setAdditionalHeaders(String httpHeaders)
+    {
+        try {
+            // we allow escaping the delimiters like , and : using back-slash.
+            // To support that we create a negative lookbehind of , and : which
+            // are not preceded by a back-slash.
+            String headersDelim = "(?<!\\\\),";
+            String kvDelim = "(?<!\\\\):";
+            Map<String, String> temp = new HashMap<>();
+            if (httpHeaders != null) {
+                for (String kv : httpHeaders.split(headersDelim)) {
+                    String key = kv.split(kvDelim, 2)[0].trim();
+                    if (key.equals(httpAuthHeaderName)) {
+                        throw new IllegalArgumentException("Additional headers can not include: " + httpAuthHeaderName);
+                    }
+
+                    String val = kv.split(kvDelim, 2)[1].trim();
+                    temp.put(key, val);
+                }
+                this.additionalHeaders = ImmutableMap.copyOf(temp);
+            }
+        }
+        catch (IllegalArgumentException | IndexOutOfBoundsException e) {
+            throw new IllegalArgumentException(String.format("Invalid format for 'prometheus.http.additional.headers' because %s. " +
+                    "Value provided is %s", e.getMessage(), httpHeaders), e);
+        }
         return this;
     }
 

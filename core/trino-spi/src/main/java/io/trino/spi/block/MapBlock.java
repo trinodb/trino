@@ -602,6 +602,12 @@ public final class MapBlock
         return this;
     }
 
+    @Override
+    public Optional<ByteArrayBlock> getNulls()
+    {
+        return BlockUtil.getNulls(mapIsNull, startOffset, positionCount);
+    }
+
     // only visible for testing
     public boolean isHashTablesPresent()
     {

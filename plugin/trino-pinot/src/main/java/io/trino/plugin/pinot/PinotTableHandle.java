@@ -32,19 +32,26 @@ public class PinotTableHandle
 {
     private final String schemaName;
     private final String tableName;
+    private final boolean enableNullHandling;
     private final TupleDomain<ColumnHandle> constraint;
     private final OptionalLong limit;
     private final Optional<DynamicTable> query;
 
     public PinotTableHandle(String schemaName, String tableName)
     {
-        this(schemaName, tableName, TupleDomain.all(), OptionalLong.empty(), Optional.empty());
+        this(schemaName, tableName, false, TupleDomain.all(), OptionalLong.empty(), Optional.empty());
+    }
+
+    public PinotTableHandle(String schemaName, String tableName, boolean enableNullHandling)
+    {
+        this(schemaName, tableName, enableNullHandling, TupleDomain.all(), OptionalLong.empty(), Optional.empty());
     }
 
     @JsonCreator
     public PinotTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
+            @JsonProperty("enableNullHandling") boolean enableNullHandling,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("query") Optional<DynamicTable> query)
@@ -52,6 +59,7 @@ public class PinotTableHandle
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.enableNullHandling = enableNullHandling;
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.limit = requireNonNull(limit, "limit is null");
         this.query = requireNonNull(query, "query is null");
@@ -67,6 +75,12 @@ public class PinotTableHandle
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonProperty
+    public boolean isEnableNullHandling()
+    {
+        return enableNullHandling;
     }
 
     @JsonProperty
@@ -113,6 +127,7 @@ public class PinotTableHandle
         return toStringHelper(this)
                 .add("schemaName", schemaName)
                 .add("tableName", tableName)
+                .add("enableNullHandling", enableNullHandling)
                 .add("constraint", constraint)
                 .add("limit", limit)
                 .add("query", query)

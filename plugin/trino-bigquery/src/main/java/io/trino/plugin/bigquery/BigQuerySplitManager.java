@@ -16,7 +16,6 @@ package io.trino.plugin.bigquery;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
-import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.common.annotations.VisibleForTesting;
@@ -36,8 +35,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
-import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
@@ -117,9 +114,10 @@ public class BigQuerySplitManager
         }
 
         TableId remoteTableId = bigQueryTableHandle.asPlainTable().getRemoteTableName().toTableId();
+        TableDefinition.Type tableType = TableDefinition.Type.valueOf(bigQueryTableHandle.asPlainTable().getType());
         List<BigQuerySplit> splits = emptyProjectionIsRequired(bigQueryTableHandle.projectedColumns()) ?
-                createEmptyProjection(session, remoteTableId, actualParallelism, filter) :
-                readFromBigQuery(session, TableDefinition.Type.valueOf(bigQueryTableHandle.asPlainTable().getType()), remoteTableId, bigQueryTableHandle.projectedColumns(), actualParallelism, tableConstraint);
+                createEmptyProjection(session, tableType, remoteTableId, actualParallelism, filter) :
+                readFromBigQuery(session, tableType, remoteTableId, bigQueryTableHandle.projectedColumns(), actualParallelism, tableConstraint);
         return new FixedSplitSource(splits);
     }
 
@@ -169,32 +167,20 @@ public class BigQuerySplitManager
         return readSessionCreator.create(session, remoteTableId, projectedColumnsNames, filter, actualParallelism);
     }
 
-    private List<BigQuerySplit> createEmptyProjection(ConnectorSession session, TableId remoteTableId, int actualParallelism, Optional<String> filter)
+    private List<BigQuerySplit> createEmptyProjection(ConnectorSession session, TableDefinition.Type tableType, TableId remoteTableId, int actualParallelism, Optional<String> filter)
     {
+        if (!TABLE_TYPES.contains(tableType)) {
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported table type: " + tableType);
+        }
+
         BigQueryClient client = bigQueryClientFactory.create(session);
         log.debug("createEmptyProjection(tableId=%s, actualParallelism=%s, filter=[%s])", remoteTableId, actualParallelism, filter);
         try {
-            long numberOfRows;
-            if (filter.isPresent()) {
-                // count the rows based on the filter
-                String sql = selectSql(remoteTableId, "COUNT(*)", filter);
-                TableResult result = client.executeQuery(session, sql);
-                numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
-            }
-            else {
-                TableInfo tableInfo = client.getTable(remoteTableId)
-                        .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(remoteTableId.getDataset(), remoteTableId.getTable())));
-                // Note that we cannot use row count from TableInfo because for writes via insertAll/streaming API the number is incorrect until the streaming buffer is flushed
-                // (and there's no mechanism to trigger an on-demand flush). This can lead to incorrect results for queries with empty projections.
-                if (TABLE_TYPES.contains(tableInfo.getDefinition().getType())) {
-                    String sql = client.selectSql(remoteTableId, "COUNT(*)");
-                    TableResult result = client.executeQuery(session, sql);
-                    numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
-                }
-                else {
-                    throw new TrinoException(NOT_SUPPORTED, "Unsupported table type: " + tableInfo.getDefinition().getType());
-                }
-            }
+            // Note that we cannot use row count from TableInfo because for writes via insertAll/streaming API the number is incorrect until the streaming buffer is flushed
+            // (and there's no mechanism to trigger an on-demand flush). This can lead to incorrect results for queries with empty projections.
+            String sql = selectSql(remoteTableId, "COUNT(*)", filter);
+            TableResult result = client.executeQuery(session, sql);
+            long numberOfRows = result.iterateAll().iterator().next().getFirst().getLongValue();
 
             long rowsPerSplit = numberOfRows / actualParallelism;
             long remainingRows = numberOfRows - (rowsPerSplit * actualParallelism); // need to be added to one fo the split due to integer division

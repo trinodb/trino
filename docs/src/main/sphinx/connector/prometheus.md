@@ -83,7 +83,11 @@ The following configuration properties are available:
   - Match Prometheus metric names case insensitively.
   - `false`
 * - `prometheus.http.additional.headers`
-  -  Additional headers to include in HTTP requests to Prometheus.
+  -  Additional headers to send to Prometheus endpoint. These headers
+     must be comma-separated and delimited using `:`. For example,
+     `header1:value1,header2:value2` sends two headers `header1` and `header2`
+     with the values as `value1` and `value2`. Escape comma (`,`) or colon(`:`)
+     characters in a header name or value with a backslash (`\`).
   -
 :::
 
