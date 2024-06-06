@@ -52,6 +52,7 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -60,12 +61,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.parquet.BenchmarkFileFormatsUtils.createTpchDataSet;
+import static io.trino.parquet.BenchmarkParquetFormatUtils.createTpchDataSet;
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.relational.Expressions.constant;
@@ -87,17 +89,17 @@ public class BenchmarkColumnarFilterParquetData
     private static final int QUANTITY = 3;
     private static final int SHIP_MODE = 4;
 
-    private static final Slice MIN_SHIP_DATE = utf8Slice("1994-01-01");
-    private static final Slice MAX_SHIP_DATE = utf8Slice("1995-01-01");
+    private static final long MIN_SHIP_DATE = LocalDate.parse("1994-01-01").toEpochDay();
+    private static final long MAX_SHIP_DATE = LocalDate.parse("1995-01-01").toEpochDay();
     private static final Slice SHIP = utf8Slice("MAIL");
     private static final Slice MAIL = utf8Slice("SHIP");
     private static final ResolvedFunction EQUALS = FUNCTION_RESOLUTION.getMetadata().resolveOperator(OperatorType.EQUAL, ImmutableList.of(VARCHAR, VARCHAR));
     private static final ResolvedFunction HASH_CODE = FUNCTION_RESOLUTION.getMetadata().resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(VARCHAR));
-    private static final List<Type> TYPES = ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE, VARCHAR);
 
     private ParquetMetadata parquetMetadata;
     private ParquetDataSource dataSource;
     private List<String> columnNames;
+    private List<Type> columnTypes;
     private PageProcessor compiledProcessor;
 
     @Param({"true", "false"})
@@ -126,15 +128,15 @@ public class BenchmarkColumnarFilterParquetData
                         BOOLEAN,
                         ImmutableList.of(
                                 new CallExpression(
-                                        FUNCTION_RESOLUTION.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(VARCHAR, VARCHAR)),
-                                        ImmutableList.of(constant(MIN_SHIP_DATE, VARCHAR), field(SHIP_DATE, VARCHAR))),
+                                        FUNCTION_RESOLUTION.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DATE, DATE)),
+                                        ImmutableList.of(constant(MIN_SHIP_DATE, DATE), field(SHIP_DATE, DATE))),
                                 new SpecialForm(
                                         Form.AND,
                                         BOOLEAN,
                                         ImmutableList.of(
                                                 new CallExpression(
-                                                        FUNCTION_RESOLUTION.resolveOperator(LESS_THAN, ImmutableList.of(VARCHAR, VARCHAR)),
-                                                        ImmutableList.of(field(SHIP_DATE, VARCHAR), constant(MAX_SHIP_DATE, VARCHAR))),
+                                                        FUNCTION_RESOLUTION.resolveOperator(LESS_THAN, ImmutableList.of(DATE, DATE)),
+                                                        ImmutableList.of(field(SHIP_DATE, DATE), constant(MAX_SHIP_DATE, DATE))),
                                                 new SpecialForm(
                                                         Form.AND,
                                                         BOOLEAN,
@@ -166,8 +168,8 @@ public class BenchmarkColumnarFilterParquetData
                 return new SpecialForm(
                         Form.BETWEEN,
                         BOOLEAN,
-                        ImmutableList.of(field(SHIP_DATE, VARCHAR), constant(MIN_SHIP_DATE, VARCHAR), constant(MAX_SHIP_DATE, VARCHAR)),
-                        ImmutableList.of(FUNCTION_RESOLUTION.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(VARCHAR, VARCHAR))));
+                        ImmutableList.of(field(SHIP_DATE, DATE), constant(MIN_SHIP_DATE, DATE), constant(MAX_SHIP_DATE, DATE)),
+                        ImmutableList.of(FUNCTION_RESOLUTION.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DATE, DATE))));
             }
         },
         IN {
@@ -210,18 +212,21 @@ public class BenchmarkColumnarFilterParquetData
                 LineItemColumn.SHIP_DATE,
                 LineItemColumn.QUANTITY,
                 LineItemColumn.SHIP_MODE);
-        BenchmarkFileFormatsUtils.TestData testData = createTpchDataSet(LINE_ITEM, columns);
+        BenchmarkParquetFormatUtils.TestData testData = createTpchDataSet(LINE_ITEM, columns);
 
         dataSource = new TestingParquetDataSource(
                 writeParquetFile(
                         ParquetWriterOptions.builder().build(),
-                        testData.columnTypes(),
-                        testData.columnNames(),
-                        testData.pages()),
+                        testData.getColumnTypes(),
+                        testData.getColumnNames(),
+                        testData.getPages()),
                 new ParquetReaderOptions());
         parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         columnNames = columns.stream()
                 .map(TpchColumn::getColumnName)
+                .collect(toImmutableList());
+        columnTypes = columns.stream()
+                .map(BenchmarkParquetFormatUtils::getColumnType)
                 .collect(toImmutableList());
     }
 
@@ -229,7 +234,7 @@ public class BenchmarkColumnarFilterParquetData
     public long compiled()
             throws IOException
     {
-        ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), TYPES, columnNames);
+        ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), columnTypes, columnNames);
         LocalMemoryContext context = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
         Page inputPage = reader.nextPage();
         long outputRows = 0;
