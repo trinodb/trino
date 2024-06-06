@@ -119,6 +119,11 @@ public final class TransactionLogParser
             .withResolverStyle(ResolverStyle.STRICT);
     public static final DateTimeFormatter JSON_STATISTICS_TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
             .parseCaseInsensitive()
+            // Using optional format because the format differ among Delta Lake versions.
+            // For instance, newer versions use '+' sign when year is more than 4 digits, but older versions don't write the sign.
+            .optionalStart()
+            .appendLiteral('+')
+            .optionalEnd()
             .appendValue(YEAR, 4, 10, SignStyle.NORMAL)
             .appendLiteral('-')
             .appendValue(MONTH_OF_YEAR, 2)
