@@ -784,6 +784,31 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testShowStatsForTimestampWithTimeZone()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_stats_timestamptz_", "(x TIMESTAMP(3) WITH TIME ZONE) WITH (checkpoint_interval = 2)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '+10000-01-02 13:34:56.123 +01:00')", 1);
+            assertThat(query("SHOW STATS FOR " + table.getName()))
+                    .result()
+                    .projected("column_name", "low_value", "high_value")
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "('x', '+10000-01-02 12:34:56.123 UTC', '+10000-01-02 12:34:56.123 UTC')," +
+                            "(null, null, null)");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '-9999-01-02 13:34:56.123 +01:00')", 1);
+            assertThat(query("SHOW STATS FOR " + table.getName()))
+                    .result()
+                    .projected("column_name", "low_value", "high_value")
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            // The negative timestamp is discarded by TransactionLogParser.START_OF_MODERN_ERA_DATE
+                            "('x', '+10000-01-02 12:34:56.123 UTC', '+10000-01-02 12:34:56.123 UTC')," +
+                            "(null, null, null)");
+        }
+    }
+
+    @Test
     public void testAddColumnToPartitionedTable()
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_partitioned_table_", "(x VARCHAR, part VARCHAR) WITH (partitioned_by = ARRAY['part'])")) {
