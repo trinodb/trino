@@ -97,7 +97,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -2508,7 +2507,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         finally {
             assertUpdate("DROP TABLE " + tableName);
             executor.shutdownNow();
-            assertTrue(executor.awaitTermination(10, SECONDS));
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
     }
 
@@ -2585,7 +2584,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         finally {
             assertUpdate("DROP TABLE " + tableName);
             executor.shutdownNow();
-            assertTrue(executor.awaitTermination(10, SECONDS));
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
     }
 
@@ -2639,7 +2638,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         finally {
             assertUpdate("DROP TABLE " + tableName);
             executor.shutdownNow();
-            assertTrue(executor.awaitTermination(10, SECONDS));
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
     }
 
@@ -2688,7 +2687,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         finally {
             assertUpdate("DROP TABLE " + tableName);
             executor.shutdownNow();
-            assertTrue(executor.awaitTermination(10, SECONDS));
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
     }
 
@@ -2754,7 +2753,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         finally {
             assertUpdate("DROP TABLE " + tableName);
             executor.shutdownNow();
-            assertTrue(executor.awaitTermination(10, SECONDS));
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
     }
 

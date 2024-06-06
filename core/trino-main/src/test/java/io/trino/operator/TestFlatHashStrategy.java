@@ -54,8 +54,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 class TestFlatHashStrategy
 {
@@ -110,7 +109,8 @@ class TestFlatHashStrategy
 
         int positionCount = 10;
         // Attempting to touch any of the blocks would result in a NullPointerException
-        assertDoesNotThrow(() -> flatHashStrategy.hashBlocksBatched(new Block[types.size()], new long[positionCount], 0, 0));
+        assertThatCode(() -> flatHashStrategy.hashBlocksBatched(new Block[types.size()], new long[positionCount], 0, 0))
+                .doesNotThrowAnyException();
     }
 
     @Test
@@ -134,7 +134,7 @@ class TestFlatHashStrategy
         assertHashesEqual(types, blocks, hashes, flatHashStrategy);
 
         // Ensure the formatting logic produces a real string and doesn't blow up since otherwise this code wouldn't be exercised
-        assertNotNull(singleRowTypesAndValues(types, blocks, 0));
+        assertThat(singleRowTypesAndValues(types, blocks, 0)).isNotNull();
     }
 
     private void assertHashesEqual(List<Type> types, Block[] blocks, long[] batchedHashes, FlatHashStrategy flatHashStrategy)

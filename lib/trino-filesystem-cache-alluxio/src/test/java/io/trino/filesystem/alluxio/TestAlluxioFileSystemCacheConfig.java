@@ -27,8 +27,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.trino.filesystem.alluxio.AlluxioConfigurationFactory.totalSpace;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class TestAlluxioFileSystemCacheConfig
 {
@@ -100,7 +100,7 @@ class TestAlluxioFileSystemCacheConfig
     {
         Path cacheDirectory = Files.createTempFile(null, null);
 
-        assertEquals(cacheDirectory.toFile().getTotalSpace(), totalSpace(cacheDirectory));
-        assertEquals(cacheDirectory.toFile().getTotalSpace(), totalSpace(cacheDirectory.resolve(Path.of("does-not-exist"))));
+        assertThat(totalSpace(cacheDirectory)).isEqualTo(cacheDirectory.toFile().getTotalSpace());
+        assertThat(totalSpace(cacheDirectory.resolve(Path.of("does-not-exist")))).isEqualTo(cacheDirectory.toFile().getTotalSpace());
     }
 }
