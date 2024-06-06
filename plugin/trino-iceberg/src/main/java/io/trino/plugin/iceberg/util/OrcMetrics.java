@@ -112,7 +112,7 @@ public final class OrcMetrics
     private static OrcType toBasicOrcType(OrcColumn column)
     {
         return new OrcType(
-                column.getColumnType(),
+                column.getColumnType().getOrcTypeKind(),
                 column.getNestedColumns().stream()
                         .map(OrcColumn::getColumnId)
                         .collect(toImmutableList()),

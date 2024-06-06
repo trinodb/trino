@@ -16,7 +16,7 @@ package io.trino.orc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.orc.metadata.OrcColumnId;
-import io.trino.orc.metadata.OrcType.OrcTypeKind;
+import io.trino.orc.metadata.OrcType;
 
 import java.util.List;
 import java.util.Map;
@@ -28,7 +28,7 @@ public final class OrcColumn
 {
     private final String path;
     private final OrcColumnId columnId;
-    private final OrcTypeKind columnType;
+    private final OrcType columnType;
     private final String columnName;
     private final OrcDataSourceId orcDataSourceId;
     private final List<OrcColumn> nestedColumns;
@@ -38,7 +38,7 @@ public final class OrcColumn
             String path,
             OrcColumnId columnId,
             String columnName,
-            OrcTypeKind columnType,
+            OrcType columnType,
             OrcDataSourceId orcDataSourceId,
             List<OrcColumn> nestedColumns,
             Map<String, String> attributes)
@@ -62,7 +62,7 @@ public final class OrcColumn
         return columnId;
     }
 
-    public OrcTypeKind getColumnType()
+    public OrcType getColumnType()
     {
         return columnType;
     }
