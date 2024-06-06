@@ -44,7 +44,7 @@ final class ReaderUtils
                 "Cannot read SQL type '%s' from ORC stream '%s' of type %s with attributes %s",
                 type,
                 column.getPath(),
-                column.getColumnType(),
+                column.getColumnType().getOrcTypeKind(),
                 column.getAttributes());
     }
 
