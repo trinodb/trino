@@ -75,8 +75,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestHiveTransactionalTable
         extends HiveProductTest
@@ -1977,7 +1975,9 @@ public class TestHiveTransactionalTable
             assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s", tableName))).containsOnly(row(100000));
             int numberOfCreatedFiles = onTrino().executeQuery(format("SELECT DISTINCT \"$path\" FROM %s", tableName)).getRowsCount();
             int expectedNumberOfPartitions = isPartitioned ? 5 : 1;
-            assertEquals(numberOfCreatedFiles, expectedNumberOfPartitions, format("There should be only %s files created", expectedNumberOfPartitions));
+            assertThat(numberOfCreatedFiles)
+                    .as(format("There should be only %s files created", expectedNumberOfPartitions))
+                    .isEqualTo(expectedNumberOfPartitions);
 
             int sizeBeforeDeletion = onTrino().executeQuery(format("SELECT orderkey FROM %s", tableName)).rows().size();
 
@@ -1988,9 +1988,9 @@ public class TestHiveTransactionalTable
             int sizeOnHiveWithWhere = onHive().executeQuery(format("SELECT orderkey FROM %s WHERE orderkey %% 2 = 1", tableName)).rows().size();
             int sizeOnTrinoWithoutWhere = onTrino().executeQuery(format("SELECT orderkey FROM %s", tableName)).rows().size();
 
-            assertEquals(sizeOnHiveWithWhere, sizeOnTrinoWithWhere);
-            assertEquals(sizeOnTrinoWithWhere, sizeOnTrinoWithoutWhere);
-            assertTrue(sizeBeforeDeletion > sizeOnTrinoWithoutWhere);
+            assertThat(sizeOnHiveWithWhere).isEqualTo(sizeOnTrinoWithWhere);
+            assertThat(sizeOnTrinoWithWhere).isEqualTo(sizeOnTrinoWithoutWhere);
+            assertThat(sizeBeforeDeletion).isGreaterThan(sizeOnTrinoWithoutWhere);
         });
     }
 

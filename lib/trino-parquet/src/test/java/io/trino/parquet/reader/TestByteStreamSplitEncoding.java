@@ -37,7 +37,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestByteStreamSplitEncoding
 {
@@ -89,10 +88,10 @@ public class TestByteStreamSplitEncoding
                     List<Double> expectedValues = expected.get(channel);
                     for (int postition = 0; postition < block.getPositionCount(); postition++) {
                         if (block instanceof IntArrayBlock) {
-                            assertEquals(REAL.getObjectValue(SESSION, block, postition), expectedValues.get(rowCount + postition).floatValue());
+                            assertThat(REAL.getObjectValue(SESSION, block, postition)).isEqualTo(expectedValues.get(rowCount + postition).floatValue());
                         }
                         else {
-                            assertEquals(DOUBLE.getObjectValue(SESSION, block, postition), expectedValues.get(rowCount + postition));
+                            assertThat(DOUBLE.getObjectValue(SESSION, block, postition)).isEqualTo(expectedValues.get(rowCount + postition));
                         }
                     }
                 }

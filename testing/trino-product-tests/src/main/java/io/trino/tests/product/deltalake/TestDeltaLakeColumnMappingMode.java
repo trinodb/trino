@@ -50,7 +50,6 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.entry;
-import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeColumnMappingMode
         extends BaseTestDeltaLakeS3Storage
@@ -350,8 +349,8 @@ public class TestDeltaLakeColumnMappingMode
 
             // Verify column comments
             onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".mixed_case IS 'test column comment'");
-            assertEquals(getColumnCommentOnTrino("default", tableName, "mixed_case"), "test column comment");
-            assertEquals(getColumnCommentOnDelta("default", tableName, "mixed_case"), "test column comment");
+            assertThat(getColumnCommentOnTrino("default", tableName, "mixed_case")).isEqualTo("test column comment");
+            assertThat(getColumnCommentOnDelta("default", tableName, "mixed_case")).isEqualTo("test column comment");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
@@ -394,11 +393,11 @@ public class TestDeltaLakeColumnMappingMode
                 " column_mapping_mode = 'name'" +
                 ")");
         try {
-            assertEquals(getTableCommentOnTrino("default", tableName), "test table comment");
-            assertEquals(getTableCommentOnDelta("default", tableName), "test table comment");
+            assertThat(getTableCommentOnTrino("default", tableName)).isEqualTo("test table comment");
+            assertThat(getTableCommentOnDelta("default", tableName)).isEqualTo("test table comment");
 
-            assertEquals(getColumnCommentOnTrino("default", tableName, "col"), "test column comment");
-            assertEquals(getColumnCommentOnDelta("default", tableName, "col"), "test column comment");
+            assertThat(getColumnCommentOnTrino("default", tableName, "col")).isEqualTo("test column comment");
+            assertThat(getColumnCommentOnDelta("default", tableName, "col")).isEqualTo("test column comment");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
@@ -420,12 +419,12 @@ public class TestDeltaLakeColumnMappingMode
                 ")");
         try {
             onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test comment by trino'");
-            assertEquals(getTableCommentOnTrino("default", tableName), "test comment by trino");
-            assertEquals(getTableCommentOnDelta("default", tableName), "test comment by trino");
+            assertThat(getTableCommentOnTrino("default", tableName)).isEqualTo("test comment by trino");
+            assertThat(getTableCommentOnDelta("default", tableName)).isEqualTo("test comment by trino");
 
             onDelta().executeQuery("COMMENT ON TABLE default." + tableName + " IS 'test comment by delta'");
-            assertEquals(getTableCommentOnTrino("default", tableName), "test comment by delta");
-            assertEquals(getTableCommentOnDelta("default", tableName), "test comment by delta");
+            assertThat(getTableCommentOnTrino("default", tableName)).isEqualTo("test comment by delta");
+            assertThat(getTableCommentOnDelta("default", tableName)).isEqualTo("test comment by delta");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
@@ -447,12 +446,12 @@ public class TestDeltaLakeColumnMappingMode
 
         try {
             onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".col IS 'test column comment by trino'");
-            assertEquals(getColumnCommentOnTrino("default", tableName, "col"), "test column comment by trino");
-            assertEquals(getColumnCommentOnDelta("default", tableName, "col"), "test column comment by trino");
+            assertThat(getColumnCommentOnTrino("default", tableName, "col")).isEqualTo("test column comment by trino");
+            assertThat(getColumnCommentOnDelta("default", tableName, "col")).isEqualTo("test column comment by trino");
 
             onDelta().executeQuery("ALTER TABLE default." + tableName + " ALTER COLUMN col COMMENT 'test column comment by delta'");
-            assertEquals(getColumnCommentOnTrino("default", tableName, "col"), "test column comment by delta");
-            assertEquals(getColumnCommentOnDelta("default", tableName, "col"), "test column comment by delta");
+            assertThat(getColumnCommentOnTrino("default", tableName, "col")).isEqualTo("test column comment by delta");
+            assertThat(getColumnCommentOnDelta("default", tableName, "col")).isEqualTo("test column comment by delta");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
@@ -1188,7 +1187,7 @@ public class TestDeltaLakeColumnMappingMode
             onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN upper_col TO new_col");
             assertThat(getColumnNamesOnDelta("default", tableName))
                     .containsExactly("new_col", "UPPER_PART");
-            assertEquals(getColumnCommentOnDelta("default", tableName, "new_col"), "test comment");
+            assertThat(getColumnCommentOnDelta("default", tableName, "new_col")).isEqualTo("test comment");
             assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " (new_col) VALUES NULL"))
                     .hasMessageContaining("NULL value not allowed for NOT NULL column: new_col");
 

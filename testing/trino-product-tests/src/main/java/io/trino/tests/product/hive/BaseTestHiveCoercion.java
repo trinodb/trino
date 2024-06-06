@@ -79,7 +79,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public abstract class BaseTestHiveCoercion
         extends HiveProductTest
@@ -204,7 +203,7 @@ public abstract class BaseTestHiveCoercion
         Map<String, List<Object>> expectedPrestoResults = expected.apply(Engine.TRINO);
         // In case of unpartitioned tables we don't support all the column coercion thereby making this assertion conditional
         if (expectedExceptionsWithTrinoContext().isEmpty()) {
-            assertEquals(ImmutableSet.copyOf(prestoReadColumns), expectedPrestoResults.keySet());
+            assertThat(ImmutableSet.copyOf(prestoReadColumns)).isEqualTo(expectedPrestoResults.keySet());
         }
         String prestoSelectQuery = format("SELECT %s FROM %s", String.join(", ", prestoReadColumns), tableName);
         assertQueryResults(Engine.TRINO, prestoSelectQuery, expectedPrestoResults, prestoReadColumns, 2);
