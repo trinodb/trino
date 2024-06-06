@@ -90,8 +90,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.assertj.core.api.Assertions.fail;
 
 public class QueryAssertions
         implements Closeable
@@ -216,7 +215,9 @@ public class QueryAssertions
             fail("Execution of 'expected' query failed: " + expected, ex);
         }
 
-        assertEquals(expectedResults.getTypes(), actualResults.getTypes(), "Types mismatch for query: \n " + actual + "\n:");
+        assertThat(actualResults.getTypes())
+                .as("Types mismatch for query: \n " + actual + "\n:")
+                .isEqualTo(expectedResults.getTypes());
 
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
@@ -234,7 +235,7 @@ public class QueryAssertions
             fail("Execution of 'actual' query failed: " + actual, ex);
         }
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
-        assertEquals(0, actualRows.size());
+        assertThat(actualRows.size()).isEqualTo(0);
     }
 
     public MaterializedResult execute(@Language("SQL") String query)

@@ -297,9 +297,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.assertj.core.api.Assertions.fail;
 
 public class TestSqlParser
 {
@@ -354,10 +352,10 @@ public class TestSqlParser
                 .isEqualTo("a.b.c.d");
         assertThat(QualifiedName.of("A", "b", "C", "d").toString())
                 .isEqualTo("a.b.c.d");
-        assertTrue(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("b", "c", "d")));
-        assertTrue(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "b", "c", "d")));
-        assertFalse(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "c", "d")));
-        assertFalse(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("z", "a", "b", "c", "d")));
+        assertThat(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("b", "c", "d"))).isTrue();
+        assertThat(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "b", "c", "d"))).isTrue();
+        assertThat(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "c", "d"))).isFalse();
+        assertThat(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("z", "a", "b", "c", "d"))).isFalse();
         assertThat(QualifiedName.of("a", "b", "c", "d"))
                 .isEqualTo(QualifiedName.of("a", "b", "c", "d"));
     }

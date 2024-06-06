@@ -45,7 +45,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.within;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -341,8 +341,8 @@ public class TestGeoFunctions
     {
         OGCPoint actualCentroid = (OGCPoint) GeometrySerde.deserialize(
                 stCentroid(GeometrySerde.serialize(OGCGeometry.fromText(wkt))));
-        assertEquals(actualCentroid.X(), expectedCentroid.getX(), epsilon);
-        assertEquals(actualCentroid.Y(), expectedCentroid.getY(), epsilon);
+        assertThat(expectedCentroid.getX()).isCloseTo(actualCentroid.X(), within(epsilon));
+        assertThat(expectedCentroid.getY()).isCloseTo(actualCentroid.Y(), within(epsilon));
     }
 
     @Test
