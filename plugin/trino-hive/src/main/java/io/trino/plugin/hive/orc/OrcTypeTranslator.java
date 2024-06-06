@@ -18,7 +18,6 @@ import io.trino.plugin.hive.coercions.BooleanCoercer.BooleanToVarcharCoercer;
 import io.trino.plugin.hive.coercions.BooleanCoercer.OrcVarcharToBooleanCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.DateToVarcharCoercer;
 import io.trino.plugin.hive.coercions.DateCoercer.VarcharToDateCoercer;
-import io.trino.plugin.hive.coercions.DoubleToVarcharCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberToDoubleCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToDateCoercer;
@@ -55,6 +54,7 @@ import static io.trino.orc.metadata.OrcType.OrcTypeKind.STRING;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.VARCHAR;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createIntegerNumberToDecimalCoercer;
+import static io.trino.plugin.hive.coercions.DoubleToVarcharCoercers.createDoubleToVarcharCoercer;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -114,7 +114,7 @@ public final class OrcTypeTranslator
             return Optional.empty();
         }
         if (fromOrcType == DOUBLE && toTrinoType instanceof VarcharType varcharType) {
-            return Optional.of(new DoubleToVarcharCoercer(varcharType, true));
+            return Optional.of(createDoubleToVarcharCoercer(varcharType, true));
         }
         if (fromOrcType == BOOLEAN && toTrinoType instanceof VarcharType varcharType) {
             return Optional.of(new BooleanToVarcharCoercer(varcharType));
