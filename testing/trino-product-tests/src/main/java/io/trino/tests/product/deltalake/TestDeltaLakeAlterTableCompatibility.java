@@ -43,7 +43,6 @@ import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeAlterTableCompatibility
         extends BaseTestDeltaLakeS3Storage
@@ -61,8 +60,8 @@ public class TestDeltaLakeAlterTableCompatibility
 
         try {
             onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col INT COMMENT 'new column comment'");
-            assertEquals(getColumnCommentOnTrino("default", tableName, "new_col"), "new column comment");
-            assertEquals(getColumnCommentOnDelta("default", tableName, "new_col"), "new column comment");
+            assertThat(getColumnCommentOnTrino("default", tableName, "new_col")).isEqualTo("new column comment");
+            assertThat(getColumnCommentOnDelta("default", tableName, "new_col")).isEqualTo("new column comment");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
@@ -209,8 +208,8 @@ public class TestDeltaLakeAlterTableCompatibility
 
         try {
             onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test comment'");
-            assertEquals(getTableCommentOnTrino("default", tableName), "test comment");
-            assertEquals(getTableCommentOnDelta("default", tableName), "test comment");
+            assertThat(getTableCommentOnTrino("default", tableName)).isEqualTo("test comment");
+            assertThat(getTableCommentOnDelta("default", tableName)).isEqualTo("test comment");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
@@ -255,8 +254,8 @@ public class TestDeltaLakeAlterTableCompatibility
 
         try {
             onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".col IS 'test column comment'");
-            assertEquals(getColumnCommentOnTrino("default", tableName, "col"), "test column comment");
-            assertEquals(getColumnCommentOnDelta("default", tableName, "col"), "test column comment");
+            assertThat(getColumnCommentOnTrino("default", tableName, "col")).isEqualTo("test column comment");
+            assertThat(getColumnCommentOnDelta("default", tableName, "col")).isEqualTo("test column comment");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
@@ -360,7 +359,7 @@ public class TestDeltaLakeAlterTableCompatibility
             onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_column INT");
 
             Object enableChangeDataFeed = getOnlyElement(onDelta().executeQuery("SHOW TBLPROPERTIES " + tableName + "(delta.enableChangeDataFeed)").column(2));
-            assertEquals(enableChangeDataFeed, "true");
+            assertThat(enableChangeDataFeed).isEqualTo("true");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
@@ -390,9 +389,9 @@ public class TestDeltaLakeAlterTableCompatibility
             onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " + "ON (t.col = s.col) WHEN MATCHED THEN UPDATE SET new_col = 3");
 
             List<?> minReaderVersion = getOnlyElement(onDelta().executeQuery("SHOW TBLPROPERTIES " + tableName + "(delta.minReaderVersion)").rows());
-            assertEquals((String) minReaderVersion.get(1), "1");
+            assertThat((String) minReaderVersion.get(1)).isEqualTo("1");
             List<?> minWriterVersion = getOnlyElement(onDelta().executeQuery("SHOW TBLPROPERTIES " + tableName + "(delta.minWriterVersion)").rows());
-            assertEquals((String) minWriterVersion.get(1), "1");
+            assertThat((String) minWriterVersion.get(1)).isEqualTo("1");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
