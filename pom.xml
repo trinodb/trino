@@ -2391,6 +2391,15 @@
                                 </includes>
                             </bannedDependencies>
                             <RestrictImports>
+                                <reason>Prefer org.assertj.core.api.Assertions over:</reason>
+                                <bannedImports>
+                                    <bannedImport>org.junit.jupiter.api.Assertions.*</bannedImport>
+                                    <bannedImport>org.testng.Assert.*</bannedImport>
+                                    <bannedImport>org.testng.AssertJUnit.*</bannedImport>
+                                    <bannedImport>org.testng.asserts.**</bannedImport>
+                                </bannedImports>
+                            </RestrictImports>
+                            <RestrictImports>
                                 <bannedImports>
                                     <bannedImport>com.google.api.client.util.Preconditions</bannedImport>
                                     <bannedImport>com.google.api.client.util.Preconditions.*</bannedImport>
