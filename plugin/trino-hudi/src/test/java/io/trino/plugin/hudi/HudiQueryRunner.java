@@ -19,19 +19,26 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.filesystem.Location;
 import io.trino.plugin.base.util.Closables;
+import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hudi.testing.HudiTablesInitializer;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
+import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_REGION;
+import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static java.util.Objects.requireNonNull;
 
 public final class HudiQueryRunner
 {
@@ -46,21 +53,35 @@ public final class HudiQueryRunner
 
     public static Builder builder()
     {
-        return new Builder();
+        return new Builder("local:///");
+    }
+
+    public static Builder builder(HiveMinioDataLake hiveMinioDataLake)
+    {
+        return new Builder("s3://" + hiveMinioDataLake.getBucketName() + "/")
+                .addConnectorProperty("fs.hadoop.enabled", "false")
+                .addConnectorProperty("fs.native-s3.enabled", "true")
+                .addConnectorProperty("s3.aws-access-key", MINIO_ACCESS_KEY)
+                .addConnectorProperty("s3.aws-secret-key", MINIO_SECRET_KEY)
+                .addConnectorProperty("s3.region", MINIO_REGION)
+                .addConnectorProperty("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
+                .addConnectorProperty("s3.path-style-access", "true");
     }
 
     public static class Builder
             extends DistributedQueryRunner.Builder<Builder>
     {
+        private final String schemaLocation;
         private HudiTablesInitializer dataLoader;
         private final Map<String, String> connectorProperties = new HashMap<>();
 
-        protected Builder()
+        protected Builder(String schemaLocation)
         {
             super(testSessionBuilder()
                     .setCatalog("hudi")
                     .setSchema(SCHEMA_NAME)
                     .build());
+            this.schemaLocation = requireNonNull(schemaLocation, "schemaLocation is null");
         }
 
         @CanIgnoreReturnValue
@@ -96,7 +117,7 @@ public final class HudiQueryRunner
                                 .setOwnerType(Optional.of(PrincipalType.ROLE))
                                 .build());
 
-                dataLoader.initializeTables(queryRunner, Location.of("local:///"), SCHEMA_NAME);
+                dataLoader.initializeTables(queryRunner, Location.of(schemaLocation), SCHEMA_NAME);
                 return queryRunner;
             }
             catch (Throwable e) {
@@ -106,18 +127,45 @@ public final class HudiQueryRunner
         }
     }
 
-    public static void main(String[] args)
-            throws Exception
+    public static final class DefaultHudiQueryRunnerMain
     {
-        Logging.initialize();
-        Logger log = Logger.get(HudiQueryRunner.class);
+        private DefaultHudiQueryRunnerMain() {}
 
-        QueryRunner queryRunner = builder()
-                .addCoordinatorProperty("http-server.http.port", "8080")
-                .setDataLoader(new ResourceHudiTablesInitializer())
-                .build();
+        public static void main(String[] args)
+                throws Exception
+        {
+            Logging.initialize();
+            Logger log = Logger.get(DefaultHudiQueryRunnerMain.class);
 
-        log.info("======== SERVER STARTED ========");
-        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+            QueryRunner queryRunner = builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .setDataLoader(new ResourceHudiTablesInitializer())
+                    .build();
+
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class HudiMinioQueryRunnerMain
+    {
+        private HudiMinioQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            Logging.initialize();
+            Logger log = Logger.get(HudiMinioQueryRunnerMain.class);
+
+            HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake("test-bucket");
+            hiveMinioDataLake.start();
+            QueryRunner queryRunner = builder(hiveMinioDataLake)
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .setDataLoader(new TpchHudiTablesInitializer(TpchTable.getTables()))
+                    .build();
+
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
     }
 }
