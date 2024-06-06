@@ -1991,8 +1991,11 @@ class StatementAnalyzer
                     }
                 });
                 argumentBuilder.partitionBy(partitionBy.stream()
-                        // each expression is either an Identifier or a DereferenceExpression
-                        .map(Expression::toString)
+                        .map(expression -> switch (expression) {
+                            case Identifier identifier -> identifier.getValue();
+                            case DereferenceExpression dereferenceExpression -> dereferenceExpression.toString();
+                            default -> throw new IllegalStateException("Unexpected partitionBy expression: " + expression);
+                        })
                         .collect(toImmutableList()));
             }
 
@@ -2013,8 +2016,12 @@ class StatementAnalyzer
                             }
                         });
                 argumentBuilder.orderBy(orderBy.getSortItems().stream()
-                        // each sort key is either an Identifier or a DereferenceExpression
-                        .map(sortItem -> sortItem.getSortKey().toString())
+                        .map(SortItem::getSortKey)
+                        .map(expression -> switch (expression) {
+                            case Identifier identifier -> identifier.getValue();
+                            case DereferenceExpression dereferenceExpression -> dereferenceExpression.toString();
+                            default -> throw new IllegalStateException("Unexpected orderBy expression: " + expression);
+                        })
                         .collect(toImmutableList()));
             }
 

@@ -6373,6 +6373,20 @@ public class TestAnalyzer
                                       ORDER BY b))
                 """);
 
+        analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(t1) PARTITION BY \"a\"))");
+
+        analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(t1) ORDER BY \"a\"))");
+
+        // TODO Fix failure when partitioning by a nested field
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT CAST(ROW(1) AS ROW(x BIGINT)) a) PARTITION BY a.x))")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:120: Column a.x is not present in the input relation");
+
+        // TODO Fix failure when ordering by a nested field
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT CAST(ROW(1) AS ROW(x BIGINT)) a) ORDER BY a.x))")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:116: Column a.x is not present in the input relation");
+
         assertFails("SELECT * FROM TABLE(system.table_argument_row_semantics_function(input => TABLE(t1) PARTITION BY a))")
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("line 1:66: Invalid argument INPUT. Partitioning specified for table argument with row semantics");
