@@ -33,7 +33,7 @@ public class TestHudiCopyOnWriteMinioConnectorSmokeTest
         hiveMinioDataLake.start();
         hiveMinioDataLake.getMinioClient().ensureBucketExists(bucketName);
 
-        return S3HudiQueryRunner.builder(hiveMinioDataLake)
+        return HudiQueryRunner.builder(hiveMinioDataLake)
                 .addConnectorProperty("hudi.columns-to-hide", COLUMNS_TO_HIDE)
                 .setDataLoader(new TpchHudiTablesInitializer(REQUIRED_TPCH_TABLES))
                 .build();
