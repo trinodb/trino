@@ -20,9 +20,6 @@ import org.junit.jupiter.api.Test;
 import static io.trino.cli.lexer.StatementSplitter.isEmptyStatement;
 import static io.trino.cli.lexer.StatementSplitter.squeezeStatement;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestStatementSplitter
 {
@@ -86,7 +83,7 @@ public class TestStatementSplitter
         assertThat(splitter.getCompleteStatements()).containsExactly(
                 new Statement("select * from  foo", "//"),
                 new Statement("select * from t", ";"));
-        assertEquals("select * from", splitter.getPartialStatement());
+        assertThat(splitter.getPartialStatement()).isEqualTo("select * from");
     }
 
     @Test
@@ -432,50 +429,50 @@ public class TestStatementSplitter
     @Test
     public void testIsEmptyStatement()
     {
-        assertTrue(isEmptyStatement(""));
-        assertTrue(isEmptyStatement(" "));
-        assertTrue(isEmptyStatement("\t\n "));
-        assertTrue(isEmptyStatement("--foo\n  --what"));
-        assertTrue(isEmptyStatement("/* oops */"));
-        assertFalse(isEmptyStatement("x"));
-        assertFalse(isEmptyStatement("select"));
-        assertFalse(isEmptyStatement("123"));
-        assertFalse(isEmptyStatement("z#oops"));
+        assertThat(isEmptyStatement("")).isTrue();
+        assertThat(isEmptyStatement(" ")).isTrue();
+        assertThat(isEmptyStatement("\t\n ")).isTrue();
+        assertThat(isEmptyStatement("--foo\n  --what")).isTrue();
+        assertThat(isEmptyStatement("/* oops */")).isTrue();
+        assertThat(isEmptyStatement("x")).isFalse();
+        assertThat(isEmptyStatement("select")).isFalse();
+        assertThat(isEmptyStatement("123")).isFalse();
+        assertThat(isEmptyStatement("z#oops")).isFalse();
     }
 
     @Test
     public void testSqueezeStatement()
     {
         String sql = "select   *  from\n foo\n  order by x ; ";
-        assertEquals("select * from foo order by x ;", squeezeStatement(sql));
+        assertThat(squeezeStatement(sql)).isEqualTo("select * from foo order by x ;");
     }
 
     @Test
     public void testSqueezeStatementWithIncompleteQuotedString()
     {
         String sql = "select   *  from\n foo\n  where x = 'oops";
-        assertEquals("select * from foo where x = 'oops", squeezeStatement(sql));
+        assertThat(squeezeStatement(sql)).isEqualTo("select * from foo where x = 'oops");
     }
 
     @Test
     public void testSqueezeStatementWithBackquote()
     {
         String sql = "select  `  f``o  o`` `   from dual";
-        assertEquals("select `  f``o  o`` ` from dual", squeezeStatement(sql));
+        assertThat(squeezeStatement(sql)).isEqualTo("select `  f``o  o`` ` from dual");
     }
 
     @Test
     public void testSqueezeStatementAlternateDelimiter()
     {
         String sql = "select   *  from\n foo\n  order by x // ";
-        assertEquals("select * from foo order by x //", squeezeStatement(sql));
+        assertThat(squeezeStatement(sql)).isEqualTo("select * from foo order by x //");
     }
 
     @Test
     public void testSqueezeStatementError()
     {
         String sql = "select   *  from z#oops";
-        assertEquals("select * from z#oops", squeezeStatement(sql));
+        assertThat(squeezeStatement(sql)).isEqualTo("select * from z#oops");
     }
 
     private static Statement statement(String value)

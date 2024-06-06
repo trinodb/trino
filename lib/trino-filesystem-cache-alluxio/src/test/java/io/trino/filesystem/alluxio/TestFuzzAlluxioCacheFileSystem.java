@@ -34,7 +34,7 @@ import java.nio.file.Path;
 import java.util.Random;
 
 import static java.lang.Math.min;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @TestInstance(Lifecycle.PER_METHOD)
 public class TestFuzzAlluxioCacheFileSystem
@@ -119,8 +119,8 @@ public class TestFuzzAlluxioCacheFileSystem
         int expectedBytesRead = operation.apply(expectedInput, position, bufferExpected, bufferOffset, length);
         int actualBytesRead = operation.apply(actualInput, position, bufferActual, bufferOffset, length);
 
-        assertEquals(expectedBytesRead, actualBytesRead);
-        assertEquals(Slices.wrappedBuffer(bufferExpected), Slices.wrappedBuffer(bufferActual));
+        assertThat(actualBytesRead).isEqualTo(expectedBytesRead);
+        assertThat(Slices.wrappedBuffer(bufferActual)).isEqualTo(Slices.wrappedBuffer(bufferExpected));
     }
 
     private static void createTestFile(TrinoFileSystem fileSystem, Location location, int fileSize)
