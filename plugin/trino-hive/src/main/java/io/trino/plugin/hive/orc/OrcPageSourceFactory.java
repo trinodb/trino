@@ -572,7 +572,7 @@ public class OrcPageSourceFactory
         if (!column.getColumnName().toLowerCase(ENGLISH).equals(columnName.toLowerCase(ENGLISH))) {
             throw new TrinoException(HIVE_BAD_DATA, format("ORC ACID file column %s should be named %s: %s", columnIndex, columnName, path));
         }
-        if (column.getColumnType() != columnType) {
+        if (column.getColumnType().getOrcTypeKind() != columnType) {
             throw new TrinoException(HIVE_BAD_DATA, format("ORC ACID file %s column should be type %s: %s", columnName, columnType, path));
         }
     }
