@@ -47,6 +47,7 @@ import java.util.Optional;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.BOOLEAN;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.BYTE;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.DATE;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.DECIMAL;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.DOUBLE;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.FLOAT;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.INT;
@@ -55,6 +56,7 @@ import static io.trino.orc.metadata.OrcType.OrcTypeKind.SHORT;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.STRING;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.VARCHAR;
+import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createIntegerNumberToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DoubleToVarcharCoercers.createDoubleToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.FloatToVarcharCoercers.createFloatToVarcharCoercer;
@@ -163,6 +165,11 @@ public final class OrcTypeTranslator
                 default -> throw new UnsupportedOperationException("Unsupported ORC type: " + fromOrcType);
             };
             return Optional.of(new IntegerNumberToVarcharCoercer<>(fromType, varcharType));
+        }
+        if (fromOrcTypeKind == DECIMAL && toTrinoType instanceof VarcharType varcharType) {
+            return Optional.of(createDecimalToVarcharCoercer(
+                    DecimalType.createDecimalType(fromOrcType.getPrecision().orElseThrow(), fromOrcType.getScale().orElseThrow()),
+                    varcharType));
         }
         return Optional.empty();
     }

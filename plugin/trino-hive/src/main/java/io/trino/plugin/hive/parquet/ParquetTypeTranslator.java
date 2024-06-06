@@ -16,14 +16,17 @@ package io.trino.plugin.hive.parquet;
 import io.trino.plugin.hive.coercions.IntegerNumberToDoubleCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TypeCoercer;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 
 import java.util.Optional;
 
 import static io.trino.parquet.reader.ColumnReaderFactory.isIntegerAnnotationAndPrimitive;
+import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.DoubleToVarcharCoercers.createDoubleToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.FloatToVarcharCoercers.createFloatToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoercer;
@@ -67,6 +70,11 @@ public final class ParquetTypeTranslator
             }
             if (fromParquetType == DOUBLE) {
                 return Optional.of(createDoubleToVarcharCoercer(varcharType, false));
+            }
+            if (typeAnnotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation) {
+                return Optional.of(createDecimalToVarcharCoercer(
+                        DecimalType.createDecimalType(decimalAnnotation.getPrecision(), decimalAnnotation.getScale()),
+                        varcharType));
             }
             if (fromParquetType == INT96) {
                 return Optional.of(new LongTimestampToVarcharCoercer(TIMESTAMP_NANOS, varcharType));
