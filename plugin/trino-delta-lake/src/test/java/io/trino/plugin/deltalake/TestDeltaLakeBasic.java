@@ -97,6 +97,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("stats_with_minmax_nulls", "deltalake/stats_with_minmax_nulls"),
             new ResourceTable("no_column_stats", "databricks73/no_column_stats"),
             new ResourceTable("deletion_vectors", "databricks122/deletion_vectors"),
+            new ResourceTable("liquid_clustering", "deltalake/liquid_clustering"),
             new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
             new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"));
 
@@ -938,6 +939,24 @@ public class TestDeltaLakeBasic
     public void testDeletionVectors()
     {
         assertQuery("SELECT * FROM deletion_vectors", "VALUES (1, 11)");
+    }
+
+    /**
+     * @see deltalake.liquid_clustering
+     */
+    @Test
+    public void testLiquidClustering()
+    {
+        assertQuery("SELECT * FROM liquid_clustering", "VALUES ('test 1', 2024, 1), ('test 2', 2024, 2)");
+        assertQuery("SELECT data FROM liquid_clustering WHERE year = 2024 AND month = 1", "VALUES 'test 1'");
+        assertQuery("SELECT data FROM liquid_clustering WHERE year = 2024 AND month = 2", "VALUES 'test 2'");
+
+        assertQueryReturnsEmptyResult("SELECT * FROM liquid_clustering FOR VERSION AS OF 0");
+        assertQuery("SELECT * FROM liquid_clustering FOR VERSION AS OF 1", "VALUES ('test 1', 2024, 1)");
+        assertQuery("SELECT * FROM liquid_clustering FOR VERSION AS OF 2", "VALUES ('test 1', 2024, 1), ('test 2', 2024, 2)");
+        assertQuery("SELECT * FROM liquid_clustering FOR VERSION AS OF 3", "VALUES ('test 1', 2024, 1), ('test 2', 2024, 2)");
+
+        assertQueryFails("INSERT INTO liquid_clustering VALUES ('test 3', 2024, 3)", "Unsupported writer features: .*");
     }
 
     @Test
