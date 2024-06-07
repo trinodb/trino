@@ -299,6 +299,12 @@ statements, the connector supports the following features:
 ```{include} sql-delete-limitation.fragment
 ```
 
+(mariadb-fte-support)=
+## Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 ## Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
