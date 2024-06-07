@@ -95,8 +95,7 @@ public class BenchmarkReferenceCountMap
     {
         benchmark(BenchmarkReferenceCountMap.class, WarmupMode.BULK)
                 .withOptions(optionsBuilder -> optionsBuilder
-                        .addProfiler(GCProfiler.class)
-                        .jvmArgs("-XX:+UseG1GC"))
+                        .addProfiler(GCProfiler.class))
                 .run();
     }
 }
