@@ -51,6 +51,7 @@ import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.bigquery.BigQueryClient.TABLE_TYPES;
 import static io.trino.plugin.bigquery.BigQueryClient.selectSql;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
@@ -178,7 +179,7 @@ public class BigQuerySplitManager
             // (and there's no mechanism to trigger an on-demand flush). This can lead to incorrect results for queries with empty projections.
             String sql = selectSql(remoteTableId, "COUNT(*)", filter);
             TableResult result = client.executeQuery(session, sql);
-            long numberOfRows = result.iterateAll().iterator().next().getFirst().getLongValue();
+            long numberOfRows = getOnlyElement(getOnlyElement(result.iterateAll())).getLongValue();
 
             return ImmutableList.of(BigQuerySplit.emptyProjection(numberOfRows));
         }
