@@ -100,6 +100,8 @@ public final class DeltaLakeSchemaSupport
     private static final String CHECK_CONSTRAINTS_FEATURE_NAME = "checkConstraints";
     private static final String COLUMN_MAPPING_FEATURE_NAME = "columnMapping";
     private static final String DELETION_VECTORS_FEATURE_NAME = "deletionVectors";
+    private static final String ICEBERG_COMPATIBILITY_V1_FEATURE_NAME = "icebergCompatV1";
+    private static final String ICEBERG_COMPATIBILITY_V2_FEATURE_NAME = "icebergCompatV2";
     private static final String IDENTITY_COLUMNS_FEATURE_NAME = "identityColumns";
     private static final String INVARIANTS_FEATURE_NAME = "invariants";
     public static final String TIMESTAMP_NTZ_FEATURE_NAME = "timestampNtz";
@@ -184,6 +186,12 @@ public final class DeltaLakeSchemaSupport
     public static ColumnMappingMode getColumnMappingMode(MetadataEntry metadata, ProtocolEntry protocolEntry)
     {
         if (protocolEntry.supportsReaderFeatures() || protocolEntry.supportsWriterFeatures()) {
+            if (protocolEntry.writerFeaturesContains(ICEBERG_COMPATIBILITY_V1_FEATURE_NAME) || protocolEntry.writerFeaturesContains(ICEBERG_COMPATIBILITY_V2_FEATURE_NAME)) {
+                String columnMappingMode = metadata.getConfiguration().get(COLUMN_MAPPING_MODE_CONFIGURATION_KEY);
+                checkArgument(columnMappingMode != null && columnMappingMode.equals("name"), "Column mapping mode must be 'name' for Iceberg compatibility: %s", columnMappingMode);
+                return ColumnMappingMode.NAME;
+            }
+
             boolean supportsColumnMappingReader = protocolEntry.readerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
             boolean supportsColumnMappingWriter = protocolEntry.writerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
             checkArgument(

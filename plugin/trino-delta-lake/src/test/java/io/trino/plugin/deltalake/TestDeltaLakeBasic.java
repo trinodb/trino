@@ -99,7 +99,9 @@ public class TestDeltaLakeBasic
             new ResourceTable("deletion_vectors", "databricks122/deletion_vectors"),
             new ResourceTable("liquid_clustering", "deltalake/liquid_clustering"),
             new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
-            new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"));
+            new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"),
+            new ResourceTable("uniform_iceberg_v1", "databricks133/uniform_iceberg_v1"),
+            new ResourceTable("uniform_iceberg_v2", "databricks143/uniform_iceberg_v2"));
 
     // The col-{uuid} pattern for delta.columnMapping.physicalName
     private static final Pattern PHYSICAL_COLUMN_NAME_PATTERN = Pattern.compile("^col-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
@@ -957,6 +959,26 @@ public class TestDeltaLakeBasic
         assertQuery("SELECT * FROM liquid_clustering FOR VERSION AS OF 3", "VALUES ('test 1', 2024, 1), ('test 2', 2024, 2)");
 
         assertQueryFails("INSERT INTO liquid_clustering VALUES ('test 3', 2024, 3)", "Unsupported writer features: .*");
+    }
+
+    /**
+     * @see databricks133.uniform_iceberg_v1
+     */
+    @Test
+    public void testUniFormIcebergV1()
+    {
+        assertQuery("SELECT * FROM uniform_iceberg_v1", "VALUES (1, 'test data')");
+        assertQueryFails("INSERT INTO uniform_iceberg_v1 VALUES (2, 'new data')", "\\QUnsupported writer features: [icebergCompatV1]");
+    }
+
+    /**
+     * @see databricks143.uniform_iceberg_v2
+     */
+    @Test
+    public void testUniFormIcebergV2()
+    {
+        assertQuery("SELECT * FROM uniform_iceberg_v2", "VALUES (1, 'test data')");
+        assertQueryFails("INSERT INTO uniform_iceberg_v2 VALUES (2, 'new data')", "\\QUnsupported writer features: [icebergCompatV2]");
     }
 
     @Test
