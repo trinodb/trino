@@ -304,7 +304,7 @@ final class GlueConverter
 
         SerDeInfo serdeInfo = requireNonNull(sd.serdeInfo(), () -> "StorageDescriptor SerDeInfo is null: " + tablePartitionName);
         return new Storage(
-                StorageFormat.createNullable(serdeInfo.serializationLibrary(), sd.inputFormat(), sd.outputFormat()),
+                StorageFormat.createNullable(serdeInfo.serializationLibrary(), sd.inputFormat(), sd.outputFormat(), null),
                 Optional.ofNullable(sd.location()),
                 bucketProperty,
                 sd.skewedInfo() != null && !sd.skewedInfo().skewedColumnNames().isEmpty(),

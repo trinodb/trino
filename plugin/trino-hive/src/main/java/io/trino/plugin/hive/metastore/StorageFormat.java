@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.plugin.hive.HiveStorageFormat;
@@ -29,18 +30,20 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class StorageFormat
 {
-    public static final StorageFormat NULL_STORAGE_FORMAT = new StorageFormat(null, null, null);
+    public static final StorageFormat NULL_STORAGE_FORMAT = new StorageFormat(null, null, null, null);
     public static final StorageFormat VIEW_STORAGE_FORMAT = NULL_STORAGE_FORMAT;
 
     private final String serde;
     private final String inputFormat;
     private final String outputFormat;
+    private final String fileExtension;
 
-    private StorageFormat(String serde, String inputFormat, String outputFormat)
+    private StorageFormat(String serde, String inputFormat, String outputFormat, String fileExtension)
     {
         this.serde = serde;
         this.inputFormat = inputFormat;
         this.outputFormat = outputFormat;
+        this.fileExtension = fileExtension;
     }
 
     public String getSerde()
@@ -67,6 +70,14 @@ public class StorageFormat
         return outputFormat;
     }
 
+    public String getFileExtension()
+    {
+        if (fileExtension == null) {
+            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "FileExtension is not present in StorageFormat");
+        }
+        return fileExtension;
+    }
+
     @JsonProperty("serde")
     public String getSerDeNullable()
     {
@@ -85,29 +96,34 @@ public class StorageFormat
         return outputFormat;
     }
 
+    @JsonIgnore
+    public String getFileExtensionNullable() { return fileExtension; }
+
     public static StorageFormat fromHiveStorageFormat(HiveStorageFormat hiveStorageFormat)
     {
-        return new StorageFormat(hiveStorageFormat.getSerde(), hiveStorageFormat.getInputFormat(), hiveStorageFormat.getOutputFormat());
+        return new StorageFormat(hiveStorageFormat.getSerde(), hiveStorageFormat.getInputFormat(), hiveStorageFormat.getOutputFormat(), hiveStorageFormat.getFileExtension());
     }
 
-    public static StorageFormat create(String serde, String inputFormat, String outputFormat)
+    public static StorageFormat create(String serde, String inputFormat, String outputFormat, String fileExtension)
     {
         return new StorageFormat(
                 requireNonNull(serde, "serde is null"),
                 requireNonNull(inputFormat, "inputFormat is null"),
-                requireNonNull(outputFormat, "outputFormat is null"));
+                requireNonNull(outputFormat, "outputFormat is null"),
+                requireNonNull(fileExtension, "fileExtension is null"));
     }
 
     @JsonCreator
     public static StorageFormat createNullable(
             @JsonProperty("serde") String serde,
             @JsonProperty("inputFormat") String inputFormat,
-            @JsonProperty("outputFormat") String outputFormat)
+            @JsonProperty("outputFormat") String outputFormat,
+            @JsonProperty("fileExtension") String fileExtension)
     {
         if (serde == null && inputFormat == null && outputFormat == null) {
             return NULL_STORAGE_FORMAT;
         }
-        return new StorageFormat(serde, inputFormat, outputFormat);
+        return new StorageFormat(serde, inputFormat, outputFormat, fileExtension);
     }
 
     @Override

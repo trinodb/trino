@@ -735,7 +735,7 @@ public class HiveWriterFactory
         return compression.getHiveCompressionKind()
                 .filter(_ -> format.getOutputFormat().equals(HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS))
                 .map(CompressionKind::getFileExtension)
-                .orElse("");
+                .orElse(format.getFileExtension());
     }
 
     @VisibleForTesting
