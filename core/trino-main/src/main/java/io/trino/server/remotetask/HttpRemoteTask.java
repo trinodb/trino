@@ -975,6 +975,10 @@ public final class HttpRemoteTask
             public void onSuccess(JsonResponse<TaskInfo> result)
             {
                 try {
+                    if (!result.hasValue()) {
+                        log.warn("TaskInfo result did not contain JSON payload; payload=" + result.getResponseBody());
+                        throw new IllegalArgumentException("TaskInfo result did not contain JSON payload");
+                    }
                     updateTaskInfo(result.getValue());
                 }
                 finally {
