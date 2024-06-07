@@ -31,6 +31,7 @@ import io.trino.client.StatementStats;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryState;
+import io.trino.server.ConnectionAwareAsyncResponse;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionContext;
@@ -46,6 +47,7 @@ import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -54,7 +56,6 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
@@ -202,12 +203,12 @@ public class QueuedStatementResource
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
             @Context UriInfo uriInfo,
-            @Suspended AsyncResponse asyncResponse)
+            @Suspended @BeanParam ConnectionAwareAsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
 
         ListenableFuture<Response> future = getStatus(query, token, maxWait, uriInfo);
-        bindAsyncResponse(asyncResponse, future, responseExecutor);
+        bindAsyncResponse(asyncResponse.withCancellableFuture(future), future, responseExecutor);
     }
 
     private ListenableFuture<Response> getStatus(Query query, long token, Duration maxWait, UriInfo uriInfo)
