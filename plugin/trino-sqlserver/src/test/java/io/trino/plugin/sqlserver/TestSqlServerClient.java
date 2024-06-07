@@ -16,6 +16,7 @@ package io.trino.plugin.sqlserver;
 import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
+import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
@@ -56,14 +57,17 @@ public class TestSqlServerClient
                     .setJdbcTypeHandle(new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                     .build();
 
+    private static final ConnectionFactory CONNECTION_FACTORY = session -> {
+        throw new UnsupportedOperationException();
+    };
+
     private static final JdbcClient JDBC_CLIENT = new SqlServerClient(
             new BaseJdbcConfig(),
             new JdbcStatisticsConfig(),
-            session -> {
-                throw new UnsupportedOperationException();
-            },
+            CONNECTION_FACTORY,
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
             new DefaultIdentifierMapping(),
+            new SqlServerStatsCollector(CONNECTION_FACTORY),
             RemoteQueryModifier.NONE);
 
     @Test
