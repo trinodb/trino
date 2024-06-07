@@ -689,6 +689,9 @@ public class TestJsonFunctions
 
         assertTrinoExceptionThrownBy(assertions.function("json_parse", "''")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.function("json_parse", "'{\"key\": \"v1\", \"key\": \"v2\"}'")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test

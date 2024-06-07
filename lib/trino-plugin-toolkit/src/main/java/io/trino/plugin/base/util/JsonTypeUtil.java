@@ -49,6 +49,7 @@ public final class JsonTypeUtil
         // If you make changes to this function (e.g. use parse JSON string into some internal representation),
         // make sure `$internal$json_string_to_array/map/row_cast` is changed accordingly.
         try (JsonParser parser = createJsonParser(JSON_FACTORY, slice)) {
+            parser.enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION);
             SliceOutput output = new DynamicSliceOutput(slice.length());
             SORTED_MAPPER.writeValue((OutputStream) output, SORTED_MAPPER.readValue(parser, Object.class));
             // At this point, the end of input should be reached. nextToken() has three possible results:
