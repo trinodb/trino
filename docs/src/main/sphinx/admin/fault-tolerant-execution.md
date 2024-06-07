@@ -44,6 +44,7 @@ connector. The following connectors support fault-tolerant execution:
 - {ref}`Delta Lake connector <delta-lake-fte-support>`
 - {ref}`Hive connector <hive-fte-support>`
 - {ref}`Iceberg connector <iceberg-fte-support>`
+- {ref}`MariaDB connector <mariadb-fte-support>`
 - {ref}`MongoDB connector <mongodb-fte-support>`
 - {ref}`MySQL connector <mysql-fte-support>`
 - {ref}`Oracle connector <oracle-fte-support>`
