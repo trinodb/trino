@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.security;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.metastore.Database;
@@ -21,6 +22,7 @@ import io.trino.metastore.HivePrincipal;
 import io.trino.metastore.HivePrivilegeInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaRoutineName;
@@ -648,6 +650,12 @@ public class SqlStandardAccessControl
     public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Map<ColumnSchema, ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnSchema> columns)
+    {
+        return ImmutableMap.of();
     }
 
     private boolean isAdmin(ConnectorSecurityContext context)
