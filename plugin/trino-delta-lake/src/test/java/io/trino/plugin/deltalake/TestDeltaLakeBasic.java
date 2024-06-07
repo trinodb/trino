@@ -101,7 +101,8 @@ public class TestDeltaLakeBasic
             new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
             new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"),
             new ResourceTable("uniform_iceberg_v1", "databricks133/uniform_iceberg_v1"),
-            new ResourceTable("uniform_iceberg_v2", "databricks143/uniform_iceberg_v2"));
+            new ResourceTable("uniform_iceberg_v2", "databricks143/uniform_iceberg_v2"),
+            new ResourceTable("variant", "databricks153/variant"));
 
     // The col-{uuid} pattern for delta.columnMapping.physicalName
     private static final Pattern PHYSICAL_COLUMN_NAME_PATTERN = Pattern.compile("^col-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
@@ -979,6 +980,22 @@ public class TestDeltaLakeBasic
     {
         assertQuery("SELECT * FROM uniform_iceberg_v2", "VALUES (1, 'test data')");
         assertQueryFails("INSERT INTO uniform_iceberg_v2 VALUES (2, 'new data')", "\\QUnsupported writer features: [icebergCompatV2]");
+    }
+
+    /**
+     * @see databricks153.variant
+     */
+    @Test
+    public void testVariant()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/22309) Add support for variant type
+        assertThat(query("DESCRIBE variant")).result().projected("Column", "Type")
+                .skippingTypesCheck()
+                .matches("VALUES ('col_int', 'integer'), ('col_string', 'varchar')");
+
+        assertQuery("SELECT * FROM variant", "VALUES (1, 'test data')");
+
+        assertQueryFails("INSERT INTO variant VALUES (2, 'new data')", "Unsupported writer features: .*");
     }
 
     @Test
