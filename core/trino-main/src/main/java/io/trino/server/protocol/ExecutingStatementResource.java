@@ -26,12 +26,14 @@ import io.trino.client.ProtocolHeaders;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.QueryManager;
 import io.trino.operator.DirectExchangeClientSupplier;
+import io.trino.server.ConnectionAwareAsyncResponse;
 import io.trino.server.ForStatementResource;
 import io.trino.server.ServerConfig;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.BlockEncodingSerde;
 import jakarta.annotation.PreDestroy;
+import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -39,7 +41,6 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
@@ -161,7 +162,7 @@ public class ExecutingStatementResource
             @QueryParam("maxWait") Duration maxWait,
             @QueryParam("targetResultSize") DataSize targetResultSize,
             @Context UriInfo uriInfo,
-            @Suspended AsyncResponse asyncResponse)
+            @Suspended @BeanParam ConnectionAwareAsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
         asyncQueryResults(query, token, maxWait, targetResultSize, uriInfo, asyncResponse);
@@ -210,7 +211,7 @@ public class ExecutingStatementResource
             Duration maxWait,
             DataSize targetResultSize,
             UriInfo uriInfo,
-            AsyncResponse asyncResponse)
+            ConnectionAwareAsyncResponse asyncResponse)
     {
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
         if (targetResultSize == null) {
@@ -223,7 +224,7 @@ public class ExecutingStatementResource
 
         ListenableFuture<Response> response = Futures.transform(queryResultsFuture, this::toResponse, directExecutor());
 
-        bindAsyncResponse(asyncResponse, response, responseExecutor);
+        bindAsyncResponse(asyncResponse.withCancellableFuture(response), response, responseExecutor);
     }
 
     private Response toResponse(QueryResultsResponse resultsResponse)

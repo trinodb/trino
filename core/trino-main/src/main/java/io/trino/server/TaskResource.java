@@ -37,6 +37,7 @@ import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.connector.CatalogHandle;
+import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
@@ -48,7 +49,6 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.container.AsyncResponse;
-import jakarta.ws.rs.container.CompletionCallback;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.GenericEntity;
@@ -143,7 +143,7 @@ public class TaskResource
             @PathParam("taskId") TaskId taskId,
             TaskUpdateRequest taskUpdateRequest,
             @Context UriInfo uriInfo,
-            @Suspended AsyncResponse asyncResponse)
+            @Suspended @BeanParam ConnectionAwareAsyncResponse asyncResponse)
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
         if (failRequestIfInvalid(asyncResponse)) {
@@ -182,7 +182,7 @@ public class TaskResource
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
             @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
             @Context UriInfo uriInfo,
-            @Suspended AsyncResponse asyncResponse)
+            @Suspended @BeanParam ConnectionAwareAsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         if (failRequestIfInvalid(asyncResponse)) {
@@ -218,7 +218,7 @@ public class TaskResource
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindAsyncResponse(asyncResponse, futureTaskInfo, responseExecutor)
+        bindAsyncResponse(asyncResponse.withCancellableFuture(futureTaskInfo), futureTaskInfo, responseExecutor)
                 .withTimeout(timeout);
     }
 
@@ -230,7 +230,7 @@ public class TaskResource
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
             @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
-            @Suspended AsyncResponse asyncResponse)
+            @Suspended @BeanParam ConnectionAwareAsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         if (failRequestIfInvalid(asyncResponse)) {
@@ -262,7 +262,7 @@ public class TaskResource
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
+        bindAsyncResponse(asyncResponse.withCancellableFuture(futureTaskStatus), futureTaskStatus, responseExecutor)
                 .withTimeout(timeout);
     }
 
@@ -273,7 +273,7 @@ public class TaskResource
     public void acknowledgeAndGetNewDynamicFilterDomains(
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(TRINO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
-            @Suspended AsyncResponse asyncResponse)
+            @Suspended @BeanParam ConnectionAwareAsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(currentDynamicFiltersVersion, "currentDynamicFiltersVersion is null");
@@ -336,7 +336,7 @@ public class TaskResource
             @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
             @PathParam("token") long token,
             @HeaderParam(TRINO_MAX_SIZE) DataSize maxSize,
-            @Suspended AsyncResponse asyncResponse)
+            @Suspended @BeanParam ConnectionAwareAsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
@@ -363,11 +363,10 @@ public class TaskResource
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindAsyncResponse(asyncResponse, responseFuture, responseExecutor)
+        bindAsyncResponse(asyncResponse.withCancellableFuture(responseFuture), responseFuture, responseExecutor)
                 .withTimeout(timeout, () -> createBufferResultResponse(taskWithResults, emptyBufferResults));
 
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
-        asyncResponse.register((CompletionCallback) throwable -> resultsRequestTime.add(Duration.nanosSince(start)));
     }
 
     @ResourceSecurity(INTERNAL_ONLY)
