@@ -86,7 +86,7 @@ Array elements must not be `NULL` or empty.
 The returned geometry may not be simple and may contain duplicate points if input array has duplicates.
 :::
 
-:::{function} ST_Point(lat: double, lon: double) -> Point
+:::{function} ST_Point(lon: double, lat: double) -> Point
 Returns a geometry type point object with the given coordinate values.
 :::
 
