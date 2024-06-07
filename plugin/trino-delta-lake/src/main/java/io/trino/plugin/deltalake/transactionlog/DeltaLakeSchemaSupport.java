@@ -190,7 +190,7 @@ public final class DeltaLakeSchemaSupport
             int columnMappingEnabled = countTrue(supportsColumnMappingReader, supportsColumnMappingWriter);
             checkArgument(
                     columnMappingEnabled == 0 || columnMappingEnabled == 2,
-                    "Both reader and writer features should must the same value for 'columnMapping'. reader: %s, writer: %s", supportsColumnMappingReader, supportsColumnMappingWriter);
+                    "Both reader and writer features must have the same value for 'columnMapping'. reader: %s, writer: %s", supportsColumnMappingReader, supportsColumnMappingWriter);
             if (columnMappingEnabled == 0) {
                 return ColumnMappingMode.NONE;
             }
