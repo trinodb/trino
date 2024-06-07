@@ -62,7 +62,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
-import static com.google.common.primitives.Booleans.countTrue;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY;
@@ -187,11 +186,10 @@ public final class DeltaLakeSchemaSupport
         if (protocolEntry.supportsReaderFeatures() || protocolEntry.supportsWriterFeatures()) {
             boolean supportsColumnMappingReader = protocolEntry.readerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
             boolean supportsColumnMappingWriter = protocolEntry.writerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
-            int columnMappingEnabled = countTrue(supportsColumnMappingReader, supportsColumnMappingWriter);
             checkArgument(
-                    columnMappingEnabled == 0 || columnMappingEnabled == 2,
+                    supportsColumnMappingReader == supportsColumnMappingWriter,
                     "Both reader and writer features must have the same value for 'columnMapping'. reader: %s, writer: %s", supportsColumnMappingReader, supportsColumnMappingWriter);
-            if (columnMappingEnabled == 0) {
+            if (!supportsColumnMappingReader) {
                 return ColumnMappingMode.NONE;
             }
         }
