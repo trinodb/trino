@@ -157,17 +157,17 @@ public class PluginManager
 
         handleResolver.registerClassLoader(pluginClassLoader);
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(pluginClassLoader)) {
-            loadPlugin(pluginClassLoader);
+            loadPlugin(plugin, pluginClassLoader);
         }
 
         log.info("-- Finished loading plugin %s --", plugin);
     }
 
-    private void loadPlugin(PluginClassLoader pluginClassLoader)
+    private void loadPlugin(String pluginPath, PluginClassLoader pluginClassLoader)
     {
         ServiceLoader<Plugin> serviceLoader = ServiceLoader.load(Plugin.class, pluginClassLoader);
         List<Plugin> plugins = ImmutableList.copyOf(serviceLoader);
-        checkState(!plugins.isEmpty(), "No service providers of type %s in the classpath: %s", Plugin.class.getName(), asList(pluginClassLoader.getURLs()));
+        checkState(!plugins.isEmpty(), "%s - No service providers of type %s in the classpath: %s", pluginPath, Plugin.class.getName(), asList(pluginClassLoader.getURLs()));
 
         for (Plugin plugin : plugins) {
             log.info("Installing %s", plugin.getClass().getName());
