@@ -93,24 +93,24 @@ public class IcebergPageSinkProvider
 
     private ConnectorPageSink createPageSink(ConnectorSession session, IcebergWritableTableHandle tableHandle)
     {
-        Schema schema = SchemaParser.fromJson(tableHandle.getSchemaAsJson());
-        String partitionSpecJson = tableHandle.getPartitionsSpecsAsJson().get(tableHandle.getPartitionSpecId());
+        Schema schema = SchemaParser.fromJson(tableHandle.schemaAsJson());
+        String partitionSpecJson = tableHandle.partitionsSpecsAsJson().get(tableHandle.partitionSpecId());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, partitionSpecJson);
-        LocationProvider locationProvider = getLocationProvider(tableHandle.getName(), tableHandle.getOutputPath(), tableHandle.getStorageProperties());
+        LocationProvider locationProvider = getLocationProvider(tableHandle.name(), tableHandle.outputPath(), tableHandle.storageProperties());
         return new IcebergPageSink(
                 schema,
                 partitionSpec,
                 locationProvider,
                 fileWriterFactory,
                 pageIndexerFactory,
-                fileSystemFactory.create(session.getIdentity(), tableHandle.getFileIoProperties()),
-                tableHandle.getInputColumns(),
+                fileSystemFactory.create(session.getIdentity(), tableHandle.fileIoProperties()),
+                tableHandle.inputColumns(),
                 jsonCodec,
                 session,
-                tableHandle.getFileFormat(),
-                tableHandle.getStorageProperties(),
+                tableHandle.fileFormat(),
+                tableHandle.storageProperties(),
                 maxOpenPartitions,
-                tableHandle.getSortOrder(),
+                tableHandle.sortOrder(),
                 sortingFileWriterBufferSize,
                 sortingFileWriterMaxOpenFiles,
                 typeManager,
@@ -159,22 +159,22 @@ public class IcebergPageSinkProvider
     {
         IcebergMergeTableHandle merge = (IcebergMergeTableHandle) mergeHandle;
         IcebergWritableTableHandle tableHandle = merge.getInsertTableHandle();
-        LocationProvider locationProvider = getLocationProvider(tableHandle.getName(), tableHandle.getOutputPath(), tableHandle.getStorageProperties());
-        Schema schema = SchemaParser.fromJson(tableHandle.getSchemaAsJson());
-        Map<Integer, PartitionSpec> partitionsSpecs = transformValues(tableHandle.getPartitionsSpecsAsJson(), json -> PartitionSpecParser.fromJson(schema, json));
+        LocationProvider locationProvider = getLocationProvider(tableHandle.name(), tableHandle.outputPath(), tableHandle.storageProperties());
+        Schema schema = SchemaParser.fromJson(tableHandle.schemaAsJson());
+        Map<Integer, PartitionSpec> partitionsSpecs = transformValues(tableHandle.partitionsSpecsAsJson(), json -> PartitionSpecParser.fromJson(schema, json));
         ConnectorPageSink pageSink = createPageSink(session, tableHandle);
 
         return new IcebergMergeSink(
                 locationProvider,
                 fileWriterFactory,
-                fileSystemFactory.create(session.getIdentity(), tableHandle.getFileIoProperties()),
+                fileSystemFactory.create(session.getIdentity(), tableHandle.fileIoProperties()),
                 jsonCodec,
                 session,
-                tableHandle.getFileFormat(),
-                tableHandle.getStorageProperties(),
+                tableHandle.fileFormat(),
+                tableHandle.storageProperties(),
                 schema,
                 partitionsSpecs,
                 pageSink,
-                tableHandle.getInputColumns().size());
+                tableHandle.inputColumns().size());
     }
 }
