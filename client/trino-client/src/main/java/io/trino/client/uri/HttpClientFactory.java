@@ -78,6 +78,7 @@ public class HttpClientFactory
                         uri.getSslKeyStorePath(),
                         uri.getSslKeyStorePassword(),
                         uri.getSslKeyStoreType(),
+                        uri.getSslUseSystemKeyStore(),
                         uri.getSslTrustStorePath(),
                         uri.getSslTrustStorePassword(),
                         uri.getSslTrustStoreType(),
