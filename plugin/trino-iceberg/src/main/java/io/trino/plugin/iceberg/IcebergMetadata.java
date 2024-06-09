@@ -306,6 +306,7 @@ import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
+import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 import static org.apache.iceberg.types.TypeUtil.indexParents;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
@@ -2551,6 +2552,16 @@ public class IcebergMetadata
         long removedPositionDeletes = Long.parseLong(summary.getOrDefault(REMOVED_POS_DELETES_PROP, "0"));
         long removedEqualityDeletes = Long.parseLong(summary.getOrDefault(REMOVED_EQ_DELETES_PROP, "0"));
         return OptionalLong.of(deletedRecords - removedPositionDeletes - removedEqualityDeletes);
+    }
+
+    @Override
+    public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        IcebergTableHandle table = checkValidTableHandle(tableHandle);
+        Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+        DeleteFiles deleteFiles = icebergTable.newDelete()
+                .deleteFromRowFilter(alwaysTrue());
+        commit(deleteFiles, session);
     }
 
     public void rollback()
