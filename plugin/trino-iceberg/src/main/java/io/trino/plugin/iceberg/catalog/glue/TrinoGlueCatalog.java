@@ -395,7 +395,7 @@ public class TrinoGlueCatalog
                     Map<String, String> tableParameters = getTableParameters(table);
                     if (isTrinoMaterializedView(tableType, tableParameters)) {
                         IcebergMaterializedViewDefinition definition = decodeMaterializedViewData(table.getViewOriginalText());
-                        unfilteredResult.add(RelationColumnsMetadata.forMaterializedView(name, toSpiMaterializedViewColumns(definition.getColumns())));
+                        unfilteredResult.add(RelationColumnsMetadata.forMaterializedView(name, toSpiMaterializedViewColumns(definition.columns())));
                     }
                     else if (isTrinoView(tableType, tableParameters)) {
                         ConnectorViewDefinition definition = ViewReaderUtil.PrestoViewReader.decodeViewData(table.getViewOriginalText());
@@ -486,7 +486,7 @@ public class TrinoGlueCatalog
                     String tableType = getTableType(table);
                     Map<String, String> tableParameters = getTableParameters(table);
                     if (isTrinoMaterializedView(tableType, tableParameters)) {
-                        Optional<String> comment = decodeMaterializedViewData(table.getViewOriginalText()).getComment();
+                        Optional<String> comment = decodeMaterializedViewData(table.getViewOriginalText()).comment();
                         unfilteredResult.add(RelationCommentMetadata.forRelation(name, comment));
                     }
                     else if (isTrinoView(tableType, tableParameters)) {

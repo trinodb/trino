@@ -474,21 +474,21 @@ public abstract class AbstractTrinoCatalog
     {
         IcebergMaterializedViewDefinition definition = decodeMaterializedViewData(viewOriginalText);
         return new ConnectorMaterializedViewDefinition(
-                definition.getOriginalSql(),
+                definition.originalSql(),
                 Optional.of(new CatalogSchemaTableName(catalogName.toString(), storageTableName)),
-                definition.getCatalog(),
-                definition.getSchema(),
-                toSpiMaterializedViewColumns(definition.getColumns()),
-                definition.getGracePeriod(),
-                definition.getComment(),
+                definition.catalog(),
+                definition.schema(),
+                toSpiMaterializedViewColumns(definition.columns()),
+                definition.gracePeriod(),
+                definition.comment(),
                 owner,
-                definition.getPath());
+                definition.path());
     }
 
     protected List<ConnectorMaterializedViewDefinition.Column> toSpiMaterializedViewColumns(List<IcebergMaterializedViewDefinition.Column> columns)
     {
         return columns.stream()
-                .map(column -> new ConnectorMaterializedViewDefinition.Column(column.getName(), column.getType(), column.getComment()))
+                .map(column -> new ConnectorMaterializedViewDefinition.Column(column.name(), column.type(), column.comment()))
                 .collect(toImmutableList());
     }
 
