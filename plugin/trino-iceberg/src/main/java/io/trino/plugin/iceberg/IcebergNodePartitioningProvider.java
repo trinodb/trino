@@ -53,11 +53,11 @@ public class IcebergNodePartitioningProvider
         }
 
         IcebergPartitioningHandle handle = (IcebergPartitioningHandle) partitioningHandle;
-        Schema schema = schemaFromHandles(handle.getPartitioningColumns());
+        Schema schema = schemaFromHandles(handle.partitioningColumns());
         return new IcebergBucketFunction(
                 typeOperators,
-                parsePartitionFields(schema, handle.getPartitioning()),
-                handle.getPartitioningColumns(),
+                parsePartitionFields(schema, handle.partitioning()),
+                handle.partitioningColumns(),
                 bucketCount);
     }
 }
