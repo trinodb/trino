@@ -102,6 +102,7 @@ import static io.trino.client.uri.ConnectionProperties.SSL_KEY_STORE_TYPE;
 import static io.trino.client.uri.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static io.trino.client.uri.ConnectionProperties.SSL_TRUST_STORE_PATH;
 import static io.trino.client.uri.ConnectionProperties.SSL_TRUST_STORE_TYPE;
+import static io.trino.client.uri.ConnectionProperties.SSL_USE_SYSTEM_KEY_STORE;
 import static io.trino.client.uri.ConnectionProperties.SSL_USE_SYSTEM_TRUST_STORE;
 import static io.trino.client.uri.ConnectionProperties.SSL_VERIFICATION;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode;
@@ -144,6 +145,7 @@ public class TrinoUri
     private Optional<String> sslKeyStorePath;
     private Optional<String> sslKeyStorePassword;
     private Optional<String> sslKeyStoreType;
+    private Optional<Boolean> sslUseSystemKeyStore;
     private Optional<String> sslTrustStorePath;
     private Optional<String> sslTrustStorePassword;
     private Optional<String> sslTrustStoreType;
@@ -199,6 +201,7 @@ public class TrinoUri
             Optional<String> sslKeyStorePath,
             Optional<String> sslKeyStorePassword,
             Optional<String> sslKeyStoreType,
+            Optional<Boolean> sslUseSystemKeyStore,
             Optional<String> sslTrustStorePath,
             Optional<String> sslTrustStorePassword,
             Optional<String> sslTrustStoreType,
@@ -253,6 +256,7 @@ public class TrinoUri
         this.sslKeyStorePath = SSL_KEY_STORE_PATH.getValueOrDefault(urlProperties, sslKeyStorePath);
         this.sslKeyStorePassword = SSL_KEY_STORE_PASSWORD.getValueOrDefault(urlProperties, sslKeyStorePassword);
         this.sslKeyStoreType = SSL_KEY_STORE_TYPE.getValueOrDefault(urlProperties, sslKeyStoreType);
+        this.sslUseSystemKeyStore = SSL_USE_SYSTEM_KEY_STORE.getValueOrDefault(urlProperties, sslUseSystemKeyStore);
         this.sslTrustStorePath = SSL_TRUST_STORE_PATH.getValueOrDefault(urlProperties, sslTrustStorePath);
         this.sslTrustStorePassword = SSL_TRUST_STORE_PASSWORD.getValueOrDefault(urlProperties, sslTrustStorePassword);
         this.sslTrustStoreType = SSL_TRUST_STORE_TYPE.getValueOrDefault(urlProperties, sslTrustStoreType);
@@ -325,6 +329,7 @@ public class TrinoUri
         sslKeyStoreType.ifPresent(value -> properties.setProperty(PropertyName.SSL_KEY_STORE_TYPE.toString(), value));
         sslKeyStorePath.ifPresent(value -> properties.setProperty(PropertyName.SSL_KEY_STORE_PATH.toString(), value));
         sslKeyStorePassword.ifPresent(value -> properties.setProperty(PropertyName.SSL_KEY_STORE_PASSWORD.toString(), value));
+        sslUseSystemKeyStore.ifPresent(value -> properties.setProperty(PropertyName.SSL_USE_SYSTEM_KEY_STORE.toString(), Boolean.toString(value)));
         sslTrustStoreType.ifPresent(value -> properties.setProperty(PropertyName.SSL_TRUST_STORE_TYPE.toString(), value));
         sslTrustStorePath.ifPresent(value -> properties.setProperty(PropertyName.SSL_TRUST_STORE_PATH.toString(), value));
         sslTrustStorePassword.ifPresent(value -> properties.setProperty(PropertyName.SSL_TRUST_STORE_PASSWORD.toString(), value));
@@ -400,6 +405,7 @@ public class TrinoUri
         this.sslKeyStorePath = SSL_KEY_STORE_PATH.getValue(properties);
         this.sslKeyStorePassword = SSL_KEY_STORE_PASSWORD.getValue(properties);
         this.sslKeyStoreType = SSL_KEY_STORE_TYPE.getValue(properties);
+        this.sslUseSystemKeyStore = SSL_USE_SYSTEM_KEY_STORE.getValue(properties);
         this.sslTrustStorePath = SSL_TRUST_STORE_PATH.getValue(properties);
         this.sslTrustStorePassword = SSL_TRUST_STORE_PASSWORD.getValue(properties);
         this.sslTrustStoreType = SSL_TRUST_STORE_TYPE.getValue(properties);
@@ -604,6 +610,7 @@ public class TrinoUri
                 sslKeyStorePath,
                 sslKeyStorePassword,
                 sslKeyStoreType,
+                sslUseSystemKeyStore.orElse(false),
                 sslTrustStorePath,
                 sslTrustStorePassword,
                 sslTrustStoreType,
@@ -635,6 +642,7 @@ public class TrinoUri
                             sslKeyStorePath,
                             sslKeyStorePassword,
                             sslKeyStoreType,
+                            sslUseSystemKeyStore.orElse(false),
                             sslTrustStorePath,
                             sslTrustStorePassword,
                             sslTrustStoreType,
@@ -924,6 +932,7 @@ public class TrinoUri
         private String sslKeyStorePath;
         private String sslKeyStorePassword;
         private String sslKeyStoreType;
+        private Boolean sslUseSystemKeyStore;
         private String sslTrustStorePath;
         private String sslTrustStorePassword;
         private String sslTrustStoreType;
@@ -1066,6 +1075,12 @@ public class TrinoUri
         public Builder setSslKeyStoreType(String sslKeyStoreType)
         {
             this.sslKeyStoreType = requireNonNull(sslKeyStoreType, "sslKeyStoreType is null");
+            return this;
+        }
+
+        public Builder setSslUseSystemKeyStore(Boolean sslUseSystemKeyStore)
+        {
+            this.sslUseSystemKeyStore = requireNonNull(sslUseSystemKeyStore, "sslUseSystemKeyStore is null");
             return this;
         }
 
@@ -1275,6 +1290,7 @@ public class TrinoUri
                     Optional.ofNullable(sslKeyStorePath),
                     Optional.ofNullable(sslKeyStorePassword),
                     Optional.ofNullable(sslKeyStoreType),
+                    Optional.ofNullable(sslUseSystemKeyStore),
                     Optional.ofNullable(sslTrustStorePath),
                     Optional.ofNullable(sslTrustStorePassword),
                     Optional.ofNullable(sslTrustStoreType),

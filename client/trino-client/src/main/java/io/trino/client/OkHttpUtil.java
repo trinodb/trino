@@ -181,12 +181,13 @@ public final class OkHttpUtil
             Optional<String> keyStorePath,
             Optional<String> keyStorePassword,
             Optional<String> keyStoreType,
+            boolean useSystemKeyStore,
             Optional<String> trustStorePath,
             Optional<String> trustStorePassword,
             Optional<String> trustStoreType,
             boolean useSystemTrustStore)
     {
-        if (!keyStorePath.isPresent() && !trustStorePath.isPresent() && !useSystemTrustStore) {
+        if (!keyStorePath.isPresent() && !useSystemKeyStore && !trustStorePath.isPresent() && !useSystemTrustStore) {
             return;
         }
 
@@ -194,8 +195,12 @@ public final class OkHttpUtil
             // load KeyStore if configured and get KeyManagers
             KeyStore keyStore = null;
             KeyManager[] keyManagers = null;
-            if (keyStorePath.isPresent()) {
-                char[] keyManagerPassword;
+            char[] keyManagerPassword = null;
+
+            if (useSystemKeyStore) {
+                keyStore = loadSystemKeyStore(keyStoreType);
+            }
+            else if (keyStorePath.isPresent()) {
                 try {
                     // attempt to read the key store as a PEM file
                     keyStore = PemReader.loadKeyStore(new File(keyStorePath.get()), new File(keyStorePath.get()), keyStorePassword);
@@ -211,6 +216,9 @@ public final class OkHttpUtil
                     }
                 }
                 validateCertificates(keyStore);
+            }
+
+            if (keyStore != null) {
                 KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
                 keyManagerFactory.init(keyStore, keyManagerPassword);
                 keyManagers = keyManagerFactory.getKeyManagers();
@@ -295,6 +303,25 @@ public final class OkHttpUtil
             trustStore.load(in, trustStorePassword.map(String::toCharArray).orElse(null));
         }
         return trustStore;
+    }
+
+    private static KeyStore loadSystemKeyStore(Optional<String> keyStoreType)
+            throws IOException, GeneralSecurityException
+    {
+        String osName = Optional.ofNullable(StandardSystemProperty.OS_NAME.value()).orElse("");
+        Optional<String> systemKeyStoreType = keyStoreType;
+        if (!systemKeyStoreType.isPresent()) {
+            if (osName.contains("Windows")) {
+                systemKeyStoreType = Optional.of("Windows-MY");
+            }
+            else if (osName.contains("Mac")) {
+                systemKeyStoreType = Optional.of("KeychainStore");
+            }
+        }
+
+        KeyStore keyStore = KeyStore.getInstance(systemKeyStoreType.orElseGet(KeyStore::getDefaultType));
+        keyStore.load(null, null);
+        return keyStore;
     }
 
     private static KeyStore loadSystemTrustStore(Optional<String> trustStoreType)

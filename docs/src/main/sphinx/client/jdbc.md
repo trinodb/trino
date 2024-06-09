@@ -163,6 +163,12 @@ may not be specified using both methods.
 * - `SSLKeyStoreType`
   - The type of the KeyStore. The default type is provided by the Java
     `keystore.type` security property or `jks` if none exists.
+* - `SSLUseSystemKeyStore`
+  - Set `true` to automatically use the system KeyStore based on the operating
+    system. The supported OSes are Windows and macOS. For Windows, the
+    `Windows-MY` KeyStore is selected. For macOS, the `KeychainStore`
+    KeyStore is selected. For other OSes, the default Java KeyStore is loaded.
+    The KeyStore specification can be overridden using `SSLKeyStoreType`.
 * - `SSLTrustStorePath`
   - The location of the Java TrustStore file to use to validate HTTPS server
     certificates.
