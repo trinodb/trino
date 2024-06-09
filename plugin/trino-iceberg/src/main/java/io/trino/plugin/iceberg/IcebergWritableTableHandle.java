@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -28,113 +26,33 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class IcebergWritableTableHandle
+public record IcebergWritableTableHandle(
+        SchemaTableName name,
+        String schemaAsJson,
+        Map<Integer, String> partitionsSpecsAsJson,
+        int partitionSpecId,
+        List<TrinoSortField> sortOrder,
+        List<IcebergColumnHandle> inputColumns,
+        String outputPath,
+        IcebergFileFormat fileFormat,
+        Map<String, String> storageProperties,
+        RetryMode retryMode,
+        Map<String, String> fileIoProperties)
         implements ConnectorInsertTableHandle, ConnectorOutputTableHandle
 {
-    private final SchemaTableName name;
-    private final String schemaAsJson;
-    private final Map<Integer, String> partitionsSpecsAsJson;
-    private final int partitionSpecId;
-    private final List<TrinoSortField> sortOrder;
-    private final List<IcebergColumnHandle> inputColumns;
-    private final String outputPath;
-    private final IcebergFileFormat fileFormat;
-    private final Map<String, String> storageProperties;
-    private final RetryMode retryMode;
-    private final Map<String, String> fileIoProperties;
-
-    @JsonCreator
-    public IcebergWritableTableHandle(
-            @JsonProperty("name") SchemaTableName name,
-            @JsonProperty("schemaAsJson") String schemaAsJson,
-            @JsonProperty("partitionsSpecsAsJson") Map<Integer, String> partitionsSpecsAsJson,
-            @JsonProperty("partitionSpecId") int partitionSpecId,
-            @JsonProperty("sortOrder") List<TrinoSortField> sortOrder,
-            @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
-            @JsonProperty("outputPath") String outputPath,
-            @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
-            @JsonProperty("storageProperties") Map<String, String> storageProperties,
-            @JsonProperty("retryMode") RetryMode retryMode,
-            @JsonProperty("fileIoProperties") Map<String, String> fileIoProperties)
+    public IcebergWritableTableHandle
     {
-        this.name = requireNonNull(name, "name is null");
-        this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
-        this.partitionsSpecsAsJson = ImmutableMap.copyOf(requireNonNull(partitionsSpecsAsJson, "partitionsSpecsAsJson is null"));
-        this.partitionSpecId = partitionSpecId;
-        this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
-        this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
-        this.outputPath = requireNonNull(outputPath, "outputPath is null");
-        this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
-        this.storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
-        this.retryMode = requireNonNull(retryMode, "retryMode is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(schemaAsJson, "schemaAsJson is null");
+        partitionsSpecsAsJson = ImmutableMap.copyOf(requireNonNull(partitionsSpecsAsJson, "partitionsSpecsAsJson is null"));
+        sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
+        inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
+        requireNonNull(outputPath, "outputPath is null");
+        requireNonNull(fileFormat, "fileFormat is null");
+        storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
+        requireNonNull(retryMode, "retryMode is null");
         checkArgument(partitionsSpecsAsJson.containsKey(partitionSpecId), "partitionSpecId missing from partitionSpecs");
-        this.fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
-    }
-
-    @JsonProperty
-    public SchemaTableName getName()
-    {
-        return name;
-    }
-
-    @JsonProperty
-    public String getSchemaAsJson()
-    {
-        return schemaAsJson;
-    }
-
-    @JsonProperty
-    public Map<Integer, String> getPartitionsSpecsAsJson()
-    {
-        return partitionsSpecsAsJson;
-    }
-
-    @JsonProperty
-    public int getPartitionSpecId()
-    {
-        return partitionSpecId;
-    }
-
-    @JsonProperty
-    public List<TrinoSortField> getSortOrder()
-    {
-        return sortOrder;
-    }
-
-    @JsonProperty
-    public List<IcebergColumnHandle> getInputColumns()
-    {
-        return inputColumns;
-    }
-
-    @JsonProperty
-    public String getOutputPath()
-    {
-        return outputPath;
-    }
-
-    @JsonProperty
-    public IcebergFileFormat getFileFormat()
-    {
-        return fileFormat;
-    }
-
-    @JsonProperty
-    public Map<String, String> getStorageProperties()
-    {
-        return storageProperties;
-    }
-
-    @JsonProperty
-    public RetryMode getRetryMode()
-    {
-        return retryMode;
-    }
-
-    @JsonProperty
-    public Map<String, String> getFileIoProperties()
-    {
-        return fileIoProperties;
+        fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
     }
 
     @Override
