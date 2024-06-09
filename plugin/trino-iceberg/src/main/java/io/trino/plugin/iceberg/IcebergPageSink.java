@@ -180,12 +180,12 @@ public class IcebergPageSink
             ImmutableList.Builder<Integer> sortColumnIndexes = ImmutableList.builder();
             ImmutableList.Builder<SortOrder> sortOrders = ImmutableList.builder();
             for (TrinoSortField sortField : sortOrder) {
-                Types.NestedField column = outputSchema.findField(sortField.getSourceColumnId());
+                Types.NestedField column = outputSchema.findField(sortField.sourceColumnId());
                 if (column == null) {
                     throw new TrinoException(ICEBERG_INVALID_METADATA, "Unable to find sort field source column in the table schema: " + sortField);
                 }
                 sortColumnIndexes.add(outputSchema.columns().indexOf(column));
-                sortOrders.add(sortField.getSortOrder());
+                sortOrders.add(sortField.sortOrder());
             }
             this.sortColumnIndexes = sortColumnIndexes.build();
             this.sortOrders = sortOrders.build();
