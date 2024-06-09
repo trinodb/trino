@@ -132,7 +132,7 @@ public class FlatArrayBuilder
         return INSTANCE_SIZE +
                 sizeOfObjectArray(closedRecordGroups.size()) +
                 ((long) closedRecordGroups.size() * RECORDS_PER_GROUP * recordSize) +
-                (openRecordGroup == null ? 0 : sizeOf(openRecordGroup)) +
+                sizeOf(openRecordGroup) +
                 (variableWidthData == null ? 0 : variableWidthData.getRetainedSizeBytes());
     }
 
