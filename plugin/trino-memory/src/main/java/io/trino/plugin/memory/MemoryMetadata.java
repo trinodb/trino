@@ -364,7 +364,7 @@ public class MemoryMetadata
         requireNonNull(insertHandle, "insertHandle is null");
         MemoryInsertTableHandle memoryInsertHandle = (MemoryInsertTableHandle) insertHandle;
 
-        updateRowsOnHosts(memoryInsertHandle.getTable(), fragments);
+        updateRowsOnHosts(memoryInsertHandle.table(), fragments);
         return Optional.empty();
     }
 
