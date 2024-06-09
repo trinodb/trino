@@ -86,6 +86,7 @@ public class TestMemoryConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
+            case SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_ADD_COLUMN,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
