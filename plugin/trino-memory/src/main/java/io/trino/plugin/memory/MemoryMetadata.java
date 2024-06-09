@@ -369,6 +369,15 @@ public class MemoryMetadata
     }
 
     @Override
+    public synchronized void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
+        long tableId = handle.id();
+        TableInfo info = tables.get(handle.id());
+        tables.put(tableId, new TableInfo(tableId, info.schemaName(), info.tableName(), info.columns(), ImmutableMap.of(), info.comment()));
+    }
+
+    @Override
     public synchronized void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         checkSchemaExists(viewName.getSchemaName());
