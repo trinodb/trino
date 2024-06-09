@@ -145,7 +145,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRounding;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
@@ -703,7 +703,7 @@ public class ClickHouseClient
                             timestampSecondsWriteFunction(getClickHouseServerVersion(session))));
                 }
                 // TODO (https://github.com/trinodb/trino/issues/10537) Add support for Datetime64 type
-                return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
+                return Optional.of(timestampColumnMapping(TIMESTAMP_MILLIS));
 
             case Types.TIMESTAMP_WITH_TIMEZONE:
                 if (columnDataType == ClickHouseDataType.DateTime) {
