@@ -65,17 +65,17 @@ public final class MemorySplitManager
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
 
         for (MemoryDataFragment dataFragment : dataFragments) {
-            long rows = dataFragment.getRows();
+            long rows = dataFragment.rows();
             totalRows += rows;
 
             if (table.limit().isPresent() && totalRows > table.limit().getAsLong()) {
                 rows -= totalRows - table.limit().getAsLong();
-                splits.add(new MemorySplit(table.id(), 0, 1, dataFragment.getHostAddress(), rows, OptionalLong.of(rows)));
+                splits.add(new MemorySplit(table.id(), 0, 1, dataFragment.hostAddress(), rows, OptionalLong.of(rows)));
                 break;
             }
 
             for (int i = 0; i < splitsPerNode; i++) {
-                splits.add(new MemorySplit(table.id(), i, splitsPerNode, dataFragment.getHostAddress(), rows, OptionalLong.empty()));
+                splits.add(new MemorySplit(table.id(), i, splitsPerNode, dataFragment.hostAddress(), rows, OptionalLong.empty()));
             }
         }
 

@@ -477,7 +477,7 @@ public class MemoryMetadata
         Map<HostAddress, MemoryDataFragment> dataFragments = new HashMap<>(info.dataFragments());
         for (Slice fragment : fragments) {
             MemoryDataFragment memoryDataFragment = MemoryDataFragment.fromSlice(fragment);
-            dataFragments.merge(memoryDataFragment.getHostAddress(), memoryDataFragment, MemoryDataFragment::merge);
+            dataFragments.merge(memoryDataFragment.hostAddress(), memoryDataFragment, MemoryDataFragment::merge);
         }
 
         tables.put(tableId, new TableInfo(tableId, info.schemaName(), info.tableName(), info.columns(), dataFragments, info.comment()));
@@ -493,7 +493,7 @@ public class MemoryMetadata
     {
         List<MemoryDataFragment> dataFragments = getDataFragments(((MemoryTableHandle) tableHandle).id());
         long rows = dataFragments.stream()
-                .mapToLong(MemoryDataFragment::getRows)
+                .mapToLong(MemoryDataFragment::rows)
                 .sum();
         return TableStatistics.builder()
                 .setRowCount(Estimate.of(rows))
