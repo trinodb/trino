@@ -14,7 +14,7 @@
 package io.trino.plugin.clickhouse;
 
 import io.trino.testing.ResourcePresence;
-import org.testcontainers.containers.ClickHouseContainer;
+import org.testcontainers.clickhouse.ClickHouseContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.Closeable;
@@ -23,7 +23,6 @@ import java.sql.DriverManager;
 import java.sql.Statement;
 
 import static java.lang.String.format;
-import static org.testcontainers.containers.ClickHouseContainer.HTTP_PORT;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public class TestingClickHouseServer
@@ -69,7 +68,7 @@ public class TestingClickHouseServer
     public String getJdbcUrl()
     {
         return format("jdbc:clickhouse://%s:%s/", dockerContainer.getHost(),
-                dockerContainer.getMappedPort(HTTP_PORT));
+                dockerContainer.getMappedPort(8123));
     }
 
     @Override
