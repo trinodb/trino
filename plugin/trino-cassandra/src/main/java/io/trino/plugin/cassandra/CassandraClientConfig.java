@@ -40,10 +40,21 @@ import java.util.Optional;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-@DefunctConfig({"cassandra.thrift-port", "cassandra.partitioner", "cassandra.thrift-connection-factory-class", "cassandra.transport-factory-options",
-        "cassandra.no-host-available-retry-count", "cassandra.max-schema-refresh-threads", "cassandra.schema-cache-ttl",
-        "cassandra.schema-refresh-interval", "cassandra.load-policy.use-white-list", "cassandra.load-policy.white-list.addresses",
-        "cassandra.load-policy.use-token-aware", "cassandra.load-policy.token-aware.shuffle-replicas", "cassandra.load-policy.allowed-addresses"})
+@DefunctConfig({
+        "cassandra.thrift-port",
+        "cassandra.partitioner",
+        "cassandra.thrift-connection-factory-class",
+        "cassandra.transport-factory-options",
+        "cassandra.no-host-available-retry-count",
+        "cassandra.max-schema-refresh-threads",
+        "cassandra.schema-cache-ttl",
+        "cassandra.schema-refresh-interval",
+        "cassandra.load-policy.use-white-list",
+        "cassandra.load-policy.white-list.addresses",
+        "cassandra.load-policy.use-token-aware",
+        "cassandra.load-policy.token-aware.shuffle-replicas",
+        "cassandra.load-policy.allowed-addresses",
+})
 public class CassandraClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
