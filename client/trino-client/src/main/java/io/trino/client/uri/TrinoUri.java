@@ -87,6 +87,7 @@ import static io.trino.client.uri.ConnectionProperties.SSL_KEY_STORE_TYPE;
 import static io.trino.client.uri.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static io.trino.client.uri.ConnectionProperties.SSL_TRUST_STORE_PATH;
 import static io.trino.client.uri.ConnectionProperties.SSL_TRUST_STORE_TYPE;
+import static io.trino.client.uri.ConnectionProperties.SSL_USE_SYSTEM_KEY_STORE;
 import static io.trino.client.uri.ConnectionProperties.SSL_USE_SYSTEM_TRUST_STORE;
 import static io.trino.client.uri.ConnectionProperties.SSL_VERIFICATION;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode;
@@ -288,6 +289,11 @@ public class TrinoUri
     public Optional<String> getSslKeyStoreType()
     {
         return resolveOptional(SSL_KEY_STORE_TYPE);
+    }
+
+    public boolean getSslUseSystemKeyStore()
+    {
+        return resolveWithDefault(SSL_USE_SYSTEM_KEY_STORE, false);
     }
 
     public Optional<String> getSslTrustStorePath()
@@ -818,6 +824,11 @@ public class TrinoUri
         public Builder setSslKeyStoreType(String sslKeyStoreType)
         {
             return setProperty(SSL_KEY_STORE_TYPE, requireNonNull(sslKeyStoreType, "sslKeyStoreType is null"));
+        }
+
+        public Builder setSslUseSystemKeyStore(boolean sslUseSystemKeyStore)
+        {
+            return setProperty(SSL_USE_SYSTEM_KEY_STORE, sslUseSystemKeyStore);
         }
 
         public Builder setSslTrustStorePath(String sslTrustStorePath)
