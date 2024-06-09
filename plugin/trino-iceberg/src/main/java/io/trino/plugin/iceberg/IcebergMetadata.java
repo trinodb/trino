@@ -1135,7 +1135,7 @@ public class IcebergMetadata
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
                     .withPath(task.path())
                     .withFileSizeInBytes(task.fileSizeInBytes())
-                    .withFormat(table.getFileFormat().toIceberg())
+                    .withFormat(table.fileFormat().toIceberg())
                     .withMetrics(task.metrics().metrics());
 
             if (!icebergTable.spec().fields().isEmpty()) {
@@ -1149,7 +1149,7 @@ public class IcebergMetadata
         }
 
         // try to leave as little garbage as possible behind
-        if (table.getRetryMode() != NO_RETRIES) {
+        if (table.retryMode() != NO_RETRIES) {
             cleanExtraOutputFiles(session, writtenFiles.build());
         }
 
@@ -1165,7 +1165,7 @@ public class IcebergMetadata
 
         if (!computedStatistics.isEmpty()) {
             try {
-                beginTransaction(catalog.loadTable(session, table.getName()));
+                beginTransaction(catalog.loadTable(session, table.name()));
                 Table reloadedTable = transaction.table();
                 CollectedStatistics collectedStatistics = processComputedTableStatistics(reloadedTable, computedStatistics);
                 StatisticsFile statisticsFile = tableStatisticsWriter.writeStatisticsFile(
@@ -2353,7 +2353,7 @@ public class IcebergMetadata
     {
         IcebergMergeTableHandle mergeHandle = (IcebergMergeTableHandle) mergeTableHandle;
         IcebergTableHandle handle = mergeHandle.getTableHandle();
-        RetryMode retryMode = mergeHandle.getInsertTableHandle().getRetryMode();
+        RetryMode retryMode = mergeHandle.getInsertTableHandle().retryMode();
         finishWrite(session, handle, fragments, retryMode);
     }
 
@@ -2934,7 +2934,7 @@ public class IcebergMetadata
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
                     .withPath(task.path())
                     .withFileSizeInBytes(task.fileSizeInBytes())
-                    .withFormat(table.getFileFormat().toIceberg())
+                    .withFormat(table.fileFormat().toIceberg())
                     .withMetrics(task.metrics().metrics());
 
             if (!icebergTable.spec().fields().isEmpty()) {
@@ -2963,7 +2963,7 @@ public class IcebergMetadata
                 .collect(joining(","));
 
         // try to leave as little garbage as possible behind
-        if (table.getRetryMode() != NO_RETRIES) {
+        if (table.retryMode() != NO_RETRIES) {
             cleanExtraOutputFiles(session, writtenFiles.build());
         }
 
