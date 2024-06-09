@@ -106,7 +106,7 @@ public final class EqualityDeleteFilter
 
         private void readEqualityDeletesInternal(DeleteFile deleteFile, List<IcebergColumnHandle> deleteColumns, DeletePageSourceProvider deletePageSourceProvider)
         {
-            DataSequenceNumber sequenceNumber = new DataSequenceNumber(deleteFile.getDataSequenceNumber());
+            DataSequenceNumber sequenceNumber = new DataSequenceNumber(deleteFile.dataSequenceNumber());
             try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, TupleDomain.all())) {
                 Type[] types = deleteColumns.stream()
                         .map(IcebergColumnHandle::getType)

@@ -164,11 +164,11 @@ public class DeleteManager
             return true;
         }
 
-        byte[] lowerBoundBytes = deleteFile.getLowerBounds().get(DELETE_FILE_POS.fieldId());
+        byte[] lowerBoundBytes = deleteFile.lowerBounds().get(DELETE_FILE_POS.fieldId());
         Optional<Long> positionLowerBound = Optional.ofNullable(lowerBoundBytes)
                 .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
 
-        byte[] upperBoundBytes = deleteFile.getUpperBounds().get(DELETE_FILE_POS.fieldId());
+        byte[] upperBoundBytes = deleteFile.upperBounds().get(DELETE_FILE_POS.fieldId());
         Optional<Long> positionUpperBound = Optional.ofNullable(upperBoundBytes)
                 .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
 
