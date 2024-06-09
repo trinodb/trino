@@ -1,0 +1,70 @@
+{
+  "id":          100,
+  "name":        "tag",
+  "displayName": "tag",
+  "implClass":   "org.apache.ranger.services.tag.RangerServiceTag",
+  "label":       "TAG",
+  "description": "TAG Service Definition",
+  "options":     { "ui.pages": "tag-based-policies" },
+  "resources":
+  [
+    {
+      "itemId":          1,
+      "name":            "tag",
+      "type":            "string",
+      "level":           1,
+      "parent":          "",
+      "mandatory":       true,
+      "lookupSupported": true,
+      "matcher":         "org.apache.ranger.plugin.resourcematcher.RangerDefaultResourceMatcher",
+      "matcherOptions":  { "wildCard":false, "ignoreCase":false },
+      "uiHint":          "{ \"singleValue\":true }",
+      "label":           "TAG",
+      "description":     "TAG"
+    }
+  ],
+
+  "configs":
+  [
+    {
+      "itemId":       1,
+      "name":         "ranger.plugin.audit.filters",
+      "type":         "string",
+      "mandatory":    false,
+      "label":        "Ranger Default Audit Filters",
+      "defaultValue": "[ {'accessResult': 'DENIED', 'isAudited': true} ]"
+    }
+  ],
+
+  "contextEnrichers":
+  [
+    {
+      "itemId":           1,
+      "name" :            "TagEnricher",
+      "enricher" :        "org.apache.ranger.plugin.contextenricher.RangerTagEnricher",
+      "enricherOptions" : { "tagRetrieverClassName": "org.apache.ranger.plugin.contextenricher.RangerAdminTagRetriever", "tagRefresherPollingInterval": 60000 }
+    }
+  ],
+
+  "policyConditions":
+  [
+    {
+      "itemId":             1,
+      "name":              "accessed-after-expiry",
+      "evaluator":         "org.apache.ranger.plugin.conditionevaluator.RangerScriptTemplateConditionEvaluator",
+      "evaluatorOptions" : { "scriptTemplate": "ctx.isAccessedAfter('expiry_date');" },
+      "label":             "Accessed after expiry_date (yes/no)?",
+      "description":       "Accessed after expiry_date? (yes/no)",
+      "uiHint":            "{ \"singleValue\":true }"
+    },
+    {
+      "itemId":            2,
+      "name":              "expression",
+      "evaluator":         "org.apache.ranger.plugin.conditionevaluator.RangerScriptConditionEvaluator",
+      "evaluatorOptions" : { "engineName": "JavaScript", "ui.isMultiline": "true" },
+      "label":             "Enter boolean expression",
+      "description":       "Boolean expression",
+      "uiHint" :           "{ \"isMultiline\":true }"
+    }
+  ]
+}

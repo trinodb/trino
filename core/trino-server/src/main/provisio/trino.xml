@@ -278,6 +278,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/ranger">
+        <artifact id="${project.groupId}:trino-ranger:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/raptor-legacy">
         <artifact id="${project.groupId}:trino-raptor-legacy:zip:${project.version}">
             <unpack />

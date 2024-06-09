@@ -1,0 +1,349 @@
+{
+  "id":          203,
+  "name":        "trino",
+  "displayName": "trino",
+  "implClass":   "org.apache.ranger.services.trino.RangerServiceTrino",
+  "label":       "Trino",
+  "description": "Trino",
+  "resources": [
+    {
+      "itemId":             1,
+      "name":               "catalog",
+      "type":               "string",
+      "level":              10,
+      "parent":             "",
+      "mandatory":          true,
+      "isValidLeaf":        true,
+      "lookupSupported":    true,
+      "recursiveSupported": false,
+      "excludesSupported":  true,
+      "matcher":            "org.apache.ranger.plugin.resourcematcher.RangerDefaultResourceMatcher",
+      "matcherOptions":     { "wildCard": true, "ignoreCase": true },
+      "label":              "Trino Catalog",
+      "description":        "Trino Catalog"
+    },
+    {
+      "itemId":             2,
+      "name":               "schema",
+      "type":               "string",
+      "level":              20,
+      "parent":             "catalog",
+      "mandatory":          true,
+      "isValidLeaf":        true,
+      "lookupSupported":    true,
+      "recursiveSupported": false,
+      "excludesSupported":  true,
+      "matcher":            "org.apache.ranger.plugin.resourcematcher.RangerDefaultResourceMatcher",
+      "matcherOptions":     { "wildCard": true, "ignoreCase": true },
+      "label":              "Trino Schema",
+      "description":        "Trino Schema"
+    },
+    {
+      "itemId":             3,
+      "name":               "table",
+      "type":               "string",
+      "level":              30,
+      "parent":             "schema",
+      "mandatory":          true,
+      "isValidLeaf":        true,
+      "lookupSupported":    true,
+      "recursiveSupported": false,
+      "excludesSupported":  true,
+      "matcher":            "org.apache.ranger.plugin.resourcematcher.RangerDefaultResourceMatcher",
+      "matcherOptions":     { "wildCard": true, "ignoreCase": true },
+      "label":             "Trino Table",
+      "description":       "Trino Table"
+    },
+    {
+      "itemId":             4,
+      "name":               "column",
+      "type":               "string",
+      "level":              40,
+      "parent":             "table",
+      "mandatory":          true,
+      "lookupSupported":    true,
+      "recursiveSupported": false,
+      "excludesSupported":  true,
+      "matcher":            "org.apache.ranger.plugin.resourcematcher.RangerDefaultResourceMatcher",
+      "matcherOptions":     { "wildCard": true, "ignoreCase": true },
+      "label":              "Trino Column",
+      "description":        "Trino Column"
+    },
+    {
+      "itemId":                 5,
+      "name":                   "trinouser",
+      "type":                   "string",
+      "level":                  10,
+      "parent":                 "",
+      "mandatory":              true,
+      "lookupSupported":        false,
+      "recursiveSupported":     false,
+      "excludesSupported":      false,
+      "matcher":                "org.apache.ranger.plugin.resourcematcher.RangerDefaultResourceMatcher",
+      "matcherOptions":         { "wildCard": true, "ignoreCase": true },
+      "label":                  "Trino User",
+      "description":            "Trino User",
+      "accessTypeRestrictions": [ "impersonate" ]
+    },
+    {
+      "itemId":                 6,
+      "name":                   "systemproperty",
+      "type":                   "string",
+      "level":                  10,
+      "parent":                 "",
+      "mandatory":              true,
+      "lookupSupported":        false,
+      "recursiveSupported":     false,
+      "excludesSupported":      false,
+      "matcher":                "org.apache.ranger.plugin.resourcematcher.RangerDefaultResourceMatcher",
+      "matcherOptions":         { "wildCard": true, "ignoreCase": true },
+      "label":                  "System Property",
+      "description":            "Trino System Property",
+      "accessTypeRestrictions": [ "alter" ]
+    },
+    {
+      "itemId":                 7,
+      "name":                   "sessionproperty",
+      "type":                   "string",
+      "level":                  20,
+      "parent":                 "catalog",
+      "mandatory":              true,
+      "lookupSupported":        false,
+      "recursiveSupported":     false,
+      "excludesSupported":      false,
+      "matcher":                "org.apache.ranger.plugin.resourcematcher.RangerDefaultResourceMatcher",
+      "matcherOptions":         { "wildCard": true, "ignoreCase": true },
+      "label":                  "Catalog Session Property",
+      "description":            "Trino Catalog Session Property",
+      "accessTypeRestrictions": [ "alter" ]
+    },
+    {
+      "itemId":                8,
+      "name":                  "function",
+      "type":                  "string",
+      "level":                 10,
+      "parent":                "",
+      "mandatory":             true,
+      "lookupSupported":       false,
+      "recursiveSupported":    false,
+      "excludesSupported":     false,
+      "matcher":               "org.apache.ranger.plugin.resourcematcher.RangerDefaultResourceMatcher",
+      "matcherOptions":        { "wildCard": true, "ignoreCase": true },
+      "label":                 "Trino Function",
+      "description":           "Trino Function",
+      "accessTypeRestrictions": [ "execute", "grant" ]
+    },
+    {
+      "itemId":                 9,
+      "name":                   "procedure",
+      "type":                   "string",
+      "level":                  30,
+      "parent":                 "schema",
+      "mandatory":              true,
+      "lookupSupported":        false,
+      "recursiveSupported":     false,
+      "excludesSupported":      false,
+      "matcher":                "org.apache.ranger.plugin.resourcematcher.RangerDefaultResourceMatcher",
+      "matcherOptions":         { "wildCard": true, "ignoreCase": true },
+      "label":                  "Schema Procedure",
+      "description":            "Schema Procedure",
+      "accessTypeRestrictions": [ "execute", "grant" ]
+    },
+    {
+      "itemId":                 10,
+      "name":                   "schemafunction",
+      "type":                   "string",
+      "level":                  30,
+      "parent":                 "schema",
+      "mandatory":              true,
+      "lookupSupported":        false,
+      "recursiveSupported":     false,
+      "excludesSupported":      false,
+      "matcher":                "org.apache.ranger.plugin.resourcematcher.RangerDefaultResourceMatcher",
+      "matcherOptions":         { "wildCard": true, "ignoreCase": true },
+      "label":                  "Schema Function",
+      "description":            "Schema Function",
+      "accessTypeRestrictions": [ "create", "drop", "show" ]
+    },
+    {
+      "itemId":                 11,
+      "name":                   "queryid",
+      "type":                   "string",
+      "level":                  10,
+      "parent":                 "",
+      "mandatory":              true,
+      "lookupSupported":        false,
+      "recursiveSupported":     false,
+      "excludesSupported":      false,
+      "matcher":                "org.apache.ranger.plugin.resourcematcher.RangerDefaultResourceMatcher",
+      "matcherOptions":         { "wildCard": true, "ignoreCase": true },
+      "label":                  "Query ID",
+      "description":            "Query ID",
+      "accessTypeRestrictions": [ "execute" ]
+    },
+    {
+      "itemId":                 12,
+      "name":                   "sysinfo",
+      "type":                   "string",
+      "level":                  10,
+      "parent":                 "",
+      "mandatory":              true,
+      "lookupSupported":        false,
+      "recursiveSupported":     false,
+      "excludesSupported":      false,
+      "matcher":                "org.apache.ranger.plugin.resourcematcher.RangerDefaultResourceMatcher",
+      "matcherOptions":         { "wildCard": true, "ignoreCase": true },
+      "label":                  "System Information",
+      "description":            "Trino System Information",
+      "accessTypeRestrictions": [ "read_sysinfo", "write_sysinfo" ]
+    },
+    {
+      "itemId":                 13,
+      "name":                   "role",
+      "type":                   "string",
+      "level":                  10,
+      "parent":                 "",
+      "mandatory":              true,
+      "lookupSupported":        false,
+      "recursiveSupported":     false,
+      "excludesSupported":      false,
+      "matcher":                "org.apache.ranger.plugin.resourcematcher.RangerDefaultResourceMatcher",
+      "matcherOptions":         { "wildCard": true, "ignoreCase": true },
+      "label":                  "Role",
+      "description":            "Trino Role",
+      "accessTypeRestrictions": [ "create", "drop", "show", "grant", "revoke" ]
+    }
+  ],
+  "accessTypes": [
+    { "itemId": 1,  "name": "select",        "label": "Select",      "category": "READ" },
+    { "itemId": 2,  "name": "insert",        "label": "Insert",      "category": "UPDATE" },
+    { "itemId": 3,  "name": "create",        "label": "Create",      "category": "CREATE" },
+    { "itemId": 4,  "name": "drop",          "label": "Drop",        "category": "DELETE" },
+    { "itemId": 5,  "name": "delete",        "label": "Delete",      "category": "DELETE" },
+    { "itemId": 6,  "name": "use",           "label": "Use",         "category": "READ" },
+    { "itemId": 7,  "name": "alter",         "label": "Alter",       "category": "CREATE" },
+    { "itemId": 8,  "name": "grant",         "label": "Grant",       "category": "MANAGE" },
+    { "itemId": 9,  "name": "revoke",        "label": "Revoke",      "category": "MANAGE" },
+    { "itemId": 10, "name": "show",          "label": "Show",        "category": "READ" },
+    { "itemId": 11, "name": "impersonate",   "label": "Impersonate", "category": "READ" },
+    { "itemId": 12, "name": "all",           "label": "All", "impliedGrants": [ "select", "insert", "create", "delete", "drop", "use", "alter", "grant", "revoke", "show", "impersonate", "execute", "read_sysinfo", "write_sysinfo" ] },
+    { "itemId": 13, "name": "execute",       "label": "Execute",                  "category": "READ" },
+    { "itemId": 14, "name": "read_sysinfo",  "label": "Read System Information",  "category": "MANAGE" },
+    { "itemId": 15, "name": "write_sysinfo", "label": "Write System Information", "category": "MANAGE" }
+  ],
+  "configs": [
+    {
+      "itemId":    1,
+      "name":      "username",
+      "type":      "string",
+      "mandatory": true,
+      "label":     "Username"
+    },
+    {
+      "itemId":    2,
+      "name":      "password",
+      "type":      "password",
+      "mandatory": false,
+      "label":     "Password"
+    },
+    {
+      "itemId":       3,
+      "name":         "jdbc.driverClassName",
+      "type":         "string",
+      "mandatory":    true,
+      "label":        "JDBC Driver class name",
+      "defaultValue": "io.trino.jdbc.TrinoDriver"
+    },
+    {
+      "itemId":    4,
+      "name":      "jdbc.url",
+      "type":      "string",
+      "mandatory": true,
+      "label":     "JDBC URL"
+    },
+    {
+      "itemId":       5,
+      "name":         "ranger.plugin.audit.filters",
+      "type":         "string",
+      "label":        "Audit filters",
+      "defaultValue": "[{'accessResult':'DENIED','isAudited':true},{'isAudited':false,'resources':{'queryid':{'values':['*']}},'accessTypes':['execute']},{'isAudited':false,'resources':{'trinouser':{'values':['{USER}']}},'accessTypes':['impersonate']}]"
+    }
+  ],
+  "dataMaskDef": {
+    "accessTypes": [
+      { "name": "select" }
+    ],
+    "resources": [
+      { "name": "catalog", "matcherOptions": { "wildCard": "true" }, "lookupSupported": true, "uiHint":"{ \"singleValue\":true }" },
+      { "name": "schema",  "matcherOptions": { "wildCard": "true" }, "lookupSupported": true, "uiHint":"{ \"singleValue\":true }" },
+      { "name": "table",   "matcherOptions": { "wildCard": "true" }, "lookupSupported": true, "uiHint":"{ \"singleValue\":true }" },
+      { "name": "column",  "matcherOptions": { "wildCard": "true" }, "lookupSupported": true, "uiHint":"{ \"singleValue\":true }" }
+    ],
+    "maskTypes": [
+      {
+        "itemId":      1,
+        "name":        "MASK",
+        "label":       "Redact",
+        "description": "Replace lowercase with 'x', uppercase with 'X', digits with '0'",
+        "transformer": "cast(regexp_replace(regexp_replace(regexp_replace({col},'([A-Z])', 'X'),'([a-z])','x'),'([0-9])','0') as {type})"
+      },
+      {
+        "itemId":      2,
+        "name": "      MASK_SHOW_LAST_4",
+        "label":       "Partial mask: show last 4",
+        "description": "Show last 4 characters; replace rest with 'X'",
+        "transformer": "cast(regexp_replace({col}, '(.*)(.{4}$)', x -> regexp_replace(x[1], '.', 'X') || x[2]) as {type})"
+      },
+      {
+        "itemId":      3,
+        "name":        "MASK_SHOW_FIRST_4",
+        "label":       "Partial mask: show first 4",
+        "description": "Show first 4 characters; replace rest with 'x'",
+        "transformer": "cast(regexp_replace({col}, '(^.{4})(.*)', x -> x[1] || regexp_replace(x[2], '.', 'X')) as {type})"
+      },
+      {
+        "itemId":      4,
+        "name":        "MASK_HASH",
+        "label":       "Hash",
+        "description": "Hash the value of a varchar with sha256",
+        "transformer": "cast(to_hex(sha256(to_utf8({col}))) as {type})"
+      },
+      {
+        "itemId":      5,
+        "name":        "MASK_NULL",
+        "label":       "Nullify",
+        "description": "Replace with NULL"
+      },
+      {
+        "itemId":      6,
+        "name":        "MASK_NONE",
+        "label":       "Unmasked (retain original value)",
+        "description": "No masking"
+      },
+      {
+        "itemId":      12,
+        "name":        "MASK_DATE_SHOW_YEAR",
+        "label":       "Date: show only year",
+        "description": "Date: show only year",
+        "transformer": "date_trunc('year', {col})"
+      },
+      {
+        "itemId":      13,
+        "name":        "CUSTOM",
+        "label":       "Custom",
+        "description": "Custom"
+      }
+    ]
+  },
+  "rowFilterDef": {
+    "accessTypes": [
+      { "name": "select" }
+    ],
+    "resources": [
+      { "name": "catalog", "matcherOptions": { "wildCard": "true" }, "lookupSupported": true, "mandatory": true, "uiHint": "{ \"singleValue\":true }" },
+      { "name": "schema",  "matcherOptions": { "wildCard": "true" }, "lookupSupported": true, "mandatory": true, "uiHint": "{ \"singleValue\":true }" },
+      { "name": "table",   "matcherOptions": { "wildCard": "true" }, "lookupSupported": true, "mandatory": true, "uiHint": "{ \"singleValue\":true }" }
+    ]
+  }
+
+}

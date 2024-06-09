@@ -1,0 +1,257 @@
+{
+  "serviceName":   "dev_trino",
+  "serviceId":     203,
+  "policyVersion": 5,
+  "policies": [
+    {
+      "id":            10,
+      "service":       "dev_trino",
+      "serviceType":   "trino",
+      "name":          "checkCanImpersonateUser",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources":      { "trinouser": { "values": [ "bob" ] } },
+      "policyItems": [
+        { "accesses": [ { "type": "impersonate" } ], "users": [ "admin" ] }
+      ]
+    },
+    {
+      "id":            11,
+      "service":       "dev_trino",
+      "serviceType":   "trino",
+      "name":          "SystemInformation",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources":      { "sysinfo": { "values": [ "*" ] } },
+      "policyItems": [
+        { "accesses": [ { "type": "read_sysinfo" }, { "type": "write_sysinfo" } ], "users": [ "admin" ] }
+      ]
+    },
+    {
+      "id":            12,
+      "service":       "dev_trino",
+      "serviceType":   "trino",
+      "name":          "SystemSessionProperty",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources":      { "systemproperty": { "values": [ "test-property" ] } },
+      "policyItems": [
+        { "accesses": [ { "type": "alter" } ], "users": [ "admin" ] }
+      ]
+    },
+    {
+      "id":            13,
+      "service":       "dev_trino",
+      "serviceType":   "trino",
+      "name":          "checkCanExecuteQuery",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources":      { "queryid": { "values": [ "*" ] } },
+      "policyItems": [
+        { "accesses": [ { "type": "execute" } ], "users": [ "admin" ] }
+      ]
+    },
+    {
+      "id":             14,
+      "service":        "dev_trino",
+      "serviceType":    "trino",
+      "name":           "checkFunction",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources":      { "function": { "values": [ "function" ] } },
+      "policyItems": [
+        {
+          "accesses": [ { "type": "execute" }, { "type": "grant" } ],
+          "users": [ "alice" ]
+        }
+      ]
+    },
+    {
+      "id":             15,
+      "service":        "dev_trino",
+      "serviceType":    "trino",
+      "name":           "alice-schema",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources": {
+        "catalog": { "values": [ "alice-catalog" ] },
+        "schema":  { "values": [ "schema" ] }
+      },
+      "policyItems": [
+        { "accesses": [ { "type": "select" }, { "type": "insert" }, { "type": "create" }, { "type": "drop" }, { "type": "alter" }, { "type": "show" }, { "type": "grant" }, { "type": "revoke" } ], "users": [ "alice" ] }
+      ]
+    },
+    {
+      "id":             16,
+      "service":        "dev_trino",
+      "serviceType":    "trino",
+      "name":           "alice-catalog",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources": {
+        "catalog": { "values": [ "alice-catalog" ] }
+      },
+      "policyItems": [
+        { "accesses": [ { "type": "select" }, { "type": "insert" }, { "type": "create" }, { "type": "drop" }, { "type": "use" }, { "type": "alter" }, { "type": "show" } ], "users": [ "alice" ] }
+      ]
+    },
+    {
+      "id":             17,
+      "service":        "dev_trino",
+      "serviceType":    "trino",
+      "name":           "alice-table",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources": {
+        "catalog": { "values": [ "alice-catalog" ] },
+        "schema":  { "values": [ "schema" ] },
+        "table":   { "values": [ "table" ]
+        }
+      },
+      "policyItems": [
+        { "accesses": [ { "type": "select" }, { "type": "insert" }, { "type": "create" }, { "type": "drop" }, { "type": "delete" }, { "type": "alter" }, { "type": "grant" }, { "type": "revoke" }, { "type":  "show" } ], "users": [ "alice" ] }
+      ]
+    },
+    {
+      "id":             18,
+      "service":        "dev_trino",
+      "serviceType":    "trino",
+      "name":           "alice-table",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources": {
+        "catalog": { "values": [ "alice-catalog" ] },
+        "schema":  { "values": [ "schema" ] },
+        "table":   { "values": [ "table" ] },
+        "column":  { "values": [ "*" ] }
+      },
+      "policyItems": [
+        { "accesses": [ { "type": "select" }, { "type": "insert" }, { "type": "create" }, { "type": "drop" }, { "type": "delete" }, { "type": "alter" }, { "type": "grant" }, { "type": "revoke" }, { "type":  "show" } ], "users": [ "alice" ] }
+      ]
+    },
+    {
+      "id":             19,
+      "service":        "dev_trino",
+      "serviceType":    "trino",
+      "name":           "alice-procedure",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources": {
+        "catalog":   { "values": [ "alice-catalog" ] },
+        "schema":    { "values": [ "schema" ] },
+        "procedure": { "values": [ "procedure" ] }
+      },
+      "policyItems": [
+        { "accesses": [ { "type": "execute" } ], "users": [ "alice" ] }
+      ]
+    },
+    {
+      "id":             20,
+      "service":        "dev_trino",
+      "serviceType":    "trino",
+      "name":           "alice-view",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources": {
+        "catalog": { "values": [ "alice-catalog" ] },
+        "schema":  { "values": [ "schema" ] },
+        "table":   { "values": [ "view" ] }
+      },
+      "policyItems": [
+        { "accesses": [ { "type": "select" }, { "type": "create" }, { "type": "drop" }, { "type": "alter" } ], "users": [ "alice" ] }
+      ]
+    },
+    {
+      "id":             21,
+      "service":        "dev_trino",
+      "serviceType":    "trino",
+      "name":           "alice-session-property",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources": {
+        "catalog":         { "values": [ "alice-catalog" ] },
+        "sessionproperty": { "values": [ "property" ] }
+      },
+      "policyItems": [
+        { "accesses": [ { "type": "show" }, { "type": "alter" } ], "users": [ "alice" ] }
+      ]
+    },
+    {
+      "id":             22,
+      "service":        "dev_trino",
+      "serviceType":    "trino",
+      "name":           "open-to-all",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources": {
+        "catalog": { "values": [ "open-to-all", "all-allowed" ] }
+      },
+      "policyItems": [
+        { "accesses": [ { "type": "select" } ], "users": [ "{USER}" ] }
+      ]
+    },
+    {
+      "id":            23,
+      "service":       "dev_trino",
+      "serviceType":   "trino",
+      "name":          "role",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources":      { "role": { "values": [ "*" ] } },
+      "policyItems": [
+        { "accesses": [ { "type": "create" }, { "type": "drop" }, { "type": "show" }, { "type": "grant" }, { "type": "revoke" } ], "users": [ "admin" ] }
+      ]
+    },
+    {
+      "id":            24,
+      "service":       "dev_trino",
+      "serviceType":   "trino",
+      "name":          "schema-function",
+      "policyType":     0,
+      "policyPriority": 0,
+      "resources":      {
+        "catalog":        { "values": [ "alice-catalog" ] },
+        "schema":         { "values": [ "schema" ] },
+        "schemafunction": { "values": [ "function" ] }
+      },
+      "policyItems": [
+        { "accesses": [ { "type": "create" }, { "type": "drop" }, { "type": "show" } ], "users": [ "alice" ] }
+      ]
+    },
+    {
+      "id":             25,
+      "service":        "dev_trino",
+      "serviceType":    "trino",
+      "name":           "test-column-mask",
+      "policyType":     1,
+      "policyPriority": 0,
+      "resources": {
+        "catalog": { "values": [ "alice-catalog" ] },
+        "schema":  { "values": [ "schema" ] },
+        "table":   { "values": [ "table" ] },
+        "column":  { "values": [ "national_id" ] }
+      },
+      "dataMaskPolicyItems": [
+        { "accesses": [ { "type": "select" } ], "users": [ "alice" ],  "dataMaskInfo": { "dataMaskType": "MASK_NONE" } },
+        { "accesses": [ { "type": "select" } ], "users": [ "{USER}" ], "dataMaskInfo": { "dataMaskType": "MASK_SHOW_FIRST_4" } }
+      ]
+    },
+    {
+      "id":             26,
+      "service":        "dev_trino",
+      "serviceType":    "trino",
+      "name":           "test-row-filter",
+      "policyType":     2,
+      "policyPriority": 0,
+      "resources": {
+        "catalog": { "values": [ "alice-catalog" ] },
+        "schema":  { "values": [ "schema" ] },
+        "table":   { "values": [ "table" ] }
+      },
+      "rowFilterPolicyItems": [
+        { "rowFilterInfo": { "filterExpr": "" },                  "accesses": [ { "type": "select" } ], "users": [ "alice" ] },
+        { "rowFilterInfo": { "filterExpr": "status = 'active'" }, "accesses": [ { "type": "select" } ], "users": [ "{USER}" ] }
+      ]
+    }
+  ]
+}
