@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.iceberg.delete;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
@@ -35,19 +33,18 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static java.util.Objects.requireNonNull;
 
-public final class DeleteFile
+public record DeleteFile(
+        FileContent content,
+        String path,
+        FileFormat format,
+        long recordCount,
+        long fileSizeInBytes,
+        List<Integer> equalityFieldIds,
+        Map<Integer, byte[]> lowerBounds,
+        Map<Integer, byte[]> upperBounds,
+        long dataSequenceNumber)
 {
     private static final long INSTANCE_SIZE = instanceSize(DeleteFile.class);
-
-    private final FileContent content;
-    private final String path;
-    private final FileFormat format;
-    private final long recordCount;
-    private final long fileSizeInBytes;
-    private final List<Integer> equalityFieldIds;
-    private final Map<Integer, byte[]> lowerBounds;
-    private final Map<Integer, byte[]> upperBounds;
-    private final long dataSequenceNumber;
 
     public static DeleteFile fromIceberg(org.apache.iceberg.DeleteFile deleteFile)
     {
@@ -68,84 +65,17 @@ public final class DeleteFile
                 deleteFile.dataSequenceNumber());
     }
 
-    @JsonCreator
-    public DeleteFile(
-            FileContent content,
-            String path,
-            FileFormat format,
-            long recordCount,
-            long fileSizeInBytes,
-            List<Integer> equalityFieldIds,
-            Map<Integer, byte[]> lowerBounds,
-            Map<Integer, byte[]> upperBounds,
-            long dataSequenceNumber)
+    public DeleteFile
     {
-        this.content = requireNonNull(content, "content is null");
-        this.path = requireNonNull(path, "path is null");
-        this.format = requireNonNull(format, "format is null");
-        this.recordCount = recordCount;
-        this.fileSizeInBytes = fileSizeInBytes;
-        this.equalityFieldIds = ImmutableList.copyOf(requireNonNull(equalityFieldIds, "equalityFieldIds is null"));
-        this.lowerBounds = ImmutableMap.copyOf(requireNonNull(lowerBounds, "lowerBounds is null"));
-        this.upperBounds = ImmutableMap.copyOf(requireNonNull(upperBounds, "upperBounds is null"));
-        this.dataSequenceNumber = dataSequenceNumber;
+        requireNonNull(content, "content is null");
+        requireNonNull(path, "path is null");
+        requireNonNull(format, "format is null");
+        equalityFieldIds = ImmutableList.copyOf(requireNonNull(equalityFieldIds, "equalityFieldIds is null"));
+        lowerBounds = ImmutableMap.copyOf(requireNonNull(lowerBounds, "lowerBounds is null"));
+        upperBounds = ImmutableMap.copyOf(requireNonNull(upperBounds, "upperBounds is null"));
     }
 
-    @JsonProperty
-    public FileContent content()
-    {
-        return content;
-    }
-
-    @JsonProperty
-    public String path()
-    {
-        return path;
-    }
-
-    @JsonProperty
-    public FileFormat format()
-    {
-        return format;
-    }
-
-    @JsonProperty
-    public long recordCount()
-    {
-        return recordCount;
-    }
-
-    @JsonProperty
-    public long fileSizeInBytes()
-    {
-        return fileSizeInBytes;
-    }
-
-    @JsonProperty
-    public List<Integer> equalityFieldIds()
-    {
-        return equalityFieldIds;
-    }
-
-    @JsonProperty
-    public Map<Integer, byte[]> getLowerBounds()
-    {
-        return lowerBounds;
-    }
-
-    @JsonProperty
-    public Map<Integer, byte[]> getUpperBounds()
-    {
-        return upperBounds;
-    }
-
-    @JsonProperty
-    public long getDataSequenceNumber()
-    {
-        return dataSequenceNumber;
-    }
-
-    public long getRetainedSizeInBytes()
+    public long retainedSizeInBytes()
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
