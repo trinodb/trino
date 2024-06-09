@@ -415,13 +415,6 @@ public class BigQueryClient
         return query + " WHERE " + filter.get();
     }
 
-    // assuming the SELECT part is properly formatted, can be used to call functions such as COUNT and SUM
-    public String selectSql(TableId table, String formattedColumns)
-    {
-        String tableName = fullTableName(table);
-        return format("SELECT %s FROM `%s`", formattedColumns, tableName);
-    }
-
     private static String fullTableName(TableId remoteTableId)
     {
         String remoteSchemaName = remoteTableId.getDataset();
