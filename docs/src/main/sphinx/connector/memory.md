@@ -59,6 +59,7 @@ stored in memory. In addition to the {ref}`globally available
 statements, the connector supports the following features:
 
 - {doc}`/sql/insert`
+- {doc}`/sql/truncate`
 - {doc}`/sql/create-table`
 - {doc}`/sql/create-table-as`
 - {doc}`/sql/drop-table`
@@ -67,9 +68,9 @@ statements, the connector supports the following features:
 - {doc}`/sql/comment`
 - [](sql-routine-management)
 
-### DROP TABLE
+### TRUNCATE and DROP TABLE
 
-Upon execution of a `DROP TABLE` operation, memory is not released
+Upon execution of a `TRUNCATE` and a `DROP TABLE` operation, memory is not released
 immediately. It is instead released after the next write operation to the
 catalog.
 
