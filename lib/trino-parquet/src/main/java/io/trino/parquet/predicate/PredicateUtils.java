@@ -192,8 +192,8 @@ public final class PredicateUtils
         long fileRowCount = 0;
         ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
         for (BlockMetadata block : blocksMetaData) {
-            long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-            boolean splitContainsBlock = splitStart <= firstDataPage && firstDataPage < splitStart + splitLength;
+            long blockStart = block.getColumns().getFirst().getStartingPos();
+            boolean splitContainsBlock = splitStart <= blockStart && blockStart < splitStart + splitLength;
             if (splitContainsBlock) {
                 for (int i = 0; i < parquetTupleDomains.size(); i++) {
                     TupleDomain<ColumnDescriptor> parquetTupleDomain = parquetTupleDomains.get(i);
