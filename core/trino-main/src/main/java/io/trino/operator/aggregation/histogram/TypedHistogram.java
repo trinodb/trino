@@ -155,7 +155,7 @@ public final class TypedHistogram
                 sizeOf(control) +
                 (sizeOf(recordGroups[0]) * recordGroups.length) +
                 (variableWidthData == null ? 0 : variableWidthData.getRetainedSizeBytes()) +
-                (groupRecordIndex == null ? 0 : sizeOf(groupRecordIndex));
+                sizeOf(groupRecordIndex);
     }
 
     public void setMaxGroupId(int maxGroupId)
