@@ -252,6 +252,11 @@ certificate usage:
   - Determined by the keystore file format. The default keystore type is JKS.
     This advanced option is only necessary if you use a custom Java Cryptography
     Architecture (JCA) provider implementation.
+* - `--use-system-keystore`
+  - Use a client certificate obtained from the system keystore of the operating
+    system. Windows and macOS are supported. For other operating systems, the
+    default Java keystore is used. The keystore type can be overriden using
+    `--keystore-type`.
 * - `--truststore-password`
   - The password for the truststore. This must match the password you specified
     when creating the truststore.

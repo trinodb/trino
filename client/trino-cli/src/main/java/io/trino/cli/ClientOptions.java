@@ -78,6 +78,7 @@ import static io.trino.client.uri.PropertyName.SSL_KEY_STORE_TYPE;
 import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_PASSWORD;
 import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_PATH;
 import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_TYPE;
+import static io.trino.client.uri.PropertyName.SSL_USE_SYSTEM_KEY_STORE;
 import static io.trino.client.uri.PropertyName.SSL_USE_SYSTEM_TRUST_STORE;
 import static io.trino.client.uri.PropertyName.SSL_VERIFICATION;
 import static io.trino.client.uri.PropertyName.TIMEOUT;
@@ -145,6 +146,10 @@ public class ClientOptions
     @PropertyMapping(SSL_KEY_STORE_TYPE)
     @Option(names = "--keystore-type", paramLabel = "<type>", description = "Keystore type")
     public Optional<String> keystoreType;
+
+    @PropertyMapping(SSL_USE_SYSTEM_KEY_STORE)
+    @Option(names = "--use-system-keystore", description = "Use default operating system keystore")
+    public boolean useSystemKeystore;
 
     @PropertyMapping(SSL_TRUST_STORE_PATH)
     @Option(names = "--truststore-path", paramLabel = "<path>", description = "Truststore path")
@@ -386,6 +391,9 @@ public class ClientOptions
         keystorePath.ifPresent(builder::setSslKeyStorePath);
         keystorePassword.ifPresent(builder::setSslKeyStorePassword);
         keystoreType.ifPresent(builder::setSslKeyStoreType);
+        if (useSystemKeystore) {
+            builder.setSslUseSystemKeyStore(true);
+        }
         truststorePath.ifPresent(builder::setSslTrustStorePath);
         truststorePassword.ifPresent(builder::setSslTrustStorePassword);
         truststoreType.ifPresent(builder::setSslTrustStoreType);

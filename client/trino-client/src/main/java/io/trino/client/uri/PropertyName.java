@@ -65,6 +65,7 @@ public enum PropertyName
     SSL_KEY_STORE_PASSWORD("SSLKeyStorePassword"),
     SSL_KEY_STORE_PATH("SSLKeyStorePath"),
     SSL_KEY_STORE_TYPE("SSLKeyStoreType"),
+    SSL_USE_SYSTEM_KEY_STORE("SSLUseSystemKeyStore"),
     SSL_TRUST_STORE_PASSWORD("SSLTrustStorePassword"),
     SSL_TRUST_STORE_PATH("SSLTrustStorePath"),
     SSL_TRUST_STORE_TYPE("SSLTrustStoreType"),
