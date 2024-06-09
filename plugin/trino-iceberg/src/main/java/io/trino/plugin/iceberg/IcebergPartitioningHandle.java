@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 
@@ -23,31 +21,13 @@ import java.util.List;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class IcebergPartitioningHandle
+public record IcebergPartitioningHandle(List<String> partitioning, List<IcebergColumnHandle> partitioningColumns)
         implements ConnectorPartitioningHandle
 {
-    private final List<String> partitioning;
-    private final List<IcebergColumnHandle> partitioningColumns;
-
-    @JsonCreator
-    public IcebergPartitioningHandle(
-            @JsonProperty("partitioning") List<String> partitioning,
-            @JsonProperty("partitioningColumns") List<IcebergColumnHandle> partitioningColumns)
+    public IcebergPartitioningHandle
     {
-        this.partitioning = ImmutableList.copyOf(requireNonNull(partitioning, "partitioning is null"));
-        this.partitioningColumns = ImmutableList.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
-    }
-
-    @JsonProperty
-    public List<String> getPartitioning()
-    {
-        return partitioning;
-    }
-
-    @JsonProperty
-    public List<IcebergColumnHandle> getPartitioningColumns()
-    {
-        return partitioningColumns;
+        partitioning = ImmutableList.copyOf(requireNonNull(partitioning, "partitioning is null"));
+        partitioningColumns = ImmutableList.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
     }
 
     @Override
