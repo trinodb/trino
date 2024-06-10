@@ -48,7 +48,7 @@ public class TestCassandraClusteringPredicatesExtractor
         cassandraTable = new CassandraTable(
                 new CassandraNamedRelationHandle("test", "records"), ImmutableList.of(col1, col2, col3, col4));
 
-        cassandraVersion = Version.parse("2.1.5");
+        cassandraVersion = Version.parse("3.0");
     }
 
     @Test
