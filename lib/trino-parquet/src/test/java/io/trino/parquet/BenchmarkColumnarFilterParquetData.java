@@ -55,6 +55,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -202,8 +203,10 @@ public class BenchmarkColumnarFilterParquetData
         compiledProcessor = expressionCompiler.compilePageProcessor(
                         columnarEvaluationEnabled,
                         Optional.of(filterExpression),
+                        Optional.empty(),
                         ImmutableList.of(new InputReferenceExpression(EXTENDED_PRICE, DOUBLE)),
-                        Optional.empty())
+                        Optional.empty(),
+                        OptionalInt.empty())
                 .get();
 
         List<TpchColumn<LineItem>> columns = ImmutableList.of(
