@@ -44,10 +44,10 @@ public class MemoryConnector
             MemoryPageSinkProvider pageSinkProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
-        this.metadata = metadata;
-        this.splitManager = splitManager;
-        this.pageSourceProvider = pageSourceProvider;
-        this.pageSinkProvider = pageSinkProvider;
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
     }
 
     @Override
