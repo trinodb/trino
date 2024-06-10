@@ -188,6 +188,7 @@ import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.gen.columnar.DynamicPageFilter;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
@@ -311,6 +312,7 @@ import static io.trino.SystemSessionProperties.getTaskMinWriterCount;
 import static io.trino.SystemSessionProperties.getWriterScalingMinDataProcessed;
 import static io.trino.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
 import static io.trino.SystemSessionProperties.isColumnarFilterEvaluationEnabled;
+import static io.trino.SystemSessionProperties.isEnableDynamicRowFiltering;
 import static io.trino.SystemSessionProperties.isEnableLargeDynamicFilters;
 import static io.trino.SystemSessionProperties.isForceSpillingOperator;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
@@ -1896,15 +1898,18 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitFilter(FilterNode node, LocalExecutionPlanContext context)
         {
             PlanNode sourceNode = node.getSource();
+            Expression filterExpression = node.getPredicate();
 
-            if (node.getSource() instanceof TableScanNode && getStaticFilter(node.getPredicate()).isEmpty()) {
-                // filter node contains only dynamic filter, fallback to normal table scan
-                return visitTableScan(node.getId(), (TableScanNode) node.getSource(), node.getPredicate(), context);
+            if (node.getSource() instanceof TableScanNode tableScanNode) {
+                DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
+                Expression staticFilter = combineConjuncts(extractDynamicFilterResult.getStaticConjuncts());
+                if (staticFilter.equals(TRUE) && extractDynamicFilterResult.getDynamicConjuncts().isEmpty()) {
+                    // filter node contains only empty dynamic filter, fallback to normal table scan
+                    return visitTableScan(node.getId(), tableScanNode, filterExpression, context);
+                }
             }
 
-            Expression filterExpression = node.getPredicate();
             List<Symbol> outputSymbols = node.getOutputSymbols();
-
             return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), Assignments.identity(outputSymbols), outputSymbols);
         }
 
@@ -2000,9 +2005,25 @@ public class LocalExecutionPlanner
 
             try {
                 boolean columnarFilterEvaluationEnabled = isColumnarFilterEvaluationEnabled(session);
+                Optional<DynamicPageFilter> dynamicPageFilterFactory = Optional.empty();
+                if (dynamicFilter != DynamicFilter.EMPTY && isEnableDynamicRowFiltering(session)) {
+                    dynamicPageFilterFactory = Optional.of(new DynamicPageFilter(
+                            metadata,
+                            plannerContext.getTypeManager(),
+                            dynamicFilter,
+                            ((TableScanNode) sourceNode).getAssignments(),
+                            sourceLayout));
+                }
+                Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
+                        columnarFilterEvaluationEnabled,
+                        translatedFilter,
+                        dynamicPageFilterFactory,
+                        translatedProjections,
+                        Optional.of(context.getStageId() + "_" + planNodeId),
+                        OptionalInt.empty());
+
                 if (columns != null) {
                     Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(translatedFilter, translatedProjections, sourceNode.getId());
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(columnarFilterEvaluationEnabled, translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
 
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -2020,7 +2041,6 @@ public class LocalExecutionPlanner
 
                     return new PhysicalOperation(operatorFactory, outputMappings);
                 }
-                Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(columnarFilterEvaluationEnabled, translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
 
                 OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
                         context.getNextOperatorId(),

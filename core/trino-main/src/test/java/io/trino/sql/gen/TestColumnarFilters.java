@@ -60,6 +60,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Random;
 import java.util.stream.Stream;
 
@@ -604,8 +605,10 @@ public class TestColumnarFilters
         PageProcessor compiledProcessor = FUNCTION_RESOLUTION.getExpressionCompiler().compilePageProcessor(
                         columnarEvaluationEnabled,
                         Optional.of(filter),
+                        Optional.empty(),
                         ImmutableList.of(field(ROW_NUM_CHANNEL, BIGINT)),
-                        Optional.empty())
+                        Optional.empty(),
+                        OptionalInt.empty())
                 .get();
         LocalMemoryContext context = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
         ImmutableList.Builder<Page> outputPagesBuilder = ImmutableList.builder();
