@@ -84,43 +84,11 @@ public abstract class BaseMongoFailureRecoveryTest
 
     @Test
     @Override
-    protected void testDeleteWithSubquery()
-    {
-        // TODO: solve https://github.com/trinodb/trino/issues/22256
-        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("This connector does not support MERGE with retries");
-    }
-
-    @Test
-    @Override
-    protected void testMerge()
-    {
-        // TODO: solve https://github.com/trinodb/trino/issues/22256
-        assertThatThrownBy(super::testMerge).hasMessageContaining("This connector does not support MERGE with retries");
-    }
-
-    @Test
-    @Override
     protected void testRefreshMaterializedView()
     {
         assertThatThrownBy(super::testRefreshMaterializedView)
                 .hasMessageContaining("This connector does not support creating materialized views");
         abort("skipped");
-    }
-
-    @Test
-    @Override
-    protected void testUpdate()
-    {
-        // TODO: solve https://github.com/trinodb/trino/issues/22256
-        assertThatThrownBy(super::testUpdate).hasMessageContaining("This connector does not support MERGE with retries");
-    }
-
-    @Test
-    @Override
-    protected void testUpdateWithSubquery()
-    {
-        // TODO: solve https://github.com/trinodb/trino/issues/22256
-        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("This connector does not support MERGE with retries");
     }
 
     @Override

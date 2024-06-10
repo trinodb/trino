@@ -42,6 +42,7 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.mongodb.client.model.Filters.in;
 import static io.trino.plugin.mongodb.MongoMetadata.MERGE_ROW_ID_BASE_NAME;
@@ -69,6 +70,8 @@ public class MongoMergeSink
             List<MongoColumnHandle> columns,
             Map<Integer, Collection<ColumnHandle>> updateCaseColumns,
             MongoColumnHandle mergeColumnHandle,
+            Optional<MongoOutputTableHandle> deleteOutputTableHandle,
+            Optional<MongoOutputTableHandle> updateOutputTableHandle,
             String implicitPrefix,
             Optional<String> pageSinkIdColumnName,
             ConnectorPageSinkId pageSinkId)
@@ -83,7 +86,7 @@ public class MongoMergeSink
         this.columnCount = columns.size();
 
         this.insertSink = new MongoPageSink(mongoSession, remoteTableName, columns, implicitPrefix, pageSinkIdColumnName, pageSinkId);
-        this.deleteSink = new MongoDeleteSink(mongoSession, remoteTableName, ImmutableList.of(mergeColumnHandle), implicitPrefix, pageSinkIdColumnName, pageSinkId);
+        this.deleteSink = createDeleteSink(mongoSession, deleteOutputTableHandle, remoteTableName, mergeColumnHandle, implicitPrefix, pageSinkIdColumnName, pageSinkId);
 
         ImmutableMap.Builder<Integer, Supplier<ConnectorPageSink>> updateSinksBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, int[]> updateCaseChannelsBuilder = ImmutableMap.builder();
@@ -97,6 +100,7 @@ public class MongoMergeSink
                     .collect(toImmutableSet());
             Supplier<ConnectorPageSink> updateSupplier = Suppliers.memoize(() -> createUpdateSink(
                     mongoSession,
+                    updateOutputTableHandle,
                     remoteTableName,
                     updateColumns,
                     mergeColumnHandle,
@@ -201,6 +205,7 @@ public class MongoMergeSink
 
     private static ConnectorPageSink createUpdateSink(
             MongoSession mongoSession,
+            Optional<MongoOutputTableHandle> outputTableHandle,
             RemoteTableName remoteTableName,
             Collection<MongoColumnHandle> columns,
             MongoColumnHandle mergeColumnHandle,
@@ -208,12 +213,55 @@ public class MongoMergeSink
             Optional<String> pageSinkIdColumnName,
             ConnectorPageSinkId pageSinkId)
     {
-        // Update should always include id column explicitly
-        List<MongoColumnHandle> updateColumns = ImmutableList.<MongoColumnHandle>builderWithExpectedSize(columns.size() + 1)
+        if (outputTableHandle.isEmpty()) {
+            // Update should always include id column explicitly
+            List<MongoColumnHandle> updateColumns = ImmutableList.<MongoColumnHandle>builderWithExpectedSize(columns.size() + 1)
+                    .addAll(columns)
+                    .add(mergeColumnHandle)
+                    .build();
+            return new MongoUpdateSink(mongoSession, remoteTableName, updateColumns, implicitPrefix, pageSinkIdColumnName, pageSinkId);
+        }
+
+        MongoOutputTableHandle mongoOutputTableHandle = outputTableHandle.get();
+        checkState(mongoOutputTableHandle.getTemporaryRemoteTableName().isPresent(), "temporary table not exist");
+
+        List<MongoColumnHandle> updateColumns = ImmutableList.<MongoColumnHandle>builder()
                 .addAll(columns)
-                .add(mergeColumnHandle)
+                .addAll(mongoOutputTableHandle.columns())
                 .build();
-        return new MongoUpdateSink(mongoSession, remoteTableName, updateColumns, implicitPrefix, pageSinkIdColumnName, pageSinkId);
+
+        return new MongoPageSink(
+                mongoSession,
+                mongoOutputTableHandle.getTemporaryRemoteTableName().get(),
+                updateColumns,
+                implicitPrefix,
+                pageSinkIdColumnName,
+                pageSinkId);
+    }
+
+    private static ConnectorPageSink createDeleteSink(
+            MongoSession mongoSession,
+            Optional<MongoOutputTableHandle> outputTableHandle,
+            RemoteTableName remoteTableName,
+            MongoColumnHandle mergeColumnHandle,
+            String implicitPrefix,
+            Optional<String> pageSinkIdColumnName,
+            ConnectorPageSinkId pageSinkId)
+    {
+        if (outputTableHandle.isEmpty()) {
+            return new MongoDeleteSink(mongoSession, remoteTableName, ImmutableList.of(mergeColumnHandle), implicitPrefix, pageSinkIdColumnName, pageSinkId);
+        }
+
+        MongoOutputTableHandle mongoOutputTableHandle = outputTableHandle.get();
+        checkState(mongoOutputTableHandle.getTemporaryRemoteTableName().isPresent(), "temporary table not exist");
+
+        return new MongoPageSink(
+                mongoSession,
+                mongoOutputTableHandle.getTemporaryRemoteTableName().get(),
+                mongoOutputTableHandle.columns(),
+                implicitPrefix,
+                pageSinkIdColumnName,
+                pageSinkId);
     }
 
     private static class MongoUpdateSink
