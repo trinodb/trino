@@ -236,6 +236,13 @@
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.ConnectorMetadata::finishMerge(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;)</old>
+                                    <new>method void io.trino.spi.connector.ConnectorMetadata::finishMerge(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;)</new>
+                                </item>
+
+                                <item>
+                                    <ignore>true</ignore>
                                     <code>java.field.removed</code>
                                     <old>field io.trino.spi.connector.JoinCondition.Operator.IS_DISTINCT_FROM</old>
                                     <justification>IS_DISTINCT_FROM replaced with IDENTICAL</justification>
