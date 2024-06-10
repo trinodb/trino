@@ -13,12 +13,15 @@
  */
 package io.trino.plugin.hive.coercions;
 
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
@@ -126,26 +129,26 @@ public class TestIntegerNumberToVarcharCoercer
 
     private static void assertIntegerNumberToVarcharCoercion(Type actualType, long actualValue, Type expectedType, String expectedValue)
     {
-        assertIntegerNumberToVarcharCoercion(actualType, actualValue, true, expectedType, expectedValue);
-        assertIntegerNumberToVarcharCoercion(actualType, actualValue, false, expectedType, expectedValue);
+        assertIntegerNumberToVarcharCoercion(actualType, actualValue, ORC, expectedType, expectedValue);
+        assertIntegerNumberToVarcharCoercion(actualType, actualValue, PARQUET, expectedType, expectedValue);
     }
 
     private static void assertIntegerNumberToVarcharCoercionForNull(Type actualType, Type expectedType)
     {
-        assertIntegerNumberToVarcharCoercion(actualType, null, true, expectedType, null);
-        assertIntegerNumberToVarcharCoercion(actualType, null, false, expectedType, null);
+        assertIntegerNumberToVarcharCoercion(actualType, null, ORC, expectedType, null);
+        assertIntegerNumberToVarcharCoercion(actualType, null, PARQUET, expectedType, null);
     }
 
     private static void assertCoercionFailureForLowerBoundedVarchar(Type actualType, long actualValue, Type expectedType)
     {
-        assertThatThrownBy(() -> assertIntegerNumberToVarcharCoercion(actualType, actualValue, true, expectedType, String.valueOf(actualValue)))
+        assertThatThrownBy(() -> assertIntegerNumberToVarcharCoercion(actualType, actualValue, ORC, expectedType, String.valueOf(actualValue)))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Varchar representation of %s exceeds %s bounds".formatted(actualValue, expectedType));
     }
 
-    private static void assertIntegerNumberToVarcharCoercion(Type actualType, Object actualValue, boolean isOrcFile, Type expectedType, String expectedValue)
+    private static void assertIntegerNumberToVarcharCoercion(Type actualType, Object actualValue, HiveStorageFormat storageFormat, Type expectedType, String expectedValue)
     {
-        Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(actualType), toHiveType(expectedType), new CoercionContext(DEFAULT_PRECISION, isOrcFile)).orElseThrow()
+        Block coercedBlock = createCoercer(TESTING_TYPE_MANAGER, toHiveType(actualType), toHiveType(expectedType), new CoercionContext(DEFAULT_PRECISION, storageFormat)).orElseThrow()
                 .apply(nativeValueToBlock(actualType, actualValue));
         Object coercedValue = coercedBlock.isNull(0) ? null : expectedType.getObjectValue(SESSION, coercedBlock, 0);
         assertThat(coercedValue).isEqualTo(expectedValue);

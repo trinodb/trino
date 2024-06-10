@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.coercions;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.coercions.BooleanCoercer.BooleanToVarcharCoercer;
@@ -58,6 +59,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveType.HIVE_BOOLEAN;
 import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
 import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
@@ -105,21 +108,22 @@ public final class CoercionUtils
 
         Type fromType = fromHiveType.getType(typeManager, coercionContext.timestampPrecision());
         Type toType = toHiveType.getType(typeManager, coercionContext.timestampPrecision());
+        boolean isOrcFile = coercionContext.storageFormat() == ORC;
 
         if (toType instanceof VarcharType toVarcharType && (fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG))) {
             return Optional.of(new IntegerNumberToVarcharCoercer<>(fromType, toVarcharType));
         }
         if (fromType instanceof VarcharType fromVarcharType && (toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
-            return Optional.of(createVarcharToIntegerNumberCoercer(fromVarcharType, toType, coercionContext.isOrcFile));
+            return Optional.of(createVarcharToIntegerNumberCoercer(fromVarcharType, toType, isOrcFile));
         }
         if (fromType instanceof VarcharType fromVarcharType && toHiveType.equals(HIVE_BOOLEAN)) {
-            return Optional.of(createVarcharToBooleanCoercer(fromVarcharType, coercionContext.isOrcFile()));
+            return Optional.of(createVarcharToBooleanCoercer(fromVarcharType, isOrcFile));
         }
         if (fromType instanceof VarcharType varcharType && toHiveType.equals(HIVE_DOUBLE)) {
-            return Optional.of(new VarcharToDoubleCoercer(varcharType, coercionContext.isOrcFile()));
+            return Optional.of(new VarcharToDoubleCoercer(varcharType, isOrcFile));
         }
         if (fromType instanceof VarcharType varcharType && toHiveType.equals(HIVE_FLOAT)) {
-            return Optional.of(new VarcharToFloatCoercer(varcharType, coercionContext.isOrcFile()));
+            return Optional.of(new VarcharToFloatCoercer(varcharType, isOrcFile));
         }
         if (fromType instanceof VarcharType varcharType && toType instanceof TimestampType timestampType) {
             if (timestampType.isShort()) {
@@ -239,10 +243,10 @@ public final class CoercionUtils
             return Optional.of(new DateToVarcharCoercer(toVarcharType));
         }
         if (fromType == REAL && toType instanceof VarcharType toVarcharType) {
-            return Optional.of(createFloatToVarcharCoercer(toVarcharType, coercionContext.isOrcFile));
+            return Optional.of(createFloatToVarcharCoercer(toVarcharType, isOrcFile));
         }
         if (fromType == DOUBLE && toType instanceof VarcharType toVarcharType) {
-            return Optional.of(createDoubleToVarcharCoercer(toVarcharType, coercionContext.isOrcFile));
+            return Optional.of(createDoubleToVarcharCoercer(toVarcharType, isOrcFile));
         }
         if ((fromType instanceof ArrayType) && (toType instanceof ArrayType)) {
             return createCoercerForList(
@@ -525,11 +529,22 @@ public final class CoercionUtils
         }
     }
 
-    public record CoercionContext(HiveTimestampPrecision timestampPrecision, boolean isOrcFile)
+    public record CoercionContext(HiveTimestampPrecision timestampPrecision, HiveStorageFormat storageFormat)
     {
         public CoercionContext
         {
+            requireNonNull(storageFormat, "storageFormat is null");
             requireNonNull(timestampPrecision, "timestampPrecision is null");
         }
+    }
+
+    public static HiveStorageFormat extractHiveStorageFormat(String deserializedClass)
+    {
+        for (HiveStorageFormat format : HiveStorageFormat.values()) {
+            if (format.getSerde().equals(deserializedClass)) {
+                return format;
+            }
+        }
+        throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("SerDe %s is not supported", deserializedClass));
     }
 }

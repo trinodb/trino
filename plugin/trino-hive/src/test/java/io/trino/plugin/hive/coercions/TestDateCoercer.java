@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
@@ -98,7 +99,7 @@ public class TestDateCoercer
 
     private void assertVarcharToDateCoercion(Type fromType, String date, Long expected)
     {
-        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(DATE), new CoercionContext(DEFAULT_PRECISION, false)).orElseThrow()
+        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(DATE), new CoercionContext(DEFAULT_PRECISION, PARQUET)).orElseThrow()
                 .apply(nativeValueToBlock(fromType, utf8Slice(date)));
         assertThat(blockToNativeValue(DATE, coercedValue))
                 .isEqualTo(expected);
@@ -106,7 +107,7 @@ public class TestDateCoercer
 
     private void assertDateToVarcharCoercion(Type toType, LocalDate date, String expected)
     {
-        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(DATE), toHiveType(toType), new CoercionContext(DEFAULT_PRECISION, false)).orElseThrow()
+        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(DATE), toHiveType(toType), new CoercionContext(DEFAULT_PRECISION, PARQUET)).orElseThrow()
                 .apply(nativeValueToBlock(DATE, date.toEpochDay()));
         assertThat(blockToNativeValue(VARCHAR, coercedValue))
                 .isEqualTo(utf8Slice(expected));
