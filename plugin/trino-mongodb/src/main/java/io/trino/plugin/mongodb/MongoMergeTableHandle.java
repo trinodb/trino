@@ -39,6 +39,8 @@ public record MongoMergeTableHandle(
         MongoColumnHandle mergeRowIdColumn,
         Optional<String> filter,
         TupleDomain<ColumnHandle> constraint,
+        Optional<MongoOutputTableHandle> deleteOutputTableHandle,
+        Optional<MongoOutputTableHandle> updateOutputTableHandle,
         Optional<String> temporaryTableName,
         Optional<String> pageSinkIdColumnName)
         implements ConnectorMergeTableHandle
@@ -51,6 +53,8 @@ public record MongoMergeTableHandle(
         requireNonNull(filter, "filter is null");
         requireNonNull(mergeRowIdColumn, "mergeRowIdColumn is null");
         requireNonNull(constraint, "constraint is null");
+        requireNonNull(deleteOutputTableHandle, "deleteOutputTableHandle is null");
+        requireNonNull(updateOutputTableHandle, "updateOutputTableHandle is null");
         requireNonNull(temporaryTableName, "temporaryTableName is null");
         requireNonNull(pageSinkIdColumnName, "pageSinkIdColumnName is null");
         checkArgument(temporaryTableName.isPresent() == pageSinkIdColumnName.isPresent(),

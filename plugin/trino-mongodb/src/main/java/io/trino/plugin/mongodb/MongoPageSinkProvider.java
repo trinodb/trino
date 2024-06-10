@@ -63,6 +63,8 @@ public class MongoPageSinkProvider
                 handle.columns(),
                 handle.updateCaseColumns(),
                 handle.mergeRowIdColumn(),
+                handle.deleteOutputTableHandle(),
+                handle.updateOutputTableHandle(),
                 implicitPrefix,
                 handle.pageSinkIdColumnName(),
                 pageSinkId);
