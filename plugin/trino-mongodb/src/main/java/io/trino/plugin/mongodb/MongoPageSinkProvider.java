@@ -57,6 +57,15 @@ public class MongoPageSinkProvider
     public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, ConnectorPageSinkId pageSinkId)
     {
         MongoMergeTableHandle handle = (MongoMergeTableHandle) mergeHandle;
-        return new MongoMergeSink(mongoSession, handle.getTemporaryRemoteTableName().orElseGet(handle::remoteTableName), handle.columns(), handle.mergeRowIdColumn(), implicitPrefix, handle.pageSinkIdColumnName(), pageSinkId);
+        return new MongoMergeSink(
+                mongoSession,
+                handle.getTemporaryRemoteTableName().orElseGet(handle::remoteTableName),
+                handle.columns(),
+                handle.mergeRowIdColumn(),
+                handle.deleteOutputTableHandle(),
+                handle.updateOutputTableHandle(),
+                implicitPrefix,
+                handle.pageSinkIdColumnName(),
+                pageSinkId);
     }
 }

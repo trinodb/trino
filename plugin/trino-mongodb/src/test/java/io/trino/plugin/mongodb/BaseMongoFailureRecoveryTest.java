@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -66,24 +67,16 @@ public abstract class BaseMongoFailureRecoveryTest
     @Override
     protected void testDelete()
     {
-        // TODO: solve https://github.com/trinodb/trino/issues/22256
-        abort("skipped");
-    }
+        // This simple delete on Mongo ends up as a very simple, single-fragment, coordinator-only plan,
+        // which has no ability to recover from errors. This test simply verifies that's still the case.
+        Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM orders");
+        String testQuery = "DELETE FROM <table> WHERE orderkey = 1";
+        Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
 
-    @Test
-    @Override
-    protected void testDeleteWithSubquery()
-    {
-        // TODO: solve https://github.com/trinodb/trino/issues/22256
-        abort("skipped");
-    }
-
-    @Test
-    @Override
-    protected void testMerge()
-    {
-        // TODO: solve https://github.com/trinodb/trino/issues/22256
-        abort("skipped");
+        assertThatQuery(testQuery)
+                .withSetupQuery(setupQuery)
+                .withCleanupQuery(cleanupQuery)
+                .isCoordinatorOnly();
     }
 
     @Test
@@ -92,22 +85,6 @@ public abstract class BaseMongoFailureRecoveryTest
     {
         assertThatThrownBy(super::testRefreshMaterializedView)
                 .hasMessageContaining("This connector does not support creating materialized views");
-        abort("skipped");
-    }
-
-    @Test
-    @Override
-    protected void testUpdate()
-    {
-        // TODO: solve https://github.com/trinodb/trino/issues/22256
-        abort("skipped");
-    }
-
-    @Test
-    @Override
-    protected void testUpdateWithSubquery()
-    {
-        // TODO: solve https://github.com/trinodb/trino/issues/22256
         abort("skipped");
     }
 
