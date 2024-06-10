@@ -119,12 +119,6 @@ public class IcebergSplit
         this.dataSequenceNumber = dataSequenceNumber;
     }
 
-    @Override
-    public boolean isRemotelyAccessible()
-    {
-        return true;
-    }
-
     @JsonIgnore
     @Override
     public List<HostAddress> getAddresses()
