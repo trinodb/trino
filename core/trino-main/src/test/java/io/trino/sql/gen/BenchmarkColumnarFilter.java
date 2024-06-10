@@ -42,6 +42,7 @@ import org.openjdk.jmh.annotations.Warmup;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -160,8 +161,10 @@ public class BenchmarkColumnarFilter
         compiledProcessor = expressionCompiler.compilePageProcessor(
                         columnarEvaluationEnabled,
                         Optional.of(filterProvider.getExpression(type)),
+                        Optional.empty(),
                         ImmutableList.of(field(0, type)),
-                        Optional.empty())
+                        Optional.empty(),
+                        OptionalInt.empty())
                 .get();
     }
 

@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
@@ -39,6 +40,7 @@ public class DynamicFilterConfig
 {
     private boolean enableDynamicFiltering = true;
     private boolean enableLargeDynamicFilters;
+    private boolean enableDynamicRowFiltering = true;
 
     /*
      * dynamic-filtering.small.* and dynamic-filtering.large.* limits are applied when
@@ -93,6 +95,19 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setEnableLargeDynamicFilters(boolean enableLargeDynamicFilters)
     {
         this.enableLargeDynamicFilters = enableLargeDynamicFilters;
+        return this;
+    }
+
+    public boolean isEnableDynamicRowFiltering()
+    {
+        return enableDynamicRowFiltering;
+    }
+
+    @Config("enable-dynamic-row-filtering")
+    @ConfigDescription("Enable fine-grained filtering of rows in the scan operator using dynamic filters")
+    public DynamicFilterConfig setEnableDynamicRowFiltering(boolean enableDynamicRowFiltering)
+    {
+        this.enableDynamicRowFiltering = enableDynamicRowFiltering;
         return this;
     }
 
