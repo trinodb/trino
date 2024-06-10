@@ -949,22 +949,6 @@ public interface ConnectorMetadata
      *
      * @param session The session
      * @param mergeTableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
-     * @param fragments All fragments returned by the merge plan
-     * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
-     *
-     * @deprecated Use {@link #finishMerge(ConnectorSession, ConnectorMergeTableHandle, List, Collection, Collection)}
-     */
-    @Deprecated
-    default void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
-    {
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginMerge() is implemented without finishMerge()");
-    }
-
-    /**
-     * Finish a merge query
-     *
-     * @param session The session
-     * @param mergeTableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
      * @param sourceTableHandles All source table handles belonging to the connector from which the operation is reading data
      * @param fragments All fragments returned by the merge plan
      * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
@@ -976,8 +960,7 @@ public interface ConnectorMetadata
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics)
     {
-        // Delegate to deprecated SPI to not break existing connectors
-        finishMerge(session, mergeTableHandle, fragments, computedStatistics);
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginMerge() is implemented without finishMerge()");
     }
 
     /**
