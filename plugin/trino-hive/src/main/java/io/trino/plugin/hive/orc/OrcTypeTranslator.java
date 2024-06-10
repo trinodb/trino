@@ -65,7 +65,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 
 public final class OrcTypeTranslator
 {
@@ -74,103 +73,104 @@ public final class OrcTypeTranslator
     public static Optional<TypeCoercer<? extends Type, ? extends Type>> createCoercer(OrcType fromOrcType, Type toTrinoType)
     {
         OrcTypeKind fromOrcTypeKind = fromOrcType.getOrcTypeKind();
-        if (fromOrcTypeKind == TIMESTAMP) {
-            if (toTrinoType instanceof VarcharType varcharType) {
-                return Optional.of(new LongTimestampToVarcharCoercer(TIMESTAMP_NANOS, varcharType));
-            }
-            if (toTrinoType instanceof DateType toDateType) {
-                return Optional.of(new LongTimestampToDateCoercer(TIMESTAMP_NANOS, toDateType));
-            }
-            return Optional.empty();
-        }
-        if (fromOrcTypeKind == DATE && toTrinoType instanceof VarcharType varcharType) {
-            return Optional.of(new DateToVarcharCoercer(varcharType));
-        }
-        if (isVarcharType(fromOrcTypeKind)) {
-            if (toTrinoType instanceof BooleanType) {
-                return Optional.of(new OrcVarcharToBooleanCoercer(createUnboundedVarcharType()));
-            }
-            if (toTrinoType instanceof TimestampType timestampType) {
-                if (timestampType.isShort()) {
-                    return Optional.of(new VarcharToShortTimestampCoercer(createUnboundedVarcharType(), timestampType));
-                }
-                return Optional.of(new VarcharToLongTimestampCoercer(createUnboundedVarcharType(), timestampType));
-            }
-            if (toTrinoType instanceof DateType toDateType) {
-                return Optional.of(new VarcharToDateCoercer(createUnboundedVarcharType(), toDateType));
-            }
-            if (toTrinoType instanceof RealType) {
-                return Optional.of(new VarcharToFloatCoercer(createUnboundedVarcharType(), true));
-            }
-            if (toTrinoType instanceof DoubleType) {
-                return Optional.of(new VarcharToDoubleCoercer(createUnboundedVarcharType(), true));
-            }
-            if (toTrinoType instanceof TinyintType tinyintType) {
-                return Optional.of(new OrcVarcharToIntegralNumericCoercer<>(createUnboundedVarcharType(), tinyintType));
-            }
-            if (toTrinoType instanceof SmallintType smallintType) {
-                return Optional.of(new OrcVarcharToIntegralNumericCoercer<>(createUnboundedVarcharType(), smallintType));
-            }
-            if (toTrinoType instanceof IntegerType integerType) {
-                return Optional.of(new OrcVarcharToIntegralNumericCoercer<>(createUnboundedVarcharType(), integerType));
-            }
-            if (toTrinoType instanceof BigintType bigintType) {
-                return Optional.of(new OrcVarcharToIntegralNumericCoercer<>(createUnboundedVarcharType(), bigintType));
-            }
-            return Optional.empty();
-        }
-        if (fromOrcTypeKind == FLOAT && toTrinoType instanceof VarcharType varcharType) {
-            return Optional.of(createFloatToVarcharCoercer(varcharType, true));
-        }
-        if (fromOrcTypeKind == DOUBLE && toTrinoType instanceof VarcharType varcharType) {
-            return Optional.of(createDoubleToVarcharCoercer(varcharType, true));
-        }
-        if (fromOrcTypeKind == BOOLEAN && toTrinoType instanceof VarcharType varcharType) {
-            return Optional.of(new BooleanToVarcharCoercer(varcharType));
-        }
-        if (toTrinoType instanceof DoubleType) {
-            if (fromOrcTypeKind == BYTE) {
-                return Optional.of(new IntegerNumberToDoubleCoercer<>(TINYINT));
-            }
-            if (fromOrcTypeKind == SHORT) {
-                return Optional.of(new IntegerNumberToDoubleCoercer<>(SMALLINT));
-            }
-            if (fromOrcTypeKind == INT) {
-                return Optional.of(new IntegerNumberToDoubleCoercer<>(INTEGER));
-            }
-            if (fromOrcTypeKind == LONG) {
-                return Optional.of(new IntegerNumberToDoubleCoercer<>(BIGINT));
-            }
-        }
-        if (toTrinoType instanceof DecimalType decimalType) {
-            if (fromOrcTypeKind == BYTE) {
-                return Optional.of(createIntegerNumberToDecimalCoercer(TINYINT, decimalType));
-            }
-            if (fromOrcTypeKind == SHORT) {
-                return Optional.of(createIntegerNumberToDecimalCoercer(SMALLINT, decimalType));
-            }
-            if (fromOrcTypeKind == INT) {
-                return Optional.of(createIntegerNumberToDecimalCoercer(INTEGER, decimalType));
-            }
-            if (fromOrcTypeKind == LONG) {
-                return Optional.of(createIntegerNumberToDecimalCoercer(BIGINT, decimalType));
-            }
-        }
-        if ((fromOrcTypeKind == BYTE || fromOrcTypeKind == SHORT || fromOrcTypeKind == INT || fromOrcTypeKind == LONG) && toTrinoType instanceof VarcharType varcharType) {
-            Type fromType = switch (fromOrcTypeKind) {
-                case BYTE -> TINYINT;
-                case SHORT -> SMALLINT;
-                case INT -> INTEGER;
-                case LONG -> BIGINT;
-                default -> throw new UnsupportedOperationException("Unsupported ORC type: " + fromOrcType);
+
+        if (fromOrcTypeKind == BOOLEAN) {
+            return switch (toTrinoType) {
+                case VarcharType varcharType -> Optional.of(new BooleanToVarcharCoercer(varcharType));
+                default -> Optional.empty();
             };
-            return Optional.of(new IntegerNumberToVarcharCoercer<>(fromType, varcharType));
         }
-        if (fromOrcTypeKind == DECIMAL && toTrinoType instanceof VarcharType varcharType) {
-            return Optional.of(createDecimalToVarcharCoercer(
-                    DecimalType.createDecimalType(fromOrcType.getPrecision().orElseThrow(), fromOrcType.getScale().orElseThrow()),
-                    varcharType));
+
+        if (fromOrcTypeKind == BYTE) {
+            return switch (toTrinoType) {
+                case DoubleType ignored -> Optional.of(new IntegerNumberToDoubleCoercer<>(TINYINT));
+                case DecimalType decimalType -> Optional.of(createIntegerNumberToDecimalCoercer(TINYINT, decimalType));
+                case VarcharType varcharType -> Optional.of(new IntegerNumberToVarcharCoercer<>(TINYINT, varcharType));
+                default -> Optional.empty();
+            };
         }
+
+        if (fromOrcTypeKind == SHORT) {
+            return switch (toTrinoType) {
+                case DoubleType ignored -> Optional.of(new IntegerNumberToDoubleCoercer<>(SMALLINT));
+                case DecimalType decimalType -> Optional.of(createIntegerNumberToDecimalCoercer(SMALLINT, decimalType));
+                case VarcharType varcharType -> Optional.of(new IntegerNumberToVarcharCoercer<>(SMALLINT, varcharType));
+                default -> Optional.empty();
+            };
+        }
+
+        if (fromOrcTypeKind == INT) {
+            return switch (toTrinoType) {
+                case DoubleType ignored -> Optional.of(new IntegerNumberToDoubleCoercer<>(INTEGER));
+                case DecimalType decimalType -> Optional.of(createIntegerNumberToDecimalCoercer(INTEGER, decimalType));
+                case VarcharType varcharType -> Optional.of(new IntegerNumberToVarcharCoercer<>(INTEGER, varcharType));
+                default -> Optional.empty();
+            };
+        }
+
+        if (fromOrcTypeKind == LONG) {
+            return switch (toTrinoType) {
+                case DoubleType ignored -> Optional.of(new IntegerNumberToDoubleCoercer<>(BIGINT));
+                case DecimalType decimalType -> Optional.of(createIntegerNumberToDecimalCoercer(BIGINT, decimalType));
+                case VarcharType varcharType -> Optional.of(new IntegerNumberToVarcharCoercer<>(BIGINT, varcharType));
+                default -> Optional.empty();
+            };
+        }
+
+        if (fromOrcTypeKind == FLOAT) {
+            return switch (toTrinoType) {
+                case VarcharType varcharType -> Optional.of(createFloatToVarcharCoercer(varcharType, true));
+                default -> Optional.empty();
+            };
+        }
+
+        if (fromOrcTypeKind == DOUBLE) {
+            return switch (toTrinoType) {
+                case VarcharType varcharType -> Optional.of(createDoubleToVarcharCoercer(varcharType, true));
+                default -> Optional.empty();
+            };
+        }
+
+        if (fromOrcTypeKind == DECIMAL) {
+            DecimalType sourceType = DecimalType.createDecimalType(fromOrcType.getPrecision().orElseThrow(), fromOrcType.getScale().orElseThrow());
+            return switch (toTrinoType) {
+                case VarcharType varcharType -> Optional.of(createDecimalToVarcharCoercer(sourceType, varcharType));
+                default -> Optional.empty();
+            };
+        }
+
+        if (fromOrcTypeKind == DATE) {
+            return switch (toTrinoType) {
+                case VarcharType varcharType -> Optional.of(new DateToVarcharCoercer(varcharType));
+                default -> Optional.empty();
+            };
+        }
+
+        if (fromOrcTypeKind == TIMESTAMP) {
+            return switch (toTrinoType) {
+                case DateType dateType -> Optional.of(new LongTimestampToDateCoercer(TIMESTAMP_NANOS, dateType));
+                case VarcharType varcharType -> Optional.of(new LongTimestampToVarcharCoercer(TIMESTAMP_NANOS, varcharType));
+                default -> Optional.empty();
+            };
+        }
+
+        if (isVarcharType(fromOrcTypeKind)) {
+            return switch (toTrinoType) {
+                case BooleanType ignored -> Optional.of(new OrcVarcharToBooleanCoercer(VarcharType.VARCHAR));
+                case TinyintType tinyintType -> Optional.of(new OrcVarcharToIntegralNumericCoercer<>(VarcharType.VARCHAR, tinyintType));
+                case SmallintType smallintType -> Optional.of(new OrcVarcharToIntegralNumericCoercer<>(VarcharType.VARCHAR, smallintType));
+                case IntegerType integerType -> Optional.of(new OrcVarcharToIntegralNumericCoercer<>(VarcharType.VARCHAR, integerType));
+                case BigintType bigintType -> Optional.of(new OrcVarcharToIntegralNumericCoercer<>(VarcharType.VARCHAR, bigintType));
+                case RealType ignored -> Optional.of(new VarcharToFloatCoercer(VarcharType.VARCHAR, true));
+                case DoubleType ignored -> Optional.of(new VarcharToDoubleCoercer(VarcharType.VARCHAR, true));
+                case DateType dateType -> Optional.of(new VarcharToDateCoercer(VarcharType.VARCHAR, dateType));
+                case TimestampType timestampType -> Optional.of(timestampType.isShort()
+                        ? new VarcharToShortTimestampCoercer(VarcharType.VARCHAR, timestampType)
+                        : new VarcharToLongTimestampCoercer(VarcharType.VARCHAR, timestampType));
+                default -> Optional.empty();
+            };
+        }
+
         return Optional.empty();
     }
 
