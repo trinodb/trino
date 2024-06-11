@@ -39,8 +39,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.StandardTypes.JSON;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
@@ -289,6 +292,14 @@ public final class ParquetTypeUtils
         boolean required = columnIO.getType().getRepetition() != OPTIONAL;
         int repetitionLevel = columnIO.getRepetitionLevel();
         int definitionLevel = columnIO.getDefinitionLevel();
+        if (type.getTypeSignature().getBase().equals(JSON)) {
+            checkArgument(type.getTypeParameters().isEmpty(), "JSON type should not have parameters");
+            GroupColumnIO groupColumnIo = (GroupColumnIO) columnIO;
+            checkArgument(groupColumnIo.getChildrenCount() == 2, "JSON column should have exactly 2 children");
+            Field valueField = constructField(VARBINARY, groupColumnIo.getChild(0), false).orElseThrow();
+            Field metadataField = constructField(VARBINARY, groupColumnIo.getChild(1), false).orElseThrow();
+            return Optional.of(new VariantField(type, repetitionLevel, definitionLevel, required, valueField, metadataField));
+        }
         if (type instanceof RowType rowType) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
