@@ -63,6 +63,7 @@ import static io.airlift.bytecode.instruction.Constant.loadLong;
 import static io.airlift.bytecode.instruction.Constant.loadString;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
@@ -98,9 +99,6 @@ public class CallColumnarFilterGenerator
                 throw new UnsupportedOperationException("Functions with lambda arguments are not supported");
             }
         });
-        if (callExpression.resolvedFunction().functionNullability().isReturnNullable()) {
-            throw new UnsupportedOperationException("Functions with nullable return types are not supported");
-        }
         this.callExpression = callExpression;
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
@@ -355,7 +353,7 @@ public class CallColumnarFilterGenerator
 
         InvocationConvention invocationConvention = new InvocationConvention(
                 builder.build(),
-                FAIL_ON_NULL,
+                resolvedFunction.functionNullability().isReturnNullable() ? DEFAULT_ON_NULL : FAIL_ON_NULL,
                 true,
                 true);
         return functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention);

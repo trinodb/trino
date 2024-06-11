@@ -183,10 +183,11 @@ public class TestColumnarFilters
         verifyFilter(inputPages, isNullFilter);
     }
 
-    @Test
-    public void testNullableReturnFunction()
+    @ParameterizedTest
+    @MethodSource("inputProviders")
+    public void testNullableReturnFunction(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
-        List<Page> inputPages = createInputPages(NullsProvider.RANDOM_NULLS, false);
+        List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
         // custom_is_null(col, NULL)
         RowExpression customNullableReturnFilter = call(
                 FUNCTION_RESOLUTION.functionCallBuilder("custom_is_null")
@@ -194,8 +195,7 @@ public class TestColumnarFilters
                         .build()
                         .function(),
                 field(STRING_CHANNEL, VARCHAR));
-        // Functions with nullable return are not supported in columnar evaluation yet
-        assertThatColumnarFilterEvaluationIsNotSupported(customNullableReturnFilter);
+        assertThatColumnarFilterEvaluationIsSupported(customNullableReturnFilter);
         verifyFilter(inputPages, customNullableReturnFilter);
     }
 
@@ -290,6 +290,36 @@ public class TestColumnarFilters
         // colA < colB
         lessThanFilter = call(
                 FUNCTION_RESOLUTION.resolveOperator(LESS_THAN, ImmutableList.of(INTEGER, INTEGER)),
+                field(INT_CHANNEL_C, INTEGER),
+                field(INT_CHANNEL_A, INTEGER));
+        assertThatColumnarFilterEvaluationIsSupported(lessThanFilter);
+        verifyFilter(inputPages, lessThanFilter);
+    }
+
+    @ParameterizedTest
+    @MethodSource("inputProviders")
+    public void testEq(NullsProvider nullsProvider, boolean dictionaryEncoded)
+    {
+        List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
+        // constant = col
+        RowExpression lessThanFilter = call(
+                FUNCTION_RESOLUTION.resolveOperator(EQUAL, ImmutableList.of(INTEGER, INTEGER)),
+                constant(CONSTANT, INTEGER),
+                field(INT_CHANNEL_A, INTEGER));
+        assertThatColumnarFilterEvaluationIsSupported(lessThanFilter);
+        verifyFilter(inputPages, lessThanFilter);
+
+        // col = constant
+        lessThanFilter = call(
+                FUNCTION_RESOLUTION.resolveOperator(EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                field(DOUBLE_CHANNEL, DOUBLE),
+                constant((double) CONSTANT, DOUBLE));
+        assertThatColumnarFilterEvaluationIsSupported(lessThanFilter);
+        verifyFilter(inputPages, lessThanFilter);
+
+        // colA = colB
+        lessThanFilter = call(
+                FUNCTION_RESOLUTION.resolveOperator(EQUAL, ImmutableList.of(INTEGER, INTEGER)),
                 field(INT_CHANNEL_C, INTEGER),
                 field(INT_CHANNEL_A, INTEGER));
         assertThatColumnarFilterEvaluationIsSupported(lessThanFilter);
