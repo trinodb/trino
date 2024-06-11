@@ -50,6 +50,7 @@ public class SqlServerClientModule
     {
         configBinder(binder).bindConfig(SqlServerConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
+        binder.bind(SqlServerStatsCollector.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SqlServerClient.class).in(Scopes.SINGLETON);
         bindTablePropertiesProvider(binder, SqlServerTableProperties.class);
         bindSessionPropertiesProvider(binder, SqlServerSessionProperties.class);
