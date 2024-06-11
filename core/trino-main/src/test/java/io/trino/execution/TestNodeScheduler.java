@@ -151,9 +151,6 @@ public class TestNodeScheduler
     @Test
     public void testAssignmentWhenNoNodes()
     {
-        Set<Split> splits = new HashSet<>();
-        splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote()));
-
         assertTrinoExceptionThrownBy(() -> computeSingleAssignment(nodeSelector, new Split(TEST_CATALOG_HANDLE, new TestSplitRemote())))
                 .hasErrorCode(NO_NODES_AVAILABLE)
                 .hasMessageMatching("No nodes available to run query");
@@ -282,8 +279,6 @@ public class TestNodeScheduler
     public void testScheduleRemote()
     {
         setUpNodes();
-        Set<Split> splits = new HashSet<>();
-        splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote()));
         Multimap<InternalNode, Split> assignments = computeSingleAssignment(nodeSelector, new Split(TEST_CATALOG_HANDLE, new TestSplitRemote()));
         assertThat(assignments.size()).isEqualTo(1);
     }
