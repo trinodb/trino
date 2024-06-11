@@ -810,7 +810,7 @@ public class TestArbitraryDistributionSplitAssigner
                 else {
                     hostRequirement = Sets.intersection(hostRequirement, ImmutableSet.copyOf(split.getAddresses()));
                 }
-                // The split's remove-accessible flag should be recorded in NodeRequirements, and we don't mix remote accessible and non-remote accessible splits in the same task.
+                // The split's remote-accessible flag should be recorded in NodeRequirements, and we don't mix remote accessible and non-remote accessible splits in the same task.
                 assertThat(taskNodeRequirements.isRemotelyAccessible()).as("%s", split).isEqualTo(split.isRemotelyAccessible());
             }
         }
