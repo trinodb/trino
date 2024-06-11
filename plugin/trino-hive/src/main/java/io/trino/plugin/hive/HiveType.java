@@ -58,6 +58,7 @@ import static io.trino.plugin.hive.util.SerdeConstants.STRING_TYPE_NAME;
 import static io.trino.plugin.hive.util.SerdeConstants.TIMESTAMPLOCALTZ_TYPE_NAME;
 import static io.trino.plugin.hive.util.SerdeConstants.TIMESTAMP_TYPE_NAME;
 import static io.trino.plugin.hive.util.SerdeConstants.TINYINT_TYPE_NAME;
+import static io.trino.plugin.hive.util.SerdeConstants.VARIANT_TYPE_NAME;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveType
@@ -76,6 +77,7 @@ public final class HiveType
     public static final HiveType HIVE_TIMESTAMPLOCALTZ = new HiveType(getPrimitiveTypeInfo(TIMESTAMPLOCALTZ_TYPE_NAME));
     public static final HiveType HIVE_DATE = new HiveType(getPrimitiveTypeInfo(DATE_TYPE_NAME));
     public static final HiveType HIVE_BINARY = new HiveType(getPrimitiveTypeInfo(BINARY_TYPE_NAME));
+    public static final HiveType HIVE_VARIANT = new HiveType(getPrimitiveTypeInfo(VARIANT_TYPE_NAME));
 
     private final HiveTypeName hiveTypeName;
     private final TypeInfo typeInfo;
@@ -195,6 +197,7 @@ public final class HiveType
                     DECIMAL -> true;
             case INTERVAL_YEAR_MONTH,
                     INTERVAL_DAY_TIME,
+                    VARIANT,
                     VOID,
                     UNKNOWN -> false;
         };
