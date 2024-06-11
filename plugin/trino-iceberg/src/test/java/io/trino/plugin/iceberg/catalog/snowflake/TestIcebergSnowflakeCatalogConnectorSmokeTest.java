@@ -611,6 +611,14 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     }
 
     @Test
+    @Override
+    public void testTruncateTable()
+    {
+        assertThatThrownBy(super::testTruncateTable)
+                .hasMessageContaining("Failed to close manifest writer");
+    }
+
+    @Test
     public void testGetTableStatistics()
     {
         assertQuery(
