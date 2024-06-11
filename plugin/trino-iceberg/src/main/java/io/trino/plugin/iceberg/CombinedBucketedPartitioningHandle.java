@@ -45,12 +45,12 @@ import static java.util.Objects.requireNonNull;
 public class CombinedBucketedPartitioningHandle
         implements BucketedPartitioningHandle
 {
-    private final Map<TableVersion, BucketedIcebergPartitioningHandle> tablePartitioningHandles;
+    private final Map<TableVersion, BucketedTablePartitioningHandle> tablePartitioningHandles;
     private final List<Integer> maxCompatibleBucketCounts;
 
     @JsonCreator
     public CombinedBucketedPartitioningHandle(
-            @JsonProperty("tablePartitioningHandles") Map<TableVersion, BucketedIcebergPartitioningHandle> tablePartitioningHandles,
+            @JsonProperty("tablePartitioningHandles") Map<TableVersion, BucketedTablePartitioningHandle> tablePartitioningHandles,
             @JsonProperty("maxCompatibleBucketCounts") List<Integer> maxCompatibleBucketCounts)
     {
         this.tablePartitioningHandles = requireNonNull(tablePartitioningHandles, "tablePartitioningHandles is null");
@@ -62,8 +62,8 @@ public class CombinedBucketedPartitioningHandle
         if (handle instanceof CombinedBucketedPartitioningHandle) {
             return (CombinedBucketedPartitioningHandle) handle;
         }
-        if (handle instanceof BucketedIcebergPartitioningHandle) {
-            BucketedIcebergPartitioningHandle bucketedPartitioningHandle = (BucketedIcebergPartitioningHandle) handle;
+        if (handle instanceof BucketedTablePartitioningHandle) {
+            BucketedTablePartitioningHandle bucketedPartitioningHandle = (BucketedTablePartitioningHandle) handle;
             return new CombinedBucketedPartitioningHandle(ImmutableMap.of(TableVersion.from(bucketedPartitioningHandle), bucketedPartitioningHandle), bucketedPartitioningHandle.getMaxCompatibleBucketCounts());
         }
         throw new UnsupportedOperationException(format("%s is not a supported ConnectorPartitioningHandle", handle.getClass()));
@@ -73,16 +73,19 @@ public class CombinedBucketedPartitioningHandle
     {
         checkArgument(left.tablePartitioningHandles.size() > 0, "CombinedBucketedPartitioningHandle cannot be empty");
         checkArgument(right.tablePartitioningHandles.size() > 0, "CombinedBucketedPartitioningHandle cannot be empty");
-        int dimension = left.tablePartitioningHandles.values().stream().findFirst().get().getPartitioningColumns().size();
+        int dimension = left.tablePartitioningHandles.values().stream().findFirst().get().partitioningColumns().size();
         // All
-        if (!left.tablePartitioningHandles.values().stream().allMatch(handle -> handle.getPartitioningColumns().size() == dimension) || !right.tablePartitioningHandles.values().stream().allMatch(handle -> handle.getPartitioningColumns().size() == dimension)) {
+        if (!left.tablePartitioningHandles.values().stream()
+                .allMatch(handle -> handle.partitioningColumns().size() == dimension)
+                || !right.tablePartitioningHandles.values().stream()
+                .allMatch(handle -> handle.partitioningColumns().size() == dimension)) {
             // all tablePartitioningHandles must be same dimension
             return Optional.empty();
         }
         // Same table version must have same bucketing scheme to be compatible
         for (TableVersion tableVersion : Sets.intersection(left.tablePartitioningHandles.keySet(), right.tablePartitioningHandles.keySet())) {
-            BucketedIcebergPartitioningHandle leftHandle = left.tablePartitioningHandles.get(tableVersion);
-            BucketedIcebergPartitioningHandle rightHandle = right.tablePartitioningHandles.get(tableVersion);
+            BucketedTablePartitioningHandle leftHandle = left.tablePartitioningHandles.get(tableVersion);
+            BucketedTablePartitioningHandle rightHandle = right.tablePartitioningHandles.get(tableVersion);
             if (!leftHandle.equals(rightHandle)) {
                 return Optional.empty();
             }
@@ -114,19 +117,19 @@ public class CombinedBucketedPartitioningHandle
             return Optional.empty();
         }
 
-        ImmutableMap.Builder<TableVersion, BucketedIcebergPartitioningHandle> combined = ImmutableMap.builder();
+        ImmutableMap.Builder<TableVersion, BucketedTablePartitioningHandle> combined = ImmutableMap.builder();
         Stream.concat(left.tablePartitioningHandles.entrySet().stream(), right.tablePartitioningHandles.entrySet().stream()).forEach(combined::put);
 
         return Optional.of(new CombinedBucketedPartitioningHandle(combined.buildKeepingLast(), ImmutableList.copyOf(maxCompatibleBucketCounts)));
     }
 
-    public Optional<BucketedIcebergPartitioningHandle> getBucketedIcebergPartitioningHandle(IcebergTableHandle tableHandle)
+    public Optional<BucketedTablePartitioningHandle> getBucketedIcebergPartitioningHandle(IcebergTableHandle tableHandle)
     {
         return Optional.ofNullable(tablePartitioningHandles.get(new TableVersion(tableHandle.getSchemaTableName(), tableHandle.getSnapshotId())));
     }
 
     @JsonProperty
-    public Map<TableVersion, BucketedIcebergPartitioningHandle> getTablePartitioningHandles()
+    public Map<TableVersion, BucketedTablePartitioningHandle> getTablePartitioningHandles()
     {
         return tablePartitioningHandles;
     }
@@ -190,9 +193,9 @@ public class CombinedBucketedPartitioningHandle
             return new SchemaTableName(parts.get(0), parts.get(1));
         }
 
-        public static TableVersion from(BucketedIcebergPartitioningHandle handle)
+        public static TableVersion from(BucketedTablePartitioningHandle handle)
         {
-            return new TableVersion(handle.getTableName(), Optional.of(handle.getSnapshotId()));
+            return new TableVersion(handle.tableName(), Optional.of(handle.snapshotId()));
         }
 
         @JsonValue

@@ -658,10 +658,11 @@ public class IcebergMetadata
                     discreteTupleDomain);
         }
         Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
-        if (table.getPartitioningHandle().isPresent() && table.getPartitioningHandle().get() instanceof BucketedIcebergPartitioningHandle) {
+        if (table.getPartitioningHandle().isPresent()) {
+            BucketedTablePartitioningHandle bucketedTablePartitioningHandle = table.getPartitioningHandle().get();
             tablePartitioning = Optional.of(new ConnectorTablePartitioning(
-                    table.getPartitioningHandle().get(),
-                    table.getPartitioningHandle().get().getPartitioningColumns()
+                    bucketedTablePartitioningHandle,
+                    bucketedTablePartitioningHandle.partitioningColumns()
                             .stream()
                             .map(IcebergMetadata::toSourceColumnHandle)
                             .map(ColumnHandle.class::cast)
@@ -692,26 +693,26 @@ public class IcebergMetadata
         }
 
         if (table.getPartitioningHandle().isPresent()) {
-            if (table.getPartitioningHandle().get() instanceof BucketedIcebergPartitioningHandle && !table.getProjectedColumns().isEmpty()) {
+            if (!table.getProjectedColumns().isEmpty()) {
                 // We should already have single spec selected, making sure the partitioningHandle satisfies projection
                 ImmutableList.Builder<IcebergColumnHandle> newPartitionColumnsBuilder = ImmutableList.builder();
                 ImmutableList.Builder<String> newPartitionsBuilder = ImmutableList.builder();
                 ImmutableList.Builder<Integer> newBucketCountsBuilder = ImmutableList.builder();
-                BucketedIcebergPartitioningHandle existingPartitioningHandle = (BucketedIcebergPartitioningHandle) table.getPartitioningHandle().get();
-                for (int i = 0; i < existingPartitioningHandle.getPartitioningColumns().size(); i++) {
-                    IcebergColumnHandle columnHandle = existingPartitioningHandle.getPartitioningColumns().get(i);
+                BucketedTablePartitioningHandle existingPartitioningHandle = table.getPartitioningHandle().get();
+                for (int i = 0; i < existingPartitioningHandle.partitioningColumns().size(); i++) {
+                    IcebergColumnHandle columnHandle = existingPartitioningHandle.partitioningColumns().get(i);
                     if (!table.getProjectedColumns().contains(columnHandle)) {
                         continue;
                     }
                     newPartitionColumnsBuilder.add(columnHandle);
-                    newPartitionsBuilder.add(existingPartitioningHandle.getPartitioning().get(i));
-                    newBucketCountsBuilder.add(existingPartitioningHandle.getBucketCounts().get(i));
+                    newPartitionsBuilder.add(existingPartitioningHandle.partitioning().get(i));
+                    newBucketCountsBuilder.add(existingPartitioningHandle.bucketCounts().get(i));
                 }
                 List<Integer> newBucketCounts = newBucketCountsBuilder.build();
-                return table.withPartitioningHandle(new BucketedIcebergPartitioningHandle(
-                        existingPartitioningHandle.getTableName(),
-                        existingPartitioningHandle.getSnapshotId(),
-                        existingPartitioningHandle.getSpecId(),
+                return table.withPartitioningHandle(new BucketedTablePartitioningHandle(
+                        existingPartitioningHandle.tableName(),
+                        existingPartitioningHandle.snapshotId(),
+                        existingPartitioningHandle.specId(),
                         newPartitionsBuilder.build(),
                         newPartitionColumnsBuilder.build(),
                         newBucketCounts,
@@ -747,7 +748,7 @@ public class IcebergMetadata
             }
             List<Integer> totalNumBuckets = sourceIdToBucketCounts.values().stream().collect(toImmutableList());
 
-            return table.withPartitioningHandle(new BucketedIcebergPartitioningHandle(
+            return table.withPartitioningHandle(new BucketedTablePartitioningHandle(
                     table.getSchemaTableName(),
                     icebergTable.currentSnapshot().snapshotId(),
                     specId,
@@ -1888,8 +1889,8 @@ public class IcebergMetadata
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         // note that the generated common partitioningHandle may not be coming from same table, we need to make it compatible
-        if (partitioningHandle instanceof BucketedIcebergPartitioningHandle) {
-            BucketedIcebergPartitioningHandle icebergPartitioningHandle = (BucketedIcebergPartitioningHandle) partitioningHandle;
+        if (partitioningHandle instanceof BucketedTablePartitioningHandle) {
+            BucketedTablePartitioningHandle icebergPartitioningHandle = (BucketedTablePartitioningHandle) partitioningHandle;
             if (icebergTableHandle.getPartitioningHandle().isPresent()) {
                 checkArgument(icebergTableHandle.getPartitioningHandle().get().equals(icebergPartitioningHandle),
                         "changing partitioningHandle of a tableHandle already has partitioningHandle");
@@ -1899,10 +1900,10 @@ public class IcebergMetadata
         }
         if (partitioningHandle instanceof CombinedBucketedPartitioningHandle) {
             CombinedBucketedPartitioningHandle icebergPartitioningHandle = (CombinedBucketedPartitioningHandle) partitioningHandle;
-            BucketedIcebergPartitioningHandle bucketedIcebergPartitioningHandle = icebergPartitioningHandle
+            BucketedTablePartitioningHandle bucketedTablePartitioningHandle = icebergPartitioningHandle
                     .getBucketedIcebergPartitioningHandle(icebergTableHandle)
                     .orElseThrow(() -> new IllegalArgumentException("Trying to make tableHandle not compatible with partitioningHandle"));
-            return icebergTableHandle.withPartitioningHandle(bucketedIcebergPartitioningHandle.withUpdatedBucketCount(icebergPartitioningHandle.getMaxCompatibleBucketCounts()));
+            return icebergTableHandle.withPartitioningHandle(bucketedTablePartitioningHandle.withUpdatedBucketCount(icebergPartitioningHandle.getMaxCompatibleBucketCounts()));
         }
         throw new UnsupportedOperationException(format("Unsupported ConnectorPartitioningHandle type: %s", partitioningHandle.getClass()));
     }
@@ -1910,8 +1911,8 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorPartitioningHandle> getCommonPartitioningHandle(ConnectorSession session, ConnectorPartitioningHandle left, ConnectorPartitioningHandle right)
     {
-        BucketedIcebergPartitioningHandle leftHandle = (BucketedIcebergPartitioningHandle) left;
-        BucketedIcebergPartitioningHandle rightHandle = (BucketedIcebergPartitioningHandle) right;
+        BucketedTablePartitioningHandle leftHandle = (BucketedTablePartitioningHandle) left;
+        BucketedTablePartitioningHandle rightHandle = (BucketedTablePartitioningHandle) right;
         // Co-located join can allow following scenarios:
         // 1. Both table has only 1 bucketed columns. Under this scenario,
         // we can allow different bucket number but they must be compatible (larger bucket number must be dividable by smaller bucket number).

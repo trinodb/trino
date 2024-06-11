@@ -84,13 +84,13 @@ public class IcebergNodePartitioningProvider
         if (partitioningHandle instanceof IcebergUpdateHandle) {
             return new IcebergUpdateBucketFunction(bucketCount);
         }
-        if (partitioningHandle instanceof BucketedIcebergPartitioningHandle) {
-            IcebergPartitioningHandle handle = (IcebergPartitioningHandle) partitioningHandle;
-            Schema schema = schemaFromHandles(handle.getPartitioningColumns());
+        if (partitioningHandle instanceof BucketedTablePartitioningHandle) {
+            BucketedTablePartitioningHandle handle = (BucketedTablePartitioningHandle) partitioningHandle;
+            Schema schema = schemaFromHandles(handle.partitioningColumns());
             return new IcebergBucketFunction(
                     typeOperators,
-                    parsePartitionFields(schema, handle.getPartitioning()),
-                    handle.getPartitioningColumns(),
+                    parsePartitionFields(schema, handle.partitioning()),
+                    handle.partitioningColumns(),
                     bucketCount);
         }
 
@@ -107,7 +107,7 @@ public class IcebergNodePartitioningProvider
     public ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
         int maxBucketSize = nodeManager.getRequiredWorkerNodes().size() * PARTITIONED_BUCKETS_PER_NODE;
-        if (partitioningHandle instanceof CombinedBucketedPartitioningHandle || partitioningHandle instanceof BucketedIcebergPartitioningHandle) {
+        if (partitioningHandle instanceof CombinedBucketedPartitioningHandle || partitioningHandle instanceof BucketedTablePartitioningHandle) {
             return split -> ((IcebergSplit) split).getBucketId()
                     .orElseThrow(() -> new IllegalArgumentException("Bucket number not set in split")) % maxBucketSize;
         }

@@ -189,13 +189,13 @@ public class IcebergSplitSource
         this.fileModifiedTimeDomain = getFileModifiedTimePathDomain(tableHandle.getEnforcedPredicate());
         this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
         if (tableHandle.getPartitioningHandle().isPresent()) {
-            BucketedIcebergPartitioningHandle partitioningHandle = (BucketedIcebergPartitioningHandle) tableHandle.getPartitioningHandle().get();
+            BucketedTablePartitioningHandle partitioningHandle = tableHandle.getPartitioningHandle().get();
             this.icebergBucketFunction = Optional.of(new IcebergPartitionBucketFunction(
                     tableScan.table().schema(),
                     typeManager,
-                    partitioningHandle.getPartitioning(),
-                    partitioningHandle.getPartitioningColumns(),
-                    tableScan.table().specs().get(partitioningHandle.getSpecId()),
+                    partitioningHandle.partitioning(),
+                    partitioningHandle.partitioningColumns(),
+                    tableScan.table().specs().get(partitioningHandle.specId()),
                     partitioningHandle.getMaxCompatibleBucketCounts()));
         }
         else {

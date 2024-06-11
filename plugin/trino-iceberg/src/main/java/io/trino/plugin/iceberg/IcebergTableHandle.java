@@ -74,7 +74,7 @@ public class IcebergTableHandle
 
     // ANALYZE only. Coordinator-only
     private final Optional<Boolean> forAnalyze;
-    private final Optional<IcebergPartitioningHandle> partitioningHandle;
+    private final Optional<BucketedTablePartitioningHandle> partitioningHandle;
 
     @JsonCreator
     @DoNotCall // For JSON deserialization only
@@ -94,7 +94,7 @@ public class IcebergTableHandle
             @JsonProperty("nameMappingJson") Optional<String> nameMappingJson,
             @JsonProperty("tableLocation") String tableLocation,
             @JsonProperty("storageProperties") Map<String, String> storageProperties,
-            @JsonProperty("partitioningHandle") Optional<IcebergPartitioningHandle> partitioningHandle)
+            @JsonProperty("partitioningHandle") Optional<BucketedTablePartitioningHandle> partitioningHandle)
     {
         return new IcebergTableHandle(
                 catalog,
@@ -139,7 +139,7 @@ public class IcebergTableHandle
             Optional<DataSize> maxScannedFileSize,
             Set<IcebergColumnHandle> constraintColumns,
             Optional<Boolean> forAnalyze,
-            Optional<IcebergPartitioningHandle> partitioningHandle)
+            Optional<BucketedTablePartitioningHandle> partitioningHandle)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -254,7 +254,7 @@ public class IcebergTableHandle
     }
 
     @JsonProperty
-    public Optional<IcebergPartitioningHandle> getPartitioningHandle()
+    public Optional<BucketedTablePartitioningHandle> getPartitioningHandle()
     {
         return partitioningHandle;
     }
@@ -299,7 +299,7 @@ public class IcebergTableHandle
         return new SchemaTableName(schemaName, tableName + "$" + tableType.name().toLowerCase(Locale.ROOT));
     }
 
-    public IcebergTableHandle withPartitioningHandle(IcebergPartitioningHandle partitioningHandle)
+    public IcebergTableHandle withPartitioningHandle(BucketedTablePartitioningHandle partitioningHandle)
     {
         return new IcebergTableHandle(
                 catalog,
