@@ -64,7 +64,6 @@ import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
-import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
 import static io.trino.plugin.iceberg.catalog.nessie.IcebergNessieUtil.toIdentifier;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
@@ -235,7 +234,6 @@ public class TrinoNessieCatalog
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         BaseTable table = (BaseTable) loadTable(session, schemaTableName);
-        validateTableCanBeDropped(table);
         nessieClient.dropTable(toIdentifier(schemaTableName), true);
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.location());
         invalidateTableCache(schemaTableName);

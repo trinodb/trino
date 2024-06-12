@@ -28,6 +28,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MAX;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MIN;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
@@ -45,6 +46,8 @@ public class IcebergTableProperties
     public static final String FORMAT_VERSION_PROPERTY = "format_version";
     public static final String ORC_BLOOM_FILTER_COLUMNS_PROPERTY = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP_PROPERTY = "orc_bloom_filter_fpp";
+    public static final String OBJECT_STORE_ENABLED_PROPERTY = "object_store_enabled";
+    public static final String DATA_LOCATION_PROPERTY = "data_location";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -107,6 +110,16 @@ public class IcebergTableProperties
                         orcWriterConfig.getDefaultBloomFilterFpp(),
                         IcebergTableProperties::validateOrcBloomFilterFpp,
                         false))
+                .add(booleanProperty(
+                        OBJECT_STORE_ENABLED_PROPERTY,
+                        "Set to true to enable Iceberg object store file layout. Default false.",
+                        icebergConfig.isObjectStoreEnabled(),
+                        false))
+                .add(stringProperty(
+                        DATA_LOCATION_PROPERTY,
+                        "File system location URI for the table's data files",
+                        icebergConfig.getDataLocation().orElse(null),
+                        false))
                 .build();
     }
 
@@ -168,5 +181,15 @@ public class IcebergTableProperties
         if (fpp < 0.0 || fpp > 1.0) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, "Bloom filter fpp value must be between 0.0 and 1.0");
         }
+    }
+
+    public static boolean getObjectStoreEnabled(Map<String, Object> tableProperties)
+    {
+        return (Boolean) tableProperties.get(OBJECT_STORE_ENABLED_PROPERTY);
+    }
+
+    public static Optional<String> getDataLocation(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((String) tableProperties.get(DATA_LOCATION_PROPERTY));
     }
 }

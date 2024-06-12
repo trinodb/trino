@@ -98,6 +98,8 @@ public final class IcebergSessionProperties
     private static final String MERGE_MANIFESTS_ON_WRITE = "merge_manifests_on_write";
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
+    private static final String OBJECT_STORE_ENABLED = "object_store_enabled";
+    private static final String DATA_LOCATION = "data_location";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -354,6 +356,16 @@ public final class IcebergSessionProperties
                         "Require filter on partition column",
                         icebergConfig.isQueryPartitionFilterRequired(),
                         false))
+                .add(booleanProperty(
+                        OBJECT_STORE_ENABLED,
+                        "Enable Iceberg object store file layout",
+                        icebergConfig.isObjectStoreEnabled(),
+                        false))
+                .add(stringProperty(
+                        DATA_LOCATION,
+                        "Location for data files",
+                        icebergConfig.getDataLocation().orElse(null),
+                        false))
                 .build();
     }
 
@@ -578,5 +590,15 @@ public final class IcebergSessionProperties
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
     {
         return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
+    }
+
+    public static boolean isObjectStoreEnabled(ConnectorSession session)
+    {
+        return session.getProperty(OBJECT_STORE_ENABLED, Boolean.class);
+    }
+
+    public static Optional<String> getDataLocation(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(DATA_LOCATION, String.class));
     }
 }
