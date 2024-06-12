@@ -1421,6 +1421,7 @@ public class IcebergPageSourceProvider
         }
 
         Map<Integer, ColumnDescriptor> descriptorsById = descriptorsByPath.values().stream()
+                .filter(descriptor -> descriptor.getPrimitiveType().getId() != null)
                 .collect(toImmutableMap(descriptor -> descriptor.getPrimitiveType().getId().intValue(), identity()));
         ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
         effectivePredicate.getDomains().orElseThrow().forEach((columnHandle, domain) -> {
