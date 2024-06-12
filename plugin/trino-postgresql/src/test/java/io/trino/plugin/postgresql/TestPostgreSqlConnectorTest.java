@@ -1129,6 +1129,11 @@ public class TestPostgreSqlConnectorTest
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
+        if (setup.sourceColumnType().equals("bigint") && setup.newColumnType().equals("tinyint")) {
+            // PostgreSQL has no type corresponding to tinyint
+            return Optional.of(setup.withNewColumnType("smallint"));
+        }
+
         if (setup.sourceColumnType().equals("timestamp(3) with time zone")) {
             // The connector returns UTC instead of the given time zone
             return Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
