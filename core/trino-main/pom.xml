@@ -343,7 +343,7 @@
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-analysis-common</artifactId>
-            <version>9.10.0</version>
+            <version>9.11.0</version>
         </dependency>
 
         <dependency>
