@@ -2947,9 +2947,14 @@ public abstract class BaseConnectorTest
     {
         return ImmutableList.<SetColumnTypeSetup>builder()
                 .add(new SetColumnTypeSetup("tinyint", "TINYINT '127'", "smallint"))
+                .add(new SetColumnTypeSetup("tinyint", "TINYINT '126'", "integer"))
+                .add(new SetColumnTypeSetup("tinyint", "TINYINT '125'", "bigint"))
                 .add(new SetColumnTypeSetup("smallint", "SMALLINT '32767'", "integer"))
+                .add(new SetColumnTypeSetup("smallint", "SMALLINT '32766'", "bigint"))
                 .add(new SetColumnTypeSetup("integer", "2147483647", "bigint"))
                 .add(new SetColumnTypeSetup("bigint", "BIGINT '-2147483648'", "integer"))
+                .add(new SetColumnTypeSetup("bigint", "BIGINT '-32768'", "smallint"))
+                .add(new SetColumnTypeSetup("bigint", "BIGINT '-128'", "tinyint"))
                 .add(new SetColumnTypeSetup("real", "REAL '10.3'", "double"))
                 .add(new SetColumnTypeSetup("real", "REAL 'NaN'", "double"))
                 .add(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(10,3)")) // short decimal -> short decimal
@@ -2999,6 +3004,12 @@ public abstract class BaseConnectorTest
             requireNonNull(sourceValueLiteral, "sourceValueLiteral is null");
             requireNonNull(newColumnType, "newColumnType is null");
             requireNonNull(newValueLiteral, "newValueLiteral is null");
+        }
+
+        public SetColumnTypeSetup withNewColumnType(String newColumnType)
+        {
+            checkState(!unsupportedType);
+            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType);
         }
 
         public SetColumnTypeSetup withNewValueLiteral(String newValueLiteral)
