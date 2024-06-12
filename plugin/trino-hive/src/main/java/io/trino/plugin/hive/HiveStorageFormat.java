@@ -208,8 +208,8 @@ public enum HiveStorageFormat
     public boolean supportsColumnDropOperation()
     {
         return switch (this) {
-            case ORC, PARQUET, RCTEXT, SEQUENCEFILE, TEXTFILE -> true;
-            case AVRO, RCBINARY, JSON, OPENX_JSON, CSV, REGEX -> false;
+            case PARQUET, RCTEXT, SEQUENCEFILE, TEXTFILE -> true;
+            case AVRO, ORC, RCBINARY, JSON, OPENX_JSON, CSV, REGEX -> false;
         };
     }
 }

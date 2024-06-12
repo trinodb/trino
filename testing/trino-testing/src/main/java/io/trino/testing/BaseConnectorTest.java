@@ -61,6 +61,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
@@ -2489,7 +2490,8 @@ public abstract class BaseConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
 
         String tableName;
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_column_", "AS SELECT 123 x, 456 y, 111 a")) {
+        String tableProperty = Objects.equals(tableFormatWhichAllowDroppingColumn(), "") ? "" : format("WITH (%s) ", tableFormatWhichAllowDroppingColumn());
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_column_", tableProperty + "AS SELECT 123 x, 456 y, 111 a")) {
             tableName = table.getName();
             assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN x");
             assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
@@ -2504,6 +2506,11 @@ public abstract class BaseConnectorTest
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " DROP COLUMN notExistColumn");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+    }
+
+    protected String tableFormatWhichAllowDroppingColumn()
+    {
+        return "";
     }
 
     @Test
@@ -2690,7 +2697,8 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_DROP_COLUMN) && hasBehavior(SUPPORTS_ADD_COLUMN));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "AS SELECT 1 x, 2 y, 3 z")) {
+        String tableProperty = Objects.equals(tableFormatWhichAllowDroppingColumn(), "") ? "" : format("WITH (%s) ", tableFormatWhichAllowDroppingColumn());
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", tableProperty + "AS SELECT 1 x, 2 y, 3 z")) {
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
 
@@ -5450,7 +5458,8 @@ public abstract class BaseConnectorTest
      */
     protected String createTableSqlForAddingAndDroppingColumn(String tableName, String columnNameInSql)
     {
-        return "CREATE TABLE " + tableName + "(" + columnNameInSql + " varchar(50), value varchar(50))";
+        String tableProperty = Objects.equals(tableFormatWhichAllowDroppingColumn(), "") ? "" : format(" WITH (%s)", tableFormatWhichAllowDroppingColumn());
+        return "CREATE TABLE " + tableName + "(" + columnNameInSql + " varchar(50), value varchar(50))" + tableProperty;
     }
 
     @Test
