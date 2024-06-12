@@ -368,7 +368,8 @@ public class OpenSearchClient
             return response.getStatusLine().getStatusCode() == 200;
         }
         catch (ResponseException e) {
-            if (e.getResponse().getStatusLine().getStatusCode() == 404) {
+            if (e.getResponse().getStatusLine().getStatusCode() == 404 ||
+                    e.getResponse().getStatusLine().getStatusCode() == 403) {
                 return false;
             }
             throw new TrinoException(OPENSEARCH_CONNECTION_ERROR, e);
@@ -386,26 +387,27 @@ public class OpenSearchClient
                 JsonNode root = OBJECT_MAPPER.readTree(body);
                 for (int i = 0; i < root.size(); i++) {
                     String index = root.get(i).get("index").asText();
-                    // make sure the index has mappings we can use to derive the schema
-                    int docsCount = root.get(i).get("docs.count").asInt();
-                    int deletedDocsCount = root.get(i).get("docs.deleted").asInt();
-                    if (docsCount == 0 && deletedDocsCount == 0) {
-                        try {
-                            // without documents, the index won't have any dynamic mappings, but maybe there are some explicit ones
-                            if (getIndexMetadata(index).schema().fields().isEmpty()) {
-                                continue;
-                            }
-                        }
-                        catch (TrinoException e) {
-                            if (e.getErrorCode().equals(OPENSEARCH_INVALID_METADATA.toErrorCode())) {
-                                continue;
-                            }
-                            if (e.getCause() instanceof ResponseException cause && cause.getResponse().getStatusLine().getStatusCode() == 404) {
-                                continue;
-                            }
-                            throw e;
+
+                    try {
+                        // Ensure we have access to the index. In AWS role, one can restrict access to certain indices
+                        // It returns 403 given credential has no access to the index.
+                        if (getIndexMetadata(index).schema().fields().isEmpty()) {
+                            continue;
                         }
                     }
+                    catch (TrinoException e) {
+                        if (e.getErrorCode().equals(OPENSEARCH_INVALID_METADATA.toErrorCode())) {
+                            continue;
+                        }
+                        if (e.getCause() instanceof ResponseException cause && cause.getResponse().getStatusLine().getStatusCode() == 404) {
+                            continue;
+                        }
+                        if (e.getCause() instanceof ResponseException cause && cause.getResponse().getStatusLine().getStatusCode() == 403) {
+                            continue;
+                        }
+                        throw e;
+                    }
+
                     result.add(index);
                 }
                 return result.build();
