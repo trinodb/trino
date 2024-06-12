@@ -46,7 +46,7 @@ public class ExchangeS3Config
     // Default to S3 multi-part upload minimum size to avoid excessive memory consumption from buffering
     private DataSize s3UploadPartSize = DataSize.of(5, MEGABYTE);
     private StorageClass storageClass = StorageClass.STANDARD;
-    private RetryMode retryMode = RetryMode.ADAPTIVE;
+    private RetryMode retryMode = RetryMode.ADAPTIVE_V2;
     private int asyncClientConcurrency = 100;
     private int asyncClientMaxPendingConnectionAcquires = 10000;
     private Duration connectionAcquisitionTimeout = new Duration(1, MINUTES);
