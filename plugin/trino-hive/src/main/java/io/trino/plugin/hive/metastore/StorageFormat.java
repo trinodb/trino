@@ -97,7 +97,10 @@ public class StorageFormat
     }
 
     @JsonIgnore
-    public String getFileExtensionNullable() { return fileExtension; }
+    public String getFileExtensionNullable()
+    {
+        return fileExtension;
+    }
 
     public static StorageFormat fromHiveStorageFormat(HiveStorageFormat hiveStorageFormat)
     {

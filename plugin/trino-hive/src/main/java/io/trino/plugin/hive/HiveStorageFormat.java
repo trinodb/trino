@@ -142,7 +142,10 @@ public enum HiveStorageFormat
         return outputFormat;
     }
 
-    public String getFileExtension() { return fileExtension; }
+    public String getFileExtension()
+    {
+        return fileExtension;
+    }
 
     public boolean isSplittable(String path)
     {

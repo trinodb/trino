@@ -171,7 +171,7 @@ public final class TestingMetastoreObjects
     }
 
     private static final Consumer<Storage.Builder> STORAGE_CONSUMER = storage ->
-            storage.setStorageFormat(StorageFormat.create("SerdeLib", "InputFormat", "OutputFormat"))
+            storage.setStorageFormat(StorageFormat.create("SerdeLib", "InputFormat", "OutputFormat", "Extension"))
                     .setLocation("/test-tbl")
                     .setBucketProperty(Optional.empty())
                     .setSerdeParameters(ImmutableMap.of());

@@ -97,7 +97,8 @@ public class ResourceHudiTablesInitializer
         StorageFormat storageFormat = StorageFormat.create(
                 PARQUET_HIVE_SERDE_CLASS,
                 HUDI_PARQUET_INPUT_FORMAT,
-                MAPRED_PARQUET_OUTPUT_FORMAT_CLASS);
+                MAPRED_PARQUET_OUTPUT_FORMAT_CLASS,
+                ".parquet");
 
         Table table = Table.builder()
                 .setDatabaseName(schemaName)
