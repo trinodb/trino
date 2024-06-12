@@ -2735,8 +2735,7 @@ public abstract class BaseConnectorTest
             }
             catch (Exception e) {
                 verifyUnsupportedTypeException(e, setup.sourceColumnType);
-                abort("Unsupported column type: " + setup.sourceColumnType);
-                return;
+                continue;
             }
             try (table) {
                 Runnable setColumnType = () -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE " + setup.newColumnType);
@@ -2945,8 +2944,7 @@ public abstract class BaseConnectorTest
             }
             catch (Exception e) {
                 verifyUnsupportedTypeException(e, setup.sourceColumnType);
-                abort("Unsupported column type: " + setup.sourceColumnType);
-                return;
+                continue;
             }
             try (table) {
                 Runnable setFieldType = () -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE " + setup.newColumnType);

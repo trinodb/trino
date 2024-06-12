@@ -129,7 +129,8 @@ public class TestMongoConnectorTest
                 assertThatThrownBy(() -> testColumnName(columnName, requiresDelimiting(columnName)))
                         .isInstanceOf(RuntimeException.class)
                         .hasMessage("Column name must not contain '$' or '.' for INSERT: " + columnName);
-                abort("Insert would fail");
+                // TODO: Insert would fail. The exception should be TrinoException.
+                continue;
             }
 
             testColumnName(columnName, requiresDelimiting(columnName));
@@ -1346,7 +1347,7 @@ public class TestMongoConnectorTest
     private void testFiltersOnDereferenceColumnReadsLessData(String expectedValue, String expectedType)
     {
         if (!isPushdownSupportedType(getQueryRunner().getPlannerContext().getTypeManager().fromSqlType(expectedType))) {
-            abort("Type doesn't support filter pushdown");
+            return;
         }
 
         Session sessionWithoutPushdown = Session.builder(getSession())
