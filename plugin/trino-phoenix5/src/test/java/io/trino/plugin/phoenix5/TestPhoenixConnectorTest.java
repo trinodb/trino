@@ -227,12 +227,12 @@ public class TestPhoenixConnectorTest
             if (columnName.equals("an'apostrophe")) {
                 assertThatThrownBy(() -> testAddAndDropColumnName(columnName, requiresDelimiting(columnName)))
                         .hasMessageContaining("Syntax error. Mismatched input");
-                abort("TODO");
+                continue;
             }
             if (columnName.equals("a\\backslash`")) {
                 assertThatThrownBy(() -> testAddAndDropColumnName(columnName, requiresDelimiting(columnName)))
                         .hasMessageContaining("Undefined column");
-                abort("TODO");
+                continue;
             }
 
             testAddAndDropColumnName(columnName, requiresDelimiting(columnName));
