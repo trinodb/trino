@@ -15,7 +15,11 @@ package io.trino.plugin.elasticsearch;
 
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.elasticsearch.client.AwsSecurityRestClientConfigurator;
+import io.trino.plugin.elasticsearch.client.BasicSecurityRestClientConfigurator;
+import io.trino.plugin.elasticsearch.client.ElasticRestClientConfigurator;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.ptf.RawQuery;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -24,8 +28,8 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.elasticsearch.ElasticsearchConfig.Security.AWS;
-import static io.trino.plugin.elasticsearch.ElasticsearchConfig.Security.PASSWORD;
+import static io.trino.plugin.elasticsearch.ElasticsearchConfig.SecurityOptions.AWS;
+import static io.trino.plugin.elasticsearch.ElasticsearchConfig.SecurityOptions.PASSWORD;
 import static java.util.function.Predicate.isEqual;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -51,18 +55,26 @@ public class ElasticsearchConnectorModule
 
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(RawQuery.class).in(Scopes.SINGLETON);
 
+        Multibinder<ElasticRestClientConfigurator> configurators = newSetBinder(binder, ElasticRestClientConfigurator.class);
+
         install(conditionalModule(
                 ElasticsearchConfig.class,
                 config -> config.getSecurity()
                         .filter(isEqual(AWS))
                         .isPresent(),
-                conditionalBinder -> configBinder(conditionalBinder).bindConfig(AwsSecurityConfig.class)));
+                conditionalBinder -> {
+                    configBinder(conditionalBinder).bindConfig(AwsSecurityConfig.class);
+                    configurators.addBinding().to(AwsSecurityRestClientConfigurator.class).in(Scopes.SINGLETON);
+                }));
 
         install(conditionalModule(
                 ElasticsearchConfig.class,
                 config -> config.getSecurity()
                         .filter(isEqual(PASSWORD))
                         .isPresent(),
-                conditionalBinder -> configBinder(conditionalBinder).bindConfig(PasswordConfig.class)));
+                conditionalBinder -> {
+                    configBinder(conditionalBinder).bindConfig(PasswordConfig.class);
+                    configurators.addBinding().to(BasicSecurityRestClientConfigurator.class).in(Scopes.SINGLETON);
+                }));
     }
 }
