@@ -16,9 +16,13 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.filesystem.FileEntry;
+import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.blackhole.BlackHolePlugin;
+import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
@@ -87,6 +91,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.iceberg.FileFormat.ORC;
+import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -109,6 +114,11 @@ public class TestIcebergV2
         metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
                 .getInstance(HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
+
+        queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data")));
+        queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
+                .put("hive.security", "allow-all")
+                .buildOrThrow());
 
         try {
             queryRunner.installPlugin(new BlackHolePlugin());
@@ -227,6 +237,45 @@ public class TestIcebergV2
         Table icebergTable = loadTable(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
         assertQuery("SELECT array_column[1], map_column[1], row_column.x FROM " + tableName, "SELECT 1, 2, 1 FROM nation WHERE regionkey != 1");
+    }
+
+    @Test
+    public void testParquetMissingFieldId()
+            throws Exception
+    {
+        String hiveTableName = "test_hive_parquet" + randomNameSuffix();
+        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + "(names ARRAY(varchar)) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO hive.tpch." + hiveTableName + " VALUES ARRAY['Alice', 'Bob'], ARRAY['Carol', 'Dave'], ARRAY['Eve', 'Frank']", 3);
+
+        String location = metastore.getTable("tpch", hiveTableName).orElseThrow().getStorage().getLocation();
+        FileIterator files = fileSystemFactory.create(SESSION).listFiles(Location.of(location));
+        ImmutableList.Builder<FileEntry> fileEntries = ImmutableList.builder();
+        while (files.hasNext()) {
+            FileEntry file = files.next();
+            if (!file.location().path().contains(".trinoSchema") && !file.location().path().contains(".trinoPermissions")) {
+                fileEntries.add(file);
+            }
+        }
+        FileEntry parquetFile = getOnlyElement(fileEntries.build());
+
+        String icebergTableName = "test_iceberg_parquet" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + icebergTableName + "(names ARRAY(varchar))");
+        Table icebergTable = loadTable(icebergTableName);
+        icebergTable.newAppend()
+                .appendFile(DataFiles.builder(icebergTable.spec())
+                        .withPath(parquetFile.location().toString())
+                        .withFileSizeInBytes(parquetFile.length())
+                        .withRecordCount(3)
+                        .withFormat(PARQUET).build())
+                .commit();
+        icebergTable.updateProperties()
+                .set("schema.name-mapping.default", "[{\"field-id\":1,\"names\":[\"names\"]}]")
+                .commit();
+
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES ARRAY['Alice', 'Bob'], ARRAY['Carol', 'Dave'], ARRAY['Eve', 'Frank']");
+
+        assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
+        assertUpdate("DROP TABLE " + icebergTableName);
     }
 
     @Test
