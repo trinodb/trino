@@ -23,11 +23,15 @@ import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import software.amazon.awssdk.retries.api.RetryStrategy;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 
 import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.adaptiveRetryStrategy;
+import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.legacyRetryStrategy;
+import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.standardRetryStrategy;
 
 public class S3FileSystemConfig
 {
@@ -66,12 +70,12 @@ public class S3FileSystemConfig
         LEGACY,
         ADAPTIVE;
 
-        public static software.amazon.awssdk.core.retry.RetryMode getRetryMode(RetryMode retryMode)
+        public static RetryStrategy getRetryStrategy(RetryMode retryMode)
         {
             return switch (retryMode) {
-                case STANDARD -> software.amazon.awssdk.core.retry.RetryMode.STANDARD;
-                case LEGACY -> software.amazon.awssdk.core.retry.RetryMode.LEGACY;
-                case ADAPTIVE -> software.amazon.awssdk.core.retry.RetryMode.ADAPTIVE;
+                case STANDARD -> standardRetryStrategy();
+                case LEGACY -> legacyRetryStrategy();
+                case ADAPTIVE -> adaptiveRetryStrategy();
             };
         }
     }

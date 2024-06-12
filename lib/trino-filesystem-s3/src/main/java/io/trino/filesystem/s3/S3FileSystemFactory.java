@@ -25,7 +25,6 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.regions.Region;
@@ -41,7 +40,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.getRetryMode;
+import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.getRetryStrategy;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
@@ -59,16 +58,14 @@ public final class S3FileSystemFactory
     public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config)
     {
         S3ClientBuilder s3 = S3Client.builder();
-
-        RetryPolicy retryPolicy = RetryPolicy.builder(getRetryMode(config.getRetryMode()))
-                .numRetries(config.getMaxErrorRetries())
-                .build();
         s3.overrideConfiguration(ClientOverrideConfiguration.builder()
                 .addExecutionInterceptor(AwsSdkTelemetry.builder(openTelemetry)
                         .setCaptureExperimentalSpanAttributes(true)
                         .setRecordIndividualHttpError(true)
                         .build().newExecutionInterceptor())
-                .retryPolicy(retryPolicy)
+                .retryStrategy(getRetryStrategy(config.getRetryMode()).toBuilder()
+                        .maxAttempts(config.getMaxErrorRetries())
+                        .build())
                 .build());
 
         Optional.ofNullable(config.getRegion()).map(Region::of).ifPresent(s3::region);

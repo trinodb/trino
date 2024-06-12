@@ -72,9 +72,9 @@ support:
 * - `s3.retry-mode`
   - Specifies how the AWS SDK attempts retries. Default value is `LEGACY`.
     Other allowed values are `STANDARD` and `ADAPTIVE`. The `STANDARD` mode
-    includes a standard set of errors that are retried. `ADAPTIVE` mode is
-    experimental, which includes the functionality of `STANDARD` mode and
-    includes automatic client-side throttling.
+    includes a standard set of errors that are retried. `ADAPTIVE` mode
+    includes the functionality of `STANDARD` mode with automatic client-side 
+    throttling.
 * - `s3.max-error-retries`
   - Specifies maximum number of retries the client will make on errors.
     Defaults to `10`.
