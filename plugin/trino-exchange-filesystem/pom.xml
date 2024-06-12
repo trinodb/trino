@@ -255,6 +255,11 @@
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
+            <artifactId>retries-spi</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
             <exclusions>
                 <exclusion>

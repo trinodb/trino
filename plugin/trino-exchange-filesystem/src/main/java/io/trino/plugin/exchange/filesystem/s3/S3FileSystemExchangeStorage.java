@@ -51,7 +51,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.awscore.endpoint.DefaultServiceEndpointBuilder;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.core.retry.RetryPolicy;
+import software.amazon.awssdk.core.internal.retry.SdkDefaultRetryStrategy;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
@@ -158,11 +158,10 @@ public class S3FileSystemExchangeStorage
         this.compatibilityMode = requireNonNull(compatibilityMode, "compatibilityMode is null");
 
         AwsCredentialsProvider credentialsProvider = createAwsCredentialsProvider(config);
-        RetryPolicy retryPolicy = RetryPolicy.builder(config.getRetryMode())
-                .numRetries(config.getS3MaxErrorRetries())
-                .build();
         ClientOverrideConfiguration overrideConfig = ClientOverrideConfiguration.builder()
-                .retryPolicy(retryPolicy)
+                .retryStrategy(SdkDefaultRetryStrategy.forRetryMode(config.getRetryMode()).toBuilder()
+                        .maxAttempts(config.getS3MaxErrorRetries())
+                        .build())
                 .putAdvancedOption(USER_AGENT_PREFIX, "")
                 .putAdvancedOption(USER_AGENT_SUFFIX, "Trino-exchange")
                 .build();
