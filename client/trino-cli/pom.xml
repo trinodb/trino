@@ -13,7 +13,6 @@
     <description>Trino - CLI</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>8</project.build.targetJdk>
         <main-class>io.trino.cli.Trino</main-class>
         <dep.jline.version>3.26.1</dep.jline.version>

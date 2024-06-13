@@ -13,7 +13,6 @@
     <description>Trino - Old JDBC driver compatibility tests</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <!-- Version needs to be hardcoded for the release plugin to work. It will be updated by the release plugin. -->
         <dep.presto-jdbc-under-test>450-SNAPSHOT</dep.presto-jdbc-under-test>
     </properties>

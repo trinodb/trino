@@ -13,7 +13,6 @@
     <description>Trino - Product tests launcher</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>io.trino.tests.product.launcher.cli.Launcher</main-class>
     </properties>
 
