@@ -18,8 +18,10 @@ import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TaskInfo;
+import org.joda.time.DateTime;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -51,6 +53,8 @@ public class GracefulShutdownHandler
     private final boolean isCoordinator;
     private final ShutdownAction shutdownAction;
     private final Duration gracePeriod;
+    // the graceful shutdown should not wait beyond query maximum runtime
+    private final Duration queryMaxRunTime;
 
     @GuardedBy("this")
     private boolean shutdownRequested;
@@ -59,6 +63,7 @@ public class GracefulShutdownHandler
     public GracefulShutdownHandler(
             SqlTaskManager sqlTaskManager,
             ServerConfig serverConfig,
+            QueryManagerConfig queryManagerConfig,
             ShutdownAction shutdownAction,
             LifeCycleManager lifeCycleManager)
     {
@@ -67,6 +72,7 @@ public class GracefulShutdownHandler
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.isCoordinator = serverConfig.isCoordinator();
         this.gracePeriod = serverConfig.getGracePeriod();
+        this.queryMaxRunTime = queryManagerConfig.getQueryMaxRunTime();
     }
 
     public synchronized void requestShutdown()
@@ -88,11 +94,12 @@ public class GracefulShutdownHandler
 
     private void shutdown()
     {
-        List<TaskInfo> activeTasks = getActiveTasks();
+        DateTime shutdownMaxEndTime = DateTime.now().plus(queryMaxRunTime.toMillis());
 
+        List<TaskInfo> activeTasks = getActiveTasks();
         // At this point no new tasks should be scheduled by coordinator on this worker node.
         // Wait for all remaining tasks to finish.
-        while (activeTasks.size() > 0) {
+        while (activeTasks.size() > 0 && shutdownMaxEndTime.isBeforeNow()) {
             CountDownLatch countDownLatch = new CountDownLatch(activeTasks.size());
 
             for (TaskInfo taskInfo : activeTasks) {
@@ -106,7 +113,7 @@ public class GracefulShutdownHandler
             log.info("Waiting for all tasks to finish");
 
             try {
-                countDownLatch.await();
+                countDownLatch.await(queryMaxRunTime.toMillis(), MILLISECONDS);
             }
             catch (InterruptedException e) {
                 log.warn("Interrupted while waiting for all tasks to finish");
