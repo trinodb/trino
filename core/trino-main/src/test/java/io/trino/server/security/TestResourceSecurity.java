@@ -715,6 +715,29 @@ public class TestResourceSecurity
                             .build())
                     .build();
             assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithOAuthToken);
+
+            // verify if error is encoded to prevent XSS vulnerability
+            OAuthBearer maliciousBearer = assertAuthenticateOAuth2Bearer(client, getManagementLocation(baseUri), "http://example.com/authorize");
+            assertErrorCodeIsEncoded(client, baseUri, maliciousBearer);
+        }
+    }
+
+    private static void assertErrorCodeIsEncoded(OkHttpClient client, URI baseUri, OAuthBearer bearer)
+            throws IOException
+    {
+        String maliciousErrorCode = "<script>alert(\"I love xss\")</script>";
+        String encodedErrorCode = "%3Cscript%3Ealert%28%22I+love+xss%22%29%3C%2Fscript%3E";
+        Request request = new Request.Builder()
+                .url(uriBuilderFrom(baseUri)
+                        .replacePath("/oauth2/callback/")
+                        .addParameter("error", maliciousErrorCode)
+                        .addParameter("state", bearer.getState())
+                        .toString())
+                .build();
+        try (Response response = client.newCall(request).execute()) {
+            assertThat(requireNonNull(response.body()).string())
+                    .doesNotContain(maliciousErrorCode)
+                    .contains(encodedErrorCode);
         }
     }
 
