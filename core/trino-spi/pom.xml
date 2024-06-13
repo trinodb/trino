@@ -509,6 +509,16 @@
                                     <code>java.method.visibilityIncreased</code>
                                     <new>method int io.trino.spi.block.ByteArrayBlock::getRawValuesOffset()</new>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>interface io.opentelemetry.api.metrics.DoubleGauge</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>interface io.opentelemetry.api.metrics.LongGauge</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
