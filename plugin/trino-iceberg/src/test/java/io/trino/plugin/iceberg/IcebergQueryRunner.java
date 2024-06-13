@@ -65,6 +65,7 @@ public final class IcebergQueryRunner
     static {
         Logging logging = Logging.initialize();
         logging.setLevel("org.apache.iceberg", Level.OFF);
+        logging.setLevel("org.apache.http.impl.conn.PoolingHttpClientConnectionManager", Level.TRACE);
     }
 
     public static Builder builder()

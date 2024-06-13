@@ -15,12 +15,16 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 import java.util.List;
 import java.util.Map;
@@ -44,11 +48,26 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestIcebergMinioOrcConnectorTest
         extends BaseIcebergConnectorTest
 {
+    private static final Logger log = Logger.get(TestIcebergMinioOrcConnectorTest.class);
     private final String bucketName = "test-iceberg-orc-" + randomNameSuffix();
 
     public TestIcebergMinioOrcConnectorTest()
     {
         super(ORC);
+    }
+
+    @BeforeEach
+    void init(TestInfo testInfo)
+    {
+        String methodName = testInfo.getTestMethod().orElseThrow().getName();
+        log.info("[TEST NAME start] %s", methodName);
+    }
+
+    @AfterEach
+    void tearDown(TestInfo testInfo)
+    {
+        String methodName = testInfo.getTestMethod().orElseThrow().getName();
+        log.info("[TEST NAME end] %s", methodName);
     }
 
     @Override
