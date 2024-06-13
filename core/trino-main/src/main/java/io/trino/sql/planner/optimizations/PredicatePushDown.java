@@ -56,6 +56,7 @@ import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.WindowNode;
@@ -234,6 +235,27 @@ public class PredicatePushDown
             // This can leave out cases where they're both functions of some set of common expressions and the partitioning
             // function is injective, but that's a rare case. The majority of window nodes are expected to be partitioned by
             // pre-projected symbols.
+            Predicate<Expression> isSupported = conjunct ->
+                    isDeterministic(conjunct) &&
+                            partitionSymbols.containsAll(extractUnique(conjunct));
+
+            Map<Boolean, List<Expression>> conjuncts = extractConjuncts(context.get()).stream().collect(Collectors.partitioningBy(isSupported));
+
+            PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(conjuncts.get(true)));
+
+            if (!conjuncts.get(false).isEmpty()) {
+                rewrittenNode = new FilterNode(idAllocator.getNextId(), rewrittenNode, combineConjuncts(conjuncts.get(false)));
+            }
+
+            return rewrittenNode;
+        }
+
+        @Override
+        public PlanNode visitTopNRanking(TopNRankingNode node, RewriteContext<Expression> context)
+        {
+            List<Symbol> partitionSymbols = node.getPartitionBy();
+
+            // TODO: This could be broader. See the comment in visitWindow().
             Predicate<Expression> isSupported = conjunct ->
                     isDeterministic(conjunct) &&
                             partitionSymbols.containsAll(extractUnique(conjunct));
