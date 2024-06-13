@@ -50,7 +50,13 @@ import static io.trino.type.UnknownType.UNKNOWN;
  * Implementations handle dictionary aware processing through {@link DictionaryAwareColumnarFilter}.
  */
 public sealed interface FilterEvaluator
-        permits AndFilterEvaluator, ColumnarFilterEvaluator, OrFilterEvaluator, PageFilterEvaluator
+        permits
+        AndFilterEvaluator,
+        ColumnarFilterEvaluator,
+        OrFilterEvaluator,
+        PageFilterEvaluator,
+        SelectAllEvaluator,
+        SelectNoneEvaluator
 {
     SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, Page page);
 
@@ -70,6 +76,11 @@ public sealed interface FilterEvaluator
     static Optional<Supplier<FilterEvaluator>> createColumnarFilterEvaluator(RowExpression rowExpression, ColumnarFilterCompiler compiler)
     {
         // Eventually this should use RowExpressionVisitor when we handle nested RowExpressions
+        if (rowExpression instanceof ConstantExpression constantExpression) {
+            if (constantExpression.value() instanceof Boolean booleanValue) {
+                return booleanValue ? Optional.of(SelectAllEvaluator::new) : Optional.of(SelectNoneEvaluator::new);
+            }
+        }
         if (rowExpression instanceof CallExpression callExpression) {
             if (isNotExpression(callExpression)) {
                 // "not(is_null(input_reference))" is handled explicitly as it is easy.
