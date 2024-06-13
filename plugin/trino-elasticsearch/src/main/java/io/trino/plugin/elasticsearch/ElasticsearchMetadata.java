@@ -29,6 +29,7 @@ import io.trino.plugin.elasticsearch.decoders.ArrayDecoder;
 import io.trino.plugin.elasticsearch.decoders.BigintDecoder;
 import io.trino.plugin.elasticsearch.decoders.BooleanDecoder;
 import io.trino.plugin.elasticsearch.decoders.DoubleDecoder;
+import io.trino.plugin.elasticsearch.decoders.GeopointDecoder;
 import io.trino.plugin.elasticsearch.decoders.IntegerDecoder;
 import io.trino.plugin.elasticsearch.decoders.IpAddressDecoder;
 import io.trino.plugin.elasticsearch.decoders.RawJsonDecoder;
@@ -273,6 +274,7 @@ public class ElasticsearchMetadata
                 case "double":
                 case "float":
                 case "keyword":
+                case "geo_point":
                     return true;
             }
         }
@@ -318,6 +320,8 @@ public class ElasticsearchMetadata
                 case "text":
                 case "keyword":
                     return new TypeAndDecoder(VARCHAR, new VarcharDecoder.Descriptor(path));
+                case "geo_point":
+                    return new TypeAndDecoder(VARCHAR, new GeopointDecoder.Descriptor(path));
                 case "ip":
                     return new TypeAndDecoder(ipAddressType, new IpAddressDecoder.Descriptor(path, ipAddressType));
                 case "boolean":
