@@ -224,6 +224,7 @@ import io.trino.operator.scalar.timestamptz.CurrentTimestamp;
 import io.trino.operator.scalar.timestamptz.DateToTimestampWithTimeZoneCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneOperators;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToDateCast;
+import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToJsonCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeWithTimeZoneCast;
 import io.trino.operator.scalar.timestamptz.TimestampWithTimeZoneToTimestampCast;
@@ -676,6 +677,7 @@ public final class SystemFunctionBundle
                 .scalar(TimestampWithTimeZoneToTimestampWithTimeZoneCast.class)
                 .scalar(TimestampWithTimeZoneToTimeWithTimeZoneCast.class)
                 .scalar(TimestampWithTimeZoneToVarcharCast.class)
+                .scalar(TimestampWithTimeZoneToJsonCast.class)
                 .scalar(TimeToTimestampWithTimeZoneCast.class)
                 .scalar(TimeWithTimeZoneToTimestampWithTimeZoneCast.class)
                 .scalar(VarcharToTimestampWithTimeZoneCast.class);
