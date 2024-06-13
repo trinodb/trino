@@ -13,6 +13,7 @@
  */
 package io.trino.server.security;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
@@ -114,5 +115,13 @@ public class HeaderAuthenticatorManager
     public boolean isLoaded()
     {
         return authenticators.get() != null;
+    }
+
+    @VisibleForTesting
+    public void setAuthenticators(HeaderAuthenticator... authenticators)
+    {
+        if (!this.authenticators.compareAndSet(null, ImmutableList.copyOf(authenticators))) {
+            throw new IllegalStateException("authenticators already loaded");
+        }
     }
 }
