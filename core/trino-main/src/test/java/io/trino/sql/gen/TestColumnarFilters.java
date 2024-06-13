@@ -229,6 +229,21 @@ public class TestColumnarFilters
         verifyFilter(inputPages, customInstanceFactoryFilter);
     }
 
+    @Test
+    public void testBooleanConstant()
+    {
+        List<Page> inputPages = createInputPages(NullsProvider.RANDOM_NULLS, false);
+        // WHERE true
+        RowExpression trueFilter = constant(true, BOOLEAN);
+        assertThatColumnarFilterEvaluationIsSupported(trueFilter);
+        verifyFilter(inputPages, trueFilter);
+
+        // WHERE false
+        RowExpression falseFilter = constant(false, BOOLEAN);
+        assertThatColumnarFilterEvaluationIsSupported(falseFilter);
+        verifyFilter(inputPages, falseFilter);
+    }
+
     @ParameterizedTest
     @MethodSource("inputProviders")
     public void testIsNotNull(NullsProvider nullsProvider, boolean dictionaryEncoded)
