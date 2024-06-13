@@ -23,6 +23,8 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.apache.hadoop.hbase.NamespaceExistException;
+import org.apache.phoenix.exception.PhoenixIOException;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;
@@ -120,6 +122,14 @@ public final class PhoenixQueryRunner
         try (Connection connection = DriverManager.getConnection(phoenixServer.getJdbcUrl(), properties);
                 Statement statement = connection.createStatement()) {
             statement.execute(format("CREATE SCHEMA IF NOT EXISTS %s", schema));
+        }
+        catch (PhoenixIOException e) {
+            if (e.getCause() instanceof NamespaceExistException) {
+                // Phoenix may throw this exception even if we specify IF NOT EXISTS option
+                LOG.debug("Namespace %s already exists", schema);
+                return;
+            }
+            throw e;
         }
     }
 
