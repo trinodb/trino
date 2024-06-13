@@ -422,6 +422,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-testing-services</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-tpch</artifactId>
             <scope>test</scope>
         </dependency>
@@ -505,6 +511,10 @@
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
                 <configuration>
+                    <ignoredResourcePatterns>
+                        <!-- Conflicts between org.openjdk.jmh:jmh-core:1.37 and org.quartz-scheduler:quartz:2.3.2 -->
+                        <ignoredResourcePattern>checkstyle.xml</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
                     <ignoredDependencies>
                         <dependency>
                             <groupId>io.netty</groupId>
