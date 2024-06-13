@@ -11,10 +11,6 @@
     <artifactId>trino-benchmark-queries</artifactId>
     <description>Trino - Benchmark queries</description>
 
-    <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>io.airlift</groupId>

@@ -14,8 +14,6 @@
     <description>Trino - Server RPM package</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-
         <server.tar.package>trino-server-${project.version}</server.tar.package>
         <rpm.skipSigning>true</rpm.skipSigning>
     </properties>
