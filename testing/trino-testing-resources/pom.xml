@@ -12,10 +12,6 @@
     <artifactId>trino-testing-resources</artifactId>
     <description>Trino - Testing resources</description>
 
-    <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-    </properties>
-
     <dependencies>
 
         <dependency>

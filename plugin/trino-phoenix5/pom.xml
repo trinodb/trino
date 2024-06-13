@@ -14,7 +14,6 @@
     <description>Trino - Phoenix 5 connector</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
         <dep.hbase.version>2.5.8-hadoop3</dep.hbase.version>
         <dep.phoenix5.version>5.2.0</dep.phoenix5.version>
