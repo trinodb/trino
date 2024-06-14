@@ -63,6 +63,7 @@ import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.s3.model.KMSEncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
+import com.amazonaws.services.s3.model.MultiObjectDeleteException;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PartETag;
 import com.amazonaws.services.s3.model.PutObjectRequest;
@@ -182,6 +183,7 @@ import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.fs.FSExceptionMessages.CANNOT_SEEK_PAST_EOF;
 import static org.apache.hadoop.fs.FSExceptionMessages.NEGATIVE_SEEK;
@@ -777,6 +779,12 @@ public class TrinoS3FileSystem
             for (List<Path> currentBatch : partitions) {
                 deletePaths(currentBatch);
             }
+        }
+        catch (MultiObjectDeleteException e) {
+            String errors = e.getErrors().stream()
+                    .map(error -> format("key: %s, versionId: %s, code: %s, message: %s", error.getKey(), error.getVersionId(), error.getCode(), error.getMessage()))
+                    .collect(joining(", "));
+            throw new IOException("Exception while batch deleting paths: %s".formatted(errors), e);
         }
         catch (AmazonClientException e) {
             throw new IOException("Exception while batch deleting paths", e);
