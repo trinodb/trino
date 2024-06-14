@@ -72,7 +72,7 @@ import static java.util.Objects.requireNonNull;
 public class TestingHydraIdentityProvider
         implements AutoCloseable
 {
-    private static final String HYDRA_IMAGE = "oryd/hydra:v1.10.6";
+    private static final String HYDRA_IMAGE = "oryd/hydra:v1.11.9";
     private static final String ISSUER = "https://localhost:4444/";
     private static final String DSN = "postgres://hydra:mysecretpassword@database:5432/hydra?sslmode=disable";
 
