@@ -107,7 +107,7 @@ public class TestQueuesDb
             ResourceGroupInfo global = queryRunner.getCoordinator().getResourceGroupManager().get()
                     .tryGetResourceGroupInfo(new ResourceGroupId(new ResourceGroupId("global"), "bi-user"))
                     .orElseThrow(() -> new IllegalStateException("Resource group not found"));
-            if (global.getSoftMemoryLimit().toBytes() > 0) {
+            if (global.softMemoryLimit().toBytes() > 0) {
                 break;
             }
             TimeUnit.SECONDS.sleep(2);
@@ -394,7 +394,7 @@ public class TestQueuesDb
         dbConfigurationManager.load();
         assertThat(manager.tryGetResourceGroupInfo(new ResourceGroupId(new ResourceGroupId("global"), "bi-user"))
                 .orElseThrow(() -> new IllegalStateException("Resource group not found"))
-                .getSoftMemoryLimit()
+                .softMemoryLimit()
                 .toBytes()).isEqualTo(queryRunner.getCoordinator().getClusterMemoryManager().getClusterMemoryBytes());
 
         dao.updateResourceGroup(2, "bi-${USER}", "123MB", 3, 2, 2, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
@@ -406,7 +406,7 @@ public class TestQueuesDb
                 new Duration(100, TimeUnit.MILLISECONDS),
                 () -> assertThat(manager.tryGetResourceGroupInfo(new ResourceGroupId(new ResourceGroupId("global"), "bi-user"))
                         .orElseThrow(() -> new IllegalStateException("Resource group not found"))
-                        .getSoftMemoryLimit()).isEqualTo(DataSize.of(123, MEGABYTE)));
+                        .softMemoryLimit()).isEqualTo(DataSize.of(123, MEGABYTE)));
     }
 
     private void assertResourceGroupWithClientTags(Set<String> clientTags, ResourceGroupId expectedResourceGroup)
