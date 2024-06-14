@@ -595,6 +595,19 @@ public class PinotClient
         return fromResultTable(response, columnHandles, query.groupByClauses());
     }
 
+    public Map<String, Metric<?>> getMetrics(ConnectorSession session, PinotQueryInfo query)
+    {
+        BrokerResponseNative response = submitBrokerQueryJson(session, query);
+        Map<String, Metric<?>> metrics = ImmutableMap.of(
+                "numDocsScanned", new LongCount(response.getNumDocsScanned()),
+                "numSegmentsQueried", new LongCount(response.getNumSegmentsQueried()),
+                "totalDocs", new LongCount(response.getTotalDocs()),
+                "numSegmentsProcessed", new LongCount(response.getNumSegmentsProcessed()),
+                "numSegmentsMatched", new LongCount(response.getNumSegmentsMatched()),
+        );
+        return metrics;
+    }
+
     @VisibleForTesting
     public static ResultsIterator fromResultTable(BrokerResponseNative brokerResponse, List<PinotColumnHandle> columnHandles, int groupByClauses)
     {
