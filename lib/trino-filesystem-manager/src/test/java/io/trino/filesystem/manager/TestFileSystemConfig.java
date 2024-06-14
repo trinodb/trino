@@ -29,10 +29,11 @@ public class TestFileSystemConfig
     {
         assertRecordedDefaults(recordDefaults(FileSystemConfig.class)
                 .setHadoopEnabled(true)
+                .setAlluxioEnabled(false)
                 .setNativeAzureEnabled(false)
                 .setNativeS3Enabled(false)
                 .setNativeGcsEnabled(false)
-                .setCacheEnabled(false));
+                .setFileSystemCacheType(FileSystemConfig.FileSystemCacheType.NO_CACHE));
     }
 
     @Test
@@ -40,18 +41,20 @@ public class TestFileSystemConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("fs.hadoop.enabled", "false")
+                .put("fs.alluxio.enabled", "true")
                 .put("fs.native-azure.enabled", "true")
                 .put("fs.native-s3.enabled", "true")
                 .put("fs.native-gcs.enabled", "true")
-                .put("fs.cache.enabled", "true")
+                .put("fs.cache.type", "LOCAL_CACHE")
                 .buildOrThrow();
 
         FileSystemConfig expected = new FileSystemConfig()
                 .setHadoopEnabled(false)
+                .setAlluxioEnabled(true)
                 .setNativeAzureEnabled(true)
                 .setNativeS3Enabled(true)
                 .setNativeGcsEnabled(true)
-                .setCacheEnabled(true);
+                .setFileSystemCacheType(FileSystemConfig.FileSystemCacheType.LOCAL_CACHE);
 
         assertFullMapping(properties, expected);
     }

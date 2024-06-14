@@ -18,10 +18,11 @@ import io.airlift.configuration.Config;
 public class FileSystemConfig
 {
     private boolean hadoopEnabled = true;
+    private boolean alluxioEnabled;
     private boolean nativeAzureEnabled;
     private boolean nativeS3Enabled;
     private boolean nativeGcsEnabled;
-    private boolean cacheEnabled;
+    private FileSystemCacheType cacheType = FileSystemCacheType.NO_CACHE;
 
     public boolean isHadoopEnabled()
     {
@@ -32,6 +33,18 @@ public class FileSystemConfig
     public FileSystemConfig setHadoopEnabled(boolean hadoopEnabled)
     {
         this.hadoopEnabled = hadoopEnabled;
+        return this;
+    }
+
+    public boolean isAlluxioEnabled()
+    {
+        return alluxioEnabled;
+    }
+
+    @Config("fs.alluxio.enabled")
+    public FileSystemConfig setAlluxioEnabled(boolean nativeAlluxioEnabled)
+    {
+        this.alluxioEnabled = nativeAlluxioEnabled;
         return this;
     }
 
@@ -71,15 +84,22 @@ public class FileSystemConfig
         return this;
     }
 
-    public boolean isCacheEnabled()
+    @Config("fs.cache.type")
+    public FileSystemConfig setFileSystemCacheType(FileSystemCacheType cacheType)
     {
-        return cacheEnabled;
+        this.cacheType = cacheType;
+        return this;
     }
 
-    @Config("fs.cache.enabled")
-    public FileSystemConfig setCacheEnabled(boolean enabled)
+    public FileSystemCacheType getFileSystemCacheType()
     {
-        this.cacheEnabled = enabled;
-        return this;
+        return cacheType;
+    }
+
+    public enum FileSystemCacheType
+    {
+        LOCAL_CACHE,
+        REMOTE_CACHE,
+        NO_CACHE
     }
 }
