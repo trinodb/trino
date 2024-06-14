@@ -545,6 +545,20 @@ public abstract class AbstractTestQueryFramework
         assertExplainAnalyze(true, session, query, expectedExplainRegExps);
     }
 
+    protected void assertExplainDoesNotContain(@Language("SQL") String query, @Language("RegExp") String... unexpectedExplainRegExps)
+    {
+        assertExplainDoesNotContain(getSession(), query, unexpectedExplainRegExps);
+    }
+
+    private void assertExplainDoesNotContain(Session session, @Language("SQL") String query, @Language("RegExp") String... unexpectedExplainRegExps)
+    {
+        String value = (String) computeActual(session, query).getOnlyValue();
+
+        for (String unexpectedExplainRegExp : unexpectedExplainRegExps) {
+            assertThat(value).doesNotContainPattern(unexpectedExplainRegExp);
+        }
+    }
+
     private void assertExplainAnalyze(
             boolean analyze,
             Session session,

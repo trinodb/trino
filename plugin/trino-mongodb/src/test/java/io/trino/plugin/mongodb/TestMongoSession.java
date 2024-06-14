@@ -16,6 +16,8 @@ package io.trino.plugin.mongodb;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.SortItem;
+import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -237,6 +239,25 @@ public class TestMongoSession
         assertThat(output)
                 .containsExactly(col9)
                 .hasSize(1);
+    }
+
+    @Test
+    public void testBuildSortCriteria()
+    {
+        List<SortItem> sortItems = ImmutableList.of(
+                new SortItem("id", SortOrder.ASC_NULLS_FIRST),
+                new SortItem("address", SortOrder.DESC_NULLS_LAST),
+                new SortItem("user", SortOrder.ASC_NULLS_FIRST),
+                new SortItem("creator", SortOrder.DESC_NULLS_LAST));
+
+        Document output = MongoSession.buildSortCriteria(sortItems);
+        Document expected = new Document()
+                .append("id", 1)
+                .append("address", -1)
+                .append("user", 1)
+                .append("creator", -1);
+        assertThat(output)
+                .isEqualTo(expected);
     }
 
     private static MongoColumnHandle createColumnHandle(String baseName, Type type, String... dereferenceNames)

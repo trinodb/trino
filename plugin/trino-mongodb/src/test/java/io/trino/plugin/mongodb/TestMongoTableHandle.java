@@ -20,12 +20,15 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SortItem;
+import io.trino.spi.connector.SortOrder;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.type.TypeDeserializer;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -125,7 +128,34 @@ public class TestMongoTableHandle
                 Optional.empty(),
                 TupleDomain.all(),
                 projectedColumns,
-                OptionalInt.empty());
+                OptionalInt.empty(),
+                ImmutableList.of());
+
+        String json = codec.toJson(expected);
+        MongoTableHandle actual = codec.fromJson(json);
+
+        assertThat(actual)
+                .isEqualTo(expected);
+    }
+
+    @Test
+    public void testRoundTripWithSortItems()
+    {
+        SchemaTableName schemaTableName = new SchemaTableName("schema", "table");
+        RemoteTableName remoteTableName = new RemoteTableName("Schema", "Table");
+        List<SortItem> sortItems = ImmutableList.of(
+                new SortItem("id", SortOrder.ASC_NULLS_FIRST),
+                new SortItem("address", SortOrder.DESC_NULLS_LAST),
+                new SortItem("user", SortOrder.ASC_NULLS_FIRST),
+                new SortItem("creator", SortOrder.DESC_NULLS_LAST));
+        MongoTableHandle expected = new MongoTableHandle(
+                schemaTableName,
+                remoteTableName,
+                Optional.empty(),
+                TupleDomain.all(),
+                ImmutableSet.of(),
+                OptionalInt.empty(),
+                sortItems);
 
         String json = codec.toJson(expected);
         MongoTableHandle actual = codec.fromJson(json);

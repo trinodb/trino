@@ -138,14 +138,43 @@ public class TestMongoConnectorTest
     }
 
     @Test
-    @Override
-    public void testSortItemsReflectedInExplain()
+    public void testSortItemWithDescendingNullsFirstReflectedInExplain()
     {
         // The format of the string representation of what gets shown in the table scan is connector-specific
         // and there's no requirement that the conform to a specific shape or contain certain keywords.
         assertExplain(
-                "EXPLAIN SELECT name FROM nation ORDER BY nationkey DESC NULLS LAST LIMIT 5",
+                "EXPLAIN SELECT name FROM nation ORDER BY nationkey DESC NULLS FIRST LIMIT 5",
                 "TopNPartial\\[count = 5, orderBy = \\[nationkey DESC");
+    }
+
+    @Test
+    public void testSortItemWithDescendingNullsLastReflectedInExplain()
+    {
+        assertExplain(
+                "EXPLAIN SELECT name FROM nation ORDER BY nationkey DESC NULLS LAST LIMIT 5",
+                "\\[count = 5, orderBy = \\[nationkey ASC");
+        assertExplainDoesNotContain(
+                "EXPLAIN SELECT name FROM nation ORDER BY nationkey DESC NULLS LAST LIMIT 5",
+                "TopNPartial");
+    }
+
+    @Test
+    public void testSortItemWithAscendingNullsLastReflectedInExplain()
+    {
+        assertExplain(
+                "EXPLAIN SELECT name FROM nation ORDER BY nationkey ASC NULLS LAST LIMIT 5",
+                "TopNPartial\\[count = 5, orderBy = \\[nationkey ASC");
+    }
+
+    @Test
+    public void testSortItemWithAscendingNullsFirstReflectedInExplain()
+    {
+        assertExplain(
+                "EXPLAIN SELECT name FROM nation ORDER BY nationkey ASC NULLS FIRST LIMIT 5",
+                "\\[count = 5, orderBy = \\[nationkey ASC");
+        assertExplainDoesNotContain(
+                "EXPLAIN SELECT name FROM nation ORDER BY nationkey ASC NULLS FIRST LIMIT 5",
+                "TopNPartial");
     }
 
     @Override

@@ -13,12 +13,15 @@
  */
 package io.trino.plugin.mongodb;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SortItem;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -31,12 +34,13 @@ public record MongoTableHandle(
         Optional<String> filter,
         TupleDomain<ColumnHandle> constraint,
         Set<MongoColumnHandle> projectedColumns,
-        OptionalInt limit)
+        OptionalInt limit,
+        List<SortItem> sortItems)
         implements ConnectorTableHandle
 {
     public MongoTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, Optional<String> filter)
     {
-        this(schemaTableName, remoteTableName, filter, TupleDomain.all(), ImmutableSet.of(), OptionalInt.empty());
+        this(schemaTableName, remoteTableName, filter, TupleDomain.all(), ImmutableSet.of(), OptionalInt.empty(), ImmutableList.of());
     }
 
     public MongoTableHandle
@@ -47,6 +51,7 @@ public record MongoTableHandle(
         requireNonNull(constraint, "constraint is null");
         projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
         requireNonNull(limit, "limit is null");
+        sortItems = ImmutableList.copyOf(requireNonNull(sortItems, "sortItems is null"));
     }
 
     public MongoTableHandle withProjectedColumns(Set<MongoColumnHandle> projectedColumns)
@@ -57,7 +62,8 @@ public record MongoTableHandle(
                 filter,
                 constraint,
                 projectedColumns,
-                limit);
+                limit,
+                sortItems);
     }
 
     public MongoTableHandle withConstraint(TupleDomain<ColumnHandle> constraint)
@@ -68,6 +74,7 @@ public record MongoTableHandle(
                 filter,
                 constraint,
                 projectedColumns,
-                limit);
+                limit,
+                sortItems);
     }
 }
