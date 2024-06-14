@@ -538,7 +538,7 @@ public class HiveWriterFactory
             if (sortedWritingTempStagingPathEnabled) {
                 String stagingPath = sortedWritingTempStagingPath.replace("${USER}", session.getIdentity().getUser());
                 Location tempPrefix = setSchemeToFileIfAbsent(Location.of(stagingPath));
-                tempFilePath = tempPrefix.appendPath(".tmp-sort.%s.%s".formatted(path.parentDirectory().fileName(), path.fileName()));
+                tempFilePath = tempPrefix.appendPath(".tmp-sort.%s.%s".formatted(UUID.randomUUID().toString(), path.fileName()));
             }
             else {
                 tempFilePath = path.parentDirectory().appendPath(".tmp-sort." + path.fileName());
