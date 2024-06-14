@@ -73,6 +73,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
+
 public class IrExpressionOptimizer
 {
     private final List<IrOptimizerRule> rules;
@@ -286,6 +288,12 @@ public class IrExpressionOptimizer
         for (IrOptimizerRule rule : rules) {
             Optional<Expression> optimized = rule.apply(expression, session, bindings);
             if (optimized.isPresent()) {
+                checkState(
+                        expression.type().equals(optimized.get().type()),
+                        "Rule %s changed expression type from %s to %s",
+                        rule.getClass().getSimpleName(),
+                        expression.type(),
+                        optimized.get().type());
                 expression = optimized.get();
                 changed = true;
             }
