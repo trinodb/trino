@@ -425,9 +425,13 @@ public final class IcebergQueryRunner
                 throws Exception
         {
             Logger log = Logger.get(DefaultIcebergQueryRunnerMain.class);
+            File metastoreDir = createTempDirectory("iceberg_query_runner").toFile();
+            metastoreDir.deleteOnExit();
+
             @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
                     .addCoordinatorProperty("http-server.http.port", "8080")
+                    .addIcebergProperty("hive.metastore.catalog.dir", metastoreDir.toURI().toString())
                     .setInitialTables(TpchTable.getTables())
                     .build();
             log.info("======== SERVER STARTED ========");
