@@ -27,6 +27,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
 import io.trino.tpch.TpchTable;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
 
 public final class DeltaLakeQueryRunner
@@ -186,9 +188,13 @@ public final class DeltaLakeQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
+            File metastoreDir = createTempDirectory("delta_query_runner").toFile();
+            metastoreDir.deleteOnExit();
+
             QueryRunner queryRunner = builder()
                     .addCoordinatorProperty("http-server.http.port", "8080")
                     .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                    .addDeltaProperty("hive.metastore.catalog.dir", metastoreDir.toURI().toString())
                     .setInitialTables(TpchTable.getTables())
                     .build();
 
