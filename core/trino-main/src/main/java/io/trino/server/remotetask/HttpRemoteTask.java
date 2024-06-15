@@ -39,6 +39,7 @@ import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
+import io.trino.cache.SplitAdmissionControllerProvider;
 import io.trino.execution.DynamicFiltersCollector;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.ExecutionFailureInfo;
@@ -211,6 +212,8 @@ public final class HttpRemoteTask
     private final long requestSizeHeadroomInBytes;
     private final boolean adaptiveUpdateRequestSizeEnabled;
 
+    private final SplitAdmissionControllerProvider splitAdmissionControllerProvider;
+
     public HttpRemoteTask(
             Session session,
             Span stageSpan,
@@ -240,7 +243,8 @@ public final class HttpRemoteTask
             RemoteTaskStats stats,
             DynamicFilterService dynamicFilterService,
             Set<DynamicFilterId> outboundDynamicFilterIds,
-            Optional<DataSize> estimatedMemory)
+            Optional<DataSize> estimatedMemory,
+            SplitAdmissionControllerProvider splitAdmissionControllerProvider)
     {
         requireNonNull(session, "session is null");
         requireNonNull(stageSpan, "stageSpan is null");
@@ -394,6 +398,7 @@ public final class HttpRemoteTask
                     outboundDynamicFilterIds,
                     outboundDynamicFiltersCollector::updateDomains);
 
+            this.splitAdmissionControllerProvider = requireNonNull(splitAdmissionControllerProvider, "splitAdmissionControllerProvider is null");
             partitionedSplitCountTracker.setPartitionedSplits(getPartitionedSplitsInfo());
             updateSplitQueueSpace();
         }
@@ -470,6 +475,9 @@ public final class HttpRemoteTask
                 pendingSourceSplitsWeight = addExact(pendingSourceSplitsWeight, addedWeight);
                 partitionedSplitCountTracker.setPartitionedSplits(getPartitionedSplitsInfo());
             }
+            // Notify that splits have been scheduled. This is needed such that no two same splits are scheduled on
+            // the same worker at the same time thus, to effectively utilize the cache.
+            splitAdmissionControllerProvider.get(sourceId).splitsScheduled(ImmutableList.copyOf(splits));
             needsUpdate = true;
         }
         updateSplitQueueSpace();

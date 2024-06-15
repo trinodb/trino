@@ -36,6 +36,7 @@ import io.trino.execution.executor.timesharing.TimeSharingTaskExecutor;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.WorkerLanguageFunctionProvider;
+import io.trino.spi.cache.CacheSplitId;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spiller.LocalSpillManager;
@@ -44,6 +45,7 @@ import io.trino.util.EmbedVersion;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -246,6 +248,12 @@ public class TestTaskExecutorStuckSplits
             finishedFuture.set(null);
 
             return immediateVoidFuture();
+        }
+
+        @Override
+        public Optional<CacheSplitId> getCacheSplitId()
+        {
+            return Optional.empty();
         }
 
         @Override

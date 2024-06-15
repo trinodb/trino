@@ -39,18 +39,23 @@ import io.trino.execution.executor.TaskHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
 import io.trino.tracing.TrinoAttributes;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Queue;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.ConcurrentHashMap;
@@ -132,6 +137,14 @@ public class TimeSharingTaskExecutor
      * Splits blocked by the driver.
      */
     private final Map<PrioritizedSplitRunner, Future<Void>> blockedSplits = new ConcurrentHashMap<>();
+
+    /**
+     * CacheSplitIds for splits that are currently registered with the task executor. We use the hash code
+     * of the split id as the key to speed up the lookup during split scheduling. This is especially needed
+     * when there are a large number of super short splits since they are cached.
+     */
+    @GuardedBy("this")
+    private final IntSet runningCacheSplitIds = new IntOpenHashSet();
 
     private final AtomicLongArray completedTasksPerLevel = new AtomicLongArray(5);
     private final AtomicLongArray completedSplitsPerLevel = new AtomicLongArray(5);
@@ -329,6 +342,12 @@ public class TimeSharingTaskExecutor
             intermediateSplits.removeAll(splits);
             blockedSplits.keySet().removeAll(splits);
             waitingSplits.removeAll(splits);
+            // Remove running cache split ids
+            splits.stream()
+                    .map(PrioritizedSplitRunner::getCacheSplitId)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .forEach(id -> runningCacheSplitIds.remove(id.hashCode()));
             recordLeafSplitsSize();
         }
 
@@ -415,6 +434,7 @@ public class TimeSharingTaskExecutor
         completedSplitsPerLevel.incrementAndGet(split.getPriority().getLevel());
         synchronized (this) {
             allSplits.remove(split);
+            split.getCacheSplitId().ifPresent(id -> runningCacheSplitIds.remove(id.hashCode()));
 
             long wallNanos = System.nanoTime() - split.getCreatedNanos();
             splitWallTime.add(Duration.succinctNanos(wallNanos));
@@ -446,42 +466,93 @@ public class TimeSharingTaskExecutor
 
     private synchronized void scheduleTaskIfNecessary(TimeSharingTaskHandle taskHandle)
     {
+        int scheduledSplits = scheduleTaskIfNecessary(0, taskHandle, runningCacheSplitIds);
+        // If we have less than the minimum number of drivers running per task, force start some splits even if
+        // they are not cached yet. This is such that system always have some drivers running to make progress.
+        scheduleTaskIfNecessary(scheduledSplits, taskHandle, IntSet.of());
+        recordLeafSplitsSize();
+    }
+
+    private synchronized int scheduleTaskIfNecessary(
+            int scheduledSplits,
+            TimeSharingTaskHandle taskHandle,
+            IntSet runningCacheSplitIds)
+    {
         // if task has less than the minimum guaranteed splits running,
         // immediately schedule new splits for this task.  This assures
         // that a task gets its fair amount of consideration (you have to
         // have splits to be considered for running on a thread).
-        int splitsToSchedule = min(guaranteedNumberOfDriversPerTask, taskHandle.getMaxDriversPerTask().orElse(Integer.MAX_VALUE)) - taskHandle.getRunningLeafSplits();
-        for (int i = 0; i < splitsToSchedule; ++i) {
+        int splitsToSchedule = min(guaranteedNumberOfDriversPerTask,
+                taskHandle.getMaxDriversPerTask().orElse(Integer.MAX_VALUE)) - taskHandle.getRunningLeafSplits();
+
+        Queue<PrioritizedSplitRunner> unscheduledSplits = new ArrayDeque<>();
+        while (scheduledSplits < splitsToSchedule) {
             PrioritizedSplitRunner split = taskHandle.pollNextSplit();
             if (split == null) {
                 // no more splits to schedule
-                return;
+                break;
             }
 
-            startSplit(split);
-            splitQueuedTime.add(Duration.nanosSince(split.getCreatedNanos()));
+            // Do not start the split if there's already a split with the same cache id running. This is done to
+            // improve cache utilization.
+            if (split.getCacheSplitId().isPresent()
+                    && runningCacheSplitIds.contains(split.getCacheSplitId().get().hashCode())) {
+                unscheduledSplits.add(split);
+                continue;
+            }
+
+            startLeafSplit(split);
+            scheduledSplits++;
         }
-        recordLeafSplitsSize();
+        // put back unscheduled splits
+        for (PrioritizedSplitRunner split : unscheduledSplits) {
+            taskHandle.enqueueSplit(split);
+        }
+
+        return scheduledSplits;
     }
 
     private synchronized void addNewEntrants()
     {
         // Ignore intermediate splits when checking minimumNumberOfDrivers.
-        // Otherwise with (for example) minimumNumberOfDrivers = 100, 200 intermediate splits
+        // Otherwise, with (for example) minimumNumberOfDrivers = 100, 200 intermediate splits
         // and 100 leaf splits, depending on order of appearing splits, number of
         // simultaneously running splits may vary. If leaf splits start first, there will
         // be 300 running splits. If intermediate splits start first, there will be only
         // 200 running splits.
-        int running = allSplits.size() - intermediateSplits.size();
-        for (int i = 0; i < minimumNumberOfDrivers - running; i++) {
+        int runningSplits = allSplits.size() - intermediateSplits.size();
+
+        runningSplits = addNewEntrants(runningSplits, runningCacheSplitIds);
+        // If we have less than the minimum number of drivers running, force start some splits even if
+        // they are not cached yet. This is such that system always have some drivers running to make progress.
+        addNewEntrants(runningSplits, IntSet.of());
+    }
+
+    private synchronized int addNewEntrants(int runningSplits, IntSet runningCacheSplitIds)
+    {
+        Queue<PrioritizedSplitRunner> unscheduledSplits = new ArrayDeque<>();
+        while (runningSplits < minimumNumberOfDrivers) {
             PrioritizedSplitRunner split = pollNextSplitWorker();
             if (split == null) {
                 break;
             }
 
-            splitQueuedTime.add(Duration.nanosSince(split.getCreatedNanos()));
-            startSplit(split);
+            // Do not start the split if there's already a split with the same cache id running. This is done to
+            // improve cache utilization.
+            if (split.getCacheSplitId().isPresent()
+                    && runningCacheSplitIds.contains(split.getCacheSplitId().get().hashCode())) {
+                unscheduledSplits.add(split);
+                continue;
+            }
+
+            startLeafSplit(split);
+            runningSplits++;
         }
+        // put back unscheduled splits
+        for (PrioritizedSplitRunner split : unscheduledSplits) {
+            split.getTaskHandle().enqueueSplit(split);
+        }
+        return runningSplits;
     }
 
     private synchronized void startIntermediateSplit(PrioritizedSplitRunner split)
@@ -490,9 +561,17 @@ public class TimeSharingTaskExecutor
         intermediateSplits.add(split);
     }
 
+    private synchronized void startLeafSplit(PrioritizedSplitRunner split)
+    {
+        split.getTaskHandle().splitStarted(split);
+        startSplit(split);
+        splitQueuedTime.add(Duration.nanosSince(split.getCreatedNanos()));
+    }
+
     private synchronized void startSplit(PrioritizedSplitRunner split)
     {
         allSplits.add(split);
+        split.getCacheSplitId().ifPresent(splitId -> runningCacheSplitIds.add(splitId.hashCode()));
         waitingSplits.offer(split);
     }
 

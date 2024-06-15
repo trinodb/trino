@@ -19,6 +19,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
 
 public class CacheConfig
 {
@@ -29,6 +30,11 @@ public class CacheConfig
     private boolean cacheAggregationsEnabled = true;
     private boolean cacheProjectionsEnabled = true;
     private DataSize maxSplitSize = DataSize.of(256, DataSize.Unit.MEGABYTE);
+    // The minimum number of splits with distinct CacheSplitID that should be processed by a worker
+    // before scheduling splits with the same CacheSplitID on the same worker again.
+    // Since split scheduling is not fully deterministic, the default value is set to 500
+    // which keeps cache collisions to a minimum, but avoids excessive fetching of splits.
+    private int cacheMinWorkerSplitSeparation = 500;
 
     public boolean isEnabled()
     {
@@ -123,6 +129,20 @@ public class CacheConfig
     public CacheConfig setMaxSplitSize(DataSize cacheSubqueriesSize)
     {
         this.maxSplitSize = cacheSubqueriesSize;
+        return this;
+    }
+
+    @Min(0)
+    public int getCacheMinWorkerSplitSeparation()
+    {
+        return cacheMinWorkerSplitSeparation;
+    }
+
+    @Config("cache.min-worker-split-separation")
+    @ConfigDescription("The minimum separation (in terms of processed splits) between two splits with same cache split id being scheduled on the single worker")
+    public CacheConfig setCacheMinWorkerSplitSeparation(int cacheMinWorkerSplitSeparation)
+    {
+        this.cacheMinWorkerSplitSeparation = cacheMinWorkerSplitSeparation;
         return this;
     }
 }

@@ -221,6 +221,7 @@ public final class SystemSessionProperties
     public static final String CACHE_AGGREGATIONS_ENABLED = "cache_aggregations_enabled";
     public static final String CACHE_PROJECTIONS_ENABLED = "cache_projections_enabled";
     public static final String CACHE_MAX_SPLIT_SIZE = "cache_max_split_size";
+    public static final String CACHE_MIN_WORKER_SPLIT_SEPARATION = "cache_min_worker_split_separation";
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
     public static final String IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD = "idle_writer_min_data_size_threshold";
     public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
@@ -1150,6 +1151,11 @@ public final class SystemSessionProperties
                         "Max size of cached split",
                         cacheConfig.getMaxSplitSize(),
                         true),
+                integerProperty(
+                        CACHE_MIN_WORKER_SPLIT_SEPARATION,
+                        "The minimum separation (in terms of processed splits) between two splits with same cache split id being scheduled on the single worker",
+                        cacheConfig.getCacheMinWorkerSplitSeparation(),
+                        true),
                 integerProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE,
                         "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
                         taskManagerConfig.getPagePartitioningBufferPoolSize(),
@@ -2059,6 +2065,11 @@ public final class SystemSessionProperties
     public static DataSize getCacheMaxSplitSize(Session session)
     {
         return session.getSystemProperty(CACHE_MAX_SPLIT_SIZE, DataSize.class);
+    }
+
+    public static int getCacheMinWorkerSplitSeparation(Session session)
+    {
+        return session.getSystemProperty(CACHE_MIN_WORKER_SPLIT_SEPARATION, Integer.class);
     }
 
     public static int getPagePartitioningBufferPoolSize(Session session)

@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
+import io.trino.cache.SplitAdmissionControllerProvider;
 import io.trino.execution.BasicStageInfo;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.NodeTaskMap;
@@ -72,7 +73,8 @@ class StageManager
             Span schedulerSpan,
             SplitSchedulerStats schedulerStats,
             SubPlan planTree,
-            boolean summarizeTaskInfo)
+            boolean summarizeTaskInfo,
+            SplitAdmissionControllerProvider splitAdmissionControllerProvider)
     {
         Session session = queryStateMachine.getSession();
         ImmutableMap.Builder<StageId, SqlStage> stages = ImmutableMap.builder();
@@ -95,7 +97,8 @@ class StageManager
                     queryStateMachine.getStateMachineExecutor(),
                     tracer,
                     schedulerSpan,
-                    schedulerStats);
+                    schedulerStats,
+                    splitAdmissionControllerProvider);
             StageId stageId = stage.getStageId();
             stages.put(stageId, stage);
             stagesInTopologicalOrder.add(stage);
