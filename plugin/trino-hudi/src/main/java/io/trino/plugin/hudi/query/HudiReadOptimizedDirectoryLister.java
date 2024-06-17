@@ -54,9 +54,10 @@ public class HudiReadOptimizedDirectoryLister
             HiveMetastore hiveMetastore,
             Table hiveTable,
             List<HiveColumnHandle> partitionColumnHandles,
-            List<String> hivePartitionNames)
+            List<String> hivePartitionNames,
+            boolean ignoreAbsentPartitions)
     {
-        this.fileSystemView = new HudiTableFileSystemView(metaClient, metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants());
+        this.fileSystemView = new HudiTableFileSystemView(metaClient, metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants(), ignoreAbsentPartitions);
         this.partitionColumns = hiveTable.getPartitionColumns();
         this.allPartitionInfoMap = hivePartitionNames.stream()
                 .collect(Collectors.toMap(
