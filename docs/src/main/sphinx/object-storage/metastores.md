@@ -46,7 +46,7 @@ are also available. They are discussed later in this topic.
     You must set this property in all Iceberg catalog property files. Valid
     values are `hive_metastore`, `glue`, `jdbc`, `rest`, `nessie`, and
     `snowflake`.
-  -
+  - `hive_metastore`
 * - `hive.metastore-cache.cache-partitions`
   - Enable caching for partition metadata. You can disable caching to avoid
     inconsistent behavior that results from it.
