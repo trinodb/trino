@@ -39,12 +39,12 @@ public class TestSparkMetastoreUtil
                 "spark.sql.statistics.colStats.c_long.nullCount", "0",
                 "spark.sql.statistics.colStats.c_long.version", "2",
                 "spark.sql.statistics.colStats.c_long.max", "4");
-        HiveColumnStatistics actualNotExists = fromMetastoreColumnStatistics("c_long_not_exists", HiveType.HIVE_LONG, columnStatistics, 4);
+        HiveColumnStatistics actualNotExists = fromMetastoreColumnStatistics("c_long_not_exists", HiveType.HIVE_LONG, columnStatistics);
         assertThat(actualNotExists).isEqualTo(HiveColumnStatistics.builder()
                 .setIntegerStatistics(new IntegerStatistics(OptionalLong.empty(), OptionalLong.empty()))
                 .build());
 
-        HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_long", HiveType.HIVE_LONG, columnStatistics, 4);
+        HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_long", HiveType.HIVE_LONG, columnStatistics);
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setIntegerStatistics(new IntegerStatistics(OptionalLong.of(1), OptionalLong.of(4)))
                 .setNullsCount(0)
@@ -62,12 +62,12 @@ public class TestSparkMetastoreUtil
                 "spark.sql.statistics.colStats.c_double.nullCount", "1",
                 "spark.sql.statistics.colStats.c_double.version", "2",
                 "spark.sql.statistics.colStats.c_double.max", "3.3");
-        HiveColumnStatistics actualNotExists = fromMetastoreColumnStatistics("c_double_not_exists", HiveType.HIVE_DOUBLE, columnStatistics, 10);
+        HiveColumnStatistics actualNotExists = fromMetastoreColumnStatistics("c_double_not_exists", HiveType.HIVE_DOUBLE, columnStatistics);
         assertThat(actualNotExists).isEqualTo(HiveColumnStatistics.builder()
                 .setDoubleStatistics(new DoubleStatistics(OptionalDouble.empty(), OptionalDouble.empty()))
                 .build());
 
-        HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_double", HiveType.HIVE_DOUBLE, columnStatistics, 10);
+        HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_double", HiveType.HIVE_DOUBLE, columnStatistics);
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setDoubleStatistics(new DoubleStatistics(OptionalDouble.of(0.3), OptionalDouble.of(3.3)))
                 .setNullsCount(1)
@@ -86,12 +86,12 @@ public class TestSparkMetastoreUtil
                 "spark.sql.statistics.colStats.c_decimal.version", "2",
                 "spark.sql.statistics.colStats.c_decimal.max", "3.3");
         HiveType decimalType = HiveType.valueOf(DECIMAL_TYPE_NAME);
-        HiveColumnStatistics actualNotExists = fromMetastoreColumnStatistics("c_decimal_not_exists", decimalType, columnStatistics, 10);
+        HiveColumnStatistics actualNotExists = fromMetastoreColumnStatistics("c_decimal_not_exists", decimalType, columnStatistics);
         assertThat(actualNotExists).isEqualTo(HiveColumnStatistics.builder()
                 .setDecimalStatistics(new DecimalStatistics(Optional.empty(), Optional.empty()))
                 .build());
 
-        HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_decimal", decimalType, columnStatistics, 10);
+        HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_decimal", decimalType, columnStatistics);
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setDecimalStatistics(new DecimalStatistics(Optional.of(new BigDecimal("0.3")), Optional.of(new BigDecimal("3.3"))))
                 .setNullsCount(1)
@@ -109,12 +109,12 @@ public class TestSparkMetastoreUtil
                 "spark.sql.statistics.colStats.c_bool.nullCount", "1",
                 "spark.sql.statistics.colStats.c_bool.version", "2",
                 "spark.sql.statistics.colStats.c_bool.max", "true");
-        HiveColumnStatistics actualNotExists = fromMetastoreColumnStatistics("c_bool_not_exists", HiveType.HIVE_BOOLEAN, columnStatistics, 10);
+        HiveColumnStatistics actualNotExists = fromMetastoreColumnStatistics("c_bool_not_exists", HiveType.HIVE_BOOLEAN, columnStatistics);
         assertThat(actualNotExists).isEqualTo(HiveColumnStatistics.builder()
                 .setBooleanStatistics(new BooleanStatistics(OptionalLong.empty(), OptionalLong.empty()))
                 .build());
 
-        HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_bool", HiveType.HIVE_BOOLEAN, columnStatistics, 10);
+        HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_bool", HiveType.HIVE_BOOLEAN, columnStatistics);
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setBooleanStatistics(new BooleanStatistics(OptionalLong.empty(), OptionalLong.empty()))
                 .setNullsCount(1)
@@ -131,12 +131,12 @@ public class TestSparkMetastoreUtil
                 "spark.sql.statistics.colStats.c_date.nullCount", "3",
                 "spark.sql.statistics.colStats.c_date.version", "2",
                 "spark.sql.statistics.colStats.c_date.max", "2030-12-31");
-        HiveColumnStatistics actualNotExists = fromMetastoreColumnStatistics("c_date_not_exists", HiveType.HIVE_DATE, columnStatistics, 10);
+        HiveColumnStatistics actualNotExists = fromMetastoreColumnStatistics("c_date_not_exists", HiveType.HIVE_DATE, columnStatistics);
         assertThat(actualNotExists).isEqualTo(HiveColumnStatistics.builder()
                 .setDateStatistics(new DateStatistics(Optional.empty(), Optional.empty()))
                 .build());
 
-        HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_date", HiveType.HIVE_DATE, columnStatistics, 10);
+        HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_date", HiveType.HIVE_DATE, columnStatistics);
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setDateStatistics(new DateStatistics(Optional.of(LocalDate.of(2000, 1, 1)), Optional.of(LocalDate.of(2030, 12, 31))))
                 .setNullsCount(3)
@@ -153,10 +153,10 @@ public class TestSparkMetastoreUtil
                 "spark.sql.statistics.colStats.char_col.maxLen", "10",
                 "spark.sql.statistics.colStats.c_char.nullCount", "7",
                 "spark.sql.statistics.colStats.c_char.version", "2");
-        HiveColumnStatistics actualNotExists = fromMetastoreColumnStatistics("c_char_not_exists", HiveType.HIVE_STRING, columnStatistics, 10);
+        HiveColumnStatistics actualNotExists = fromMetastoreColumnStatistics("c_char_not_exists", HiveType.HIVE_STRING, columnStatistics);
         assertThat(actualNotExists).isEqualTo(HiveColumnStatistics.builder().build());
 
-        HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_char", HiveType.HIVE_STRING, columnStatistics, 10);
+        HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_char", HiveType.HIVE_STRING, columnStatistics);
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setNullsCount(7)
                 .setDistinctValuesWithNullCount(3)
@@ -173,10 +173,10 @@ public class TestSparkMetastoreUtil
                 "spark.sql.statistics.colStats.c_bin.maxLen", "10",
                 "spark.sql.statistics.colStats.c_bin.nullCount", "3",
                 "spark.sql.statistics.colStats.c_bin.version", "2");
-        HiveColumnStatistics actualNotExists = fromMetastoreColumnStatistics("c_bin_not_exists", HiveType.HIVE_BINARY, columnStatistics, 10);
+        HiveColumnStatistics actualNotExists = fromMetastoreColumnStatistics("c_bin_not_exists", HiveType.HIVE_BINARY, columnStatistics);
         assertThat(actualNotExists).isEqualTo(HiveColumnStatistics.builder().build());
 
-        HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_bin", HiveType.HIVE_BINARY, columnStatistics, 10);
+        HiveColumnStatistics actual = fromMetastoreColumnStatistics("c_bin", HiveType.HIVE_BINARY, columnStatistics);
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
                 .setNullsCount(3)
                 .setAverageColumnLength(10)
