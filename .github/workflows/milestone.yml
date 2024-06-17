@@ -20,7 +20,7 @@ jobs:
       - name: Get milestone from pom.xml
         run: |
           .github/bin/retry ./mvnw -v
-          MILESTONE_NUMBER="$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | cut -d- -f1)"
+          MILESTONE_NUMBER="$(./mvnw --raw-streams help:evaluate -Dexpression=project.version -q -DforceStdout | cut -d- -f1)"
           echo "Setting PR milestone to ${MILESTONE_NUMBER}"
           echo "MILESTONE_NUMBER=${MILESTONE_NUMBER}" >> $GITHUB_ENV
       - name: Set milestone to PR

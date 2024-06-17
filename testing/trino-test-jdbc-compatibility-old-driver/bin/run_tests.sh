@@ -8,7 +8,7 @@ maven_run_tests="${maven} clean test ${MAVEN_TEST:--B} -pl :trino-test-jdbc-comp
 
 "${maven}" -version
 
-current_version=$(${maven} help:evaluate -Dexpression=project.version -q -DforceStdout)
+current_version=$(${maven} --raw-streams help:evaluate -Dexpression=project.version -q -DforceStdout)
 previous_released_version=$((${current_version%-SNAPSHOT}-1))
 first_tested_version=352
 # test n-th version only
