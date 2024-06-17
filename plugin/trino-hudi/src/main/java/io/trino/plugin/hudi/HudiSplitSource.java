@@ -48,6 +48,7 @@ import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMinimumAssignedSplitWeight;
 import static io.trino.plugin.hudi.HudiSessionProperties.getSplitGeneratorParallelism;
 import static io.trino.plugin.hudi.HudiSessionProperties.getStandardSplitWeightSize;
+import static io.trino.plugin.hudi.HudiSessionProperties.isIgnoreAbsentPartitions;
 import static io.trino.plugin.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
 import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
 import static java.util.stream.Collectors.toList;
@@ -82,7 +83,8 @@ public class HudiSplitSource
                 metastore,
                 table,
                 partitionColumnHandles,
-                partitions);
+                partitions,
+                !tableHandle.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session));
 
         this.queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
         HudiBackgroundSplitLoader splitLoader = new HudiBackgroundSplitLoader(
