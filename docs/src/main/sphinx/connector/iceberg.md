@@ -51,12 +51,10 @@ To configure the Iceberg connector, create a catalog properties file
 `etc/catalog/example.properties` that references the `iceberg`
 connector and defines a metastore type. The Hive metastore catalog is the
 default implementation. To use a {ref}`Hive metastore <hive-thrift-metastore>`,
-`iceberg.catalog.type` must be set to `hive_metastore` and
 `hive.metastore.uri` must be configured:
 
 ```properties
 connector.name=iceberg
-iceberg.catalog.type=hive_metastore
 hive.metastore.uri=thrift://example.net:9083
 ```
 
@@ -85,7 +83,7 @@ implementation is used:
     * `rest`
     * `nessie`
     * `snowflake`
-  -
+  - `hive_metastore`
 * - `iceberg.file-format`
   - Define the data storage file format for Iceberg tables. Possible values are:
 
