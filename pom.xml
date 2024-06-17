@@ -152,6 +152,8 @@
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
         <air.java.version>22.0.0</air.java.version>
         <air.javadoc.lint>syntax,reference,html,-missing</air.javadoc.lint>
+        <!-- require at least maven 3.9.8 or mvnd 1.0.0+ -->
+        <air.maven.version>3.9.8</air.maven.version>
         <air.modernizer.java-version>8</air.modernizer.java-version>
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
         <!--
