@@ -18,6 +18,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Enums;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -94,12 +95,16 @@ public final class DeltaLakeSchemaSupport
 
     private static final Logger log = Logger.get(DeltaLakeSchemaSupport.class);
 
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings().trimResults();
+
     public static final String APPEND_ONLY_CONFIGURATION_KEY = "delta.appendOnly";
     public static final String COLUMN_MAPPING_MODE_CONFIGURATION_KEY = "delta.columnMapping.mode";
     public static final String COLUMN_MAPPING_PHYSICAL_NAME_CONFIGURATION_KEY = "delta.columnMapping.physicalName";
     public static final String MAX_COLUMN_ID_CONFIGURATION_KEY = "delta.columnMapping.maxColumnId";
     public static final String ISOLATION_LEVEL_CONFIGURATION_KEY = "delta.isolationLevel";
     private static final String DELETION_VECTORS_CONFIGURATION_KEY = "delta.enableDeletionVectors";
+    // https://github.com/delta-io/delta/blob/master/docs/source/delta-uniform.md
+    private static final String UNIVERSAL_FORMAT_CONFIGURATION_KEY = "delta.universalFormat.enabledFormats";
 
     // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#valid-feature-names-in-table-features
     private static final String APPEND_ONLY_FEATURE_NAME = "appendOnly";
@@ -197,6 +202,12 @@ public final class DeltaLakeSchemaSupport
             return false;
         }
         return parseBoolean(metadataEntry.getConfiguration().get(DELETION_VECTORS_CONFIGURATION_KEY));
+    }
+
+    public static List<String> enabledUniversalFormats(MetadataEntry metadataEntry)
+    {
+        String formats = metadataEntry.getConfiguration().get(UNIVERSAL_FORMAT_CONFIGURATION_KEY);
+        return formats == null ? ImmutableList.of() : SPLITTER.splitToList(formats);
     }
 
     public static ColumnMappingMode getColumnMappingMode(MetadataEntry metadata, ProtocolEntry protocolEntry)

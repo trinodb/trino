@@ -258,6 +258,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.MA
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.TIMESTAMP_NTZ_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.deserializeType;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.enabledUniversalFormats;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.generateColumnMetadata;
@@ -2828,7 +2829,16 @@ public class DeltaLakeMetadata
         if (getColumnIdentities(handle.getMetadataEntry(), handle.getProtocolEntry()).values().stream().anyMatch(identity -> identity)) {
             throw new TrinoException(NOT_SUPPORTED, "Writing to tables with identity columns is not supported");
         }
+        checkUnsupportedUniversalFormat(handle.getMetadataEntry());
         checkUnsupportedWriterFeatures(handle.getProtocolEntry());
+    }
+
+    public static void checkUnsupportedUniversalFormat(MetadataEntry metadataEntry)
+    {
+        List<String> universalFormats = enabledUniversalFormats(metadataEntry);
+        if (!universalFormats.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported universal formats: " + universalFormats);
+        }
     }
 
     private static void checkUnsupportedWriterFeatures(ProtocolEntry protocolEntry)

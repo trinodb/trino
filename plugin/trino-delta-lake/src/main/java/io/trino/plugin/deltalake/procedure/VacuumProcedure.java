@@ -63,6 +63,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.MAX_WRITER_VERSION;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkUnsupportedUniversalFormat;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkValidTableHandle;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getVacuumMinRetention;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.DELETION_VECTORS_FEATURE_NAME;
@@ -182,6 +183,8 @@ public class VacuumProcedure
 
             accessControl.checkCanInsertIntoTable(null, tableName);
             accessControl.checkCanDeleteFromTable(null, tableName);
+
+            checkUnsupportedUniversalFormat(handle.getMetadataEntry());
 
             TableSnapshot tableSnapshot = metadata.getSnapshot(session, tableName, handle.getLocation(), Optional.of(handle.getReadVersion()));
             ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
