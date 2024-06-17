@@ -100,6 +100,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("liquid_clustering", "deltalake/liquid_clustering"),
             new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
             new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"),
+            new ResourceTable("uniform_hudi", "deltalake/uniform_hudi"),
             new ResourceTable("uniform_iceberg_v1", "databricks133/uniform_iceberg_v1"),
             new ResourceTable("uniform_iceberg_v2", "databricks143/uniform_iceberg_v2"),
             new ResourceTable("variant", "databricks153/variant"));
@@ -963,13 +964,24 @@ public class TestDeltaLakeBasic
     }
 
     /**
+     * @see deltalake.uniform_hudi
+     */
+    @Test
+    public void testUniFormHudi()
+    {
+        assertQuery("SELECT * FROM uniform_hudi", "VALUES (123)");
+        assertQueryFails("INSERT INTO uniform_hudi VALUES (456)", "\\QUnsupported universal formats: [hudi]");
+        assertQueryFails("CALL system.vacuum(CURRENT_SCHEMA, 'uniform_hudi', '7d')", "\\QUnsupported universal formats: [hudi]");
+    }
+
+    /**
      * @see databricks133.uniform_iceberg_v1
      */
     @Test
     public void testUniFormIcebergV1()
     {
         assertQuery("SELECT * FROM uniform_iceberg_v1", "VALUES (1, 'test data')");
-        assertQueryFails("INSERT INTO uniform_iceberg_v1 VALUES (2, 'new data')", "\\QUnsupported writer features: [icebergCompatV1]");
+        assertQueryFails("INSERT INTO uniform_iceberg_v1 VALUES (2, 'new data')", "\\QUnsupported universal formats: [iceberg]");
     }
 
     /**
@@ -979,7 +991,7 @@ public class TestDeltaLakeBasic
     public void testUniFormIcebergV2()
     {
         assertQuery("SELECT * FROM uniform_iceberg_v2", "VALUES (1, 'test data')");
-        assertQueryFails("INSERT INTO uniform_iceberg_v2 VALUES (2, 'new data')", "\\QUnsupported writer features: [icebergCompatV2]");
+        assertQueryFails("INSERT INTO uniform_iceberg_v2 VALUES (2, 'new data')", "\\QUnsupported universal formats: [iceberg]");
     }
 
     /**
