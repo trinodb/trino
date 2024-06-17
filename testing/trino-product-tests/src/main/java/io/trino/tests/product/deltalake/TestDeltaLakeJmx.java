@@ -44,8 +44,6 @@ public class TestDeltaLakeJmx
     public void testJmxTablesExposedByDeltaLakeConnectorBackedByThriftMetastore()
     {
         assertThat(onTrino().executeQuery("SHOW TABLES IN jmx.current LIKE '%name=delta%'")).containsOnly(
-                row("io.trino.hdfs:name=delta,type=trinofilesystemcachestats"),
-                row("io.trino.hdfs:name=delta,type=trinohdfsfilesystemstats"),
                 row("io.trino.plugin.hive.metastore.cache:name=delta,type=cachinghivemetastore"),
                 row("io.trino.plugin.hive.metastore.thrift:name=delta,type=thrifthivemetastore"),
                 row("io.trino.plugin.hive:catalog=delta,name=delta,type=fileformatdatasourcestats"),
