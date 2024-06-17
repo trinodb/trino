@@ -65,9 +65,8 @@ public final class SparkMetastoreUtil
             return Optional.empty();
         }
 
-        long rowCount = sparkBasicStatistics.getRowCount().getAsLong();
         Map<String, HiveColumnStatistics> columnStatistics = columns.entrySet().stream()
-                .map(entry -> Map.entry(entry.getKey(), fromMetastoreColumnStatistics(entry.getKey(), entry.getValue(), parameters, rowCount)))
+                .map(entry -> Map.entry(entry.getKey(), fromMetastoreColumnStatistics(entry.getKey(), entry.getValue(), parameters)))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         return Optional.of(new PartitionStatistics(sparkBasicStatistics, columnStatistics));
     }
@@ -85,7 +84,7 @@ public final class SparkMetastoreUtil
     }
 
     @VisibleForTesting
-    static HiveColumnStatistics fromMetastoreColumnStatistics(String columnName, HiveType type, Map<String, String> parameters, long rowCount)
+    static HiveColumnStatistics fromMetastoreColumnStatistics(String columnName, HiveType type, Map<String, String> parameters)
     {
         TypeInfo typeInfo = type.getTypeInfo();
         if (typeInfo.getCategory() != PRIMITIVE) {
