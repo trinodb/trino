@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +24,8 @@ import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -64,10 +68,12 @@ import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StructLike;
+import org.apache.iceberg.SystemConfigs;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type.PrimitiveType;
 import org.apache.iceberg.types.Types.NestedField;
@@ -89,6 +95,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -158,6 +165,10 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_ENABLED;
+import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS;
+import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH;
+import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
@@ -953,5 +964,38 @@ public final class IcebergUtil
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to get file modification time: " + path, e);
         }
+    }
+
+    public static Map<String, String> loadManifestCachingProperties(
+            Map<String, String> properties,
+            DataSize maxManifestCacheSize,
+            Duration manifestCacheExpireDuration,
+            DataSize manifestCacheMaxContentLength)
+    {
+        properties.put(IO_MANIFEST_CACHE_ENABLED, "true");
+        properties.put(IO_MANIFEST_CACHE_MAX_TOTAL_BYTES, String.valueOf(maxManifestCacheSize.toBytes()));
+        properties.put(IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS, String.valueOf(manifestCacheExpireDuration.toMillis()));
+        properties.put(IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH, String.valueOf(manifestCacheMaxContentLength.toBytes()));
+        return properties;
+    }
+
+    public static Optional<Cache<CatalogType, FileIO>> createFileIOCache(boolean isManifestCachingEnabled, Duration manifestCacheExpireDuration)
+    {
+        Optional<Cache<CatalogType, FileIO>> fileIOCache;
+        if (isManifestCachingEnabled) {
+            fileIOCache = Optional.of(Caffeine.newBuilder()
+                    .maximumSize(getMaxFileIO())
+                    .expireAfterAccess(manifestCacheExpireDuration.toMillis(), TimeUnit.MILLISECONDS)
+                    .build());
+        }
+        else {
+            fileIOCache = Optional.empty();
+        }
+        return fileIOCache;
+    }
+
+    public static int getMaxFileIO()
+    {
+        return SystemConfigs.IO_MANIFEST_CACHE_MAX_FILEIO.defaultValue();
     }
 }

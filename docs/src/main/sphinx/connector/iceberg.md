@@ -1685,3 +1685,35 @@ The connector supports redirection from Iceberg tables to Hive tables with the
 
 The connector supports configuring and using [file system
 caching](/object-storage/file-system-cache).
+
+### Manifest File Caching
+
+As of Iceberg version 1.1.0, Apache Iceberg provides a mechanism to cache the
+contents of Iceberg manifest files in memory. This feature helps to reduce
+repeated reads of small Iceberg manifest files from remote storage.
+
+Note that currently, manifest file caching is supported for Hive Metastore catalog.
+
+The following configuration properties are available:
+
+:::{list-table} Manifest File Caching configuration properties
+:widths: 30, 58, 12
+:header-rows: 1
+
+* - Property name
+  - Description
+  - Default
+* - `iceberg.hive.manifest.cache-enabled`
+  - Enable or disable the manifest caching feature.
+  - `false`
+* - `iceberg.hive.manifest.cache.max-total-size`
+  - Maximum size of cache size.
+  - `100MB`
+* - `iceberg.hive.manifest.cache.expiration-interval-duration`
+  - Maximum time duration for which an entry stays in the manifest cache.
+  - `60s`
+* - `iceberg.hive.manifest.cache.max-content-length`
+  - Maximum length of a manifest file to be considered for caching. Manifest files
+    with a length exceeding this size will not be cached.
+  - `8MB`
+:::
