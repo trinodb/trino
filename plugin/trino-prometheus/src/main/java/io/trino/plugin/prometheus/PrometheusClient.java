@@ -75,6 +75,7 @@ public class PrometheusClient
         Builder clientBuilder = new Builder().readTimeout(Duration.ofMillis(config.getReadTimeout().toMillis()));
         setupBasicAuth(clientBuilder, config.getUser(), config.getPassword());
         setupTokenAuth(clientBuilder, getBearerAuthInfoFromFile(config.getBearerTokenFile()), config.getHttpAuthHeaderName());
+        clientBuilder.addInterceptor(addAdditionalHeaders(config.getAdditionalHeaders()));
         this.httpClient = clientBuilder.build();
 
         URI prometheusMetricsUri = getPrometheusMetricsURI(config.getPrometheusURI());
@@ -221,5 +222,14 @@ public class PrometheusClient
         return chain -> chain.proceed(chain.request().newBuilder()
                 .addHeader(httpAuthHeaderName, token)
                 .build());
+    }
+
+    private static Interceptor addAdditionalHeaders(Map<String, String> additionalHeaders)
+    {
+        return chain -> {
+            Request.Builder requestBuilder = chain.request().newBuilder();
+            additionalHeaders.forEach(requestBuilder::addHeader);
+            return chain.proceed(requestBuilder.build());
+        };
     }
 }
