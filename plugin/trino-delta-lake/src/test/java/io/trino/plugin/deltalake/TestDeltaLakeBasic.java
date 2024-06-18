@@ -103,6 +103,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"),
             new ResourceTable("uniform_iceberg_v1", "databricks133/uniform_iceberg_v1"),
             new ResourceTable("uniform_iceberg_v2", "databricks143/uniform_iceberg_v2"),
+            new ResourceTable("unsupported_writer_feature", "deltalake/unsupported_writer_feature"),
             new ResourceTable("unsupported_writer_version", "deltalake/unsupported_writer_version"),
             new ResourceTable("variant", "databricks153/variant"));
 
@@ -1586,6 +1587,43 @@ public class TestDeltaLakeBasic
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
         assertQueryFails("SELECT * FROM " + tableName, "Type change from 'byte' to 'unsupported' is not supported");
+    }
+
+    /**
+     * @see deltalake.unsupported_writer_feature
+     */
+    @Test
+    public void testUnsupportedWriterFeature()
+    {
+        assertQueryReturnsEmptyResult("SELECT * FROM unsupported_writer_feature");
+
+        assertQueryFails(
+                "ALTER TABLE unsupported_writer_feature ADD COLUMN new_col int",
+                "\\QUnsupported writer features: [generatedColumns]");
+        assertQueryFails(
+                "ALTER TABLE unsupported_writer_feature RENAME COLUMN a TO renamed",
+                "\\QUnsupported writer features: [generatedColumns]");
+        assertQueryFails(
+                "ALTER TABLE unsupported_writer_feature DROP COLUMN b",
+                "\\QUnsupported writer features: [generatedColumns]");
+        assertQueryFails(
+                "ALTER TABLE unsupported_writer_feature ALTER COLUMN b DROP NOT NULL",
+                "\\QUnsupported writer features: [generatedColumns]");
+        assertQueryFails(
+                "ALTER TABLE unsupported_writer_feature EXECUTE OPTIMIZE",
+                "\\QUnsupported writer features: [generatedColumns]");
+        assertQueryFails(
+                "ALTER TABLE unsupported_writer_feature ALTER COLUMN b SET DATA TYPE bigint",
+                "This connector does not support setting column types");
+        assertQueryFails(
+                "COMMENT ON TABLE unsupported_writer_feature IS 'test comment'",
+                "\\QUnsupported writer features: [generatedColumns]");
+        assertQueryFails(
+                "COMMENT ON COLUMN unsupported_writer_feature.a IS 'test column comment'",
+                "\\QUnsupported writer features: [generatedColumns]");
+        assertQueryFails(
+                "CALL delta.system.vacuum('tpch', 'unsupported_writer_feature', '7d')",
+                "\\QCannot execute vacuum procedure with [generatedColumns] writer features");
     }
 
     /**
