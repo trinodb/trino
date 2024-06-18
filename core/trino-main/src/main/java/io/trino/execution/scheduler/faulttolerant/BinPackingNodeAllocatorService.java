@@ -633,7 +633,8 @@ public class BinPackingNodeAllocatorService
                 }
 
                 // if globally reported memory usage of node is greater than computed one lets use that.
-                // it can be greater if there are tasks executed on cluster which do not have task retries enabled.
+                // it can be greater if tasks exceeded the memory region assigned for them or there are
+                // non FTE tasks running on cluster.
                 nodeUsedMemoryRuntimeAdjusted = max(nodeUsedMemoryRuntimeAdjusted, memoryPoolInfo.getReservedBytes());
                 nodesRemainingMemoryRuntimeAdjusted.put(node.getNodeIdentifier(), max(memoryPoolInfo.getMaxBytes() + nodeMemoryOvercommit.toBytes() - nodeUsedMemoryRuntimeAdjusted, 0L));
             }
