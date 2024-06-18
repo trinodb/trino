@@ -189,7 +189,7 @@ public class Launcher
 
         protected Path findTemurinRelease()
         {
-            String searchFor = ".temurin-release";
+            String searchFor = "core/docker/temurin-release";
             Path currentWorkingDirectory = Paths.get("").toAbsolutePath();
             Path current = currentWorkingDirectory; // current working directory
 

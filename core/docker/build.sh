@@ -18,13 +18,11 @@ EOF
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 cd "${SCRIPT_DIR}" || exit 2
 
-SOURCE_DIR="${SCRIPT_DIR}/../.."
-
 ARCHITECTURES=(amd64 arm64 ppc64le)
 TRINO_VERSION=
 
 # Must match https://api.adoptium.net/q/swagger-ui/#/Release%20Info/getReleaseNames
-TEMURIN_RELEASE=$(cat "${SOURCE_DIR}/.temurin-release")
+TEMURIN_RELEASE=$(cat "${SCRIPT_DIR}/temurin-release")
 
 while getopts ":a:h:r:t:" o; do
     case "${o}" in
