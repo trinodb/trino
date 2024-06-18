@@ -50,7 +50,6 @@ import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakeWriteDatabricksCompatibility
         extends BaseTestDeltaLakeS3Storage
@@ -430,26 +429,6 @@ public class TestDeltaLakeWriteDatabricksCompatibility
         catch (QueryExecutionException e) {
             assertThat(e).hasMessageMatching("(?s).* delta.minWriterVersion needs to be (an integer between \\[1, 7]|one of 1, 2, 3, 4, 5(, 6)?, 7).*");
             throw new SkipException("Cannot test unsupported writer version");
-        }
-    }
-
-    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    public void testVacuumUnsupportedWriterFeature()
-    {
-        String tableName = "test_vacuum_unsupported_writer_feature_" + randomNameSuffix();
-        String directoryName = "databricks-compatibility-test-" + tableName;
-
-        onDelta().executeQuery("CREATE TABLE default." + tableName +
-                "(a INT)" +
-                "USING DELTA " +
-                "LOCATION '" + ("s3://" + bucketName + "/" + directoryName) + "'" +
-                "TBLPROPERTIES ('delta.enableDeletionVectors' = true)");
-        try {
-            assertThatThrownBy(() -> onTrino().executeQuery("CALL delta.system.vacuum('default', '" + tableName + "', '7d')"))
-                    .hasMessageContaining("Cannot execute vacuum procedure with [deletionVectors] writer features");
-        }
-        finally {
-            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
