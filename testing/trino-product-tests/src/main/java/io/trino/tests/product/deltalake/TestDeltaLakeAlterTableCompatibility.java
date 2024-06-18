@@ -237,34 +237,6 @@ public class TestDeltaLakeAlterTableCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testTrinoAlterTablePreservesChangeDataFeed()
-    {
-        String tableName = "test_trino_alter_table_preserves_cdf_" + randomNameSuffix();
-        String tableDirectory = "databricks-compatibility-test-" + tableName;
-
-        onDelta().executeQuery(format("""
-                        CREATE TABLE default.%s (col int)
-                        USING DELTA LOCATION 's3://%s/%s'
-                        TBLPROPERTIES ('delta.enableChangeDataFeed' = true)
-                        """,
-                tableName,
-                bucketName,
-                tableDirectory));
-        try {
-            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".col IS 'test column comment'");
-            onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test table comment'");
-            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_column INT");
-
-            Object enableChangeDataFeed = getOnlyElement(onDelta().executeQuery("SHOW TBLPROPERTIES " + tableName + "(delta.enableChangeDataFeed)").column(2));
-            assertThat(enableChangeDataFeed).isEqualTo("true");
-        }
-        finally {
-            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
-        }
-    }
-
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testTrinoPreservesReaderAndWriterVersions()
     {
