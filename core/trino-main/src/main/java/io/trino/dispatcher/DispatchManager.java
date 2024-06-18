@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.log.Logger;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
@@ -52,9 +53,11 @@ import org.weakref.jmx.Nested;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
@@ -63,9 +66,13 @@ import static io.trino.util.Failures.toFailure;
 import static io.trino.util.StatementUtils.getQueryType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class DispatchManager
 {
+    private static final Logger log = Logger.get(DispatchManager.class);
+
     private final QueryIdGenerator queryIdGenerator;
     private final QueryPreparer queryPreparer;
     private final ResourceGroupManager<?> resourceGroupManager;
@@ -85,6 +92,7 @@ public class DispatchManager
 
     private final QueryManagerStats stats = new QueryManagerStats();
     private final QueryMonitor queryMonitor;
+    private final ScheduledExecutorService statsUpdaterExecutor;
 
     @Inject
     public DispatchManager(
@@ -119,18 +127,28 @@ public class DispatchManager
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
+        this.statsUpdaterExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("dispatch-manager-stats-%s"));
     }
 
     @PostConstruct
     public void start()
     {
         queryTracker.start();
+        statsUpdaterExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                stats.updateDriverStats(queryTracker);
+            }
+            catch (Throwable e) {
+                log.error(e, "Error while updating driver stats");
+            }
+        }, 0, 10, SECONDS); // 10s to avoid excessive CPU usage; typical scraping interval is not shorter anyway
     }
 
     @PreDestroy
     public void stop()
     {
         queryTracker.stop();
+        statsUpdaterExecutor.shutdownNow();
     }
 
     @Managed
