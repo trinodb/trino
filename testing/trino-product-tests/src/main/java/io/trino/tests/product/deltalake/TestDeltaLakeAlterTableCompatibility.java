@@ -407,37 +407,4 @@ public class TestDeltaLakeAlterTableCompatibility
             onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
-
-    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    public void testUnsupportedStatementWithUnsupportedWriterFeature()
-    {
-        String tableName = "test_dl_add_column_unsupported_writer_feature_" + randomNameSuffix();
-
-        onDelta().executeQuery("CREATE TABLE default." + tableName + "" +
-                "(a int, b int NOT NULL) " +
-                "USING DELTA " +
-                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                "TBLPROPERTIES ('delta.feature.generatedColumns'='supported')");
-        try {
-            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col int"))
-                    .hasMessageContaining("Unsupported writer features: [generatedColumns]");
-            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN a TO renamed"))
-                    .hasMessageContaining("Unsupported writer features: [generatedColumns]");
-            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " DROP COLUMN b"))
-                    .hasMessageContaining("Unsupported writer features: [generatedColumns]");
-            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ALTER COLUMN b DROP NOT NULL"))
-                    .hasMessageContaining("Unsupported writer features: [generatedColumns]");
-            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " EXECUTE OPTIMIZE"))
-                    .hasMessageContaining("Unsupported writer features: [generatedColumns]");
-            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ALTER COLUMN b SET DATA TYPE bigint"))
-                    .hasMessageContaining("This connector does not support setting column types");
-            assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test comment'"))
-                    .hasMessageContaining("Unsupported writer features: [generatedColumns]");
-            assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".a IS 'test column comment'"))
-                    .hasMessageContaining("Unsupported writer features: [generatedColumns]");
-        }
-        finally {
-            dropDeltaTableWithRetry("default." + tableName);
-        }
-    }
 }
