@@ -22,10 +22,8 @@ import com.google.common.base.Throwables;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
-import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryResult;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 
 import java.sql.SQLException;
 import java.time.temporal.ChronoUnit;
@@ -38,11 +36,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
-import static org.assertj.core.api.Assertions.assertThat;
 
 public final class DeltaLakeTestUtils
 {
@@ -84,21 +80,6 @@ public final class DeltaLakeTestUtils
             return Optional.empty();
         }
         return Optional.of(DatabricksVersion.parse(version));
-    }
-
-    public static void skipTestUnlessUnsupportedWriterVersionExists()
-    {
-        // TODO: This method should be called only once per environment. Consider using a cache or creating a new module like HiveVersionProvider.
-        String tableName = "test_dl_unsupported_writer_version_" + randomNameSuffix();
-
-        try {
-            onDelta().executeQuery("CREATE TABLE default." + tableName + "(col int) USING DELTA TBLPROPERTIES ('delta.minWriterVersion'='8')");
-            dropDeltaTableWithRetry("default." + tableName);
-        }
-        catch (QueryExecutionException e) {
-            assertThat(e).hasMessageMatching("(?s).* delta.minWriterVersion needs to be (an integer between \\[1, 7]|one of 1, 2, 3, 4, 5(, 6)?, 7).*");
-            throw new SkipException("Cannot test unsupported writer version");
-        }
     }
 
     public static List<String> getColumnNamesOnDelta(String schemaName, String tableName)
