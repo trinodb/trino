@@ -94,6 +94,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("person_without_old_jsons", "databricks73/person_without_old_jsons"),
             new ResourceTable("person_without_checkpoints", "databricks73/person_without_checkpoints"));
     private static final List<ResourceTable> OTHER_TABLES = ImmutableList.of(
+            new ResourceTable("allow_column_defaults", "deltalake/allow_column_defaults"),
             new ResourceTable("stats_with_minmax_nulls", "deltalake/stats_with_minmax_nulls"),
             new ResourceTable("no_column_stats", "databricks73/no_column_stats"),
             new ResourceTable("deletion_vectors", "databricks122/deletion_vectors"),
@@ -934,6 +935,20 @@ public class TestDeltaLakeBasic
                         entry("delta.identity.step", 1),
                         entry("delta.identity.allowExplicitInsert", false));
     }
+
+    /**
+     * @see deltalake.allow_column_defaults
+     */
+    @Test
+    public void testAllowColumnDefaults()
+    {
+        assertQuery("SELECT * FROM allow_column_defaults", "VALUES (1, 16)");
+
+        // TODO (https://github.com/trinodb/trino/issues/22413) Add support for allowColumnDefaults writer feature
+        assertQueryFails("INSERT INTO allow_column_defaults VALUES (2, 32)", "\\QUnsupported writer features: [allowColumnDefaults]");
+        assertQueryFails("INSERT INTO allow_column_defaults (a) VALUES (2)", "\\QUnsupported writer features: [allowColumnDefaults]");
+    }
+
 
     /**
      * @see databricks122.deletion_vectors
