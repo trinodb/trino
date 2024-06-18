@@ -219,14 +219,15 @@ The `targetResource` is used in cases where a new resource, distinct from the on
 }
 ```
 ## RowFilters 
+Row filtering allows Trino to filter out some rows from the result before
+returning it to the caller, controlling what data different users can see. This
+plugin supports retrieving filters from OPA.
 
-Raw filters allow you to denied a group of users to see specifics rows in a
-table, based on an OPA policy.
+For these policies to be enabled, make sure to set `opa.policy.row-filters-uri`
+in the OPA plugin configuration.
 
-for these kind of policies to work, make sure to set
-`opa.policy.row-filters-uri` in the opa-plugin configuration
+For instance, an OPA policy for row filtering may be implemented as below:
 
-here is an example bellow
 ```rego
   package trino
   import future.keywords.in
@@ -247,20 +248,31 @@ here is an example bellow
       table_resource.tableName == "restricted_table"
   }
 ```
-the format expected by the plugin is a result (here "rowFilters") that contains
-an array of "{"expressions":"clause"} where each expression is basically a where
-clause.
+The response expected by the plugin is an array of objects, each of them in the
+format `{"expression":"clause"}`.
+
+Each expression essentially behaves like an additional `WHERE` clause.
+
+
+Also, It is possible for **multiple** row filters to be returned for a single
+OPA request, they will all be applied.
+
+About "identity"
+- each object may contain an identity field. The identity field allows Trino to
+  evaluate these row filters under a **different** identity - such that a filter
+  can target a column the requesting user cannot see.
  
 
 ## Column masking
 
-Column masking allow you to denied access to a particular column instead of the
-whole table from your OPA policy.
+Column masking allows Trino to mask out/obscure the data in some columns for
+specific users, without outright denying access. This plugin supports fetching
+column masks from OPA.
 
-for these kind of policies to work, make sure to set
-`opa.policy.column-masking-uri` in the opa-plugin configuration
+For these policies to be enabled, make sure to set
+`opa.policy.column-masking-uri` in the opa-plugin configuration.
 
-here is an example bellow
+For instance, a policy configuring column masking may be implemented as below:
 
 ```rego
   package trino
@@ -291,6 +303,13 @@ here is an example bellow
       column_resource.columnName == "user_name"
   }
 ```
+
+Unlike row filtering, only a **single column mask** may be returned for a given
+column.
+
+about "identity" : 
+- The same "identity" field may be returned to evaluate column masks under a
+  different identity
 
 
 (opa-batch-mode)=
