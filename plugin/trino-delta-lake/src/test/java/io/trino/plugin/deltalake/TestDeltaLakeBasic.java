@@ -103,6 +103,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"),
             new ResourceTable("uniform_iceberg_v1", "databricks133/uniform_iceberg_v1"),
             new ResourceTable("uniform_iceberg_v2", "databricks143/uniform_iceberg_v2"),
+            new ResourceTable("unsupported_writer_version", "deltalake/unsupported_writer_version"),
             new ResourceTable("variant", "databricks153/variant"));
 
     // The col-{uuid} pattern for delta.columnMapping.physicalName
@@ -1585,6 +1586,31 @@ public class TestDeltaLakeBasic
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
         assertQueryFails("SELECT * FROM " + tableName, "Type change from 'byte' to 'unsupported' is not supported");
+    }
+
+    /**
+     * @see deltalake.unsupported_writer_version
+     */
+    @Test
+    public void testUnsupportedWriterVersion()
+    {
+        assertQueryReturnsEmptyResult("SELECT * FROM unsupported_writer_version");
+
+        assertQueryFails(
+                "ALTER TABLE unsupported_writer_version ADD COLUMN new_col int",
+                "Table .* requires Delta Lake writer version 8 which is not supported");
+        assertQueryFails(
+                "COMMENT ON TABLE unsupported_writer_version IS 'test comment'",
+                "Table .* requires Delta Lake writer version 8 which is not supported");
+        assertQueryFails(
+                "COMMENT ON COLUMN unsupported_writer_version.col IS 'test column comment'",
+                "Table .* requires Delta Lake writer version 8 which is not supported");
+        assertQueryFails(
+                "ALTER TABLE unsupported_writer_version EXECUTE OPTIMIZE",
+                "Table .* requires Delta Lake writer version 8 which is not supported");
+        assertQueryFails(
+                "CALL delta.system.vacuum('tpch', 'unsupported_writer_version', '7d')",
+                "Cannot execute vacuum procedure with 8 writer version");
     }
 
     private static MetadataEntry loadMetadataEntry(long entryNumber, Path tableLocation)
