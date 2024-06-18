@@ -39,18 +39,22 @@ import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.types.Types;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.UuidType.UUID;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public final class TypeConverter
 {
@@ -183,6 +187,7 @@ public final class TypeConverter
     {
         checkExactlyOne(columnIdentity, nextFieldId);
 
+        Set<String> fieldNames = new HashSet<>();
         List<Types.NestedField> fields = new ArrayList<>();
         for (int i = 0; i < type.getFields().size(); i++) {
             int fieldIndex = i;
@@ -194,6 +199,9 @@ public final class TypeConverter
             RowType.Field field = type.getFields().get(fieldIndex);
             String name = field.getName().orElseThrow(() ->
                     new TrinoException(NOT_SUPPORTED, "Row type field does not have a name: " + type.getDisplayName()));
+            if (!fieldNames.add(name.toLowerCase(ENGLISH))) {
+                throw new TrinoException(DUPLICATE_COLUMN_NAME, "Field name '%s' specified more than once".formatted(name.toLowerCase(ENGLISH)));
+            }
             fields.add(Types.NestedField.optional(id, name, toIcebergTypeInternal(field.getType(), childColumnIdentity, nextFieldId)));
         }
         return Types.StructType.of(fields);
