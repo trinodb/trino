@@ -59,8 +59,6 @@ public class PrometheusSplitManager
     private final PrometheusClock prometheusClock;
 
     private final URI prometheusURI;
-    private final Duration maxQueryRangeDuration;
-    private final Duration queryChunkSizeDuration;
 
     @Inject
     public PrometheusSplitManager(PrometheusClient prometheusClient, PrometheusClock prometheusClock, PrometheusConnectorConfig config)
@@ -68,8 +66,6 @@ public class PrometheusSplitManager
         this.prometheusClient = requireNonNull(prometheusClient, "prometheusClient is null");
         this.prometheusClock = requireNonNull(prometheusClock, "prometheusClock is null");
         this.prometheusURI = config.getPrometheusURI();
-        this.maxQueryRangeDuration = config.getMaxQueryRangeDuration();
-        this.queryChunkSizeDuration = config.getQueryChunkSizeDuration();
     }
 
     @Override
@@ -87,6 +83,10 @@ public class PrometheusSplitManager
         if (table == null) {
             throw new TableNotFoundException(tableHandle.toSchemaTableName());
         }
+
+        Duration maxQueryRangeDuration = PrometheusSessionProperties.getMaxQueryRange(session);
+        Duration queryChunkSizeDuration = PrometheusSessionProperties.getQueryChunkSize(session);
+
         List<ConnectorSplit> splits = generateTimesForSplits(prometheusClock.now(), maxQueryRangeDuration, queryChunkSizeDuration, tableHandle)
                 .stream()
                 .map(time -> {
