@@ -1316,6 +1316,29 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testPartitionColumnNameConflict()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_conflict_partition", "(ts timestamp, ts_day int) WITH (partitioning = ARRAY['day(ts)'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '2021-07-24 03:43:57.987654', 1)", 1);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (TIMESTAMP '2021-07-24 03:43:57.987654', 1)");
+            assertThat(query("SELECT partition.ts_day_2 FROM \"" + table.getName() + "$partitions\""))
+                    .matches("VALUES DATE '2021-07-24'");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_conflict_partition", "(ts timestamp, ts_day int)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['day(ts)']");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '2021-07-24 03:43:57.987654', 1)", 1);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (TIMESTAMP '2021-07-24 03:43:57.987654', 1)");
+            assertThat(query("SELECT partition.ts_day_2 FROM \"" + table.getName() + "$partitions\""))
+                    .matches("VALUES DATE '2021-07-24'");
+        }
+    }
+
+    @Test
     public void testSortByAllTypes()
     {
         String tableName = "test_sort_by_all_types_" + randomNameSuffix();
