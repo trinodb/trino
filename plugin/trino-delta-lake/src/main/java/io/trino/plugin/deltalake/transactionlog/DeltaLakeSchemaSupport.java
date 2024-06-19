@@ -344,9 +344,11 @@ public final class DeltaLakeSchemaSupport
         fields.put("type", "struct");
         fields.put("fields", rowType.getFields().stream()
                 .map(field -> {
+                    String name = field.getName().orElseThrow(() ->
+                            new TrinoException(NOT_SUPPORTED, "Row type field does not have a name: " + rowType.getDisplayName()));
                     Object fieldType = serializeColumnType(columnMappingMode, maxColumnId, field.getType());
                     Map<String, Object> metadata = generateColumnMetadata(columnMappingMode, maxColumnId);
-                    return serializeStructField(field.getName().orElse(null), fieldType, null, true, metadata);
+                    return serializeStructField(name, fieldType, null, true, metadata);
                 })
                 .collect(toImmutableList()));
 
