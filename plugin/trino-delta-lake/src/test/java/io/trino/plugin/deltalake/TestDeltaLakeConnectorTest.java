@@ -4643,4 +4643,10 @@ public class TestDeltaLakeConnectorTest
                         "Delta Lake snapshot ID does not exists: .*|" +
                         "Unsupported type for table version: .*");
     }
+
+    @Test
+    public void testMissingFieldName()
+    {
+        assertQueryFails("CREATE TABLE test_missing_field_name(a row(int, int))", "\\QRow type field does not have a name: row(integer, integer)");
+    }
 }
