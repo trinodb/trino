@@ -889,7 +889,7 @@ public interface ConnectorMetadata
      */
     default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode, RefreshType refreshType)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
+        return beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, retryMode);
     }
 
     /**

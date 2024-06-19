@@ -114,7 +114,7 @@ public class IcebergSplitManager
 
     private Scan<?, FileScanTask, CombinedScanTask> getScan(IcebergMetadata icebergMetadata, Table icebergTable, IcebergTableHandle table, ExecutorService executor)
     {
-        Long fromSnapshot = icebergMetadata.getIncrementalRefreshFromSnapshot(table.getSchemaTableName()).orElse(null);
+        Long fromSnapshot = icebergMetadata.getIncrementalRefreshFromSnapshot().orElse(null);
         if (fromSnapshot != null) {
             // check if fromSnapshot is still part of the table's snapshot history
             if (SnapshotUtil.isAncestorOf(icebergTable, fromSnapshot)) {

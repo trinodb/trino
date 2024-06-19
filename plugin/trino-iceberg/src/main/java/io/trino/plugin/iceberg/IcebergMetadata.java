@@ -344,7 +344,7 @@ public class IcebergMetadata
     private final Map<IcebergTableHandle, TableStatistics> tableStatisticsCache = new ConcurrentHashMap<>();
 
     private Transaction transaction;
-    private Optional<Map<SchemaTableName, Long>> fromSnapshotsForRefresh = Optional.empty();
+    private Optional<Long> fromSnapshotForRefresh = Optional.empty();
 
     public IcebergMetadata(
             TypeManager typeManager,
@@ -2914,7 +2914,7 @@ public class IcebergMetadata
     @Override
     public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode, RefreshType refreshType)
     {
-        checkState(fromSnapshotsForRefresh.isEmpty(), "Snapshot map must be empty at the start of MV refresh operation.");
+        checkState(fromSnapshotForRefresh.isEmpty(), "From Snapshot must be empty at the start of MV refresh operation.");
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
         beginTransaction(icebergTable);
@@ -2932,19 +2932,18 @@ public class IcebergMetadata
                 // and the source table's fromSnapshot is available in the MV snapshot summary
                 && dependencies.isPresent() && !dependencies.get().equals(UNKNOWN_SNAPSHOT_TOKEN);
 
+        // make sure source table is from same catalog
+        IcebergTableHandle handle = (IcebergTableHandle) getOnlyElement(sourceTableHandles);
+        shouldUseIncremental = shouldUseIncremental && handle.getCatalog().equals(trinoCatalogHandle);
+
         if (shouldUseIncremental) {
-            Map<String, String> baseTableToSnapshot = MAP_SPLITTER.split(dependencies.get());
-            ImmutableMap.Builder<SchemaTableName, Long> fromSnapshotsForRefreshBuilder = ImmutableMap.builder();
-            for (Map.Entry<String, String> baseTable : baseTableToSnapshot.entrySet()) {
-                String[] schemaTable = baseTable.getKey().split("\\.");
-                SchemaTableName sourceSchemaTable = new SchemaTableName(schemaTable[0], schemaTable[1]);
-                long snapshot = Long.parseLong(baseTable.getValue());
-                fromSnapshotsForRefreshBuilder.put(sourceSchemaTable, snapshot);
-            }
-            fromSnapshotsForRefresh = Optional.of(fromSnapshotsForRefreshBuilder.buildOrThrow());
-        }
-        else {
-            fromSnapshotsForRefresh = Optional.of(ImmutableMap.of());
+            Map<String, String> sourceTableToSnapshot = MAP_SPLITTER.split(dependencies.get());
+            checkState(sourceTableToSnapshot.size() == 1, "Expected %s to contain only single source table in snapshot summary", sourceTableToSnapshot);
+            Map.Entry<String, String> sourceTable = getOnlyElement(sourceTableToSnapshot.entrySet());
+            String[] schemaTable = sourceTable.getKey().split("\\.");
+            SchemaTableName sourceSchemaTable = new SchemaTableName(schemaTable[0], schemaTable[1]);
+            checkState(sourceSchemaTable.equals(handle.getSchemaTableName()), "Snapshot summary table name %s doesn't match source table name %s", sourceSchemaTable, handle.getSchemaTableName());
+            fromSnapshotForRefresh = Optional.of(Long.parseLong(sourceTable.getValue()));
         }
 
         return newWritableTableHandle(table.getSchemaTableName(), icebergTable, retryMode);
@@ -2960,11 +2959,10 @@ public class IcebergMetadata
             List<ConnectorTableHandle> sourceTableHandles,
             List<String> sourceTableFunctions)
     {
-        checkState(fromSnapshotsForRefresh.isPresent(), "Snapshot map must be initialized by the end of MV refresh operation.");
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
 
         Table icebergTable = transaction.table();
-        boolean isFullRefresh = fromSnapshotsForRefresh.get().isEmpty();
+        boolean isFullRefresh = fromSnapshotForRefresh.isEmpty();
         if (isFullRefresh) {
             // delete before insert .. simulating overwrite
             log.info("Performing full MV refresh for storage table: %s", table.name());
@@ -3032,7 +3030,7 @@ public class IcebergMetadata
 
         transaction.commitTransaction();
         transaction = null;
-        fromSnapshotsForRefresh = Optional.empty();
+        fromSnapshotForRefresh = Optional.empty();
         return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
                 .map(CommitTaskData::path)
                 .collect(toImmutableList())));
@@ -3242,14 +3240,14 @@ public class IcebergMetadata
         return WriterScalingOptions.ENABLED;
     }
 
-    public Optional<Long> getIncrementalRefreshFromSnapshot(SchemaTableName schemaTableName)
+    public Optional<Long> getIncrementalRefreshFromSnapshot()
     {
-        return fromSnapshotsForRefresh.map(map -> map.get(schemaTableName));
+        return fromSnapshotForRefresh;
     }
 
     public void disableIncrementalRefresh()
     {
-        fromSnapshotsForRefresh = Optional.of(ImmutableMap.of());
+        fromSnapshotForRefresh = Optional.empty();
     }
 
     private static CollectedStatistics processComputedTableStatistics(Table table, Collection<ComputedStatistics> computedStatistics)
