@@ -48,6 +48,7 @@ import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 
 import java.util.AbstractMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +68,7 @@ import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -339,6 +341,7 @@ public final class DeltaLakeSchemaSupport
 
     private static Map<String, Object> serializeStructType(ColumnMappingMode columnMappingMode, AtomicInteger maxColumnId, RowType rowType)
     {
+        Set<String> fieldNames = new HashSet<>();
         ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
 
         fields.put("type", "struct");
@@ -346,6 +349,9 @@ public final class DeltaLakeSchemaSupport
                 .map(field -> {
                     String name = field.getName().orElseThrow(() ->
                             new TrinoException(NOT_SUPPORTED, "Row type field does not have a name: " + rowType.getDisplayName()));
+                    if (!fieldNames.add(name.toLowerCase(ENGLISH))) {
+                        throw new TrinoException(DUPLICATE_COLUMN_NAME, "Field name '%s' specified more than once".formatted(name.toLowerCase(ENGLISH)));
+                    }
                     Object fieldType = serializeColumnType(columnMappingMode, maxColumnId, field.getType());
                     Map<String, Object> metadata = generateColumnMetadata(columnMappingMode, maxColumnId);
                     return serializeStructField(name, fieldType, null, true, metadata);
