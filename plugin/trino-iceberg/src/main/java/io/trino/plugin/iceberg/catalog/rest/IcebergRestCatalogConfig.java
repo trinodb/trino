@@ -35,6 +35,7 @@ public class IcebergRestCatalogConfig
     }
 
     private URI restUri;
+    private Optional<String> prefix = Optional.empty();
     private Optional<String> warehouse = Optional.empty();
     private Security security = Security.NONE;
     private SessionType sessionType = SessionType.NONE;
@@ -53,6 +54,19 @@ public class IcebergRestCatalogConfig
         if (uri != null) {
             this.restUri = URI.create(uri);
         }
+        return this;
+    }
+
+    public Optional<String> getPrefix()
+    {
+        return prefix;
+    }
+
+    @Config("iceberg.rest-catalog.prefix")
+    @ConfigDescription("The prefix for the resource path to use with the REST catalog server")
+    public IcebergRestCatalogConfig setPrefix(String prefix)
+    {
+        this.prefix = Optional.ofNullable(prefix);
         return this;
     }
 

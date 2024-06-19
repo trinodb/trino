@@ -42,6 +42,7 @@ public class TrinoIcebergRestCatalogFactory
     private final CatalogName catalogName;
     private final String trinoVersion;
     private final URI serverUri;
+    private final Optional<String> prefix;
     private final Optional<String> warehouse;
     private final SessionType sessionType;
     private final boolean vendedCredentialsEnabled;
@@ -67,6 +68,7 @@ public class TrinoIcebergRestCatalogFactory
         this.trinoVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         requireNonNull(restConfig, "restConfig is null");
         this.serverUri = restConfig.getBaseUri();
+        this.prefix = restConfig.getPrefix();
         this.warehouse = restConfig.getWarehouse();
         this.sessionType = restConfig.getSessionType();
         this.vendedCredentialsEnabled = restConfig.isVendedCredentialsEnabled();
@@ -85,6 +87,7 @@ public class TrinoIcebergRestCatalogFactory
             ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
             properties.put(CatalogProperties.URI, serverUri.toString());
             warehouse.ifPresent(location -> properties.put(CatalogProperties.WAREHOUSE_LOCATION, location));
+            prefix.ifPresent(prefix -> properties.put("prefix", prefix));
             properties.put("trino-version", trinoVersion);
             properties.putAll(securityProperties.get());
 
