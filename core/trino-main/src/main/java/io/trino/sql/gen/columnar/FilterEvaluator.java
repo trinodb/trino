@@ -34,6 +34,7 @@ import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.columnar.AndFilterEvaluator.createAndExpressionEvaluator;
+import static io.trino.sql.gen.columnar.DynamicPageFilter.DynamicFilterEvaluator;
 import static io.trino.sql.gen.columnar.OrFilterEvaluator.createOrExpressionEvaluator;
 import static io.trino.sql.relational.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.relational.Expressions.call;
@@ -56,7 +57,8 @@ public sealed interface FilterEvaluator
         OrFilterEvaluator,
         PageFilterEvaluator,
         SelectAllEvaluator,
-        SelectNoneEvaluator
+        SelectNoneEvaluator,
+        DynamicFilterEvaluator
 {
     SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, Page page);
 
