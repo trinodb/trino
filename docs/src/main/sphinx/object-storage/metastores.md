@@ -475,6 +475,9 @@ following properties:
 * - `iceberg.rest-catalog.uri`
   - REST server API endpoint URI (required). Example:
     `http://iceberg-with-rest:8181`
+* - `iceberg.rest-catalog.prefix`
+  - The prefix for the resource path to use with the REST catalog server (optional).
+    Example: `dev`
 * - `iceberg.rest-catalog.warehouse`
   - Warehouse identifier/location for the catalog (optional). Example:
     `s3://my_bucket/warehouse_location`
