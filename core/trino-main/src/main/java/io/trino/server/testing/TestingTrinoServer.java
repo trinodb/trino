@@ -131,6 +131,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
+import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -247,7 +248,8 @@ public class TestingTrinoServer
             Optional<SpanProcessor> spanProcessor,
             Optional<FactoryConfiguration> systemAccessControlConfiguration,
             Optional<List<SystemAccessControl>> systemAccessControls,
-            List<EventListener> eventListeners)
+            List<EventListener> eventListeners,
+            Consumer<TestingTrinoServer> additionalConfiguration)
     {
         this.coordinator = coordinator;
 
@@ -425,6 +427,9 @@ public class TestingTrinoServer
         eventListeners.forEach(eventListenerManager::addEventListener);
 
         getFutureValue(injector.getInstance(Announcer.class).forceAnnounce());
+        // Must be run before startup is considered complete and node will therefore accept tasks.
+        // Technically `this` reference might escape here. However, the object is fully constructed.
+        additionalConfiguration.accept(this);
         injector.getInstance(StartupStatus.class).startupComplete();
 
         refreshNodes();
@@ -717,6 +722,7 @@ public class TestingTrinoServer
         private Optional<FactoryConfiguration> systemAccessControlConfiguration = Optional.empty();
         private Optional<List<SystemAccessControl>> systemAccessControls = Optional.of(ImmutableList.of());
         private List<EventListener> eventListeners = ImmutableList.of();
+        private Consumer<TestingTrinoServer> additionalConfiguration = _ -> {};
 
         public Builder setCoordinator(boolean coordinator)
         {
@@ -792,6 +798,12 @@ public class TestingTrinoServer
             return this;
         }
 
+        public Builder setAdditionalConfiguration(Consumer<TestingTrinoServer> additionalConfiguration)
+        {
+            this.additionalConfiguration = additionalConfiguration;
+            return this;
+        }
+
         public TestingTrinoServer build()
         {
             return new TestingTrinoServer(
@@ -804,7 +816,8 @@ public class TestingTrinoServer
                     spanProcessor,
                     systemAccessControlConfiguration,
                     systemAccessControls,
-                    eventListeners);
+                    eventListeners,
+                    additionalConfiguration);
         }
     }
 
