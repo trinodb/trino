@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.TaskId;
@@ -106,6 +107,8 @@ public class BinPackingNodeAllocatorService
     private final boolean optimizedLocalScheduling;
 
     private final StatsHolder stats = new StatsHolder();
+    private final CounterStat processCalls = new CounterStat();
+    private final CounterStat processPending = new CounterStat();
 
     @Inject
     public BinPackingNodeAllocatorService(
@@ -219,6 +222,7 @@ public class BinPackingNodeAllocatorService
     @VisibleForTesting
     synchronized void processPendingAcquires()
     {
+        processCalls.update(1);
         // Process EAGER_SPECULATIVE first; it increases the chance that tasks which have potential to end query early get scheduled to worker nodes.
         // Even though EAGER_SPECULATIVE tasks depend on upstream STANDARD tasks this logic will not lead to deadlock.
         // When processing STANDARD acquires below, we will ignore EAGER_SPECULATIVE (and SPECULATIVE) tasks when assessing if node has enough resources for processing task.
@@ -258,6 +262,7 @@ public class BinPackingNodeAllocatorService
                 continue;
             }
 
+            processPending.update(1);
             BinPackingSimulation.ReserveResult result = simulation.tryReserve(pendingAcquire);
             switch (result.getStatus()) {
                 case RESERVED:
@@ -329,6 +334,20 @@ public class BinPackingNodeAllocatorService
         // it is required that @Managed annotated method returns same object instance every time;
         // we return mutable wrapper while we keep Stats object immutable.
         return stats;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat processCalls()
+    {
+        return processCalls;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat processPending()
+    {
+        return processPending;
     }
 
     private void updateStats()
