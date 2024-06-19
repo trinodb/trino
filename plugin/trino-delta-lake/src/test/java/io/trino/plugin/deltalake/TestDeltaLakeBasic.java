@@ -117,11 +117,13 @@ public class TestDeltaLakeBasic
     private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
 
+    private Path catalogDir;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        Path catalogDir = Files.createTempDirectory("catalog-dir");
+        catalogDir = Files.createTempDirectory("catalog-dir");
         closeAfterClass(() -> deleteRecursively(catalogDir, ALLOW_INSECURE));
 
         return DeltaLakeQueryRunner.builder()
@@ -201,7 +203,7 @@ public class TestDeltaLakeBasic
     {
         // The table contains 'x' column with column mapping mode
         String tableName = "test_add_column_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/column_mapping_mode_" + columnMappingMode).toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
@@ -278,7 +280,7 @@ public class TestDeltaLakeBasic
     {
         // The table contains 'x' column with column mapping mode
         String tableName = "test_optimize_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/column_mapping_mode_" + columnMappingMode).toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
@@ -349,7 +351,7 @@ public class TestDeltaLakeBasic
     {
         // The table contains 'x' column with column mapping mode
         String tableName = "test_add_column_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/column_mapping_mode_" + columnMappingMode).toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
@@ -403,7 +405,7 @@ public class TestDeltaLakeBasic
     {
         // The table contains 'x' column with column mapping mode
         String tableName = "test_rename_column_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/column_mapping_mode_" + columnMappingMode).toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
@@ -459,7 +461,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_writer_after_rename_column_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/column_mapping_mode_" + columnMappingMode).toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
@@ -490,7 +492,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_require_partition_filter_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/case_sensitive").toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
@@ -516,7 +518,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_append_only_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/append_only").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (2, 12)");
@@ -540,7 +542,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_append_only_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/append_only").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (2, 12)");
@@ -559,7 +561,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_column_case_sensitivity_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/case_sensitive").toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
@@ -625,7 +627,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "timestamp_ntz" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("databricks131/timestamp_ntz").toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
@@ -852,7 +854,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "timestamp_ntz_partition" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("databricks131/timestamp_ntz_partition").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
@@ -950,7 +952,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_identity_columns_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("databricks122/identity_columns").toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
@@ -1072,7 +1074,7 @@ public class TestDeltaLakeBasic
     {
         // create a bad_person table which is based on person table in temporary location
         String tableName = "bad_person_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(Path.of(getResourceLocation("databricks73/person").toURI()), tableLocation);
         getQueryRunner().execute(
                 format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableLocation));
@@ -1174,7 +1176,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_multipart_checkpoint_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/multipart_checkpoint").toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
@@ -1187,7 +1189,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_time_travel_multipart_checkpoint_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/multipart_checkpoint").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
@@ -1220,7 +1222,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_time_travel_v2_checkpoint_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource(resourceName).toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
@@ -1261,7 +1263,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_partition_values_parsed_checkpoint_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource(resourceName).toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
@@ -1298,7 +1300,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_parsed_stats_struct_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("databricks133/parsed_stats_struct").toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
@@ -1332,7 +1334,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_parsed_stats_case_sensitive_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("databricks133/parsed_stats_case_sensitive").toURI()).toPath(), tableLocation);
 
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
@@ -1366,7 +1368,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_partition_values_parsed_checkpoint_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/partition_values_parsed_all_types").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
@@ -1407,7 +1409,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_write_partition_values_parsed_checkpoint_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/partition_values_parsed_all_types").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
@@ -1463,7 +1465,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_write_partition_values_parsed_checkpoint_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("databricks133/partition_values_parsed_case_sensitive").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
@@ -1512,7 +1514,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_v2_checkpoint_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         Path source = new File(Resources.getResource(resourceName).toURI()).toPath();
         copyDirectoryContents(source, tableLocation);
         assertThat(source.resolve("_delta_log/_last_checkpoint"))
@@ -1550,7 +1552,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_type_widening_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/type_widening").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
@@ -1578,7 +1580,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_type_widening_nestd_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/type_widening_nested").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
@@ -1623,7 +1625,7 @@ public class TestDeltaLakeBasic
             throws Exception
     {
         String tableName = "test_type_widening_" + randomNameSuffix();
-        Path tableLocation = Files.createTempFile(tableName, null);
+        Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("deltalake/type_widening_unsupported").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
