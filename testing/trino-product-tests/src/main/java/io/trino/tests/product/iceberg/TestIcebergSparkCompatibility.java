@@ -2454,6 +2454,24 @@ public class TestIcebergSparkCompatibility
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testPartitionColumnNameConflict()
+    {
+        String baseTableName = "test_conflict_partition" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + "(ts timestamp, ts_day int) WITH (partitioning = ARRAY['day(ts)'])");
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (TIMESTAMP '2021-07-24 03:43:57.987654', 1)");
+
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
+                .containsOnly(row(Timestamp.valueOf("2021-07-24 03:43:57.987654"), 1));
+        assertThat(onSpark().executeQuery("SELECT partition['ts_day_2'] FROM " + sparkTableName + ".partitions"))
+                .containsOnly(row(Date.valueOf("2021-07-24")));
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testHandlingPartitionSchemaEvolutionInPartitionMetadata()
     {
         String baseTableName = "test_handling_partition_schema_evolution_" + randomNameSuffix();
