@@ -32,6 +32,7 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.VarcharType;
+import org.apache.iceberg.exceptions.BadRequestException;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.assertj.core.util.Files;
@@ -52,6 +53,7 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTrinoRestCatalog
         extends BaseTrinoCatalogTest
@@ -60,6 +62,11 @@ public class TestTrinoRestCatalog
 
     @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
+    {
+        return createTrinoRestCatalog(useUniqueTableLocations, ImmutableMap.of());
+    }
+
+    private static TrinoRestCatalog createTrinoRestCatalog(boolean useUniqueTableLocations, Map<String, String> properties)
     {
         File warehouseLocation = Files.newTemporaryFolder();
         warehouseLocation.deleteOnExit();
@@ -70,7 +77,7 @@ public class TestTrinoRestCatalog
                 .delegate(backendCatalog(warehouseLocation))
                 .build();
 
-        restSessionCatalog.initialize(catalogName, ImmutableMap.of());
+        restSessionCatalog.initialize(catalogName, properties);
 
         return new TrinoRestCatalog(restSessionCatalog, new CatalogName(catalogName), NONE, "test", new TestingTypeManager(), useUniqueTableLocations);
     }
@@ -174,5 +181,23 @@ public class TestTrinoRestCatalog
                 LOG.warn("Failed to clean up namespace: %s", namespace);
             }
         }
+    }
+
+    @Test
+    public void testPrefix()
+    {
+        TrinoCatalog catalog = createTrinoRestCatalog(false, ImmutableMap.of("prefix", "dev"));
+
+        String namespace = "testPrefixNamespace" + randomNameSuffix();
+
+        assertThatThrownBy(() ->
+                catalog.createNamespace(
+                        SESSION,
+                        namespace,
+                        defaultNamespaceProperties(namespace),
+                        new TrinoPrincipal(PrincipalType.USER, SESSION.getUser())))
+                .isInstanceOf(BadRequestException.class)
+                .as("should fail as the prefix dev is not implemented for the current endpoint")
+                .hasMessageContaining("Malformed request: No route for request: POST v1/dev/namespaces");
     }
 }

@@ -29,6 +29,7 @@ public class TestIcebergRestCatalogConfig
     {
         assertRecordedDefaults(recordDefaults(IcebergRestCatalogConfig.class)
                 .setBaseUri(null)
+                .setPrefix(null)
                 .setWarehouse(null)
                 .setSessionType(IcebergRestCatalogConfig.SessionType.NONE)
                 .setSecurity(IcebergRestCatalogConfig.Security.NONE)
@@ -40,6 +41,7 @@ public class TestIcebergRestCatalogConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("iceberg.rest-catalog.uri", "http://localhost:1234")
+                .put("iceberg.rest-catalog.prefix", "dev")
                 .put("iceberg.rest-catalog.warehouse", "test_warehouse_identifier")
                 .put("iceberg.rest-catalog.security", "OAUTH2")
                 .put("iceberg.rest-catalog.session", "USER")
@@ -48,6 +50,7 @@ public class TestIcebergRestCatalogConfig
 
         IcebergRestCatalogConfig expected = new IcebergRestCatalogConfig()
                 .setBaseUri("http://localhost:1234")
+                .setPrefix("dev")
                 .setWarehouse("test_warehouse_identifier")
                 .setSessionType(IcebergRestCatalogConfig.SessionType.USER)
                 .setSecurity(IcebergRestCatalogConfig.Security.OAUTH2)
