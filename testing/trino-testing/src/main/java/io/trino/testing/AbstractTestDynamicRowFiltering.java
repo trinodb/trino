@@ -36,6 +36,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.SystemSessionProperties.DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_ROW_FILTERING;
 import static io.trino.operator.project.PageProcessorMetrics.DYNAMIC_FILTER_INPUT_POSITIONS;
 import static io.trino.operator.project.PageProcessorMetrics.DYNAMIC_FILTER_TIME;
@@ -224,6 +225,7 @@ public abstract class AbstractTestDynamicRowFiltering
     {
         return Session.builder(noJoinReordering(distributionType))
                 .setSystemProperty(ENABLE_DYNAMIC_ROW_FILTERING, "true")
+                .setSystemProperty(DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD, "1")
                 .build();
     }
 
