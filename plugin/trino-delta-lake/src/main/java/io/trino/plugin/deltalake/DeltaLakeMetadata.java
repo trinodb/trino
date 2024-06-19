@@ -2758,7 +2758,7 @@ public class DeltaLakeMetadata
         String tableLocation = executeHandle.tableLocation();
 
         // paths to be deleted
-        Set<DeltaLakeScannedDataFile> scannnedDataFiles = splitSourceInfo.stream()
+        Set<DeltaLakeScannedDataFile> scannedDataFiles = splitSourceInfo.stream()
                 .map(DeltaLakeScannedDataFile.class::cast)
                 .collect(toImmutableSet());
 
@@ -2784,7 +2784,7 @@ public class DeltaLakeMetadata
 
             long writeTimestamp = Instant.now().toEpochMilli();
 
-            for (DeltaLakeScannedDataFile scannedFile : scannnedDataFiles) {
+            for (DeltaLakeScannedDataFile scannedFile : scannedDataFiles) {
                 String relativePath = relativePath(tableLocation, scannedFile.path());
                 Map<String, Optional<String>> canonicalPartitionValues = scannedFile.partitionKeys();
                 transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(
