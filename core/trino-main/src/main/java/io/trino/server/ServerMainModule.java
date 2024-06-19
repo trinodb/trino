@@ -23,6 +23,7 @@ import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.HttpServerConfig;
+import io.airlift.http.server.TheServlet;
 import io.airlift.slice.Slice;
 import io.airlift.stats.GcMonitor;
 import io.airlift.stats.JmxGcMonitor;
@@ -154,6 +155,7 @@ import io.trino.type.TypeSignatureDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
 import io.trino.util.EmbedVersion;
 import io.trino.util.FinalizerService;
+import jakarta.servlet.Filter;
 
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -196,6 +198,11 @@ public class ServerMainModule
     protected void setup(Binder binder)
     {
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
+
+        install(conditionalModule(
+                HttpServerConfig.class,
+                config -> !config.isProcessForwarded(),
+                moduleBinder -> newSetBinder(moduleBinder, Filter.class, TheServlet.class).addBinding().to(RemoveForwardedPrefixFilter.class).in(Scopes.SINGLETON)));
 
         if (serverConfig.isCoordinator()) {
             install(new CoordinatorModule());

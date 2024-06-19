@@ -26,12 +26,14 @@ import io.trino.client.ProtocolHeaders;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.QueryManager;
 import io.trino.operator.DirectExchangeClientSupplier;
+import io.trino.server.ExternalUriInfo;
 import io.trino.server.ForStatementResource;
 import io.trino.server.ServerConfig;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.BlockEncodingSerde;
 import jakarta.annotation.PreDestroy;
+import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -41,11 +43,9 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.ResponseBuilder;
-import jakarta.ws.rs.core.UriInfo;
 
 import java.net.URLEncoder;
 import java.util.Map.Entry;
@@ -160,11 +160,11 @@ public class ExecutingStatementResource
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
             @QueryParam("targetResultSize") DataSize targetResultSize,
-            @Context UriInfo uriInfo,
+            @BeanParam ExternalUriInfo externalUriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
-        asyncQueryResults(query, token, maxWait, targetResultSize, uriInfo, asyncResponse);
+        asyncQueryResults(query, token, maxWait, targetResultSize, externalUriInfo, asyncResponse);
     }
 
     protected Query getQuery(QueryId queryId, String slug, long token)
@@ -209,7 +209,7 @@ public class ExecutingStatementResource
             long token,
             Duration maxWait,
             DataSize targetResultSize,
-            UriInfo uriInfo,
+            ExternalUriInfo externalUriInfo,
             AsyncResponse asyncResponse)
     {
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
@@ -219,7 +219,7 @@ public class ExecutingStatementResource
         else {
             targetResultSize = Ordering.natural().min(targetResultSize, MAX_TARGET_RESULT_SIZE);
         }
-        ListenableFuture<QueryResultsResponse> queryResultsFuture = query.waitForResults(token, uriInfo, wait, targetResultSize);
+        ListenableFuture<QueryResultsResponse> queryResultsFuture = query.waitForResults(token, externalUriInfo, wait, targetResultSize);
 
         ListenableFuture<Response> response = Futures.transform(queryResultsFuture, this::toResponse, directExecutor());
 

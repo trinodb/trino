@@ -15,7 +15,9 @@ package io.trino.server.ui;
 
 import com.google.common.io.Resources;
 import com.google.inject.Inject;
+import io.trino.server.ExternalUriInfo;
 import io.trino.server.security.ResourceSecurity;
+import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -33,9 +35,8 @@ import java.util.Optional;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Verify.verify;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
-import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM;
-import static io.trino.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM_URI;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.getDeleteCookies;
@@ -78,23 +79,24 @@ public class LoginResource
             @FormParam("username") String username,
             @FormParam("password") String password,
             @FormParam("redirectPath") String redirectPath,
-            @Context SecurityContext securityContext)
+            @Context SecurityContext securityContext,
+            @BeanParam ExternalUriInfo externalUriInfo)
     {
         username = emptyToNull(username);
         password = emptyToNull(password);
         redirectPath = emptyToNull(redirectPath);
 
         if (!formWebUiAuthenticationManager.isAuthenticationEnabled(securityContext.isSecure())) {
-            return Response.seeOther(DISABLED_LOCATION_URI).build();
+            return Response.seeOther(externalUriInfo.absolutePath(DISABLED_LOCATION)).build();
         }
 
         Optional<NewCookie[]> authenticationCookie = formWebUiAuthenticationManager.checkLoginCredentials(username, password, securityContext.isSecure());
         if (authenticationCookie.isEmpty()) {
             // authentication failed, redirect back to the login page
-            return Response.seeOther(LOGIN_FORM_URI).build();
+            return Response.seeOther(externalUriInfo.absolutePath(LOGIN_FORM)).build();
         }
 
-        return redirectFromSuccessfulLoginResponse(redirectPath)
+        return redirectFromSuccessfulLoginResponse(externalUriInfo, redirectPath)
                 .cookie(authenticationCookie.get())
                 .build();
     }
@@ -102,14 +104,14 @@ public class LoginResource
     @ResourceSecurity(WEB_UI)
     @GET
     @Path(UI_LOGOUT)
-    public Response logout(@Context HttpHeaders httpHeaders, @Context SecurityContext securityContext)
+    public Response logout(@Context HttpHeaders httpHeaders, @Context SecurityContext securityContext, @BeanParam ExternalUriInfo externalUriInfo)
     {
         URI redirectLocation;
         if (formWebUiAuthenticationManager.isAuthenticationEnabled(securityContext.isSecure())) {
-            redirectLocation = LOGIN_FORM_URI;
+            redirectLocation = externalUriInfo.absolutePath(LOGIN_FORM);
         }
         else {
-            redirectLocation = DISABLED_LOCATION_URI;
+            redirectLocation = externalUriInfo.absolutePath(DISABLED_LOCATION);
         }
         return Response.seeOther(redirectLocation)
                 .cookie(getDeleteCookies(httpHeaders.getCookies(), securityContext.isSecure()))
