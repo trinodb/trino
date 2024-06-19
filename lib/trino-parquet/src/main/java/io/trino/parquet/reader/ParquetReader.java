@@ -323,8 +323,8 @@ public class ParquetReader
             return;
         }
 
-        for (int column = 0; column < primitiveFields.size(); column++) {
-            ChunkedInputStream chunkedStream = chunkReaders.get(new ChunkKey(column, currentRowGroup));
+        for (PrimitiveField field : primitiveFields) {
+            ChunkedInputStream chunkedStream = chunkReaders.get(new ChunkKey(field.getId(), currentRowGroup));
             if (chunkedStream != null) {
                 chunkedStream.close();
             }
