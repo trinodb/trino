@@ -39,6 +39,7 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import org.apache.parquet.schema.PrimitiveType;
@@ -508,6 +509,46 @@ public class TestDeltaLakeBasic
         assertQuery(session, format("SELECT * FROM %s WHERE \"Part\" = 11", tableName), "VALUES (1, 11)");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testAppendOnly()
+            throws Exception
+    {
+        String tableName = "test_append_only_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/append_only").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (2, 12)");
+
+        assertQueryFails("UPDATE " + tableName + " SET a = a + 1", "Cannot modify rows from a table with 'delta.appendOnly' set to true");
+        assertQueryFails("DELETE FROM " + tableName + " WHERE a = 1", "Cannot modify rows from a table with 'delta.appendOnly' set to true");
+        assertQueryFails("DELETE FROM " + tableName, "Cannot modify rows from a table with 'delta.appendOnly' set to true");
+        assertQueryFails("TRUNCATE TABLE " + tableName, "Cannot modify rows from a table with 'delta.appendOnly' set to true");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (2, 12)");
+
+        // Verify delta.appendOnly is preserved after DML
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'test column comment'");
+        assertUpdate("COMMENT ON TABLE " + tableName + " IS 'test table comment'");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN new_col INT");
+        assertThat(query("SELECT * FROM \"" + tableName + "$properties\"")).result().rows()
+                .contains(new MaterializedRow(List.of("delta.appendOnly", "true")));
+    }
+
+    @Test
+    public void testCreateOrReplaceTableOnAppendOnlyTableFails()
+            throws Exception
+    {
+        String tableName = "test_append_only_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/append_only").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (2, 12)");
+
+        // Delta Lake disallows replacing a table when 'delta.appendOnly' is set to true
+        assertQueryFails("CREATE OR REPLACE TABLE " + tableName + "(a INT, c INT)", "Cannot replace a table when 'delta.appendOnly' is set to true");
+        assertQueryFails("CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 as e", "Cannot replace a table when 'delta.appendOnly' is set to true");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (2, 12)");
     }
 
     /**
