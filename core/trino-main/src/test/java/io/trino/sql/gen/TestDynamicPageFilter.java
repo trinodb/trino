@@ -20,12 +20,14 @@ import io.trino.metadata.Metadata;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.security.ConnectorIdentity;
@@ -48,6 +50,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
 import static com.google.common.base.Verify.verify;
@@ -276,7 +279,8 @@ public class TestDynamicPageFilter
                 TYPE_MANAGER,
                 dynamicFilter,
                 ImmutableMap.of(symbolA, columnA, symbolB, columnB, symbolC, columnC),
-                ImmutableMap.of(symbolA, 0, symbolB, 1, symbolC, 2));
+                ImmutableMap.of(symbolA, 0, symbolB, 1, symbolC, 2),
+                1);
         Page page = new Page(
                 createLongSequenceBlock(0, 101),
                 createLongSequenceBlock(100, 201),
@@ -305,9 +309,132 @@ public class TestDynamicPageFilter
         assertThat(pageFilter.createDynamicPageFilterEvaluator(COMPILER)).isEqualTo(filterEvaluatorSupplier);
     }
 
+    @Test
+    public void testIneffectiveFilter()
+    {
+        ColumnHandle column = new TestingColumnHandle("column");
+        List<Page> inputPages = generateInputPages(3, 1, 1024);
+        FilterEvaluator filterEvaluator = createDynamicFilterEvaluator(
+                TupleDomain.withColumnDomains(ImmutableMap.of(column, getRangePredicate(100, 5000))),
+                ImmutableMap.of(column, 0),
+                0.9);
+        assertThat(filterPage(inputPages.get(0), filterEvaluator).size()).isEqualTo(924);
+        assertThat(filterPage(inputPages.get(1), filterEvaluator).size()).isEqualTo(924);
+
+        // EffectiveFilterProfiler should turn off row filtering
+        assertThat(filterPage(inputPages.get(2), filterEvaluator).size()).isEqualTo(1024);
+        assertThat(inputPages.get(2).getBlock(0)).isInstanceOf(LazyBlock.class);
+    }
+
+    @Test
+    public void testEffectiveFilter()
+    {
+        ColumnHandle column = new TestingColumnHandle("column");
+        List<Page> inputPages = generateInputPages(5, 1, 1024);
+        FilterEvaluator filterEvaluator = createDynamicFilterEvaluator(
+                TupleDomain.withColumnDomains(ImmutableMap.of(column, singleValue(BIGINT, 13L))),
+                ImmutableMap.of(column, 0),
+                0.1);
+        // EffectiveFilterProfiler should not turn off row filtering
+        for (Page inputPage : inputPages) {
+            assertThat(filterPage(inputPage, filterEvaluator).size()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    public void testIneffectiveFilterFirst()
+    {
+        ColumnHandle columnA = new TestingColumnHandle("columnA");
+        ColumnHandle columnB = new TestingColumnHandle("columnB");
+        List<Page> inputPages = generateInputPages(3, 2, 1024);
+        FilterEvaluator filterEvaluator = createDynamicFilterEvaluator(
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        columnA, getRangePredicate(100, 1024),
+                        columnB, singleValue(BIGINT, 13L))),
+                ImmutableMap.of(columnA, 0, columnB, 1),
+                0.9);
+        assertThat(filterPage(inputPages.get(0), filterEvaluator).size()).isEqualTo(0);
+        assertThat(filterPage(inputPages.get(1), filterEvaluator).size()).isEqualTo(0);
+
+        // EffectiveFilterProfiler should turn off row filtering only for the first column filter
+        assertThat(filterPage(inputPages.get(2), filterEvaluator).size()).isEqualTo(1);
+        assertThat(inputPages.get(2).getBlock(0)).isInstanceOf(LazyBlock.class);
+    }
+
+    @Test
+    public void testIneffectiveFilterLast()
+    {
+        ColumnHandle columnA = new TestingColumnHandle("columnA");
+        ColumnHandle columnB = new TestingColumnHandle("columnB");
+        List<Page> inputPages = generateInputPages(4, 2, 1024);
+        FilterEvaluator filterEvaluator = createDynamicFilterEvaluator(
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        columnA, getRangePredicate(50, 950),
+                        columnB, getRangePredicate(100, 1024))),
+                ImmutableMap.of(columnA, 0, columnB, 1),
+                0.9);
+        assertThat(filterPage(inputPages.get(0), filterEvaluator).size()).isEqualTo(850);
+        assertThat(filterPage(inputPages.get(1), filterEvaluator).size()).isEqualTo(850);
+        assertThat(filterPage(inputPages.get(2), filterEvaluator).size()).isEqualTo(850);
+
+        // EffectiveFilterProfiler should turn off row filtering only for the last column filter
+        assertThat(filterPage(inputPages.get(3), filterEvaluator).size()).isEqualTo(900);
+        assertThat(inputPages.get(3).getBlock(1)).isInstanceOf(LazyBlock.class);
+    }
+
+    @Test
+    public void testMultipleColumnsShortCircuit()
+    {
+        ColumnHandle columnA = new TestingColumnHandle("columnA");
+        ColumnHandle columnB = new TestingColumnHandle("columnB");
+        ColumnHandle columnC = new TestingColumnHandle("columnC");
+        List<Page> inputPages = generateInputPages(5, 3, 100);
+        FilterEvaluator filterEvaluator = createDynamicFilterEvaluator(
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        columnA, multipleValues(BIGINT, ImmutableList.of(-10L, 5L, 15L, 35L, 50L, 85L, 95L, 105L)),
+                        columnB, singleValue(BIGINT, 0L),
+                        columnC, getRangePredicate(150, 250))),
+                ImmutableMap.of(columnA, 0, columnB, 1, columnC, 2));
+        for (Page inputPage : inputPages) {
+            assertThat(filterPage(inputPage, filterEvaluator).size()).isEqualTo(0);
+            assertThat(inputPage.getBlock(0)).isNotInstanceOf(LazyBlock.class);
+            assertThat(inputPage.getBlock(1)).isNotInstanceOf(LazyBlock.class);
+            assertThat(inputPage.getBlock(2)).isInstanceOf(LazyBlock.class);
+        }
+    }
+
+    @Test
+    public void testDynamicFilterOnSubsetOfColumns()
+    {
+        ColumnHandle columnB = new TestingColumnHandle("columnB");
+        ColumnHandle columnD = new TestingColumnHandle("columnD");
+        List<Page> inputPages = generateInputPages(5, 5, 1024);
+        FilterEvaluator filterEvaluator = createDynamicFilterEvaluator(
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        columnB, multipleValues(BIGINT, ImmutableList.of(-10L, 5L, 15L, 35L, 50L, 85L, 95L, 105L)),
+                        columnD, getRangePredicate(-50, 90))),
+                ImmutableMap.of(columnB, 1, columnD, 3));
+        for (Page inputPage : inputPages) {
+            assertThat(filterPage(inputPage, filterEvaluator).size()).isEqualTo(5);
+            assertThat(inputPage.getBlock(0)).isInstanceOf(LazyBlock.class);
+            assertThat(inputPage.getBlock(1)).isNotInstanceOf(LazyBlock.class);
+            assertThat(inputPage.getBlock(2)).isInstanceOf(LazyBlock.class);
+            assertThat(inputPage.getBlock(3)).isNotInstanceOf(LazyBlock.class);
+            assertThat(inputPage.getBlock(4)).isInstanceOf(LazyBlock.class);
+        }
+    }
+
     private static FilterEvaluator createDynamicFilterEvaluator(
             TupleDomain<ColumnHandle> tupleDomain,
             Map<ColumnHandle, Integer> channels)
+    {
+        return createDynamicFilterEvaluator(tupleDomain, channels, 1);
+    }
+
+    private static FilterEvaluator createDynamicFilterEvaluator(
+            TupleDomain<ColumnHandle> tupleDomain,
+            Map<ColumnHandle, Integer> channels,
+            double selectivityThreshold)
     {
         TestingDynamicFilter dynamicFilter = new TestingDynamicFilter(1);
         dynamicFilter.update(tupleDomain);
@@ -329,7 +456,8 @@ public class TestDynamicPageFilter
                 TYPE_MANAGER,
                 dynamicFilter,
                 columns.buildOrThrow(),
-                layout.buildOrThrow())
+                layout.buildOrThrow(),
+                selectivityThreshold)
                 .createDynamicPageFilterEvaluator(COMPILER)
                 .get();
     }
@@ -353,6 +481,20 @@ public class TestDynamicPageFilter
         assertThat(selectedPositions.isList()).isFalse();
         assertThat(selectedPositions.getOffset()).isEqualTo(0);
         assertThat(selectedPositions.size()).isEqualTo(rangeSize);
+    }
+
+    private static List<Page> generateInputPages(int pages, int blocks, int positionsPerBlock)
+    {
+        return IntStream.range(0, pages)
+                .mapToObj(i -> new Page(IntStream.range(0, blocks)
+                        .mapToObj(_ -> new LazyBlock(positionsPerBlock, () -> createLongSequenceBlock(0, positionsPerBlock)))
+                        .toArray(Block[]::new)))
+                .collect(toImmutableList());
+    }
+
+    private static Domain getRangePredicate(long start, long end)
+    {
+        return Domain.create(ValueSet.ofRanges(Range.range(BIGINT, start, true, end, false)), false);
     }
 
     private static class TestingDynamicFilter
