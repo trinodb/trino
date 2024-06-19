@@ -31,7 +31,5 @@ public class JdbcJoinPushdownSupportModule
     {
         configBinder(binder).bindConfig(JdbcJoinPushdownConfig.class);
         bindSessionPropertiesProvider(binder, JdbcJoinPushdownSessionProperties.class);
-
-        configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setJoinPushdownEnabled(true));
     }
 }
