@@ -61,7 +61,7 @@ public final class JdbcJoinPushdownUtil
     }
 
     /**
-     * Common implementation of AUTOMATIC join pushdown strategy to by used in SEP Jdbc connectors
+     * Common implementation of AUTOMATIC join pushdown strategy used in Jdbc connectors
      */
     public static boolean shouldPushDownJoinCostAware(
             ConnectorSession session,
@@ -106,9 +106,9 @@ public final class JdbcJoinPushdownUtil
 
         double joinDataSize = statistics.getJoinStatistics().get().getDataSize();
         if (joinDataSize < getJoinPushdownAutomaticJoinToTablesRatio(session) * (leftDataSize + rightDataSize)) {
-            // This is poor man's estimation if it makes more sense to perform join in source database or SEP.
-            // The assumption here is that cost of performing join in source database is less than or equal to cost of join in SEP.
-            // We resolve tie for pessimistic case (both join costs equal) on cost of sending the data from source database to SEP.
+            // This is poor man's estimation if it makes more sense to perform join in source database or Trino.
+            // The assumption here is that cost of performing join in source database is less than or equal to cost of join in Trino.
+            // We resolve tie for pessimistic case (both join costs equal) on cost of sending the data from source database to Trino.
             LOG.debug("triggering join pushdown for %s", joinSignature);
             return true;
         }
