@@ -17,6 +17,7 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.UnrecoverableIOException;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.iceberg.util.HiveSchemaUtil;
@@ -260,7 +261,8 @@ public abstract class AbstractIcebergTableOperations
                             .withMaxRetries(20)
                             .withBackoff(100, 5000, MILLIS, 4.0)
                             .withMaxDuration(Duration.ofMinutes(10))
-                            .abortOn(failure -> failure instanceof ValidationException || isNotFoundException(failure))
+                            .abortOn(ValidationException.class, UnrecoverableIOException.class)
+                            .abortOn(AbstractIcebergTableOperations::isNotFoundException)
                             .build())
                     .get(() -> metadataLoader.apply(newLocation));
         }
