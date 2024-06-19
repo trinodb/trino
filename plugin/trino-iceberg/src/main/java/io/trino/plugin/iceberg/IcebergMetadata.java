@@ -2928,9 +2928,9 @@ public class IcebergMetadata
                 // there is a single source table
                 && sourceTableHandles.size() == 1
                 // and source table is an Iceberg table
-                && getOnlyElement(sourceTableHandles) instanceof IcebergTableHandle
+                && getOnlyElement(sourceTableHandles) instanceof IcebergTableHandle handle
                 // and source table is from the same catalog
-                && ((IcebergTableHandle) getOnlyElement(sourceTableHandles)).getCatalog().equals(trinoCatalogHandle)
+                && handle.getCatalog().equals(trinoCatalogHandle)
                 // and the source table's fromSnapshot is available in the MV snapshot summary
                 && dependencies.isPresent() && !dependencies.get().equals(UNKNOWN_SNAPSHOT_TOKEN);
 
@@ -2938,6 +2938,10 @@ public class IcebergMetadata
             Map<String, String> sourceTableToSnapshot = MAP_SPLITTER.split(dependencies.get());
             checkState(sourceTableToSnapshot.size() == 1, "Expected %s to contain only single source table in snapshot summary", sourceTableToSnapshot);
             Map.Entry<String, String> sourceTable = getOnlyElement(sourceTableToSnapshot.entrySet());
+            String[] schemaTable = sourceTable.getKey().split("\\.");
+            IcebergTableHandle handle = (IcebergTableHandle) getOnlyElement(sourceTableHandles);
+            SchemaTableName sourceSchemaTable = new SchemaTableName(schemaTable[0], schemaTable[1]);
+            checkState(sourceSchemaTable.equals(handle.getSchemaTableName()), "Source table name %s doesn't match handle table name %s", sourceSchemaTable, handle.getSchemaTableName());
             fromSnapshotForRefresh = Optional.of(Long.parseLong(sourceTable.getValue()));
         }
 
