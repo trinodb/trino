@@ -98,7 +98,9 @@ public final class IcebergSessionProperties
     private static final String MERGE_MANIFESTS_ON_WRITE = "merge_manifests_on_write";
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
-
+    private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
+    private static final String ALLOW_MULTI_SPEC_BUCKET_EXECUTION = "allow_multi_spec_bucket_execution";
+    private static final String OPTIMIZE_MISMATCHED_BUCKET_COUNT = "optimize_mismatched_bucket_count";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -354,6 +356,19 @@ public final class IcebergSessionProperties
                         "Require filter on partition column",
                         icebergConfig.isQueryPartitionFilterRequired(),
                         false))
+                .add(booleanProperty(BUCKET_EXECUTION_ENABLED,
+                        "Experimental: Enable bucketed execution for iceberg tables",
+                        false,
+                        false))
+                .add(booleanProperty(ALLOW_MULTI_SPEC_BUCKET_EXECUTION,
+                        "Experimental: Enable bucketed execution for iceberg tables with partition evolution",
+                        false,
+                        false))
+                .add(booleanProperty(
+                        OPTIMIZE_MISMATCHED_BUCKET_COUNT,
+                        "Experimental: Enable optimization to avoid shuffle when bucket count is compatible but not the same",
+                        true,
+                        false))
                 .build();
     }
 
@@ -578,5 +593,20 @@ public final class IcebergSessionProperties
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
     {
         return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
+    }
+
+    public static boolean isBucketExecutionEnabled(ConnectorSession session)
+    {
+        return session.getProperty(BUCKET_EXECUTION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isAllowMultiSpecBucketExecution(ConnectorSession session)
+    {
+        return session.getProperty(ALLOW_MULTI_SPEC_BUCKET_EXECUTION, Boolean.class);
+    }
+
+    public static boolean isOptimizedMismatchedBucketCount(ConnectorSession session)
+    {
+        return session.getProperty(OPTIMIZE_MISMATCHED_BUCKET_COUNT, Boolean.class);
     }
 }

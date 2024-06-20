@@ -19,6 +19,8 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
@@ -120,7 +122,7 @@ public final class PartitionFields
                 .collect(toImmutableList());
     }
 
-    private static String toPartitionField(PartitionSpec spec, PartitionField field)
+    public static String toPartitionField(PartitionSpec spec, PartitionField field)
     {
         String name = fromColumnToIdentifier(spec.schema().findColumnName(field.sourceId()));
         String transform = field.transform().toString();
@@ -160,5 +162,73 @@ public final class PartitionFields
             return name;
         }
         return '"' + name.replace("\"", "\"\"") + '"';
+    }
+
+    public static class BucketedPartitionField
+    {
+        private final PartitionField field;
+        private final String sourceColumn;
+        private final int bucketCount;
+
+        private BucketedPartitionField(PartitionField field, String sourceColumn, int bucketCount)
+        {
+            this.field = field;
+            this.sourceColumn = sourceColumn;
+            this.bucketCount = bucketCount;
+        }
+
+        private static Optional<BucketedPartitionField> from(PartitionSpec spec, PartitionField field)
+        {
+            String name = spec.schema().findColumnName(field.sourceId());
+            String transform = field.transform().toString();
+            Matcher matcher = ICEBERG_BUCKET_PATTERN.matcher(transform);
+            if (matcher.matches()) {
+                return Optional.of(new BucketedPartitionField(field, name, Integer.parseInt(matcher.group(1))));
+            }
+            return Optional.empty();
+        }
+
+        public static List<BucketedPartitionField> getBucketedPartitionFields(PartitionSpec spec)
+        {
+            return spec.fields().stream()
+                    .map(field -> from(spec, field))
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .collect(toImmutableList());
+        }
+
+        public PartitionField getField()
+        {
+            return field;
+        }
+
+        public String getSourceColumn()
+        {
+            return sourceColumn;
+        }
+
+        public int getBucketCount()
+        {
+            return bucketCount;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            BucketedPartitionField that = (BucketedPartitionField) o;
+            return bucketCount == that.bucketCount && Objects.equals(sourceColumn, that.sourceColumn);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(sourceColumn, bucketCount);
+        }
     }
 }

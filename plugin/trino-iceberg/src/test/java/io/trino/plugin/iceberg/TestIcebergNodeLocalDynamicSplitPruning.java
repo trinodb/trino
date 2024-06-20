@@ -150,7 +150,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     SplitWeight.standard(),
                     TupleDomain.all(),
                     ImmutableMap.of(),
-                    0);
+                    0,
+                    Optional.empty());
 
             String tablePath = inputFile.location().fileName();
             TableHandle tableHandle = new TableHandle(
@@ -174,7 +175,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
-                            Optional.of(false)),
+                            Optional.of(false),
+                            Optional.empty()),
                     transaction);
 
             TupleDomain<ColumnHandle> splitPruningPredicate = TupleDomain.withColumnDomains(
@@ -211,7 +213,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     SplitWeight.standard(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(keyColumnHandle, Domain.singleValue(INTEGER, (long) keyColumnValue))),
                     ImmutableMap.of(),
-                    0);
+                    0,
+                    Optional.empty());
 
             tableHandle = new TableHandle(
                     TEST_CATALOG_HANDLE,
@@ -234,7 +237,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
-                            Optional.of(false)),
+                            Optional.of(false),
+                            Optional.empty()),
                     transaction);
 
             try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, icebergConfig, split, tableHandle, ImmutableList.of(keyColumnHandle, dataColumnHandle), getDynamicFilter(splitPruningPredicate))) {
@@ -320,7 +324,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     SplitWeight.standard(),
                     TupleDomain.all(),
                     ImmutableMap.of(),
-                    0);
+                    0,
+                    Optional.empty());
 
             String tablePath = inputFile.location().fileName();
             TableHandle tableHandle = new TableHandle(
@@ -344,7 +349,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
-                            Optional.of(false)),
+                            Optional.of(false),
+                            Optional.empty()),
                     transaction);
 
             // Simulate situations where the dynamic filter (e.g.: while performing a JOIN with another table) reduces considerably
@@ -472,7 +478,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                     SplitWeight.standard(),
                     TupleDomain.all(),
                     ImmutableMap.of(),
-                    0);
+                    0,
+                    Optional.empty());
 
             String tablePath = inputFile.location().fileName();
             // Simulate the situation where `month` column is added at a later phase as partitioning column
@@ -505,7 +512,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
-                            Optional.of(false)),
+                            Optional.of(false),
+                            Optional.empty()),
                     transaction);
 
             // Simulate situations where the dynamic filter (e.g.: while performing a JOIN with another table) reduces considerably

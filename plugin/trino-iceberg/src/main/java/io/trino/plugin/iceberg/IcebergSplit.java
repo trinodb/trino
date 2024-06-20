@@ -28,6 +28,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -53,6 +54,7 @@ public class IcebergSplit
     private final Map<String, String> fileIoProperties;
     private final long dataSequenceNumber;
     private final List<HostAddress> addresses;
+    private final Optional<Integer> bucketId;
 
     @JsonCreator
     public IcebergSplit(
@@ -68,7 +70,8 @@ public class IcebergSplit
             @JsonProperty("splitWeight") SplitWeight splitWeight,
             @JsonProperty("fileStatisticsDomain") TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
             @JsonProperty("fileIoProperties") Map<String, String> fileIoProperties,
-            @JsonProperty("dataSequenceNumber") long dataSequenceNumber)
+            @JsonProperty("dataSequenceNumber") long dataSequenceNumber,
+            @JsonProperty("bucketId") Optional<Integer> bucketId)
     {
         this(
                 path,
@@ -84,7 +87,8 @@ public class IcebergSplit
                 fileStatisticsDomain,
                 fileIoProperties,
                 ImmutableList.of(),
-                dataSequenceNumber);
+                dataSequenceNumber,
+                bucketId);
     }
 
     public IcebergSplit(
@@ -101,7 +105,8 @@ public class IcebergSplit
             TupleDomain<IcebergColumnHandle> fileStatisticsDomain,
             Map<String, String> fileIoProperties,
             List<HostAddress> addresses,
-            long dataSequenceNumber)
+            long dataSequenceNumber,
+            Optional<Integer> bucketId)
     {
         this.path = requireNonNull(path, "path is null");
         this.start = start;
@@ -117,6 +122,7 @@ public class IcebergSplit
         this.fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.dataSequenceNumber = dataSequenceNumber;
+        this.bucketId = requireNonNull(bucketId, "bucketId is null");
     }
 
     @JsonIgnore
@@ -203,6 +209,12 @@ public class IcebergSplit
     public long getDataSequenceNumber()
     {
         return dataSequenceNumber;
+    }
+
+    @JsonProperty
+    public Optional<Integer> getBucketId()
+    {
+        return bucketId;
     }
 
     @Override

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -36,5 +37,24 @@ public record IcebergPartitioningHandle(List<String> partitioning, List<IcebergC
         return toStringHelper(this)
                 .add("partitioning", partitioning)
                 .toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        IcebergPartitioningHandle that = (IcebergPartitioningHandle) o;
+        return Objects.equals(partitioning, that.partitioning) && Objects.equals(partitioningColumns, that.partitioningColumns);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(partitioning, partitioningColumns);
     }
 }
