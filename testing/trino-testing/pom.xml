@@ -204,7 +204,6 @@
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-server</artifactId>
-            <version>12.0.10</version>
         </dependency>
 
         <dependency>
