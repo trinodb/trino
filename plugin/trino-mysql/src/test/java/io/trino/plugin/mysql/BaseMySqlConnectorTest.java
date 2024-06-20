@@ -359,6 +359,14 @@ public abstract class BaseMySqlConnectorTest
                 .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
                 .isFullyPushedDown();
 
+        // date range
+        assertThat(query("SELECT orderkey FROM orders WHERE orderdate BETWEEN DATE '1992-01-29' AND DATE '1992-01-30'"))
+                .matches("VALUES 46852, 47526, 36484, 37347, 44802, BIGINT '8070', 15557, BIGINT '3168'")
+                .isFullyPushedDown();
+        assertThat(query("SELECT orderkey FROM orders WHERE orderdate >= DATE '1992-01-29' AND orderdate <= DATE '1992-01-30'"))
+                .matches("VALUES 46852, 47526, 36484, 37347, 44802, BIGINT '8070', 15557, BIGINT '3168'")
+                .isFullyPushedDown();
+
         onRemoteDatabase().execute("CREATE TABLE tpch.binary_test (x int, y varbinary(100))");
         onRemoteDatabase().execute("INSERT INTO tpch.binary_test VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))");
 
