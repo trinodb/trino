@@ -175,24 +175,24 @@ public abstract class ColumnChunkMetadata
     public CompressionCodecName getCodec()
     {
         decryptIfNeeded();
-        return properties.getCodec();
+        return properties.codec();
     }
 
     public ColumnPath getPath()
     {
-        return properties.getPath();
+        return properties.path();
     }
 
     public PrimitiveTypeName getType()
     {
         decryptIfNeeded();
-        return properties.getPrimitiveType().getPrimitiveTypeName();
+        return properties.type().getPrimitiveTypeName();
     }
 
     public PrimitiveType getPrimitiveType()
     {
         decryptIfNeeded();
-        return properties.getPrimitiveType();
+        return properties.type();
     }
 
     public abstract long getFirstDataPageOffset();
@@ -243,7 +243,7 @@ public abstract class ColumnChunkMetadata
     public Set<Encoding> getEncodings()
     {
         decryptIfNeeded();
-        return properties.getEncodings();
+        return properties.encodings();
     }
 
     public EncodingStats getEncodingStats()
