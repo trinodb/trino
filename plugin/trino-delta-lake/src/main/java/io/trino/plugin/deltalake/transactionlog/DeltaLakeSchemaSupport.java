@@ -52,6 +52,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -460,7 +461,7 @@ public final class DeltaLakeSchemaSupport
         ColumnMappingMode mappingMode = getColumnMappingMode(metadataEntry, protocolEntry);
         verifySupportedColumnMapping(mappingMode);
         return Optional.ofNullable(metadataEntry.getSchemaString())
-                .map(json -> getColumnMetadata(json, typeManager, mappingMode))
+                .map(json -> getColumnMetadata(json, typeManager, mappingMode, metadataEntry.getOriginalPartitionColumns()))
                 .orElseThrow(() -> new IllegalStateException("Serialized schema not found in transaction log for " + metadataEntry.getName()));
     }
 
@@ -471,17 +472,18 @@ public final class DeltaLakeSchemaSupport
         }
     }
 
-    public static List<DeltaLakeColumnMetadata> getColumnMetadata(String json, TypeManager typeManager, ColumnMappingMode mappingMode)
+    public static List<DeltaLakeColumnMetadata> getColumnMetadata(String json, TypeManager typeManager, ColumnMappingMode mappingMode, List<String> partitionColumns)
     {
         try {
             ImmutableList.Builder<DeltaLakeColumnMetadata> columns = ImmutableList.builder();
             Iterator<JsonNode> nodes = OBJECT_MAPPER.readTree(json).get("fields").elements();
             while (nodes.hasNext()) {
                 try {
-                    columns.add(mapColumn(typeManager, nodes.next(), mappingMode));
+                    columns.add(mapColumn(typeManager, nodes.next(), mappingMode, partitionColumns));
                 }
                 catch (UnsupportedTypeException e) {
-                    // Write operations are denied by unsupported 'variantType' writer feature
+                    // Write operations are denied by unsupported 'variantType' writer feature,
+                    // as well as reads of unsupported type-widened columns are skipped
                     log.debug("Skip unsupported column type: %s", e.type());
                 }
             }
@@ -492,7 +494,7 @@ public final class DeltaLakeSchemaSupport
         }
     }
 
-    private static DeltaLakeColumnMetadata mapColumn(TypeManager typeManager, JsonNode node, ColumnMappingMode mappingMode)
+    private static DeltaLakeColumnMetadata mapColumn(TypeManager typeManager, JsonNode node, ColumnMappingMode mappingMode, List<String> partitionColumns)
             throws UnsupportedTypeException
     {
         String fieldName = node.get("name").asText();
@@ -503,9 +505,7 @@ public final class DeltaLakeSchemaSupport
         String physicalName;
         Type physicalColumnType;
         JsonNode metadata = node.get("metadata");
-        if (metadata.has("delta.typeChanges")) {
-            metadata.get("delta.typeChanges").elements().forEachRemaining(DeltaLakeSchemaSupport::verifyTypeChange);
-        }
+        verifyTypeChanges(metadata, typeNode, partitionColumns.contains(fieldName));
         switch (mappingMode) {
             case ID:
                 String columnMappingId = metadata.get("delta.columnMapping.id").asText();
@@ -534,7 +534,44 @@ public final class DeltaLakeSchemaSupport
         return new DeltaLakeColumnMetadata(columnMetadata, fieldName, fieldId, physicalName, physicalColumnType);
     }
 
+    private static void verifyTypeChanges(JsonNode metadata, JsonNode typeNode, boolean isPartitionColumn)
+            throws UnsupportedTypeException
+    {
+        // struct cannot be a partition column
+        if (isStruct(typeNode)) {
+            verifyStructTypeChanges(typeNode);
+        }
+        // partition columns should not be skipped as we retrieve them from snapshot files
+        else if (!isPartitionColumn) {
+            verifyTypeChanges(metadata);
+        }
+    }
+
+    private static void verifyTypeChanges(JsonNode metadata)
+            throws UnsupportedTypeException
+    {
+        if (metadata.has("delta.typeChanges")) {
+            Iterator<JsonNode> typeChanges = metadata.get("delta.typeChanges").elements();
+            while (typeChanges.hasNext()) {
+                verifyTypeChange(typeChanges.next());
+            }
+        }
+    }
+
+    private static void verifyStructTypeChanges(JsonNode container)
+            throws UnsupportedTypeException
+    {
+        Iterator<JsonNode> fields = container.get("fields").elements();
+        while (fields.hasNext()) {
+            JsonNode field = fields.next();
+            JsonNode fieldMetadata = field.get("metadata");
+            JsonNode typeNode = field.get("type");
+            verifyTypeChanges(fieldMetadata, typeNode, false);
+        }
+    }
+
     private static void verifyTypeChange(JsonNode typeChange)
+            throws UnsupportedTypeException
     {
         String fromType = typeChange.get("fromType").asText();
         String toType = typeChange.get("toType").asText();
@@ -543,8 +580,12 @@ public final class DeltaLakeSchemaSupport
                 (fromType.equals("short") && toType.equals("integer"))) {
             return;
         }
-        // TODO: Skip unsupported columns instead of throwing an exception
-        throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Type change from '%s' to '%s' is not supported".formatted(fromType, toType));
+        throw new UnsupportedTypeException("Type change from '%s' to '%s' is not supported".formatted(fromType, toType));
+    }
+
+    private static boolean isStruct(JsonNode typeNode)
+    {
+        return typeNode.isContainerNode() && Objects.equals(typeNode.get("type").asText(), "struct");
     }
 
     public static Map<String, Object> getColumnTypes(MetadataEntry metadataEntry)
