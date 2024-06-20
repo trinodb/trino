@@ -45,6 +45,7 @@ import io.trino.metadata.TableSchema;
 import io.trino.metadata.TableVersion;
 import io.trino.metadata.ViewDefinition;
 import io.trino.metadata.ViewInfo;
+import io.trino.spi.RefreshType;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -726,11 +727,11 @@ public class TracingMetadata
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles)
+    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType)
     {
         Span span = startSpan("beginRefreshMaterializedView", tableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles);
+            return delegate.beginRefreshMaterializedView(session, tableHandle, sourceTableHandles, refreshType);
         }
     }
 
