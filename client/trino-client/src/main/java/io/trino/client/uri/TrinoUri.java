@@ -624,7 +624,7 @@ public class TrinoUri
                 if (!useSecureConnection) {
                     throw new SQLException("TLS/SSL is required for authentication with username and password");
                 }
-                builder.addInterceptor(basicAuth(getRequiredUser(), password));
+                builder.addNetworkInterceptor(basicAuth(getRequiredUser(), password));
             }
 
             if (useSecureConnection) {
