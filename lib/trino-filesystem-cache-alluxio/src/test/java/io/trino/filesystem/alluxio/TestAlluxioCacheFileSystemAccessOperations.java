@@ -17,6 +17,7 @@ import alluxio.client.file.cache.PageId;
 import alluxio.client.file.cache.PageStore;
 import alluxio.client.file.cache.store.PageStoreOptions;
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
@@ -83,10 +84,10 @@ public class TestAlluxioCacheFileSystemAccessOperations
         Path cacheDirectory = Files.createDirectory(tempDirectory.resolve("cache"));
 
         AlluxioFileSystemCacheConfig configuration = new AlluxioFileSystemCacheConfig()
-                .setCacheDirectories(cacheDirectory.toAbsolutePath().toString())
+                .setCacheDirectories(ImmutableList.of(cacheDirectory.toAbsolutePath().toString()))
                 .disableTTL()
                 .setCachePageSize(DataSize.ofBytes(PAGE_SIZE))
-                .setMaxCacheSizes(DataSize.ofBytes(CACHE_SIZE).toBytesValueString());
+                .setMaxCacheSizes(ImmutableList.of(DataSize.ofBytes(CACHE_SIZE)));
 
         tracingFileSystemFactory = new TracingFileSystemFactory(testingTelemetry.getTracer(), new MemoryFileSystemFactory());
         alluxioCache = new AlluxioFileSystemCache(testingTelemetry.getTracer(), configuration, new AlluxioCacheStats());

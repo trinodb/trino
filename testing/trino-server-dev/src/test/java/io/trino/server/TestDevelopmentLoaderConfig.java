@@ -30,9 +30,9 @@ public class TestDevelopmentLoaderConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(DevelopmentLoaderConfig.class)
-                .setPlugins("")
+                .setPlugins(ImmutableList.of())
                 .setMavenLocalRepository(ArtifactResolver.USER_LOCAL_REPO)
-                .setMavenRemoteRepository(ArtifactResolver.MAVEN_CENTRAL_URI));
+                .setMavenRemoteRepository(ImmutableList.of(ArtifactResolver.MAVEN_CENTRAL_URI)));
     }
 
     @Test

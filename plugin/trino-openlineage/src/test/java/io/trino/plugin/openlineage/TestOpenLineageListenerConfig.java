@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.openlineage;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.openlineage.config.OpenLineageListenerConfig;
 import org.junit.jupiter.api.Test;
 
@@ -43,14 +43,14 @@ final class TestOpenLineageListenerConfig
                 .setTransport(OpenLineageTransport.CONSOLE)
                 .setTrinoURI(null)
                 .setNamespace(null)
-                .setDisabledFacets(ImmutableList.of())
-                .setIncludeQueryTypes(ImmutableList.of(
-                        ALTER_TABLE_EXECUTE.name(),
-                        DELETE.name(),
-                        INSERT.name(),
-                        MERGE.name(),
-                        UPDATE.name(),
-                        DATA_DEFINITION.name())));
+                .setDisabledFacets(ImmutableSet.of())
+                .setIncludeQueryTypes(ImmutableSet.of(
+                        ALTER_TABLE_EXECUTE,
+                        DELETE,
+                        INSERT,
+                        MERGE,
+                        UPDATE,
+                        DATA_DEFINITION)));
     }
 
     @Test
@@ -68,8 +68,8 @@ final class TestOpenLineageListenerConfig
         OpenLineageListenerConfig expected = new OpenLineageListenerConfig()
                 .setTransport(OpenLineageTransport.HTTP)
                 .setTrinoURI(new URI("http://testtrino"))
-                .setIncludeQueryTypes(ImmutableList.of(SELECT.name(), DELETE.name()))
-                .setDisabledFacets(ImmutableList.of(TRINO_METADATA.name(), TRINO_QUERY_STATISTICS.name()))
+                .setIncludeQueryTypes(ImmutableSet.of(SELECT, DELETE))
+                .setDisabledFacets(ImmutableSet.of(TRINO_METADATA, TRINO_QUERY_STATISTICS))
                 .setNamespace("testnamespace");
 
         assertFullMapping(properties, expected);
