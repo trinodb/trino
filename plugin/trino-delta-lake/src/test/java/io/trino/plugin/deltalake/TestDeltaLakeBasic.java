@@ -984,6 +984,54 @@ public class TestDeltaLakeBasic
                         entry("delta.identity.allowExplicitInsert", false));
     }
 
+    @Test
+    public void testWritesToTableWithIdentityColumnFails()
+            throws Exception
+    {
+        String tableName = "test_identity_columns_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/identity_columns").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        // Disallowing all statements just in case though some statements may be unrelated to identity columns
+        assertQueryFails(
+                "INSERT INTO " + tableName + " VALUES (4, 4)",
+                "Writing to tables with identity columns is not supported");
+        assertQueryFails(
+                "UPDATE " + tableName + " SET a = 3",
+                "Writing to tables with identity columns is not supported");
+        assertQueryFails(
+                "DELETE FROM " + tableName,
+                "Writing to tables with identity columns is not supported");
+        assertQueryFails(
+                "MERGE INTO " + tableName + " t USING " + tableName + " s ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET a = 1",
+                "Writing to tables with identity columns is not supported");
+    }
+
+    @Test
+    public void testIdentityColumnTableFeature()
+            throws Exception
+    {
+        String tableName = "test_identity_columns_table_feature_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks133/identity_columns_table_feature").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        // Disallowing all statements just in case though some statements may be unrelated to identity columns
+        assertQueryFails(
+                "INSERT INTO " + tableName + " VALUES (4, 4)",
+                "\\QUnsupported writer features: [identityColumns]");
+        assertQueryFails(
+                "UPDATE " + tableName + " SET a = 3",
+                "\\QUnsupported writer features: [identityColumns]");
+        assertQueryFails(
+                "DELETE FROM " + tableName,
+                "\\QUnsupported writer features: [identityColumns]");
+        assertQueryFails(
+                "MERGE INTO " + tableName + " t USING " + tableName + " s ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET a = 1",
+                "\\QUnsupported writer features: [identityColumns]");
+    }
+
     /**
      * @see deltalake.allow_column_defaults
      */
