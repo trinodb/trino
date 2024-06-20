@@ -50,7 +50,7 @@ support:
   - Switch to activate billing transfer cost to the requester. Defaults to
     `false`.
 * - `s3.max-connections`
-  - Maximum number of connections to S3.
+  - Maximum number of connections to S3.  Defaults to `500`.
 * - `s3.connection-ttl`
   - Maximum time [duration](prop-type-duration) allowed to reuse connections in
     the connection pool before being replaced.
