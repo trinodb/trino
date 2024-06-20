@@ -610,6 +610,21 @@ public final class TestHiveFileFormats
                 .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, new ParquetReaderConfig(), new HiveConfig()));
     }
 
+    @Test(dataProvider = "rowCount")
+    public void testParquetCaseSensitivity(int rowCount)
+            throws Exception
+    {
+        TestColumn writeColumn = new TestColumn("UPPER_CASE_COLUMN", createVarcharType(4), new HiveVarchar("test", 4), utf8Slice("test"));
+        TestColumn readColumn = new TestColumn("uppeR_casE_columN", createVarcharType(4), new HiveVarchar("test", 4), utf8Slice("test"));
+        assertThatFileFormat(PARQUET)
+                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withReadColumns(ImmutableList.of(readColumn))
+                .withSession(PARQUET_SESSION_USE_NAME)
+                .withRowsCount(rowCount)
+                .withFileWriterFactory(fileSystemFactory -> new ParquetFileWriterFactory(fileSystemFactory, new NodeVersion("test-version"), TESTING_TYPE_MANAGER, new HiveConfig(), STATS))
+                .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, new ParquetReaderConfig(), new HiveConfig()));
+    }
+
     private static List<TestColumn> getTestColumnsSupportedByParquet()
     {
         // Write of complex hive data to Parquet is broken
