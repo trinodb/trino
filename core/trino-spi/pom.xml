@@ -234,6 +234,16 @@
                                     <new>method io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::fromJson(io.trino.spi.type.Type, boolean[], io.trino.spi.block.Block, io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker)</new>
                                 </item>
                                 <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method io.trino.spi.connector.ConnectorInsertTableHandle io.trino.spi.connector.ConnectorMetadata::beginRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, io.trino.spi.connector.RetryMode)</old>
+                                    <new>method io.trino.spi.connector.ConnectorInsertTableHandle io.trino.spi.connector.ConnectorMetadata::beginRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, io.trino.spi.connector.RetryMode, io.trino.spi.QueryTransformationType)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method io.trino.spi.connector.ConnectorInsertTableHandle io.trino.spi.connector.ConnectorMetadata::beginRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, io.trino.spi.connector.RetryMode)</old>
+                                    <new>method io.trino.spi.connector.ConnectorInsertTableHandle io.trino.spi.connector.ConnectorMetadata::beginRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, io.trino.spi.connector.RetryMode, io.trino.spi.RefreshType)</new>
+                                </item>
+                                <item>
                                     <ignore>true</ignore>
                                     <code>java.field.removed</code>
                                     <old>field io.trino.spi.connector.JoinCondition.Operator.IS_DISTINCT_FROM</old>
