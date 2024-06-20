@@ -17,6 +17,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -25,6 +26,7 @@ import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
+import io.airlift.stats.DistributionStat;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.TaskId;
@@ -396,13 +398,23 @@ public class BinPackingNodeAllocatorService
             }
         }
 
+        Multimap<InternalNode, BinPackingNodeLease> acquiresByNode = HashMultimap.create();
         for (BinPackingNodeLease acquire : fulfilledAcquires) {
             switch (acquire.getExecutionClass()) {
                 case STANDARD -> fulfilledStandard++;
                 case SPECULATIVE -> fulfilledSpeculative++;
                 case EAGER_SPECULATIVE -> fulfilledEagerSpeculative++;
             }
+            acquiresByNode.put(acquire.getAssignedNode(), acquire);
         }
+
+        DistributionStat fulfilledByNodeCountDistribution = new DistributionStat();
+        DistributionStat fulfilledByNodeMemoryDistribution = new DistributionStat();
+        acquiresByNode.asMap().values().forEach(nodeAcquires -> {
+            fulfilledByNodeCountDistribution.add(nodeAcquires.size());
+            fulfilledByNodeMemoryDistribution.add(nodeAcquires.stream().mapToLong(BinPackingNodeLease::getMemoryLease).sum());
+        });
+
         stats.updateStats(new Stats(
                 pendingStandardNoneMatching,
                 pendingStandardNotEnoughResources,
@@ -415,7 +427,9 @@ public class BinPackingNodeAllocatorService
                 pendingEagerSpeculativeUnknown,
                 fulfilledStandard,
                 fulfilledSpeculative,
-                fulfilledEagerSpeculative));
+                fulfilledEagerSpeculative,
+                fulfilledByNodeCountDistribution,
+                fulfilledByNodeMemoryDistribution));
     }
 
     private static class PendingAcquire
@@ -914,6 +928,18 @@ public class BinPackingNodeAllocatorService
         {
             return statsReference.get().fulfilledEagerSpeculative();
         }
+
+        @Managed
+        public DistributionStat getFulfilledByNodeCountDistribution()
+        {
+            return statsReference.get().fulfilledByNodeCountDistribution();
+        }
+
+        @Managed
+        public DistributionStat getFulfilledByNodeMemoryDistribution()
+        {
+            return statsReference.get().fulfilledByNodeMemoryDistribution();
+        }
     }
 
     private record Stats(
@@ -928,8 +954,16 @@ public class BinPackingNodeAllocatorService
             long pendingEagerSpeculativeUnknown,
             long fulfilledStandard,
             long fulfilledSpeculative,
-            long fulfilledEagerSpeculative)
+            long fulfilledEagerSpeculative,
+            DistributionStat fulfilledByNodeCountDistribution,
+            DistributionStat fulfilledByNodeMemoryDistribution)
     {
-        static final Stats ZERO = new Stats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        static final Stats ZERO = new Stats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, new DistributionStat(), new DistributionStat());
+
+        private Stats
+        {
+            requireNonNull(fulfilledByNodeCountDistribution, "fulfilledByNodeCountDistribution is null");
+            requireNonNull(fulfilledByNodeMemoryDistribution, "fulfilledByNodeMemoryDistribution is null");
+        }
     }
 }
