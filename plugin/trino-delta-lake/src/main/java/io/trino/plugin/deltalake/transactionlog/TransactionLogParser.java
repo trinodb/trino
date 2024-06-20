@@ -44,6 +44,7 @@ import java.time.ZonedDateTime;
 import java.time.chrono.IsoChronology;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.time.format.SignStyle;
 import java.time.temporal.ChronoField;
@@ -167,7 +168,15 @@ public final class TransactionLogParser
 
     private static Long readPartitionTimestamp(String timestamp)
     {
-        LocalDateTime localDateTime = LocalDateTime.parse(timestamp, PARTITION_TIMESTAMP_FORMATTER);
+        LocalDateTime localDateTime;
+        try {
+            localDateTime = LocalDateTime.parse(timestamp, PARTITION_TIMESTAMP_FORMATTER);
+        }
+        catch (DateTimeParseException ignored) {
+            // TODO: avoid this exception-driven logic
+            // type widening date->timestamp has occurred and this value is of date format
+            localDateTime = LocalDate.parse(timestamp).atTime(LocalTime.MIN);
+        }
         return localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND + divide(localDateTime.getNano(), NANOSECONDS_PER_MICROSECOND, UNNECESSARY);
     }
 
