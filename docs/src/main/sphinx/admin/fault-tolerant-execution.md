@@ -72,9 +72,9 @@ execution on a Trino cluster:
   - [Data size](prop-type-data-size) of the coordinator's in-memory buffer used
     by fault-tolerant execution to store output of query
     [stages](trino-concept-stage). If this buffer is filled during query
-    execution, the query fails with a "Task descriptor storage capacity has been
-    exceeded" error message unless an [exchange manager](fte-exchange-manager)
-    is configured.
+    execution, the query fails with a "Exchange manager must be configured for 
+    the failure recovery capabilities to be fully functional" error message unless an 
+    [exchange manager](fte-exchange-manager) is configured.
   - `32MB`
 * - `fault-tolerant-execution.exchange-encryption-enabled`
   - Enable encryption of spooling data, see [Encryption](fte-encryption) for details. 
