@@ -69,6 +69,8 @@
   to 500. ({issue}`22209`)
 * Fix failure when reading a `TIMESTAMP` value after the year 9999. ({issue}`22184`)
 * Fix failure when reading tables with the unsupported `variant` type. ({issue}`22310`)
+* Add support for reading
+  [UniForm](https://docs.delta.io/latest/delta-uniform.html) tables. ({issue}`22106`)
 
 ## Hive connector
 
@@ -87,8 +89,6 @@
 
 ## Iceberg connector
 
-* Add support for reading
-  [UniForm](https://docs.delta.io/latest/delta-uniform.html) tables. ({issue}`22106`)
 * Add support for the `TRUNCATE` statement. ({issue}`22340`)
 * {{breaking}} Add support for V2 of the Nessie REST API. Previous behavior can
   be restored by setting the `iceberg.nessie-catalog.client-api-version`
