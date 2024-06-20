@@ -106,7 +106,8 @@ public class TestDeltaLakeBasic
             new ResourceTable("uniform_iceberg_v2", "databricks143/uniform_iceberg_v2"),
             new ResourceTable("unsupported_writer_feature", "deltalake/unsupported_writer_feature"),
             new ResourceTable("unsupported_writer_version", "deltalake/unsupported_writer_version"),
-            new ResourceTable("variant", "databricks153/variant"));
+            new ResourceTable("variant", "databricks153/variant"),
+            new ResourceTable("test_db_type_widening", "databricks153/type_widening"));
 
     // The col-{uuid} pattern for delta.columnMapping.physicalName
     private static final Pattern PHYSICAL_COLUMN_NAME_PATTERN = Pattern.compile("^col-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
@@ -1545,6 +1546,21 @@ public class TestDeltaLakeBasic
                 "MERGE INTO " + tableName + " USING (VALUES 42) t(dummy) ON false WHEN NOT MATCHED THEN INSERT VALUES (3, 4)",
                 "\\QUnsupported writer features: [v2Checkpoint]");
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 2)");
+    }
+
+    @Test
+    public void testTypeWideningSkippingUnsupportedColumns()
+            throws Exception
+    {
+        String tableName = "test_db_type_widening_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("databricks153/type_widening").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertThat(query("DESCRIBE " + tableName)).result().projected("Column", "Type")
+                .skippingTypesCheck()
+                .matches("VALUES ('bts', 'smallint'), ('bti', 'integer'), ('sti', 'integer')");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1, 1), (2, 2, 2)");
     }
 
     @Test

@@ -504,7 +504,10 @@ public final class DeltaLakeSchemaSupport
         Type physicalColumnType;
         JsonNode metadata = node.get("metadata");
         if (metadata.has("delta.typeChanges")) {
-            metadata.get("delta.typeChanges").elements().forEachRemaining(DeltaLakeSchemaSupport::verifyTypeChange);
+            Iterator<JsonNode> typeChanges = metadata.get("delta.typeChanges").elements();
+            while (typeChanges.hasNext()) {
+                DeltaLakeSchemaSupport.verifyTypeChange(typeChanges.next());
+            }
         }
         switch (mappingMode) {
             case ID:
@@ -535,6 +538,7 @@ public final class DeltaLakeSchemaSupport
     }
 
     private static void verifyTypeChange(JsonNode typeChange)
+            throws UnsupportedTypeException
     {
         String fromType = typeChange.get("fromType").asText();
         String toType = typeChange.get("toType").asText();
@@ -543,8 +547,7 @@ public final class DeltaLakeSchemaSupport
                 (fromType.equals("short") && toType.equals("integer"))) {
             return;
         }
-        // TODO: Skip unsupported columns instead of throwing an exception
-        throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Type change from '%s' to '%s' is not supported".formatted(fromType, toType));
+        throw new UnsupportedTypeException("Type change from '%s' to '%s' is not supported".formatted(fromType, toType));
     }
 
     public static Map<String, Object> getColumnTypes(MetadataEntry metadataEntry)
