@@ -45,7 +45,7 @@ class LongColumnChunkMetadata
             long totalSize,
             long totalUncompressedSize)
     {
-        super(encodingStats, ColumnChunkProperties.get(path, type, codec, encodings));
+        super(encodingStats, new ColumnChunkProperties(path, type, codec, encodings));
         this.firstDataPageOffset = firstDataPageOffset;
         this.dictionaryPageOffset = dictionaryPageOffset;
         this.valueCount = valueCount;

@@ -45,7 +45,7 @@ class IntColumnChunkMetadata
             long totalSize,
             long totalUncompressedSize)
     {
-        super(encodingStats, ColumnChunkProperties.get(path, type, codec, encodings));
+        super(encodingStats, new ColumnChunkProperties(path, type, codec, encodings));
         this.firstDataPage = positiveLongToInt(firstDataPage);
         this.dictionaryPageOffset = positiveLongToInt(dictionaryPageOffset);
         this.valueCount = positiveLongToInt(valueCount);
