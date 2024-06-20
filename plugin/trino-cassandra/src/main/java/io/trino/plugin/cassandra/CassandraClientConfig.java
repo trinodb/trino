@@ -17,7 +17,6 @@ import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 import com.datastax.oss.driver.api.core.DefaultProtocolVersion;
 import com.datastax.oss.driver.api.core.ProtocolVersion;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -33,7 +32,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.io.File;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -57,8 +55,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 })
 public class CassandraClientConfig
 {
-    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-
     private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
@@ -96,15 +92,9 @@ public class CassandraClientConfig
     }
 
     @Config("cassandra.contact-points")
-    public CassandraClientConfig setContactPoints(String commaSeparatedList)
+    public CassandraClientConfig setContactPoints(List<String> contactPoints)
     {
-        this.contactPoints = SPLITTER.splitToList(commaSeparatedList);
-        return this;
-    }
-
-    public CassandraClientConfig setContactPoints(String... contactPoints)
-    {
-        this.contactPoints = Arrays.asList(contactPoints);
+        this.contactPoints = ImmutableList.copyOf(contactPoints);
         return this;
     }
 

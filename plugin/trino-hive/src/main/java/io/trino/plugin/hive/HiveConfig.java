@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
@@ -39,6 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -67,8 +67,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class HiveConfig
 {
     public static final String CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED = "hive.partition-projection-enabled";
-
-    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private boolean singleStatementWritesOnly;
 
@@ -767,9 +765,9 @@ public class HiveConfig
     }
 
     @Config("hive.file-status-cache-tables")
-    public HiveConfig setFileStatusCacheTables(String fileStatusCacheTables)
+    public HiveConfig setFileStatusCacheTables(List<String> fileStatusCacheTables)
     {
-        this.fileStatusCacheTables = SPLITTER.splitToList(fileStatusCacheTables);
+        this.fileStatusCacheTables = ImmutableList.copyOf(fileStatusCacheTables);
         return this;
     }
 
@@ -1117,9 +1115,11 @@ public class HiveConfig
 
     @Config("hive.query-partition-filter-required-schemas")
     @ConfigDescription("List of schemas for which filter on partition column is enforced")
-    public HiveConfig setQueryPartitionFilterRequiredSchemas(String queryPartitionFilterRequiredSchemas)
+    public HiveConfig setQueryPartitionFilterRequiredSchemas(List<String> queryPartitionFilterRequiredSchemas)
     {
-        this.queryPartitionFilterRequiredSchemas = ImmutableSet.copyOf(SPLITTER.splitToList(queryPartitionFilterRequiredSchemas.toLowerCase(ENGLISH)));
+        this.queryPartitionFilterRequiredSchemas = queryPartitionFilterRequiredSchemas.stream()
+                .map(value -> value.toLowerCase(ENGLISH))
+                .collect(toImmutableSet());
         return this;
     }
 

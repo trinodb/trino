@@ -32,7 +32,7 @@ public class TestEventListenerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(EventListenerConfig.class)
-                .setEventListenerFiles(""));
+                .setEventListenerFiles(ImmutableList.of()));
     }
 
     @Test
@@ -45,7 +45,7 @@ public class TestEventListenerConfig
         Map<String, String> properties = ImmutableMap.of("event-listener.config-files", config1.toString() + "," + config2.toString());
 
         EventListenerConfig expected = new EventListenerConfig()
-                .setEventListenerFiles(ImmutableList.of(config1.toFile(), config2.toFile()));
+                .setEventListenerFiles(ImmutableList.of(config1.toFile().getPath(), config2.toFile().getPath()));
 
         assertFullMapping(properties, expected);
     }

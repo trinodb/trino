@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -97,7 +98,7 @@ public class TestHiveConfig
                 .setDelegateTransactionalManagedTableLocationToMetastore(false)
                 .setFileStatusCacheExpireAfterWrite(new Duration(1, TimeUnit.MINUTES))
                 .setFileStatusCacheMaxRetainedSize(DataSize.of(1, GIGABYTE))
-                .setFileStatusCacheTables("")
+                .setFileStatusCacheTables(ImmutableList.of())
                 .setPerTransactionFileStatusCacheMaxRetainedSize(DataSize.of(100, MEGABYTE))
                 .setTranslateHiveViews(false)
                 .setLegacyHiveViewTranslation(false)
@@ -106,7 +107,7 @@ public class TestHiveConfig
                 .setHiveTransactionHeartbeatThreads(5)
                 .setAllowRegisterPartition(false)
                 .setQueryPartitionFilterRequired(false)
-                .setQueryPartitionFilterRequiredSchemas("")
+                .setQueryPartitionFilterRequiredSchemas(ImmutableList.of())
                 .setProjectionPushdownEnabled(true)
                 .setDynamicFilteringWaitTimeout(new Duration(0, TimeUnit.MINUTES))
                 .setTimestampPrecision(HiveTimestampPrecision.DEFAULT_PRECISION)
@@ -262,7 +263,7 @@ public class TestHiveConfig
                 .setTemporaryStagingDirectoryEnabled(false)
                 .setTemporaryStagingDirectoryPath("updated")
                 .setDelegateTransactionalManagedTableLocationToMetastore(true)
-                .setFileStatusCacheTables("foo.bar1,foo.bar2")
+                .setFileStatusCacheTables(ImmutableList.of("foo.bar1", "foo.bar2"))
                 .setFileStatusCacheMaxRetainedSize(DataSize.ofBytes(1000))
                 .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES))
                 .setPerTransactionFileStatusCacheMaxRetainedSize(DataSize.ofBytes(42))
@@ -273,7 +274,7 @@ public class TestHiveConfig
                 .setHiveTransactionHeartbeatThreads(10)
                 .setAllowRegisterPartition(true)
                 .setQueryPartitionFilterRequired(true)
-                .setQueryPartitionFilterRequiredSchemas("foo, bar")
+                .setQueryPartitionFilterRequiredSchemas(ImmutableList.of("foo", "bar"))
                 .setProjectionPushdownEnabled(false)
                 .setDynamicFilteringWaitTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setTimestampPrecision(HiveTimestampPrecision.NANOSECONDS)

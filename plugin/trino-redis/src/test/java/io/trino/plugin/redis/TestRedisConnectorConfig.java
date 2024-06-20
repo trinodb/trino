@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.redis;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
@@ -32,9 +34,9 @@ public class TestRedisConnectorConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(RedisConnectorConfig.class)
-                .setNodes("")
+                .setNodes(ImmutableList.of())
                 .setDefaultSchema("default")
-                .setTableNames("")
+                .setTableNames(ImmutableSet.of())
                 .setTableDescriptionDir(new File("etc/redis/"))
                 .setTableDescriptionCacheDuration(new Duration(5, MINUTES))
                 .setKeyPrefixSchemaTable(false)
@@ -71,9 +73,9 @@ public class TestRedisConnectorConfig
         RedisConnectorConfig expected = new RedisConnectorConfig()
                 .setTableDescriptionDir(new File("/var/lib/redis"))
                 .setTableDescriptionCacheDuration(new Duration(30, SECONDS))
-                .setTableNames("table1, table2, table3")
+                .setTableNames(ImmutableSet.of("table1", "table2", "table3"))
                 .setDefaultSchema("redis")
-                .setNodes("localhost:12345, localhost:23456")
+                .setNodes(ImmutableList.of("localhost:12345", "localhost:23456"))
                 .setHideInternalColumns(false)
                 .setRedisScanCount(20)
                 .setRedisMaxKeysPerFetch(10)

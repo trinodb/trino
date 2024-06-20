@@ -15,6 +15,7 @@ package io.trino.plugin.cassandra;
 
 import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 import com.datastax.oss.driver.api.core.DefaultProtocolVersion;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
@@ -39,7 +40,7 @@ public class TestCassandraClientConfig
         assertRecordedDefaults(recordDefaults(CassandraClientConfig.class)
                 .setFetchSize(5_000)
                 .setConsistencyLevel(DefaultConsistencyLevel.ONE)
-                .setContactPoints("")
+                .setContactPoints(ImmutableList.of())
                 .setNativeProtocolPort(9042)
                 .setPartitionSizeForBatchSelect(100)
                 .setSplitSize(1_024)
@@ -106,7 +107,7 @@ public class TestCassandraClientConfig
                 .buildOrThrow();
 
         CassandraClientConfig expected = new CassandraClientConfig()
-                .setContactPoints("host1", "host2")
+                .setContactPoints(ImmutableList.of("host1", "host2"))
                 .setNativeProtocolPort(9999)
                 .setFetchSize(10_000)
                 .setConsistencyLevel(DefaultConsistencyLevel.TWO)
