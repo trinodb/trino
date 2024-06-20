@@ -878,7 +878,7 @@ public class MongoSession
     {
         MongoDatabase db = client.getDatabase(schemaName);
         Document doc = db.getCollection(tableName).find().first();
-        if (doc == null) {
+        if (doc == null || doc.isEmpty()) {
             // no records at the collection
             return ImmutableList.of();
         }
