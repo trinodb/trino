@@ -390,13 +390,14 @@ public class TestPageReader
         if (hasDictionary) {
             encodingStats.addDictEncoding(PLAIN);
         }
+        PrimitiveType primitiveType = Types.optional(INT32).named("fake_type");
         ColumnChunkMetadata columnChunkMetaData = ColumnChunkMetadata.get(
                 ColumnPath.get(""),
-                INT32,
+                primitiveType,
                 CompressionCodecName.fromParquet(compressionCodec),
                 encodingStats.build(),
                 ImmutableSet.of(),
-                Statistics.createStats(Types.optional(INT32).named("fake_type")),
+                Statistics.createStats(primitiveType),
                 0,
                 0,
                 valueCount,
