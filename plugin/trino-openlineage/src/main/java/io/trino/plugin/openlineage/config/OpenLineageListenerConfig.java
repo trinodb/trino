@@ -22,12 +22,8 @@ import io.trino.spi.resourcegroups.QueryType;
 import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.Locale.ENGLISH;
 
 public class OpenLineageListenerConfig
 {
@@ -79,12 +75,9 @@ public class OpenLineageListenerConfig
 
     @Config("openlineage-event-listener.trino.include-query-types")
     @ConfigDescription("Which query types emitted by Trino should generate OpenLineage events. Other query types will be filtered out.")
-    public OpenLineageListenerConfig setIncludeQueryTypes(List<String> includeQueryTypes)
+    public OpenLineageListenerConfig setIncludeQueryTypes(Set<QueryType> includeQueryTypes)
     {
-        this.includeQueryTypes = includeQueryTypes.stream()
-                .map(value -> value.toUpperCase(ENGLISH))
-                .map(QueryType::valueOf)
-                .collect(toImmutableSet());
+        this.includeQueryTypes = ImmutableSet.copyOf(includeQueryTypes);
         return this;
     }
 
@@ -95,13 +88,10 @@ public class OpenLineageListenerConfig
 
     @Config("openlineage-event-listener.disabled-facets")
     @ConfigDescription("Which facets should be removed from OpenLineage events.")
-    public OpenLineageListenerConfig setDisabledFacets(List<String> disabledFacets)
+    public OpenLineageListenerConfig setDisabledFacets(Set<OpenLineageTrinoFacet> disabledFacets)
             throws RuntimeException
     {
-        this.disabledFacets = disabledFacets.stream()
-                .map(value -> value.toUpperCase(ENGLISH))
-                .map(OpenLineageTrinoFacet::valueOf)
-                .collect(toImmutableSet());
+        this.disabledFacets = ImmutableSet.copyOf(disabledFacets);
         return this;
     }
 

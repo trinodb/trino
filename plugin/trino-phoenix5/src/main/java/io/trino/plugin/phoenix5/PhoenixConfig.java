@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.phoenix5;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -62,9 +61,9 @@ public class PhoenixConfig
     }
 
     @Config("phoenix.config.resources")
-    public PhoenixConfig setResourceConfigFiles(String files)
+    public PhoenixConfig setResourceConfigFiles(List<String> files)
     {
-        this.resourceConfigFiles = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files);
+        this.resourceConfigFiles = ImmutableList.copyOf(files);
         return this;
     }
 

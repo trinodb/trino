@@ -31,7 +31,7 @@ public class TestStaticCatalogManagerConfig
     {
         assertRecordedDefaults(recordDefaults(StaticCatalogManagerConfig.class)
                 .setCatalogConfigurationDir(new File("etc/catalog"))
-                .setDisabledCatalogs((String) null));
+                .setDisabledCatalogs(ImmutableList.of()));
     }
 
     @Test

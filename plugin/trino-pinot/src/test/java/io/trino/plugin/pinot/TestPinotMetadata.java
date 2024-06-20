@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPinotMetadata
 {
-    private final PinotConfig pinotConfig = new PinotConfig().setControllerUrls("localhost:9000");
+    private final PinotConfig pinotConfig = new PinotConfig().setControllerUrls(ImmutableList.of("localhost:9000"));
     private final PinotMetadata metadata = new PinotMetadata(new MockPinotClient(pinotConfig), pinotConfig, Executors.newSingleThreadExecutor(), new PinotTypeConverter(new TestingTypeManager()));
 
     @Test

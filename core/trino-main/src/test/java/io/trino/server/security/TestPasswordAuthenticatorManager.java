@@ -41,7 +41,7 @@ public class TestPasswordAuthenticatorManager
         Files.write(config2, ImmutableList.of("password-authenticator.name=type2"));
 
         PasswordAuthenticatorManager manager = new PasswordAuthenticatorManager(new PasswordAuthenticatorConfig()
-                .setPasswordAuthenticatorFiles(config1.toAbsolutePath() + "," + config2.toAbsolutePath()));
+                .setPasswordAuthenticatorFiles(ImmutableList.of(config1.toAbsolutePath().toString(), config2.toAbsolutePath().toString())));
         manager.setRequired();
         manager.addPasswordAuthenticatorFactory(new TestingPasswordAuthenticatorFactory("type1", "password1"));
         manager.addPasswordAuthenticatorFactory(new TestingPasswordAuthenticatorFactory("type2", "password2"));

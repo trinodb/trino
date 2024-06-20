@@ -13,6 +13,7 @@
  */
 package io.trino.server.security;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
@@ -33,7 +34,7 @@ public class TestPasswordAuthenticatorConfig
         assertRecordedDefaults(recordDefaults(PasswordAuthenticatorConfig.class)
                 .setUserMappingPattern(null)
                 .setUserMappingFile(null)
-                .setPasswordAuthenticatorFiles("etc/password-authenticator.properties"));
+                .setPasswordAuthenticatorFiles(ImmutableList.of("etc/password-authenticator.properties")));
     }
 
     @Test
@@ -53,7 +54,7 @@ public class TestPasswordAuthenticatorConfig
         PasswordAuthenticatorConfig expected = new PasswordAuthenticatorConfig()
                 .setUserMappingPattern("(.*)@something")
                 .setUserMappingFile(userMappingFile.toFile())
-                .setPasswordAuthenticatorFiles(config1 + "," + config2);
+                .setPasswordAuthenticatorFiles(ImmutableList.of(config1.toAbsolutePath().toString(), config2.toAbsolutePath().toString()));
 
         assertFullMapping(properties, expected);
     }

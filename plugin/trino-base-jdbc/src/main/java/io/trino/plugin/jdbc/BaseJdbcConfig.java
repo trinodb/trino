@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.jdbc;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -27,7 +26,6 @@ import jakarta.validation.constraints.Pattern;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Strings.nullToEmpty;
 import static jakarta.validation.constraints.Pattern.Flag.CASE_INSENSITIVE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -70,9 +68,9 @@ public class BaseJdbcConfig
     }
 
     @Config("jdbc-types-mapped-to-varchar")
-    public BaseJdbcConfig setJdbcTypesMappedToVarchar(String jdbcTypesMappedToVarchar)
+    public BaseJdbcConfig setJdbcTypesMappedToVarchar(Set<String> jdbcTypesMappedToVarchar)
     {
-        this.jdbcTypesMappedToVarchar = ImmutableSet.copyOf(Splitter.on(",").omitEmptyStrings().trimResults().split(nullToEmpty(jdbcTypesMappedToVarchar)));
+        this.jdbcTypesMappedToVarchar = ImmutableSet.copyOf(jdbcTypesMappedToVarchar);
         return this;
     }
 

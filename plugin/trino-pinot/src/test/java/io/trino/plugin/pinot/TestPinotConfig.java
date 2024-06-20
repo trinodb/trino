@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.pinot;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.testing.ConfigAssertions;
@@ -34,7 +35,7 @@ public class TestPinotConfig
     {
         ConfigAssertions.assertRecordedDefaults(
                 ConfigAssertions.recordDefaults(PinotConfig.class)
-                        .setControllerUrls("")
+                        .setControllerUrls(ImmutableList.of())
                         .setBrokerUrl(null)
                         .setConnectionTimeout(new Duration(1, TimeUnit.MINUTES))
                         .setMetadataCacheExpiry(new Duration(2, TimeUnit.MINUTES))
@@ -71,7 +72,7 @@ public class TestPinotConfig
                 .buildOrThrow();
 
         PinotConfig expected = new PinotConfig()
-                .setControllerUrls("https://host1:1111,https://host2:1111")
+                .setControllerUrls(ImmutableList.of("https://host1:1111", "https://host2:1111"))
                 .setBrokerUrl(HostAndPort.fromString("host1:1111"))
                 .setConnectionTimeout(new Duration(8, TimeUnit.MINUTES))
                 .setMetadataCacheExpiry(new Duration(1, TimeUnit.MINUTES))
@@ -104,21 +105,21 @@ public class TestPinotConfig
     public void testControllerUrls()
     {
         PinotConfig config = new PinotConfig();
-        config.setControllerUrls("my-controller-1:8443,my-controller-2:8443");
+        config.setControllerUrls(ImmutableList.of("my-controller-1:8443", "my-controller-2:8443"));
         assertThat(config.allUrlSchemesEqual()).isTrue();
         assertThat(config.isTlsEnabled()).isFalse();
-        config.setControllerUrls("http://my-controller-1:9000,http://my-controller-2:9000");
+        config.setControllerUrls(ImmutableList.of("http://my-controller-1:9000", "http://my-controller-2:9000"));
         assertThat(config.allUrlSchemesEqual()).isTrue();
         assertThat(config.isTlsEnabled()).isFalse();
-        config.setControllerUrls("https://my-controller-1:8443,https://my-controller-2:8443");
+        config.setControllerUrls(ImmutableList.of("https://my-controller-1:8443", "https://my-controller-2:8443"));
         assertThat(config.allUrlSchemesEqual()).isTrue();
         assertThat(config.isTlsEnabled()).isTrue();
-        config.setControllerUrls("my-controller-1:8443,http://my-controller-2:8443");
+        config.setControllerUrls(ImmutableList.of("my-controller-1:8443", "http://my-controller-2:8443"));
         assertThat(config.allUrlSchemesEqual()).isTrue();
         assertThat(config.isTlsEnabled()).isFalse();
-        config.setControllerUrls("http://my-controller-1:8443,https://my-controller-2:8443");
+        config.setControllerUrls(ImmutableList.of("http://my-controller-1:8443", "https://my-controller-2:8443"));
         assertThat(config.allUrlSchemesEqual()).isFalse();
-        config.setControllerUrls("my-controller-1:8443,https://my-controller-2:8443");
+        config.setControllerUrls(ImmutableList.of("my-controller-1:8443", "https://my-controller-2:8443"));
         assertThat(config.allUrlSchemesEqual()).isFalse();
     }
 }

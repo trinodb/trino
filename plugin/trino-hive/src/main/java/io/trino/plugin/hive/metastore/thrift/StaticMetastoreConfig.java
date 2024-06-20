@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import com.google.common.base.Splitter;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import jakarta.validation.constraints.AssertFalse;
@@ -23,14 +22,10 @@ import java.net.URI;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Streams.stream;
 
 public class StaticMetastoreConfig
 {
     public static final String HIVE_METASTORE_USERNAME = "hive.metastore.username";
-
-    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-
     private List<URI> metastoreUris;
     private String metastoreUsername;
 
@@ -42,14 +37,14 @@ public class StaticMetastoreConfig
 
     @Config("hive.metastore.uri")
     @ConfigDescription("Hive metastore URIs (comma separated)")
-    public StaticMetastoreConfig setMetastoreUris(String uris)
+    public StaticMetastoreConfig setMetastoreUris(List<String> uris)
     {
         if (uris == null) {
             this.metastoreUris = null;
             return this;
         }
 
-        this.metastoreUris = stream(SPLITTER.split(uris))
+        this.metastoreUris = uris.stream()
                 .map(URI::create)
                 .collect(toImmutableList());
 
