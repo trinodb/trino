@@ -207,6 +207,33 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testPathContainsSpecialCharacter()
+    {
+        String tableName = "test_path_special_character" + randomNameSuffix();
+        String location = "s3://%s/%s/%s/".formatted(bucketName, schemaName, tableName);
+        assertUpdate(format(
+                "CREATE TABLE %s (id bigint, part varchar) WITH (partitioning = ARRAY['part'], location='%s')",
+                tableName,
+                location));
+
+        String values = "(1, 'with-hyphen')," +
+                "(2, 'with.dot')," +
+                "(3, 'with:colon')," +
+                "(4, 'with/slash')," +
+                "(5, 'with\\\\backslashes')," +
+                "(6, 'with\\backslash')," +
+                "(7, 'with=equal')," +
+                "(8, 'with?question')," +
+                "(9, 'with!exclamation')," +
+                "(10, 'with%percent')," +
+                "(11, 'with%%percents')," +
+                "(12, 'with space')";
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + values, 12);
+        assertQuery("SELECT * FROM " + tableName, "VALUES " + values);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private String onMetastore(@Language("SQL") String sql)
     {
         return hiveMinioDataLake.getHiveHadoop().runOnMetastore(sql);
