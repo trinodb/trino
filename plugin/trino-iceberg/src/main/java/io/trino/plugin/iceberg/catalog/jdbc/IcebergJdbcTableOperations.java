@@ -65,6 +65,7 @@ public class IcebergJdbcTableOperations
         checkState(currentMetadataLocation != null, "No current metadata location for existing table");
         String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);
         jdbcClient.alterTable(database, tableName, newMetadataLocation, currentMetadataLocation);
+        deleteRemovedMetadataFiles(base, metadata);
         shouldRefresh = true;
     }
 

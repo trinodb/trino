@@ -28,6 +28,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MAX;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MIN;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
@@ -45,6 +46,8 @@ public class IcebergTableProperties
     public static final String FORMAT_VERSION_PROPERTY = "format_version";
     public static final String ORC_BLOOM_FILTER_COLUMNS_PROPERTY = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP_PROPERTY = "orc_bloom_filter_fpp";
+    public static final String METADATA_DELETE_AFTER_COMMIT_ENABLED_PROPERTY = "metadata_delete_after_commit_enabled";
+    public static final String METADATA_PREVIOUS_VERSIONS_MAX_PROPERTY = "metadata_previous_versions_max";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -106,6 +109,15 @@ public class IcebergTableProperties
                         "ORC Bloom filter false positive probability",
                         orcWriterConfig.getDefaultBloomFilterFpp(),
                         IcebergTableProperties::validateOrcBloomFilterFpp,
+                        false))
+                .add(booleanProperty(
+                        METADATA_DELETE_AFTER_COMMIT_ENABLED_PROPERTY,
+                        "Delete old tracked metadata files after each table commit",
+                        null,
+                        false))
+                .add(integerProperty(METADATA_PREVIOUS_VERSIONS_MAX_PROPERTY,
+                        "The number of old metadata files to keep",
+                        null,
                         false))
                 .build();
     }
