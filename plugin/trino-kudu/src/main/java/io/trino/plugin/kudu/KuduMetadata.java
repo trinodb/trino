@@ -573,6 +573,6 @@ public class KuduMetadata
                 handle.getBucketCount(),
                 OptionalLong.of(limit));
 
-        return Optional.of(new LimitApplicationResult<>(handle, false, false));
+        return Optional.of(new LimitApplicationResult<>(handle, false));
     }
 }

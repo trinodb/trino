@@ -618,8 +618,7 @@ public class MongoMetadata
                         handle.constraint(),
                         handle.projectedColumns(),
                         OptionalInt.of(toIntExact(limit))),
-                true,
-                false));
+                true));
     }
 
     @Override

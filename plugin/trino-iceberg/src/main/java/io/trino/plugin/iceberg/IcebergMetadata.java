@@ -2602,7 +2602,7 @@ public class IcebergMetadata
                 table.getConstraintColumns(),
                 table.getForAnalyze());
 
-        return Optional.of(new LimitApplicationResult<>(table, false, false));
+        return Optional.of(new LimitApplicationResult<>(table, false));
     }
 
     @Override

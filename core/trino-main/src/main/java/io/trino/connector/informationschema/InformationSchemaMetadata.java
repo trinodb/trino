@@ -181,8 +181,7 @@ public class InformationSchemaMetadata
 
         return Optional.of(new LimitApplicationResult<>(
                 new InformationSchemaTableHandle(table.getCatalogName(), table.getTable(), table.getPrefixes(), OptionalLong.of(limit)),
-                true,
-                false));
+                true));
     }
 
     @Override

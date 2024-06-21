@@ -775,7 +775,7 @@ public class DefaultJdbcMetadata
                 handle.getAuthorization(),
                 handle.getUpdateAssignments());
 
-        return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session), precalculateStatisticsForPushdown));
+        return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session)));
     }
 
     @Override

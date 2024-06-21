@@ -284,7 +284,7 @@ public class PinotMetadata
                 OptionalLong.of(limit),
                 dynamicTable);
         boolean singleSplit = dynamicTable.isPresent();
-        return Optional.of(new LimitApplicationResult<>(handle, singleSplit, false));
+        return Optional.of(new LimitApplicationResult<>(handle, singleSplit));
     }
 
     @Override

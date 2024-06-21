@@ -219,27 +219,6 @@ public abstract class BaseJdbcTableStatisticsTest
     }
 
     @Test
-    public void testStatsWithLimitPushdown()
-    {
-        // Just limit, should be eligible for pushdown.
-        String query = "SELECT regionkey, nationkey FROM nation LIMIT 2";
-
-        // Verify query can be pushed down, that's the situation we want to test for.
-        // it's important that we test with LIMIT value smaller than table row count, hence need to skip results check
-        assertThat(query(query)).skipResultsCorrectnessCheckForPushdown().isFullyPushedDown();
-
-        assertThat(query("SHOW STATS FOR (" + query + ")"))
-                .result()
-                // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
-                .exceptColumns("data_size", "low_value", "high_value")
-                .skippingTypesCheck()
-                .matches("VALUES " +
-                        "('regionkey', 2e0, 0e0, null)," +
-                        "('nationkey', 2e0, 0e0, null)," +
-                        "(null, null, null, 2e0)");
-    }
-
-    @Test
     public void testStatsWithTopNPushdown()
     {
         // TopN on a numeric column, should be eligible for pushdown.

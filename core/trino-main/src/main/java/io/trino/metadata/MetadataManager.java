@@ -1977,8 +1977,7 @@ public final class MetadataManager
         return metadata.applyLimit(connectorSession, table.connectorHandle(), limit)
                 .map(result -> new LimitApplicationResult<>(
                         new TableHandle(catalogHandle, result.getHandle(), table.transaction()),
-                        result.isLimitGuaranteed(),
-                        result.isPrecalculateStatistics()));
+                        result.isLimitGuaranteed()));
     }
 
     @Override

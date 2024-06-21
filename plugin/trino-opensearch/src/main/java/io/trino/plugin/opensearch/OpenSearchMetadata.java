@@ -496,7 +496,7 @@ public class OpenSearchMetadata
                 handle.query(),
                 OptionalLong.of(limit));
 
-        return Optional.of(new LimitApplicationResult<>(handle, false, false));
+        return Optional.of(new LimitApplicationResult<>(handle, false));
     }
 
     @Override

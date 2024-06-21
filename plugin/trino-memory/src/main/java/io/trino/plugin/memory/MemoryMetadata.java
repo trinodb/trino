@@ -520,7 +520,6 @@ public class MemoryMetadata
 
         return Optional.of(new LimitApplicationResult<>(
                 new MemoryTableHandle(table.id(), OptionalLong.of(limit), OptionalDouble.empty()),
-                true,
                 true));
     }
 

@@ -70,14 +70,6 @@ public abstract class BaseMariaDbTableIndexStatisticsTest
 
     @Test
     @Override
-    public void testStatsWithLimitPushdown()
-    {
-        // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MariaDB, with permissive approximate assertions
-        abort("Test to be implemented");
-    }
-
-    @Test
-    @Override
     public void testStatsWithTopNPushdown()
     {
         // TODO (https://github.com/trinodb/trino/issues/11664) implement the test for MariaDB, with permissive approximate assertions
