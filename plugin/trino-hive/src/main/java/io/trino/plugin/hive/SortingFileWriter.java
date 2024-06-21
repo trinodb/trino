@@ -104,7 +104,7 @@ public final class SortingFileWriter
         this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
         this.outputWriter = requireNonNull(outputWriter, "outputWriter is null");
         this.sortBuffer = new SortBuffer(maxMemory, types, sortFields, sortOrders, pageSorter);
-        this.tempFileSinkFactory = tempFileSinkFactory;
+        this.tempFileSinkFactory = requireNonNull(tempFileSinkFactory, "tempFileSinkFactory is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }
 
