@@ -196,6 +196,10 @@ final class S3InputStream
                 rangeRequest = request.toBuilder().range(range).build();
             }
             in = client.getObject(rangeRequest);
+            // a workaround for https://github.com/aws/aws-sdk-java-v2/issues/3538
+            if (in.response().contentLength() == 0) {
+                in = new ResponseInputStream<>(in.response(), nullInputStream());
+            }
             streamPosition = nextReadPosition;
         }
         catch (NoSuchKeyException e) {
