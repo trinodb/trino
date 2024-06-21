@@ -1767,7 +1767,8 @@ public class EventDrivenFaultTolerantQueryScheduler
             TaskState taskState = taskStatus.getState();
             StageExecution stageExecution = getStageExecution(taskId.getStageId());
             if (taskState == TaskState.FINISHED) {
-                stageExecution.taskFinished(taskId, taskStatus);
+                Optional<List<PrioritizedScheduledTask>> failOverrideReplacementTasks = stageExecution.taskFinished(taskId, taskStatus);
+                failOverrideReplacementTasks.ifPresent(prioritizedScheduledTasks -> prioritizedScheduledTasks.forEach(schedulingQueue::addOrUpdate));
             }
             else if (taskState == TaskState.FAILED) {
                 ExecutionFailureInfo failureInfo = taskStatus.getFailures().stream()
@@ -2317,10 +2318,10 @@ public class EventDrivenFaultTolerantQueryScheduler
             partition.updateExchangeSinkInstanceHandle(taskId, updatedExchangeSinkInstanceHandle);
         }
 
-        public void taskFinished(TaskId taskId, TaskStatus taskStatus)
+        public Optional<List<PrioritizedScheduledTask>> taskFinished(TaskId taskId, TaskStatus taskStatus)
         {
             if (getState().isDone()) {
-                return;
+                return Optional.empty();
             }
 
             int partitionId = taskId.getPartitionId();
@@ -2331,8 +2332,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 // it is rare but possible to get empty spooling output stats for task which completed successfully.
                 // As we need this information in FTE mode we need to fail such task artificially
                 log.warn("Failing task " + taskId + " because we received empty spooling output stats");
-                taskFailed(taskId, Failures.toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "Treating FINISHED task as FAILED because we received empty spooling output stats")), taskStatus);
-                return;
+                return Optional.of(taskFailed(taskId, Failures.toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "Treating FINISHED task as FAILED because we received empty spooling output stats")), taskStatus));
             }
 
             exchange.sinkFinished(partition.getExchangeSinkHandle(), taskId.getAttemptId());
@@ -2343,7 +2343,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
             if (!remainingPartitions.remove(partitionId)) {
                 // a different task for the same partition finished before
-                return;
+                return Optional.empty();
             }
 
             updateOutputSize(outputStats.orElseThrow());
@@ -2359,6 +2359,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             if (noMorePartitions && remainingPartitions.isEmpty() && !stage.getState().isDone()) {
                 finish();
             }
+            return Optional.empty();
         }
 
         private void finish()
