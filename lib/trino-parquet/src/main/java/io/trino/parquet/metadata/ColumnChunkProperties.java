@@ -14,7 +14,6 @@
 package io.trino.parquet.metadata;
 
 import org.apache.parquet.column.Encoding;
-import org.apache.parquet.hadoop.metadata.Canonicalizer;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.PrimitiveType;
@@ -26,8 +25,6 @@ import java.util.Set;
 
 public class ColumnChunkProperties
 {
-    private static final Canonicalizer<ColumnChunkProperties> PROPERTIES = new Canonicalizer<>();
-
     @Deprecated
     public static ColumnChunkProperties get(ColumnPath path, PrimitiveTypeName type, CompressionCodecName codec, Set<Encoding> encodings)
     {
@@ -36,7 +33,7 @@ public class ColumnChunkProperties
 
     public static ColumnChunkProperties get(ColumnPath path, PrimitiveType type, CompressionCodecName codec, Set<Encoding> encodings)
     {
-        return PROPERTIES.canonicalize(new ColumnChunkProperties(codec, path, type, encodings));
+        return new ColumnChunkProperties(codec, path, type, encodings);
     }
 
     private final CompressionCodecName codec;
