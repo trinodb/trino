@@ -23,7 +23,6 @@ import io.trino.sql.query.QueryAssertions.ExpressionAssertProvider.Result;
 import io.trino.type.FunctionType;
 import io.trino.type.JsonPathType;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -50,19 +49,12 @@ class TestJsonStringArrayExtractScalar
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
     private static final ResolvedFunction TRANSFORM = FUNCTIONS.resolveFunction(ARRAY_TRANSFORM_NAME, fromTypes(new ArrayType(JSON), new FunctionType(List.of(JSON), VARCHAR)));
     private static final CatalogSchemaFunctionName JSON_STRING_ARRAY_EXTRACT_SCALAR = FUNCTIONS.getMetadata().resolveBuiltinFunction(JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME, fromTypes(VARCHAR, JsonPathType.JSON_PATH)).name();
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
+    private final QueryAssertions assertions = new QueryAssertions();
 
     @AfterAll
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
@@ -95,47 +87,47 @@ class TestJsonStringArrayExtractScalar
     @Test
     void testEmptyArrayExtract()
     {
-        Result result = extract("[]", "$.name");
-        assertThat(result.value()).isEqualTo(ImmutableList.of());
+        assertThat(extract("[]", "$.name").value())
+                .isEqualTo(ImmutableList.of());
     }
 
     @Test
     void testScalarArrayExtract()
     {
-        Result result = extract("[1, \"abc\", 2.2]", "$.name");
-        assertThat(result.value()).isEqualTo(asList(null, null, null));
-        result = extract("[1, \"abc\", 2.2]", "$");
-        assertThat(result.value()).isEqualTo(asList("1", "abc", "2.2"));
+        assertThat(extract("[1, \"abc\", 2.2]", "$.name").value())
+                .isEqualTo(asList(null, null, null));
+        assertThat(extract("[1, \"abc\", 2.2]", "$").value())
+                .isEqualTo(asList("1", "abc", "2.2"));
     }
 
     @Test
     void testEmptyElementsArrayExtract()
     {
-        Result result = extract("[null, [], {}]", "$.name");
-        assertThat(result.value()).isEqualTo(asList(null, null, null));
+        assertThat(extract("[null, [], {}]", "$.name").value())
+                .isEqualTo(asList(null, null, null));
     }
 
     @Test
     void testExtract()
     {
-        Result result = extract("[{\"name\": \"a\"}, {\"name\": \"b\"}, [], {}]", "$.name");
-        assertThat(result.value()).isEqualTo(asList("a", "b", null, null));
+        assertThat(extract("[{\"name\": \"a\"}, {\"name\": \"b\"}, [], {}]", "$.name").value())
+                .isEqualTo(asList("a", "b", null, null));
     }
 
     @Test
     void testMixedExtract()
     {
-        Result result = extract("[{\"name\": \"a\"}, 1]", "$.name");
-        assertThat(result.value()).isEqualTo(asList("a", null));
+        assertThat(extract("[{\"name\": \"a\"}, 1]", "$.name").value())
+                .isEqualTo(asList("a", null));
     }
 
     @Test
     void testComplexExtract()
     {
-        Result result = extract("[{\"name\": [1, 2, 3]}, 1]", "$.name");
-        assertThat(result.value()).isEqualTo(asList(null, null));
-        result = extract("[{\"name\": {}}, 1]", "$.name");
-        assertThat(result.value()).isEqualTo(asList(null, null));
+        assertThat(extract("[{\"name\": [1, 2, 3]}, 1]", "$.name").value())
+                .isEqualTo(asList(null, null));
+        assertThat(extract("[{\"name\": {}}, 1]", "$.name").value())
+                .isEqualTo(asList(null, null));
     }
 
     private Result extract(String json, String jsonPath)
