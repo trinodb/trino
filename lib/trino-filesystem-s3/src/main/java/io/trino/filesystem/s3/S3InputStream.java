@@ -190,8 +190,11 @@ final class S3InputStream
         closeStream();
 
         try {
-            String range = "bytes=%s-".formatted(nextReadPosition);
-            GetObjectRequest rangeRequest = request.toBuilder().range(range).build();
+            GetObjectRequest rangeRequest = request;
+            if (nextReadPosition != 0) {
+                String range = "bytes=%s-".formatted(nextReadPosition);
+                rangeRequest = request.toBuilder().range(range).build();
+            }
             in = client.getObject(rangeRequest);
             streamPosition = nextReadPosition;
         }
