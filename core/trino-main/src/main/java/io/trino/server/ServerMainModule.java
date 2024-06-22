@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Key;
@@ -430,6 +431,9 @@ public class ServerMainModule
 
         // system connector
         binder.install(new SystemConnectorModule());
+
+        // afterburner
+        jsonBinder(binder).addModuleBinding().toInstance(new AfterburnerModule());
 
         // slice
         jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);

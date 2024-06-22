@@ -69,6 +69,7 @@ public class PluginManager
     private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("io.trino.spi.")
             .add("com.fasterxml.jackson.annotation.")
+            .add("com.fasterxml.jackson.module.afterburner.")
             .add("io.airlift.slice.")
             .add("org.openjdk.jol.")
             .add("io.opentelemetry.api.")
