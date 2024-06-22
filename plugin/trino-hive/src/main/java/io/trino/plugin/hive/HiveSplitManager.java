@@ -33,6 +33,8 @@ import io.trino.metastore.HiveTypeName;
 import io.trino.metastore.Partition;
 import io.trino.metastore.SortingColumn;
 import io.trino.metastore.Table;
+import io.trino.plugin.hive.functions.HiveListFilesTableHandle;
+import io.trino.plugin.hive.functions.ListFilesSplit;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.plugin.hive.util.HiveUtil;
@@ -197,6 +199,10 @@ public class HiveSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
+        if (tableHandle instanceof HiveListFilesTableHandle hiveListFunctionTableHandle) {
+            return new FixedSplitSource(new ListFilesSplit(hiveListFunctionTableHandle.path()));
+        }
+
         HiveTableHandle hiveTable = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = hiveTable.getSchemaTableName();
 

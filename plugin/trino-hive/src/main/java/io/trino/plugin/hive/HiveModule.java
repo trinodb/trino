@@ -27,6 +27,7 @@ import io.trino.plugin.hive.avro.AvroPageSourceFactory;
 import io.trino.plugin.hive.fs.CachingDirectoryLister;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryListerFactory;
+import io.trino.plugin.hive.functions.ListFilesTableFunction;
 import io.trino.plugin.hive.line.CsvFileWriterFactory;
 import io.trino.plugin.hive.line.CsvPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
@@ -151,7 +152,7 @@ public class HiveModule
         fileWriterFactoryBinder.addBinding().to(ParquetFileWriterFactory.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, FunctionProvider.class).setDefault().toInstance(new NoopFunctionProvider());
-        newSetBinder(binder, ConnectorTableFunction.class);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(ListFilesTableFunction.class).in(Scopes.SINGLETON);
 
         closingBinder(binder).registerExecutor(ExecutorService.class);
         closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForHiveTransactionHeartbeats.class));

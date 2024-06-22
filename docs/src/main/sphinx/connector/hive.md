@@ -580,6 +580,36 @@ The following procedures are available:
   Flush Hive metadata cache entries connected with selected partition.
   Procedure requires named parameters to be passed.
 
+## Table functions
+
+The connector provides specific {doc}`table functions </functions/table>` to
+access storages.
+
+(hive-list-files-function)=
+### `list_files(varchar) -> table`
+
+The `list_files` function allows you to list files in the specified location.
+
+For example, query the `example` catalog and list files in the `employees` directory 
+in the `test-bucket` bucket on S3:
+
+```sql
+SELECT
+  *
+FROM
+  TABLE(
+    example.system.list_files(
+      path => 's3://test-bucket/employees'
+    )
+  );
+```
+
+```
+         file_modified_time         | size  |                name
+------------------------------------+-------+-------------------------------------
+ 2024-06-22 16:59:40.300 Asia/Tokyo |   456 | s3://test-bucket/employees/data.orc
+```
+
 (hive-data-management)=
 ### Data management
 

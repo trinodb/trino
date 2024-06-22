@@ -46,6 +46,7 @@ import java.util.concurrent.CompletableFuture;
 import static io.trino.metastore.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
@@ -157,6 +158,7 @@ class TestNodeLocalDynamicSplitPruning
                 transaction);
 
         HivePageSourceProvider provider = new HivePageSourceProvider(
+                HDFS_FILE_SYSTEM_FACTORY,
                 TESTING_TYPE_MANAGER,
                 hiveConfig,
                 getDefaultHivePageSourceFactories(fileSystemFactory, hiveConfig));
