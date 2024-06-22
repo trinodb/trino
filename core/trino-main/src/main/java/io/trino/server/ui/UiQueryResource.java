@@ -67,7 +67,7 @@ public class UiQueryResource
 
     @ResourceSecurity(WEB_UI)
     @GET
-    public List<TrimmedBasicQueryInfo> getAllQueryInfo(@QueryParam("state") String stateFilter, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
+    public Response getAllQueryInfo(@QueryParam("state") String stateFilter, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
         QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
 
@@ -80,7 +80,12 @@ public class UiQueryResource
                 builder.add(new TrimmedBasicQueryInfo(queryInfo));
             }
         }
-        return builder.build();
+        return Response.ok(builder.build())
+                .header("X-Download-Options", "noopen")
+                .header("Cache-Control", "no-cache, no-store, max-age=0")
+                .header("Pragma", "no-cache")
+                .header("Expires", "-1")
+                .build();
     }
 
     @ResourceSecurity(WEB_UI)
@@ -94,13 +99,23 @@ public class UiQueryResource
         if (queryInfo.isPresent()) {
             try {
                 checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queryInfo.get().getSession().toIdentity(), accessControl);
-                return Response.ok(queryInfo.get()).build();
+                return Response.ok(queryInfo.get())
+                        .header("X-Download-Options", "noopen")
+                        .header("Cache-Control", "no-cache, no-store, max-age=0")
+                        .header("Pragma", "no-cache")
+                        .header("Expires", "-1")
+                        .build();
             }
             catch (AccessDeniedException e) {
                 throw new ForbiddenException();
             }
         }
-        return Response.status(Status.GONE).build();
+        return Response.status(Status.GONE)
+                .header("X-Download-Options", "noopen")
+                .header("Cache-Control", "no-cache, no-store, max-age=0")
+                .header("Pragma", "no-cache")
+                .header("Expires", "-1")
+                .build();
     }
 
     @ResourceSecurity(WEB_UI)
@@ -130,18 +145,33 @@ public class UiQueryResource
 
             // check before killing to provide the proper error code (this is racy)
             if (queryInfo.getState().isDone()) {
-                return Response.status(Status.CONFLICT).build();
+                return Response.status(Status.CONFLICT)
+                        .header("X-Download-Options", "noopen")
+                        .header("Cache-Control", "no-cache, no-store, max-age=0")
+                        .header("Pragma", "no-cache")
+                        .header("Expires", "-1")
+                        .build();
             }
 
             dispatchManager.failQuery(queryId, queryException);
 
-            return Response.status(Status.ACCEPTED).build();
+            return Response.status(Status.ACCEPTED)
+                    .header("X-Download-Options", "noopen")
+                    .header("Cache-Control", "no-cache, no-store, max-age=0")
+                    .header("Pragma", "no-cache")
+                    .header("Expires", "-1")
+                    .build();
         }
         catch (AccessDeniedException e) {
             throw new ForbiddenException();
         }
         catch (NoSuchElementException e) {
-            return Response.status(Status.GONE).build();
+            return Response.status(Status.GONE)
+                    .header("X-Download-Options", "noopen")
+                    .header("Cache-Control", "no-cache, no-store, max-age=0")
+                    .header("Pragma", "no-cache")
+                    .header("Expires", "-1")
+                    .build();
         }
     }
 }
