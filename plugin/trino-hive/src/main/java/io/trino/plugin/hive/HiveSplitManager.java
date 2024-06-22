@@ -25,6 +25,8 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
+import io.trino.plugin.hive.functions.HiveListFilesTableHandle;
+import io.trino.plugin.hive.functions.ListFilesSplit;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -193,6 +195,10 @@ public class HiveSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
+        if (tableHandle instanceof HiveListFilesTableHandle hiveListFunctionTableHandle) {
+            return new FixedSplitSource(new ListFilesSplit(hiveListFunctionTableHandle.path()));
+        }
+
         HiveTableHandle hiveTable = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = hiveTable.getSchemaTableName();
 

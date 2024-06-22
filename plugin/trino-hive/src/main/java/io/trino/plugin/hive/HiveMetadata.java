@@ -40,6 +40,8 @@ import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.fs.DirectoryLister;
+import io.trino.plugin.hive.functions.HiveListFilesTableHandle;
+import io.trino.plugin.hive.functions.ListFilesTableFunction;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -97,6 +99,7 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
+import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.ViewNotFoundException;
@@ -105,6 +108,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
@@ -262,6 +266,7 @@ import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.acid.AcidTransaction.forCreateTable;
+import static io.trino.plugin.hive.functions.ListFilesTableFunction.LIST_FILES_COLUMNS;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.STATS_PROPERTIES;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
@@ -604,6 +609,10 @@ public class HiveMetadata
     @Override
     public SchemaTableName getTableName(ConnectorSession session, ConnectorTableHandle table)
     {
+        if (table instanceof HiveListFilesTableHandle) {
+            // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic ConnectorTableHandle
+            return new SchemaTableName("_generated", "_generated_query");
+        }
         return ((HiveTableHandle) table).getSchemaTableName();
     }
 
@@ -784,6 +793,9 @@ public class HiveMetadata
     @Override
     public Optional<Object> getInfo(ConnectorTableHandle tableHandle)
     {
+        if (tableHandle instanceof HiveListFilesTableHandle) {
+            return Optional.empty();
+        }
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         List<String> partitionIds = hiveTableHandle.getPartitions()
                 .map(partitions -> partitions.stream()
@@ -891,7 +903,7 @@ public class HiveMetadata
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        if (!isStatisticsEnabled(session)) {
+        if (!isStatisticsEnabled(session) || tableHandle instanceof HiveListFilesTableHandle) {
             return TableStatistics.empty();
         }
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
@@ -2987,6 +2999,10 @@ public class HiveMetadata
     @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
+        if (table instanceof HiveListFilesTableHandle) {
+            return new ConnectorTableProperties();
+        }
+
         HiveTableHandle hiveTable = (HiveTableHandle) table;
 
         List<ColumnHandle> partitionColumns = ImmutableList.copyOf(hiveTable.getPartitionColumns());
@@ -3090,6 +3106,10 @@ public class HiveMetadata
     @Override
     public void validateScan(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        if (tableHandle instanceof HiveListFilesTableHandle) {
+            return;
+        }
+
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         if (isQueryPartitionFilterRequiredForTable(session, handle.getSchemaTableName()) && handle.getAnalyzePartitionValues().isEmpty() && handle.getEnforcedConstraint().isAll()) {
             List<HiveColumnHandle> partitionColumns = handle.getPartitionColumns();
@@ -3575,6 +3595,15 @@ public class HiveMetadata
         return getSupportedColumnStatistics(columnMetadata.getType()).stream()
                 .map(type -> type.createColumnStatisticMetadata(columnName))
                 .collect(toImmutableList());
+    }
+
+    @Override
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        if (handle instanceof ListFilesTableFunction.ListFilesTableFunctionHandle listfilesTableFunctionHandle) {
+            return Optional.of(new TableFunctionApplicationResult<>(listfilesTableFunctionHandle.tableHandle(), LIST_FILES_COLUMNS));
+        }
+        return Optional.empty();
     }
 
     @Override
