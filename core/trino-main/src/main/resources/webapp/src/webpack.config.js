@@ -4,6 +4,7 @@ module.exports = {
         'query': __dirname +'/query.jsx',
         'plan': __dirname +'/plan.jsx',
         'embedded_plan': __dirname +'/embedded_plan.jsx',
+        'references': __dirname +'/references.jsx',
         'stage': __dirname +'/stage.jsx',
         'worker': __dirname +'/worker.jsx',
         'workers': __dirname +'/workers.jsx',
