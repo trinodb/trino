@@ -14,14 +14,17 @@
 package io.trino.filesystem.s3;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import reactor.core.publisher.Flux;
+import software.amazon.awssdk.core.async.SdkPublisher;
 import software.amazon.awssdk.core.exception.SdkException;
-import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
@@ -42,9 +45,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Multimaps.toMultimap;
 import static java.util.Objects.requireNonNull;
@@ -53,11 +54,11 @@ final class S3FileSystem
         implements TrinoFileSystem
 {
     private final ExecutorService uploadExecutor;
-    private final S3Client client;
+    private final S3AsyncClient client;
     private final S3Context context;
     private final RequestPayer requestPayer;
 
-    public S3FileSystem(ExecutorService uploadExecutor, S3Client client, S3Context context)
+    public S3FileSystem(ExecutorService uploadExecutor, S3AsyncClient client, S3Context context)
     {
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         this.client = requireNonNull(client, "client is null");
@@ -97,7 +98,7 @@ final class S3FileSystem
                 .build();
 
         try {
-            client.deleteObject(request);
+            client.deleteObject(request).join();
         }
         catch (SdkException e) {
             throw new IOException("Failed to delete file: " + location, e);
@@ -152,7 +153,7 @@ final class S3FileSystem
                         .build();
 
                 try {
-                    DeleteObjectsResponse response = client.deleteObjects(request);
+                    DeleteObjectsResponse response = client.deleteObjects(request).join();
                     for (S3Error error : response.errors()) {
                         failures.put("s3://%s/%s".formatted(bucket, error.key()), error.code());
                     }
@@ -199,11 +200,11 @@ final class S3FileSystem
                 .build();
 
         try {
-            Stream<S3Object> s3ObjectStream = client.listObjectsV2Paginator(request).contents().stream();
+            SdkPublisher<S3Object> s3ObjectStream = client.listObjectsV2Paginator(request).contents();
             if (!includeDirectoryObjects) {
                 s3ObjectStream = s3ObjectStream.filter(object -> !object.key().endsWith("/"));
             }
-            return new S3FileIterator(s3Location, s3ObjectStream.iterator());
+            return new S3FileIterator(s3Location, s3ObjectStream);
         }
         catch (SdkException e) {
             throw new IOException("Failed to list location: " + location, e);
@@ -255,11 +256,11 @@ final class S3FileSystem
                 .build();
 
         try {
-            return client.listObjectsV2Paginator(request)
-                    .commonPrefixes().stream()
+            return ImmutableSet.copyOf(Flux.from(client.listObjectsV2Paginator(request)
+                    .commonPrefixes()
                     .map(CommonPrefix::prefix)
-                    .map(baseLocation::appendPath)
-                    .collect(toImmutableSet());
+                    .map(baseLocation::appendPath))
+                    .toIterable());
         }
         catch (SdkException e) {
             throw new IOException("Failed to list location: " + location, e);

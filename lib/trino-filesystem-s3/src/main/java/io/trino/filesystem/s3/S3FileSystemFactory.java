@@ -25,11 +25,11 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.http.apache.ApacheHttpClient;
-import software.amazon.awssdk.http.apache.ProxyConfiguration;
+import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
+import software.amazon.awssdk.http.nio.netty.ProxyConfiguration;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
@@ -50,14 +50,14 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 public final class S3FileSystemFactory
         implements TrinoFileSystemFactory
 {
-    private final S3Client client;
+    private final S3AsyncClient client;
     private final S3Context context;
     private final ExecutorService uploadExecutor;
 
     @Inject
     public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config)
     {
-        S3ClientBuilder s3 = S3Client.builder();
+        S3AsyncClientBuilder s3 = S3AsyncClient.builder();
         s3.overrideConfiguration(ClientOverrideConfiguration.builder()
                 .addExecutionInterceptor(AwsSdkTelemetry.builder(openTelemetry)
                         .setCaptureExperimentalSpanAttributes(true)
@@ -94,21 +94,20 @@ public final class S3FileSystemFactory
             staticCredentialsProvider.ifPresent(s3::credentialsProvider);
         }
 
-        ApacheHttpClient.Builder httpClient = ApacheHttpClient.builder()
-                .maxConnections(config.getMaxConnections())
+        NettyNioAsyncHttpClient.Builder httpClient = NettyNioAsyncHttpClient.builder()
+                .maxConcurrency(config.getMaxConnections())
                 .tcpKeepAlive(config.getTcpKeepAlive());
 
         config.getConnectionTtl().ifPresent(connectionTtl -> httpClient.connectionTimeToLive(connectionTtl.toJavaTime()));
         config.getConnectionMaxIdleTime().ifPresent(connectionMaxIdleTime -> httpClient.connectionMaxIdleTime(connectionMaxIdleTime.toJavaTime()));
         config.getSocketConnectTimeout().ifPresent(socketConnectTimeout -> httpClient.connectionTimeout(socketConnectTimeout.toJavaTime()));
-        config.getSocketReadTimeout().ifPresent(socketReadTimeout -> httpClient.socketTimeout(socketReadTimeout.toJavaTime()));
+        config.getSocketReadTimeout().ifPresent(socketReadTimeout -> httpClient.connectionAcquisitionTimeout(socketReadTimeout.toJavaTime()));
 
         if (config.getHttpProxy() != null) {
-            URI endpoint = URI.create("%s://%s".formatted(
-                    config.isHttpProxySecure() ? "https" : "http",
-                    config.getHttpProxy()));
             httpClient.proxyConfiguration(ProxyConfiguration.builder()
-                    .endpoint(endpoint)
+                    .host(config.getHttpProxy().getHost())
+                    .port(config.getHttpProxy().getPort())
+                    .scheme(config.isHttpProxySecure() ? "https" : "http")
                     .build());
         }
 

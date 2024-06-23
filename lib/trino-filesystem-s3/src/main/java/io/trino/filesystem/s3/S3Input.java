@@ -17,7 +17,8 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 import software.amazon.awssdk.core.exception.AbortedException;
 import software.amazon.awssdk.core.exception.SdkException;
-import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.core.internal.async.InputStreamResponseTransformer;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
@@ -26,6 +27,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
+import java.util.concurrent.CompletionException;
 
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
@@ -34,11 +36,11 @@ final class S3Input
         implements TrinoInput
 {
     private final Location location;
-    private final S3Client client;
+    private final S3AsyncClient client;
     private final GetObjectRequest request;
     private boolean closed;
 
-    public S3Input(Location location, S3Client client, GetObjectRequest request)
+    public S3Input(Location location, S3AsyncClient client, GetObjectRequest request)
     {
         this.location = requireNonNull(location, "location is null");
         this.client = requireNonNull(client, "client is null");
@@ -105,13 +107,19 @@ final class S3Input
             throws IOException
     {
         try {
-            return client.getObject(request);
+            return client.getObject(request, new InputStreamResponseTransformer<>()).join();
         }
         catch (NoSuchKeyException e) {
             throw new FileNotFoundException(location.toString());
         }
         catch (SdkException e) {
             throw new IOException("Failed to open S3 file: " + location, e);
+        }
+        catch (CompletionException e) {
+            if (e.getCause() instanceof NoSuchKeyException) {
+                throw new FileNotFoundException(location.toString());
+            }
+            throw e;
         }
     }
 

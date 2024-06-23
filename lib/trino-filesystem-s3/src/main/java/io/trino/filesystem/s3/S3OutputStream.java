@@ -16,9 +16,9 @@ package io.trino.filesystem.s3;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.exception.SdkException;
-import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
@@ -57,7 +57,7 @@ final class S3OutputStream
     private final List<CompletedPart> parts = new ArrayList<>();
     private final LocalMemoryContext memoryContext;
     private final ExecutorService uploadExecutor;
-    private final S3Client client;
+    private final S3AsyncClient client;
     private final S3Location location;
     private final S3Context context;
     private final int partSize;
@@ -81,7 +81,7 @@ final class S3OutputStream
     // Visibility is ensured by calling get() on inProgressUploadFuture.
     private Optional<String> uploadId = Optional.empty();
 
-    public S3OutputStream(AggregatedMemoryContext memoryContext, ExecutorService uploadExecutor, S3Client client, S3Context context, S3Location location)
+    public S3OutputStream(AggregatedMemoryContext memoryContext, ExecutorService uploadExecutor, S3AsyncClient client, S3Context context, S3Location location)
     {
         this.memoryContext = memoryContext.newLocalMemoryContext(S3OutputStream.class.getSimpleName());
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
@@ -219,7 +219,7 @@ final class S3OutputStream
             ByteBuffer bytes = ByteBuffer.wrap(buffer, 0, bufferSize);
 
             try {
-                client.putObject(request, RequestBody.fromByteBuffer(bytes));
+                client.putObject(request, AsyncRequestBody.fromByteBuffer(bytes)).join();
                 return;
             }
             catch (SdkException e) {
@@ -293,7 +293,7 @@ final class S3OutputStream
                     })
                     .build();
 
-            uploadId = Optional.of(client.createMultipartUpload(request).uploadId());
+            uploadId = Optional.of(client.createMultipartUpload(request).join().uploadId());
         }
 
         currentPartNumber++;
@@ -309,7 +309,7 @@ final class S3OutputStream
 
         ByteBuffer bytes = ByteBuffer.wrap(data, 0, length);
 
-        UploadPartResponse response = client.uploadPart(request, RequestBody.fromByteBuffer(bytes));
+        UploadPartResponse response = client.uploadPart(request, AsyncRequestBody.fromByteBuffer(bytes)).join();
 
         CompletedPart part = CompletedPart.builder()
                 .partNumber(currentPartNumber)
@@ -331,7 +331,7 @@ final class S3OutputStream
                 .multipartUpload(x -> x.parts(parts))
                 .build();
 
-        client.completeMultipartUpload(request);
+        client.completeMultipartUpload(request).join();
     }
 
     private void abortUpload()
@@ -343,7 +343,7 @@ final class S3OutputStream
                         .key(location.key())
                         .uploadId(id)
                         .build())
-                .ifPresent(client::abortMultipartUpload);
+                .ifPresent(obj -> client.abortMultipartUpload(obj).join());
     }
 
     @SuppressWarnings("ObjectEquality")

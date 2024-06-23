@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
+import reactor.core.publisher.Flux;
+import software.amazon.awssdk.core.async.SdkPublisher;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.model.ObjectStorageClass;
 import software.amazon.awssdk.services.s3.model.RestoreStatus;
@@ -40,10 +42,10 @@ final class S3FileIterator
     private static final String S3_GLACIER_TAG = "s3:glacier";
     private static final String S3_GLACIER_AND_RESTORED_TAG = "s3:glacierRestored";
 
-    public S3FileIterator(S3Location location, Iterator<S3Object> iterator)
+    public S3FileIterator(S3Location location, SdkPublisher<S3Object> iterator)
     {
         this.location = requireNonNull(location, "location is null");
-        this.iterator = requireNonNull(iterator, "iterator is null");
+        this.iterator = Flux.from(requireNonNull(iterator, "iterator is null")).toIterable().iterator();
         this.baseLocation = location.baseLocation();
     }
 

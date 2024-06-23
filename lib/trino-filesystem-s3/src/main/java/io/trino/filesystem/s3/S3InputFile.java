@@ -18,7 +18,7 @@ import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 import software.amazon.awssdk.core.exception.SdkException;
-import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
@@ -28,20 +28,22 @@ import software.amazon.awssdk.services.s3.model.RequestPayer;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.concurrent.CompletionException;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 final class S3InputFile
         implements TrinoInputFile
 {
-    private final S3Client client;
+    private final S3AsyncClient client;
     private final S3Location location;
     private final S3Context context;
     private final RequestPayer requestPayer;
     private Long length;
     private Instant lastModified;
 
-    public S3InputFile(S3Client client, S3Context context, S3Location location, Long length)
+    public S3InputFile(S3AsyncClient client, S3Context context, S3Location location, Long length)
     {
         this.client = requireNonNull(client, "client is null");
         this.location = requireNonNull(location, "location is null");
@@ -117,7 +119,7 @@ final class S3InputFile
                 .build();
 
         try {
-            HeadObjectResponse response = client.headObject(request);
+            HeadObjectResponse response = client.headObject(request).join();
             if (length == null) {
                 length = response.contentLength();
             }
@@ -125,6 +127,16 @@ final class S3InputFile
                 lastModified = response.lastModified();
             }
             return true;
+        }
+        catch (CompletionException e) {
+            if (e.getCause() instanceof NoSuchKeyException) {
+                return false;
+            }
+            if (e.getCause() instanceof SdkException) {
+                throw new IOException("S3 HEAD request failed for file: " + location, e.getCause());
+            }
+            throwIfUnchecked(e.getCause());
+            throw e;
         }
         catch (NoSuchKeyException e) {
             return false;
