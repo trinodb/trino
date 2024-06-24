@@ -80,6 +80,7 @@ import java.util.Set;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
+import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.trino.server.TrinoSystemRequirements.verifySystemRequirements;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
@@ -110,6 +111,7 @@ public class Server
                 new NodeModule(),
                 new DiscoveryModule(),
                 new HttpServerModule(),
+                binder -> httpServerBinder(binder).enableVirtualThreads(),
                 new JsonModule(),
                 new JaxrsModule(),
                 new MBeanModule(),
