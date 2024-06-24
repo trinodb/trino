@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery.ptf;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.cloud.bigquery.Schema;
+import com.google.cloud.bigquery.TableId;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -27,6 +28,7 @@ import io.trino.plugin.bigquery.BigQueryColumnHandle;
 import io.trino.plugin.bigquery.BigQueryQueryRelationHandle;
 import io.trino.plugin.bigquery.BigQueryTableHandle;
 import io.trino.plugin.bigquery.BigQueryTypeManager;
+import io.trino.plugin.bigquery.RemoteTableName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
@@ -108,8 +110,9 @@ public class Query
 
             BigQueryClient client = clientFactory.create(session);
             Schema schema = client.getSchema(query);
+            TableId destinationTable = client.getDestinationTable(query);
 
-            BigQueryQueryRelationHandle queryRelationHandle = new BigQueryQueryRelationHandle(query);
+            BigQueryQueryRelationHandle queryRelationHandle = new BigQueryQueryRelationHandle(query, new RemoteTableName(destinationTable));
             BigQueryTableHandle tableHandle = new BigQueryTableHandle(queryRelationHandle, TupleDomain.all(), Optional.empty());
 
             ImmutableList.Builder<BigQueryColumnHandle> columnsBuilder = ImmutableList.builderWithExpectedSize(schema.getFields().size());

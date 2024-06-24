@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
+import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.common.annotations.VisibleForTesting;
@@ -57,8 +58,12 @@ import static io.trino.plugin.bigquery.BigQueryClient.selectSql;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.isSkipViewMaterialization;
 import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
+import static io.trino.plugin.bigquery.ViewMaterializationCache.TEMP_TABLE_PREFIX;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 import static org.apache.arrow.vector.ipc.message.MessageSerializer.deserializeSchema;
 
 public class BigQuerySplitManager
@@ -104,9 +109,36 @@ public class BigQuerySplitManager
         TupleDomain<ColumnHandle> tableConstraint = bigQueryTableHandle.constraint();
         Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(tableConstraint);
 
-        if (!bigQueryTableHandle.isNamedRelation()) {
+        if (bigQueryTableHandle.isQueryRelation()) {
+            BigQueryQueryRelationHandle bigQueryQueryRelationHandle = bigQueryTableHandle.getRequiredQueryRelation();
             List<BigQueryColumnHandle> columns = bigQueryTableHandle.projectedColumns().orElse(ImmutableList.of());
-            return new FixedSplitSource(BigQuerySplit.forViewStream(columns, filter));
+            TableId destinationTable = createDestinationTable(bigQueryQueryRelationHandle.getDestinationTableName().toTableId());
+
+            String query = filter
+                    .map(whereClause -> "SELECT * FROM (" + bigQueryQueryRelationHandle.getQuery() + ") WHERE " + whereClause)
+                    .orElseGet(bigQueryQueryRelationHandle::getQuery);
+
+            try {
+                TableInfo tableInfo = new ViewMaterializationCache.DestinationTableBuilder(bigQueryClientFactory.create(session), viewExpiration, query, destinationTable).get();
+                List<String> projectedColumnsNames = getProjectedColumnNames(columns);
+
+                log.debug("Using Storage API for running query: " + query);
+                // filter is already used while constructing the select query
+                ReadSession readSession = createReadSession(session, tableInfo.getTableId(), ImmutableList.copyOf(projectedColumnsNames), Optional.empty());
+                return new FixedSplitSource(readSession.getStreamsList().stream()
+                        .map(stream -> BigQuerySplit.forStream(stream.getName(), getSchemaAsString(readSession), columns, OptionalInt.of(stream.getSerializedSize())))
+                        .collect(toImmutableList()));
+            }
+            catch (BigQueryException ex) {
+                if (ex.getMessage().startsWith("Duplicate column names in the result are not supported when a destination table is present.")) {
+                    // Use REST API for this case
+                    log.debug("Using Rest API for running query: " + query);
+                    return new FixedSplitSource(BigQuerySplit.forViewStream(columns, filter));
+                }
+                else {
+                    throw ex;
+                }
+            }
         }
 
         TableId remoteTableId = bigQueryTableHandle.asPlainTable().getRemoteTableName().toTableId();
@@ -115,6 +147,15 @@ public class BigQuerySplitManager
                 ? createEmptyProjection(session, tableType, remoteTableId, filter)
                 : readFromBigQuery(session, tableType, remoteTableId, bigQueryTableHandle.projectedColumns(), tableConstraint);
         return new FixedSplitSource(splits);
+    }
+
+    private TableId createDestinationTable(TableId remoteTableId)
+    {
+        String project = remoteTableId.getProject();
+        String dataset = remoteTableId.getDataset();
+
+        String name = format("%s%s", TEMP_TABLE_PREFIX, randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
+        return TableId.of(project, dataset, name);
     }
 
     private static boolean emptyProjectionIsRequired(Optional<List<BigQueryColumnHandle>> projectedColumns)
@@ -134,7 +175,7 @@ public class BigQuerySplitManager
 
         log.debug("readFromBigQuery(tableId=%s, projectedColumns=%s, filter=[%s])", remoteTableId, projectedColumns, filter);
         List<BigQueryColumnHandle> columns = projectedColumns.get();
-        List<String> projectedColumnsNames = new ArrayList<>(columns.stream().map(BigQueryColumnHandle::name).toList());
+        List<String> projectedColumnsNames = new ArrayList<>(getProjectedColumnNames(columns));
 
         if (isWildcardTable(type, remoteTableId.getTable())) {
             // Storage API doesn't support reading wildcard tables
@@ -166,6 +207,11 @@ public class BigQuerySplitManager
     {
         ReadSessionCreator readSessionCreator = new ReadSessionCreator(bigQueryClientFactory, bigQueryReadClientFactory, viewEnabled, arrowSerializationEnabled, viewExpiration, maxReadRowsRetries);
         return readSessionCreator.create(session, remoteTableId, projectedColumnsNames, filter, nodeManager.getRequiredWorkerNodes().size());
+    }
+
+    private List<String> getProjectedColumnNames(List<BigQueryColumnHandle> columns)
+    {
+        return columns.stream().map(BigQueryColumnHandle::name).collect(toImmutableList());
     }
 
     private List<BigQuerySplit> createEmptyProjection(ConnectorSession session, TableDefinition.Type tableType, TableId remoteTableId, Optional<String> filter)

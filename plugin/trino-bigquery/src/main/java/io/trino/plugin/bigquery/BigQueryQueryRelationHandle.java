@@ -24,11 +24,13 @@ public class BigQueryQueryRelationHandle
         extends BigQueryRelationHandle
 {
     private final String query;
+    private final RemoteTableName destinationTableName;
 
     @JsonCreator
-    public BigQueryQueryRelationHandle(String query)
+    public BigQueryQueryRelationHandle(String query, RemoteTableName destinationTableName)
     {
         this.query = query;
+        this.destinationTableName = destinationTableName;
     }
 
     @JsonProperty
@@ -37,10 +39,16 @@ public class BigQueryQueryRelationHandle
         return query;
     }
 
+    @JsonProperty
+    public RemoteTableName getDestinationTableName()
+    {
+        return destinationTableName;
+    }
+
     @Override
     public String toString()
     {
-        return format("Query[%s]", query);
+        return format("Query[%s], Destination table[%s]", query, destinationTableName);
     }
 
     @Override
@@ -53,12 +61,13 @@ public class BigQueryQueryRelationHandle
             return false;
         }
         BigQueryQueryRelationHandle that = (BigQueryQueryRelationHandle) o;
-        return query.equals(that.query);
+        return query.equals(that.query)
+                && destinationTableName.equals(that.destinationTableName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(query);
+        return Objects.hash(query, destinationTableName);
     }
 }
