@@ -983,6 +983,16 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
+    public void testNativeQueryWithCount()
+    {
+        assertThat(query("SELECT COUNT(*) FROM TABLE(bigquery.system.query(query => 'SELECT 1'))"))
+                .matches("VALUES BIGINT '1'");
+
+        assertThat(query("SELECT COUNT(*) FROM TABLE(bigquery.system.query(query => 'SELECT * FROM tpch.nation'))"))
+                .matches("VALUES BIGINT '25'");
+    }
+
+    @Test
     public void testNativeQueryColumnAliasNotFound()
     {
         assertQueryFails(
@@ -1042,7 +1052,7 @@ public abstract class BaseBigQueryConnectorTest
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         assertThat(query("SELECT * FROM TABLE(bigquery.system.query(query => 'INSERT INTO test." + tableName + " VALUES (1)'))"))
                 .failure()
-                .hasMessageContaining("Failed to get schema for query")
+                .hasMessageContaining("Failed to get destination table for query")
                 .hasStackTraceContaining("%s was not found", tableName);
     }
 
@@ -1064,7 +1074,7 @@ public abstract class BaseBigQueryConnectorTest
     public void testNativeQueryIncorrectSyntax()
     {
         assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
-                .failure().hasMessageContaining("Failed to get schema for query");
+                .failure().hasMessageContaining("Failed to get destination table for query");
     }
 
     @Test
