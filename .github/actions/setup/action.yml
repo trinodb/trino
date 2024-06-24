@@ -37,11 +37,17 @@ runs:
         if: ${{ format('{0}', inputs.cleanup-node) == 'true' }}
         shell: bash
         run: ./.github/bin/free-disk-space.sh
+      - name: "Download JDK package"
+        shell: bash
+        run: |
+          download_url="https://download.java.net/java/early_access/loom/1/openjdk-24-loom+1-17_linux-x64_bin.tar.gz"
+          wget -O $RUNNER_TEMP/java_package.tar.gz $download_url
       - uses: actions/setup-java@v4
         if: ${{ inputs.java-version != '' }}
         with:
-          distribution: 'temurin' # use same JDK distro as in Trino docker images
-          java-version: ${{ inputs.java-version }}
+          distribution: jdkfile
+          java-version: 24-ea
+          jdkFile: ${{ runner.temp }}/java_package.tar.gz
       - name: Cache and Restore local Maven repo
         id: cache
         if: ${{ format('{0}', inputs.cache) == 'true' }}
