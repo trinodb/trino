@@ -222,7 +222,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.23</version>
+                <version>1.2.24</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

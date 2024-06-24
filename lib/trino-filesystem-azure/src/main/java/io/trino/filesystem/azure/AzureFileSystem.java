@@ -46,7 +46,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
-import static com.azure.storage.common.Utility.urlEncode;
 import static com.azure.storage.common.implementation.Constants.HeaderConstants.ETAG_WILDCARD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -178,8 +177,7 @@ public class AzureFileSystem
         BlobContainerClient blobContainerClient = createBlobContainerClient(location);
         PagedIterable<BlobItem> blobItems = blobContainerClient.listBlobs(new ListBlobsOptions().setPrefix(location.directoryPath()), null);
         for (BlobItem item : blobItems) {
-            String blobUrl = urlEncode(item.getName());
-            blobContainerClient.getBlobClient(blobUrl).deleteIfExists();
+            blobContainerClient.getBlobClient(item.getName()).deleteIfExists();
         }
     }
 
@@ -216,7 +214,7 @@ public class AzureFileSystem
             createDirectoryIfNotExists(fileSystemClient, target.location().parentDirectory().path());
             dataLakeFileClient.renameWithResponse(
                     null,
-                    urlEncode(target.path()),
+                    target.path(),
                     null,
                     new DataLakeRequestConditions().setIfNoneMatch(ETAG_WILDCARD),
                     null,
@@ -353,7 +351,7 @@ public class AzureFileSystem
             if (!directoryClient.getProperties().isDirectory()) {
                 throw new IOException("Source is not a directory: " + source);
             }
-            directoryClient.rename(null, urlEncode(targetLocation.path()));
+            directoryClient.rename(null, targetLocation.path());
         }
         catch (RuntimeException e) {
             throw new IOException("Rename directory from %s to %s failed".formatted(source, target), e);
@@ -453,7 +451,7 @@ public class AzureFileSystem
 
     private BlobClient createBlobClient(AzureLocation location)
     {
-        return createBlobContainerClient(location).getBlobClient(urlEncode(location.path()));
+        return createBlobContainerClient(location).getBlobClient(location.path());
     }
 
     private BlobContainerClient createBlobContainerClient(AzureLocation location)
@@ -488,16 +486,16 @@ public class AzureFileSystem
 
     private static DataLakeDirectoryClient createDirectoryClient(DataLakeFileSystemClient fileSystemClient, String directoryName)
     {
-        return fileSystemClient.getDirectoryClient(urlEncode(directoryName));
+        return fileSystemClient.getDirectoryClient(directoryName);
     }
 
     private static DataLakeFileClient createFileClient(DataLakeFileSystemClient fileSystemClient, String fileName)
     {
-        return fileSystemClient.getFileClient(urlEncode(fileName));
+        return fileSystemClient.getFileClient(fileName);
     }
 
     private static DataLakeDirectoryClient createDirectoryIfNotExists(DataLakeFileSystemClient fileSystemClient, String name)
     {
-        return fileSystemClient.createDirectoryIfNotExists(urlEncode(name));
+        return fileSystemClient.createDirectoryIfNotExists(name);
     }
 }
