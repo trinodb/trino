@@ -273,6 +273,10 @@ public class TestHive3OnDataLake
         getQueryRunner().execute("CALL system.sync_partition_metadata(schema_name => '" + HIVE_TEST_SCHEMA + "', table_name => '" + tableName + "', mode => 'FULL', case_sensitive => false)");
         assertQuery("SELECT * FROM " + fullyQualifiedTestTableName, "VALUES ('Trino', 'rocks', 'part_val')");
 
+        // Verify that syncing again the partition metadata has no negative effect (e.g. drop the partition)
+        getQueryRunner().execute("CALL system.sync_partition_metadata(schema_name => '" + HIVE_TEST_SCHEMA + "', table_name => '" + tableName + "', mode => 'FULL', case_sensitive => false)");
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName, "VALUES ('Trino', 'rocks', 'part_val')");
+
         assertUpdate("DROP TABLE " + fullyQualifiedTestTableName);
     }
 
