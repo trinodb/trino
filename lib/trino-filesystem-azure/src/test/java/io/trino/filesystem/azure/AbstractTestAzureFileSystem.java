@@ -34,7 +34,6 @@ import org.junit.jupiter.api.TestInstance.Lifecycle;
 
 import java.io.IOException;
 
-import static com.azure.storage.common.Utility.urlEncode;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
@@ -158,7 +157,7 @@ public abstract class AbstractTestAzureFileSystem
             }
         }
         else {
-            blobContainerClient.listBlobs().forEach(item -> blobContainerClient.getBlobClient(urlEncode(item.getName())).deleteIfExists());
+            blobContainerClient.listBlobs().forEach(item -> blobContainerClient.getBlobClient(item.getName()).deleteIfExists());
         }
     }
 
