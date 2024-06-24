@@ -70,7 +70,10 @@ public final class FairScheduler
 
         schedulerExecutor = Executors.newCachedThreadPool(daemonThreadsNamed("fair-scheduler-%d"));
 
-        taskExecutor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool(daemonThreadsNamed(threadNameFormat)));
+        taskExecutor = MoreExecutors.listeningDecorator(Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual()
+                        .name(threadNameFormat)
+                        .factory()));
     }
 
     public static FairScheduler newInstance(int maxConcurrentTasks)
@@ -80,7 +83,7 @@ public final class FairScheduler
 
     public static FairScheduler newInstance(int maxConcurrentTasks, Ticker ticker)
     {
-        FairScheduler scheduler = new FairScheduler(maxConcurrentTasks, "fair-scheduler-runner-%d", ticker);
+        FairScheduler scheduler = new FairScheduler(maxConcurrentTasks, "fair-scheduler-runner#", ticker);
         scheduler.start();
         return scheduler;
     }

@@ -174,6 +174,7 @@
             -XX:+EnableDynamicAgentLoading
             <!-- workaround for JDK-8329528 -->
             -XX:G1NumCollectionsKeepPinned=10000000
+            -Djava.security.manager=allow
             ${extraJavaVectorArgs}
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
