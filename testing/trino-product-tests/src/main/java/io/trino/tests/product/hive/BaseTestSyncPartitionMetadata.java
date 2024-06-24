@@ -196,7 +196,7 @@ public abstract class BaseTestSyncPartitionMetadata
                 .hasMessageMatching(".*mode cannot be null.*");
     }
 
-    private String tableLocation(String tableName)
+    protected String tableLocation(String tableName)
     {
         return schemaLocation() + '/' + tableName;
     }
@@ -239,18 +239,18 @@ public abstract class BaseTestSyncPartitionMetadata
 
     protected abstract void copyOrcFileToHdfsDirectory(String tableName, String targetDirectory);
 
-    private static void cleanup(String tableName)
+    protected static void cleanup(String tableName)
     {
         onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
-    private static void assertPartitions(String tableName, QueryAssert.Row... rows)
+    protected static void assertPartitions(String tableName, QueryAssert.Row... rows)
     {
         QueryResult partitionListResult = onTrino().executeQuery("SELECT * FROM \"" + tableName + "$partitions\" ORDER BY 1, 2");
         assertThat(partitionListResult).containsExactlyInOrder(rows);
     }
 
-    private static void assertData(String tableName, QueryAssert.Row... rows)
+    protected static void assertData(String tableName, QueryAssert.Row... rows)
     {
         QueryResult dataResult = onTrino().executeQuery("SELECT payload, col_x, col_y FROM " + tableName + " ORDER BY 1, 2, 3 ASC");
         assertThat(dataResult).containsExactlyInOrder(rows);
