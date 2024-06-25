@@ -8187,6 +8187,72 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testAddColumnWithTypeCoercion()
+    {
+        testAddColumnWithTypeCoercion("timestamp with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(0) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(1) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(2) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(3) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(4) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(5) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(6) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(7) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(8) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(9) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(10) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(11) with time zone", "timestamp(6) with time zone");
+        testAddColumnWithTypeCoercion("timestamp(12) with time zone", "timestamp(6) with time zone");
+
+        testAddColumnWithTypeCoercion("timestamp", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(0)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(1)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(2)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(3)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(4)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(5)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(6)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(7)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(8)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(9)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(10)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(11)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(12)", "timestamp(6)");
+
+        testAddColumnWithTypeCoercion("time", "time(6)");
+        testAddColumnWithTypeCoercion("time(0)", "time(6)");
+        testAddColumnWithTypeCoercion("time(1)", "time(6)");
+        testAddColumnWithTypeCoercion("time(2)", "time(6)");
+        testAddColumnWithTypeCoercion("time(3)", "time(6)");
+        testAddColumnWithTypeCoercion("time(4)", "time(6)");
+        testAddColumnWithTypeCoercion("time(5)", "time(6)");
+        testAddColumnWithTypeCoercion("time(6)", "time(6)");
+        testAddColumnWithTypeCoercion("time(7)", "time(6)");
+        testAddColumnWithTypeCoercion("time(8)", "time(6)");
+        testAddColumnWithTypeCoercion("time(9)", "time(6)");
+        testAddColumnWithTypeCoercion("time(10)", "time(6)");
+        testAddColumnWithTypeCoercion("time(11)", "time(6)");
+        testAddColumnWithTypeCoercion("time(12)", "time(6)");
+
+        testAddColumnWithTypeCoercion("char(1)", "varchar");
+
+        testAddColumnWithTypeCoercion("array(char(10))", "array(varchar)");
+        testAddColumnWithTypeCoercion("map(char(20), char(30))", "map(varchar, varchar)");
+        testAddColumnWithTypeCoercion("row(x char(40))", "row(x varchar)");
+    }
+
+    private void testAddColumnWithTypeCoercion(String columnType, String expectedColumnType)
+    {
+        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_coercion_add_column", "(a varchar, b row(x integer))")) {
+            assertUpdate("ALTER TABLE " + testTable.getName() + " ADD COLUMN b.y " + columnType);
+            assertThat(getColumnType(testTable.getName(), "b")).isEqualTo("row(x integer, y %s)".formatted(expectedColumnType));
+
+            assertUpdate("ALTER TABLE " + testTable.getName() + " ADD COLUMN c " + columnType);
+            assertThat(getColumnType(testTable.getName(), "c")).isEqualTo(expectedColumnType);
+        }
+    }
+
+    @Test
     public void testSystemTables()
     {
         String catalog = getSession().getCatalog().orElseThrow();
