@@ -16,7 +16,7 @@ FROM ghcr.io/airlift/jvmkill:latest AS jvmkill
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS jdk-download
 ARG JDK_DOWNLOAD_LINK
 ARG JDK_VERSION
-ENV JAVA_HOME="/usr/lib/jvm/jdk-${JDK_VERSION}"
+ENV JAVA_HOME="/usr/lib/jvm/${JDK_VERSION}"
 
 RUN \
     set -xeuo pipefail && \
@@ -29,7 +29,7 @@ RUN \
 # Use ubi9 minimal as it's more secure
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 ARG JDK_VERSION
-ENV JAVA_HOME="/usr/lib/jvm/jdk-${JDK_VERSION}"
+ENV JAVA_HOME="/usr/lib/jvm/${JDK_VERSION}"
 ENV PATH=$PATH:$JAVA_HOME/bin
 ENV CATALOG_MANAGEMENT=static
 COPY --from=jdk-download $JAVA_HOME $JAVA_HOME

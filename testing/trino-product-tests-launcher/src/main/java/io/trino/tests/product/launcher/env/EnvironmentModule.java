@@ -31,8 +31,8 @@ import io.trino.tests.product.launcher.env.common.Minio;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.jdk.BuiltInJdkProvider;
+import io.trino.tests.product.launcher.env.jdk.DistributionDownloadingJdkProvider;
 import io.trino.tests.product.launcher.env.jdk.JdkProvider;
-import io.trino.tests.product.launcher.env.jdk.TemurinReleaseJdkProvider;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import java.io.File;
@@ -113,7 +113,8 @@ public final class EnvironmentModule
         if (version.equals(BUILT_IN_NAME)) {
             return new BuiltInJdkProvider();
         }
-        return new TemurinReleaseJdkProvider(version, options.jdkDownloadPath);
+
+        return new DistributionDownloadingJdkProvider(requireNonNull(options.jdkDistributions, "--trino-jdk-paths is empty"), version, options.jdkDownloadPath);
     }
 
     @Provides
