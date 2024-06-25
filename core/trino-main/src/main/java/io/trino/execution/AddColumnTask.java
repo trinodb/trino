@@ -22,10 +22,10 @@ import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.RedirectionAwareTableHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableMetadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -59,6 +60,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class AddColumnTask
         implements DataDefinitionTask<AddColumn>
@@ -102,7 +104,9 @@ public class AddColumnTask
 
         QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.redirectedTableName().orElse(originalTableName);
 
-        Map<String, ColumnHandle> columnHandles = plannerContext.getMetadata().getColumnHandles(session, tableHandle);
+        TableMetadata tableMetadata = plannerContext.getMetadata().getTableMetadata(session, tableHandle);
+        Map<String, ColumnMetadata> columns = tableMetadata.columns().stream()
+                .collect(toImmutableMap(ColumnMetadata::getName, identity()));
 
         ColumnDefinition element = statement.getColumn();
         Identifier columnName = element.getName().getOriginalParts().get(0);
@@ -120,7 +124,7 @@ public class AddColumnTask
             if (type.equals(UNKNOWN)) {
                 throw semanticException(COLUMN_TYPE_UNKNOWN, element, "Unknown type '%s' for column '%s'", element.getType(), columnName);
             }
-            if (columnHandles.containsKey(columnName.getValue().toLowerCase(ENGLISH))) {
+            if (columns.containsKey(columnName.getValue().toLowerCase(ENGLISH))) {
                 if (!statement.isColumnNotExists()) {
                     throw semanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", columnName);
                 }
@@ -142,7 +146,7 @@ public class AddColumnTask
 
             ColumnMetadata column = ColumnMetadata.builder()
                     .setName(columnName.getValue())
-                    .setType(type)
+                    .setType(getSupportedType(session, catalogHandle, tableMetadata.metadata().getProperties(), type))
                     .setNullable(element.isNullable())
                     .setComment(element.getComment())
                     .setProperties(columnProperties)
@@ -153,7 +157,7 @@ public class AddColumnTask
         else {
             accessControl.checkCanAlterColumn(session.toSecurityContext(), qualifiedTableName);
 
-            if (!columnHandles.containsKey(columnName.getValue().toLowerCase(ENGLISH))) {
+            if (!columns.containsKey(columnName.getValue().toLowerCase(ENGLISH))) {
                 throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", columnName);
             }
 
@@ -164,7 +168,7 @@ public class AddColumnTask
                     .map(Identifier::getValue)
                     .collect(toImmutableList());
 
-            ColumnMetadata columnMetadata = plannerContext.getMetadata().getColumnMetadata(session, tableHandle, columnHandles.get(columnName.getValue().toLowerCase(ENGLISH)));
+            ColumnMetadata columnMetadata = columns.get(columnName.getValue().toLowerCase(ENGLISH));
             Type currentType = columnMetadata.getType();
             for (int i = 0; i < fieldPath.size() - 1; i++) {
                 String fieldName = fieldPath.get(i);
@@ -192,7 +196,13 @@ public class AddColumnTask
                 }
                 throw semanticException(COLUMN_ALREADY_EXISTS, statement, "Field '%s' already exists", fieldName);
             }
-            plannerContext.getMetadata().addField(session, tableHandle, parentPath, fieldName, type, statement.isColumnNotExists());
+            plannerContext.getMetadata().addField(
+                    session,
+                    tableHandle,
+                    parentPath,
+                    fieldName,
+                    getSupportedType(session, catalogHandle, tableMetadata.metadata().getProperties(), type),
+                    statement.isColumnNotExists());
         }
 
         return immediateVoidFuture();
@@ -216,5 +226,12 @@ public class AddColumnTask
                 .collect(toImmutableList());
 
         return candidates;
+    }
+
+    private Type getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
+    {
+        return plannerContext.getMetadata()
+                .getSupportedType(session, catalogHandle, tableProperties, type)
+                .orElse(type);
     }
 }
