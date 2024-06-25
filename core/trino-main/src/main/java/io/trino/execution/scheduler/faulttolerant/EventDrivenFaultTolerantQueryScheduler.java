@@ -2318,6 +2318,11 @@ public class EventDrivenFaultTolerantQueryScheduler
             partition.updateExchangeSinkInstanceHandle(taskId, updatedExchangeSinkInstanceHandle);
         }
 
+        /**
+         * Marks task as finished.
+         * It can be that internal logic decides that we want to fail task instead.
+         * In such case the returned Optional will not be empty and will contain list of replacement tasks to be scheduled.
+         */
         public Optional<List<PrioritizedScheduledTask>> taskFinished(TaskId taskId, TaskStatus taskStatus)
         {
             if (getState().isDone()) {
