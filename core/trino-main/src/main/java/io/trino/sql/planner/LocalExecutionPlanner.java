@@ -2009,8 +2009,8 @@ public class LocalExecutionPlanner
                 Optional<DynamicPageFilter> dynamicPageFilterFactory = Optional.empty();
                 if (dynamicFilter != DynamicFilter.EMPTY && isEnableDynamicRowFiltering(session)) {
                     dynamicPageFilterFactory = Optional.of(new DynamicPageFilter(
-                            metadata,
-                            plannerContext.getTypeManager(),
+                            plannerContext,
+                            session,
                             dynamicFilter,
                             ((TableScanNode) sourceNode).getAssignments(),
                             sourceLayout,

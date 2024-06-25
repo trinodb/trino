@@ -16,7 +16,7 @@ package io.trino.sql.gen;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.FullConnectorSession;
-import io.trino.metadata.Metadata;
+import io.trino.Session;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -32,15 +32,12 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.DynamicPageFilter;
 import io.trino.sql.gen.columnar.FilterEvaluator;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
-import io.trino.testing.TestingSession;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -65,7 +62,6 @@ import static io.trino.block.BlockAssertions.createRowBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.block.BlockAssertions.createTypedLongsBlock;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.onlyNull;
@@ -76,16 +72,17 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Float.floatToRawIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDynamicPageFilter
 {
-    private static final TypeManager TYPE_MANAGER = new TestingTypeManager();
-    private static final Metadata METADATA = createTestMetadataManager();
     private static final ColumnarFilterCompiler COMPILER = new ColumnarFilterCompiler(createTestingFunctionManager(), new CompilerConfig());
+    private static final Session SESSION = testSessionBuilder().build();
     private static final FullConnectorSession FULL_CONNECTOR_SESSION = new FullConnectorSession(
-            TestingSession.testSessionBuilder().build(),
+            testSessionBuilder().build(),
             ConnectorIdentity.ofUser("test"));
 
     @Test
@@ -275,8 +272,8 @@ public class TestDynamicPageFilter
         Symbol symbolC = new Symbol(BIGINT, "C");
         TestingDynamicFilter dynamicFilter = new TestingDynamicFilter(4);
         DynamicPageFilter pageFilter = new DynamicPageFilter(
-                METADATA,
-                TYPE_MANAGER,
+                PLANNER_CONTEXT,
+                SESSION,
                 dynamicFilter,
                 ImmutableMap.of(symbolA, columnA, symbolB, columnB, symbolC, columnC),
                 ImmutableMap.of(symbolA, 0, symbolB, 1, symbolC, 2),
@@ -452,8 +449,8 @@ public class TestDynamicPageFilter
             layout.put(symbol, channel);
         }
         return new DynamicPageFilter(
-                METADATA,
-                TYPE_MANAGER,
+                PLANNER_CONTEXT,
+                SESSION,
                 dynamicFilter,
                 columns.buildOrThrow(),
                 layout.buildOrThrow(),
