@@ -29,13 +29,11 @@ import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
-import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.MaterializedResult;
@@ -70,7 +68,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -822,8 +819,7 @@ public class QueryAssertions
         public Result evaluate()
         {
             if (bindings.isEmpty()) {
-                return run("VALUES ROW(%s)".formatted(expression),
-                        ExpressionAssertProvider::extractExpressionWithoutBindings);
+                return run("VALUES ROW(%s)".formatted(expression));
             }
 
             List<Map.Entry<String, String>> entries = ImmutableList.copyOf(bindings.entrySet());
@@ -850,8 +846,7 @@ public class QueryAssertions
                     .formatted(
                             expression,
                             Joiner.on(",").join(values),
-                            Joiner.on(",").join(columns)),
-                    ExpressionAssertProvider::extractExpressionWithBindings);
+                            Joiner.on(",").join(columns)));
 
             Result withConstantFolding = run("""
                     SELECT %s
@@ -862,8 +857,7 @@ public class QueryAssertions
                     .formatted(
                             expression,
                             Joiner.on(",").join(values),
-                            Joiner.on(",").join(columns)),
-                    _ -> Optional.empty());
+                            Joiner.on(",").join(columns)));
             if (!full.type().equals(withConstantFolding.type())) {
                 fail("Mismatched types between interpreter and evaluation engine: %s vs %s".formatted(full.type(), withConstantFolding.type()));
             }
@@ -872,30 +866,13 @@ public class QueryAssertions
                 fail("Mismatched results between interpreter and evaluation engine: %s vs %s".formatted(full.value(), withConstantFolding.value()));
             }
 
-            return new Result(full.type(), full.value, full.expression);
+            return new Result(full.type(), full.value);
         }
 
-        private static Optional<Expression> extractExpressionWithBindings(Plan plan)
-        {
-            return PlanNodeSearcher.searchFrom(plan.getRoot())
-                    .whereIsInstanceOfAny(ProjectNode.class)
-                    .findFirst()
-                    .map(ProjectNode.class::cast)
-                    .flatMap(node -> node.getAssignments().getExpressions().stream().findFirst());
-        }
-
-        private static Optional<Expression> extractExpressionWithoutBindings(Plan plan)
-        {
-            return PlanNodeSearcher.searchFrom(plan.getRoot()) .whereIsInstanceOfAny(ValuesNode.class)
-                    .findFirst()
-                    .map(ValuesNode.class::cast)
-                    .map(node -> node.getRows().orElseThrow().getFirst().children().getFirst());
-        }
-
-        private Result run(String query, Function<Plan, Optional<Expression>> expressionExtractor)
+        private Result run(String query)
         {
             MaterializedResultWithPlan result = runner.executeWithPlan(session, query);
-            return new Result(getOnlyElement(result.result().getTypes()), result.result().getOnlyColumnAsSet().iterator().next(), expressionExtractor.apply(result.queryPlan().get()));
+            return new Result(getOnlyElement(result.result().getTypes()), result.result().getOnlyColumnAsSet().iterator().next());
         }
 
         @Override
@@ -906,7 +883,7 @@ public class QueryAssertions
                     .withRepresentation(ExpressionAssert.TYPE_RENDERER);
         }
 
-        public record Result(Type type, Object value, Optional<Expression> expression) {}
+        public record Result(Type type, Object value) {}
     }
 
     public static class ExpressionAssert
