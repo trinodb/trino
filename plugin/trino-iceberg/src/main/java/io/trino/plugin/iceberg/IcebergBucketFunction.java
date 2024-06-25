@@ -74,7 +74,7 @@ public class IcebergBucketFunction
                 })
                 .collect(toImmutableList());
         hashCodeInvokers = partitionColumns.stream()
-                .map(PartitionColumn::getResultType)
+                .map(PartitionColumn::resultType)
                 .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL)))
                 .collect(toImmutableList());
     }
@@ -115,11 +115,11 @@ public class IcebergBucketFunction
 
         for (int i = 0; i < partitionColumns.size(); i++) {
             PartitionColumn partitionColumn = partitionColumns.get(i);
-            Block block = page.getBlock(partitionColumn.getSourceChannel());
-            for (int index : partitionColumn.getPath()) {
+            Block block = page.getBlock(partitionColumn.sourceChannel());
+            for (int index : partitionColumn.path()) {
                 block = getRowFieldsFromBlock(block).get(index);
             }
-            Object value = partitionColumn.getValueTransform().apply(block, position);
+            Object value = partitionColumn.valueTransform().apply(block, position);
             long valueHash = hashValue(hashCodeInvokers.get(i), value);
             hash = (31 * hash) + valueHash;
         }
@@ -162,39 +162,13 @@ public class IcebergBucketFunction
         }
     }
 
-    private static class PartitionColumn
+    private record PartitionColumn(int sourceChannel, ValueTransform valueTransform, Type resultType, List<Integer> path)
     {
-        private final int sourceChannel;
-        private final ValueTransform valueTransform;
-        private final Type resultType;
-        private final List<Integer> path;
-
-        public PartitionColumn(int sourceChannel, ValueTransform valueTransform, Type resultType, List<Integer> path)
+        private PartitionColumn
         {
-            this.sourceChannel = sourceChannel;
-            this.valueTransform = requireNonNull(valueTransform, "valueTransform is null");
-            this.resultType = requireNonNull(resultType, "resultType is null");
-            this.path = ImmutableList.copyOf(requireNonNull(path, "path is null"));
-        }
-
-        public int getSourceChannel()
-        {
-            return sourceChannel;
-        }
-
-        public Type getResultType()
-        {
-            return resultType;
-        }
-
-        public ValueTransform getValueTransform()
-        {
-            return valueTransform;
-        }
-
-        public List<Integer> getPath()
-        {
-            return path;
+            requireNonNull(valueTransform, "valueTransform is null");
+            requireNonNull(resultType, "resultType is null");
+            path = ImmutableList.copyOf(requireNonNull(path, "path is null"));
         }
     }
 
