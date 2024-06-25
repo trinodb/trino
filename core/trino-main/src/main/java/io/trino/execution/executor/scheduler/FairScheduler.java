@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.Set;
 import java.util.StringJoiner;
@@ -67,13 +68,14 @@ public final class FairScheduler
         this.ticker = requireNonNull(ticker, "ticker is null");
 
         concurrencyControl = new Reservation<>(maxConcurrentTasks);
-
         schedulerExecutor = Executors.newCachedThreadPool(daemonThreadsNamed("fair-scheduler-%d"));
+        taskExecutor = MoreExecutors.listeningDecorator(createExecutor(threadNameFormat));
+    }
 
-        taskExecutor = MoreExecutors.listeningDecorator(Executors.newThreadPerTaskExecutor(
-                Thread.ofVirtual()
-                        .name(threadNameFormat)
-                        .factory()));
+    @SuppressModernizer
+    private static ExecutorService createExecutor(String threadNameFormat)
+    {
+        return Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name(threadNameFormat).factory());
     }
 
     public static FairScheduler newInstance(int maxConcurrentTasks)

@@ -96,6 +96,7 @@ public class Server
 
     private void doStart(String trinoVersion)
     {
+        fixJavaVersionWorkaround();
         // Trino server behavior does not depend on locale settings.
         // Use en_US as this is what Trino is tested with.
         Locale.setDefault(Locale.US);
@@ -289,5 +290,17 @@ public class Server
             return;
         }
         log.info("%s: %s", name, path);
+    }
+
+    private static void fixJavaVersionWorkaround()
+    {
+        String version = System.getProperty(StandardSystemProperty.JAVA_VERSION.key());
+        if (version.endsWith("-ea")) {
+            version = version.substring(0, version.length() - 3);
+        }
+        if (version.endsWith("-beta")) {
+            version = version.substring(0, version.length() - 4);
+        }
+        System.setProperty(StandardSystemProperty.JAVA_VERSION.key(), version);
     }
 }
