@@ -1288,7 +1288,7 @@ public class TestIcebergSparkCompatibility
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testPartitioningWithMixedCaseColumnUnsupportedInTrino()
+    public void testPartitioningWithMixedCaseColumnInTrino()
     {
         String baseTableName = "test_partitioning_with_mixed_case_column_in_spark";
         String trinoTableName = trinoTableName(baseTableName);
@@ -1300,8 +1300,20 @@ public class TestIcebergSparkCompatibility
                 sparkTableName));
         assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + trinoTableName + " SET PROPERTIES partitioning = ARRAY['mIxEd_COL']"))
                 .hasMessageContaining("Unable to parse partitioning value");
-        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + trinoTableName + " SET PROPERTIES partitioning = ARRAY['\"mIxEd_COL\"']"))
-                .hasMessageContaining("Unable to parse partitioning value");
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " SET PROPERTIES partitioning = ARRAY['\"mIxEd_COL\"']");
+
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (1, 'trino')");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (2, 'spark')");
+
+        List<Row> expected = ImmutableList.of(row(1, "trino"), row(2, "spark"));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).contains(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).contains(expected);
+
+        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + trinoTableName).getOnlyValue())
+                .contains("partitioning = ARRAY['\"mIxEd_COL\"']");
+        assertThat((String) onSpark().executeQuery("SHOW CREATE TABLE " + sparkTableName).getOnlyValue())
+                .contains("PARTITIONED BY (mIxEd_COL)");
+
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
