@@ -446,21 +446,44 @@ public class TestColumnarFilters
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
         List<ResolvedFunction> functionalDependencies = getInFunctionalDependencies(INTEGER);
-        // INTEGER type with small number of constants
+        // INTEGER type with small number of discontinuous constants
         List<RowExpression> arguments = ImmutableList.<RowExpression>builder()
                 .add(field(INT_CHANNEL_A, INTEGER))
                 .add(constant(null, INTEGER))
-                .addAll(buildConstantsList(INTEGER, 3))
+                .add(constant(CONSTANT + 1, INTEGER))
+                .add(constant(CONSTANT + 5, INTEGER))
+                .add(constant(CONSTANT + 10, INTEGER))
                 .build();
         RowExpression inFilter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
         assertThatColumnarFilterEvaluationIsSupported(inFilter);
         verifyFilter(inputPages, inFilter);
 
-        // INTEGER type with large number of constants
+        // INTEGER type with large number of discontinuous constants
+        arguments = ImmutableList.<RowExpression>builder()
+                .add(field(INT_CHANNEL_A, INTEGER))
+                .add(constant(null, INTEGER))
+                .add(constant(CONSTANT - 10, INTEGER))
+                .addAll(buildConstantsList(INTEGER, 100))
+                .add(constant(CONSTANT + 110, INTEGER))
+                .build();
+        inFilter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
+        assertThatColumnarFilterEvaluationIsSupported(inFilter);
+        verifyFilter(inputPages, inFilter);
+
+        // INTEGER type with continuous constants
         arguments = ImmutableList.<RowExpression>builder()
                 .add(field(INT_CHANNEL_A, INTEGER))
                 .add(constant(null, INTEGER))
                 .addAll(buildConstantsList(INTEGER, 100))
+                .build();
+        inFilter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
+        assertThatColumnarFilterEvaluationIsSupported(inFilter);
+        verifyFilter(inputPages, inFilter);
+
+        // INTEGER type with only null constant
+        arguments = ImmutableList.<RowExpression>builder()
+                .add(field(INT_CHANNEL_A, INTEGER))
+                .add(constant(null, INTEGER))
                 .build();
         inFilter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
         assertThatColumnarFilterEvaluationIsSupported(inFilter);
