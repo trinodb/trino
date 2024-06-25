@@ -76,6 +76,15 @@ public class TestPartitionFields
         assertParse("truncate(\"nested.nested.value\", 13)", partitionSpec(builder -> builder.truncate("nested.nested.value", 13)));
         assertParse("bucket(\"nested.nested.value\", 42)", partitionSpec(builder -> builder.bucket("nested.nested.value", 42)));
         assertParse("void(\"nested.nested.value\")", partitionSpec(builder -> builder.alwaysNull("nested.nested.value")));
+        assertParse("\"MixedTs\"", partitionSpec(builder -> builder.identity("MixedTs")));
+        assertParse("\"MixedNested.MixedValue\"", partitionSpec(builder -> builder.identity("MixedNested.MixedValue")));
+        assertParse("year(\"MixedTs\")", partitionSpec(builder -> builder.year("MixedTs")));
+        assertParse("month(\"MixedTs\")", partitionSpec(builder -> builder.month("MixedTs")));
+        assertParse("day(\"MixedTs\")", partitionSpec(builder -> builder.day("MixedTs")));
+        assertParse("hour(\"MixedTs\")", partitionSpec(builder -> builder.hour("MixedTs")));
+        assertParse("bucket(\"MixedTs\", 42)", partitionSpec(builder -> builder.bucket("MixedTs", 42)));
+        assertParse("truncate(\"MixedString\", 13)", partitionSpec(builder -> builder.truncate("MixedString", 13)));
+        assertParse("void(\"MixedString\")", partitionSpec(builder -> builder.alwaysNull("MixedString")));
 
         assertInvalid("bucket()", "Invalid partition field declaration: bucket()");
         assertInvalid(".nested", "Invalid partition field declaration: .nested");
@@ -90,9 +99,9 @@ public class TestPartitionFields
         assertInvalid("\"test \"with space\"", "Invalid partition field declaration: \"test \"with space\"");
         assertInvalid("\"test \"\"\"with space\"", "Invalid partition field declaration: \"test \"\"\"with space\"");
         assertInvalid("ABC", "Cannot find source column: abc");
-        assertInvalid("\"ABC\"", "Uppercase characters in identifier '\"ABC\"' are not supported.");
+        assertInvalid("\"ABC\"", "Cannot find source column: ABC");
         assertInvalid("year(ABC)", "Cannot find source column: abc");
-        assertInvalid("bucket(\"ABC\", 12)", "Uppercase characters in identifier '\"ABC\"' are not supported.");
+        assertInvalid("bucket(\"ABC\", 12)", "Cannot find source column: ABC");
         assertInvalid("\"nested.list\"", "Cannot partition by non-primitive source field: list<string>");
     }
 
@@ -140,7 +149,11 @@ public class TestPartitionFields
                         NestedField.required(14, "list", ListType.ofRequired(15, StringType.get())),
                         NestedField.required(16, "nested", Types.StructType.of(
                                 NestedField.required(17, "value", StringType.get()),
-                                NestedField.required(18, "ts", TimestampType.withZone()))))));
+                                NestedField.required(18, "ts", TimestampType.withZone()))))),
+                NestedField.required(19, "MixedTs", TimestampType.withoutZone()),
+                NestedField.optional(20, "MixedString", StringType.get()),
+                NestedField.required(21, "MixedNested", Types.StructType.of(
+                        NestedField.required(22, "MixedValue", StringType.get()))));
 
         PartitionSpec.Builder builder = PartitionSpec.builderFor(schema);
         consumer.accept(builder);

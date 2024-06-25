@@ -88,13 +88,6 @@ public final class PartitionFields
     public static String fromIdentifierToColumn(String identifier)
     {
         if (QUOTED_IDENTIFIER_PATTERN.matcher(identifier).matches()) {
-            // We only support lowercase quoted identifiers for now.
-            // See https://github.com/trinodb/trino/issues/12226#issuecomment-1128839259
-            // TODO: Enhance quoted identifiers support in Iceberg partitioning to support mixed case identifiers
-            //  See https://github.com/trinodb/trino/issues/12668
-            if (!identifier.toLowerCase(ENGLISH).equals(identifier)) {
-                throw new IllegalArgumentException(format("Uppercase characters in identifier '%s' are not supported.", identifier));
-            }
             return identifier.substring(1, identifier.length() - 1).replace("\"\"", "\"");
         }
         // Currently, all Iceberg columns are stored in lowercase in the Iceberg metadata files.
@@ -156,7 +149,7 @@ public final class PartitionFields
 
     public static String quotedName(String name)
     {
-        if (UNQUOTED_IDENTIFIER_PATTERN.matcher(name).matches()) {
+        if (UNQUOTED_IDENTIFIER_PATTERN.matcher(name).matches() && name.toLowerCase(ENGLISH).equals(name)) {
             return name;
         }
         return '"' + name.replace("\"", "\"\"") + '"';
