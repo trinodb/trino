@@ -370,34 +370,5 @@ public class PartitionTable
         }
     }
 
-    private static class IcebergPartitionColumn
-    {
-        private final RowType rowType;
-        private final List<Integer> fieldIds;
-
-        public IcebergPartitionColumn(RowType rowType, List<Integer> fieldIds)
-        {
-            this.rowType = rowType;
-            this.fieldIds = fieldIds;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            IcebergPartitionColumn that = (IcebergPartitionColumn) o;
-            return Objects.equals(rowType, that.rowType) && Objects.equals(fieldIds, that.fieldIds);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(rowType, fieldIds);
-        }
-    }
+    private record IcebergPartitionColumn(RowType rowType, List<Integer> fieldIds) {}
 }
