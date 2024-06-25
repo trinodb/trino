@@ -2206,6 +2206,17 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @Test
+    public void testUnregisterNonDeltaLakeTable()
+    {
+        String tableName = "test_unregister_non_delta_lake_table_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE hive.smoke_test." + tableName + " AS SELECT 1 a", 1);
+
+        assertQueryFails("CALL system.unregister_table(CURRENT_SCHEMA, '" + tableName + "')", ".*not a Delta Lake table");
+
+        assertUpdate("DROP TABLE hive.smoke_test." + tableName);
+    }
+
+    @Test
     public void testUnregisterTableNotExistingSchema()
     {
         String schemaName = "test_unregister_table_not_existing_schema_" + randomNameSuffix();
