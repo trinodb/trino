@@ -1645,7 +1645,8 @@ public class TestDeltaLakeBasic
         copyDirectoryContents(new File(Resources.getResource("deltalake/type_widening_unsupported").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
-        assertQueryFails("SELECT * FROM " + tableName, "Type change from 'byte' to 'unsupported' is not supported");
+        assertQueryFails("SELECT * FROM " + tableName, "(.*)SELECT \\* not allowed from relation that has no columns");
+        assertQueryFails("SELECT col FROM " + tableName, "(.*)Column 'col' cannot be resolved");
     }
 
     /**
