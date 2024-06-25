@@ -70,7 +70,7 @@ public class IcebergBucketFunction
                     FieldInfo fieldInfo = nameToFieldInfo.get(fieldName);
                     checkArgument(fieldInfo != null, "partition field not found: %s", field);
                     ColumnTransform transform = getColumnTransform(field, fieldInfo.type());
-                    return new PartitionColumn(fieldInfo.sourceChannel(), transform.getValueTransform(), transform.getType(), fieldInfo.path());
+                    return new PartitionColumn(fieldInfo.sourceChannel(), transform.valueTransform(), transform.type(), fieldInfo.path());
                 })
                 .collect(toImmutableList());
         hashCodeInvokers = partitionColumns.stream()

@@ -544,7 +544,7 @@ public class IcebergPageSink
         List<Integer> sourceChannels = getIndexPathToField(schema, getNestedFieldIds(schema, field.sourceId()));
         Type sourceType = handles.get(idChannels.get(field.sourceId())).getType();
         ColumnTransform transform = getColumnTransform(field, sourceType);
-        return new PartitionColumn(field, sourceChannels, sourceType, transform.getType(), transform.getBlockTransform());
+        return new PartitionColumn(field, sourceChannels, sourceType, transform.type(), transform.blockTransform());
     }
 
     private static List<Integer> getNestedFieldIds(Types.StructType schema, Integer sourceId)
