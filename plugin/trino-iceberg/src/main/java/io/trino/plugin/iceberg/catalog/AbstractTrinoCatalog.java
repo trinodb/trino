@@ -392,7 +392,7 @@ public abstract class AbstractTrinoCatalog
                     Types.NestedField sourceField = schemaWithTimestampTzPreserved.findField(partitionField.sourceId());
                     Type sourceType = toTrinoType(sourceField.type(), typeManager);
                     ColumnTransform columnTransform = getColumnTransform(partitionField, sourceType);
-                    if (!columnTransform.isTemporal()) {
+                    if (!columnTransform.temporal()) {
                         return Stream.of();
                     }
                     return Stream.of(sourceField.name());

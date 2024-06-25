@@ -529,7 +529,7 @@ public final class IcebergUtil
         boolean canEnforce = valueSet.getValuesProcessor().transform(
                 ranges -> {
                     MethodHandle targetTypeEqualOperator = typeOperators.getEqualOperator(
-                            transform.getType(), InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+                            transform.type(), InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
                     for (Range range : ranges.getOrderedRanges()) {
                         if (!canEnforceRangeWithPartitioningField(field, transform, range, targetTypeEqualOperator)) {
                             return false;
@@ -544,7 +544,7 @@ public final class IcebergUtil
 
     private static boolean canEnforceRangeWithPartitioningField(PartitionField field, ColumnTransform transform, Range range, MethodHandle targetTypeEqualOperator)
     {
-        if (!transform.isMonotonic()) {
+        if (!transform.monotonic()) {
             // E.g. bucketing transform
             return false;
         }
@@ -579,8 +579,8 @@ public final class IcebergUtil
     {
         requireNonNull(first, "first is null");
         requireNonNull(second, "second is null");
-        Object firstTransformed = transform.getValueTransform().apply(nativeValueToBlock(sourceType, first), 0);
-        Object secondTransformed = transform.getValueTransform().apply(nativeValueToBlock(sourceType, second), 0);
+        Object firstTransformed = transform.valueTransform().apply(nativeValueToBlock(sourceType, first), 0);
+        Object secondTransformed = transform.valueTransform().apply(nativeValueToBlock(sourceType, second), 0);
         // The pushdown logic assumes NULLs and non-NULLs are segregated, so that we have to think about non-null values only.
         verify(firstTransformed != null && secondTransformed != null, "Transform for %s returned null for non-null input", field);
         try {
