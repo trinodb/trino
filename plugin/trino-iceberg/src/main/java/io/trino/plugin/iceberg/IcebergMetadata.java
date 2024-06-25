@@ -726,7 +726,7 @@ public class IcebergMetadata
         TableType tableType = IcebergTableName.tableTypeFrom(tableName.getTableName());
         return switch (tableType) {
             case DATA, MATERIALIZED_VIEW_STORAGE -> throw new VerifyException("Unexpected table type: " + tableType); // Handled above.
-            case HISTORY -> Optional.of(new HistoryTable(tableName, table));
+            case HISTORY -> Optional.of(new HistoryTable(tableName, table, icebergScanExecutor));
             case METADATA_LOG_ENTRIES -> Optional.of(new MetadataLogEntriesTable(tableName, table, icebergScanExecutor));
             case SNAPSHOTS -> Optional.of(new SnapshotsTable(tableName, typeManager, table, icebergScanExecutor));
             case PARTITIONS -> Optional.of(new PartitionsTable(tableName, typeManager, table, getCurrentSnapshotId(table), icebergScanExecutor));
