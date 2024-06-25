@@ -1411,9 +1411,9 @@ public class TestCassandraConnectorTest
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(12);
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + wherePartitionKey).getRowCount()).isEqualTo(0);
 
-            String whereMultiplePartitionKey = " WHERE (partition_one=1 AND partition_two=1) OR (partition_one=1 AND partition_two=2)";
+            String whereMultiplePartitionKey = " WHERE (partition_one=1 AND partition_two=1) OR (partition_one=1 AND partition_two=3)";
             assertUpdate("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKey);
-            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(6);
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(9);
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + whereMultiplePartitionKey).getRowCount()).isEqualTo(0);
         }
     }
