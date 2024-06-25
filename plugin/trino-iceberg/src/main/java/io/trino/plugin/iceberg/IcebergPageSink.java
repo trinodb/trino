@@ -460,10 +460,10 @@ public class IcebergPageSink
         for (int i = 0; i < columns.size(); i++) {
             PartitionColumn column = columns.get(i);
             Block block = PagePartitioner.getPartitionBlock(column, page);
-            Type type = column.getSourceType();
-            org.apache.iceberg.types.Type icebergType = outputSchema.findType(column.getField().sourceId());
+            Type type = column.sourceType();
+            org.apache.iceberg.types.Type icebergType = outputSchema.findType(column.field().sourceId());
             Object value = getIcebergValue(block, position, type);
-            values[i] = applyTransform(column.getField().transform(), icebergType, value);
+            values[i] = applyTransform(column.field().transform(), icebergType, value);
         }
         return Optional.of(new PartitionData(values));
     }
@@ -638,7 +638,7 @@ public class IcebergPageSink
         public PagePartitioner(PageIndexerFactory pageIndexerFactory, List<PartitionColumn> columns)
         {
             this.pageIndexer = pageIndexerFactory.createPageIndexer(columns.stream()
-                    .map(PartitionColumn::getResultType)
+                    .map(PartitionColumn::resultType)
                     .collect(toImmutableList()));
             this.columns = ImmutableList.copyOf(columns);
         }
@@ -649,7 +649,7 @@ public class IcebergPageSink
             for (int i = 0; i < columns.size(); i++) {
                 PartitionColumn column = columns.get(i);
                 Block block = getPartitionBlock(column, page);
-                blocks[i] = column.getBlockTransform().apply(block);
+                blocks[i] = column.blockTransform().apply(block);
             }
             Page transformed = new Page(page.getPositionCount(), blocks);
 
@@ -658,7 +658,7 @@ public class IcebergPageSink
 
         private static Block getPartitionBlock(PartitionColumn column, Page page)
         {
-            List<Integer> sourceChannels = column.getSourceChannels();
+            List<Integer> sourceChannels = column.sourceChannels();
             Block block = page.getBlock(sourceChannels.getFirst());
             for (int i = 1; i < sourceChannels.size(); i++) {
                 block = getRowFieldsFromBlock(block).get(sourceChannels.get(i));
@@ -677,47 +677,16 @@ public class IcebergPageSink
         }
     }
 
-    private static class PartitionColumn
+    private record PartitionColumn(PartitionField field, List<Integer> sourceChannels, Type sourceType, Type resultType, Function<Block, Block> blockTransform)
     {
-        private final PartitionField field;
-        private final List<Integer> sourceChannels;
-        private final Type sourceType;
-        private final Type resultType;
-        private final Function<Block, Block> blockTransform;
-
-        public PartitionColumn(PartitionField field, List<Integer> sourceChannels, Type sourceType, Type resultType, Function<Block, Block> blockTransform)
+        private PartitionColumn
         {
-            this.field = requireNonNull(field, "field is null");
-            this.sourceChannels = ImmutableList.copyOf(requireNonNull(sourceChannels, "sourceChannels is null"));
-            this.sourceType = requireNonNull(sourceType, "sourceType is null");
-            this.resultType = requireNonNull(resultType, "resultType is null");
-            this.blockTransform = requireNonNull(blockTransform, "blockTransform is null");
+            requireNonNull(field, "field is null");
+            sourceChannels = ImmutableList.copyOf(requireNonNull(sourceChannels, "sourceChannels is null"));
+            requireNonNull(sourceType, "sourceType is null");
+            requireNonNull(resultType, "resultType is null");
+            requireNonNull(blockTransform, "blockTransform is null");
             checkState(!sourceChannels.isEmpty(), "sourceChannels is empty");
-        }
-
-        public PartitionField getField()
-        {
-            return field;
-        }
-
-        public List<Integer> getSourceChannels()
-        {
-            return sourceChannels;
-        }
-
-        public Type getSourceType()
-        {
-            return sourceType;
-        }
-
-        public Type getResultType()
-        {
-            return resultType;
-        }
-
-        public Function<Block, Block> getBlockTransform()
-        {
-            return blockTransform;
         }
     }
 }
