@@ -228,6 +228,7 @@ public class ServerMainModule
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
 
         jaxrsBinder(binder).bind(ThrowableMapper.class);
+        jaxrsBinder(binder).bind(DisableHttpCacheDynamicFeature.class);
 
         configBinder(binder).bindConfig(SqlEnvironmentConfig.class);
 
