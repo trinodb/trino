@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.jdk.BuiltInJdkProvider.BUILT_IN_NAME;
+import static io.trino.tests.product.launcher.env.jdk.LoomEaJdkProvider.LOOM_EA;
 import static java.util.Locale.ENGLISH;
 import static picocli.CommandLine.Option;
 
@@ -60,7 +61,7 @@ public final class EnvironmentOptions
     @Option(names = "--launcher-bin", paramLabel = "<launcher bin>", description = "Launcher bin path (used to display run commands)", defaultValue = "${launcher.bin}", hidden = true)
     public String launcherBin;
 
-    @Option(names = {"--trino-jdk-version", "--temurin-release"}, paramLabel = "<release-name>", description = {"Temurin JDK release to run Trino with " + DEFAULT_VALUE, "See: https://api.adoptium.net/q/swagger-ui/#/Release%20Info/getReleaseNames"}, defaultValue = "${temurin.release}")
+    @Option(names = {"--trino-jdk-version", "--temurin-release"}, paramLabel = "<release-name>", description = {"Temurin JDK release to run Trino with " + DEFAULT_VALUE, "See: https://api.adoptium.net/q/swagger-ui/#/Release%20Info/getReleaseNames"}, defaultValue = LOOM_EA)
     public String jdkVersion = BUILT_IN_NAME;
 
     @Option(names = "--jdk-tmp-download-path", paramLabel = "<jdk-tmp-download-path>", defaultValue = "${env:PTL_TMP_DOWNLOAD_PATH:-${sys:java.io.tmpdir}/ptl-tmp-download}", description = "Path to use to download JDK distributions " + DEFAULT_VALUE)

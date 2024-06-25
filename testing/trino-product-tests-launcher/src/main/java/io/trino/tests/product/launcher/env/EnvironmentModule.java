@@ -32,6 +32,7 @@ import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.jdk.BuiltInJdkProvider;
 import io.trino.tests.product.launcher.env.jdk.JdkProvider;
+import io.trino.tests.product.launcher.env.jdk.LoomEaJdkProvider;
 import io.trino.tests.product.launcher.env.jdk.TemurinReleaseJdkProvider;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
@@ -45,6 +46,7 @@ import static io.trino.tests.product.launcher.Configurations.findEnvironmentsByB
 import static io.trino.tests.product.launcher.Configurations.nameForConfigClass;
 import static io.trino.tests.product.launcher.Configurations.nameForEnvironmentClass;
 import static io.trino.tests.product.launcher.env.jdk.BuiltInJdkProvider.BUILT_IN_NAME;
+import static io.trino.tests.product.launcher.env.jdk.LoomEaJdkProvider.LOOM_EA;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -112,6 +114,9 @@ public final class EnvironmentModule
 
         if (version.equals(BUILT_IN_NAME)) {
             return new BuiltInJdkProvider();
+        }
+        if (version.equals(LOOM_EA)) {
+            return new LoomEaJdkProvider(options.jdkDownloadPath);
         }
         return new TemurinReleaseJdkProvider(version, options.jdkDownloadPath);
     }
