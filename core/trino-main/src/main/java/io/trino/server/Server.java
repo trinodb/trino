@@ -80,6 +80,7 @@ import java.util.Set;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
+import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.trino.server.TrinoSystemRequirements.verifySystemRequirements;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
@@ -95,6 +96,7 @@ public class Server
 
     private void doStart(String trinoVersion)
     {
+        fixJavaVersionWorkaround();
         // Trino server behavior does not depend on locale settings.
         // Use en_US as this is what Trino is tested with.
         Locale.setDefault(Locale.US);
@@ -110,6 +112,7 @@ public class Server
                 new NodeModule(),
                 new DiscoveryModule(),
                 new HttpServerModule(),
+                binder -> httpServerBinder(binder).enableVirtualThreads(),
                 new JsonModule(),
                 new JaxrsModule(),
                 new MBeanModule(),
@@ -287,5 +290,17 @@ public class Server
             return;
         }
         log.info("%s: %s", name, path);
+    }
+
+    private static void fixJavaVersionWorkaround()
+    {
+        String version = System.getProperty(StandardSystemProperty.JAVA_VERSION.key());
+        if (version.endsWith("-ea")) {
+            version = version.substring(0, version.length() - 3);
+        }
+        if (version.endsWith("-beta")) {
+            version = version.substring(0, version.length() - 4);
+        }
+        System.setProperty(StandardSystemProperty.JAVA_VERSION.key(), version);
     }
 }
