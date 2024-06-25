@@ -132,6 +132,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -792,17 +793,32 @@ public class TrinoS3FileSystem
     }
 
     private void deletePaths(List<Path> paths)
+            throws IOException
     {
+        String bucketName = getBucketName(uri);
         List<KeyVersion> keys = paths.stream()
                 .map(TrinoS3FileSystem::keyFromPath)
                 .map(KeyVersion::new)
                 .collect(toImmutableList());
-        DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(getBucketName(uri))
+        DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName)
                 .withRequesterPays(requesterPaysEnabled)
                 .withKeys(keys)
                 .withQuiet(true);
 
-        s3.deleteObjects(deleteObjectsRequest);
+        try {
+            s3.deleteObjects(deleteObjectsRequest);
+        }
+        catch (MultiObjectDeleteException e) {
+            List<MultiObjectDeleteException.DeleteError> errors = e.getErrors();
+            Map<String, String> failures = new HashMap<>();
+            for (MultiObjectDeleteException.DeleteError error : errors) {
+                failures.put("s3://%s/%s".formatted(bucketName, error.getKey()), "%s - %s".formatted(error.getCode(), error.getMessage()));
+            }
+            if (!failures.isEmpty()) {
+                throw new IOException("Failed to delete one or more files: " + failures);
+            }
+            throw e;
+        }
     }
 
     @Override
