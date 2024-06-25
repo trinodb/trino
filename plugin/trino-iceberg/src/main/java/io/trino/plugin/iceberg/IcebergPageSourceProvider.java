@@ -371,7 +371,7 @@ public class IcebergPageSourceProvider
                 effectivePredicate,
                 nameMapping,
                 partitionKeys);
-        ReaderPageSource dataPageSource = readerPageSourceWithRowPositions.getReaderPageSource();
+        ReaderPageSource dataPageSource = readerPageSourceWithRowPositions.readerPageSource();
 
         Optional<ReaderProjectionsAdapter> projectionsAdapter = dataPageSource.getReaderColumns().map(readerColumns ->
                 new ReaderProjectionsAdapter(
@@ -509,7 +509,7 @@ public class IcebergPageSourceProvider
                 tupleDomain,
                 Optional.empty(),
                 ImmutableMap.of())
-                .getReaderPageSource()
+                .readerPageSource()
                 .get();
     }
 
@@ -1459,35 +1459,13 @@ public class IcebergPageSourceProvider
         return new TrinoException(ICEBERG_CURSOR_ERROR, format("Failed to read Parquet file: %s", dataSourceId), exception);
     }
 
-    public static final class ReaderPageSourceWithRowPositions
+    public record ReaderPageSourceWithRowPositions(ReaderPageSource readerPageSource, Optional<Long> startRowPosition, Optional<Long> endRowPosition)
     {
-        private final ReaderPageSource readerPageSource;
-        private final Optional<Long> startRowPosition;
-        private final Optional<Long> endRowPosition;
-
-        public ReaderPageSourceWithRowPositions(
-                ReaderPageSource readerPageSource,
-                Optional<Long> startRowPosition,
-                Optional<Long> endRowPosition)
+        public ReaderPageSourceWithRowPositions
         {
-            this.readerPageSource = requireNonNull(readerPageSource, "readerPageSource is null");
-            this.startRowPosition = requireNonNull(startRowPosition, "startRowPosition is null");
-            this.endRowPosition = requireNonNull(endRowPosition, "endRowPosition is null");
-        }
-
-        public ReaderPageSource getReaderPageSource()
-        {
-            return readerPageSource;
-        }
-
-        public Optional<Long> getStartRowPosition()
-        {
-            return startRowPosition;
-        }
-
-        public Optional<Long> getEndRowPosition()
-        {
-            return endRowPosition;
+            requireNonNull(readerPageSource, "readerPageSource is null");
+            requireNonNull(startRowPosition, "startRowPosition is null");
+            requireNonNull(endRowPosition, "endRowPosition is null");
         }
     }
 

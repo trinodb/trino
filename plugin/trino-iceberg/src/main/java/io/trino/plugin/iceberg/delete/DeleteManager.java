@@ -127,8 +127,8 @@ public class DeleteManager
 
         Slice targetPath = utf8Slice(dataFilePath);
 
-        Optional<Long> startRowPosition = readerPageSourceWithRowPositions.getStartRowPosition();
-        Optional<Long> endRowPosition = readerPageSourceWithRowPositions.getEndRowPosition();
+        Optional<Long> startRowPosition = readerPageSourceWithRowPositions.startRowPosition();
+        Optional<Long> endRowPosition = readerPageSourceWithRowPositions.endRowPosition();
         verify(startRowPosition.isPresent() == endRowPosition.isPresent(), "startRowPosition and endRowPosition must be specified together");
         IcebergColumnHandle deleteFilePath = getColumnHandle(DELETE_FILE_PATH, typeManager);
         IcebergColumnHandle deleteFilePos = getColumnHandle(DELETE_FILE_POS, typeManager);
