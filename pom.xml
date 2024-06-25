@@ -198,7 +198,7 @@
         <dep.jackson.version>2.17.1</dep.jackson.version>
         <dep.jna.version>5.14.0</dep.jna.version>
         <dep.joda.version>2.12.7</dep.joda.version>
-        <dep.jsonwebtoken.version>0.12.5</dep.jsonwebtoken.version>
+        <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.kafka-clients.version>3.7.0</dep.kafka-clients.version>
         <dep.okio.version>3.9.0</dep.okio.version>
         <!-- temporary: required to be in sync with version pulled by libraries-bom -->
