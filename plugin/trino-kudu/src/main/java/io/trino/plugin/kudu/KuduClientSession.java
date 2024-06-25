@@ -529,8 +529,8 @@ public class KuduClientSession
                     KuduPredicate predicate = createInListPredicate(columnSchema, discreteValues);
                     builder.addPredicate(predicate);
                 }
-                else if (valueSet instanceof SortedRangeSet) {
-                    Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
+                else if (valueSet instanceof SortedRangeSet sortedRangeSet) {
+                    Ranges ranges = sortedRangeSet.getRanges();
                     List<Range> rangeList = ranges.getOrderedRanges();
                     if (rangeList.stream().allMatch(Range::isSingleValue)) {
                         io.trino.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
@@ -577,35 +577,35 @@ public class KuduClientSession
     {
         io.trino.spi.type.Type type = TypeHelper.fromKuduColumn(columnSchema);
         Object javaValue = TypeHelper.getJavaValue(type, value);
-        if (javaValue instanceof Long) {
-            return KuduPredicate.newComparisonPredicate(columnSchema, op, (Long) javaValue);
+        if (javaValue instanceof Long longValue) {
+            return KuduPredicate.newComparisonPredicate(columnSchema, op, longValue);
         }
-        if (javaValue instanceof BigDecimal) {
-            return KuduPredicate.newComparisonPredicate(columnSchema, op, (BigDecimal) javaValue);
+        if (javaValue instanceof BigDecimal bigDecimal) {
+            return KuduPredicate.newComparisonPredicate(columnSchema, op, bigDecimal);
         }
-        if (javaValue instanceof Integer) {
-            return KuduPredicate.newComparisonPredicate(columnSchema, op, (Integer) javaValue);
+        if (javaValue instanceof Integer integerValue) {
+            return KuduPredicate.newComparisonPredicate(columnSchema, op, integerValue);
         }
-        if (javaValue instanceof Short) {
-            return KuduPredicate.newComparisonPredicate(columnSchema, op, (Short) javaValue);
+        if (javaValue instanceof Short shortValue) {
+            return KuduPredicate.newComparisonPredicate(columnSchema, op, shortValue);
         }
-        if (javaValue instanceof Byte) {
-            return KuduPredicate.newComparisonPredicate(columnSchema, op, (Byte) javaValue);
+        if (javaValue instanceof Byte byteValue) {
+            return KuduPredicate.newComparisonPredicate(columnSchema, op, byteValue);
         }
-        if (javaValue instanceof String) {
-            return KuduPredicate.newComparisonPredicate(columnSchema, op, (String) javaValue);
+        if (javaValue instanceof String stringValue) {
+            return KuduPredicate.newComparisonPredicate(columnSchema, op, stringValue);
         }
-        if (javaValue instanceof Double) {
-            return KuduPredicate.newComparisonPredicate(columnSchema, op, (Double) javaValue);
+        if (javaValue instanceof Double doubleValue) {
+            return KuduPredicate.newComparisonPredicate(columnSchema, op, doubleValue);
         }
-        if (javaValue instanceof Float) {
-            return KuduPredicate.newComparisonPredicate(columnSchema, op, (Float) javaValue);
+        if (javaValue instanceof Float floatValue) {
+            return KuduPredicate.newComparisonPredicate(columnSchema, op, floatValue);
         }
-        if (javaValue instanceof Boolean) {
-            return KuduPredicate.newComparisonPredicate(columnSchema, op, (Boolean) javaValue);
+        if (javaValue instanceof Boolean booleanValue) {
+            return KuduPredicate.newComparisonPredicate(columnSchema, op, booleanValue);
         }
-        if (javaValue instanceof byte[]) {
-            return KuduPredicate.newComparisonPredicate(columnSchema, op, (byte[]) javaValue);
+        if (javaValue instanceof byte[] byteArrayValue) {
+            return KuduPredicate.newComparisonPredicate(columnSchema, op, byteArrayValue);
         }
         if (javaValue == null) {
             throw new IllegalStateException("Unexpected null java value for column " + columnSchema.getName());
