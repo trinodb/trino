@@ -15,6 +15,7 @@ package io.trino.sql.gen.columnar;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
@@ -23,7 +24,9 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
+import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.RowExpression;
@@ -39,6 +42,7 @@ import java.util.function.Supplier;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.sql.gen.columnar.FilterEvaluator.createColumnarFilterEvaluator;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
 import static java.util.Objects.requireNonNull;
 
@@ -46,6 +50,8 @@ public final class DynamicPageFilter
 {
     private final Metadata metadata;
     private final TypeManager typeManager;
+    private final Session session;
+    private final IrExpressionOptimizer irExpressionOptimizer;
     private final DomainTranslator domainTranslator;
     private final DynamicFilter dynamicFilter;
     private final Map<ColumnHandle, Symbol> columnHandles;
@@ -60,16 +66,18 @@ public final class DynamicPageFilter
     private CompletableFuture<?> isBlocked;
 
     public DynamicPageFilter(
-            Metadata metadata,
-            TypeManager typeManager,
+            PlannerContext plannerContext,
+            Session session,
             DynamicFilter dynamicFilter,
             Map<Symbol, ColumnHandle> columnHandles,
             Map<Symbol, Integer> sourceLayout,
             double selectivityThreshold)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.domainTranslator = new DomainTranslator(metadata);
+        this.metadata = requireNonNull(plannerContext.getMetadata(), "metadata is null");
+        this.typeManager = requireNonNull(plannerContext.getTypeManager(), "typeManager is null");
+        this.session = requireNonNull(session, "session is null");
+        this.irExpressionOptimizer = newOptimizer(plannerContext);
+        this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.columnHandles = columnHandles.entrySet()
                 .stream()
@@ -93,7 +101,11 @@ public final class DynamicPageFilter
             isBlocked = dynamicFilter.isBlocked();
             boolean isAwaitable = dynamicFilter.isAwaitable();
             TupleDomain<Symbol> currentPredicate = dynamicFilter.getCurrentPredicate().transformKeys(columnHandles::get);
-            List<Expression> expressionConjuncts = domainTranslator.toPredicateConjuncts(currentPredicate);
+            List<Expression> expressionConjuncts = domainTranslator.toPredicateConjuncts(currentPredicate)
+                    .stream()
+                    // Run the expression derived from TupleDomain through IR optimizer to simplify predicates. E.g. SimplifyContinuousInValues
+                    .map(expression -> irExpressionOptimizer.process(expression, session, ImmutableMap.of()).orElse(expression))
+                    .collect(toImmutableList());
             // We translate each conjunct into separate RowExpression to make it easy to profile selectivity
             // of dynamic filter per column and drop them if they're ineffective
             List<RowExpression> rowExpression = expressionConjuncts.stream()
