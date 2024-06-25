@@ -165,7 +165,7 @@ public class PinotMetadata
 
         if (tableName.getTableName().trim().contains("select ")) {
             DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, tableName.getTableName(), pinotClient, typeConverter);
-            return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.tableName(), false, TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
+            return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.tableName(), false, TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable), Optional.empty());
         }
         String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableNameIfExists(tableName.getTableName());
         if (pinotTableName == null) {
@@ -285,7 +285,8 @@ public class PinotMetadata
                 handle.isEnableNullHandling(),
                 handle.getConstraint(),
                 OptionalLong.of(limit),
-                dynamicTable);
+                dynamicTable,
+                handle.getP);
         boolean singleSplit = dynamicTable.isPresent();
         return Optional.of(new LimitApplicationResult<>(handle, singleSplit, false));
     }
@@ -337,7 +338,8 @@ public class PinotMetadata
                 handle.isEnableNullHandling(),
                 newDomain,
                 handle.getLimit(),
-                handle.getQuery());
+                handle.getQuery(),
+                handle.getPinotQuery());
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
     }
 
@@ -464,7 +466,8 @@ public class PinotMetadata
                 tableHandle.isEnableNullHandling(),
                 tableHandle.getConstraint(),
                 tableHandle.getLimit(),
-                Optional.of(dynamicTable));
+                Optional.of(dynamicTable),
+                tableHandle.getPinotQuery());
 
         return Optional.of(new AggregationApplicationResult<>(tableHandle, projections.build(), resultAssignments.build(), ImmutableMap.of(), false));
     }

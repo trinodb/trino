@@ -108,7 +108,7 @@ public class Query
             Descriptor returnedType = new Descriptor(dynamicTable.getColumnHandlesForSelect()
                     .map(columnHandle -> new Descriptor.Field(columnHandle.getColumnName(), Optional.of(columnHandle.getDataType())))
                     .collect(toList()));
-            PinotTableHandle tableHandle = new PinotTableHandle(SCHEMA_NAME, dynamicTable.tableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
+            PinotTableHandle tableHandle = new PinotTableHandle(SCHEMA_NAME, dynamicTable.tableName(), true, TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable), Optional.empty());
             return TableFunctionAnalysis.builder()
                     .returnedType(returnedType)
                     .handle(new QueryFunctionHandle(tableHandle))

@@ -16,6 +16,7 @@ package io.trino.plugin.pinot;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.pinot.query.DynamicTable;
+import io.trino.plugin.pinot.query.ptf.SerializablePinotQuery;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
@@ -36,15 +37,16 @@ public class PinotTableHandle
     private final TupleDomain<ColumnHandle> constraint;
     private final OptionalLong limit;
     private final Optional<DynamicTable> query;
+    private final Optional<SerializablePinotQuery> pinotQuery;
 
     public PinotTableHandle(String schemaName, String tableName)
     {
-        this(schemaName, tableName, false, TupleDomain.all(), OptionalLong.empty(), Optional.empty());
+        this(schemaName, tableName, false, TupleDomain.all(), OptionalLong.empty(), Optional.empty(), Optional.empty());
     }
 
     public PinotTableHandle(String schemaName, String tableName, boolean enableNullHandling)
     {
-        this(schemaName, tableName, enableNullHandling, TupleDomain.all(), OptionalLong.empty(), Optional.empty());
+        this(schemaName, tableName, enableNullHandling, TupleDomain.all(), OptionalLong.empty(), Optional.empty(), Optional.empty());
     }
 
     @JsonCreator
@@ -54,7 +56,8 @@ public class PinotTableHandle
             @JsonProperty("enableNullHandling") boolean enableNullHandling,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("limit") OptionalLong limit,
-            @JsonProperty("query") Optional<DynamicTable> query)
+            @JsonProperty("query") Optional<DynamicTable> query,
+            @JsonProperty("pinotQuery") Optional<SerializablePinotQuery> pinotQuery)
 
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -63,6 +66,7 @@ public class PinotTableHandle
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.limit = requireNonNull(limit, "limit is null");
         this.query = requireNonNull(query, "query is null");
+        this.pinotQuery = requireNonNull(pinotQuery, "pinotQuery is null");
     }
 
     @JsonProperty
@@ -99,6 +103,12 @@ public class PinotTableHandle
     public Optional<DynamicTable> getQuery()
     {
         return query;
+    }
+
+    @JsonProperty
+    public Optional<SerializablePinotQuery> getPinotQuery()
+    {
+        return pinotQuery;
     }
 
     @Override
