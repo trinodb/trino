@@ -19,13 +19,10 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.SortOrderBuilder;
-import org.apache.iceberg.types.Type;
-import org.apache.iceberg.types.Type.NestedType;
-import org.apache.iceberg.types.Types.NestedField;
+import org.apache.iceberg.types.TypeUtil;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -62,35 +59,15 @@ public final class SortFieldUtils
             throw new TrinoException(INVALID_TABLE_PROPERTY, "Invalid " + SORTED_BY_PROPERTY + " definition", e);
         }
 
-        Set<Integer> baseColumnFieldIds = collectColumnFieldIds(schema);
+        Map<Integer, String> baseColumnFieldIds = TypeUtil.indexNameById(schema.asStruct());
 
         for (SortField field : sortOrder.fields()) {
-            if (!baseColumnFieldIds.contains(field.sourceId())) {
+            if (!baseColumnFieldIds.containsKey(field.sourceId())) {
                 throw new TrinoException(COLUMN_NOT_FOUND, "Column not found: " + schema.findColumnName(field.sourceId()));
             }
         }
 
         return sortOrder;
-    }
-
-    private static Set<Integer> collectColumnFieldIds(Schema schema)
-    {
-        Set<Integer> ids = new HashSet<Integer>();
-        schema.columns().forEach(column -> addNestedField(ids, column));
-        return ids;
-    }
-
-    private static void addNestedField(Set<Integer> baseColumnFieldIds, NestedField field)
-    {
-        baseColumnFieldIds.add(field.fieldId());
-
-        Type type = field.type();
-        if (type.isNestedType()) {
-            NestedType nestedType = type.asNestedType();
-            for (NestedField nestedField : nestedType.fields()) {
-                addNestedField(baseColumnFieldIds, nestedField);
-            }
-        }
     }
 
     public static void parseSortFields(SortOrderBuilder<?> sortOrderBuilder, List<String> fields)
