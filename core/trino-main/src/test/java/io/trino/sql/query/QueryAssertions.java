@@ -23,12 +23,14 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.Metadata;
 import io.trino.spi.Plugin;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
+import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -823,7 +825,7 @@ public class QueryAssertions
         {
             if (bindings.isEmpty()) {
                 return run("VALUES ROW(%s)".formatted(expression),
-                        ExpressionAssertProvider::extractExpressionWithoutBindings);
+                        ExpressionAssertProvider::extractExpressionWithoutProjection);
             }
 
             List<Map.Entry<String, String>> entries = ImmutableList.copyOf(bindings.entrySet());
@@ -851,7 +853,7 @@ public class QueryAssertions
                             expression,
                             Joiner.on(",").join(values),
                             Joiner.on(",").join(columns)),
-                    ExpressionAssertProvider::extractExpressionWithBindings);
+                    ExpressionAssertProvider::extractExpressionWithProjection);
 
             Result withConstantFolding = run("""
                     SELECT %s
@@ -863,7 +865,7 @@ public class QueryAssertions
                             expression,
                             Joiner.on(",").join(values),
                             Joiner.on(",").join(columns)),
-                    _ -> Optional.empty());
+                    ExpressionAssertProvider::extractExpressionWithProjection);
             if (!full.type().equals(withConstantFolding.type())) {
                 fail("Mismatched types between interpreter and evaluation engine: %s vs %s".formatted(full.type(), withConstantFolding.type()));
             }
@@ -875,7 +877,7 @@ public class QueryAssertions
             return new Result(full.type(), full.value, full.expression);
         }
 
-        private static Optional<Expression> extractExpressionWithBindings(Plan plan)
+        private static Optional<Expression> extractExpressionWithProjection(Plan plan)
         {
             return PlanNodeSearcher.searchFrom(plan.getRoot())
                     .whereIsInstanceOfAny(ProjectNode.class)
@@ -884,9 +886,10 @@ public class QueryAssertions
                     .flatMap(node -> node.getAssignments().getExpressions().stream().findFirst());
         }
 
-        private static Optional<Expression> extractExpressionWithoutBindings(Plan plan)
+        private static Optional<Expression> extractExpressionWithoutProjection(Plan plan)
         {
-            return PlanNodeSearcher.searchFrom(plan.getRoot()) .whereIsInstanceOfAny(ValuesNode.class)
+            return PlanNodeSearcher.searchFrom(plan.getRoot())
+                    .whereIsInstanceOfAny(ValuesNode.class)
                     .findFirst()
                     .map(ValuesNode.class::cast)
                     .map(node -> node.getRows().orElseThrow().getFirst().children().getFirst());
@@ -902,7 +905,7 @@ public class QueryAssertions
         public ExpressionAssert assertThat()
         {
             Result result = evaluate();
-            return new ExpressionAssert(runner, session, result.value(), result.type())
+            return new ExpressionAssert(runner, session, result.value(), result.type(), result.expression)
                     .withRepresentation(ExpressionAssert.TYPE_RENDERER);
         }
 
@@ -952,13 +955,15 @@ public class QueryAssertions
         private final QueryRunner runner;
         private final Session session;
         private final Type actualType;
+        private final Optional<Expression> assignmentExpression;
 
-        public ExpressionAssert(QueryRunner runner, Session session, Object actual, Type actualType)
+        public ExpressionAssert(QueryRunner runner, Session session, Object actual, Type actualType, Optional<Expression> assignmentExpression)
         {
             super(actual, Object.class);
             this.runner = runner;
             this.session = session;
             this.actualType = actualType;
+            this.assignmentExpression = assignmentExpression;
         }
 
         public ExpressionAssert isEqualTo(BiFunction<Session, QueryRunner, Object> evaluator)
@@ -999,6 +1004,30 @@ public class QueryAssertions
         public ExpressionAssert hasType(Type type)
         {
             objects.assertEqual(info, actualType, type);
+            return this;
+        }
+
+        public CallAssert assignmentAsCall()
+        {
+            assertThat(assignmentExpression).isPresent();
+            assertThat(assignmentExpression.get()).isInstanceOf(Call.class);
+            return new CallAssert((Call) this.assignmentExpression.get());
+        }
+    }
+
+    public static class CallAssert
+            extends AbstractAssert<CallAssert, Call>
+    {
+
+        protected CallAssert(Call call)
+        {
+            super(call, CallAssert.class);
+        }
+
+        @CanIgnoreReturnValue
+        public CallAssert isFunction(CatalogSchemaFunctionName name)
+        {
+            assertThat(actual.function().name()).isEqualTo(name);
             return this;
         }
     }
