@@ -376,7 +376,7 @@ public class BinPackingNodeAllocatorService
                         case NONE_MATCHING -> pendingStandardNoneMatching++;
                         case NOT_ENOUGH_RESOURCES_NOW -> pendingStandardNotEnoughResources++;
                         case null -> pendingStandardUnknown++;
-                        case RESERVED -> throw new IllegalArgumentException("unexpected last reservation status");
+                        case RESERVED -> {} // reserved in the meantime
                     }
                 }
                 case SPECULATIVE -> {
@@ -384,7 +384,7 @@ public class BinPackingNodeAllocatorService
                         case NONE_MATCHING -> pendingSpeculativeNoneMatching++;
                         case NOT_ENOUGH_RESOURCES_NOW -> pendingSpeculativeNotEnoughResources++;
                         case null -> pendingSpeculativeUnknown++;
-                        case RESERVED -> throw new IllegalArgumentException("unexpected last reservation status");
+                        case RESERVED -> {} // reserved in the meantime
                     }
                 }
                 case EAGER_SPECULATIVE -> {
@@ -392,7 +392,7 @@ public class BinPackingNodeAllocatorService
                         case NONE_MATCHING -> pendingEagerSpeculativeNoneMatching++;
                         case NOT_ENOUGH_RESOURCES_NOW -> pendingEagerSpeculativeNotEnoughResources++;
                         case null -> pendingEagerSpeculativeUnknown++;
-                        case RESERVED -> throw new IllegalArgumentException("unexpected last reservation status");
+                        case RESERVED -> {} // reserved in the meantime
                     }
                 }
             }
