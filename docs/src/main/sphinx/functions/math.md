@@ -235,6 +235,12 @@ SELECT cosine_similarity(MAP(ARRAY['a'], ARRAY[1.0]), MAP(ARRAY['a'], ARRAY[2.0]
 ```
 :::
 
+:::{function} t_pdf(x, df) -> double
+Computes the Student's t-distribution probability density function for given x and
+degrees of freedom (df). The x must be a real value and degrees of freedom must be
+an integer and positive value.
+:::
+
 :::{function} wilson_interval_lower(successes, trials, z) -> double
 Returns the lower bound of the Wilson score interval of a Bernoulli trial process
 at a confidence specified by the z-score `z`.
@@ -270,4 +276,9 @@ The probability p must lie on the interval (0, 1).
 Compute the Normal cdf with given mean and standard deviation (sd):  P(N \< v; mean, sd).
 The mean and value v must be real values and the standard deviation must be a real
 and positive value.
+:::
+
+:::{function} t_cdf(x, df) -> double
+Compute the Student's t-distribution cumulative density function for given x and degrees of freedom (df).
+The x must be a real value and degrees of freedom must be an integer and positive value.
 :::
