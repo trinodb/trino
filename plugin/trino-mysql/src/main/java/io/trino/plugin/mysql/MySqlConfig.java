@@ -25,6 +25,7 @@ public class MySqlConfig
     private boolean autoReconnect = true;
     private int maxReconnects = 3;
     private int datetimeColumnSize = 0;
+    private boolean isDoris;
     private Duration connectionTimeout = new Duration(10, TimeUnit.SECONDS);
 
     // Using `useInformationSchema=true` prevents race condition inside MySQL driver's java.sql.DatabaseMetaData.getColumns
@@ -80,6 +81,18 @@ public class MySqlConfig
     {
         this.datetimeColumnSize = datetimeColumnSize;
         return this;
+    }
+
+    public boolean isDoris()
+    {
+        return isDoris;
+    }
+
+    @Config("mysql.is-doris")
+    @ConfigDescription("connector is doris")
+    public void setDoris(boolean doris)
+    {
+        isDoris = doris;
     }
 
     public boolean isDriverUseInformationSchema()
