@@ -48,7 +48,6 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.testing.TestingSession;
@@ -65,7 +64,6 @@ import java.util.Random;
 import java.util.stream.Stream;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
@@ -119,7 +117,7 @@ public class TestColumnarFilters
             .scalar(CustomIsDistinctFrom.class)
             .build();
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution(FUNCTION_BUNDLE);
-    private static final ColumnarFilterCompiler COMPILER = new ColumnarFilterCompiler(createTestingFunctionManager(FUNCTION_BUNDLE), new CompilerConfig());
+    private static final ColumnarFilterCompiler COMPILER = FUNCTION_RESOLUTION.getColumnarFilterCompiler();
 
     @ParameterizedTest
     @MethodSource("inputProviders")
