@@ -31,7 +31,8 @@ public class RetryDriver
 {
     private static final Logger log = Logger.get(RetryDriver.class);
     public static final int DEFAULT_MAX_ATTEMPTS = 10;
-    public static final Duration DEFAULT_SLEEP_TIME = new Duration(1, SECONDS);
+    public static final Duration DEFAULT_MIN_BACKOFF_DELAY = new Duration(1, SECONDS);
+    public static final Duration DEFAULT_MAX_BACKOFF_DELAY = new Duration(2, SECONDS);
     public static final Duration DEFAULT_MAX_RETRY_TIME = new Duration(30, SECONDS);
     public static final double DEFAULT_SCALE_FACTOR = 2.0;
 
@@ -61,8 +62,8 @@ public class RetryDriver
     private RetryDriver()
     {
         this(DEFAULT_MAX_ATTEMPTS,
-                DEFAULT_SLEEP_TIME,
-                DEFAULT_SLEEP_TIME,
+                DEFAULT_MIN_BACKOFF_DELAY,
+                DEFAULT_MAX_BACKOFF_DELAY,
                 DEFAULT_SCALE_FACTOR,
                 DEFAULT_MAX_RETRY_TIME,
                 ImmutableList.of());

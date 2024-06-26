@@ -27,6 +27,7 @@ import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType.KERBEROS;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class ThriftMetastoreAuthenticationModule
         extends AbstractConfigurationAwareModule
@@ -36,6 +37,8 @@ public class ThriftMetastoreAuthenticationModule
     {
         newOptionalBinder(binder, IdentityAwareMetastoreClientFactory.class)
                 .setDefault().to(UgiBasedMetastoreClientFactory.class).in(SINGLETON);
+        newExporter(binder).export(IdentityAwareMetastoreClientFactory.class)
+                .as(generator -> generator.generatedNameOf(ThriftMetastoreStats.class));
         newOptionalBinder(binder, HiveMetastoreAuthentication.class)
                 .setDefault().to(NoHiveMetastoreAuthentication.class).in(SINGLETON);
 

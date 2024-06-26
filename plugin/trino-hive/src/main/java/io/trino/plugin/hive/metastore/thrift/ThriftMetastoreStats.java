@@ -69,6 +69,7 @@ public class ThriftMetastoreStats
     private final ThriftMetastoreApiStats createFunction = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats alterFunction = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats dropFunction = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats getThriftDelegationToken = new ThriftMetastoreApiStats();
 
     @Managed
     @Nested
@@ -425,5 +426,12 @@ public class ThriftMetastoreStats
     public ThriftMetastoreApiStats getDropFunction()
     {
         return dropFunction;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getThriftDelegationToken()
+    {
+        return getThriftDelegationToken;
     }
 }
