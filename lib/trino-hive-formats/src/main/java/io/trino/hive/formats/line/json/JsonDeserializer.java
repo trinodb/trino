@@ -26,6 +26,7 @@ import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
@@ -68,6 +69,7 @@ import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
 import static io.trino.hive.formats.HiveFormatUtils.writeDecimal;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
+import static io.trino.spi.StandardErrorCode.BAD_DATA;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -352,10 +354,8 @@ public class JsonDeserializer
             try {
                 bigDecimal = HiveFormatUtils.parseDecimal(value, decimalType);
             }
-            catch (NumberFormatException _) {
-                // parsing errors are simply ignored and the field is null
-                builder.appendNull();
-                return;
+            catch (NumberFormatException e) {
+                throw new TrinoException(BAD_DATA, "Error Parsing a column in the table: " + e.getMessage(), e);
             }
             // out of bounds is an error
             if (overflows(bigDecimal, decimalType.getPrecision())) {

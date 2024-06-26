@@ -515,10 +515,10 @@ public class TestJsonFormat
         assertValue(roundingType, "10.005", SqlDecimal.decimal("10.01", roundingType));
         assertValueFails(roundingType, "99.999");
 
-        assertValue(SHORT_DECIMAL, "true", null);
-        assertValue(SHORT_DECIMAL, "false", null);
-        assertValue(SHORT_DECIMAL, "\"string\"", null);
-        assertValue(SHORT_DECIMAL, "\"null\"", null);
+        assertValueFailsTrino(SHORT_DECIMAL, "true");
+        assertValueFailsTrino(SHORT_DECIMAL, "false");
+        assertValueFailsTrino(SHORT_DECIMAL, "\"string\"");
+        assertValueFailsTrino(SHORT_DECIMAL, "\"null\"");
 
         assertValueFails(SHORT_DECIMAL, "[ 42 ]", false);
         assertValueFailsTrino(SHORT_DECIMAL, "{ \"x\" : 42 }", false);
@@ -554,10 +554,10 @@ public class TestJsonFormat
         assertValue(roundingType, "10.001", SqlDecimal.decimal("10.00", roundingType));
         assertValue(roundingType, "10.005", SqlDecimal.decimal("10.01", roundingType));
 
-        assertValue(LONG_DECIMAL, "true", null);
-        assertValue(LONG_DECIMAL, "false", null);
-        assertValue(LONG_DECIMAL, "\"string\"", null);
-        assertValue(LONG_DECIMAL, "\"null\"", null);
+        assertValueFailsTrino(LONG_DECIMAL, "true");
+        assertValueFailsTrino(LONG_DECIMAL, "false");
+        assertValueFailsTrino(LONG_DECIMAL, "\"string\"");
+        assertValueFailsTrino(LONG_DECIMAL, "\"null\"");
 
         assertValueFails(LONG_DECIMAL, "[ 42 ]", false);
         assertValueFailsTrino(LONG_DECIMAL, "{ \"x\" : 42 }", false);
