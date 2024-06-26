@@ -1322,7 +1322,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     return IsReadyForExecutionResult.notReady();
                 }
 
-                estimateCountByKind.compute(result.orElseThrow().kind(), (k, v) -> v == null ? 0 : v + 1);
+                estimateCountByKind.compute(result.orElseThrow().kind(), (k, v) -> v == null ? 1 : v + 1);
 
                 sourceOutputStatsEstimates.put(sourceStageExecution.getStageId(), result.orElseThrow().outputDataSizeEstimate());
                 someSourcesMadeProgress = someSourcesMadeProgress || sourceStageExecution.isSomeProgressMade();
