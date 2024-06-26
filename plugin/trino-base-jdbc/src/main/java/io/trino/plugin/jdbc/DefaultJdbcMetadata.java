@@ -76,6 +76,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -383,9 +384,10 @@ public class DefaultJdbcMetadata
         ImmutableList.Builder<Assignment> assignmentBuilder = ImmutableList.builder();
         ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<String, ParameterizedExpression> columnExpressionsBuilder = ImmutableMap.builder();
+        Set<ConnectorExpression> translatedExpressions = new HashSet<>();
 
         for (ConnectorExpression projection : ImmutableSet.copyOf(projections)) {
-            RewrittenExpression rewrittenExpression = rewriteExpression(session, nextSyntheticColumnId, projection, assignments);
+            RewrittenExpression rewrittenExpression = rewriteExpression(session, nextSyntheticColumnId, projection, assignments, translatedExpressions);
             nextSyntheticColumnId = rewrittenExpression.nextSyntheticColumnId();
             newVariablesBuilder.putAll(rewrittenExpression.syntheticVariables());
             columnExpressionsBuilder.putAll(rewrittenExpression.columnExpressions());
@@ -430,9 +432,20 @@ public class DefaultJdbcMetadata
             ConnectorSession session,
             int nextSyntheticColumnId,
             ConnectorExpression projection,
-            Map<String, ColumnHandle> assignments)
+            Map<String, ColumnHandle> assignments,
+            Set<ConnectorExpression> translatedExpressions)
     {
+        // If the expression was translated before skip processing it once again
+        if (translatedExpressions.contains(projection)) {
+            return new RewrittenExpression(
+                    nextSyntheticColumnId,
+                    ImmutableMap.of(),
+                    ImmutableMap.of(),
+                    ImmutableSet.of(),
+                    ImmutableList.of());
+        }
         if (projection instanceof Variable variable) {
+            translatedExpressions.add(variable);
             return new RewrittenExpression(
                     nextSyntheticColumnId,
                     ImmutableMap.of(),
@@ -452,6 +465,7 @@ public class DefaultJdbcMetadata
             nextSyntheticColumnId++;
             Variable newVariable = new Variable(newColumn.getColumnName(), newColumn.getColumnType());
             Assignment newAssignment = new Assignment(columnName, newColumn, projection.getType());
+            translatedExpressions.add(projection);
             return new RewrittenExpression(
                     nextSyntheticColumnId,
                     ImmutableMap.of(projection, newVariable),
@@ -459,12 +473,30 @@ public class DefaultJdbcMetadata
                     ImmutableSet.of(newColumn),
                     ImmutableList.of(newAssignment));
         }
+        // If the parent expression cannot be translated try translating its argument
+        ImmutableMap.Builder<ConnectorExpression, Variable> syntheticVariablesBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ParameterizedExpression> columnExpressionsBuilder = ImmutableMap.builder();
+        ImmutableSet.Builder<JdbcColumnHandle> columnsBuilder = ImmutableSet.builder();
+        ImmutableList.Builder<Assignment> assignmentBuilder = ImmutableList.builder();
+        for (ConnectorExpression child : projection.getChildren()) {
+            RewrittenExpression rewrittenExpression = rewriteExpression(
+                    session,
+                    nextSyntheticColumnId,
+                    child,
+                    assignments,
+                    translatedExpressions);
+            nextSyntheticColumnId = rewrittenExpression.nextSyntheticColumnId();
+            syntheticVariablesBuilder.putAll(rewrittenExpression.syntheticVariables());
+            columnExpressionsBuilder.putAll(rewrittenExpression.columnExpressions());
+            columnsBuilder.addAll(rewrittenExpression.columnHandles());
+            assignmentBuilder.addAll(rewrittenExpression.assignments());
+        }
         return new RewrittenExpression(
                 nextSyntheticColumnId,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableSet.of(),
-                ImmutableList.of());
+                syntheticVariablesBuilder.buildOrThrow(),
+                columnExpressionsBuilder.buildOrThrow(),
+                columnsBuilder.build(),
+                assignmentBuilder.build());
     }
 
     @Override
