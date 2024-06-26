@@ -321,18 +321,12 @@ public class FunctionManager
 
     public static FunctionManager createTestingFunctionManager()
     {
-        return createTestingFunctionManager(new InternalFunctionBundle());
-    }
-
-    public static FunctionManager createTestingFunctionManager(FunctionBundle functionBundle)
-    {
         TypeOperators typeOperators = new TypeOperators();
         GlobalFunctionCatalog functionCatalog = new GlobalFunctionCatalog(
                 () -> { throw new UnsupportedOperationException(); },
                 () -> { throw new UnsupportedOperationException(); },
                 () -> { throw new UnsupportedOperationException(); });
         functionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
-        functionCatalog.addFunctions(functionBundle);
         return new FunctionManager(CatalogServiceProvider.fail(), functionCatalog, LanguageFunctionProvider.DISABLED);
     }
 }
