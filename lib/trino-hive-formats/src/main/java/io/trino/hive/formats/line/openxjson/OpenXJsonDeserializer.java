@@ -24,6 +24,7 @@ import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -66,6 +67,7 @@ import static io.trino.hive.formats.line.openxjson.JsonWriter.canonicalizeJsonSt
 import static io.trino.hive.formats.line.openxjson.JsonWriter.writeJsonArray;
 import static io.trino.hive.formats.line.openxjson.JsonWriter.writeJsonObject;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.spi.StandardErrorCode.BAD_DATA;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -86,6 +88,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.StrictMath.floorDiv;
 import static java.lang.StrictMath.floorMod;
 import static java.lang.StrictMath.toIntExact;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 import static java.time.format.ResolverStyle.LENIENT;
@@ -268,11 +271,10 @@ public final class OpenXJsonDeserializer
 
             try {
                 BIGINT.writeLong(builder, parseLong(jsonString.value()));
-                return;
             }
-            catch (NumberFormatException | ArithmeticException _) {
+            catch (NumberFormatException | ArithmeticException e) {
+                throw new TrinoException(BAD_DATA, "Error Parsing a column in the table: " + e.getMessage(), e);
             }
-            builder.appendNull();
         }
     }
 
@@ -288,14 +290,11 @@ public final class OpenXJsonDeserializer
 
             try {
                 long longValue = parseLong(jsonString.value());
-                if ((int) longValue == longValue) {
-                    INTEGER.writeLong(builder, longValue);
-                    return;
-                }
+                INTEGER.writeLong(builder, longValue);
             }
-            catch (NumberFormatException | ArithmeticException _) {
+            catch (NumberFormatException | ArithmeticException e) {
+                throw new TrinoException(BAD_DATA, "Error Parsing a column in the table: " + e.getMessage(), e);
             }
-            builder.appendNull();
         }
     }
 
@@ -311,14 +310,11 @@ public final class OpenXJsonDeserializer
 
             try {
                 long longValue = parseLong(jsonString.value());
-                if ((short) longValue == longValue) {
-                    SMALLINT.writeLong(builder, longValue);
-                    return;
-                }
+                SMALLINT.writeLong(builder, longValue);
             }
-            catch (NumberFormatException | ArithmeticException _) {
+            catch (NumberFormatException | ArithmeticException e) {
+                throw new TrinoException(BAD_DATA, "Error Parsing a column in the table: " + e.getMessage(), e);
             }
-            builder.appendNull();
         }
     }
 
@@ -334,14 +330,11 @@ public final class OpenXJsonDeserializer
 
             try {
                 long longValue = parseLong(jsonString.value());
-                if ((byte) longValue == longValue) {
-                    TINYINT.writeLong(builder, longValue);
-                    return;
-                }
+                TINYINT.writeLong(builder, longValue);
             }
-            catch (NumberFormatException | ArithmeticException _) {
+            catch (NumberFormatException | ArithmeticException e) {
+                throw new TrinoException(BAD_DATA, "Error Parsing a column in the table: " + e.getMessage(), e);
             }
-            builder.appendNull();
         }
     }
 
@@ -371,12 +364,14 @@ public final class OpenXJsonDeserializer
                     else {
                         decimalType.writeObject(builder, Int128.valueOf(bigDecimal.unscaledValue()));
                     }
-                    return;
+                }
+                else {
+                    throw new TrinoException(BAD_DATA, format("Error Parsing a column in the table: Value %s exceeds precision %d", bigDecimal, decimalType.getPrecision()));
                 }
             }
-            catch (NumberFormatException _) {
+            catch (NumberFormatException e) {
+                throw new TrinoException(BAD_DATA, "Error Parsing a column in the table: " + e.getMessage(), e);
             }
-            builder.appendNull();
         }
     }
 
@@ -393,8 +388,8 @@ public final class OpenXJsonDeserializer
             try {
                 REAL.writeLong(builder, floatToRawIntBits(Float.parseFloat(jsonString.value())));
             }
-            catch (NumberFormatException _) {
-                builder.appendNull();
+            catch (NumberFormatException e) {
+                throw new TrinoException(BAD_DATA, "Error Parsing a column in the table: " + e.getMessage(), e);
             }
         }
     }
@@ -413,7 +408,7 @@ public final class OpenXJsonDeserializer
                 DOUBLE.writeDouble(builder, Double.parseDouble(jsonString.value()));
             }
             catch (NumberFormatException e) {
-                builder.appendNull();
+                throw new TrinoException(BAD_DATA, "Error Parsing a column in the table: " + e.getMessage(), e);
             }
         }
     }
@@ -437,11 +432,10 @@ public final class OpenXJsonDeserializer
             }
             try {
                 DATE.writeLong(builder, toIntExact(parseDecimalHexOctalLong(dateString)));
-                return;
             }
-            catch (NumberFormatException | ArithmeticException _) {
+            catch (NumberFormatException | ArithmeticException e) {
+                throw new TrinoException(BAD_DATA, "Error Parsing a column in the table: " + e.getMessage(), e);
             }
-            builder.appendNull();
         }
     }
 
@@ -470,7 +464,7 @@ public final class OpenXJsonDeserializer
                 timestampEncoder.write(timestamp, builder);
             }
             catch (DateTimeParseException | NumberFormatException | ArithmeticException e) {
-                builder.appendNull();
+                throw new TrinoException(BAD_DATA, "Error Parsing a column in the table: " + e.getMessage(), e);
             }
         }
 

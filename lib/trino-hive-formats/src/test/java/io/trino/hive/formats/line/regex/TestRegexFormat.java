@@ -20,6 +20,7 @@ import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.hive.formats.line.regex.RegexDeserializer.UnsupportedTypeException;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -174,7 +175,8 @@ public class TestRegexFormat
                         ImmutableList.of(new Column("a", VARBINARY, 0)),
                         "line",
                         "(line)",
-                        false))
+                        false,
+                        true))
                 .isInstanceOf(UnsupportedTypeException.class);
         assertThatThrownBy(
                 () -> readLineHive(
@@ -258,17 +260,17 @@ public class TestRegexFormat
         assertValue(BIGINT, String.valueOf(Long.MAX_VALUE), Long.MAX_VALUE);
         assertValue(BIGINT, String.valueOf(Long.MIN_VALUE), Long.MIN_VALUE);
 
-        assertValue(BIGINT, BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE).toString(), null);
-        assertValue(BIGINT, BigInteger.valueOf(Long.MIN_VALUE).subtract(BigInteger.ONE).toString(), null);
+        assertNullValue(BIGINT, BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE).toString());
+        assertNullValue(BIGINT, BigInteger.valueOf(Long.MIN_VALUE).subtract(BigInteger.ONE).toString());
 
-        assertValue(BIGINT, "1.23", null);
-        assertValue(BIGINT, "1.2345e2", null);
-        assertValue(BIGINT, "1.56", null);
-        assertValue(BIGINT, "1.5645e2", null);
-        assertValue(BIGINT, "1.5645e300", null);
+        assertNullValue(BIGINT, "1.23");
+        assertNullValue(BIGINT, "1.2345e2");
+        assertNullValue(BIGINT, "1.56");
+        assertNullValue(BIGINT, "1.5645e2");
+        assertNullValue(BIGINT, "1.5645e300");
 
-        assertValue(BIGINT, "true", null);
-        assertValue(BIGINT, "false", null);
+        assertNullValue(BIGINT, "true");
+        assertNullValue(BIGINT, "false");
     }
 
     @Test
@@ -281,17 +283,17 @@ public class TestRegexFormat
 
         assertValue(INTEGER, String.valueOf(Integer.MAX_VALUE), Integer.MAX_VALUE);
         assertValue(INTEGER, String.valueOf(Integer.MIN_VALUE), Integer.MIN_VALUE);
-        assertValue(INTEGER, String.valueOf(Integer.MAX_VALUE + 1L), null);
-        assertValue(INTEGER, String.valueOf(Integer.MIN_VALUE - 1L), null);
+        assertNullValue(INTEGER, String.valueOf(Integer.MAX_VALUE + 1L));
+        assertNullValue(INTEGER, String.valueOf(Integer.MIN_VALUE - 1L));
 
-        assertValue(INTEGER, "1.23", null);
-        assertValue(INTEGER, "1.2345e2", null);
-        assertValue(INTEGER, "1.56", null);
-        assertValue(INTEGER, "1.5645e2", null);
-        assertValue(INTEGER, "1.5645e300", null);
+        assertNullValue(INTEGER, "1.23");
+        assertNullValue(INTEGER, "1.2345e2");
+        assertNullValue(INTEGER, "1.56");
+        assertNullValue(INTEGER, "1.5645e2");
+        assertNullValue(INTEGER, "1.5645e300");
 
-        assertValue(INTEGER, "true", null);
-        assertValue(INTEGER, "false", null);
+        assertNullValue(INTEGER, "true");
+        assertNullValue(INTEGER, "false");
     }
 
     @Test
@@ -303,17 +305,17 @@ public class TestRegexFormat
         assertValue(SMALLINT, "-1", (short) -1);
         assertValue(SMALLINT, "32767", (short) 32767);
         assertValue(SMALLINT, "-32768", (short) -32768);
-        assertValue(SMALLINT, "32768", null);
-        assertValue(SMALLINT, "-32769", null);
+        assertNullValue(SMALLINT, "32768");
+        assertNullValue(SMALLINT, "-32769");
 
-        assertValue(SMALLINT, "1.23", null);
-        assertValue(SMALLINT, "1.2345e2", null);
-        assertValue(SMALLINT, "1.56", null);
-        assertValue(SMALLINT, "1.5645e2", null);
-        assertValue(SMALLINT, "1.5645e7", null);
+        assertNullValue(SMALLINT, "1.23");
+        assertNullValue(SMALLINT, "1.2345e2");
+        assertNullValue(SMALLINT, "1.56");
+        assertNullValue(SMALLINT, "1.5645e2");
+        assertNullValue(SMALLINT, "1.5645e7");
 
-        assertValue(SMALLINT, "true", null);
-        assertValue(SMALLINT, "false", null);
+        assertNullValue(SMALLINT, "true");
+        assertNullValue(SMALLINT, "false");
     }
 
     @Test
@@ -325,17 +327,17 @@ public class TestRegexFormat
         assertValue(TINYINT, "-1", (byte) -1);
         assertValue(TINYINT, "127", (byte) 127);
         assertValue(TINYINT, "-128", (byte) -128);
-        assertValue(TINYINT, "128", null);
-        assertValue(TINYINT, "-129", null);
+        assertNullValue(TINYINT, "128");
+        assertNullValue(TINYINT, "-129");
 
-        assertValue(TINYINT, "1.23", null);
-        assertValue(TINYINT, "1.2345e2", null);
-        assertValue(TINYINT, "1.56", null);
-        assertValue(TINYINT, "1.5645e2", null);
-        assertValue(TINYINT, "1.5645e3", null);
+        assertNullValue(TINYINT, "1.23");
+        assertNullValue(TINYINT, "1.2345e2");
+        assertNullValue(TINYINT, "1.56");
+        assertNullValue(TINYINT, "1.5645e2");
+        assertNullValue(TINYINT, "1.5645e3");
 
-        assertValue(TINYINT, "true", null);
-        assertValue(TINYINT, "false", null);
+        assertNullValue(TINYINT, "true");
+        assertNullValue(TINYINT, "false");
     }
 
     @Test
@@ -352,19 +354,19 @@ public class TestRegexFormat
         assertDecimal(SHORT_DECIMAL, "1.5645e15");
 
         // Hive does not enforce size bounds
-        assertValueTrino(SHORT_DECIMAL, "10000000000000000.00", null);
-        assertValueTrino(SHORT_DECIMAL, "-10000000000000000.00", null);
-        assertValueTrino(SHORT_DECIMAL, "1e19", null);
-        assertValueTrino(SHORT_DECIMAL, "-1e19", null);
+        assertNullValueTrino(SHORT_DECIMAL, "10000000000000000.00");
+        assertNullValueTrino(SHORT_DECIMAL, "-10000000000000000.00");
+        assertNullValueTrino(SHORT_DECIMAL, "1e19");
+        assertNullValueTrino(SHORT_DECIMAL, "-1e19");
 
         // test rounding (Hive doesn't seem to enforce scale)
         DecimalType roundingType = createDecimalType(4, 2);
         assertValueTrino(roundingType, "10.001", SqlDecimal.decimal("10.00", roundingType));
         assertValueTrino(roundingType, "10.005", SqlDecimal.decimal("10.01", roundingType));
-        assertValueTrino(roundingType, "99.999", null);
+        assertNullValueTrino(roundingType, "99.999");
 
-        assertValue(SHORT_DECIMAL, "true", null);
-        assertValue(SHORT_DECIMAL, "false", null);
+        assertNullValue(SHORT_DECIMAL, "true");
+        assertNullValue(SHORT_DECIMAL, "false");
     }
 
     @Test
@@ -387,20 +389,20 @@ public class TestRegexFormat
         assertDecimal(LONG_DECIMAL, "1.5645e35");
 
         // Hive does not enforce size bounds
-        assertValueTrino(LONG_DECIMAL, "1000000000000000000000000000000000000.00", null);
-        assertValueTrino(LONG_DECIMAL, "-1000000000000000000000000000000000000.00", null);
-        assertValue(LONG_DECIMAL, "1e39", null);
-        assertValue(LONG_DECIMAL, "-1e39", null);
+        assertNullValueTrino(LONG_DECIMAL, "1000000000000000000000000000000000000.00");
+        assertNullValueTrino(LONG_DECIMAL, "-1000000000000000000000000000000000000.00");
+        assertNullValue(LONG_DECIMAL, "1e39");
+        assertNullValue(LONG_DECIMAL, "-1e39");
 
         // test rounding (Hive doesn't seem to enforce scale)
         DecimalType roundingType = createDecimalType(38, 2);
         assertValueTrino(roundingType, "10.001", SqlDecimal.decimal("10.00", roundingType));
         assertValueTrino(roundingType, "10.005", SqlDecimal.decimal("10.01", roundingType));
 
-        assertValue(LONG_DECIMAL, "true", null);
-        assertValue(LONG_DECIMAL, "false", null);
-        assertValue(LONG_DECIMAL, "value", null);
-        assertValue(LONG_DECIMAL, "null", null);
+        assertNullValue(LONG_DECIMAL, "true");
+        assertNullValue(LONG_DECIMAL, "false");
+        assertNullValue(LONG_DECIMAL, "value");
+        assertNullValue(LONG_DECIMAL, "null");
     }
 
     private static void assertDecimal(DecimalType decimalType, String regexValue)
@@ -434,11 +436,11 @@ public class TestRegexFormat
         assertValue(REAL, "Infinity", Float.POSITIVE_INFINITY);
         assertValue(REAL, "+Infinity", Float.POSITIVE_INFINITY);
         assertValue(REAL, "-Infinity", Float.NEGATIVE_INFINITY);
-        assertValue(REAL, "+Inf", null);
-        assertValue(REAL, "-Inf", null);
+        assertNullValue(REAL, "+Inf");
+        assertNullValue(REAL, "-Inf");
 
-        assertValue(REAL, "true", null);
-        assertValue(REAL, "false", null);
+        assertNullValue(REAL, "true");
+        assertNullValue(REAL, "false");
     }
 
     @Test
@@ -458,11 +460,11 @@ public class TestRegexFormat
         assertValue(DOUBLE, "Infinity", Double.POSITIVE_INFINITY);
         assertValue(DOUBLE, "+Infinity", Double.POSITIVE_INFINITY);
         assertValue(DOUBLE, "-Infinity", Double.NEGATIVE_INFINITY);
-        assertValue(DOUBLE, "+Inf", null);
-        assertValue(DOUBLE, "-Inf", null);
+        assertNullValue(DOUBLE, "+Inf");
+        assertNullValue(DOUBLE, "-Inf");
 
-        assertValue(DOUBLE, "true", null);
-        assertValue(DOUBLE, "false", null);
+        assertNullValue(DOUBLE, "true");
+        assertNullValue(DOUBLE, "false");
     }
 
     @Test
@@ -485,18 +487,18 @@ public class TestRegexFormat
 
         // Hive does not enforce size bounds and truncates the results in Date.toEpochDay
         // For Trino we fail as this behavior is error-prone
-        assertValueTrino(DATE, "5881580-07-12", null);
-        assertValueTrino(DATE, "-5877641-06-22", null);
+        assertNullValueTrino(DATE, "5881580-07-12");
+        assertNullValueTrino(DATE, "-5877641-06-22");
 
-        assertValue(DATE, "1", null);
-        assertValue(DATE, "1.23", null);
-        assertValue(DATE, "1.2345e2", null);
-        assertValue(DATE, "1.56", null);
-        assertValue(DATE, "1.5645e2", null);
-        assertValue(DATE, "1.5645e300", null);
+        assertNullValue(DATE, "1");
+        assertNullValue(DATE, "1.23");
+        assertNullValue(DATE, "1.2345e2");
+        assertNullValue(DATE, "1.56");
+        assertNullValue(DATE, "1.5645e2");
+        assertNullValue(DATE, "1.5645e300");
 
-        assertValue(DATE, "true", null);
-        assertValue(DATE, "false", null);
+        assertNullValue(DATE, "true");
+        assertNullValue(DATE, "false");
     }
 
     private static void assertDate(String regexValue, long days)
@@ -522,19 +524,19 @@ public class TestRegexFormat
         assertValueTrino(TIMESTAMP_MICROS, "2020-05-10 12:34:56.1234565", toSqlTimestamp(TIMESTAMP_MICROS, LocalDateTime.of(2020, 5, 10, 12, 34, 56, 123_457_000)));
 
         // Hive does not enforce size bounds
-        assertValueTrino(TIMESTAMP_MICROS, "294247-01-10 04:00:54.775808", null);
+        assertNullValueTrino(TIMESTAMP_MICROS, "294247-01-10 04:00:54.775808");
         // it isn't really possible to test for exact min value, because the sequence gets doesn't transfer through testing framework
-        assertValueTrino(TIMESTAMP_MICROS, "-290308-12-21 19:59:05.224192", null);
+        assertNullValueTrino(TIMESTAMP_MICROS, "-290308-12-21 19:59:05.224192");
 
-        assertValue(TIMESTAMP_MICROS, "1", null);
-        assertValue(TIMESTAMP_MICROS, "1.23", null);
-        assertValue(TIMESTAMP_MICROS, "1.2345e2", null);
-        assertValue(TIMESTAMP_MICROS, "1.56", null);
-        assertValue(TIMESTAMP_MICROS, "1.5645e2", null);
-        assertValue(TIMESTAMP_MICROS, "1.5645e300", null);
+        assertNullValue(TIMESTAMP_MICROS, "1");
+        assertNullValue(TIMESTAMP_MICROS, "1.23");
+        assertNullValue(TIMESTAMP_MICROS, "1.2345e2");
+        assertNullValue(TIMESTAMP_MICROS, "1.56");
+        assertNullValue(TIMESTAMP_MICROS, "1.5645e2");
+        assertNullValue(TIMESTAMP_MICROS, "1.5645e300");
 
-        assertValue(TIMESTAMP_MICROS, "true", null);
-        assertValue(TIMESTAMP_MICROS, "false", null);
+        assertNullValue(TIMESTAMP_MICROS, "true");
+        assertNullValue(TIMESTAMP_MICROS, "false");
     }
 
     @Test
@@ -552,19 +554,19 @@ public class TestRegexFormat
         assertTimestamp(TIMESTAMP_NANOS, "2020-05-10T12:34:56.123456789", LocalDateTime.of(2020, 5, 10, 12, 34, 56, 123_456_789));
 
         // Hive does not enforce size bounds
-        assertValueTrino(TIMESTAMP_NANOS, "294247-01-10 04:00:54.775808000", null);
+        assertNullValueTrino(TIMESTAMP_NANOS, "294247-01-10 04:00:54.775808000");
         // it isn't really possible to test for exact min value, because the sequence gets doesn't transfer through testing framework
-        assertValueTrino(TIMESTAMP_NANOS, "-290308-12-21 19:59:05.224192000", null);
+        assertNullValueTrino(TIMESTAMP_NANOS, "-290308-12-21 19:59:05.224192000");
 
-        assertValue(TIMESTAMP_NANOS, "1", null);
-        assertValue(TIMESTAMP_NANOS, "1.23", null);
-        assertValue(TIMESTAMP_NANOS, "1.2345e2", null);
-        assertValue(TIMESTAMP_NANOS, "1.56", null);
-        assertValue(TIMESTAMP_NANOS, "1.5645e2", null);
-        assertValue(TIMESTAMP_NANOS, "1.5645e300", null);
+        assertNullValue(TIMESTAMP_NANOS, "1");
+        assertNullValue(TIMESTAMP_NANOS, "1.23");
+        assertNullValue(TIMESTAMP_NANOS, "1.2345e2");
+        assertNullValue(TIMESTAMP_NANOS, "1.56");
+        assertNullValue(TIMESTAMP_NANOS, "1.5645e2");
+        assertNullValue(TIMESTAMP_NANOS, "1.5645e300");
 
-        assertValue(TIMESTAMP_NANOS, "true", null);
-        assertValue(TIMESTAMP_NANOS, "false", null);
+        assertNullValue(TIMESTAMP_NANOS, "true");
+        assertNullValue(TIMESTAMP_NANOS, "false");
     }
 
     private static void assertTimestamp(TimestampType timestampType, String regexValue, LocalDateTime localDateTime)
@@ -583,21 +585,50 @@ public class TestRegexFormat
         assertValueTrino(type, regexValue, expectedValue);
     }
 
+    private static void assertNullValue(Type type, String regexValue)
+            throws Exception
+    {
+        assertValueHive(type, regexValue, null);
+        assertValueTrino(type, regexValue, null, true);
+        assertTrinoError(type, regexValue, false);
+    }
+
+    private static void assertNullValueTrino(Type type, String regexValue)
+            throws Exception
+    {
+        assertValueTrino(type, regexValue, null, true);
+        assertTrinoError(type, regexValue, false);
+    }
+
     private static void assertValueTrino(Type type, String regexValue, Object expectedValue)
             throws IOException
     {
-        Object actualValue = readValueTrino(type, regexValue);
+        assertValueTrino(type, regexValue, expectedValue, true);
+    }
+
+    private static void assertValueTrino(Type type, String regexValue, Object expectedValue, boolean nullOnParseError)
+            throws IOException
+    {
+        Object actualValue = readValueTrino(type, regexValue, nullOnParseError);
         assertColumnValueEquals(type, actualValue, expectedValue);
     }
 
-    private static Object readValueTrino(Type type, String value)
+    private static void assertTrinoError(Type type, String regexValue, boolean nullOnParseError)
+    {
+        assertThatThrownBy(() ->
+                readValueTrino(type, regexValue, nullOnParseError))
+                .isInstanceOf(TrinoException.class);
+    }
+
+    private static Object readValueTrino(Type type, String value, boolean nullOnParseError)
             throws IOException
     {
         List<Object> values = readTrinoLine(
                 ImmutableList.of(new Column("b", type, 1)),
                 "ignore~" + value + "~ignore",
                 "([^~]*)~([^~]*)~([^~]*)",
-                false);
+                false,
+                nullOnParseError);
         return values.get(0);
     }
 
@@ -611,7 +642,7 @@ public class TestRegexFormat
     private static void assertLineTrino(List<Column> columns, String line, String regex, boolean caseSensitive, List<Object> expectedValues)
             throws IOException
     {
-        List<Object> actualValues = readTrinoLine(columns, line, regex, caseSensitive);
+        List<Object> actualValues = readTrinoLine(columns, line, regex, caseSensitive, true);
         for (int i = 0; i < columns.size(); i++) {
             Type type = columns.get(i).type();
             Object actualValue = actualValues.get(i);
@@ -620,10 +651,10 @@ public class TestRegexFormat
         }
     }
 
-    private static List<Object> readTrinoLine(List<Column> columns, String line, String regex, boolean caseSensitive)
+    private static List<Object> readTrinoLine(List<Column> columns, String line, String regex, boolean caseSensitive, boolean nullOnParseError)
             throws IOException
     {
-        LineDeserializer deserializer = new RegexDeserializerFactory().create(columns, createRegexProperties(regex, caseSensitive));
+        LineDeserializer deserializer = new RegexDeserializerFactory().create(columns, createRegexProperties(regex, caseSensitive, nullOnParseError));
         PageBuilder pageBuilder = new PageBuilder(1, deserializer.getTypes());
         deserializer.deserialize(createLineBuffer(line), pageBuilder);
         return readTrinoValues(columns, pageBuilder.build(), 0);
@@ -680,7 +711,7 @@ public class TestRegexFormat
                         .map(FormatTestUtils::getJavaObjectInspector)
                         .map(ObjectInspector::getTypeName)
                         .collect(joining(",")));
-        schema.putAll(createRegexProperties(regex, caseSensitive));
+        schema.putAll(createRegexProperties(regex, caseSensitive, true));
         // this is required in the Hive serde for some reason
         schema.put("columns.comments", columns.stream()
                 .map(column -> "\0")
@@ -706,11 +737,12 @@ public class TestRegexFormat
         }
     }
 
-    private static Map<String, String> createRegexProperties(String regex, boolean caseSensitive)
+    private static Map<String, String> createRegexProperties(String regex, boolean caseSensitive, boolean nullOnParseError)
     {
         ImmutableMap.Builder<String, String> schema = ImmutableMap.builder();
         schema.put(RegexDeserializerFactory.REGEX_KEY, regex);
         schema.put(RegexDeserializerFactory.REGEX_CASE_SENSITIVE_KEY, String.valueOf(caseSensitive));
+        schema.put(RegexDeserializerFactory.REGEX_NULL_ON_PARSE_ERROR, String.valueOf(nullOnParseError));
         return schema.buildOrThrow();
     }
 }
