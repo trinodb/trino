@@ -27,6 +27,9 @@ configuration property:
 ```properties
 connector.name=hudi
 hive.metastore.uri=thrift://example.net:9083
+hive.s3.aws-access-key=admin
+hive.s3.aws-secret-key=password
+hive.s3.endpoint=http://minio:9000
 ```
 
 There are {ref}`HMS configuration properties <general-metastore-properties>`
