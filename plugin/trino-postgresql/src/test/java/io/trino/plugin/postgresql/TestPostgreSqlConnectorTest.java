@@ -23,7 +23,9 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcQueryRelationHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.RemoteLogTracingEvent;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.JoinCondition;
@@ -64,6 +66,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -1063,10 +1066,24 @@ public class TestPostgreSqlConnectorTest
             assertThat(query("SELECT id, reverse(reverse(reverse(reverse(reverse(varchar_col))))) FROM " + table.getName()))
                     .skippingTypesCheck()
                     .matches("VALUES (BIGINT '1', 'cba'), (BIGINT '2', NULL)")
-                    .isNotFullyPushedDown(ProjectNode.class)
+                    .isFullyPushedDown()
                     .hasPlan(output(
-                            project(
-                                    tableScan(table.getName(), ImmutableMap.of("varchar_col", "varchar_col")))));
+                            tableScan(
+                                    tableHandle -> {
+                                        JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandle;
+                                        assertThat(jdbcTableHandle.isSynthetic()).isTrue();
+                                        return ((JdbcQueryRelationHandle) jdbcTableHandle.getRelationHandle()).getPreparedQuery()
+                                                .equals(new PreparedQuery(
+                                                        "SELECT \"id\", REVERSE(\"_pfgnrtd_3\") AS \"_pfgnrtd_4\" FROM (SELECT \"id\", REVERSE(\"_pfgnrtd_2\") AS \"_pfgnrtd_3\" FROM " +
+                                                                "(SELECT \"id\", REVERSE(\"_pfgnrtd_1\") AS \"_pfgnrtd_2\" FROM (SELECT \"id\", REVERSE(\"_pfgnrtd_0\") AS \"_pfgnrtd_1\" FROM " +
+                                                                "(SELECT \"id\", REVERSE(\"varchar_col\") AS \"_pfgnrtd_0\" FROM \"tpch\".\"%s\") o) o) o) o"
+                                                                        .formatted(table.getName()),
+                                                        ImmutableList.of()));
+                                    },
+                                    TupleDomain.all(),
+                                    ImmutableMap.of(
+                                            "id", columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnName().equals("id"),
+                                            "pfgnrtd", columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnName().startsWith("_pfgnrtd_")))));
 
             assertThat(query("SELECT reverse(lower(varchar_col)) FROM " + table.getName()))
                     .skippingTypesCheck()
@@ -1081,6 +1098,57 @@ public class TestPostgreSqlConnectorTest
                                                             FUNCTIONS.resolveFunction("lower", ImmutableList.of(new TypeSignatureProvider(VARCHAR.getTypeSignature()))),
                                                             ImmutableList.of(new Reference(VARCHAR, "varchar_col"))))))),
                                     tableScan(table.getName(), ImmutableMap.of("varchar_col", "varchar_col")))));
+        }
+    }
+
+    @Test
+    public void testPartialProjectionPushDown()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_partial_projection_pushdown",
+                "(id BIGINT, cola VARCHAR, colb VARCHAR)",
+                ImmutableList.of("1, 'abc', 'def'"))) {
+            ResolvedFunction concatFunction = FUNCTIONS.resolveFunction(
+                    "concat",
+                    ImmutableList.of(
+                            new TypeSignatureProvider(VARCHAR.getTypeSignature()),
+                            new TypeSignatureProvider(VARCHAR.getTypeSignature())));
+
+            assertThat(query("SELECT round(id), concat(reverse(cola), reverse(colb)), concat(reverse(cola), reverse(cola)), concat(reverse(cola), upper(reverse(cola))) FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '1', VARCHAR 'cbafed', VARCHAR 'cbacba', VARCHAR 'cbaCBA')")
+                    .hasPlan(
+                            output(
+                                    project(
+                                            ImmutableMap.of(
+                                                    "round_expr", expression(
+                                                            new Call(
+                                                                    FUNCTIONS.resolveFunction("round", ImmutableList.of(new TypeSignatureProvider(BIGINT.getTypeSignature()))),
+                                                                    ImmutableList.of(new Reference(BIGINT, "id")))),
+                                                    "concat_expr", expression(
+                                                            new Call(concatFunction, ImmutableList.of(new Reference(VARCHAR, "reverse_cola"), new Reference(VARCHAR, "reverse_colb")))),
+                                                    "concat_on_same_col", expression(
+                                                            new Call(concatFunction, ImmutableList.of(new Reference(VARCHAR, "reverse_cola"), new Reference(VARCHAR, "reverse_cola")))),
+                                                    "concat_on_same_col_with_lower", expression(
+                                                            new Call(concatFunction, ImmutableList.of(
+                                                                    new Reference(VARCHAR, "reverse_cola"),
+                                                                    new Call(
+                                                                            FUNCTIONS.resolveFunction("upper", ImmutableList.of(new TypeSignatureProvider(VARCHAR.getTypeSignature()))),
+                                                                            ImmutableList.of(new Reference(VARCHAR, "reverse_cola"))))))),
+                                            tableScan(
+                                                    tableHandle -> {
+                                                        JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandle;
+                                                        assertThat(jdbcTableHandle.isSynthetic()).isTrue();
+                                                        return ((JdbcQueryRelationHandle) jdbcTableHandle.getRelationHandle()).getPreparedQuery()
+                                                                .equals(new PreparedQuery(
+                                                                        "SELECT \"id\", REVERSE(\"cola\") AS \"_pfgnrtd_0\", REVERSE(\"colb\") AS \"_pfgnrtd_1\" FROM \"tpch\".\"%s\"".formatted(table.getName()),
+                                                                        ImmutableList.of()));
+                                                    },
+                                                    TupleDomain.all(),
+                                                    ImmutableMap.of(
+                                                            "reverse_cola", columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnName().equals("_pfgnrtd_0"),
+                                                            "reverse_colb", columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnName().equals("_pfgnrtd_1"),
+                                                            "id", columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnName().equals("id"))))));
         }
     }
 
