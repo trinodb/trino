@@ -14,9 +14,8 @@
 package io.trino.execution.buffer;
 
 import com.google.common.base.VerifyException;
-import io.airlift.compress.Compressor;
-import io.airlift.compress.lz4.Lz4Compressor;
-import io.airlift.compress.lz4.Lz4RawCompressor;
+import io.airlift.compress.v3.Compressor;
+import io.airlift.compress.v3.lz4.Lz4Compressor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -33,12 +32,12 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.security.GeneralSecurityException;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
-import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.trino.execution.buffer.PageCodecMarker.COMPRESSED;
 import static io.trino.execution.buffer.PageCodecMarker.ENCRYPTED;
 import static io.trino.execution.buffer.PagesSerdeUtil.ESTIMATED_AES_CIPHER_RETAINED_SIZE;
@@ -67,7 +66,8 @@ public class PageSerializer
             BlockEncodingSerde blockEncodingSerde,
             Optional<Compressor> compressor,
             Optional<SecretKey> encryptionKey,
-            int blockSizeInBytes)
+            int blockSizeInBytes,
+            OptionalInt maxCompressedBlockSize)
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         requireNonNull(encryptionKey, "encryptionKey is null");
@@ -75,7 +75,8 @@ public class PageSerializer
         output = new SerializedPageOutput(
                 requireNonNull(compressor, "compressor is null"),
                 encryptionKey,
-                blockSizeInBytes);
+                blockSizeInBytes,
+                maxCompressedBlockSize);
     }
 
     public Slice serialize(Page page)
@@ -95,7 +96,8 @@ public class PageSerializer
     {
         private static final int INSTANCE_SIZE = instanceSize(SerializedPageOutput.class);
         // TODO: implement getRetainedSizeInBytes in Lz4Compressor
-        private static final int COMPRESSOR_RETAINED_SIZE = toIntExact(instanceSize(Lz4Compressor.class) + sizeOfIntArray(Lz4RawCompressor.MAX_TABLE_SIZE));
+        // TODO: need a fix
+        private static final int COMPRESSOR_RETAINED_SIZE = toIntExact(instanceSize(Lz4Compressor.class));
         private static final int ENCRYPTION_KEY_RETAINED_SIZE = toIntExact(instanceSize(SecretKeySpec.class) + sizeOfByteArray(256 / 8));
 
         private static final double MINIMUM_COMPRESSION_RATIO = 0.8;
@@ -111,7 +113,8 @@ public class PageSerializer
         private SerializedPageOutput(
                 Optional<Compressor> compressor,
                 Optional<SecretKey> encryptionKey,
-                int blockSizeInBytes)
+                int blockSizeInBytes,
+                OptionalInt maxCompressedBlockSize)
         {
             this.compressor = requireNonNull(compressor, "compressor is null");
             this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");
@@ -129,7 +132,7 @@ public class PageSerializer
             if (encryptionKey.isPresent()) {
                 int bufferSize = blockSizeInBytes;
                 if (compressor.isPresent()) {
-                    bufferSize = compressor.get().maxCompressedLength(blockSizeInBytes)
+                    bufferSize = maxCompressedBlockSize.orElseThrow()
                             // to store compressed block size
                             + Integer.BYTES;
                 }

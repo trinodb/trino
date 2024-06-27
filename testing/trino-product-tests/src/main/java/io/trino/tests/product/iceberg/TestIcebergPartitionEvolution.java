@@ -68,9 +68,9 @@ public class TestIcebergPartitionEvolution
 
         assertThat(onTrino().executeQuery("SHOW STATS FOR test_dropped_partition_field"))
                 .containsOnly(
-                        row("a", 664.0, 3.0, 1. / 6, null, null, null),
-                        row("b", 666.0, 3.0, 1. / 6, null, null, null),
-                        row("c", 639.0, 4.0, 0., null, null, null),
+                        row("a", 599.0, 3.0, 1. / 6, null, null, null),
+                        row("b", 602.0, 3.0, 1. / 6, null, null, null),
+                        row("c", 585.0, 4.0, 0., null, null, null),
                         row(null, null, null, null, 6., null, null));
 
         assertThat(onTrino().executeQuery("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'test_dropped_partition_field$partitions'"))

@@ -14,9 +14,8 @@
 package io.trino.execution.buffer;
 
 import com.google.common.base.VerifyException;
-import io.airlift.compress.Decompressor;
-import io.airlift.compress.lz4.Lz4Decompressor;
-import io.airlift.compress.lz4.Lz4RawCompressor;
+import io.airlift.compress.v3.Decompressor;
+import io.airlift.compress.v3.lz4.Lz4Decompressor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
@@ -34,6 +33,7 @@ import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.security.GeneralSecurityException;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -63,7 +63,8 @@ public class PageDeserializer
             BlockEncodingSerde blockEncodingSerde,
             Optional<Decompressor> decompressor,
             Optional<SecretKey> encryptionKey,
-            int blockSizeInBytes)
+            int blockSizeInBytes,
+            OptionalInt maxCompressedBlockSizeInBytes)
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         requireNonNull(encryptionKey, "encryptionKey is null");
@@ -71,7 +72,8 @@ public class PageDeserializer
         input = new SerializedPageInput(
                 requireNonNull(decompressor, "decompressor is null"),
                 encryptionKey,
-                blockSizeInBytes);
+                blockSizeInBytes,
+                maxCompressedBlockSizeInBytes);
     }
 
     public Page deserialize(Slice serializedPage)
@@ -101,7 +103,7 @@ public class PageDeserializer
 
         private final ReadBuffer[] buffers;
 
-        private SerializedPageInput(Optional<Decompressor> decompressor, Optional<SecretKey> encryptionKey, int blockSizeInBytes)
+        private SerializedPageInput(Optional<Decompressor> decompressor, Optional<SecretKey> encryptionKey, int blockSizeInBytes, OptionalInt maxCompressedBlockSizeInBytes)
         {
             this.decompressor = requireNonNull(decompressor, "decompressor is null");
             this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");
@@ -122,7 +124,7 @@ public class PageDeserializer
                 int bufferSize;
                 if (decompressor.isPresent()) {
                     // to store compressed block size
-                    bufferSize = Lz4RawCompressor.maxCompressedLength(blockSizeInBytes)
+                    bufferSize = maxCompressedBlockSizeInBytes.orElseThrow()
                             // to store compressed block size
                             + Integer.BYTES
                             // to guarantee a single long can always be read entirely

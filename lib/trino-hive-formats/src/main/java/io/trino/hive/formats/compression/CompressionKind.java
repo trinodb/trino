@@ -15,15 +15,15 @@ package io.trino.hive.formats.compression;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.compress.bzip2.BZip2HadoopStreams;
-import io.airlift.compress.deflate.JdkDeflateHadoopStreams;
-import io.airlift.compress.gzip.JdkGzipHadoopStreams;
-import io.airlift.compress.hadoop.HadoopStreams;
-import io.airlift.compress.lz4.Lz4HadoopStreams;
-import io.airlift.compress.lzo.LzoHadoopStreams;
-import io.airlift.compress.lzo.LzopHadoopStreams;
-import io.airlift.compress.snappy.SnappyHadoopStreams;
-import io.airlift.compress.zstd.ZstdHadoopStreams;
+import io.airlift.compress.v3.bzip2.BZip2HadoopStreams;
+import io.airlift.compress.v3.deflate.JdkDeflateHadoopStreams;
+import io.airlift.compress.v3.gzip.JdkGzipHadoopStreams;
+import io.airlift.compress.v3.hadoop.HadoopStreams;
+import io.airlift.compress.v3.lz4.Lz4HadoopStreams;
+import io.airlift.compress.v3.lzo.LzoHadoopStreams;
+import io.airlift.compress.v3.lzo.LzopHadoopStreams;
+import io.airlift.compress.v3.snappy.SnappyHadoopStreams;
+import io.airlift.compress.v3.zstd.ZstdHadoopStreams;
 
 import java.util.Arrays;
 import java.util.List;
