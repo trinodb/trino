@@ -30,6 +30,7 @@ public class JdbcDynamicFilteringSessionProperties
 {
     public static final String DYNAMIC_FILTERING_ENABLED = "dynamic_filtering_enabled";
     public static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
+    public static final String UNESTIMATABLE_DYNAMIC_FILTERING_WAIT_TIMEOUT = "unestimatable_dynamic_filtering_wait_timeout";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -46,6 +47,11 @@ public class JdbcDynamicFilteringSessionProperties
                         DYNAMIC_FILTERING_WAIT_TIMEOUT,
                         "Duration to wait for completion of dynamic filters",
                         config.getDynamicFilteringWaitTimeout(),
+                        false),
+                durationProperty(
+                        UNESTIMATABLE_DYNAMIC_FILTERING_WAIT_TIMEOUT,
+                        "Duration to wait for completion of dynamic filters with unestimatable build side",
+                        config.getUnestimatableDynamicFilteringWaitTimeout(),
                         false));
     }
 
@@ -63,5 +69,10 @@ public class JdbcDynamicFilteringSessionProperties
     public static Duration getDynamicFilteringWaitTimeout(ConnectorSession session)
     {
         return session.getProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, Duration.class);
+    }
+
+    public static Duration getUnestimatableDynamicFilteringWaitTimeout(ConnectorSession session)
+    {
+        return session.getProperty(UNESTIMATABLE_DYNAMIC_FILTERING_WAIT_TIMEOUT, Duration.class);
     }
 }

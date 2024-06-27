@@ -27,12 +27,16 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.dynamicFilteringEnabled;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.getDynamicFilteringWaitTimeout;
+import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.getUnestimatableDynamicFilteringWaitTimeout;
 import static io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -92,6 +96,7 @@ public class JdbcDynamicFilteringSplitManager
         private final DynamicFilter dynamicFilter;
         private final Constraint constraint;
         private final long dynamicFilteringTimeoutNanos;
+        private final long unestimatableDynamicFilteringWaitTimeoutNanos;
         private final long startNanos;
 
         @GuardedBy("this")
@@ -110,13 +115,15 @@ public class JdbcDynamicFilteringSplitManager
             this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
             this.constraint = requireNonNull(constraint, "constraint is null");
             this.dynamicFilteringTimeoutNanos = (long) getDynamicFilteringWaitTimeout(session).getValue(NANOSECONDS);
+            this.unestimatableDynamicFilteringWaitTimeoutNanos = (long) getUnestimatableDynamicFilteringWaitTimeout(session).getValue(NANOSECONDS);
             this.startNanos = System.nanoTime();
         }
 
         @Override
         public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
         {
-            long remainingTimeoutNanos = getRemainingTimeoutNanos();
+            CompletableFuture<?> blocked = dynamicFilter.isBlocked();
+            long remainingTimeoutNanos = getRemainingTimeoutNanos(dynamicFilter);
             if (remainingTimeoutNanos > 0 && dynamicFilter.isAwaitable()) {
                 log.debug(
                         "Waiting for dynamic filter (query: %s, table: %s, remaining timeout: %s)",
@@ -124,7 +131,7 @@ public class JdbcDynamicFilteringSplitManager
                         table,
                         succinctNanos(remainingTimeoutNanos));
                 // wait for dynamic filter and yield
-                return dynamicFilter.isBlocked()
+                return blocked
                         .thenApply(_ -> EMPTY_BATCH)
                         .completeOnTimeout(EMPTY_BATCH, remainingTimeoutNanos, NANOSECONDS);
             }
@@ -149,16 +156,21 @@ public class JdbcDynamicFilteringSplitManager
         @Override
         public boolean isFinished()
         {
-            if (getRemainingTimeoutNanos() > 0 && dynamicFilter.isAwaitable()) {
+            if (getRemainingTimeoutNanos(dynamicFilter) > 0 && dynamicFilter.isAwaitable()) {
                 return false;
             }
 
             return getDelegateSplitSource().isFinished();
         }
 
-        private long getRemainingTimeoutNanos()
+        private long getRemainingTimeoutNanos(DynamicFilter dynamicFilter)
         {
-            return dynamicFilteringTimeoutNanos - (System.nanoTime() - startNanos);
+            long currentDynamicFilterTimeoutNanos = max(unestimatableDynamicFilteringWaitTimeoutNanos, dynamicFilteringTimeoutNanos);
+            OptionalLong preferredDynamicFilterTimeout = dynamicFilter.getPreferredDynamicFilterTimeout();
+            if (preferredDynamicFilterTimeout.isPresent()) {
+                currentDynamicFilterTimeoutNanos = max(dynamicFilteringTimeoutNanos, TimeUnit.MILLISECONDS.toNanos(preferredDynamicFilterTimeout.getAsLong()));
+            }
+            return currentDynamicFilterTimeoutNanos - (System.nanoTime() - startNanos);
         }
 
         private synchronized ConnectorSplitSource getDelegateSplitSource()

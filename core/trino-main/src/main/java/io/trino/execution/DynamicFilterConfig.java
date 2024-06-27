@@ -14,15 +14,19 @@
 package io.trino.execution;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
+import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "dynamic-filtering-max-per-driver-row-count",
@@ -40,6 +44,9 @@ public class DynamicFilterConfig
     private boolean enableDynamicFiltering = true;
     private boolean enableLargeDynamicFilters;
 
+    private Duration smallDynamicFilterWaitTimeout = new Duration(20, SECONDS);
+    private long smallDynamicFilterMaxRowCount = 150_000;
+    private long smallDynamicFilterMaxNdvCount = 300;
     /*
      * dynamic-filtering.small.* and dynamic-filtering.large.* limits are applied when
      * collected over a not pre-partitioned source (when join distribution type is
@@ -93,6 +100,48 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setEnableLargeDynamicFilters(boolean enableLargeDynamicFilters)
     {
         this.enableLargeDynamicFilters = enableLargeDynamicFilters;
+        return this;
+    }
+
+    @MinDuration("0ms")
+    public Duration getSmallDynamicFilterWaitTimeout()
+    {
+        return smallDynamicFilterWaitTimeout;
+    }
+
+    @Config("small-dynamic-filter.wait-timeout")
+    @ConfigDescription("Maximum time to wait for small dynamic filter before table scan is started")
+    public DynamicFilterConfig setSmallDynamicFilterWaitTimeout(Duration dynamicFilteringWaitTimeout)
+    {
+        this.smallDynamicFilterWaitTimeout = dynamicFilteringWaitTimeout;
+        return this;
+    }
+
+    @Min(0)
+    public long getSmallDynamicFilterMaxRowCount()
+    {
+        return smallDynamicFilterMaxRowCount;
+    }
+
+    @Config("small-dynamic-filter.max-row-count")
+    @ConfigDescription("Maximum number of rows for dynamic filter to be considered small")
+    public DynamicFilterConfig setSmallDynamicFilterMaxRowCount(long smallDynamicFilterMaxRowCount)
+    {
+        this.smallDynamicFilterMaxRowCount = smallDynamicFilterMaxRowCount;
+        return this;
+    }
+
+    @Min(0)
+    public long getSmallDynamicFilterMaxNdvCount()
+    {
+        return smallDynamicFilterMaxNdvCount;
+    }
+
+    @Config("small-dynamic-filter.max-ndv-count")
+    @ConfigDescription("Maximum number of distinct values for dynamic filter to be considered small")
+    public DynamicFilterConfig setSmallDynamicFilterMaxNdvCount(long smallDynamicFilterMaxNdvCount)
+    {
+        this.smallDynamicFilterMaxNdvCount = smallDynamicFilterMaxNdvCount;
         return this;
     }
 
