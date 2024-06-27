@@ -464,6 +464,7 @@ jobs:
             - { modules: plugin/trino-delta-lake }
             - { modules: plugin/trino-delta-lake, profile: cloud-tests }
             - { modules: plugin/trino-delta-lake, profile: fte-tests }
+            - { modules: plugin/trino-doris }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-google-sheets }
@@ -910,6 +911,7 @@ jobs:
             - suite-snowflake
             - suite-hudi
             - suite-ignite
+            - suite-starrocks
           exclude:
             - suite: suite-azure
               ignore exclusion if: >-

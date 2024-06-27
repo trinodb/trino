@@ -40,6 +40,7 @@ import java.util.Properties;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 
 public class MySqlClientModule
         extends AbstractConfigurationAwareModule
@@ -50,6 +51,7 @@ public class MySqlClientModule
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(MySqlClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setBulkListColumns(true));
         newOptionalBinder(binder, TimestampTimeZoneDomain.class).setBinding().toInstance(TimestampTimeZoneDomain.UTC_ONLY);
+        bindTablePropertiesProvider(binder, DorisTableProperties.class);
         configBinder(binder).bindConfig(MySqlJdbcConfig.class);
         configBinder(binder).bindConfig(MySqlConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);

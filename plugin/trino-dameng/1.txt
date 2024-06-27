@@ -1,0 +1,1 @@
+./mvnw -pl '!docs' clean install -DskipTests=true -DfailIfNoTests=false
