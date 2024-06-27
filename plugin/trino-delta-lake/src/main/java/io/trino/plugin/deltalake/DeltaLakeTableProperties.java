@@ -42,6 +42,7 @@ public class DeltaLakeTableProperties
     public static final String CHECKPOINT_INTERVAL_PROPERTY = "checkpoint_interval";
     public static final String CHANGE_DATA_FEED_ENABLED_PROPERTY = "change_data_feed_enabled";
     public static final String COLUMN_MAPPING_MODE_PROPERTY = "column_mapping_mode";
+    public static final String PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY = "parquet_bloom_filter_columns";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -88,6 +89,18 @@ public class DeltaLakeTableProperties
                             }
                         },
                         false))
+                .add(new PropertyMetadata<>(
+                        PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY,
+                        "Parquet Bloom filter index columns",
+                        new ArrayType(VARCHAR),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ((List<?>) value).stream()
+                                .map(String.class::cast)
+                                .map(name -> name.toLowerCase(ENGLISH))
+                                .collect(toImmutableList()),
+                        value -> value))
                 .build();
     }
 
@@ -127,5 +140,11 @@ public class DeltaLakeTableProperties
     public static ColumnMappingMode getColumnMappingMode(Map<String, Object> tableProperties)
     {
         return ColumnMappingMode.valueOf(tableProperties.get(COLUMN_MAPPING_MODE_PROPERTY).toString().toUpperCase(ENGLISH));
+    }
+
+    public static List<String> getParquetBloomFilterColumns(Map<String, Object> tableProperties)
+    {
+        List<String> parquetBloomFilterColumns = (List<String>) tableProperties.get(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
+        return parquetBloomFilterColumns == null ? ImmutableList.of() : ImmutableList.copyOf(parquetBloomFilterColumns);
     }
 }

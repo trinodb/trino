@@ -223,10 +223,12 @@ import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHANGE_DATA_FEE
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHECKPOINT_INTERVAL_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.COLUMN_MAPPING_MODE_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPERTY;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getChangeDataFeedEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getCheckpointInterval;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getLocation;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getParquetBloomFilterColumns;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getPartitionedBy;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
@@ -267,6 +269,8 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTra
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
+import static io.trino.plugin.deltalake.util.DeltaLakeWriteUtils.getBloomFilterColumns;
+import static io.trino.plugin.deltalake.util.DeltaLakeWriteUtils.validateParquetBloomFilterColumns;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
@@ -721,6 +725,11 @@ public class DeltaLakeMetadata
             properties.put(COLUMN_MAPPING_MODE_PROPERTY, columnMappingMode.name());
         }
 
+        Set<String> bloomFilterColumns = getBloomFilterColumns(metadataEntry.getConfiguration());
+        if (!bloomFilterColumns.isEmpty()) {
+            properties.put(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY, ImmutableList.sortedCopyOf(bloomFilterColumns));
+        }
+
         return new ConnectorTableMetadata(
                 tableHandle.getSchemaTableName(),
                 columns,
@@ -1025,6 +1034,8 @@ public class DeltaLakeMetadata
         if (columnMappingMode == ID || columnMappingMode == NAME) {
             maxFieldId = OptionalInt.of(fieldId.get());
         }
+        List<String> bloomFilterColumns = getParquetBloomFilterColumns(tableMetadata.getProperties());
+        validateParquetBloomFilterColumns(tableMetadata.getColumns(), bloomFilterColumns);
 
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
@@ -1074,7 +1085,7 @@ public class DeltaLakeMetadata
                                 .setDescription(tableMetadata.getComment())
                                 .setSchemaString(serializeSchemaAsJson(deltaTable.build()))
                                 .setPartitionColumns(getPartitionedBy(tableMetadata.getProperties()))
-                                .setConfiguration(configurationForNewTable(checkpointInterval, changeDataFeedEnabled, columnMappingMode, maxFieldId)));
+                                .setConfiguration(configurationForNewTable(checkpointInterval, changeDataFeedEnabled, columnMappingMode, maxFieldId, bloomFilterColumns)));
 
                 transactionLogWriter.flush();
 
@@ -1187,6 +1198,8 @@ public class DeltaLakeMetadata
         }
 
         ColumnMappingMode columnMappingMode = DeltaLakeTableProperties.getColumnMappingMode(tableMetadata.getProperties());
+        List<String> bloomFilterColumns = getParquetBloomFilterColumns(tableMetadata.getProperties());
+        validateParquetBloomFilterColumns(tableMetadata.getColumns(), bloomFilterColumns);
         AtomicInteger fieldId = new AtomicInteger();
 
         Location finalLocation = Location.of(location);
@@ -1244,7 +1257,7 @@ public class DeltaLakeMetadata
             setRollback(() -> deleteRecursivelyIfExists(fileSystemFactory.create(session), finalLocation));
             protocolEntry = protocolEntryForNewTable(containsTimestampType, tableMetadata.getProperties());
         }
-        Map<String, String> configuration = configurationForNewTable(getCheckpointInterval(tableMetadata.getProperties()), getChangeDataFeedEnabled(tableMetadata.getProperties()), columnMappingMode, maxFieldId);
+        Map<String, String> configuration = configurationForNewTable(getCheckpointInterval(tableMetadata.getProperties()), getChangeDataFeedEnabled(tableMetadata.getProperties()), columnMappingMode, maxFieldId, bloomFilterColumns);
         return new DeltaLakeOutputTableHandle(
                 schemaName,
                 tableName,

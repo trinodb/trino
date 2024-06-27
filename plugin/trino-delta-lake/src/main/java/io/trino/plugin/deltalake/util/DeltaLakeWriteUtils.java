@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -30,10 +31,16 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.BaseEncoding.base16;
+import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -52,11 +59,14 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 // Copied from io.trino.plugin.hive.util.HiveWriteUtils
 public final class DeltaLakeWriteUtils
 {
+    public static final String PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX = "write.parquet.bloom-filter-enabled.column.";
+
     private static final DateTimeFormatter DELTA_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DELTA_TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
             .append(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
@@ -127,5 +137,28 @@ public final class DeltaLakeWriteUtils
             return readBigDecimal(decimalType, block, position).stripTrailingZeros().toPlainString();
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported type for partition: " + type);
+    }
+
+    public static Set<String> getBloomFilterColumns(Map<String, String> configuration)
+    {
+        return configuration.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX) && "true".equals(entry.getValue()))
+                .map(entry -> entry.getKey().substring(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX.length()))
+                .collect(toImmutableSet());
+    }
+
+    public static void validateParquetBloomFilterColumns(List<ColumnMetadata> columns, List<String> parquetBloomFilterColumns)
+    {
+        Map<String, Type> columnTypes = columns.stream()
+                .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::getType));
+        for (String column : parquetBloomFilterColumns) {
+            Type type = columnTypes.get(column);
+            if (type == null) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Parquet Bloom filter column %s not present in schema", column));
+            }
+            if (!SUPPORTED_BLOOM_FILTER_TYPES.contains(type)) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Parquet Bloom filter column %s has unsupported type %s", column, type.getDisplayName()));
+            }
+        }
     }
 }

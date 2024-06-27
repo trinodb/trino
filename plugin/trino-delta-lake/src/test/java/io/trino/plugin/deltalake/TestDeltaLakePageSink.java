@@ -177,7 +177,7 @@ public class TestDeltaLakePageSink
                 false,
                 OptionalLong.empty(),
                 new ProtocolEntry(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, Optional.empty(), Optional.empty()),
-                configurationForNewTable(Optional.of(deltaLakeConfig.getDefaultCheckpointWritingInterval()), Optional.of(false), NONE, OptionalInt.empty()));
+                configurationForNewTable(Optional.of(deltaLakeConfig.getDefaultCheckpointWritingInterval()), Optional.of(false), NONE, OptionalInt.empty(), ImmutableList.of()));
 
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(
                 new GroupByHashPageIndexerFactory(new FlatHashStrategyCompiler(new TypeOperators())),

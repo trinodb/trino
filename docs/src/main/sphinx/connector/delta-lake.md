@@ -663,6 +663,10 @@ The following table properties are available for use:
     * `NONE`
 
     Defaults to `NONE`.
+* - `parquet_bloom_filter_columns`
+  - Comma-separated list of columns to use for Parquet bloom filter. It improves
+    the performance of queries using Equality and IN predicates when reading
+    Parquet files. Defaults to `[]`.
 :::
 
 The following example uses all available table properties:

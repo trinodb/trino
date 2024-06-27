@@ -21,6 +21,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeOperators;
 
 import java.util.List;
+import java.util.Set;
 
 import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.CHANGE_DATA_FEED;
 
@@ -43,7 +44,8 @@ public class DeltaLakeCdfPageSink
             ConnectorSession session,
             DeltaLakeWriterStats stats,
             String trinoVersion,
-            DeltaLakeParquetSchemaMapping parquetSchemaMapping)
+            DeltaLakeParquetSchemaMapping parquetSchemaMapping,
+            Set<String> bloomFilterColumns)
     {
         super(
                 typeOperators,
@@ -58,7 +60,8 @@ public class DeltaLakeCdfPageSink
                 session,
                 stats,
                 trinoVersion,
-                parquetSchemaMapping);
+                parquetSchemaMapping,
+                bloomFilterColumns);
     }
 
     @Override

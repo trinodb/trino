@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Verify.verify;
@@ -109,6 +110,7 @@ public abstract class AbstractDeltaLakePageSink
     private final List<Boolean> activeWriters = new ArrayList<>();
     protected final ImmutableList.Builder<DataFileInfo> dataFileInfos = ImmutableList.builder();
     private final DeltaLakeParquetSchemaMapping parquetSchemaMapping;
+    private final Set<String> bloomFilterColumns;
     private long currentOpenWriters;
 
     public AbstractDeltaLakePageSink(
@@ -124,7 +126,8 @@ public abstract class AbstractDeltaLakePageSink
             ConnectorSession session,
             DeltaLakeWriterStats stats,
             String trinoVersion,
-            DeltaLakeParquetSchemaMapping parquetSchemaMapping)
+            DeltaLakeParquetSchemaMapping parquetSchemaMapping,
+            Set<String> bloomFilterColumns)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         requireNonNull(inputColumns, "inputColumns is null");
@@ -135,6 +138,7 @@ public abstract class AbstractDeltaLakePageSink
         this.maxOpenWriters = maxOpenWriters;
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
         this.parquetSchemaMapping = requireNonNull(parquetSchemaMapping, "parquetSchemaMapping is null");
+        this.bloomFilterColumns = requireNonNull(bloomFilterColumns, "bloomFilterColumns is null");
 
         // determine the input index of the partition columns and data columns
         int[] partitionColumnInputIndex = new int[originalPartitionColumns.size()];
@@ -468,6 +472,7 @@ public abstract class AbstractDeltaLakePageSink
                 .setMaxBlockSize(getParquetWriterBlockSize(session))
                 .setMaxPageSize(getParquetWriterPageSize(session))
                 .setMaxPageValueCount(getParquetWriterPageValueCount(session))
+                .setBloomFilterColumns(bloomFilterColumns)
                 .build();
         CompressionCodec compressionCodec = getCompressionCodec(session).getParquetCompressionCodec()
                 .orElseThrow(); // validated on the session property level

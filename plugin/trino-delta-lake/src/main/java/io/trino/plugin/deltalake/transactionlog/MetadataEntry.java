@@ -32,6 +32,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.COLUMN_MAPPING_MODE_CONFIGURATION_KEY;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.MAX_COLUMN_ID_CONFIGURATION_KEY;
+import static io.trino.plugin.deltalake.util.DeltaLakeWriteUtils.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -168,7 +169,8 @@ public class MetadataEntry
             Optional<Long> checkpointInterval,
             Optional<Boolean> changeDataFeedEnabled,
             ColumnMappingMode columnMappingMode,
-            OptionalInt maxFieldId)
+            OptionalInt maxFieldId,
+            List<String> bloomFilterColumns)
     {
         ImmutableMap.Builder<String, String> configurationMapBuilder = ImmutableMap.builder();
         checkpointInterval.ifPresent(interval -> configurationMapBuilder.put(DELTA_CHECKPOINT_INTERVAL_PROPERTY, String.valueOf(interval)));
@@ -181,6 +183,7 @@ public class MetadataEntry
             }
             case UNKNOWN -> throw new UnsupportedOperationException();
         }
+        bloomFilterColumns.forEach(column -> configurationMapBuilder.put(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX + column, "true"));
         return configurationMapBuilder.buildOrThrow();
     }
 
