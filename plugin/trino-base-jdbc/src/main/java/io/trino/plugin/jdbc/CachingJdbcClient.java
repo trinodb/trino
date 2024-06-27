@@ -498,7 +498,10 @@ public class CachingJdbcClient
         // TODO depend on Identity when needed
         TableStatistics cachedStatistics = statisticsCache.getIfPresent(handle);
         if (cachedStatistics != null) {
-            if (cacheMissing || !cachedStatistics.equals(TableStatistics.empty())) {
+            // Don't serve cached stats that have no column statistics (e.g. row count only)
+            // when cacheMissing is disabled, so that column stats are picked up once available
+            // (e.g. after ANALYZE runs in the remote database).
+            if (cacheMissing || !cachedStatistics.getColumnStatistics().isEmpty()) {
                 return cachedStatistics;
             }
             statisticsCache.invalidate(handle);
