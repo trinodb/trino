@@ -1549,6 +1549,32 @@ public class TestDeltaLakeBasic
     }
 
     @Test
+    public void testTypeWideningSkippingUnsupportedPartitionColumns()
+            throws Exception
+    {
+        String tableName = "test_part_type_widening_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("databricks153/type_widening_partition").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertThat(query("DESCRIBE " + tableName)).result().projected("Column", "Type")
+                .skippingTypesCheck()
+                .matches("VALUES ('col', 'tinyint')");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 0"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 1"))
+                .matches("VALUES (tinyint '1', tinyint '1')");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 2"))
+                .matches("VALUES (tinyint '1', integer '1')");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 3"))
+                .matches("VALUES (tinyint '2', integer '2'), (tinyint '1', integer '1')");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 4"))
+                .matches("VALUES (tinyint '2'), (tinyint '1')");
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 5"))
+                .matches("VALUES (tinyint '3'), (tinyint '2'), (tinyint '1')");
+    }
+
+    @Test
     public void testTypeWideningSkippingUnsupportedColumns()
             throws Exception
     {
@@ -1589,6 +1615,39 @@ public class TestDeltaLakeBasic
                 .matches("VALUES integer '127', integer '32767'");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 5"))
                 .matches("VALUES integer '127', integer '32767', integer '2147483647'");
+    }
+
+    @Test
+    public void testTypeWideningNestedSkipping()
+            throws Exception
+    {
+        String tableName = "test_db_type_widening_nested_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks153/type_widening_nested").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertThat(query("DESCRIBE " + tableName)).result().projected("Column", "Type")
+                .skippingTypesCheck()
+                .isEmpty();
+        assertQueryFails("SELECT s FROM " + tableName, "(.*)Column 's' cannot be resolved");
+        assertQueryFails("SELECT * FROM " + tableName, "(.*)SELECT \\* not allowed from relation that has no columns");
+
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 0"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 1"))
+                .matches("VALUES (CAST(ROW(127) AS ROW (field tinyint)), CAST(ROW(127, ROW(15)) AS ROW (field tinyint, field2 ROW(inner_field tinyint))), MAP(ARRAY[tinyint '-128'], ARRAY[tinyint '127']), ARRAY[tinyint '127'])");
+
+        // 2,3,4,5,6 versions changed nested fields from byte to short
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 7"))
+                .matches("VALUES (CAST(ROW(127) AS ROW (field smallint)), CAST(ROW(127, ROW(15)) AS ROW (field smallint, field2 ROW(inner_field smallint))), MAP(ARRAY[smallint '-128'], ARRAY[smallint '127']), ARRAY[smallint '127'])");
+
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 8"))
+                .matches("VALUES " +
+                        "(CAST(ROW(127) AS ROW (field smallint)), CAST(ROW(127, ROW(15)) AS ROW (field smallint, field2 ROW(inner_field smallint))), MAP(ARRAY[smallint '-128'], ARRAY[smallint '127']), ARRAY[smallint '127'])," +
+                        "(CAST(ROW(32767) AS ROW (field smallint)), CAST(ROW(32767, ROW(32767)) AS ROW (field smallint, field2 ROW(inner_field smallint))), MAP(ARRAY[smallint '-32768'], ARRAY[smallint '32767']), ARRAY[smallint '32767'])");
+
+        // 9,10,11,12 versions changed nested fields from short to integer/double
+        assertQueryFails("SELECT * FROM " + tableName + " FOR VERSION AS OF 13", "(.*)SELECT \\* not allowed from relation that has no columns");
     }
 
     @Test
