@@ -15,9 +15,11 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -44,6 +46,9 @@ public class TestDynamicFilterConfig
                 .setSmallPartitionedRangeRowLimitPerDriver(500)
                 .setSmallPartitionedMaxSizePerOperator(DataSize.of(500, KILOBYTE))
                 .setSmallMaxSizePerFilter(DataSize.of(5, MEGABYTE))
+                .setPreferredDynamicFilterWaitTimeout(new Duration(20, TimeUnit.SECONDS))
+                .setAwaitedDynamicFilterMaxRowCount(100_000)
+                .setAwaitedDynamicFilterMaxNdvCount(500)
                 .setLargeMaxDistinctValuesPerDriver(10_000)
                 .setLargeMaxSizePerDriver(DataSize.of(2, MEGABYTE))
                 .setLargeRangeRowLimitPerDriver(20_000)
@@ -63,6 +68,9 @@ public class TestDynamicFilterConfig
                 .put("enable-large-dynamic-filters", "true")
                 .put("enable-dynamic-row-filtering", "false")
                 .put("dynamic-row-filtering.selectivity-threshold", "0.8")
+                .put("preferred-dynamic-filter.wait-timeout", "50s")
+                .put("awaited-dynamic-filter.max-row-count", "500000")
+                .put("awaited-dynamic-filter.max-ndv-count", "2000")
                 .put("dynamic-filtering.small.max-distinct-values-per-driver", "256")
                 .put("dynamic-filtering.small.max-size-per-driver", "64kB")
                 .put("dynamic-filtering.small.range-row-limit-per-driver", "20000")
@@ -88,6 +96,9 @@ public class TestDynamicFilterConfig
                 .setEnableLargeDynamicFilters(true)
                 .setEnableDynamicRowFiltering(false)
                 .setDynamicRowFilterSelectivityThreshold(0.8)
+                .setAwaitedDynamicFilterMaxRowCount(500_000)
+                .setAwaitedDynamicFilterMaxNdvCount(2000)
+                .setPreferredDynamicFilterWaitTimeout(new Duration(50, TimeUnit.SECONDS))
                 .setSmallMaxDistinctValuesPerDriver(256)
                 .setSmallMaxSizePerDriver(DataSize.of(64, KILOBYTE))
                 .setSmallRangeRowLimitPerDriver(20000)

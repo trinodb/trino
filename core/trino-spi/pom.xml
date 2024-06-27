@@ -582,6 +582,12 @@
                                     <old>interface io.trino.spi.exchange.ExchangeManagerHandleResolver</old>
                                     <justification>cleanup</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method java.util.OptionalLong io.trino.spi.connector.DynamicFilter::getPreferredDynamicFilterTimeout()</new>
+                                    <justification>Internal change</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

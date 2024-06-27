@@ -23,8 +23,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class JdbcDynamicFilteringConfig
 {
     private boolean dynamicFilteringEnabled = true;
-    // 20s allows DF collection from dimensional tables as well as
-    // some larger build side subqueries
     private Duration dynamicFilteringWaitTimeout = new Duration(20, SECONDS);
 
     public boolean isDynamicFilteringEnabled()
