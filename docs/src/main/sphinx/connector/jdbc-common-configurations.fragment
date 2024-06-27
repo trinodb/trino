@@ -36,7 +36,7 @@ connector:
     Defaults to the value of `metadata.cache-ttl`.
 * - `metadata.statistics.cache-ttl`
   - [Duration](prop-type-duration) for which tables statistics are cached.
-    Defaults to the value of `metadata.cache-ttl`.
+    Defaults to `15m` or the value of `metadata.cache-ttl`, whichever is larger.
 * - `metadata.cache-maximum-size`
   - Maximum number of objects stored in the metadata cache. Defaults to `10000`.
 * - `write.batch-size`
