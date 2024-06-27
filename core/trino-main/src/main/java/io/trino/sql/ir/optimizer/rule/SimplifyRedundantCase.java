@@ -17,6 +17,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Case;
+import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.WhenClause;
@@ -53,11 +54,11 @@ public class SimplifyRedundantCase
 
         WhenClause thenClause = caseTerm.whenClauses().getFirst();
         if (thenClause.getResult().equals(TRUE) && caseTerm.defaultValue().equals(FALSE)) {
-            return Optional.of(thenClause.getOperand());
+            return Optional.of(new Comparison(Comparison.Operator.IDENTICAL, thenClause.getOperand(), TRUE));
         }
 
         if (thenClause.getResult().equals(FALSE) && caseTerm.defaultValue().equals(TRUE)) {
-            return Optional.of(IrExpressions.not(metadata, thenClause.getOperand()));
+            return Optional.of(IrExpressions.not(metadata, new Comparison(Comparison.Operator.IDENTICAL, thenClause.getOperand(), TRUE)));
         }
 
         return Optional.empty();
