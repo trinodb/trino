@@ -16,6 +16,8 @@ package io.trino.sql.ir.optimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.ir.Case;
+import io.trino.sql.ir.Comparison;
+import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.WhenClause;
@@ -24,9 +26,12 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSession;
@@ -41,13 +46,25 @@ public class TestSimplifyRedundantCase
                 new Case(
                         ImmutableList.of(new WhenClause(new Reference(BOOLEAN, "x"), TRUE)),
                         FALSE)))
-                .isEqualTo(Optional.of(new Reference(BOOLEAN, "x")));
+                .isEqualTo(Optional.of(new Comparison(IDENTICAL, new Reference(BOOLEAN, "x"), TRUE)));
 
         assertThat(optimize(
                 new Case(
                         ImmutableList.of(new WhenClause(new Reference(BOOLEAN, "x"), FALSE)),
                         TRUE)))
-                .isEqualTo(Optional.of(not(PLANNER_CONTEXT.getMetadata(), new Reference(BOOLEAN, "x"))));
+                .isEqualTo(Optional.of(not(PLANNER_CONTEXT.getMetadata(), new Comparison(IDENTICAL, new Reference(BOOLEAN, "x"), TRUE))));
+
+        assertThat(optimize(
+                new Case(
+                        ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)), TRUE)),
+                        FALSE)))
+                .isEqualTo(Optional.of(new Comparison(IDENTICAL, new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)), TRUE)));
+
+        assertThat(optimize(
+                new Case(
+                        ImmutableList.of(new WhenClause(new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)), FALSE)),
+                        TRUE)))
+                .isEqualTo(Optional.of(not(PLANNER_CONTEXT.getMetadata(), new Comparison(IDENTICAL, new Comparison(EQUAL, new Reference(BIGINT, "x"), new Constant(BIGINT, 1L)), TRUE))));
     }
 
     private Optional<Expression> optimize(Expression expression)
