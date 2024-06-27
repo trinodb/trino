@@ -86,7 +86,7 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>aircompressor</artifactId>
+            <artifactId>aircompressor-v3</artifactId>
         </dependency>
 
         <dependency>

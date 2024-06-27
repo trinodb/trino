@@ -674,10 +674,17 @@
                 <version>4.7.6</version>
             </dependency>
 
+            <!-- previous aircompressor used by tests and Iceberg puffin -->
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor</artifactId>
                 <version>0.27</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>aircompressor-v3</artifactId>
+                <version>3.0</version>
             </dependency>
 
             <dependency>

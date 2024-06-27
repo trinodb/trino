@@ -136,7 +136,7 @@ public class TestIcebergS3AndGlueMetastoreTest
                     ('col_str', %s, 4.0, 0.0, null, null, null),
                     ('col_int', null, 4.0, 0.0, null, 1, 4),
                     (null, null, null, null, 4.0, null, null)"""
-                    .formatted(partitioned ? "475.0" : "264.0");
+                    .formatted(partitioned ? "432.0" : "243.0");
 
             // Check extended statistics collection on write
             assertQuery("SHOW STATS FOR " + tableName, expectedStatistics);

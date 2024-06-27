@@ -926,8 +926,8 @@ public abstract class BaseIcebergConnectorTest
                                 "  ('a_double', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                                 "  ('a_short_decimal', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                                 "  ('a_long_decimal', NULL, 1e0, 0.5e0, NULL, '11.0', '11.0'), " +
-                                "  ('a_varchar', 234e0, 1e0, 0.5e0, NULL, NULL, NULL), " +
-                                "  ('a_varbinary', 114e0, 1e0, 0.5e0, NULL, NULL, NULL), " +
+                                "  ('a_varchar', 213e0, 1e0, 0.5e0, NULL, NULL, NULL), " +
+                                "  ('a_varbinary', 103e0, 1e0, 0.5e0, NULL, NULL, NULL), " +
                                 "  ('a_date', NULL, 1e0, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
                                 "  ('a_time', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
                                 "  ('a_timestamp', NULL, 1e0, 0.5e0, NULL, '2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'), " +
@@ -936,7 +936,7 @@ public abstract class BaseIcebergConnectorTest
                                 "  ('a_row', NULL, NULL, NULL, NULL, NULL, NULL), " +
                                 "  ('an_array', NULL, NULL, NULL, NULL, NULL, NULL), " +
                                 "  ('a_map', NULL, NULL, NULL, NULL, NULL, NULL), " +
-                                "  ('a quoted, field', 224e0, 1e0, 0.5e0, NULL, NULL, NULL), " +
+                                "  ('a quoted, field', 202e0, 1e0, 0.5e0, NULL, NULL, NULL), " +
                                 "  (NULL, NULL, NULL, NULL, 2e0, NULL, NULL)");
             }
             case AVRO -> {
@@ -3298,7 +3298,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR test_truncate_text_transform"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', " + (format == PARQUET ? "550e0" : "NULL") + ", 7e0, " + (format == AVRO ? "0.1e0" : "0.125e0") + ", NULL, NULL, NULL), " +
+                        "  ('d', " + (format == PARQUET ? "507e0" : "NULL") + ", 7e0, " + (format == AVRO ? "0.1e0" : "0.125e0") + ", NULL, NULL, NULL), " +
                         "  ('b', NULL, 8e0, 0e0, NULL, " + (format == AVRO ? "NULL, NULL" : "'1', '101'") + "), " +
                         "  (NULL, NULL, NULL, NULL, 8e0, NULL, NULL)");
 
@@ -3588,7 +3588,7 @@ public abstract class BaseIcebergConnectorTest
                     "  ('b', NULL, 7e0, 0e0, NULL, '1', '7'), " +
                     "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)";
             case PARQUET -> "VALUES " +
-                    "  ('d', 364e0, 7e0, 0e0, NULL, NULL, NULL), " +
+                    "  ('d', 342e0, 7e0, 0e0, NULL, NULL, NULL), " +
                     "  ('b', NULL, 7e0, 0e0, NULL, '1', '7'), " +
                     "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)";
             case AVRO -> "VALUES " +
@@ -3645,7 +3645,7 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query("SHOW STATS FOR test_void_transform"))
                     .skippingTypesCheck()
                     .matches("VALUES " +
-                            "  ('d', " + (format == PARQUET ? "205e0" : "NULL") + ", 5e0, 0.2857142857142857, NULL, NULL, NULL), " +
+                            "  ('d', " + (format == PARQUET ? "194e0" : "NULL") + ", 5e0, 0.2857142857142857, NULL, NULL, NULL), " +
                             "  ('b', NULL, 7e0, 0e0, NULL, '1', '7'), " +
                             "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)");
         }
@@ -3810,8 +3810,8 @@ public abstract class BaseIcebergConnectorTest
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)")
                 : ("VALUES " +
                 "  ('regionkey', NULL, NULL, 0e0, NULL, '0', '4'), " +
-                "  ('name', " + (format == PARQUET ? "234e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
-                "  ('comment', " + (format == PARQUET ? "639e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                "  ('name', " + (format == PARQUET ? "224e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
+                "  ('comment', " + (format == PARQUET ? "626e0" : "NULL") + ", NULL, 0e0, NULL, NULL, NULL), " +
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
 
         String statsWithNdv = format == AVRO
@@ -3822,8 +3822,8 @@ public abstract class BaseIcebergConnectorTest
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)")
                 : ("VALUES " +
                 "  ('regionkey', NULL, 5e0, 0e0, NULL, '0', '4'), " +
-                "  ('name', " + (format == PARQUET ? "234e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
-                "  ('comment', " + (format == PARQUET ? "639e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
+                "  ('name', " + (format == PARQUET ? "224e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
+                "  ('comment', " + (format == PARQUET ? "626e0" : "NULL") + ", 5e0, 0e0, NULL, NULL, NULL), " +
                 "  (NULL, NULL, NULL, NULL, 5e0, NULL, NULL)");
 
         assertThat(query(defaultSession, "SHOW STATS FOR " + tableName)).skippingTypesCheck().matches(statsWithNdv);
@@ -4310,8 +4310,8 @@ public abstract class BaseIcebergConnectorTest
                             "  ('dbl', NULL, 1e0, 0e0, NULL, '1.0', '1.0'), " +
                             "  ('mp', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('dec', NULL, 1e0, 0e0, NULL, '1.0', '1.0'), " +
-                            "  ('vc', " + (format == PARQUET ? "116e0" : "NULL") + ", 1e0, 0e0, NULL, NULL, NULL), " +
-                            "  ('vb', " + (format == PARQUET ? "77e0" : "NULL") + ", 1e0, 0e0, NULL, NULL, NULL), " +
+                            "  ('vc', " + (format == PARQUET ? "105e0" : "NULL") + ", 1e0, 0e0, NULL, NULL, NULL), " +
+                            "  ('vb', " + (format == PARQUET ? "71e0" : "NULL") + ", 1e0, 0e0, NULL, NULL, NULL), " +
                             "  ('ts', NULL, 1e0, 0e0, NULL, '2021-07-24 02:43:57.348000', " + (format == ORC ? "'2021-07-24 02:43:57.348999'" : "'2021-07-24 02:43:57.348000'") + "), " +
                             "  ('tstz', NULL, 1e0, 0e0, NULL, '2021-07-24 02:43:57.348 UTC', '2021-07-24 02:43:57.348 UTC'), " +
                             "  ('str', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
@@ -4373,7 +4373,7 @@ public abstract class BaseIcebergConnectorTest
                             "  ('dbl', NULL, 1e0, 0e0, NULL, '1.0', '1.0'), " +
                             "  ('mp', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
                             "  ('dec', NULL, 1e0, 0e0, NULL, '1.0', '1.0'), " +
-                            "  ('vc', " + (format == PARQUET ? "116e0" : "NULL") + ", 1e0, 0e0, NULL, NULL, NULL), " +
+                            "  ('vc', " + (format == PARQUET ? "105e0" : "NULL") + ", 1e0, 0e0, NULL, NULL, NULL), " +
                             "  ('str', NULL, NULL, " + (format == ORC ? "0e0" : "NULL") + ", NULL, NULL, NULL), " +
                             "  (NULL, NULL, NULL, NULL, 1e0, NULL, NULL)");
         }
@@ -4699,8 +4699,8 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_double', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_short_decimal', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_long_decimal', NULL, 1e0, 0.5e0, NULL, '11.0', '11.0'), " +
-                            "  ('a_varchar', " + (format == PARQUET ? "234e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
-                            "  ('a_varbinary', " + (format == PARQUET ? "114e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varchar', " + (format == PARQUET ? "213e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varbinary', " + (format == PARQUET ? "103e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_date', NULL, 1e0, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
                             "  ('a_time', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_timestamp', NULL, 1e0, 0.5e0, NULL, " + (format == ORC ? "'2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'" : "'2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'") + "), " +
@@ -4753,8 +4753,8 @@ public abstract class BaseIcebergConnectorTest
                             "  ('a_double', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_short_decimal', NULL, 1e0, 0.5e0, NULL, '1.0', '1.0'), " +
                             "  ('a_long_decimal', NULL, 1e0, 0.5e0, NULL, '11.0', '11.0'), " +
-                            "  ('a_varchar', " + (format == PARQUET ? "234e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
-                            "  ('a_varbinary', " + (format == PARQUET ? "114e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varchar', " + (format == PARQUET ? "213e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
+                            "  ('a_varbinary', " + (format == PARQUET ? "103e0" : "NULL") + ", 1e0, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_date', NULL, 1e0, 0.5e0, NULL, '2021-07-24', '2021-07-24'), " +
                             "  ('a_time', NULL, 1e0, 0.5e0, NULL, NULL, NULL), " +
                             "  ('a_timestamp', NULL, 1e0, 0.5e0, NULL, " + (format == ORC ? "'2021-07-24 03:43:57.987000', '2021-07-24 03:43:57.987999'" : "'2021-07-24 03:43:57.987654', '2021-07-24 03:43:57.987654'") + "), " +
