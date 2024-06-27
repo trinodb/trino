@@ -62,6 +62,7 @@ public final class DeltaLakeSessionProperties
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_WRITER_PAGE_VALUE_COUNT = "parquet_writer_page_value_count";
+    private static final String PARQUET_USE_BLOOM_FILTER = "parquet_use_bloom_filter";
     private static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
     private static final String IDLE_WRITER_MIN_FILE_SIZE = "idle_writer_min_file_size";
     private static final String COMPRESSION_CODEC = "compression_codec";
@@ -139,6 +140,11 @@ public final class DeltaLakeSessionProperties
                         PARQUET_VECTORIZED_DECODING_ENABLED,
                         "Enable using Java Vector API for faster decoding of parquet files",
                         parquetReaderConfig.isVectorizedDecodingEnabled(),
+                        false),
+                booleanProperty(
+                        PARQUET_USE_BLOOM_FILTER,
+                        "Use Parquet Bloom filters",
+                        parquetReaderConfig.isUseBloomFilter(),
                         false),
                 dataSizeProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
@@ -282,6 +288,11 @@ public final class DeltaLakeSessionProperties
     public static boolean isParquetVectorizedDecodingEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_VECTORIZED_DECODING_ENABLED, Boolean.class);
+    }
+
+    public static boolean useParquetBloomFilter(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_USE_BLOOM_FILTER, Boolean.class);
     }
 
     public static DataSize getParquetWriterBlockSize(ConnectorSession session)

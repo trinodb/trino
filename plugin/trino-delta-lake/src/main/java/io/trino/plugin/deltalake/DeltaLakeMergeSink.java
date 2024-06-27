@@ -71,6 +71,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressio
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageValueCount;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
@@ -512,7 +513,7 @@ public class DeltaLakeMergeSink
                 true,
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),
-                new ParquetReaderOptions().withBloomFilter(false),
+                new ParquetReaderOptions().withBloomFilter(useParquetBloomFilter(session)),
                 Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.of(fileSize));
