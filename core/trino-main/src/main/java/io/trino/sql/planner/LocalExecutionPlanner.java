@@ -311,7 +311,6 @@ import static io.trino.SystemSessionProperties.getTaskMinWriterCount;
 import static io.trino.SystemSessionProperties.getWriterScalingMinDataProcessed;
 import static io.trino.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
 import static io.trino.SystemSessionProperties.isColumnarFilterEvaluationEnabled;
-import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
 import static io.trino.SystemSessionProperties.isEnableLargeDynamicFilters;
 import static io.trino.SystemSessionProperties.isForceSpillingOperator;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
@@ -764,9 +763,6 @@ public class LocalExecutionPlanner
 
         private void registerCoordinatorDynamicFilters(List<DynamicFilters.Descriptor> dynamicFilters)
         {
-            if (!isEnableCoordinatorDynamicFiltersDistribution(taskContext.getSession())) {
-                return;
-            }
             Set<DynamicFilterId> consumedFilterIds = dynamicFilters.stream()
                     .map(DynamicFilters.Descriptor::getId)
                     .collect(toImmutableSet());
