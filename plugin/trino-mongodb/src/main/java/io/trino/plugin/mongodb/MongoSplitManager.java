@@ -27,7 +27,9 @@ import io.trino.spi.connector.FixedSplitSource;
 import java.util.concurrent.CompletableFuture;
 
 import static io.trino.plugin.mongodb.MongoSessionProperties.getDynamicFilteringWaitTimeout;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class MongoSplitManager
@@ -75,10 +77,11 @@ public class MongoSplitManager
         @Override
         public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
         {
-            long remainingTimeoutNanos = getRemainingTimeoutNanos();
+            CompletableFuture<?> blocked = dynamicFilter.isBlocked();
+            long remainingTimeoutNanos = getRemainingTimeoutNanos(dynamicFilter);
             if (remainingTimeoutNanos > 0 && dynamicFilter.isAwaitable()) {
                 // wait for dynamic filter and yield
-                return dynamicFilter.isBlocked()
+                return blocked
                         .thenApply(_ -> EMPTY_BATCH)
                         .completeOnTimeout(EMPTY_BATCH, remainingTimeoutNanos, NANOSECONDS);
             }
@@ -95,16 +98,16 @@ public class MongoSplitManager
         @Override
         public boolean isFinished()
         {
-            if (getRemainingTimeoutNanos() > 0 && dynamicFilter.isAwaitable()) {
+            if (getRemainingTimeoutNanos(dynamicFilter) > 0 && dynamicFilter.isAwaitable()) {
                 return false;
             }
 
             return delegateSplitSource.isFinished();
         }
 
-        private long getRemainingTimeoutNanos()
+        private long getRemainingTimeoutNanos(DynamicFilter dynamicFilter)
         {
-            return dynamicFilteringTimeoutNanos - (System.nanoTime() - startNanos);
+            return max(dynamicFilteringTimeoutNanos, MILLISECONDS.toNanos(dynamicFilter.getPreferredDynamicFilterTimeout().orElse(0L))) - (System.nanoTime() - startNanos);
         }
     }
 }

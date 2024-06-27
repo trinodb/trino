@@ -9,19 +9,19 @@ remote exchange (GATHER, SINGLE, [])
                                 join (INNER, REPLICATED):
                                     local exchange (REPARTITION, ROUND_ROBIN, [])
                                         join (INNER, REPLICATED):
-                                            dynamic filter (ws_item_sk::EQUAL, ws_sold_date_sk::EQUAL, ws_sold_time_sk::EQUAL)
+                                            dynamic filter ([ws_item_sk::EQUAL], await [ws_sold_date_sk::EQUAL, ws_sold_time_sk::EQUAL])
                                                 scan web_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan date_dim
                                         join (INNER, REPLICATED):
-                                            dynamic filter (cs_item_sk::EQUAL, cs_sold_date_sk::EQUAL, cs_sold_time_sk::EQUAL)
+                                            dynamic filter ([cs_item_sk::EQUAL], await [cs_sold_date_sk::EQUAL, cs_sold_time_sk::EQUAL])
                                                 scan catalog_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan date_dim
                                         join (INNER, REPLICATED):
-                                            dynamic filter (ss_item_sk::EQUAL, ss_sold_date_sk::EQUAL, ss_sold_time_sk::EQUAL)
+                                            dynamic filter ([ss_item_sk::EQUAL], await [ss_sold_date_sk::EQUAL, ss_sold_time_sk::EQUAL])
                                                 scan store_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])

@@ -44,6 +44,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -314,13 +315,34 @@ public abstract class BaseCostBasedPlanTest
         public Void visitFilter(FilterNode node, Integer indent)
         {
             DynamicFilters.ExtractResult filters = extractDynamicFilters(node.getPredicate());
+            String unestimatableInputs = filters.getDynamicConjuncts().stream()
+                    .filter(descriptor -> descriptor.getPreferredTimeout().isEmpty())
+                    .map(descriptor -> ((Reference) descriptor.getInput()).name() + "::" + descriptor.getOperator())
+                    .sorted()
+                    .collect(joining(", "));
             String inputs = filters.getDynamicConjuncts().stream()
+                    .filter(descriptor -> descriptor.getPreferredTimeout().isPresent() && descriptor.getPreferredTimeout().getAsLong() == 0)
+                    .map(descriptor -> ((Reference) descriptor.getInput()).name() + "::" + descriptor.getOperator())
+                    .sorted()
+                    .collect(joining(", "));
+            String awaitInputs = filters.getDynamicConjuncts().stream()
+                    .filter(descriptor -> descriptor.getPreferredTimeout().isPresent() && descriptor.getPreferredTimeout().getAsLong() > 0)
                     .map(descriptor -> ((Reference) descriptor.getInput()).name() + "::" + descriptor.getOperator())
                     .sorted()
                     .collect(joining(", "));
 
-            if (!inputs.isEmpty()) {
-                output(indent, "dynamic filter (%s)", inputs);
+            if (!inputs.isEmpty() || !awaitInputs.isEmpty() || !unestimatableInputs.isEmpty()) {
+                List<String> msg = new ArrayList<>();
+                if (!inputs.isEmpty()) {
+                    msg.add("[%s]".formatted(inputs));
+                }
+                if (!unestimatableInputs.isEmpty()) {
+                    msg.add("unestimatable [%s]".formatted(unestimatableInputs));
+                }
+                if (!awaitInputs.isEmpty()) {
+                    msg.add("await [%s]".formatted(awaitInputs));
+                }
+                output(indent, "dynamic filter (%s)", String.join(", ", msg));
                 indent = indent + 1;
             }
             return visitPlan(node, indent);

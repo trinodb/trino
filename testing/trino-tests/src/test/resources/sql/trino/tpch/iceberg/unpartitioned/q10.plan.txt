@@ -10,15 +10,15 @@ local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, [custkey])
                                         join (INNER, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, [orderkey])
-                                                dynamic filter (orderkey::EQUAL)
+                                                dynamic filter ([orderkey::EQUAL])
                                                     scan lineitem
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, [orderkey_0])
-                                                    dynamic filter (custkey::EQUAL)
+                                                    dynamic filter ([custkey::EQUAL])
                                                         scan orders
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, [custkey_4])
-                                            dynamic filter (nationkey::EQUAL)
+                                            dynamic filter (await [nationkey::EQUAL])
                                                 scan customer
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])

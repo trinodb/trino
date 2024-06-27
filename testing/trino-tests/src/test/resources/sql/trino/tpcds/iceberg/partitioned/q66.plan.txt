@@ -17,7 +17,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 join (INNER, REPLICATED):
                                                                     join (INNER, REPLICATED):
                                                                         join (INNER, REPLICATED):
-                                                                            dynamic filter (ws_ship_mode_sk::EQUAL, ws_sold_date_sk::EQUAL, ws_sold_time_sk::EQUAL, ws_warehouse_sk::EQUAL)
+                                                                            dynamic filter (await [ws_ship_mode_sk::EQUAL, ws_sold_date_sk::EQUAL, ws_sold_time_sk::EQUAL, ws_warehouse_sk::EQUAL])
                                                                                 scan web_sales
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -44,7 +44,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 join (INNER, REPLICATED):
                                                                     join (INNER, REPLICATED):
                                                                         join (INNER, REPLICATED):
-                                                                            dynamic filter (cs_ship_mode_sk::EQUAL, cs_sold_date_sk::EQUAL, cs_sold_time_sk::EQUAL, cs_warehouse_sk::EQUAL)
+                                                                            dynamic filter (await [cs_ship_mode_sk::EQUAL, cs_sold_date_sk::EQUAL, cs_sold_time_sk::EQUAL, cs_warehouse_sk::EQUAL])
                                                                                 scan catalog_sales
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])

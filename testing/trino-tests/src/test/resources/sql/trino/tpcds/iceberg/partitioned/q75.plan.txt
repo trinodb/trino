@@ -12,11 +12,11 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [cs_item_sk, cs_order_number])
                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                        dynamic filter (cs_item_sk::EQUAL, cs_sold_date_sk::EQUAL)
+                                                        dynamic filter ([cs_item_sk::EQUAL], await [cs_sold_date_sk::EQUAL])
                                                             scan catalog_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter (i_brand_id_7::EQUAL, i_category_id_9::EQUAL, i_class_id_8::EQUAL, i_manufact_id_10::EQUAL)
+                                                                dynamic filter ([i_brand_id_7::EQUAL, i_category_id_9::EQUAL, i_class_id_8::EQUAL, i_manufact_id_10::EQUAL])
                                                                     scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -30,11 +30,11 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [ss_item_sk, ss_ticket_number])
                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                        dynamic filter (ss_item_sk::EQUAL, ss_sold_date_sk::EQUAL)
+                                                        dynamic filter ([ss_item_sk::EQUAL], await [ss_sold_date_sk::EQUAL])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter (i_brand_id_28::EQUAL, i_category_id_32::EQUAL, i_class_id_30::EQUAL, i_manufact_id_34::EQUAL)
+                                                                dynamic filter ([i_brand_id_28::EQUAL, i_category_id_32::EQUAL, i_class_id_30::EQUAL, i_manufact_id_34::EQUAL])
                                                                     scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -48,11 +48,11 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [ws_item_sk, ws_order_number])
                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                        dynamic filter (ws_item_sk::EQUAL, ws_sold_date_sk::EQUAL)
+                                                        dynamic filter ([ws_item_sk::EQUAL], await [ws_sold_date_sk::EQUAL])
                                                             scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter (i_brand_id_88::EQUAL, i_category_id_92::EQUAL, i_class_id_90::EQUAL, i_manufact_id_94::EQUAL)
+                                                                dynamic filter ([i_brand_id_88::EQUAL, i_category_id_92::EQUAL, i_class_id_90::EQUAL, i_manufact_id_94::EQUAL])
                                                                     scan item
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -69,7 +69,7 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [cs_item_sk_169, cs_order_number_171])
                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                        dynamic filter (cs_item_sk_169::EQUAL, cs_sold_date_sk_188::EQUAL)
+                                                        dynamic filter ([cs_item_sk_169::EQUAL], await [cs_sold_date_sk_188::EQUAL])
                                                             scan catalog_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -86,7 +86,7 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [ss_item_sk_277, ss_ticket_number_284])
                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                        dynamic filter (ss_item_sk_277::EQUAL, ss_sold_date_sk_298::EQUAL)
+                                                        dynamic filter ([ss_item_sk_277::EQUAL], await [ss_sold_date_sk_298::EQUAL])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -103,7 +103,7 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [ws_item_sk_381, ws_order_number_395])
                                                 join (INNER, REPLICATED, can skip output duplicates):
                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                        dynamic filter (ws_item_sk_381::EQUAL, ws_sold_date_sk_412::EQUAL)
+                                                        dynamic filter ([ws_item_sk_381::EQUAL], await [ws_sold_date_sk_412::EQUAL])
                                                             scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

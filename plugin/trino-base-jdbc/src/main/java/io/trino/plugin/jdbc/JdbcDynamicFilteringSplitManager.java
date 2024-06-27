@@ -27,14 +27,18 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
 import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.dynamicFilteringEnabled;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Implements waiting for collection of dynamic filters before generating splits from {@link ConnectorSplitManager}.
@@ -47,6 +51,7 @@ public class JdbcDynamicFilteringSplitManager
 {
     private static final Logger log = Logger.get(JdbcDynamicFilteringSplitManager.class);
     private static final ConnectorSplitBatch EMPTY_BATCH = new ConnectorSplitBatch(ImmutableList.of(), false);
+    private static final long MIN_PREFERRED_DYNAMIC_FILTER_WAIT_TIMEOUT_NANOS = SECONDS.toNanos(1);
 
     private final ConnectorSplitManager delegateSplitManager;
     private final DynamicFilteringStats stats;
@@ -116,7 +121,8 @@ public class JdbcDynamicFilteringSplitManager
         @Override
         public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
         {
-            long remainingTimeoutNanos = getRemainingTimeoutNanos();
+            CompletableFuture<?> blocked = dynamicFilter.isBlocked();
+            long remainingTimeoutNanos = getRemainingTimeoutNanos(dynamicFilter);
             if (remainingTimeoutNanos > 0 && dynamicFilter.isAwaitable()) {
                 log.debug(
                         "Waiting for dynamic filter (query: %s, table: %s, remaining timeout: %s)",
@@ -124,7 +130,7 @@ public class JdbcDynamicFilteringSplitManager
                         table,
                         succinctNanos(remainingTimeoutNanos));
                 // wait for dynamic filter and yield
-                return dynamicFilter.isBlocked()
+                return blocked
                         .thenApply(_ -> EMPTY_BATCH)
                         .completeOnTimeout(EMPTY_BATCH, remainingTimeoutNanos, NANOSECONDS);
             }
@@ -149,16 +155,21 @@ public class JdbcDynamicFilteringSplitManager
         @Override
         public boolean isFinished()
         {
-            if (getRemainingTimeoutNanos() > 0 && dynamicFilter.isAwaitable()) {
+            if (getRemainingTimeoutNanos(dynamicFilter) > 0 && dynamicFilter.isAwaitable()) {
                 return false;
             }
 
             return getDelegateSplitSource().isFinished();
         }
 
-        private long getRemainingTimeoutNanos()
+        private long getRemainingTimeoutNanos(DynamicFilter dynamicFilter)
         {
-            return dynamicFilteringTimeoutNanos - (System.nanoTime() - startNanos);
+            long currentDynamicFilterTimeoutNanos = dynamicFilteringTimeoutNanos;
+            OptionalLong preferredDynamicFilterTimeout = dynamicFilter.getPreferredDynamicFilterTimeout();
+            if (preferredDynamicFilterTimeout.isPresent()) {
+                currentDynamicFilterTimeoutNanos = max(MIN_PREFERRED_DYNAMIC_FILTER_WAIT_TIMEOUT_NANOS, MILLISECONDS.toNanos(preferredDynamicFilterTimeout.getAsLong()));
+            }
+            return currentDynamicFilterTimeoutNanos - (System.nanoTime() - startNanos);
         }
 
         private synchronized ConnectorSplitSource getDelegateSplitSource()

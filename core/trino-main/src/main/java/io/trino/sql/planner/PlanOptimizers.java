@@ -252,6 +252,7 @@ import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.optimizations.BeginTableWrite;
 import io.trino.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import io.trino.sql.planner.optimizations.DeterminePartitionCount;
+import io.trino.sql.planner.optimizations.DeterminePreferredDynamicFilterTimeout;
 import io.trino.sql.planner.optimizations.HashGenerationOptimizer;
 import io.trino.sql.planner.optimizations.IndexJoinOptimizer;
 import io.trino.sql.planner.optimizations.LimitPushDown;
@@ -964,6 +965,7 @@ public class PlanOptimizers
         // Remove unsupported dynamic filters introduced by PredicatePushdown. Also, cleanup dynamic filters removed by
         // PushPredicateIntoTableScan and RemoveRedundantPredicateAboveTableScan due to those rules replacing table scans with empty ValuesNode
         builder.add(new RemoveUnsupportedDynamicFilters(plannerContext));
+        builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new DeterminePreferredDynamicFilterTimeout(statsCalculator)));
         builder.add(inlineProjections);
         builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(columnPruningOptimizer);

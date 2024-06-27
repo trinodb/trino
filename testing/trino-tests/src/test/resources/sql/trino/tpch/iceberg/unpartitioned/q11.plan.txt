@@ -9,11 +9,11 @@ remote exchange (GATHER, SINGLE, [])
                                 join (INNER, REPLICATED):
                                     join (INNER, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, [suppkey])
-                                            dynamic filter (suppkey::EQUAL)
+                                            dynamic filter ([suppkey::EQUAL])
                                                 scan partsupp
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, [suppkey_0])
-                                                dynamic filter (nationkey::EQUAL)
+                                                dynamic filter (await [nationkey::EQUAL])
                                                     scan supplier
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -27,11 +27,11 @@ remote exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [suppkey_10])
-                                                    dynamic filter (suppkey_10::EQUAL)
+                                                    dynamic filter ([suppkey_10::EQUAL])
                                                         scan partsupp
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [suppkey_16])
-                                                        dynamic filter (nationkey_19::EQUAL)
+                                                        dynamic filter (await [nationkey_19::EQUAL])
                                                             scan supplier
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])

@@ -97,6 +97,7 @@ import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Math.clamp;
+import static java.lang.Math.max;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -208,9 +209,10 @@ public class IcebergSplitSource
 
     private CompletableFuture<ConnectorSplitBatch> getNextBatchInternal(int maxSize)
     {
-        long timeLeft = dynamicFilteringWaitTimeoutMillis - dynamicFilterWaitStopwatch.elapsed(MILLISECONDS);
+        CompletableFuture<?> blocked = dynamicFilter.isBlocked();
+        long timeLeft = max(dynamicFilteringWaitTimeoutMillis, dynamicFilter.getPreferredDynamicFilterTimeout().orElse(0L)) - dynamicFilterWaitStopwatch.elapsed(MILLISECONDS);
         if (dynamicFilter.isAwaitable() && timeLeft > 0) {
-            return dynamicFilter.isBlocked()
+            return blocked
                     .thenApply(_ -> EMPTY_BATCH)
                     .completeOnTimeout(EMPTY_BATCH, timeLeft, MILLISECONDS);
         }

@@ -41,6 +41,7 @@ import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -186,6 +187,12 @@ public class TestDeltaLakeDynamicFiltering
         public TupleDomain<ColumnHandle> getCurrentPredicate()
         {
             return TupleDomain.all();
+        }
+
+        @Override
+        public OptionalLong getPreferredDynamicFilterTimeout()
+        {
+            return OptionalLong.of(0L);
         }
     }
 }

@@ -143,6 +143,9 @@ public final class SystemSessionProperties
     public static final String ENABLE_LARGE_DYNAMIC_FILTERS = "enable_large_dynamic_filters";
     public static final String ENABLE_DYNAMIC_ROW_FILTERING = "enable_dynamic_row_filtering";
     public static final String DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD = "dynamic_row_filtering_selectivity_threshold";
+    public static final String PREFERRED_DYNAMIC_FILTER_WAIT_TIMEOUT = "preferred_dynamic_filter_wait_timeout";
+    public static final String AWAITED_DYNAMIC_FILTER_MAX_ROW_COUNT = "awaited_dynamic_filter_max_row_count";
+    public static final String AWAITED_DYNAMIC_FILTER_MAX_NDV_COUNT = "awaited_dynamic_filter_max_ndv_count";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
     public static final String FILTERING_SEMI_JOIN_TO_INNER = "rewrite_filtering_semi_join_to_inner_join";
@@ -701,6 +704,23 @@ public final class SystemSessionProperties
                                 throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be in the range [0, 1]: %s", DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD, value));
                             }
                         },
+                        false),
+                durationProperty(
+                        PREFERRED_DYNAMIC_FILTER_WAIT_TIMEOUT,
+                        "Maximum preferred time to wait for awaitable dynamic filter before table scan is started",
+                        dynamicFilterConfig.getPreferredDynamicFilterWaitTimeout(),
+                        false),
+                longProperty(
+                        AWAITED_DYNAMIC_FILTER_MAX_ROW_COUNT,
+                        "Maximum number of rows for dynamic filter to be awaitable",
+                        dynamicFilterConfig.getAwaitedDynamicFilterMaxRowCount(),
+                        value -> validateNonNegativeLongValue(value, AWAITED_DYNAMIC_FILTER_MAX_ROW_COUNT),
+                        false),
+                longProperty(
+                        AWAITED_DYNAMIC_FILTER_MAX_NDV_COUNT,
+                        "Maximum number of distinct values for dynamic filter to be awaitable",
+                        dynamicFilterConfig.getAwaitedDynamicFilterMaxNdvCount(),
+                        value -> validateNonNegativeLongValue(value, AWAITED_DYNAMIC_FILTER_MAX_NDV_COUNT),
                         false),
                 dataSizeProperty(
                         QUERY_MAX_MEMORY_PER_NODE,
@@ -1636,6 +1656,21 @@ public final class SystemSessionProperties
     public static double getDynamicRowFilterSelectivityThreshold(Session session)
     {
         return session.getSystemProperty(DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD, Double.class);
+    }
+
+    public static Duration getPreferredDynamicFilterWaitTimeout(Session session)
+    {
+        return session.getSystemProperty(PREFERRED_DYNAMIC_FILTER_WAIT_TIMEOUT, Duration.class);
+    }
+
+    public static long getAwaitedDynamicFilterMaxRowCount(Session session)
+    {
+        return session.getSystemProperty(AWAITED_DYNAMIC_FILTER_MAX_ROW_COUNT, Long.class);
+    }
+
+    public static long getAwaitedDynamicFilterMaxNdvCount(Session session)
+    {
+        return session.getSystemProperty(AWAITED_DYNAMIC_FILTER_MAX_NDV_COUNT, Long.class);
     }
 
     public static DataSize getQueryMaxMemoryPerNode(Session session)

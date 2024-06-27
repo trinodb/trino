@@ -5,7 +5,7 @@ final aggregation over ()
                 join (INNER, REPLICATED):
                     join (INNER, REPLICATED):
                         join (INNER, REPLICATED):
-                            dynamic filter (ss_hdemo_sk::EQUAL, ss_sold_time_sk::EQUAL, ss_store_sk::EQUAL)
+                            dynamic filter (await [ss_hdemo_sk::EQUAL, ss_sold_time_sk::EQUAL, ss_store_sk::EQUAL])
                                 scan store_sales
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])

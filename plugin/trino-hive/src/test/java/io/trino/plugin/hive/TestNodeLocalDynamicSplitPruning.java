@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -241,6 +242,12 @@ class TestNodeLocalDynamicSplitPruning
             public TupleDomain<ColumnHandle> getCurrentPredicate()
             {
                 return tupleDomain;
+            }
+
+            @Override
+            public OptionalLong getPreferredDynamicFilterTimeout()
+            {
+                return OptionalLong.of(0L);
             }
         };
     }

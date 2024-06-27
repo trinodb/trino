@@ -13,7 +13,7 @@ final aggregation over ()
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (ws_order_number::EQUAL, ws_ship_addr_sk::EQUAL, ws_ship_date_sk::EQUAL, ws_web_site_sk::EQUAL)
+                                                            dynamic filter ([ws_order_number::EQUAL, ws_ship_addr_sk::EQUAL], await [ws_ship_date_sk::EQUAL, ws_web_site_sk::EQUAL])
                                                                 scan web_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])

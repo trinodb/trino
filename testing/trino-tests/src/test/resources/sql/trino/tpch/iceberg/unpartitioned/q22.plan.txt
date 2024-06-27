@@ -8,7 +8,7 @@ remote exchange (GATHER, SINGLE, [])
                             join (LEFT, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, [custkey])
                                     cross join:
-                                        dynamic filter (acctbal::GREATER_THAN)
+                                        dynamic filter ([acctbal::GREATER_THAN])
                                             scan customer
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])

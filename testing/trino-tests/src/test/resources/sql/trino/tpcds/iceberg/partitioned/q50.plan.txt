@@ -11,11 +11,11 @@ local exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, PARTITIONED):
                                                 remote exchange (REPARTITION, HASH, [ss_customer_sk, ss_item_sk, ss_ticket_number])
-                                                    dynamic filter (ss_customer_sk::EQUAL, ss_item_sk::EQUAL, ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL, ss_ticket_number::EQUAL)
+                                                    dynamic filter ([ss_customer_sk::EQUAL, ss_item_sk::EQUAL, ss_ticket_number::EQUAL], await [ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL])
                                                         scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, [sr_customer_sk, sr_item_sk, sr_ticket_number])
-                                                        dynamic filter (sr_returned_date_sk::EQUAL)
+                                                        dynamic filter (await [sr_returned_date_sk::EQUAL])
                                                             scan store_returns
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])

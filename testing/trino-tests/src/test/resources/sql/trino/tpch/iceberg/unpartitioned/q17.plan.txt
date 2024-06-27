@@ -6,7 +6,7 @@ final aggregation over ()
                     join (LEFT, PARTITIONED):
                         join (INNER, PARTITIONED):
                             remote exchange (REPARTITION, HASH, [partkey])
-                                dynamic filter (partkey::EQUAL)
+                                dynamic filter ([partkey::EQUAL])
                                     scan lineitem
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, [partkey_0])
