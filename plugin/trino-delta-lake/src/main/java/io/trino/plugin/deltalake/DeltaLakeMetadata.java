@@ -1244,7 +1244,7 @@ public class DeltaLakeMetadata
             setRollback(() -> deleteRecursivelyIfExists(fileSystemFactory.create(session), finalLocation));
             protocolEntry = protocolEntryForNewTable(containsTimestampType, tableMetadata.getProperties());
         }
-
+        Map<String, String> configuration = configurationForNewTable(getCheckpointInterval(tableMetadata.getProperties()), getChangeDataFeedEnabled(tableMetadata.getProperties()), columnMappingMode, maxFieldId);
         return new DeltaLakeOutputTableHandle(
                 schemaName,
                 tableName,
@@ -1253,13 +1253,12 @@ public class DeltaLakeMetadata
                 getCheckpointInterval(tableMetadata.getProperties()),
                 external,
                 tableMetadata.getComment(),
-                getChangeDataFeedEnabled(tableMetadata.getProperties()),
                 serializeSchemaAsJson(deltaTable.build()),
                 columnMappingMode,
-                maxFieldId,
                 replace,
                 readVersion,
-                protocolEntry);
+                protocolEntry,
+                configuration);
     }
 
     private Optional<String> getSchemaLocation(Database database)
@@ -1432,7 +1431,7 @@ public class DeltaLakeMetadata
                             .setDescription(handle.comment())
                             .setSchemaString(schemaString)
                             .setPartitionColumns(handle.partitionedBy())
-                            .setConfiguration(configurationForNewTable(handle.checkpointInterval(), handle.changeDataFeedEnabled(), columnMappingMode, handle.maxColumnId())));
+                            .setConfiguration(handle.configuration()));
             appendAddFileEntries(transactionLogWriter, dataFileInfos, physicalPartitionNames, columnNames, true);
             if (handle.readVersion().isPresent()) {
                 long writeTimestamp = Instant.now().toEpochMilli();
