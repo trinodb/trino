@@ -83,9 +83,9 @@ public class TestParquetReader
         assertThat(parquetMetadata.getBlocks().size()).isGreaterThan(1);
         // Verify file has only non-dictionary encodings as dictionary memory usage is already tested in TestFlatColumnReader#testMemoryUsage
         parquetMetadata.getBlocks().forEach(block -> {
-            block.getColumns()
+            block.columns()
                     .forEach(columnChunkMetaData -> assertThat(columnChunkMetaData.getEncodingStats().hasDictionaryEncodedPages()).isFalse());
-            assertThat(block.getRowCount()).isEqualTo(100);
+            assertThat(block.rowCount()).isEqualTo(100);
         });
 
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
@@ -105,7 +105,7 @@ public class TestParquetReader
         assertThat(currentMemoryUsage).isGreaterThan(initialMemoryUsage);
 
         // Memory usage does not change until next row group (1 page per row-group)
-        long rowGroupRowCount = parquetMetadata.getBlocks().get(0).getRowCount();
+        long rowGroupRowCount = parquetMetadata.getBlocks().get(0).rowCount();
         int rowsRead = page.getPositionCount();
         while (rowsRead < rowGroupRowCount) {
             rowsRead += reader.nextPage().getPositionCount();
@@ -153,7 +153,7 @@ public class TestParquetReader
             assertThat(metrics).containsKey(COLUMN_INDEX_ROWS_FILTERED);
             // Column index should filter at least the first row group
             assertThat(((Count<?>) metrics.get(COLUMN_INDEX_ROWS_FILTERED)).getTotal())
-                    .isGreaterThanOrEqualTo(parquetMetadata.getBlocks().get(0).getRowCount());
+                    .isGreaterThanOrEqualTo(parquetMetadata.getBlocks().get(0).rowCount());
         }
     }
 
