@@ -53,7 +53,6 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
@@ -141,7 +140,7 @@ public final class IcebergTestUtils
         verify(parquetMetadata.getBlocks().size() > 1, "Test must produce at least two row groups");
         for (BlockMetadata blockMetaData : parquetMetadata.getBlocks()) {
             ColumnChunkMetadata columnMetadata = blockMetaData.columns().stream()
-                    .filter(column -> getOnlyElement(column.getPath().iterator()).equalsIgnoreCase(sortColumnName))
+                    .filter(column -> column.getPath().toDotString().equalsIgnoreCase(sortColumnName))
                     .collect(onlyElement());
             if (previousMax != null) {
                 if (previousMax.compareTo(columnMetadata.getStatistics().genericGetMin()) > 0) {
