@@ -17,7 +17,6 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
@@ -112,16 +111,14 @@ public class FileSystemModule
 
     @Provides
     @Singleton
-    public TrinoFileSystemFactory createFileSystemFactory(
+    static TrinoFileSystemFactory createFileSystemFactory(
             Optional<HdfsFileSystemLoader> hdfsFileSystemLoader,
-            LifeCycleManager lifeCycleManager,
             Map<String, TrinoFileSystemFactory> factories,
             Optional<TrinoFileSystemCache> fileSystemCache,
             Optional<CacheKeyProvider> keyProvider,
             Tracer tracer)
     {
         Optional<TrinoFileSystemFactory> hdfsFactory = hdfsFileSystemLoader.map(HdfsFileSystemLoader::create);
-        hdfsFactory.ifPresent(lifeCycleManager::addInstance);
 
         TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(hdfsFactory, factories);
         if (fileSystemCache.isPresent()) {
