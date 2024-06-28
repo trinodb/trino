@@ -69,7 +69,6 @@ public final class EncryptDecryptFunction
         }
     }
 
-
     @ScalarFunction("sm2")
     @Description("SM2 encryption, passing in the data to be encrypted and the public key of the hexadecimal string")
     @SqlType(StandardTypes.VARCHAR)
@@ -133,7 +132,6 @@ public final class EncryptDecryptFunction
             throw new RuntimeException("解密失败,检查RSA私钥是否正确.");
         }
     }
-
 
     @ScalarFunction("aes")
     @Description("aes encryption")
@@ -199,7 +197,6 @@ public final class EncryptDecryptFunction
         }
     }
 
-
     @ScalarFunction("shift_left")
     @Description("向左偏移函数:shiftLeft")
     @SqlType(StandardTypes.VARCHAR)
@@ -219,7 +216,6 @@ public final class EncryptDecryptFunction
     {
         return Slices.utf8Slice(shiftRight(sliceToString(text), (int) offset));
     }
-
 
     public static String shiftLeft(String str, int offset)
     {
