@@ -229,10 +229,10 @@ export function getChildren(nodeInfo: any)
         case 'aggregation':
         case 'cacheData':
         case 'delete':
-        case 'distinctlimit':
+        case 'distinctLimit':
         case 'explainAnalyze':
         case 'filter':
-        case 'groupid':
+        case 'groupId':
         case 'limit':
         case 'markDistinct':
         case 'output':
@@ -242,28 +242,28 @@ export function getChildren(nodeInfo: any)
         case 'scalar':
         case 'sort':
         case 'tableDelete':
-        case 'tablecommit':
-        case 'tablewriter':
-        case 'topn':
-        case 'topnRanking':
+        case 'tableCommit':
+        case 'tableWriter':
+        case 'topN':
+        case 'topNRanking':
         case 'unnest':
         case 'window':
             return [nodeInfo.source];
         case 'join':
             return [nodeInfo.left, nodeInfo.right];
-        case 'semijoin':
+        case 'semiJoin':
             return [nodeInfo.source, nodeInfo.filteringSource];
-        case 'spatialjoin':
+        case 'spatialJoin':
             return [nodeInfo.left, nodeInfo.right];
-        case 'indexjoin':
+        case 'indexJoin':
             return [nodeInfo.probeSource, nodeInfo.indexSource];
         case 'union':
         case 'exchange':
             return nodeInfo.sources;
-        case 'indexsource':
+        case 'indexSource':
         case 'loadCachedData':
         case 'remoteSource':
-        case 'tablescan':
+        case 'tableScan':
         case 'values':
             break;
         default:
