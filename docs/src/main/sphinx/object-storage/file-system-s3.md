@@ -127,18 +127,19 @@ and secret keys, STS, or an IAM role:
 ## Security mapping
 
 Trino supports flexible security mapping for S3, allowing for separate
-credentials or IAM roles for specific users or buckets/paths. The IAM role
+credentials or IAM roles for specific users or S3 locations. The IAM role
 for a specific query can be selected from a list of allowed roles by providing
 it as an *extra credential*.
 
-Each security mapping entry may specify one or more match criteria. If multiple
-criteria are specified, all criteria must match. Available match criteria:
+Each security mapping entry may specify one or more match criteria.
+If multiple criteria are specified, all criteria must match.
+The following match criteria are available:
 
 - `user`: Regular expression to match against username. Example: `alice|bob`
 - `group`: Regular expression to match against any of the groups that the user
   belongs to. Example: `finance|sales`
-- `prefix`: S3 URL prefix. It can specify an entire bucket or a path within a
-  bucket. The URL must start with `s3://` but will also match `s3a` or `s3n`.
+- `prefix`: S3 URL prefix. You can specify an entire bucket or a path within a
+  bucket. The URL must start with `s3://` but also matches for `s3a` or `s3n`.
   Example: `s3://bucket-name/abc/xyz/`
 
 The security mapping must provide one or more configuration settings:
@@ -148,10 +149,10 @@ The security mapping must provide one or more configuration settings:
 - `iamRole`: IAM role to use if no user provided role is specified as an
   extra credential. This overrides any globally configured IAM role. This role
   is allowed to be specified as an extra credential, although specifying it
-  explicitly has no effect, as it would be used anyway.
+  explicitly has no effect.
 - `roleSessionName`: Optional role session name to use with `iamRole`. This can only
   be used when `iamRole` is specified. If `roleSessionName` includes the string
-  `${USER}`, then the `${USER}` portion of the string will be replaced with the
+  `${USER}`, then the `${USER}` portion of the string is replaced with the
   current session's username. If `roleSessionName` is not specified, it defaults
   to `trino-session`.
 - `allowedIamRoles`: IAM roles that are allowed to be specified as an extra
@@ -160,38 +161,27 @@ The security mapping must provide one or more configuration settings:
   of those roles.
 - `kmsKeyId`: ID of KMS-managed key to be used for client-side encryption.
 - `allowedKmsKeyIds`: KMS-managed key IDs that are allowed to be specified as an extra
-  credential. If list cotains "\*", then any key can be specified via extra credential.
-
-* ``endpoint``: The S3 storage endpoint server. This optional property can be used
+  credential. If list cotains `*`, then any key can be specified via extra credential.
+- `endpoint`: The S3 storage endpoint server. This optional property can be used
   to override S3 endpoints on a per-bucket basis.
-
-* ``region``: The region S3 client should connect to. This optional property can be used
+- `region`: The S3 region to connect to. This optional property can be used
   to override S3 regions on a per-bucket basis.
 
-The security mapping entries are processed in the order listed in the configuration
-JSON. More specific mappings should thus be specified before less specific mappings.
+The security mapping entries are processed in the order listed in the JSON configuration.
+Therefore, specific mappings must be specified before less specific mappings.
 For example, the mapping list might have URL prefix `s3://abc/xyz/` followed by
 `s3://abc/` to allow different configuration for a specific path within a bucket
-than for other paths within the bucket. You can set default configuration by not
-including any match criteria for the last entry in the list.
+than for other paths within the bucket. You can specify the default configuration
+by not including any match criteria for the last entry in the list.
 
-In addition to the rules above, the default mapping can contain the optional
-`useClusterDefault` boolean property with the following behavior:
+In addition to the preceding rules, the default mapping can contain the optional
+`useClusterDefault` boolean property set to `true` to use the default S3 configuration.
+It cannot be used with any other configuration settings.
 
-- `false` - (is set by default) property is ignored.
+If no mapping entry matches and no default is configured, access is denied.
 
-- `true` - This causes the default cluster role to be used as a fallback option.
-  It can not be used with the following configuration properties:
-
-    - `accessKey`
-    - `secretKey`
-    - `iamRole`
-    - `allowedIamRoles`
-
-If no mapping entry matches and no default is configured, the access is denied.
-
-The configuration JSON can either be retrieved from a file or REST-endpoint specified via
-`hive.s3.security-mapping.config-file`.
+The configuration JSON is read from a file via `s3.security-mapping.config-file`
+or from an HTTP endpoint via `s3.security-mapping.config-uri`.
 
 Example JSON configuration:
 
@@ -215,7 +205,7 @@ Example JSON configuration:
       "prefix": "s3://special-bucket/",
       "accessKey": "AKIAxxxaccess",
       "secretKey": "iXbXxxxsecret"
-    }, 
+    },
     {
       "prefix": "s3://regional-bucket/",
       "iamRole": "arn:aws:iam::123456789101:role/regional-user",
@@ -246,15 +236,27 @@ Example JSON configuration:
 
 * - Property name
   - Description
-* - `hive.s3.security-mapping.config-file`
-  - The JSON configuration file or REST-endpoint URI containing security mappings.
-* - `hive.s3.security-mapping.json-pointer`
-  - A JSON pointer (RFC 6901) to mappings inside the JSON retrieved from the config file or REST-endpoint. The whole document ("") by default.
-* - `hive.s3.security-mapping.iam-role-credential-name`
+* - `s3.security-mapping.enabled`
+  - Activate the security mapping feature. Defaults to `false`.
+    Must be set to `true` for all other properties be used.
+* - `s3.security-mapping.config-file`
+  - Path to the JSON configuration file containing security mappings.
+* - `s3.security-mapping.config-uri`
+  - HTTP endpoint URI containing security mappings.
+* - `s3.security-mapping.json-pointer`
+  - A JSON pointer (RFC 6901) to mappings inside the JSON retrieved from the
+    configuration file or HTTP endpoint. The default is the root of the document.
+* - `s3.security-mapping.iam-role-credential-name`
   - The name of the *extra credential* used to provide the IAM role.
-* - `hive.s3.security-mapping.kms-key-id-credential-name`
+* - `s3.security-mapping.kms-key-id-credential-name`
   - The name of the *extra credential* used to provide the KMS-managed key ID.
-* - `hive.s3.security-mapping.refresh-period`
-  - How often to refresh the security mapping configuration.
-* - `hive.s3.security-mapping.colon-replacement`
-  - The character or characters to be used in place of the colon (`:`) character when specifying an IAM role name as an extra credential. Any instances of this replacement value in the extra credential value will be converted to a colon. Choose a value that is not used in any of your IAM ARNs.
+* - `s3.security-mapping.refresh-period`
+  - How often to refresh the security mapping configuration, specified as a
+    {ref}`prop-type-duration`. By default, the configuration is not refreshed.
+* - `s3.security-mapping.colon-replacement`
+  - The character or characters to be used instead of a colon character
+    when specifying an IAM role name as an extra credential.
+    Any instances of this replacement value in the extra credential value
+    are converted to a colon.
+    Choose a value not used in any of your IAM ARNs.
+:::
