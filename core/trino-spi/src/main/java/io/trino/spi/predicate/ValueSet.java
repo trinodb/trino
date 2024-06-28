@@ -26,9 +26,10 @@ import java.util.Optional;
         use = JsonTypeInfo.Id.NAME,
         property = "@type")
 @JsonSubTypes({
+        @JsonSubTypes.Type(value = AllOrNoneValueSet.class, name = "allOrNone"),
         @JsonSubTypes.Type(value = EquatableValueSet.class, name = "equatable"),
         @JsonSubTypes.Type(value = SortedRangeSet.class, name = "sortable"),
-        @JsonSubTypes.Type(value = AllOrNoneValueSet.class, name = "allOrNone")})
+})
 public interface ValueSet
 {
     static ValueSet none(Type type)
