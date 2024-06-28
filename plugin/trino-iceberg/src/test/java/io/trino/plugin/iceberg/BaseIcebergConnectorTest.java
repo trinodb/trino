@@ -7944,10 +7944,56 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(session, "DROP TABLE " + tableName2);
     }
 
+    @Test
+    public void testPartitionFilterRequiredSchemas()
+    {
+        String schemaName = "gold_mart";
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequiredSchemas(withPartitionFilterRequired(getSession()));
+        assertUpdate(session, "CREATE SCHEMA " + schemaName);
+        assertUpdate(session, format("CREATE TABLE %s.%s (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])", schemaName, tableName));
+        assertUpdate(session, format("INSERT INTO %s.%s (id, a, ds) VALUES (1, '1', '1')", schemaName, tableName), 1);
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, '1', '1')", 1);
+
+        String queryOnTpch = "SELECT id FROM " + tableName + " WHERE cast(b as integer) = 1";
+        assertQueryFails(session, queryOnTpch, "Filter required for tpch\\." + tableName + " on at least one of the partition columns: ds");
+
+        String queryOnGoldMart = format("SELECT id FROM %s.%s WHERE cast(b as integer) = 1", schemaName, tableName);
+        assertQuerySucceeds(session, queryOnGoldMart);
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+        assertUpdate(session, format("DROP TABLE %s.%s", schemaName, tableName));
+        assertUpdate(session, "DROP SCHEMA " + schemaName);
+    }
+
+    @Test
+    public void testIgnorePartitionFilterRequiredSchemas()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequiredSchemas(getSession());
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, '1', '1')", 1);
+
+        String queryOnTpch = "SELECT id FROM " + tableName + " WHERE cast(b as integer) = 1";
+        assertQuerySucceeds(session, queryOnTpch);
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
     private static Session withPartitionFilterRequired(Session session)
     {
         return Session.builder(session)
                 .setCatalogSessionProperty("iceberg", "query_partition_filter_required", "true")
+                .build();
+    }
+
+    private static Session withPartitionFilterRequiredSchemas(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty("iceberg", "query_partition_filter_required_schemas", "[\"tpch\"]")
                 .build();
     }
 

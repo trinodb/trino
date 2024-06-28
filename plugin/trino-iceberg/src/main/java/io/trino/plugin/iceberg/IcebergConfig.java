@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -28,12 +30,14 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -50,6 +54,8 @@ public class IcebergConfig
     public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE_DESCRIPTION = "Collect extended statistics during writes";
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "iceberg.expire_snapshots.min-retention";
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "iceberg.remove_orphan_files.min-retention";
+
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private IcebergFileFormat fileFormat = PARQUET;
     private HiveCompressionCodec compressionCodec = ZSTD;
@@ -78,6 +84,7 @@ public class IcebergConfig
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
     private boolean sortedWritingEnabled = true;
     private boolean queryPartitionFilterRequired;
+    private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors() * 2;
     private boolean incrementalRefreshEnabled = true;
 
@@ -415,6 +422,19 @@ public class IcebergConfig
     public boolean isQueryPartitionFilterRequired()
     {
         return queryPartitionFilterRequired;
+    }
+
+    public Set<String> getQueryPartitionFilterRequiredSchemas()
+    {
+        return queryPartitionFilterRequiredSchemas;
+    }
+
+    @Config("iceberg.query-partition-filter-required-schemas")
+    @ConfigDescription("List of schemas for which filter on partition column is enforced")
+    public IcebergConfig setQueryPartitionFilterRequiredSchemas(String queryPartitionFilterRequiredSchemas)
+    {
+        this.queryPartitionFilterRequiredSchemas = ImmutableSet.copyOf(SPLITTER.splitToList(queryPartitionFilterRequiredSchemas.toLowerCase(ENGLISH)));
+        return this;
     }
 
     @Min(0)
