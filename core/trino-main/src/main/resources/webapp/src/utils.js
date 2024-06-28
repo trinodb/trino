@@ -227,22 +227,28 @@ export function getChildren(nodeInfo: any)
     // TODO: Remove this function by migrating StageDetail to use node JSON representation
     switch (nodeInfo['@type']) {
         case 'aggregation':
+        case 'assignUniqueId':
         case 'cacheData':
         case 'delete':
         case 'distinctLimit':
+        case 'dynamicFilterSource':
         case 'explainAnalyze':
         case 'filter':
         case 'groupId':
         case 'limit':
         case 'markDistinct':
+        case 'mergeProcessor':
+        case 'mergeWriter':
         case 'output':
         case 'project':
         case 'rowNumber':
         case 'sample':
         case 'scalar':
+        case 'simpleTableExecuteNode':
         case 'sort':
-        case 'tableDelete':
         case 'tableCommit':
+        case 'tableDelete':
+        case 'tableExecute':
         case 'tableWriter':
         case 'topN':
         case 'topNRanking':
@@ -257,13 +263,16 @@ export function getChildren(nodeInfo: any)
             return [nodeInfo.left, nodeInfo.right];
         case 'indexJoin':
             return [nodeInfo.probeSource, nodeInfo.indexSource];
-        case 'union':
         case 'exchange':
+        case 'intersect':
+        case 'union':
             return nodeInfo.sources;
         case 'indexSource':
         case 'loadCachedData':
+        case 'refreshMaterializedView':
         case 'remoteSource':
         case 'tableScan':
+        case 'tableUpdate':
         case 'values':
             break;
         default:
