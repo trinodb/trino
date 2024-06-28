@@ -226,27 +226,28 @@ export function getChildren(nodeInfo: any)
 {
     // TODO: Remove this function by migrating StageDetail to use node JSON representation
     switch (nodeInfo['@type']) {
-        case 'output':
-        case 'explainAnalyze':
-        case 'project':
-        case 'filter':
         case 'aggregation':
-        case 'sort':
-        case 'markDistinct':
-        case 'window':
-        case 'rowNumber':
-        case 'topnRanking':
-        case 'limit':
-        case 'distinctlimit':
-        case 'topn':
-        case 'sample':
-        case 'tablewriter':
+        case 'cacheData':
         case 'delete':
+        case 'distinctlimit':
+        case 'explainAnalyze':
+        case 'filter':
+        case 'groupid':
+        case 'limit':
+        case 'markDistinct':
+        case 'output':
+        case 'project':
+        case 'rowNumber':
+        case 'sample':
+        case 'scalar':
+        case 'sort':
         case 'tableDelete':
         case 'tablecommit':
-        case 'groupid':
+        case 'tablewriter':
+        case 'topn':
+        case 'topnRanking':
         case 'unnest':
-        case 'scalar':
+        case 'window':
             return [nodeInfo.source];
         case 'join':
             return [nodeInfo.left, nodeInfo.right];
@@ -259,10 +260,11 @@ export function getChildren(nodeInfo: any)
         case 'union':
         case 'exchange':
             return nodeInfo.sources;
+        case 'indexsource':
+        case 'loadCachedData':
         case 'remoteSource':
         case 'tablescan':
         case 'values':
-        case 'indexsource':
             break;
         default:
             console.log("NOTE: Unhandled PlanNode: " + nodeInfo['@type']);
