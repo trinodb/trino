@@ -1138,6 +1138,24 @@ FROM customers
 | 102 | 'missing' |
 | 103 | 'missing' |
 
+
+(json-table)=
+## json_table
+
+The `json_table` table function extracts a table of one or more columns and rows
+of data from a JSON value.
+
+```text
+JSON_TABLE(
+
+)
+```
+
+### Examples
+
+tbd
+
+
 (json-array)=
 ## json_array
 
