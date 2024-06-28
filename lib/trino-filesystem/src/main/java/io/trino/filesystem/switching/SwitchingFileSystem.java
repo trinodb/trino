@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.manager;
+package io.trino.filesystem.switching;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -25,9 +24,9 @@ import io.trino.spi.security.ConnectorIdentity;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -38,20 +37,17 @@ final class SwitchingFileSystem
 {
     private final Optional<ConnectorSession> session;
     private final Optional<ConnectorIdentity> identity;
-    private final Optional<TrinoFileSystemFactory> hdfsFactory;
-    private final Map<String, TrinoFileSystemFactory> factories;
+    private final Function<Location, TrinoFileSystemFactory> loader;
 
     public SwitchingFileSystem(
             Optional<ConnectorSession> session,
             Optional<ConnectorIdentity> identity,
-            Optional<TrinoFileSystemFactory> hdfsFactory,
-            Map<String, TrinoFileSystemFactory> factories)
+            Function<Location, TrinoFileSystemFactory> loader)
     {
         checkArgument(session.isPresent() != identity.isPresent(), "exactly one of session and identity must be present");
         this.session = session;
         this.identity = identity;
-        this.hdfsFactory = requireNonNull(hdfsFactory, "hdfsFactory is null");
-        this.factories = ImmutableMap.copyOf(requireNonNull(factories, "factories is null"));
+        this.loader = requireNonNull(loader, "loader is null");
     }
 
     @Override
@@ -83,7 +79,7 @@ final class SwitchingFileSystem
     public void deleteFiles(Collection<Location> locations)
             throws IOException
     {
-        var groups = locations.stream().collect(groupingBy(this::determineFactory));
+        var groups = locations.stream().collect(groupingBy(loader));
         for (var entry : groups.entrySet()) {
             createFileSystem(entry.getKey()).deleteFiles(entry.getValue());
         }
@@ -147,15 +143,7 @@ final class SwitchingFileSystem
 
     private TrinoFileSystem fileSystem(Location location)
     {
-        return createFileSystem(determineFactory(location));
-    }
-
-    private TrinoFileSystemFactory determineFactory(Location location)
-    {
-        return location.scheme()
-                .map(factories::get)
-                .or(() -> hdfsFactory)
-                .orElseThrow(() -> new IllegalArgumentException("No factory for location: " + location));
+        return createFileSystem(loader.apply(location));
     }
 
     private TrinoFileSystem createFileSystem(TrinoFileSystemFactory factory)
