@@ -19,9 +19,15 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import dm.jdbc.driver.DmDriver;
-import io.trino.plugin.jdbc.*;
-import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.opentelemetry.api.OpenTelemetry;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
+import io.trino.plugin.jdbc.DriverConnectionFactory;
+import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.credential.CredentialProvider;
+
 import java.sql.SQLException;
 import java.util.Properties;
 
@@ -41,7 +47,7 @@ public class DamengClientModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory connectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, DamengConfig damengConfig)
+    public static ConnectionFactory connectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, DamengConfig damengConfig, OpenTelemetry openTelemetry)
             throws SQLException
     {
         Properties connectionProperties = new Properties();
@@ -49,10 +55,9 @@ public class DamengClientModule
             connectionProperties.setProperty("connectTimeout", String.valueOf(damengConfig.getConnectTimeout().toMillis()));
         }
 
-        return new DriverConnectionFactory(
-                new DmDriver(),
-                config.getConnectionUrl(),
-                connectionProperties,
-                credentialProvider);
+        return DriverConnectionFactory.builder(new DmDriver(), config.getConnectionUrl(), credentialProvider)
+                .setConnectionProperties(connectionProperties)
+                .setOpenTelemetry(openTelemetry)
+                .build();
     }
 }
