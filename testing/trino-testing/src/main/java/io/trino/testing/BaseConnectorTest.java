@@ -2067,16 +2067,7 @@ public abstract class BaseConnectorTest
         String schema = getSession().getSchema().get();
         String schemaPattern = schema.replaceAll(".$", "_");
 
-        @Language("SQL") String ordersTableWithColumns = "VALUES " +
-                "('orders', 'orderkey'), " +
-                "('orders', 'custkey'), " +
-                "('orders', 'orderstatus'), " +
-                "('orders', 'totalprice'), " +
-                "('orders', 'orderdate'), " +
-                "('orders', 'orderpriority'), " +
-                "('orders', 'clerk'), " +
-                "('orders', 'shippriority'), " +
-                "('orders', 'comment')";
+        String ordersTableWithColumns = getOrdersTableWithColumns();
 
         assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
         assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = 'orders' GROUP BY table_name", "VALUES 'orders'");
@@ -2108,6 +2099,22 @@ public abstract class BaseConnectorTest
                         "('table_privileges'), " +
                         "('tables'), " +
                         "('views')");
+    }
+
+    protected @Language("SQL") String getOrdersTableWithColumns()
+    {
+        return """
+                VALUES
+                ('orders', 'orderkey'),
+                ('orders', 'custkey'),
+                ('orders', 'orderstatus'),
+                ('orders', 'totalprice'),
+                ('orders', 'orderdate'),
+                ('orders', 'orderpriority'),
+                ('orders', 'clerk'),
+                ('orders', 'shippriority'),
+                ('orders', 'comment')
+                """;
     }
 
     @Test
