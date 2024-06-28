@@ -1,0 +1,86 @@
+{
+  "mappings": [
+    {
+      "prefix": "s3://bar/abc",
+      "iamRole": "arn:aws:iam::123456789101:role/allow_path"
+    },
+    {
+      "prefix": "s3://bar/",
+      "allowedIamRoles": [
+        "arn:aws:iam::123456789101:role/allow_bucket_1",
+        "arn:aws:iam::123456789101:role/allow_bucket_2",
+        "arn:aws:iam::123456789101:role/allow_bucket_3"
+      ]
+    },
+    {
+      "prefix": "s3://xyz/",
+      "iamRole": "arn:aws:iam::123456789101:role/allow_default",
+      "allowedIamRoles": [
+        "arn:aws:iam::123456789101:role/allow_foo",
+        "arn:aws:iam::123456789101:role/allow_bar"
+      ]
+    },
+    {
+      "prefix": "s3://foo/",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret",
+      "kmsKeyId": "kmsKey_10",
+      "allowedKmsKeyIds": ["kmsKey_11"]
+    },
+    {
+      "prefix": "s3://foo_all_keys_allowed/",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret",
+      "kmsKeyId": "kmsKey_10",
+      "allowedKmsKeyIds": ["*"]
+    },
+    {
+      "prefix": "s3://foo_no_default_key/",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret",
+      "allowedKmsKeyIds": ["kmsKey_11", "kmsKey_12"]
+    },
+    {
+      "user": "alice",
+      "iamRole": "alice_role"
+    },
+    {
+      "user": "bob|charlie",
+      "iamRole": "bob_and_charlie_role"
+    },
+    {
+      "group": "finance",
+      "iamRole": "finance_role"
+    },
+    {
+      "group": "hr|eng",
+      "iamRole": "hr_and_eng_group"
+    },
+    {
+      "user": "danny",
+      "group": "hq",
+      "iamRole": "danny_hq_role"
+    },
+    {
+      "prefix": "s3://endpointbucket/",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret",
+      "endpoint": "http://localhost:7753"
+    },
+    {
+      "prefix": "s3://regionalbucket/",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret",
+      "region": "us-west-2"
+    },
+    {
+      "prefix": "s3://somebucket/",
+      "iamRole": "arn:aws:iam::1234567891012:role/default",
+      "roleSessionName": "iam-trino-session"
+    },
+    {
+      "useClusterDefault": "false",
+      "iamRole": "arn:aws:iam::123456789101:role/default"
+    }
+  ]
+}
