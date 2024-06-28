@@ -7969,6 +7969,43 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(session, "DROP TABLE " + tableName2);
     }
 
+    @Test
+    public void testPartitionFilterRequiredSchemas()
+    {
+        String schemaName = "test_unenforced_schema_" + randomNameSuffix();
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = Session.builder(withPartitionFilterRequired(getSession()))
+                .setCatalogSessionProperty("iceberg", "query_partition_filter_required_schemas", "[\"tpch\"]")
+                .build();
+
+        assertUpdate(session, "CREATE SCHEMA " + schemaName);
+        assertUpdate(session, format("CREATE TABLE %s.%s (id, a, ds) WITH (partitioning = ARRAY['ds']) AS SELECT 1, '1', '1'", schemaName, tableName), 1);
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id, a, ds) WITH (partitioning = ARRAY['ds']) AS SELECT 1, '1', '1'", 1);
+
+        String enforcedQuery = "SELECT id FROM tpch." + tableName + " WHERE a = '1'";
+        assertQueryFails(session, enforcedQuery, "Filter required for tpch\\." + tableName + " on at least one of the partition columns: ds");
+
+        String unenforcedQuery = format("SELECT id FROM %s.%s WHERE a = '1'", schemaName, tableName);
+        assertQuerySucceeds(session, unenforcedQuery);
+
+        assertUpdate(session, "DROP TABLE " + tableName);
+        assertUpdate(session, "DROP SCHEMA " + schemaName + " CASCADE");
+    }
+
+    @Test
+    public void testIgnorePartitionFilterRequiredSchemas()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "query_partition_filter_required_schemas", "[\"tpch\"]")
+                .build();
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id, a, ds) WITH (partitioning = ARRAY['ds']) AS SELECT 1, '1', '1'", 1);
+        assertQuerySucceeds(session, "SELECT id FROM " + tableName + " WHERE a = '1'");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
     private static Session withPartitionFilterRequired(Session session)
     {
         return Session.builder(session)
