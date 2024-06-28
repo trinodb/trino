@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.dameng;
 
-
 import com.google.inject.Inject;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
