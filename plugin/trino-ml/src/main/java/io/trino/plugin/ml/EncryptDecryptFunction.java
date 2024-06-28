@@ -31,18 +31,23 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import org.bouncycastle.util.Strings;
 
-public final class EncryptDecryptFunction {
+public final class EncryptDecryptFunction
+{
+    private EncryptDecryptFunction() {}
+
     @ScalarFunction("sm4")
     @Description("SM4 encryption requires filling in encrypted data, encryption key, and encryption character encoding")
     @SqlType(StandardTypes.VARCHAR)
     public static Slice sm4Encrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
             @SqlNullable @SqlType("varchar(16)") Slice key,
-            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice charset) {
+            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice charset)
+    {
         try {
             SymmetricCrypto sm4 = SmUtil.sm4(key.getBytes());
             return Slices.utf8Slice(sm4.encryptHex(sliceToString(text), sliceToString(charset)));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("加密失败,检查SM4密钥是否正确.");
         }
     }
@@ -53,11 +58,13 @@ public final class EncryptDecryptFunction {
     public static Slice sm4Decrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
             @SqlNullable @SqlType("varchar(16)") Slice key,
-            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice charset) {
+            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice charset)
+    {
         try {
             SymmetricCrypto sm4 = SmUtil.sm4(key.getBytes());
             return Slices.utf8Slice(sm4.decryptStr(sliceToString(text), CharsetUtil.parse(sliceToString(charset))));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("解密失败,检查SM4密钥是否正确.");
         }
     }
@@ -68,11 +75,13 @@ public final class EncryptDecryptFunction {
     @SqlType(StandardTypes.VARCHAR)
     public static Slice sm2Encrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
-            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice hexPublicKey) {
+            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice hexPublicKey)
+    {
         try {
             SM2 sm2 = SmUtil.sm2(null, sliceToString(hexPublicKey));
             return Slices.utf8Slice(sm2.encryptBase64(text.getBytes(), KeyType.PublicKey));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("加密失败,检查SM2公钥是否正确.");
         }
     }
@@ -82,11 +91,13 @@ public final class EncryptDecryptFunction {
     @SqlType(StandardTypes.VARCHAR)
     public static Slice sm2Decrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
-            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice hexPrivateKey) {
+            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice hexPrivateKey)
+    {
         try {
             SM2 sm2 = SmUtil.sm2(sliceToString(hexPrivateKey), null);
             return Slices.utf8Slice(sm2.decryptStr(sliceToString(text), KeyType.PrivateKey));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("解密失败,检查SM2私钥是否正确.");
         }
     }
@@ -96,11 +107,13 @@ public final class EncryptDecryptFunction {
     @SqlType(StandardTypes.VARCHAR)
     public static Slice rsaEncrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
-            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice publicKey) {
+            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice publicKey)
+    {
         try {
             RSA rsa = new RSA(null, sliceToString(publicKey));
             return Slices.utf8Slice(rsa.encryptBase64(sliceToString(text), KeyType.PublicKey));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("加密失败,检查RSA公钥是否正确.");
         }
     }
@@ -110,11 +123,13 @@ public final class EncryptDecryptFunction {
     @SqlType(StandardTypes.VARCHAR)
     public static Slice rsaDecrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
-            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice privateKey) {
+            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice privateKey)
+    {
         try {
             RSA rsa = new RSA(sliceToString(privateKey), null);
             return Slices.utf8Slice(rsa.decryptStr(sliceToString(text), KeyType.PrivateKey));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("解密失败,检查RSA私钥是否正确.");
         }
     }
@@ -125,11 +140,13 @@ public final class EncryptDecryptFunction {
     @SqlType(StandardTypes.VARCHAR)
     public static Slice aesEncrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
-            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice key) {
+            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice key)
+    {
         try {
             AES aes = SecureUtil.aes(key.getBytes());
             return Slices.utf8Slice(aes.encryptHex(sliceToString(text)));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("加密失败,检查AES密钥是否正确.");
         }
     }
@@ -139,11 +156,13 @@ public final class EncryptDecryptFunction {
     @SqlType(StandardTypes.VARCHAR)
     public static Slice aesDecrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
-            @SqlNullable @SqlType("varchar(16)") Slice key) {
+            @SqlNullable @SqlType("varchar(16)") Slice key)
+    {
         try {
             AES aes = SecureUtil.aes(key.getBytes());
             return Slices.utf8Slice(aes.decryptStr(sliceToString(text), CharsetUtil.CHARSET_UTF_8));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("解密失败,检查AES密钥是否正确.");
         }
     }
@@ -153,11 +172,13 @@ public final class EncryptDecryptFunction {
     @SqlType(StandardTypes.VARCHAR)
     public static Slice desEncrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
-            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice key) {
+            @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice key)
+    {
         try {
             DES des = SecureUtil.des(key.getBytes());
             return Slices.utf8Slice(des.encryptHex(sliceToString(text)));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("加密失败,检查DES密钥是否正确.");
         }
     }
@@ -167,11 +188,13 @@ public final class EncryptDecryptFunction {
     @SqlType(StandardTypes.VARCHAR)
     public static Slice desDecrypt(
             @SqlType(StandardTypes.VARCHAR) Slice text,
-            @SqlNullable @SqlType("varchar(16)") Slice key) {
+            @SqlNullable @SqlType("varchar(16)") Slice key)
+    {
         try {
             DES des = SecureUtil.des(key.getBytes());
             return Slices.utf8Slice(des.decryptStr(sliceToString(text), CharsetUtil.CHARSET_UTF_8));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("解密失败,检查DES密钥是否正确.");
         }
     }
@@ -182,7 +205,8 @@ public final class EncryptDecryptFunction {
     @SqlType(StandardTypes.VARCHAR)
     public static Slice shiftLeft(
             @SqlType(StandardTypes.VARCHAR) Slice text,
-            @SqlType(StandardTypes.BIGINT) long offset) {
+            @SqlType(StandardTypes.BIGINT) long offset)
+    {
         return Slices.utf8Slice(shiftLeft(sliceToString(text), (int) offset));
     }
 
@@ -191,22 +215,26 @@ public final class EncryptDecryptFunction {
     @SqlType(StandardTypes.VARCHAR)
     public static Slice shiftRight(
             @SqlType(StandardTypes.VARCHAR) Slice text,
-            @SqlType(StandardTypes.BIGINT) long offset) {
+            @SqlType(StandardTypes.BIGINT) long offset)
+    {
         return Slices.utf8Slice(shiftRight(sliceToString(text), (int) offset));
     }
 
 
-    public static String shiftLeft(String str, int offset) {
+    public static String shiftLeft(String str, int offset)
+    {
         offset = offset % str.length();
         return str.substring(offset) + str.substring(0, offset);
     }
 
-    public static String shiftRight(String str, int offset) {
+    public static String shiftRight(String str, int offset)
+    {
         offset = offset % str.length();
         return str.substring(str.length() - offset) + str.substring(0, str.length() - offset);
     }
 
-    private static String sliceToString(Slice slice) {
+    private static String sliceToString(Slice slice)
+    {
         return Strings.fromUTF8ByteArray(slice.getBytes());
     }
 }
