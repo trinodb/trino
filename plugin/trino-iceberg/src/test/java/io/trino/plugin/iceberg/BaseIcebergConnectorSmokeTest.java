@@ -547,7 +547,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                     500);
 
             for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertThat(isFileSorted(Location.of((String) filePath), "name")).isTrue();
+                assertThat(isFileSorted(Location.of((String) filePath), "row_t.name")).isTrue();
             }
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM " + table.getName() + " ORDER BY id");
         }
