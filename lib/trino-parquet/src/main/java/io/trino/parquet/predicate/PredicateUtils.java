@@ -141,7 +141,7 @@ public final class PredicateUtils
             int domainCompactionThreshold)
             throws IOException
     {
-        if (block.getRowCount() == 0) {
+        if (block.rowCount() == 0) {
             return false;
         }
         Map<ColumnDescriptor, Statistics<?>> columnStatistics = getStatistics(block, descriptorsByPath);
@@ -192,7 +192,7 @@ public final class PredicateUtils
         long fileRowCount = 0;
         ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
         for (BlockMetadata block : blocksMetaData) {
-            long blockStart = block.getColumns().getFirst().getStartingPos();
+            long blockStart = block.getStartingPos();
             boolean splitContainsBlock = splitStart <= blockStart && blockStart < splitStart + splitLength;
             if (splitContainsBlock) {
                 for (int i = 0; i < parquetTupleDomains.size(); i++) {
@@ -215,7 +215,7 @@ public final class PredicateUtils
                     }
                 }
             }
-            fileRowCount += block.getRowCount();
+            fileRowCount += block.rowCount();
         }
         return rowGroupInfoBuilder.build();
     }
@@ -223,7 +223,7 @@ public final class PredicateUtils
     private static Map<ColumnDescriptor, Statistics<?>> getStatistics(BlockMetadata blockMetadata, Map<List<String>, ColumnDescriptor> descriptorsByPath)
     {
         ImmutableMap.Builder<ColumnDescriptor, Statistics<?>> statistics = ImmutableMap.builder();
-        for (ColumnChunkMetadata columnMetaData : blockMetadata.getColumns()) {
+        for (ColumnChunkMetadata columnMetaData : blockMetadata.columns()) {
             Statistics<?> columnStatistics = columnMetaData.getStatistics();
             if (columnStatistics != null) {
                 ColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
@@ -238,7 +238,7 @@ public final class PredicateUtils
     private static Map<ColumnDescriptor, Long> getColumnValueCounts(BlockMetadata blockMetadata, Map<List<String>, ColumnDescriptor> descriptorsByPath)
     {
         ImmutableMap.Builder<ColumnDescriptor, Long> columnValueCounts = ImmutableMap.builder();
-        for (ColumnChunkMetadata columnMetaData : blockMetadata.getColumns()) {
+        for (ColumnChunkMetadata columnMetaData : blockMetadata.columns()) {
             ColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
             if (descriptor != null) {
                 columnValueCounts.put(descriptor, columnMetaData.getValueCount());
@@ -256,7 +256,7 @@ public final class PredicateUtils
             Optional<ColumnIndexStore> columnIndexStore)
             throws IOException
     {
-        for (ColumnChunkMetadata columnMetaData : blockMetadata.getColumns()) {
+        for (ColumnChunkMetadata columnMetaData : blockMetadata.columns()) {
             ColumnDescriptor descriptor = descriptorsByPath.get(Arrays.asList(columnMetaData.getPath().toArray()));
             if (descriptor == null || !candidateColumns.contains(descriptor)) {
                 continue;

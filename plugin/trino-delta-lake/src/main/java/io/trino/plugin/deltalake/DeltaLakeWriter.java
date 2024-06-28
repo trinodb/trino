@@ -201,7 +201,7 @@ public final class DeltaLakeWriter
 
         ImmutableMultimap.Builder<String, ColumnChunkMetadata> metadataForColumn = ImmutableMultimap.builder();
         for (BlockMetadata blockMetaData : parquetMetadata.getBlocks()) {
-            for (ColumnChunkMetadata columnChunkMetaData : blockMetaData.getColumns()) {
+            for (ColumnChunkMetadata columnChunkMetaData : blockMetaData.columns()) {
                 if (columnChunkMetaData.getPath().size() != 1) {
                     continue; // Only base column stats are supported
                 }

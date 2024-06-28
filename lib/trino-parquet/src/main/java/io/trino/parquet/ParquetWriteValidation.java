@@ -138,14 +138,14 @@ public class ParquetWriteValidation
             BlockMetadata block = rowGroupInfos.get(rowGroupIndex).blockMetaData();
             RowGroup rowGroup = rowGroups.get(rowGroupIndex);
             validateParquet(
-                    block.getRowCount() == rowGroup.getNum_rows(),
+                    block.rowCount() == rowGroup.getNum_rows(),
                     dataSourceId,
                     "Number of rows %d in row group %d did not match %d",
-                    block.getRowCount(),
+                    block.rowCount(),
                     rowGroupIndex,
                     rowGroup.getNum_rows());
 
-            List<ColumnChunkMetadata> columnChunkMetaData = block.getColumns();
+            List<ColumnChunkMetadata> columnChunkMetaData = block.columns();
             validateParquet(
                     columnChunkMetaData.size() == rowGroup.getColumnsSize(),
                     dataSourceId,
@@ -358,7 +358,7 @@ public class ParquetWriteValidation
     public void validateRowGroupStatistics(ParquetDataSourceId dataSourceId, BlockMetadata blockMetaData, List<ColumnStatistics> actualColumnStatistics)
             throws ParquetCorruptionException
     {
-        List<ColumnChunkMetadata> columnChunks = blockMetaData.getColumns();
+        List<ColumnChunkMetadata> columnChunks = blockMetaData.columns();
         checkArgument(
                 columnChunks.size() == actualColumnStatistics.size(),
                 "Column chunk metadata count %s did not match column fields count %s",
