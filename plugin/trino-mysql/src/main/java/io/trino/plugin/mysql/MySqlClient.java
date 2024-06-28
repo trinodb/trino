@@ -176,7 +176,10 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
-import static io.trino.plugin.mysql.DorisTableProperties.*;
+import static io.trino.plugin.mysql.DorisTableProperties.BUCKETS_PROPERTY;
+import static io.trino.plugin.mysql.DorisTableProperties.DISTRIBUTED_BY_PROPERTY;
+import static io.trino.plugin.mysql.DorisTableProperties.KEY_BY_PROPERTY;
+import static io.trino.plugin.mysql.DorisTableProperties.MODEL_TYPE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
@@ -472,7 +475,8 @@ public class MySqlClient
                     "ALTER TABLE %s MODIFY COMMENT %s",
                     quoted(handle.asPlainTable().getRemoteTableName()),
                     mysqlVarcharLiteral(comment.orElse(NO_COMMENT)));
-        } else {
+        }
+        else {
             sql = format(
                     "ALTER TABLE %s COMMENT = %s",
                     quoted(handle.asPlainTable().getRemoteTableName()),
@@ -503,42 +507,42 @@ public class MySqlClient
             //判断是否默认 默认不添加模型
             if (modelType != null) {
                 checkArgument(!keyBy.isEmpty(), "table need key_by properties");
-                switch (modelType){
+                switch (modelType) {
                     case DUPLICATE ->
                             modelTypeSql = format("DUPLICATE KEY ( %s )", join(",", keyBy));
                     case UNIQUE ->
                             modelTypeSql = format("UNIQUE KEY ( %s )", join(",", keyBy));
                     case AGGREGATE ->
 //                            modelTypeSql = format("AGGREGATE KEY ( %s )", join(",", keyBy));
-                            //todo 暂不支持，AGGREGATE需要指定统计列的统计方法
+                        //todo 暂不支持，AGGREGATE需要指定统计列的统计方法
                             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with aggregate");
                     default -> modelTypeSql = "";
                 }
             }
             String tablePropertiesSql = format("%s COMMENT '%s' " +
-                    " DISTRIBUTED BY HASH( %s ) BUCKETS %s PROPERTIES ( " +
-                    "'replication_allocation' = 'tag.location.default: 1' )",
+                            " DISTRIBUTED BY HASH( %s ) BUCKETS %s PROPERTIES ( " +
+                            "'replication_allocation' = 'tag.location.default: 1' )",
                     modelTypeSql, tableMetadata.getComment().orElse(NO_COMMENT), join(",", distributedBy),
                     DorisTableProperties.getBuckets(tableMetadata.getProperties()).orElse(1));
             return ImmutableList.of(format("CREATE TABLE %s (%s) %s", quoted(remoteTableName),
                     join(", ", columns), tablePropertiesSql));
         }
 //        checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
-        return ImmutableList.of(format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName), join(", ", columns), mysqlVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT))));
+        return ImmutableList.of(format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName),
+                join(", ", columns), mysqlVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT))));
     }
 
-
     @Override
-    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle) {
+    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
         if (isDoris) {
             try (Connection connection = connectionFactory.openConnection(session);
-                 PreparedStatement statement = connection.prepareStatement("show create table " +
-                         tableHandle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null) + "." +
-                         tableHandle.asPlainTable().getRemoteTableName().getTableName())) {
-
+                    PreparedStatement statement = connection.prepareStatement("show create table " +
+                            tableHandle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null) + "." +
+                            tableHandle.asPlainTable().getRemoteTableName().getTableName())) {
                 try (ResultSet resultSet = statement.executeQuery()) {
                     ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-                    String createSql =null;
+                    String createSql = null;
                     while (resultSet.next()) {
                         createSql = resultSet.getString(2);
                     }
@@ -555,7 +559,7 @@ public class MySqlClient
                             modelType = modelTypeMatcher.group(1);
                             properties.put(MODEL_TYPE_PROPERTY, DorisEngineType.valueOf(modelType.toUpperCase(ENGLISH)));
                         }
-                        if(modelType == null){
+                        if (modelType == null) {
                             return properties.buildOrThrow();
                         }
                         Pattern keyPattern = Pattern.compile(modelType + " KEY\\((.*?)\\)", Pattern.CASE_INSENSITIVE);
@@ -567,12 +571,12 @@ public class MySqlClient
 
                         // 提取并打印匹配项
                         if (keyMatcher.find()) {
-                            String keyBy = keyMatcher.group(1).replaceAll("`","");
+                            String keyBy = keyMatcher.group(1).replaceAll("`", "");
                             properties.put(KEY_BY_PROPERTY, TABLE_PROPERTY_SPLITTER.splitToList(keyBy));
                         }
 
                         if (distributedMatcher.find()) {
-                            String distributedColumn = distributedMatcher.group(1).replaceAll("`","");
+                            String distributedColumn = distributedMatcher.group(1).replaceAll("`", "");
                             String buckets = distributedMatcher.group(2);
                             properties.put(DISTRIBUTED_BY_PROPERTY, TABLE_PROPERTY_SPLITTER.splitToList(distributedColumn));
                             properties.put(BUCKETS_PROPERTY, Integer.parseInt(buckets));
@@ -580,10 +584,12 @@ public class MySqlClient
                     }
                     return properties.buildOrThrow();
                 }
-            } catch (SQLException e) {
+            }
+            catch (SQLException e) {
                 throw new TrinoException(JDBC_ERROR, e);
             }
-        } else {
+        }
+        else {
             return super.getTableProperties(session, tableHandle);
         }
     }
@@ -597,7 +603,7 @@ public class MySqlClient
 //            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
 //        }
         String comment = column.getComment();
-        if(comment == null || comment.isEmpty()){
+        if (comment == null || comment.isEmpty()) {
             comment = NO_COMMENT;
         }
         return "%s %s %s COMMENT '%s'".formatted(
@@ -763,10 +769,12 @@ public class MySqlClient
         if (isDoris) {
             if (datetimeColumnSize == 0) {
                 timestampColumnSize = 23;
-            } else {
+            }
+            else {
                 timestampColumnSize = datetimeColumnSize;
             }
-        }else {
+        }
+        else {
             timestampColumnSize = typeHandle.requiredColumnSize();
         }
         TimestampType timestampType = createTimestampType(getTimestampPrecision(timestampColumnSize));
@@ -925,7 +933,7 @@ public class MySqlClient
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (type == BOOLEAN) {
-            if (isDoris){
+            if (isDoris) {
                 return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
             }
             return WriteMapping.booleanMapping("bit", booleanWriteFunction());
@@ -951,7 +959,7 @@ public class MySqlClient
 
         if (type instanceof DecimalType decimalType) {
             int scale = decimalType.getScale();
-            if (isDoris && scale == 0){
+            if (isDoris && scale == 0) {
                 scale = 2;
             }
             String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), scale);
@@ -962,7 +970,7 @@ public class MySqlClient
         }
 
         if (type == DATE) {
-            if (isDoris){
+            if (isDoris) {
                 //todo 确认后续doris版本是否需要datev2
                 return WriteMapping.longMapping("datev2", mySqlDateWriteFunctionUsingLocalDate());
             }
@@ -1079,7 +1087,8 @@ public class MySqlClient
     }
 
     @Override
-    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column) {
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    {
         if (isDoris) {
             try (Connection connection = connectionFactory.openConnection(session)) {
                 String remoteColumnName = getIdentifierMapping().toRemoteColumnName(getRemoteIdentifiers(connection), column.getName());
@@ -1092,7 +1101,8 @@ public class MySqlClient
             catch (SQLException e) {
                 throw new TrinoException(JDBC_ERROR, e);
             }
-        } else {
+        }
+        else {
             super.addColumn(session, handle, column);
         }
     }
@@ -1104,8 +1114,9 @@ public class MySqlClient
         if (isDoris) {
             tableCopyFormat = "CREATE TABLE %s PROPERTIES( 'replication_allocation' = 'tag.location.default: 1') " +
                     "AS SELECT * FROM %s WHERE 0 = 1";
-        } else if (isGtidMode(connection)) {
-                tableCopyFormat = "CREATE TABLE %s LIKE %s";
+        }
+        else if (isGtidMode(connection)) {
+            tableCopyFormat = "CREATE TABLE %s LIKE %s";
         }
         String sql = format(
                 tableCopyFormat,
@@ -1138,7 +1149,8 @@ public class MySqlClient
                     "ALTER TABLE %s RENAME %s",
                     quoted(catalogName, remoteSchemaName, remoteTableName),
                     quoted(newRemoteTableName)));
-        } else {
+        }
+        else {
             super.renameTable(session, connection, catalogName, remoteSchemaName, remoteTableName,
                     newRemoteSchemaName, newRemoteTableName);
         }

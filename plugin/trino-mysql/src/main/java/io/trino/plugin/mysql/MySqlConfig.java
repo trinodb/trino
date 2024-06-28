@@ -24,7 +24,7 @@ public class MySqlConfig
 {
     private boolean autoReconnect = true;
     private int maxReconnects = 3;
-    private int datetimeColumnSize = 0;
+    private int datetimeColumnSize = 23;
     private boolean isDoris;
     private Duration connectionTimeout = new Duration(10, TimeUnit.SECONDS);
 
