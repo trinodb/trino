@@ -953,7 +953,7 @@ public class IcebergPageSourceProvider
             if (!rowGroups.isEmpty()) {
                 startRowPosition = Optional.of(rowGroups.getFirst().fileRowOffset());
                 RowGroupInfo lastRowGroup = rowGroups.getLast();
-                endRowPosition = Optional.of(lastRowGroup.fileRowOffset() + lastRowGroup.blockMetaData().rowCount());
+                endRowPosition = Optional.of(lastRowGroup.fileRowOffset() + lastRowGroup.prunedBlockMetadata().getRowCount());
             }
 
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
