@@ -26,6 +26,7 @@ import static java.util.Objects.requireNonNull;
         use = JsonTypeInfo.Id.NAME,
         property = "@type")
 @JsonSubTypes({
+        // When you add new plan node remember to update getChildern in utils.js
         @JsonSubTypes.Type(value = AdaptivePlanNode.class, name = "adaptivePlanNode"),
         @JsonSubTypes.Type(value = AggregationNode.class, name = "aggregation"),
         @JsonSubTypes.Type(value = ApplyNode.class, name = "apply"),
