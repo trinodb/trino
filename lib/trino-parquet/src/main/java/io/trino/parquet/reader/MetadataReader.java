@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -134,12 +135,10 @@ public final class MetadataReader
         List<RowGroup> rowGroups = fileMetaData.getRow_groups();
         if (rowGroups != null) {
             for (RowGroup rowGroup : rowGroups) {
-                BlockMetadata blockMetaData = new BlockMetadata();
-                blockMetaData.setRowCount(rowGroup.getNum_rows());
-                blockMetaData.setTotalByteSize(rowGroup.getTotal_byte_size());
                 List<ColumnChunk> columns = rowGroup.getColumns();
                 validateParquet(!columns.isEmpty(), dataSourceId, "No columns in row group: %s", rowGroup);
                 String filePath = columns.get(0).getFile_path();
+                ImmutableList.Builder<ColumnChunkMetadata> columnMetadataBuilder = ImmutableList.builderWithExpectedSize(columns.size());
                 for (ColumnChunk columnChunk : columns) {
                     validateParquet(
                             (filePath == null && columnChunk.getFile_path() == null)
@@ -167,10 +166,9 @@ public final class MetadataReader
                     column.setColumnIndexReference(toColumnIndexReference(columnChunk));
                     column.setOffsetIndexReference(toOffsetIndexReference(columnChunk));
                     column.setBloomFilterOffset(metaData.bloom_filter_offset);
-                    blockMetaData.addColumn(column);
+                    columnMetadataBuilder.add(column);
                 }
-                blockMetaData.setPath(filePath);
-                blocks.add(blockMetaData);
+                blocks.add(new BlockMetadata(rowGroup.getNum_rows(), columnMetadataBuilder.build()));
             }
         }
 

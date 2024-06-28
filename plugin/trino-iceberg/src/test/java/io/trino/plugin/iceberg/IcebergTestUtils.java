@@ -140,7 +140,7 @@ public final class IcebergTestUtils
         Comparable previousMax = null;
         verify(parquetMetadata.getBlocks().size() > 1, "Test must produce at least two row groups");
         for (BlockMetadata blockMetaData : parquetMetadata.getBlocks()) {
-            ColumnChunkMetadata columnMetadata = blockMetaData.getColumns().stream()
+            ColumnChunkMetadata columnMetadata = blockMetaData.columns().stream()
                     .filter(column -> getOnlyElement(column.getPath().iterator()).equalsIgnoreCase(sortColumnName))
                     .collect(onlyElement());
             if (previousMax != null) {
