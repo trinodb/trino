@@ -589,7 +589,7 @@ public abstract class BaseConnectorTest
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "varchar_as_date_pred",
-                "(a varchar)",
+                tableDefinitionForTestingVarcharCastToDateInPredicate(),
                 List.of(
                         "'999-09-09'",
                         "'1005-09-09'",
@@ -611,7 +611,7 @@ public abstract class BaseConnectorTest
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "varchar_as_date_pred",
-                "(a varchar)",
+                tableDefinitionForTestingVarcharCastToDateInPredicate(),
                 List.of("'2005-06-bad-date'", "'2005-09-10'"))) {
             assertThat(query("SELECT a FROM %s WHERE CAST(a AS date) < DATE '2005-09-10'".formatted(table.getName())))
                     .failure().hasMessage("Value cannot be cast to date: 2005-06-bad-date");
@@ -642,7 +642,7 @@ public abstract class BaseConnectorTest
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "varchar_as_date_pred",
-                "(a varchar)",
+                tableDefinitionForTestingVarcharCastToDateInPredicate(),
                 List.of("'2005-09-10'"))) {
             // 2005-09-01, when written as 2005-09-1, is a prefix of an existing data point: 2005-09-10
             assertThat(query("SELECT a FROM %s WHERE CAST(a AS date) != DATE '2005-09-01'".formatted(table.getName())))
@@ -665,6 +665,14 @@ public abstract class BaseConnectorTest
             return;
         }
         verifyResults.accept(queryAssert);
+    }
+
+    /**
+     * Create a table with a varchar column named 'a'
+     */
+    protected String tableDefinitionForTestingVarcharCastToDateInPredicate()
+    {
+        return "(a varchar)";
     }
 
     @Test

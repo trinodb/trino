@@ -80,6 +80,7 @@ public final class EnvMultinodeAllConnectors
                         "redshift",
                         "snowflake",
                         "sqlserver",
+                        "starrocks",
                         "trino_thrift",
                         "tpcds")
                 .forEach(connector -> builder.addConnector(

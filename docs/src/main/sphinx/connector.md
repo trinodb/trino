@@ -40,6 +40,7 @@ Redshift        <connector/redshift>
 SingleStore     <connector/singlestore>
 Snowflake       <connector/snowflake>
 SQL Server      <connector/sqlserver>
+StarRocks       <connector/starrocks>
 System          <connector/system>
 Thrift          <connector/thrift>
 TPCDS           <connector/tpcds>
