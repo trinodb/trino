@@ -332,6 +332,42 @@ statements, the connector supports the following features:
 ```{include} alter-schema-limitation.fragment
 ```
 
+## Table functions
+
+The connector provides specific {doc}`table functions </functions/table>` to
+access ClickHouse.
+
+(clickhouse-query-function)=
+### `query(varchar) -> table`
+
+The `query` function allows you to query the underlying database directly. It
+requires syntax native to ClickHouse, because the full query is pushed down and
+processed in ClickHouse. This can be useful for accessing native features which
+are not available in Trino or for improving query performance in situations
+where running a query natively may be faster.
+
+```{include} query-passthrough-warning.fragment
+```
+
+As a simple example, query the `example` catalog and select an entire table:
+
+```
+SELECT
+  *
+FROM
+  TABLE(
+    example.system.query(
+      query => 'SELECT
+        *
+      FROM
+        tpch.nation'
+    )
+  );
+```
+
+```{include} query-table-function-ordering.fragment
+```
+
 ## Performance
 
 The connector includes a number of performance improvements, detailed in the
