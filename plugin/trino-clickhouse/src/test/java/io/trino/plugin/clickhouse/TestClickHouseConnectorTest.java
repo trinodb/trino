@@ -77,7 +77,6 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_ARRAY,
                  SUPPORTS_DELETE,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
-                 SUPPORTS_NATIVE_QUERY,
                  SUPPORTS_NEGATIVE_DATE,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
                  SUPPORTS_ROW_TYPE,
@@ -786,6 +785,23 @@ public class TestClickHouseConnectorTest
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
                 .hasMessageMatching("(?s).*(Cannot rename|File name too long).*");
         assertThat(getQueryRunner().tableExists(getSession(), invalidTargetTableName)).isFalse();
+    }
+
+    @Test
+    @Override // Override because the failure message differs
+    public void testNativeQueryIncorrectSyntax()
+    {
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .failure().hasMessage("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
+    }
+
+    @Test
+    @Override // Override because the failure message differs
+    public void testNativeQueryInsertStatementTableDoesNotExist()
+    {
+        assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .failure().hasMessage("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
     }
 
     @Test
