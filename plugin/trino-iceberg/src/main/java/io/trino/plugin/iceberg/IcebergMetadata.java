@@ -152,6 +152,7 @@ import org.apache.iceberg.UpdatePartitionSpec;
 import org.apache.iceberg.UpdateProperties;
 import org.apache.iceberg.UpdateSchema;
 import org.apache.iceberg.UpdateStatistics;
+import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Term;
@@ -283,6 +284,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
+import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
@@ -1013,16 +1015,23 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        if (fragments.isEmpty()) {
-            // Commit the transaction if the table is being created without data
-            AppendFiles appendFiles = transaction.newFastAppend();
-            commit(appendFiles, session);
-            transaction.commitTransaction();
-            transaction = null;
-            return Optional.empty();
-        }
+        IcebergWritableTableHandle icebergTableHandle = (IcebergWritableTableHandle) tableHandle;
+        try {
+            if (fragments.isEmpty()) {
+                // Commit the transaction if the table is being created without data
+                AppendFiles appendFiles = transaction.newFastAppend();
+                commit(appendFiles, session);
+                transaction.commitTransaction();
+                transaction = null;
+                return Optional.empty();
+            }
 
-        return finishInsert(session, (IcebergWritableTableHandle) tableHandle, fragments, computedStatistics);
+            return finishInsert(session, icebergTableHandle, fragments, computedStatistics);
+        }
+        catch (AlreadyExistsException e) {
+            // May happen when table has been already created concurrently.
+            throw new TrinoException(TABLE_ALREADY_EXISTS, format("Table %s already exists", icebergTableHandle.name()), e);
+        }
     }
 
     @Override
