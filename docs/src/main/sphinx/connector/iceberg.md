@@ -170,8 +170,8 @@ implementation is used:
   - Set to `false` to force the materialized view refresh operation to always perform a full refresh. You can use the
     `incremental_refresh_enabled` catalog session property for temporary, catalog specific use. 
     In the majority of cases, using incremental refresh (vs full refresh) will be more beneficial since a much smaller 
-    subset of the source table needs to be scanned. One caveat is that using incremental refresh may result in more 
-    data files since it uses the append operation to insert the 'new' records (full refresh appends all data in one go).
+    subset of the source table(s) needs to be scanned. One caveat is that while incremental refresh may scan less data, 
+    it may result in more data files created since it uses the append operation to insert the 'new' records.
   - `true`
 :::
 
@@ -1513,7 +1513,7 @@ This operation may perform either an incremental or a full refresh, depending on
 definition and the snapshot history of the source table(s). For full refresh, the operation deletes the data 
 from the storage table, and inserts the data that is the result of executing the materialized view query into the 
 existing table. For incremental refresh, the existing data is not deleted from the storage table and only the 'delta' 
-records are processed from the source table and (potentially) appended into the storage table.
+records are processed from the source table(s) and appended into the storage table (if needed).
 In both cases, data is replaced/appended atomically, so users can continue to query the materialized view while
 it is being refreshed. Refreshing a materialized view also stores the
 snapshot-ids of all Iceberg tables that are part of the materialized view's
