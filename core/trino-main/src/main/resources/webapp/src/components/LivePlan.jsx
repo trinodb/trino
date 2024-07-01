@@ -18,10 +18,11 @@ import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3";
 import * as d3 from "d3";
 
-import {formatRows, getStageStateColor, initializeGraph, initializeSvg, parseAndFormatDataSize, truncateString} from "../utils";
+import {formatRows, getStageStateColor, initializeGraph, initializeSvg, parseAndFormatDataSize, parseDuration, precisionRound, truncateString} from "../utils";
 import {QueryHeader} from "./QueryHeader";
 
 type StageStatisticsProps = {
+    query: any,
     stage: any,
 }
 type StageStatisticsState = {}
@@ -76,21 +77,28 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
     }
 
     render() {
+        const query = this.props.query;
         const stage = this.props.stage;
         const stats = this.props.stage.stageStats;
+
+        const cpuTimePercent = 100.0 * parseDuration(stats?.totalCpuTime) / parseDuration(query?.queryStats.totalCpuTime);
+        const scheduledTimePercent = 100.0 * parseDuration(stats?.totalScheduledTime) / parseDuration(query?.queryStats.totalScheduledTime);
+
         return (
             <div>
                 <div>
                     <h3 className="margin-top: 0">Stage {stage.id}</h3>
                     {stage.state}
                     <hr/>
-                    CPU: {stats.totalCpuTime}<br />
+                    Scheduled: {stats.totalScheduledTime + " (" + precisionRound(scheduledTimePercent) + "%)"}<br />
+                    CPU: {stats.totalCpuTime + " (" + precisionRound(cpuTimePercent) + "%)"}<br />
                     Buffered: {parseAndFormatDataSize(stats.bufferedDataSize)}<br />
                     {stats.fullyBlocked ?
                         <div style={{color: '#ff0000'}}>Blocked: {stats.totalBlockedTime} </div> :
                         <div>Blocked: {stats.totalBlockedTime} </div>
                     }
-                    Memory: {parseAndFormatDataSize(stats.userMemoryReservation)}
+                    User Memory: {parseAndFormatDataSize(stats.userMemoryReservation)}<br />
+                    Revocable Memory: {parseAndFormatDataSize(stats.revocableMemoryReservation)}
                     <br/>
                     Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers}
                     <hr/>
@@ -219,7 +227,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         graph.setNode(clusterId, {style: 'fill: ' + color, labelStyle: 'fill: #fff'});
 
         // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
-        const html = ReactDOMServer.renderToString(<StageStatistics key={stage.id} stage={stage}/>);
+        const html = ReactDOMServer.renderToString(<StageStatistics key={stage.id} stage={stage} query={this.state.query}/>);
 
         graph.setNode(stageRootNodeId, {class: "stage-stats", label: html, labelType: "html"});
         graph.setParent(stageRootNodeId, clusterId);

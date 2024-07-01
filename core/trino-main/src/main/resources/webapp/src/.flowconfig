@@ -7,5 +7,6 @@
 [lints]
 
 [options]
+esproposal.optional_chaining=enable
 
 [strict]
