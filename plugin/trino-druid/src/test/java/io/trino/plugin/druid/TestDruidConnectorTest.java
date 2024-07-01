@@ -562,4 +562,28 @@ public class TestDruidConnectorTest
                         "(BIGINT '1', BIGINT '574', CAST('AIR' AS varchar))")
                 .isNotFullyPushedDown(FilterNode.class);
     }
+
+    @Test
+    @Override // Override because Druid doesn't support DDL
+    public void testUpdateProcedure()
+    {
+        assertThatThrownBy(super::testUpdateProcedure)
+                .hasMessageContaining("This connector does not support creating tables");
+    }
+
+    @Test
+    @Override // Override because Druid doesn't support DDL
+    public void testUpdateProcedureWithNamedArgument()
+    {
+        assertThatThrownBy(super::testUpdateProcedureWithNamedArgument)
+                .hasMessageContaining("This connector does not support creating tables");
+    }
+
+    @Test
+    @Override // Override because Druid allows SELECT query in update procedure
+    public void testUpdateProcedureWithInvalidQuery()
+    {
+        assertUpdate("CALL system.update('SELECT 1')");
+        assertQueryFails("CALL system.update('invalid')", ".*Non-query expression encountered in illegal context.*");
+    }
 }
