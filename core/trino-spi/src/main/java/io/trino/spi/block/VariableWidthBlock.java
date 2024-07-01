@@ -30,7 +30,6 @@ import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
-import static io.trino.spi.block.BlockUtil.compactSlice;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
 
@@ -272,7 +271,7 @@ public final class VariableWidthBlock
         positionOffset += arrayOffset;
 
         int[] newOffsets = compactOffsets(offsets, positionOffset, length);
-        Slice newSlice = compactSlice(slice, offsets[positionOffset], newOffsets[length]);
+        Slice newSlice = slice.copy(offsets[positionOffset], newOffsets[length]);
         boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
 
         if (newOffsets == offsets && newSlice == slice && newValueIsNull == valueIsNull) {

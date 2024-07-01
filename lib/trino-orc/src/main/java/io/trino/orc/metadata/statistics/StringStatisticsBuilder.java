@@ -189,11 +189,6 @@ public class StringStatisticsBuilder
             }
             return StringCompactor.truncateMax(minOrMax, stringStatisticsLimitInBytes);
         }
-
-        // Do not hold the entire slice where the actual stats could be small
-        if (minOrMax.isCompact()) {
-            return minOrMax;
-        }
         return minOrMax.copy();
     }
 

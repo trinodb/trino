@@ -13,7 +13,6 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
 import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
@@ -143,19 +142,6 @@ final class BlockUtil
             newOffsets[i] = offsets[index + i] - offsets[index];
         }
         return newOffsets;
-    }
-
-    /**
-     * Returns a slice containing values in the specified range of the specified slice.
-     * If the range matches the entire slice, the input slice will be returned.
-     * Otherwise, a copy will be returned.
-     */
-    static Slice compactSlice(Slice slice, int index, int length)
-    {
-        if (slice.isCompact() && index == 0 && length == slice.length()) {
-            return slice;
-        }
-        return slice.copy(index, length);
     }
 
     /**
