@@ -42,8 +42,12 @@ import static io.trino.grammar.type.TypeCalculationParser.ASTERISK;
 import static io.trino.grammar.type.TypeCalculationParser.MAX;
 import static io.trino.grammar.type.TypeCalculationParser.MIN;
 import static io.trino.grammar.type.TypeCalculationParser.MINUS;
+import static io.trino.grammar.type.TypeCalculationParser.NORMALIZE_DECIMAL_DIVIDE_PRECISION;
+import static io.trino.grammar.type.TypeCalculationParser.NORMALIZE_DECIMAL_DIVIDE_SCALE;
 import static io.trino.grammar.type.TypeCalculationParser.PLUS;
 import static io.trino.grammar.type.TypeCalculationParser.SLASH;
+import static io.trino.type.DecimalTypeUtils.normalizeDecimalDividePrecision;
+import static io.trino.type.DecimalTypeUtils.normalizeDecimalDivideScale;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeCalculation
@@ -152,6 +156,8 @@ public final class TypeCalculation
             return switch (ctx.binaryFunctionName().name.getType()) {
                 case MIN -> left.min(right);
                 case MAX -> left.max(right);
+                case NORMALIZE_DECIMAL_DIVIDE_PRECISION -> normalizeDecimalDividePrecision(left, right);
+                case NORMALIZE_DECIMAL_DIVIDE_SCALE -> normalizeDecimalDivideScale(left, right);
                 default -> throw new IllegalArgumentException("Unsupported binary function " + ctx.binaryFunctionName().getText());
             };
         }
