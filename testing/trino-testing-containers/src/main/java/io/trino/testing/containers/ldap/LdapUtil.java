@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.password.ldap;
+package io.trino.testing.containers.ldap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,7 +31,7 @@ import java.util.Map;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-final class LdapUtil
+public final class LdapUtil
 {
     public static final String MEMBER = "member";
 
@@ -104,12 +104,18 @@ final class LdapUtil
 
     public static LdapObjectDefinition buildLdapUserObject(String organizationName, String userName, String password)
     {
+        return buildLdapUserObject(organizationName, userName, ImmutableMap.of("userPassword", password));
+    }
+
+    public static LdapObjectDefinition buildLdapUserObject(String organizationName, String userName, Map<String, String> extraAttributes)
+    {
         return LdapObjectDefinition.builder(userName)
                 .setDistinguishedName(format("uid=%s,%s", userName, organizationName))
-                .setAttributes(ImmutableMap.of(
-                        "cn", userName,
-                        "sn", userName,
-                        "userPassword", password))
+                .setAttributes(ImmutableMap.<String, String>builder()
+                    .put("cn", userName)
+                    .put("sn", userName)
+                    .putAll(extraAttributes)
+                    .buildOrThrow())
                 .setObjectClasses(Arrays.asList("person", "inetOrgPerson"))
                 .build();
     }

@@ -11,12 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.password.ldap;
+package io.trino.testing.containers;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
+import io.trino.testing.TestingNames;
 import io.trino.testing.TestingProperties;
+import io.trino.testing.containers.ldap.LdapObjectDefinition;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
@@ -25,20 +27,20 @@ import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import javax.naming.Context;
 import javax.naming.NamingException;
 import javax.naming.directory.DirContext;
+import javax.naming.directory.InitialDirContext;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Properties;
 
-import static io.trino.plugin.base.jndi.JndiUtils.createDirContext;
-import static io.trino.plugin.password.ldap.LdapUtil.MEMBER;
-import static io.trino.plugin.password.ldap.LdapUtil.addAttributesToExistingLdapObjects;
-import static io.trino.plugin.password.ldap.LdapUtil.addLdapDefinition;
-import static io.trino.plugin.password.ldap.LdapUtil.buildLdapGroupObject;
-import static io.trino.plugin.password.ldap.LdapUtil.buildLdapOrganizationObject;
-import static io.trino.plugin.password.ldap.LdapUtil.buildLdapUserObject;
-import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.containers.ldap.LdapUtil.MEMBER;
+import static io.trino.testing.containers.ldap.LdapUtil.addAttributesToExistingLdapObjects;
+import static io.trino.testing.containers.ldap.LdapUtil.addLdapDefinition;
+import static io.trino.testing.containers.ldap.LdapUtil.buildLdapGroupObject;
+import static io.trino.testing.containers.ldap.LdapUtil.buildLdapOrganizationObject;
+import static io.trino.testing.containers.ldap.LdapUtil.buildLdapUserObject;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -82,19 +84,43 @@ public class TestingOpenLdapServer
     public DisposableSubContext createOrganization()
             throws NamingException
     {
-        return createDisposableSubContext(buildLdapOrganizationObject("organization_" + randomNameSuffix(), BASE_DISTINGUISED_NAME));
+        return createOrganization("organization_" + TestingNames.randomNameSuffix());
+    }
+
+    public DisposableSubContext createOrganization(String name)
+            throws NamingException
+    {
+        return createOrganization(name, new DisposableSubContext(BASE_DISTINGUISED_NAME));
+    }
+
+    public DisposableSubContext createOrganization(String name, DisposableSubContext subOrganization)
+            throws NamingException
+    {
+        return createDisposableSubContext(buildLdapOrganizationObject(name, subOrganization.getDistinguishedName()));
     }
 
     public DisposableSubContext createGroup(DisposableSubContext organization)
             throws Exception
     {
-        return createDisposableSubContext(buildLdapGroupObject(organization.getDistinguishedName(), "group_" + randomNameSuffix()));
+        return createGroup(organization, "group_" + TestingNames.randomNameSuffix());
+    }
+
+    public DisposableSubContext createGroup(DisposableSubContext organization, String name)
+            throws Exception
+    {
+        return createDisposableSubContext(buildLdapGroupObject(organization.getDistinguishedName(), name));
     }
 
     public DisposableSubContext createUser(DisposableSubContext organization, String userName, String password)
             throws Exception
     {
         return createDisposableSubContext(buildLdapUserObject(organization.getDistinguishedName(), userName, password));
+    }
+
+    public DisposableSubContext createUser(DisposableSubContext organization, String userName, Map<String, String> extraAttributes)
+            throws Exception
+    {
+        return createDisposableSubContext(buildLdapUserObject(organization.getDistinguishedName(), userName, extraAttributes));
     }
 
     public DisposableSubContext createDisposableSubContext(LdapObjectDefinition ldapObjectDefinition)
@@ -134,7 +160,9 @@ public class TestingOpenLdapServer
                 .put(Context.SECURITY_CREDENTIALS, "admin")
                 .buildOrThrow();
         try {
-            return createDirContext(environment);
+            Properties properties = new Properties();
+            properties.putAll(environment);
+            return new InitialDirContext(properties);
         }
         catch (NamingException e) {
             throw new RuntimeException("Connection to LDAP server failed", e);
