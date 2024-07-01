@@ -78,6 +78,7 @@ import static io.trino.spi.block.Fixed12Block.encodeFixed12;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.Decimals.overflows;
+import static io.trino.spi.type.Decimals.rescale;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -981,7 +982,7 @@ public final class ValueDecoders
                                 INVALID_CAST_ARGUMENT,
                                 format("Cannot read parquet INT32 value '%s' as DECIMAL(%s, %s)", buffer[i], decimalType.getPrecision(), decimalType.getScale()));
                     }
-                    values[i + offset] = buffer[i];
+                    values[i + offset] = rescale(buffer[i], 0, decimalType.getScale());
                 }
             }
 
