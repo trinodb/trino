@@ -1193,7 +1193,7 @@ public abstract class AbstractTestParquetReader
         tester.testRoundTrip(
                 javaIntObjectInspector,
                 ImmutableList.of(Integer.MAX_VALUE),
-                ImmutableList.of(new SqlDecimal(BigInteger.valueOf(Integer.MAX_VALUE), 10, 1)),
+                ImmutableList.of(new SqlDecimal(BigInteger.valueOf(Integer.MAX_VALUE * 10L), 10, 1)),
                 createDecimalType(10, 1),
                 parquetSchema);
 
