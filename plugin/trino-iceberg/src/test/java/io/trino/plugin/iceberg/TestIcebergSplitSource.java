@@ -188,6 +188,12 @@ public class TestIcebergSplitSource
                     {
                         return TupleDomain.all();
                     }
+
+                    @Override
+                    public OptionalLong getPreferredDynamicFilterTimeout()
+                    {
+                        return OptionalLong.of(0L);
+                    }
                 },
                 new Duration(2, SECONDS),
                 alwaysTrue(),
@@ -274,6 +280,12 @@ public class TestIcebergSplitSource
             public TupleDomain<ColumnHandle> getCurrentPredicate()
             {
                 return TupleDomain.all();
+            }
+
+            @Override
+            public OptionalLong getPreferredDynamicFilterTimeout()
+            {
+                return OptionalLong.empty();
             }
         });
         assertThat(split.getFileStatisticsDomain()).isEqualTo(TupleDomain.withColumnDomains(

@@ -1316,8 +1316,18 @@ public class PlanPrinter
         private String printDynamicFilters(Collection<DynamicFilters.Descriptor> filters)
         {
             return filters.stream()
-                    .map(filter -> anonymizer.anonymize(filter.getInput()) + " " + filter.getOperator().getValue() + " #" + filter.getId())
+                    .map(filter -> anonymizer.anonymize(filter.getInput()) + " " + filter.getOperator().getValue() + " #" + filter.getId() +
+                                   printDynamicFilterPreferredTimeout(filter))
                     .collect(joining(", ", "{", "}"));
+        }
+
+        private String printDynamicFilterPreferredTimeout(DynamicFilters.Descriptor filter)
+        {
+            if (filter.getPreferredTimeout().isEmpty()) {
+                return "";
+            }
+
+            return filter.getPreferredTimeout().getAsLong() > 0 ? " await" : " no-wait";
         }
 
         private String printDynamicFilterAssignments(Map<DynamicFilterId, Symbol> filters)
