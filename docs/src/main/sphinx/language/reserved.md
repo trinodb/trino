@@ -37,7 +37,6 @@ be quoted (using double quotes) in order to be used as an identifier.
 | `END`               | reserved | reserved |
 | `ESCAPE`            | reserved | reserved |
 | `EXCEPT`            | reserved | reserved |
-| `EXECUTE`           | reserved | reserved |
 | `EXISTS`            | reserved | reserved |
 | `EXTRACT`           | reserved | reserved |
 | `FALSE`             | reserved | reserved |
