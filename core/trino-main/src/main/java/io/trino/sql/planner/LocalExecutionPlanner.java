@@ -28,11 +28,19 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.cache.CacheDataOperator;
+import io.trino.cache.CacheDriverFactory;
+import io.trino.cache.CacheManagerRegistry;
+import io.trino.cache.CacheStats;
+import io.trino.cache.CommonPlanAdaptation;
+import io.trino.cache.LoadCachedDataOperator.LoadCachedDataOperatorFactory;
 import io.trino.cache.NonEvictableCache;
+import io.trino.cache.StaticDynamicFilter;
 import io.trino.client.NodeVersion;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFilterConfig;
@@ -66,11 +74,11 @@ import io.trino.operator.HashSemiJoinOperator;
 import io.trino.operator.JoinOperatorType;
 import io.trino.operator.LeafTableFunctionOperator.LeafTableFunctionOperatorFactory;
 import io.trino.operator.LimitOperator.LimitOperatorFactory;
-import io.trino.operator.LocalPlannerAware;
 import io.trino.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import io.trino.operator.MergeOperator.MergeOperatorFactory;
 import io.trino.operator.MergeProcessorOperator;
 import io.trino.operator.MergeWriterOperator.MergeWriterOperatorFactory;
+import io.trino.operator.OperatorDriverFactory;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.OrderByOperator.OrderByOperatorFactory;
 import io.trino.operator.OutputFactory;
@@ -156,6 +164,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
+import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorIndex;
 import io.trino.spi.connector.ConnectorSession;
@@ -172,6 +181,7 @@ import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -202,6 +212,8 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.CacheDataPlanNode;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -215,6 +227,7 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -297,9 +310,9 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
-import static com.google.common.collect.Sets.difference;
 import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationUniqueRowsRatioThreshold;
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
+import static io.trino.SystemSessionProperties.getCacheMaxSplitSize;
 import static io.trino.SystemSessionProperties.getExchangeCompressionCodec;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
@@ -314,8 +327,12 @@ import static io.trino.SystemSessionProperties.isColumnarFilterEvaluationEnabled
 import static io.trino.SystemSessionProperties.isEnableLargeDynamicFilters;
 import static io.trino.SystemSessionProperties.isForceSpillingOperator;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
+import static io.trino.cache.CacheCommonSubqueries.getLoadCachedDataPlanNode;
+import static io.trino.cache.CacheCommonSubqueries.isCacheChooseAlternativeNode;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.StaticDynamicFilter.createStaticDynamicFilter;
+import static io.trino.cache.StaticDynamicFilter.createStaticDynamicFilterSupplier;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
@@ -352,6 +369,7 @@ import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
+import static io.trino.sql.ir.IrUtils.extractDisjuncts;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
 import static io.trino.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.trino.sql.planner.SortExpressionExtractor.extractSortExpression;
@@ -398,7 +416,10 @@ public class LocalExecutionPlanner
     private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final Optional<ExplainAnalyzeContext> explainAnalyzeContext;
-    private final PageSourceManager pageSourceProvider;
+    private final PageSourceManager pageSourceManager;
+    private final CacheManagerRegistry cacheManagerRegistry;
+    private final JsonCodec<TupleDomain> tupleDomainCodec;
+    private final CacheStats cacheStats;
     private final IndexManager indexManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
@@ -453,7 +474,10 @@ public class LocalExecutionPlanner
     public LocalExecutionPlanner(
             PlannerContext plannerContext,
             Optional<ExplainAnalyzeContext> explainAnalyzeContext,
-            PageSourceManager pageSourceProvider,
+            PageSourceManager pageSourceManager,
+            CacheManagerRegistry cacheManagerRegistry,
+            JsonCodec<TupleDomain> tupleDomainCodec,
+            CacheStats cacheStats,
             IndexManager indexManager,
             NodePartitioningManager nodePartitioningManager,
             PageSinkManager pageSinkManager,
@@ -481,7 +505,10 @@ public class LocalExecutionPlanner
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
-        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
+        this.cacheManagerRegistry = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null");
+        this.tupleDomainCodec = requireNonNull(tupleDomainCodec, "tupleDomainCodec is null");
+        this.cacheStats = requireNonNull(cacheStats, "cacheStats is null");
         this.indexManager = requireNonNull(indexManager, "indexManager is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.directExchangeClientSupplier = directExchangeClientSupplier;
@@ -653,21 +680,15 @@ public class LocalExecutionPlanner
                                 outputTypes,
                                 pagePreprocessor,
                                 new PagesSerdeFactory(plannerContext.getBlockEncodingSerde(), getExchangeCompressionCodec(session))),
-                        physicalOperation),
-                context);
+                        physicalOperation));
 
         // notify operator factories that planning has completed
-        context.getDriverFactories().stream()
-                .map(DriverFactory::getOperatorFactories)
-                .flatMap(List::stream)
-                .filter(LocalPlannerAware.class::isInstance)
-                .map(LocalPlannerAware.class::cast)
-                .forEach(LocalPlannerAware::localPlannerComplete);
+        context.getDriverFactories().forEach(DriverFactory::localPlannerComplete);
 
         return new LocalExecutionPlan(context.getDriverFactories(), partitionedSourceOrder);
     }
 
-    private static class LocalExecutionPlanContext
+    private class LocalExecutionPlanContext
     {
         private final TaskContext taskContext;
         private final List<DriverFactory> driverFactories;
@@ -679,6 +700,8 @@ public class LocalExecutionPlanner
         private int nextOperatorId;
         private boolean inputDriver = true;
         private OptionalInt driverInstanceCount = OptionalInt.empty();
+        private Optional<CacheContext> cacheContext = Optional.empty();
+        private Optional<PlanNodeId> alternativeSourceId = Optional.empty();
 
         public LocalExecutionPlanContext(TaskContext taskContext)
         {
@@ -701,13 +724,50 @@ public class LocalExecutionPlanner
             this.nextPipelineId = nextPipelineId;
         }
 
-        public void addDriverFactory(boolean outputDriver, PhysicalOperation physicalOperation, LocalExecutionPlanContext context)
+        public void addDriverFactory(boolean outputDriver, PhysicalOperation physicalOperation)
         {
-            boolean inputDriver = context.isInputDriver();
-            OptionalInt driverInstances = context.getDriverInstanceCount();
-            List<OperatorFactory> operatorFactories = physicalOperation.getOperatorFactories();
+            List<OperatorFactory> operatorFactories = physicalOperation.getPipelineTail();
             addLookupOuterDrivers(outputDriver, operatorFactories);
-            addDriverFactory(inputDriver, outputDriver, operatorFactories, driverInstances);
+            if (physicalOperation.getPipelineHeadAlternatives().isEmpty()) {
+                addDriverFactory(inputDriver, outputDriver, operatorFactories, driverInstanceCount);
+            }
+            else {
+                // we have alternatives, we need to extend them to the end of the pipeline and create CacheDriverFactory
+                List<OperatorFactory> commonOperators = physicalOperation.getPipelineTail().stream()
+                        .map(SharedOperatorFactory::new)
+                        .collect(toImmutableList());
+                int pipelineId = getNextPipelineId();
+                List<DriverFactory> alternatives = physicalOperation.getPipelineHeadAlternatives().stream()
+                        .map(alternative -> new OperatorDriverFactory(
+                                pipelineId,
+                                inputDriver,
+                                outputDriver,
+                                ImmutableList.<OperatorFactory>builder()
+                                        .addAll(alternative)
+                                        .addAll(commonOperators)
+                                        .build(),
+                                driverInstanceCount))
+                        .collect(toImmutableList());
+                driverFactories.add(cacheContext
+                        .map(cacheContext -> new CacheDriverFactory(
+                                pipelineId,
+                                inputDriver,
+                                outputDriver,
+                                driverInstanceCount,
+                                alternativeSourceId.orElseThrow(),
+                                taskContext.getSession(),
+                                pageSourceManager.createPageSourceProvider(cacheContext.getOriginalTableHandle().catalogHandle()),
+                                cacheManagerRegistry,
+                                tupleDomainCodec,
+                                cacheContext.getOriginalTableHandle(),
+                                cacheContext.getPlanSignature(),
+                                cacheContext.getCommonColumnHandles(),
+                                cacheContext.getCommonDynamicFilterSupplier(),
+                                cacheContext.getOriginalDynamicFilterSupplier(),
+                                ImmutableList.copyOf(alternatives),
+                                cacheStats))
+                        .orElseThrow(() -> new IllegalStateException("Cache context is not set")));
+            }
         }
 
         private void addLookupOuterDrivers(boolean isOutputDriver, List<OperatorFactory> operatorFactories)
@@ -738,7 +798,7 @@ public class LocalExecutionPlanner
 
         private void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances)
         {
-            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances));
+            driverFactories.add(new OperatorDriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances));
         }
 
         private List<DriverFactory> getDriverFactories()
@@ -766,10 +826,7 @@ public class LocalExecutionPlanner
             Set<DynamicFilterId> consumedFilterIds = dynamicFilters.stream()
                     .map(DynamicFilters.Descriptor::getId)
                     .collect(toImmutableSet());
-            LocalDynamicFiltersCollector dynamicFiltersCollector = getDynamicFiltersCollector();
-            // Don't repeat registration of node-local filters or those already registered by another scan (e.g. co-located joins)
-            dynamicFiltersCollector.register(
-                    difference(consumedFilterIds, dynamicFiltersCollector.getRegisteredDynamicFilterIds()));
+            getDynamicFiltersCollector().register(consumedFilterIds);
         }
 
         private TaskContext getTaskContext()
@@ -825,6 +882,71 @@ public class LocalExecutionPlanner
                 checkState(this.driverInstanceCount.getAsInt() == driverInstanceCount, "driverInstance count already set to " + this.driverInstanceCount.getAsInt());
             }
             this.driverInstanceCount = OptionalInt.of(driverInstanceCount);
+        }
+
+        public void setCacheContext(CacheContext cacheContext)
+        {
+            checkState(this.cacheContext.isEmpty(), "cacheContext is already set");
+            this.cacheContext = Optional.of(requireNonNull(cacheContext, "cacheContext is null"));
+        }
+
+        public Optional<PlanNodeId> getAlternativeSourceId()
+        {
+            return alternativeSourceId;
+        }
+
+        public void setAlternativeSourceId(PlanNodeId alternativeSourceId)
+        {
+            checkState(this.alternativeSourceId.isEmpty());
+            this.alternativeSourceId = Optional.of(requireNonNull(alternativeSourceId, "alternativeSourceId is null"));
+        }
+    }
+
+    private static class CacheContext
+    {
+        private final TableHandle originalTableHandle;
+        private final CommonPlanAdaptation.PlanSignatureWithPredicate planSignature;
+        private final Map<CacheColumnId, ColumnHandle> commonColumnHandles;
+        private final Supplier<StaticDynamicFilter> commonDynamicFilterSupplier;
+        private final Supplier<StaticDynamicFilter> originalDynamicFilterSupplier;
+
+        public CacheContext(
+                TableHandle originalTableHandle,
+                LoadCachedDataPlanNode loadCacheData,
+                Supplier<StaticDynamicFilter> commonDynamicFilterSupplier,
+                Supplier<StaticDynamicFilter> originalDynamicFilterSupplier)
+        {
+            requireNonNull(loadCacheData, "loadCacheData is null");
+            this.originalTableHandle = requireNonNull(originalTableHandle, "originalTableHandle is null");
+            this.planSignature = loadCacheData.getPlanSignature();
+            this.commonColumnHandles = loadCacheData.getCommonColumnHandles();
+            this.commonDynamicFilterSupplier = requireNonNull(commonDynamicFilterSupplier, "commonDynamicFilterSupplier is null");
+            this.originalDynamicFilterSupplier = requireNonNull(originalDynamicFilterSupplier, "originalDynamicFilterSupplier is null");
+        }
+
+        public TableHandle getOriginalTableHandle()
+        {
+            return originalTableHandle;
+        }
+
+        public CommonPlanAdaptation.PlanSignatureWithPredicate getPlanSignature()
+        {
+            return planSignature;
+        }
+
+        public Map<CacheColumnId, ColumnHandle> getCommonColumnHandles()
+        {
+            return commonColumnHandles;
+        }
+
+        public Supplier<StaticDynamicFilter> getCommonDynamicFilterSupplier()
+        {
+            return commonDynamicFilterSupplier;
+        }
+
+        public Supplier<StaticDynamicFilter> getOriginalDynamicFilterSupplier()
+        {
+            return originalDynamicFilterSupplier;
         }
     }
 
@@ -1614,6 +1736,70 @@ public class LocalExecutionPlanner
         }
 
         @Override
+        public PhysicalOperation visitChooseAlternativeNode(ChooseAlternativeNode node, LocalExecutionPlanContext context)
+        {
+            checkArgument(isCacheChooseAlternativeNode(node));
+            context.setAlternativeSourceId(node.getId());
+            // when splits are cached dynamic filter needs to be static during split processing
+            LoadCachedDataPlanNode loadCachedData = getLoadCachedDataPlanNode(node);
+            TableScanNode commonTableScan = node.getOriginalTableScan().tableScanNode();
+            List<DynamicFilter> commonDynamicFilters = extractDisjuncts(loadCachedData.getDynamicFilterDisjuncts()).stream()
+                    .map(predicate -> getDynamicFilter(commonTableScan, predicate, context))
+                    .collect(toImmutableList());
+            Supplier<StaticDynamicFilter> commonDynamicFilterSupplier = createStaticDynamicFilterSupplier(commonDynamicFilters);
+            Supplier<StaticDynamicFilter> originalDynamicFilterSupplier = node.getOriginalTableScan().filterPredicate()
+                    .map(predicate -> getDynamicFilter(commonTableScan, predicate, context))
+                    .map(dynamicFilter -> createStaticDynamicFilterSupplier(ImmutableList.of(dynamicFilter)))
+                    .orElse(() -> createStaticDynamicFilter(ImmutableList.of(DynamicFilter.EMPTY)));
+            context.setCacheContext(new CacheContext(
+                    node.getOriginalTableScan().tableHandle(),
+                    loadCachedData,
+                    commonDynamicFilterSupplier,
+                    originalDynamicFilterSupplier));
+
+            ImmutableList.Builder<PhysicalOperation> alternatives = ImmutableList.builder();
+            Map<Symbol, Integer> outputLayout = null;
+            for (PlanNode alternative : node.getSources()) {
+                PhysicalOperation alternativeOperation = alternative.accept(this, context);
+                if (outputLayout == null) {
+                    // we need an output layout, we may as well take it from the first alternative.
+                    // this is consistent with ChooseAlternativeNode.getOutputSymbols
+                    outputLayout = alternativeOperation.getLayout();
+                    alternatives.add(alternativeOperation);
+                }
+                else {
+                    checkArgument(
+                            outputLayout.equals(alternativeOperation.getLayout()),
+                            "All alternatives should have the same layout but %s != %s",
+                            outputLayout,
+                            alternativeOperation.getLayout());
+                    // we don't need channel reordering if layout matches exactly
+                    alternatives.add(alternativeOperation);
+                }
+            }
+
+            return new PhysicalOperation(outputLayout, alternatives.build());
+        }
+
+        @Override
+        public PhysicalOperation visitCacheDataPlanNode(CacheDataPlanNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+            return new PhysicalOperation(
+                    new CacheDataOperator.CacheDataOperatorFactory(context.getNextOperatorId(), node.getId(), getCacheMaxSplitSize(session).toBytes()),
+                    source.getLayout(),
+                    source);
+        }
+
+        @Override
+        public PhysicalOperation visitLoadCachedDataPlanNode(LoadCachedDataPlanNode node, LocalExecutionPlanContext context)
+        {
+            return new PhysicalOperation(
+                    new LoadCachedDataOperatorFactory(context.getNextOperatorId(), node.getId(), context.getAlternativeSourceId().orElseThrow()),
+                    makeLayout(node));
+        }
+
+        @Override
         public PhysicalOperation visitTableFunction(TableFunctionNode node, LocalExecutionPlanContext context)
         {
             throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
@@ -2007,8 +2193,8 @@ public class LocalExecutionPlanner
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
                             planNodeId,
-                            sourceNode.getId(),
-                            pageSourceProvider,
+                            context.getAlternativeSourceId().orElse(sourceNode.getId()),
+                            pageSourceManager,
                             cursorProcessor,
                             pageProcessor,
                             table,
@@ -2063,7 +2249,14 @@ public class LocalExecutionPlanner
             }
 
             DynamicFilter dynamicFilter = getDynamicFilter(node, filterExpression, context);
-            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceProvider, node.getTable(), columns, dynamicFilter);
+            OperatorFactory operatorFactory = new TableScanOperatorFactory(
+                    context.getNextOperatorId(),
+                    planNodeId,
+                    context.getAlternativeSourceId().orElse(node.getId()),
+                    pageSourceManager,
+                    node.getTable(),
+                    columns,
+                    dynamicFilter);
             return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
@@ -2607,10 +2800,9 @@ public class LocalExecutionPlanner
                         buildSource);
             }
 
-            context.addDriverFactory(
+            buildContext.addDriverFactory(
                     false,
-                    new PhysicalOperation(nestedLoopBuildOperatorFactory, buildSource),
-                    buildContext);
+                    new PhysicalOperation(nestedLoopBuildOperatorFactory, buildSource));
 
             // build output mapping
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
@@ -2739,10 +2931,9 @@ public class LocalExecutionPlanner
                     10_000,
                     pagesIndexFactory);
 
-            context.addDriverFactory(
+            buildContext.addDriverFactory(
                     false,
-                    new PhysicalOperation(builderOperatorFactory, buildSource),
-                    buildContext);
+                    new PhysicalOperation(builderOperatorFactory, buildSource));
 
             return builderOperatorFactory.getPagesSpatialIndexFactory();
         }
@@ -2881,10 +3072,9 @@ public class LocalExecutionPlanner
                                 // is reduced (e.g. by plan rule) with respect to default task concurrency
                                 taskConcurrency / partitionCount));
 
-                context.addDriverFactory(
+                buildContext.addDriverFactory(
                         false,
-                        new PhysicalOperation(hashBuilderOperatorFactory, buildSource),
-                        buildContext);
+                        new PhysicalOperation(hashBuilderOperatorFactory, buildSource));
 
                 JoinOperatorType joinType = JoinOperatorType.ofJoinNodeType(node.getType(), outputSingleMatch, waitForBuild);
                 operator = spillingJoin(
@@ -2933,10 +3123,9 @@ public class LocalExecutionPlanner
                                 // is reduced (e.g. by plan rule) with respect to default task concurrency
                                 taskConcurrency / partitionCount));
 
-                context.addDriverFactory(
+                buildContext.addDriverFactory(
                         false,
-                        new PhysicalOperation(hashBuilderOperatorFactory, buildSource),
-                        buildContext);
+                        new PhysicalOperation(hashBuilderOperatorFactory, buildSource));
 
                 JoinOperatorType joinType = JoinOperatorType.ofJoinNodeType(node.getType(), outputSingleMatch, waitForBuild);
                 operator = join(
@@ -3172,10 +3361,9 @@ public class LocalExecutionPlanner
                     joinCompiler,
                     typeOperators);
             SetSupplier setProvider = setBuilderOperatorFactory.getSetProvider();
-            context.addDriverFactory(
+            buildContext.addDriverFactory(
                     false,
-                    new PhysicalOperation(setBuilderOperatorFactory, buildSource),
-                    buildContext);
+                    new PhysicalOperation(setBuilderOperatorFactory, buildSource));
 
             // Source channels are always laid out first, followed by the boolean output symbol
             Map<Symbol, Integer> outputMappings = ImmutableMap.<Symbol, Integer>builder()
@@ -3598,7 +3786,7 @@ public class LocalExecutionPlanner
 
             List<Symbol> expectedLayout = getOnlyElement(node.getInputs());
             Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
-            context.addDriverFactory(
+            subContext.addDriverFactory(
                     false,
                     new PhysicalOperation(
                             new LocalExchangeSinkOperatorFactory(
@@ -3606,8 +3794,7 @@ public class LocalExecutionPlanner
                                     subContext.getNextOperatorId(),
                                     node.getId(),
                                     pagePreprocessor),
-                            source),
-                    subContext);
+                            source));
             // the main driver is not an input... the exchange sources are the input for the plan
             context.setInputDriver(false);
 
@@ -3680,7 +3867,7 @@ public class LocalExecutionPlanner
                 List<Symbol> expectedLayout = node.getInputs().get(i);
                 Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
 
-                context.addDriverFactory(
+                subContext.addDriverFactory(
                         false,
                         new PhysicalOperation(
                                 new LocalExchangeSinkOperatorFactory(
@@ -3688,8 +3875,7 @@ public class LocalExecutionPlanner
                                         subContext.getNextOperatorId(),
                                         node.getId(),
                                         pagePreprocessor),
-                                source),
-                        subContext);
+                                source));
             }
 
             // the main driver is not an input... the exchange sources are the input for the plan
@@ -4189,7 +4375,8 @@ public class LocalExecutionPlanner
      */
     private static class PhysicalOperation
     {
-        private final List<OperatorFactory> operatorFactories;
+        private final List<OperatorFactory> pipelineTail;
+        private final List<List<OperatorFactory>> pipelineHeadAlternatives;
         private final Map<Symbol, Integer> layout;
         private final List<Type> types;
 
@@ -4208,20 +4395,42 @@ public class LocalExecutionPlanner
             this(outputOperatorFactory, ImmutableMap.of(), Optional.of(requireNonNull(source, "source is null")));
         }
 
+        public PhysicalOperation(
+                Map<Symbol, Integer> layout,
+                List<PhysicalOperation> pipelineHeadAlternatives)
+        {
+            this(
+                    layout,
+                    ImmutableList.of(),
+                    pipelineHeadAlternatives.stream()
+                            .map(PhysicalOperation::getPipelineTail)
+                            .collect(toImmutableList()));
+        }
+
         private PhysicalOperation(
                 OperatorFactory operatorFactory,
                 Map<Symbol, Integer> layout,
                 Optional<PhysicalOperation> source)
         {
-            requireNonNull(operatorFactory, "operatorFactory is null");
+            this(
+                    layout,
+                    ImmutableList.<OperatorFactory>builder()
+                            .addAll(source.map(PhysicalOperation::getPipelineTail).orElse(ImmutableList.of()))
+                            .add(operatorFactory)
+                            .build(),
+                    source.map(operation -> operation.pipelineHeadAlternatives).orElse(ImmutableList.of()));
+        }
+
+        private PhysicalOperation(
+                Map<Symbol, Integer> layout,
+                List<OperatorFactory> pipelineTail,
+                List<List<OperatorFactory>> pipelineHeadAlternatives)
+        {
             requireNonNull(layout, "layout is null");
-            requireNonNull(source, "source is null");
 
             this.types = toTypes(layout);
-            this.operatorFactories = ImmutableList.<OperatorFactory>builder()
-                    .addAll(source.map(PhysicalOperation::getOperatorFactories).orElse(ImmutableList.of()))
-                    .add(operatorFactory)
-                    .build();
+            this.pipelineTail = requireNonNull(pipelineTail, "pipelineEnd is null");
+            this.pipelineHeadAlternatives = requireNonNull(pipelineHeadAlternatives, "pipelineStartAlternatives is null");
             this.layout = ImmutableMap.copyOf(layout);
         }
 
@@ -4258,7 +4467,18 @@ public class LocalExecutionPlanner
 
         private List<OperatorFactory> getOperatorFactories()
         {
-            return operatorFactories;
+            checkArgument(pipelineHeadAlternatives.isEmpty());
+            return pipelineTail;
+        }
+
+        private List<OperatorFactory> getPipelineTail()
+        {
+            return pipelineTail;
+        }
+
+        private List<List<OperatorFactory>> getPipelineHeadAlternatives()
+        {
+            return pipelineHeadAlternatives;
         }
     }
 

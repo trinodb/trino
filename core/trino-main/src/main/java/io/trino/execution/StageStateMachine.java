@@ -35,7 +35,7 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.util.Failures;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.joda.time.DateTime;
 
 import java.util.ArrayList;
@@ -49,7 +49,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.LongFunction;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -706,23 +706,21 @@ public class StageStateMachine
 
     private static List<OperatorStats> combineTaskOperatorSummaries(List<TaskInfo> taskInfos, int maxTaskOperatorSummaries)
     {
-        // Group each unique pipelineId + operatorId combination into lists
-        Long2ObjectOpenHashMap<List<OperatorStats>> pipelineAndOperatorToStats = new Long2ObjectOpenHashMap<>(maxTaskOperatorSummaries);
+        // Group each unique operatorId + pipelineId + alternativeId combination into lists
+        Object2ObjectOpenHashMap<String, List<OperatorStats>> pipelineAndOperatorToStats = new Object2ObjectOpenHashMap<>(maxTaskOperatorSummaries);
         // Expect to have one operator stats entry for each taskInfo
         int taskInfoCount = taskInfos.size();
-        LongFunction<List<OperatorStats>> statsListCreator = key -> new ArrayList<>(taskInfoCount);
+        Function<String, List<OperatorStats>> statsListCreator = key -> new ArrayList<>(taskInfoCount);
         for (TaskInfo taskInfo : taskInfos) {
             for (PipelineStats pipeline : taskInfo.stats().getPipelines()) {
-                // Place the pipelineId in the high bits of the combinedKey mask
-                long pipelineKeyMask = Integer.toUnsignedLong(pipeline.getPipelineId()) << 32;
                 for (OperatorStats operator : pipeline.getOperatorSummaries()) {
-                    // Place the operatorId into the low bits of the combined key
-                    long combinedKey = pipelineKeyMask | Integer.toUnsignedLong(operator.getOperatorId());
+                    // Place operatorId, pipelineId and alternativeId in the combined key
+                    String combinedKey = pipeline.getPipelineId() + "." + operator.getOperatorId() + "." + operator.getAlternativeId();
                     pipelineAndOperatorToStats.computeIfAbsent(combinedKey, statsListCreator).add(operator);
                 }
             }
         }
-        // Merge the list of operator stats from each pipelineId + operatorId into a single entry
+        // Merge the list of operator stats from each operatorId + pipelineId + alternativeId into a single entry
         ImmutableList.Builder<OperatorStats> operatorStatsBuilder = ImmutableList.builderWithExpectedSize(pipelineAndOperatorToStats.size());
         for (List<OperatorStats> operators : pipelineAndOperatorToStats.values()) {
             OperatorStats stats = operators.get(0);

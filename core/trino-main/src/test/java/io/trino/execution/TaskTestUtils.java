@@ -16,10 +16,14 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.tracing.Tracing;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.trino.cache.CacheConfig;
+import io.trino.cache.CacheManagerRegistry;
+import io.trino.cache.CacheStats;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.cost.StatsAndCosts;
@@ -32,13 +36,17 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
+import io.trino.memory.LocalMemoryManager;
+import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.Split;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spiller.GenericSpillerFactory;
 import io.trino.split.PageSinkManager;
 import io.trino.split.PageSourceManager;
@@ -153,10 +161,14 @@ public final class TaskTestUtils
 
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
         ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
+        CacheStats cacheStats = new CacheStats();
         return new LocalExecutionPlanner(
                 PLANNER_CONTEXT,
                 Optional.empty(),
                 pageSourceManager,
+                new CacheManagerRegistry(new CacheConfig(), new LocalMemoryManager(new NodeMemoryConfig()), new TestingBlockEncodingSerde(), cacheStats),
+                new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(TupleDomain.class),
+                cacheStats,
                 new IndexManager(CatalogServiceProvider.fail()),
                 nodePartitioningManager,
                 new PageSinkManager(CatalogServiceProvider.fail()),

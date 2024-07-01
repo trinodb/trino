@@ -73,6 +73,17 @@ public class SplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
+        return getSplits(session, parentSpan, table, dynamicFilter, false, constraint);
+    }
+
+    public SplitSource getSplits(
+            Session session,
+            Span parentSpan,
+            TableHandle table,
+            DynamicFilter dynamicFilter,
+            boolean preferDeterministicSplits,
+            Constraint constraint)
+    {
         CatalogHandle catalogHandle = table.catalogHandle();
         ConnectorSplitManager splitManager = splitManagerProvider.getService(catalogHandle);
         if (!isAllowPushdownIntoConnectors(session)) {
@@ -91,6 +102,7 @@ public class SplitManager
                     connectorSession,
                     table.connectorHandle(),
                     dynamicFilter,
+                    preferDeterministicSplits,
                     constraint);
         }
 
@@ -130,6 +142,11 @@ public class SplitManager
 
         Span span = splitSourceSpan(parentSpan, catalogHandle);
         return new TracingSplitSource(splitSource, tracer, Optional.of(span), "split-buffer");
+    }
+
+    public ConnectorSplitManager getConnectorSplitManager(TableHandle tableHandle)
+    {
+        return splitManagerProvider.getService(tableHandle.catalogHandle());
     }
 
     private Span splitSourceSpan(Span parentSpan, CatalogHandle catalogHandle)

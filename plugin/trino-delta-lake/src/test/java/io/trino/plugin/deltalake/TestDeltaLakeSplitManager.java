@@ -63,6 +63,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static io.trino.plugin.deltalake.TestDeltaLakeCacheIds.createJsonCodec;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
@@ -241,6 +242,7 @@ public class TestDeltaLakeSplitManager
                 MoreExecutors.newDirectExecutorService(),
                 deltaLakeConfig,
                 HDFS_FILE_SYSTEM_FACTORY,
+                createJsonCodec(DeltaLakeCacheSplitId.class),
                 deltaLakeTransactionManager,
                 new DefaultCachingHostAddressProvider());
     }

@@ -28,6 +28,7 @@ import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.plugin.base.CatalogNameModule;
 import io.trino.plugin.base.TypeDeserializerModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorAccessControl;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorCacheMetadata;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
@@ -44,6 +45,7 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
+import io.trino.spi.cache.ConnectorCacheMetadata;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
@@ -131,6 +133,7 @@ public class HiveConnectorFactory
             LifeCycleManager lifeCycleManager = injector.getInstance(LifeCycleManager.class);
             HiveTransactionManager transactionManager = injector.getInstance(HiveTransactionManager.class);
             ConnectorSplitManager splitManager = injector.getInstance(ConnectorSplitManager.class);
+            ConnectorCacheMetadata cacheMetadata = injector.getInstance(ConnectorCacheMetadata.class);
             ConnectorPageSourceProvider connectorPageSource = injector.getInstance(ConnectorPageSourceProvider.class);
             ConnectorPageSinkProvider pageSinkProvider = injector.getInstance(ConnectorPageSinkProvider.class);
             ConnectorNodePartitioningProvider connectorDistributionProvider = injector.getInstance(ConnectorNodePartitioningProvider.class);
@@ -152,6 +155,7 @@ public class HiveConnectorFactory
                     lifeCycleManager,
                     transactionManager,
                     new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
+                    new ClassLoaderSafeConnectorCacheMetadata(cacheMetadata, classLoader),
                     new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
                     new ClassLoaderSafeConnectorPageSinkProvider(pageSinkProvider, classLoader),
                     new ClassLoaderSafeNodePartitioningProvider(connectorDistributionProvider, classLoader),

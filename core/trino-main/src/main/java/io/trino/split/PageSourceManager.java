@@ -23,6 +23,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
@@ -83,6 +84,34 @@ public class PageSourceManager
                     table.connectorHandle(),
                     columns,
                     dynamicFilter);
+        }
+
+        @Override
+        public TupleDomain<ColumnHandle> getUnenforcedPredicate(
+                Session session,
+                Split split,
+                TableHandle table,
+                TupleDomain<ColumnHandle> dynamicFilter)
+        {
+            checkArgument(split.getCatalogHandle().equals(table.catalogHandle()), "mismatched split and table");
+
+            CatalogHandle catalogHandle = split.getCatalogHandle();
+            ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+            return pageSourceProvider.getUnenforcedPredicate(connectorSession, split.getConnectorSplit(), table.connectorHandle(), dynamicFilter);
+        }
+
+        @Override
+        public TupleDomain<ColumnHandle> prunePredicate(
+                Session session,
+                Split split,
+                TableHandle table,
+                TupleDomain<ColumnHandle> predicate)
+        {
+            checkArgument(split.getCatalogHandle().equals(table.catalogHandle()), "mismatched split and table");
+
+            CatalogHandle catalogHandle = split.getCatalogHandle();
+            ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+            return pageSourceProvider.prunePredicate(connectorSession, split.getConnectorSplit(), table.connectorHandle(), predicate);
         }
     }
 }

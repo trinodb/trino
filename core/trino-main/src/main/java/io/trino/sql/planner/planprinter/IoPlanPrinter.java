@@ -29,8 +29,10 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
@@ -722,6 +724,23 @@ public class IoPlanPrinter
                 throw new IllegalStateException(format("Unknown WriterTarget subclass %s", writerTarget.getClass().getSimpleName()));
             }
             return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitChooseAlternativeNode(ChooseAlternativeNode node, IoPlanBuilder context)
+        {
+            TableScanNode scan = node.getOriginalTableScan().tableScanNode();
+            Optional<Expression> filterPredicate = node.getOriginalTableScan().filterPredicate();
+
+            TupleDomain<ColumnHandle> filterDomain = filterPredicate.map(filter -> {
+                DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(
+                        plannerContext,
+                        session,
+                        filter);
+                return decomposedPredicate.getTupleDomain().transformKeys(scan.getAssignments()::get);
+            }).orElse(TupleDomain.all());
+            addInputTableConstraints(filterDomain, scan, context);
+            return null;
         }
 
         private void addInputTableConstraints(TupleDomain<ColumnHandle> filterDomain, TableScanNode tableScan, IoPlanBuilder context)

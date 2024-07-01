@@ -83,6 +83,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.plugin.deltalake.DeltaHiveTypeTranslator.toHiveType;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.ROW_ID_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.rowPositionColumnHandle;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockRowCount;
@@ -182,20 +183,16 @@ public class DeltaLakePageSourceProvider
         // and the dynamic filter in the coordinator during split generation. The file level stats
         // in DeltaLakeSplit#statisticsPredicate could help to prune this split when a more selective dynamic filter
         // is available now, without having to access parquet file footer for row-group stats.
-        TupleDomain<DeltaLakeColumnHandle> filteredSplitPredicate = TupleDomain.intersect(ImmutableList.of(
-                table.getNonPartitionConstraint(),
-                split.getStatisticsPredicate(),
-                dynamicFilter.getCurrentPredicate().transformKeys(DeltaLakeColumnHandle.class::cast)));
-        if (filteredSplitPredicate.isNone()) {
+        TupleDomain<DeltaLakeColumnHandle> effectivePredicate = getUnenforcedPredicate(
+                session,
+                split,
+                table,
+                dynamicFilter.getCurrentPredicate())
+                .transformKeys(DeltaLakeColumnHandle.class::cast);
+        if (effectivePredicate.isNone()) {
             return new EmptyPageSource();
         }
-        Map<DeltaLakeColumnHandle, Domain> partitionColumnDomains = filteredSplitPredicate.getDomains().orElseThrow().entrySet().stream()
-                .filter(entry -> entry.getKey().getColumnType() == DeltaLakeColumnType.PARTITION_KEY)
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-        if (!partitionMatchesPredicate(split.getPartitionKeys(), partitionColumnDomains)) {
-            return new EmptyPageSource();
-        }
-        if (filteredSplitPredicate.isAll() &&
+        if (effectivePredicate.isAll() &&
                 split.getStart() == 0 && split.getLength() == split.getFileSize() &&
                 split.getFileRowCount().isPresent() &&
                 split.getDeletionVector().isEmpty() &&
@@ -240,7 +237,7 @@ public class DeltaLakePageSourceProvider
             hiveColumnHandles.add(PARQUET_ROW_INDEX_COLUMN);
         }
 
-        TupleDomain<HiveColumnHandle> parquetPredicate = getParquetTupleDomain(filteredSplitPredicate.simplify(domainCompactionThreshold), columnMappingMode, parquetFieldIdToName);
+        TupleDomain<HiveColumnHandle> parquetPredicate = getParquetTupleDomain(effectivePredicate, columnMappingMode, parquetFieldIdToName);
 
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
                 inputFile,
@@ -301,6 +298,46 @@ public class DeltaLakePageSourceProvider
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Failed to read deletion vectors", e);
         }
+    }
+
+    @Override
+    public TupleDomain<ColumnHandle> getUnenforcedPredicate(
+            ConnectorSession connectorSession,
+            ConnectorSplit connectorSplit,
+            ConnectorTableHandle connectorTable,
+            TupleDomain<ColumnHandle> dynamicFilter)
+    {
+        DeltaLakeSplit split = (DeltaLakeSplit) connectorSplit;
+        DeltaLakeTableHandle table = (DeltaLakeTableHandle) connectorTable;
+
+        TupleDomain<ColumnHandle> prunedPredicate = prunePredicate(connectorSession, connectorSplit, connectorTable,
+                TupleDomain.intersect(ImmutableList.of(
+                        table.getNonPartitionConstraint(),
+                        split.getStatisticsPredicate(),
+                        dynamicFilter)));
+        return prunedPredicate.simplify(domainCompactionThreshold);
+    }
+
+    @Override
+    public TupleDomain<ColumnHandle> prunePredicate(
+            ConnectorSession connectorSession,
+            ConnectorSplit connectorSplit,
+            ConnectorTableHandle connectorTable,
+            TupleDomain<ColumnHandle> predicate)
+    {
+        DeltaLakeSplit split = (DeltaLakeSplit) connectorSplit;
+
+        TupleDomain<DeltaLakeColumnHandle> predicateOnPartitioningColumn = predicate
+                .transformKeys(DeltaLakeColumnHandle.class::cast)
+                .filter((columnHandle, domain) -> columnHandle.getColumnType() == PARTITION_KEY);
+
+        if (predicateOnPartitioningColumn.getDomains().isPresent() && !partitionMatchesPredicate(split.getPartitionKeys(), predicateOnPartitioningColumn.getDomains().get())) {
+            return TupleDomain.none();
+        }
+
+        return predicate.filter((columnHandle, domain) -> ((DeltaLakeColumnHandle) columnHandle).getColumnType() != PARTITION_KEY)
+                // remove domains from predicate that fully contain split data because they are irrelevant for filtering
+                .filter((handle, domain) -> !domain.contains(split.getStatisticsPredicate().getDomain((DeltaLakeColumnHandle) handle, domain.getType())));
     }
 
     public Map<Integer, String> loadParquetIdAndNameMapping(TrinoInputFile inputFile, ParquetReaderOptions options)

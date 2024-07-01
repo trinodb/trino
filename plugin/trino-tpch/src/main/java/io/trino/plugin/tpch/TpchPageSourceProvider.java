@@ -21,6 +21,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 
@@ -46,5 +47,27 @@ public class TpchPageSourceProvider
             DynamicFilter dynamicFilter)
     {
         return new LazyRecordPageSource(maxRowsPerPage, tpchRecordSetProvider.getRecordSet(transaction, session, split, table, columns));
+    }
+
+    @Override
+    public TupleDomain<ColumnHandle> getUnenforcedPredicate(
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle tableHandle,
+            TupleDomain<ColumnHandle> dynamicFilter)
+    {
+        // tpch connector doesn't support unenforced (effective) predicates
+        return TupleDomain.all();
+    }
+
+    @Override
+    public TupleDomain<ColumnHandle> prunePredicate(
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle tableHandle,
+            TupleDomain<ColumnHandle> predicate)
+    {
+        // tpch connector doesn't support pruning of predicates
+        return predicate;
     }
 }
