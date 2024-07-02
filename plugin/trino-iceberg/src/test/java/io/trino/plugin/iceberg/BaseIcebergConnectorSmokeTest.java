@@ -859,7 +859,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                 .getOnlyColumnAsSet());
     }
 
-    private String getTableLocation(String tableName)
+    protected String getTableLocation(String tableName)
     {
         return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*/[^/]*$', '') FROM " + tableName);
     }
