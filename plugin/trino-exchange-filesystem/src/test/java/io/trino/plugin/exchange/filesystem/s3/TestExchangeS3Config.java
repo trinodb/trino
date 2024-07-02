@@ -51,6 +51,8 @@ public class TestExchangeS3Config
                 .setAsyncClientMaxPendingConnectionAcquires(10000)
                 .setConnectionAcquisitionTimeout(new Duration(1, MINUTES))
                 .setS3PathStyleAccess(false)
+                .setSseType(ExchangeS3Config.S3SseType.S3)
+                .setSseKmsKeyId(null)
                 .setGcsJsonKeyFilePath(null)
                 .setGcsJsonKey(null));
     }
@@ -76,6 +78,8 @@ public class TestExchangeS3Config
                 .put("exchange.s3.async-client-max-pending-connection-acquires", "999")
                 .put("exchange.s3.async-client-connection-acquisition-timeout", "5m")
                 .put("exchange.s3.path-style-access", "true")
+                .put("exchange.s3.sse.type", "KMS")
+                .put("exchange.s3.sse.kms-key-id", "kms_key_id")
                 .put("exchange.gcs.json-key-file-path", jsonKeyFile.toString())
                 .put("exchange.gcs.json-key", "{}")
                 .buildOrThrow();
@@ -94,6 +98,9 @@ public class TestExchangeS3Config
                 .setAsyncClientConcurrency(202)
                 .setAsyncClientMaxPendingConnectionAcquires(999)
                 .setConnectionAcquisitionTimeout(new Duration(5, MINUTES))
+                .setS3PathStyleAccess(true)
+                .setSseType(ExchangeS3Config.S3SseType.KMS)
+                .setSseKmsKeyId("kms_key_id")
                 .setS3PathStyleAccess(true)
                 .setGcsJsonKeyFilePath(jsonKeyFile.toString())
                 .setGcsJsonKey("{}");

@@ -36,6 +36,11 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ExchangeS3Config
 {
+    public enum S3SseType
+    {
+        S3, KMS;
+    }
+
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
     private Optional<String> s3IamRole = Optional.empty();
@@ -53,6 +58,8 @@ public class ExchangeS3Config
     private boolean s3PathStyleAccess;
     private Optional<String> gcsJsonKeyFilePath = Optional.empty();
     private Optional<String> gcsJsonKey = Optional.empty();
+    private S3SseType sseType = S3SseType.S3;
+    private String sseKmsKeyId;
 
     public String getS3AwsAccessKey()
     {
@@ -268,6 +275,33 @@ public class ExchangeS3Config
     public ExchangeS3Config setGcsJsonKey(String gcsJsonKey)
     {
         this.gcsJsonKey = Optional.ofNullable(gcsJsonKey);
+        return this;
+    }
+
+    @NotNull
+    public S3SseType getSseType()
+    {
+        return sseType;
+    }
+
+    @Config("exchange.s3.sse.type")
+    @ConfigDescription("Type of S3 server-side encryption for FTE")
+    public ExchangeS3Config setSseType(S3SseType sseType)
+    {
+        this.sseType = sseType;
+        return this;
+    }
+
+    public String getSseKmsKeyId()
+    {
+        return sseKmsKeyId;
+    }
+
+    @Config("exchange.s3.sse.kms-key-id")
+    @ConfigDescription("KMS Key ID to use for S3 server-side encryption with KMS-managed key for FTE")
+    public ExchangeS3Config setSseKmsKeyId(String sseKmsKeyId)
+    {
+        this.sseKmsKeyId = sseKmsKeyId;
         return this;
     }
 }

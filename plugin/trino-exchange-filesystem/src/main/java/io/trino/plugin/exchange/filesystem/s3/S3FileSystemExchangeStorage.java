@@ -43,6 +43,7 @@ import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
 import io.trino.plugin.exchange.filesystem.FileStatus;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
+import io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType;
 import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -113,6 +114,7 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeFutures.translateFailures;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeManager.PATH_SEPARATOR;
+import static io.trino.plugin.exchange.filesystem.s3.ExchangeS3Config.S3SseType.KMS;
 import static io.trino.plugin.exchange.filesystem.s3.S3FileSystemExchangeStorage.CompatibilityMode.GCP;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -122,6 +124,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static software.amazon.awssdk.core.async.AsyncRequestBody.fromByteBufferUnsafe;
 import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.USER_AGENT_PREFIX;
 import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.USER_AGENT_SUFFIX;
+import static software.amazon.awssdk.services.s3.model.ServerSideEncryption.AES256;
+import static software.amazon.awssdk.services.s3.model.ServerSideEncryption.AWS_KMS;
 
 public class S3FileSystemExchangeStorage
         implements FileSystemExchangeStorage
@@ -141,6 +145,7 @@ public class S3FileSystemExchangeStorage
     private final S3AsyncClient s3AsyncClient;
     private final StorageClass storageClass;
     private final CompatibilityMode compatibilityMode;
+    private final S3SseContext s3SseContext;
 
     // GCS specific
     private final Optional<Storage> gcsClient;
@@ -156,6 +161,7 @@ public class S3FileSystemExchangeStorage
         this.multiUploadPartSize = toIntExact(config.getS3UploadPartSize().toBytes());
         this.storageClass = config.getStorageClass();
         this.compatibilityMode = requireNonNull(compatibilityMode, "compatibilityMode is null");
+        this.s3SseContext = new S3SseContext(config.getSseType(), config.getSseKmsKeyId());
 
         AwsCredentialsProvider credentialsProvider = createAwsCredentialsProvider(config);
         ClientOverrideConfiguration overrideConfig = ClientOverrideConfiguration.builder()
@@ -237,7 +243,7 @@ public class S3FileSystemExchangeStorage
         String bucketName = getBucketName(file);
         String key = keyFromUri(file);
 
-        return new S3ExchangeStorageWriter(stats, s3AsyncClient, bucketName, key, multiUploadPartSize, storageClass);
+        return new S3ExchangeStorageWriter(stats, s3AsyncClient, bucketName, key, multiUploadPartSize, storageClass, s3SseContext);
     }
 
     @Override
@@ -481,6 +487,15 @@ public class S3FileSystemExchangeStorage
         return clientBuilder.build();
     }
 
+    private record S3SseContext(S3SseType sseType, String sseKmsKeyId)
+    {
+        S3SseContext
+        {
+            requireNonNull(sseType, "sseType is null");
+            checkArgument((sseType != KMS) || (sseKmsKeyId != null), "sseKmsKeyId is null for SSE-KMS");
+        }
+    }
+
     @ThreadSafe
     private static class S3ExchangeStorageReader
             implements ExchangeStorageReader
@@ -672,6 +687,7 @@ public class S3FileSystemExchangeStorage
         private final String key;
         private final int partSize;
         private final StorageClass storageClass;
+        private final S3SseContext s3SseContext;
 
         private int currentPartNumber;
         private ListenableFuture<Void> directUploadFuture;
@@ -685,7 +701,8 @@ public class S3FileSystemExchangeStorage
                 String bucketName,
                 String key,
                 int partSize,
-                StorageClass storageClass)
+                StorageClass storageClass,
+                S3SseContext s3SseContext)
         {
             this.stats = requireNonNull(stats, "stats is null");
             this.s3AsyncClient = requireNonNull(s3AsyncClient, "s3AsyncClient is null");
@@ -693,6 +710,7 @@ public class S3FileSystemExchangeStorage
             this.key = requireNonNull(key, "key is null");
             this.partSize = partSize;
             this.storageClass = requireNonNull(storageClass, "storageClass is null");
+            this.s3SseContext = requireNonNull(s3SseContext, "s3SeeContext is null");
         }
 
         @Override
@@ -709,8 +727,15 @@ public class S3FileSystemExchangeStorage
                 PutObjectRequest.Builder putObjectRequestBuilder = PutObjectRequest.builder()
                         .bucket(bucketName)
                         .key(key)
-                        .storageClass(storageClass);
-                directUploadFuture = translateFailures(toListenableFuture(s3AsyncClient.putObject(putObjectRequestBuilder.build(),
+                        .storageClass(storageClass)
+                        .applyMutation(builder -> {
+                            switch (s3SseContext.sseType()) {
+                                case S3 -> builder.serverSideEncryption(AES256);
+                                case KMS -> builder.serverSideEncryption(AWS_KMS).ssekmsKeyId(s3SseContext.sseKmsKeyId());
+                            }
+                        });
+                PutObjectRequest build = putObjectRequestBuilder.build();
+                directUploadFuture = translateFailures(toListenableFuture(s3AsyncClient.putObject(build,
                         fromByteBufferUnsafe(slice.toByteBuffer()))));
                 stats.getPutObject().record(directUploadFuture);
                 stats.getPutObjectDataSizeInBytes().add(slice.length());
@@ -790,7 +815,13 @@ public class S3FileSystemExchangeStorage
             CreateMultipartUploadRequest.Builder createMultipartUploadRequestBuilder = CreateMultipartUploadRequest.builder()
                     .bucket(bucketName)
                     .key(key)
-                    .storageClass(storageClass);
+                    .storageClass(storageClass)
+                    .applyMutation(builder -> {
+                        switch (s3SseContext.sseType()) {
+                            case S3 -> builder.serverSideEncryption(AES256);
+                            case KMS -> builder.serverSideEncryption(AWS_KMS).ssekmsKeyId(s3SseContext.sseKmsKeyId());
+                        }
+                    });
             return stats.getCreateMultipartUpload().record(toListenableFuture(s3AsyncClient.createMultipartUpload(createMultipartUploadRequestBuilder.build())));
         }
 
