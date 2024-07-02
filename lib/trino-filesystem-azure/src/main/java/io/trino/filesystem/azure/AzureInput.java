@@ -23,7 +23,6 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.util.OptionalLong;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
@@ -33,16 +32,13 @@ class AzureInput
 {
     private final AzureLocation location;
     private final BlobClient blobClient;
-    private final int readBlockSize;
     private OptionalLong length;
     private boolean closed;
 
-    public AzureInput(AzureLocation location, BlobClient blobClient, int readBlockSize, OptionalLong length)
+    public AzureInput(AzureLocation location, BlobClient blobClient, OptionalLong length)
     {
         this.location = requireNonNull(location, "location is null");
         this.blobClient = requireNonNull(blobClient, "blobClient is null");
-        checkArgument(readBlockSize >= 0, "readBlockSize is negative");
-        this.readBlockSize = readBlockSize;
         this.length = requireNonNull(length, "length is null");
     }
 
@@ -61,7 +57,7 @@ class AzureInput
 
         BlobInputStreamOptions options = new BlobInputStreamOptions()
                 .setRange(new BlobRange(position, (long) bufferLength))
-                .setBlockSize(readBlockSize);
+                .setBlockSize(bufferLength);
         try (BlobInputStream blobInputStream = blobClient.openInputStream(options)) {
             long fileSize = blobInputStream.getProperties().getBlobSize();
             if (position >= fileSize) {
@@ -91,7 +87,7 @@ class AzureInput
             }
             BlobInputStreamOptions options = new BlobInputStreamOptions()
                     .setRange(new BlobRange(length.orElseThrow() - bufferLength))
-                    .setBlockSize(readBlockSize);
+                    .setBlockSize(bufferLength);
             try (BlobInputStream blobInputStream = blobClient.openInputStream(options)) {
                 return blobInputStream.readNBytes(buffer, bufferOffset, bufferLength);
             }
