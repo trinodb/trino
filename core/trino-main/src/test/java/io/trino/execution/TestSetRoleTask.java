@@ -13,102 +13,22 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import io.trino.client.NodeVersion;
-import io.trino.connector.MockConnectorFactory;
-import io.trino.connector.MockConnectorPlugin;
-import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.Metadata;
-import io.trino.security.AccessControl;
-import io.trino.spi.resourcegroups.ResourceGroupId;
-import io.trino.spi.security.Identity;
-import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
-import io.trino.spi.security.TrinoPrincipal;
-import io.trino.sql.parser.SqlParser;
-import io.trino.sql.tree.SetRole;
-import io.trino.testing.QueryRunner;
-import io.trino.testing.StandaloneQueryRunner;
-import io.trino.transaction.TransactionManager;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.parallel.Execution;
 
-import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
 
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.ROLE_NOT_FOUND;
-import static io.trino.spi.security.PrincipalType.USER;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@TestInstance(PER_CLASS)
-@Execution(CONCURRENT)
 public class TestSetRoleTask
+        extends BaseRoleTaskTest
 {
-    private static final String CATALOG_NAME = "foo";
-    private static final String SYSTEM_ROLE_CATALOG_NAME = "system_role";
-    private static final String USER_NAME = "user";
-    private static final String ROLE_NAME = "bar";
-
-    private QueryRunner queryRunner;
-    private TransactionManager transactionManager;
-    private AccessControl accessControl;
-    private Metadata metadata;
-    private ExecutorService executor;
-    private SqlParser parser;
-
-    @BeforeAll
-    public void setUp()
-    {
-        queryRunner = new StandaloneQueryRunner(TEST_SESSION);
-        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, USER_NAME), ROLE_NAME, false)))
-                .build()));
-        queryRunner.createCatalog(CATALOG_NAME, "mock", ImmutableMap.of());
-
-        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                .withName("system_role_connector")
-                .build()));
-        queryRunner.createCatalog(SYSTEM_ROLE_CATALOG_NAME, "system_role_connector", ImmutableMap.of());
-
-        transactionManager = queryRunner.getTransactionManager();
-        accessControl = queryRunner.getAccessControl();
-        metadata = queryRunner.getPlannerContext().getMetadata();
-        parser = new SqlParser();
-        executor = newCachedThreadPool(daemonThreadsNamed("test-set-role-task-executor-%s"));
-    }
-
-    @AfterAll
-    public void tearDown()
-    {
-        if (queryRunner != null) {
-            queryRunner.close();
-            queryRunner = null;
-        }
-        executor.shutdownNow();
-        executor = null;
-        metadata = null;
-        accessControl = null;
-        transactionManager = null;
-        parser = null;
-    }
-
     @Test
     public void testSetRole()
     {
@@ -153,27 +73,6 @@ public class TestSetRoleTask
 
     private QueryStateMachine executeSetRole(String statement)
     {
-        SetRole setRole = (SetRole) parser.createStatement(statement);
-        QueryStateMachine stateMachine = QueryStateMachine.begin(
-                Optional.empty(),
-                statement,
-                Optional.empty(),
-                testSessionBuilder()
-                        .setIdentity(Identity.ofUser(USER_NAME))
-                        .build(),
-                URI.create("fake://uri"),
-                new ResourceGroupId("test"),
-                false,
-                transactionManager,
-                accessControl,
-                executor,
-                metadata,
-                WarningCollector.NOOP,
-                createPlanOptimizersStatsCollector(),
-                Optional.empty(),
-                true,
-                new NodeVersion("test"));
-        new SetRoleTask(metadata, accessControl).execute(setRole, stateMachine, ImmutableList.of(), WarningCollector.NOOP);
-        return stateMachine;
+        return execute(statement, new SetRoleTask(metadata, accessControl));
     }
 }
