@@ -370,6 +370,7 @@ jobs:
             !:trino-jdbc,
             !:trino-kafka,
             !:trino-kudu,
+            !:trino-lancedb,
             !:trino-main,
             !:trino-mariadb,
             !:trino-memory,
@@ -478,6 +479,7 @@ jobs:
             - { modules: plugin/trino-ignite }
             - { modules: plugin/trino-kafka }
             - { modules: plugin/trino-kudu }
+            - { modules: plugin/trino-lancedb }
             - { modules: plugin/trino-mariadb }
             - { modules: plugin/trino-mongodb }
             - { modules: plugin/trino-mysql }
