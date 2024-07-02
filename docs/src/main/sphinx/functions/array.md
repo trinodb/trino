@@ -392,6 +392,33 @@ SELECT transform(ARRAY[ARRAY[1, NULL, 2], ARRAY[3, NULL]],
 ```
 :::
 
+:::{function} euclidean_distance(array(real), array(real)) -> double
+Calculates the euclidean distance:
+
+```sql
+SELECT euclidean_distance(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
+-- 2.8284271247461903
+```
+:::
+
+:::{function} inner_product(array(real), array(real)) -> double
+Calculates the inner product:
+
+```sql
+SELECT inner_product(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
+-- -11.0
+```
+:::
+
+:::{function} cosine_distance(array(real), array(real)) -> double
+Calculates the cosine distance:
+
+```sql
+SELECT cosine_distance(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
+-- 0.01613008990009257
+```
+:::
+
 :::{function} zip(array1, array2[, ...]) -> array(row)
 Merges the given arrays, element-wise, into a single array of rows. The M-th element of
 the N-th argument will be the N-th field of the M-th output element.

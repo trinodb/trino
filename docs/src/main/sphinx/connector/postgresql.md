@@ -201,6 +201,9 @@ this table:
 * - `JSONB`
   - `JSON`
   -
+* - `VECTOR`
+  - `ARRAY(REAL)`
+  -
 * - `HSTORE`
   - `MAP(VARCHAR, VARCHAR)`
   -
