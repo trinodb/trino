@@ -2279,6 +2279,9 @@ public abstract class BaseConnectorTest
             assertQuery(
                     "SELECT * FROM " + table.getName(),
                     "VALUES ('first', NULL)");
+            assertQuery(
+                    "SELECT * FROM " + table.getName() + " WHERE a IS NULL",
+                    "VALUES ('first', NULL)");
             assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second', 'xxx'", 1);
             assertQuery(
                     "SELECT x, a FROM " + table.getName(),

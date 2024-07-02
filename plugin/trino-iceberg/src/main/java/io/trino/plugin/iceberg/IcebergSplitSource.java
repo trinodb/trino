@@ -59,6 +59,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -222,11 +223,16 @@ public class IcebergSplitSource
             }
 
             Expression filterExpression = toIcebergExpression(effectivePredicate);
-            // Use stats to populate fileStatisticsDomain if there are predicated columns. Otherwise, skip them.
-            boolean requiresColumnStats = !predicatedColumnIds.isEmpty();
             Scan scan = (Scan) tableScan.filter(filterExpression);
-            if (requiresColumnStats) {
-                scan = (Scan) scan.includeColumnStats();
+            // Use stats to populate fileStatisticsDomain if there are predicated columns. Otherwise, skip them.
+            if (!predicatedColumnIds.isEmpty()) {
+                Schema schema = tableScan.schema();
+                scan = (Scan) scan.includeColumnStats(
+                        predicatedColumnIds.stream()
+                                .map(schema::findColumnName)
+                                // Newly added column may not be found in current snapshot schema until new files are added
+                                .filter(Objects::nonNull)
+                                .collect(toImmutableList()));
             }
             this.fileScanIterable = closer.register(scan.planFiles());
             this.targetSplitSize = getSplitSize(session)
