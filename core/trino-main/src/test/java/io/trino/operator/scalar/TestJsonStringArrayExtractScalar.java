@@ -13,20 +13,17 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.type.ArrayType;
-import io.trino.sql.ir.Call;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.sql.query.QueryAssertions.ExpressionAssertProvider.Result;
+import io.trino.sql.query.QueryAssertions.ExpressionAssertProvider;
 import io.trino.type.FunctionType;
 import io.trino.type.JsonPathType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
@@ -37,8 +34,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.JsonType.JSON;
-import static java.util.Arrays.asList;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -46,8 +41,9 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 class TestJsonStringArrayExtractScalar
 {
+    private static final String JSON_PATH = "$.property";
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction TRANSFORM = FUNCTIONS.resolveFunction(ARRAY_TRANSFORM_NAME, fromTypes(new ArrayType(JSON), new FunctionType(List.of(JSON), VARCHAR)));
+    private static final CatalogSchemaFunctionName TRANSFORM = FUNCTIONS.resolveFunction(ARRAY_TRANSFORM_NAME, fromTypes(new ArrayType(JSON), new FunctionType(List.of(JSON), VARCHAR))).name();
     private static final CatalogSchemaFunctionName JSON_STRING_ARRAY_EXTRACT_SCALAR = FUNCTIONS.getMetadata().resolveBuiltinFunction(JSON_STRING_ARRAY_EXTRACT_SCALAR_NAME, fromTypes(VARCHAR, JsonPathType.JSON_PATH)).name();
     private final QueryAssertions assertions = new QueryAssertions();
 
@@ -87,84 +83,73 @@ class TestJsonStringArrayExtractScalar
     @Test
     void testEmptyArrayExtract()
     {
-        assertThat(extract("[]", "$.name").value())
-                .isEqualTo(ImmutableList.of());
+        assertExpression("[]", JSON_PATH, "CAST(ARRAY[] AS ARRAY<VARCHAR>)");
     }
 
     @Test
     void testScalarArrayExtract()
     {
-        assertThat(extract("[1, \"abc\", 2.2]", "$.name").value())
-                .isEqualTo(asList(null, null, null));
-        assertThat(extract("[1, \"abc\", 2.2]", "$").value())
-                .isEqualTo(asList("1", "abc", "2.2"));
+        String jsonString = "[1, \"abc\", 2.2]";
+        assertExpression(jsonString, JSON_PATH, "CAST(ARRAY[null, null, null] AS ARRAY<VARCHAR>)");
+        assertExpression(jsonString, "$", "CAST(ARRAY['1', 'abc', '2.2'] as ARRAY<VARCHAR>)");
     }
 
     @Test
     void testEmptyElementsArrayExtract()
     {
-        assertThat(extract("[null, [], {}]", "$.name").value())
-                .isEqualTo(asList(null, null, null));
+        String jsonString = "[null, [], {}]";
+        assertExpression(jsonString, JSON_PATH, "CAST(ARRAY[null, null, null] AS ARRAY<VARCHAR>)");
+        assertExpression(jsonString, "$", "CAST(ARRAY[null, null, null] AS ARRAY<VARCHAR>)");
     }
 
     @Test
     void testExtract()
     {
-        assertThat(extract("[{\"name\": \"a\"}, {\"name\": \"b\"}, [], {}]", "$.name").value())
-                .isEqualTo(asList("a", "b", null, null));
+        assertExpression("[{\"property\": \"a\"}, {\"property\": \"b\"}, [], {}]", JSON_PATH, "CAST(ARRAY['a', 'b', null, null] AS ARRAY<VARCHAR>)");
     }
 
     @Test
     void testMixedExtract()
     {
-        assertThat(extract("[{\"name\": \"a\"}, 1]", "$.name").value())
-                .isEqualTo(asList("a", null));
+        assertExpression("[{\"property\": \"a\"}, 1]", JSON_PATH, "CAST(ARRAY['a', null] AS ARRAY<VARCHAR>)");
     }
 
     @Test
     void testComplexExtract()
     {
-        assertThat(extract("[{\"name\": [1, 2, 3]}, 1]", "$.name").value())
-                .isEqualTo(asList(null, null));
-        assertThat(extract("[{\"name\": {}}, 1]", "$.name").value())
-                .isEqualTo(asList(null, null));
+        assertExpression("[{\"property\": [1, 2, 3]}, 1]", JSON_PATH, "CAST(ARRAY[null, null] AS ARRAY<VARCHAR>)");
+        assertExpression("[{\"property\": {}}, 1]", JSON_PATH, "CAST(ARRAY[null, null] AS ARRAY<VARCHAR>)");
     }
 
-    private Result extract(String json, String jsonPath)
+    private void assertExpression(String jsonString, String jsonPath, String result)
     {
-        Result transformationResult = extractTransformationResult(json, jsonPath);
-        Result jsonStringResult = extractJsonStringArrayExtractResult(json, jsonPath);
-        assertThat(transformationResult.value()).isEqualTo(jsonStringResult.value());
-        return jsonStringResult;
+        transformExpression(jsonString, jsonPath)
+                .assertThat()
+                .matches(result)
+                .assignmentAsCall().isFunction(TRANSFORM);
+        jsonStringArrayExtractScalarExpression(jsonString, jsonPath)
+                .assertThat()
+                .matches(result)
+                .assignmentAsCall().isFunction(JSON_STRING_ARRAY_EXTRACT_SCALAR);
     }
 
-    private Result extractTransformationResult(String json, String jsonPath)
+    private ExpressionAssertProvider transformExpression(String json, String jsonPath)
     {
-        Result result = assertions.expression("transform(cast(json_parse('" + json + "') as array<json>), elem -> json_extract_scalar(\"elem\", '" + jsonPath + "'))")
-                .evaluate();
-        assertThat(result.expression().isPresent()).isTrue();
-        assertThat(result.expression().get()).isInstanceOf(Call.class);
-        assertThat(((Call) result.expression().get()).function()).isEqualTo(TRANSFORM);
-        return result;
+        return assertions.expression("transform(cast(json_parse('" + json + "') as array<json>), elem -> json_extract_scalar(\"elem\", '" + jsonPath + "'))");
     }
 
-    private Result extractJsonStringArrayExtractResult(String json, String jsonPath)
+    private ExpressionAssertProvider jsonStringArrayExtractScalarExpression(String json, String jsonPath)
     {
-        Result result = assertions.expression("transform(cast(json_parse(json) as array<json>), elem -> json_extract_scalar(\"elem\", '" + jsonPath + "'))")
-                .binding("json", "'" + json + "'")
-                .evaluate();
-        assertThat(result.expression().isPresent()).isTrue();
-        assertThat(result.expression().get()).isInstanceOf(Call.class);
-        assertThat(((Call) result.expression().get()).function().name()).isEqualTo(JSON_STRING_ARRAY_EXTRACT_SCALAR);
-        return result;
+        return assertions.expression("transform(cast(json_parse(json) as array<json>), elem -> json_extract_scalar(\"elem\", '" + jsonPath + "'))")
+                .binding("json", "'" + json + "'");
     }
 
     private void failedExtract(String json, String jsonPath)
     {
-        assertTrinoExceptionThrownBy(() -> extractTransformationResult(json, jsonPath))
+        assertTrinoExceptionThrownBy(() -> transformExpression(json, jsonPath).evaluate())
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessageContaining("Cannot cast to array");
-        assertTrinoExceptionThrownBy(() -> extractJsonStringArrayExtractResult(json, jsonPath))
+        assertTrinoExceptionThrownBy(() -> jsonStringArrayExtractScalarExpression(json, jsonPath).evaluate())
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessageContaining("Cannot cast to array");
     }
