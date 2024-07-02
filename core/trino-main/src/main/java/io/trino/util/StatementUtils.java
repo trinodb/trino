@@ -19,6 +19,7 @@ import io.trino.execution.AddColumnTask;
 import io.trino.execution.CallTask;
 import io.trino.execution.CommentTask;
 import io.trino.execution.CommitTask;
+import io.trino.execution.CreateCatalogLikeTask;
 import io.trino.execution.CreateCatalogTask;
 import io.trino.execution.CreateFunctionTask;
 import io.trino.execution.CreateMaterializedViewTask;
@@ -41,6 +42,7 @@ import io.trino.execution.DropViewTask;
 import io.trino.execution.GrantRolesTask;
 import io.trino.execution.GrantTask;
 import io.trino.execution.PrepareTask;
+import io.trino.execution.RenameCatalogTask;
 import io.trino.execution.RenameColumnTask;
 import io.trino.execution.RenameMaterializedViewTask;
 import io.trino.execution.RenameSchemaTask;
@@ -51,6 +53,7 @@ import io.trino.execution.ResetSessionTask;
 import io.trino.execution.RevokeRolesTask;
 import io.trino.execution.RevokeTask;
 import io.trino.execution.RollbackTask;
+import io.trino.execution.SetCatalogPropertiesTask;
 import io.trino.execution.SetColumnTypeTask;
 import io.trino.execution.SetPathTask;
 import io.trino.execution.SetPropertiesTask;
@@ -71,6 +74,7 @@ import io.trino.sql.tree.Call;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.CreateCatalog;
+import io.trino.sql.tree.CreateCatalogLike;
 import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
@@ -101,6 +105,7 @@ import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.RefreshMaterializedView;
+import io.trino.sql.tree.RenameCatalog;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
@@ -111,6 +116,7 @@ import io.trino.sql.tree.ResetSessionAuthorization;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
+import io.trino.sql.tree.SetCatalogProperties;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
@@ -124,6 +130,7 @@ import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
+import io.trino.sql.tree.ShowCreateCatalog;
 import io.trino.sql.tree.ShowFunctions;
 import io.trino.sql.tree.ShowGrants;
 import io.trino.sql.tree.ShowRoleGrants;
@@ -178,6 +185,7 @@ public final class StatementUtils
             .add(basicStatement(ShowCatalogs.class, DESCRIBE))
             .add(basicStatement(ShowColumns.class, DESCRIBE))
             .add(basicStatement(ShowCreate.class, DESCRIBE))
+            .add(basicStatement(ShowCreateCatalog.class, DESCRIBE))
             .add(basicStatement(ShowFunctions.class, DESCRIBE))
             .add(basicStatement(ShowGrants.class, DESCRIBE))
             .add(basicStatement(ShowRoleGrants.class, DESCRIBE))
@@ -203,6 +211,7 @@ public final class StatementUtils
             .add(dataDefinitionStatement(Commit.class, CommitTask.class))
             .add(dataDefinitionStatement(CreateMaterializedView.class, CreateMaterializedViewTask.class))
             .add(dataDefinitionStatement(CreateCatalog.class, CreateCatalogTask.class))
+            .add(dataDefinitionStatement(CreateCatalogLike.class, CreateCatalogLikeTask.class))
             .add(dataDefinitionStatement(CreateFunction.class, CreateFunctionTask.class))
             .add(dataDefinitionStatement(CreateRole.class, CreateRoleTask.class))
             .add(dataDefinitionStatement(CreateSchema.class, CreateSchemaTask.class))
@@ -224,6 +233,7 @@ public final class StatementUtils
             .add(dataDefinitionStatement(Prepare.class, PrepareTask.class))
             .add(dataDefinitionStatement(RenameColumn.class, RenameColumnTask.class))
             .add(dataDefinitionStatement(RenameMaterializedView.class, RenameMaterializedViewTask.class))
+            .add(dataDefinitionStatement(RenameCatalog.class, RenameCatalogTask.class))
             .add(dataDefinitionStatement(RenameSchema.class, RenameSchemaTask.class))
             .add(dataDefinitionStatement(RenameTable.class, RenameTableTask.class))
             .add(dataDefinitionStatement(RenameView.class, RenameViewTask.class))
@@ -232,6 +242,7 @@ public final class StatementUtils
             .add(dataDefinitionStatement(Revoke.class, RevokeTask.class))
             .add(dataDefinitionStatement(RevokeRoles.class, RevokeRolesTask.class))
             .add(dataDefinitionStatement(Rollback.class, RollbackTask.class))
+            .add(dataDefinitionStatement(SetCatalogProperties.class, SetCatalogPropertiesTask.class))
             .add(dataDefinitionStatement(SetColumnType.class, SetColumnTypeTask.class))
             .add(dataDefinitionStatement(DropNotNullConstraint.class, DropNotNullConstraintTask.class))
             .add(dataDefinitionStatement(SetPath.class, SetPathTask.class))

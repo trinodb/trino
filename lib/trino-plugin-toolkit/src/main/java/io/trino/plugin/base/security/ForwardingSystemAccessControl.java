@@ -131,6 +131,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanShowCreateCatalog(SystemSecurityContext context, String catalog)
+    {
+        delegate().checkCanShowCreateCatalog(context, catalog);
+    }
+
+    @Override
     public void checkCanCreateCatalog(SystemSecurityContext context, String catalog)
     {
         delegate().checkCanCreateCatalog(context, catalog);
@@ -140,6 +146,18 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanDropCatalog(SystemSecurityContext context, String catalog)
     {
         delegate().checkCanDropCatalog(context, catalog);
+    }
+
+    @Override
+    public void checkCanRenameCatalog(SystemSecurityContext context, String catalog, String newCatalog)
+    {
+        delegate().checkCanRenameCatalog(context, catalog, newCatalog);
+    }
+
+    @Override
+    public void checkCanSetCatalogProperties(SystemSecurityContext context, String catalog, Map<String, Optional<String>> properties)
+    {
+        delegate().checkCanSetCatalogProperties(context, catalog, properties);
     }
 
     @Override

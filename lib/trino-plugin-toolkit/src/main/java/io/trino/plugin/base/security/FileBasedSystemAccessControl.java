@@ -94,6 +94,7 @@ import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyKillQuery;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyRenameCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
@@ -103,6 +104,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
+import static io.trino.spi.security.AccessDeniedException.denySetCatalogProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
@@ -112,6 +114,7 @@ import static io.trino.spi.security.AccessDeniedException.denySetTableProperties
 import static io.trino.spi.security.AccessDeniedException.denySetUser;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
+import static io.trino.spi.security.AccessDeniedException.denyShowCreateCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
@@ -408,6 +411,14 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanShowCreateCatalog(SystemSecurityContext context, String catalog)
+    {
+        if (!canAccessCatalog(context, catalog, OWNER)) {
+            denyShowCreateCatalog(catalog);
+        }
+    }
+
+    @Override
     public void checkCanCreateCatalog(SystemSecurityContext context, String catalogName)
     {
         if (!canAccessCatalog(context, catalogName, OWNER)) {
@@ -420,6 +431,25 @@ public class FileBasedSystemAccessControl
     {
         if (!canAccessCatalog(context, catalogName, OWNER)) {
             denyDropCatalog(catalogName);
+        }
+    }
+
+    @Override
+    public void checkCanRenameCatalog(SystemSecurityContext context, String catalog, String newCatalog)
+    {
+        if (!canAccessCatalog(context, catalog, OWNER)) {
+            denyRenameCatalog(catalog, newCatalog, "Insufficient permissions on the source catalog " + catalog);
+        }
+        if (!canAccessCatalog(context, newCatalog, OWNER)) {
+            denyRenameCatalog(catalog, newCatalog, "Insufficient permissions on the target catalog " + newCatalog);
+        }
+    }
+
+    @Override
+    public void checkCanSetCatalogProperties(SystemSecurityContext context, String catalog, Map<String, Optional<String>> properties)
+    {
+        if (!canAccessCatalog(context, catalog, OWNER)) {
+            denySetCatalogProperties(catalog);
         }
     }
 

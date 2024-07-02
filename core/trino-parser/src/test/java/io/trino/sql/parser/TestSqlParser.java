@@ -38,6 +38,7 @@ import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CreateCatalog;
+import io.trino.sql.tree.CreateCatalogLike;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
@@ -157,6 +158,7 @@ import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Relation;
+import io.trino.sql.tree.RenameCatalog;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
@@ -171,6 +173,7 @@ import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
+import io.trino.sql.tree.SetCatalogProperties;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
@@ -1737,6 +1740,31 @@ public class TestSqlParser
     }
 
     @Test
+    public void testCreateCatalogLike()
+    {
+        assertStatement("CREATE CATALOG test LIKE another",
+                new CreateCatalogLike(new Identifier("another"), new Identifier("test"), false, ImmutableList.of()));
+
+        assertStatement("CREATE CATALOG test LIKE another WITH (\"a\" = 'apple', \"b\" = 123)",
+                new CreateCatalogLike(
+                        new Identifier("another"),
+                        new Identifier("test"),
+                        false,
+                        ImmutableList.of(
+                                new Property(new Identifier("a"), new StringLiteral("apple")),
+                                new Property(new Identifier("b"), new LongLiteral("123")))));
+
+        assertStatement("CREATE CATALOG IF NOT EXISTS test LIKE another WITH (\"a\" = 'apple', \"b\" = 123)",
+                new CreateCatalogLike(
+                        new Identifier("another"),
+                        new Identifier("test"),
+                        true,
+                        ImmutableList.of(
+                                new Property(new Identifier("a"), new StringLiteral("apple")),
+                                new Property(new Identifier("b"), new LongLiteral("123")))));
+    }
+
+    @Test
     public void testCreateCatalog()
     {
         assertStatement("CREATE CATALOG test USING conn",
@@ -1783,6 +1811,30 @@ public class TestSqlParser
 
         assertStatement("DROP CATALOG \"some catalog that contains space\"",
                 new DropCatalog(new Identifier("some catalog that contains space"), false, false));
+    }
+
+    @Test
+    public void testRenameCatalog()
+    {
+        assertStatement("ALTER CATALOG a RENAME TO b", new RenameCatalog(new Identifier("a"), new Identifier("b")));
+    }
+
+    @Test
+    public void testSetCatalogProperties()
+    {
+        assertStatement("ALTER CATALOG a SET PROPERTIES foo='bar'", new SetCatalogProperties(new Identifier("a"), ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar")))));
+        assertStatement("ALTER CATALOG a SET PROPERTIES foo=true", new SetCatalogProperties(new Identifier("a"), ImmutableList.of(new Property(new Identifier("foo"), new BooleanLiteral("true")))));
+        assertStatement("ALTER CATALOG a SET PROPERTIES foo=123", new SetCatalogProperties(new Identifier("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")))));
+        assertStatement("ALTER CATALOG a SET PROPERTIES foo=123, bar=456", new SetCatalogProperties(new Identifier("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")), new Property(new Identifier("bar"), new LongLiteral("456")))));
+        assertStatement("ALTER CATALOG a SET PROPERTIES \" s p a c e \"='bar'", new SetCatalogProperties(new Identifier("a"), ImmutableList.of(new Property(new Identifier(" s p a c e "), new StringLiteral("bar")))));
+        assertStatement("ALTER CATALOG a SET PROPERTIES foo=123, bar=DEFAULT", new SetCatalogProperties(new Identifier("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")), new Property(new Identifier("bar")))));
+
+        assertStatementIsInvalid("ALTER CATALOG a SET PROPERTIES")
+                .withMessage("line 1:31: mismatched input '<EOF>'. Expecting: <identifier>");
+        assertStatementIsInvalid("ALTER CATALOG a SET PROPERTIES ()")
+                .withMessage("line 1:32: mismatched input '('. Expecting: <identifier>");
+        assertStatementIsInvalid("ALTER CATALOG a SET PROPERTIES (foo='bar')")
+                .withMessage("line 1:32: mismatched input '('. Expecting: <identifier>");
     }
 
     @Test

@@ -109,10 +109,19 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanShowCreateCatalog(SystemSecurityContext context, String catalog) {}
+
+    @Override
     public void checkCanCreateCatalog(SystemSecurityContext context, String catalog) {}
 
     @Override
     public void checkCanDropCatalog(SystemSecurityContext context, String catalog) {}
+
+    @Override
+    public void checkCanRenameCatalog(SystemSecurityContext context, String catalog, String newCatalog) {}
+
+    @Override
+    public void checkCanSetCatalogProperties(SystemSecurityContext context, String catalog, Map<String, Optional<String>> properties) {}
 
     @Override
     public Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)

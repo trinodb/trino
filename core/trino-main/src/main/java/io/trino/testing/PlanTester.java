@@ -936,6 +936,7 @@ public class PlanTester
                                 plannerContext.getMetadata(),
                                 sqlParser,
                                 accessControl,
+                                catalogManager,
                                 sessionPropertyManager,
                                 schemaPropertyManager,
                                 columnPropertyManager,

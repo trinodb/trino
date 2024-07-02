@@ -87,6 +87,11 @@ public abstract class BaseFileBasedSystemAccessControlTest
     private static final SystemSecurityContext JOE = new SystemSecurityContext(joe, queryId, queryStart);
     private static final SystemSecurityContext UNKNOWN = new SystemSecurityContext(unknown, queryId, queryStart);
 
+    private static final String SHOW_CREATE_CATALOG_ACCESS_DENIED_MESSAGE = "Cannot show create catalog for .*";
+    private static final String DROP_CATALOG_ACCESS_DENIED_MESSAGE = "Cannot drop catalog .*";
+    private static final String CREATE_CATALOG_ACCESS_DENIED_MESSAGE = "Cannot create catalog .*";
+    private static final String RENAME_CATALOG_ACCESS_DENIED_MESSAGE = "Cannot rename catalog .*";
+    private static final String SET_CATALOG_PROPERTIES_ACCESS_DENIED_MESSAGE = "Cannot set catalog properties to .*";
     private static final String SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE = "Cannot show schemas";
     private static final String CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot create schema .*";
     private static final String DROP_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot drop schema .*";
@@ -706,6 +711,52 @@ public abstract class BaseFileBasedSystemAccessControlTest
 
         accessControl.checkCanShowCreateTable(ADMIN, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"));
         assertAccessDenied(() -> accessControl.checkCanShowCreateTable(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable")), CREATE_TABLE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testCatalogRulesForCheckCanShowCreateCatalog()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-catalog.json");
+
+        accessControl.checkCanShowCreateCatalog(ADMIN, "some-catalog");
+        assertAccessDenied(() -> accessControl.checkCanShowCreateCatalog(BOB, "some-catalog"), SHOW_CREATE_CATALOG_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testCatalogRulesForCheckCanCreateCatalog()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-catalog.json");
+
+        accessControl.checkCanCreateCatalog(ADMIN, "some-catalog");
+        assertAccessDenied(() -> accessControl.checkCanCreateCatalog(BOB, "some-catalog"), CREATE_CATALOG_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testCatalogRulesForCheckCanDropCatalog()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-catalog.json");
+
+        accessControl.checkCanDropCatalog(ADMIN, "some-catalog");
+        assertAccessDenied(() -> accessControl.checkCanDropCatalog(BOB, "some-catalog"), DROP_CATALOG_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testCatalogRulesForCheckCanRenameCatalog()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-catalog.json");
+
+        assertAccessDenied(() -> accessControl.checkCanRenameCatalog(ALICE, "alice-catalog", "open-to-all"), RENAME_CATALOG_ACCESS_DENIED_MESSAGE + ": Insufficient permissions on the target catalog open-to-all");
+        assertAccessDenied(() -> accessControl.checkCanRenameCatalog(ALICE, "open-to-all", "alice-catalog"), RENAME_CATALOG_ACCESS_DENIED_MESSAGE + ": Insufficient permissions on the source catalog open-to-all");
+        accessControl.checkCanRenameCatalog(ADMIN, "some-catalog-a", "some-catalog-b");
+    }
+
+    @Test
+    public void testCatalogRulesForCheckCanSetPropertiesCatalog()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-catalog.json");
+
+        accessControl.checkCanSetCatalogProperties(ADMIN, "some-catalog", ImmutableMap.of());
+        assertAccessDenied(() -> accessControl.checkCanSetCatalogProperties(BOB, "some-catalog", ImmutableMap.of()), SET_CATALOG_PROPERTIES_ACCESS_DENIED_MESSAGE);
     }
 
     @Test

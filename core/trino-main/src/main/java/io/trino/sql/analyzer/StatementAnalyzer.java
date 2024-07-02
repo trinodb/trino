@@ -134,6 +134,7 @@ import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.CreateCatalog;
+import io.trino.sql.tree.CreateCatalogLike;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
@@ -212,6 +213,7 @@ import io.trino.sql.tree.QueryPeriod;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Relation;
+import io.trino.sql.tree.RenameCatalog;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
@@ -227,6 +229,7 @@ import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
+import io.trino.sql.tree.SetCatalogProperties;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetOperation;
 import io.trino.sql.tree.SetProperties;
@@ -1108,6 +1111,13 @@ class StatementAnalyzer
         }
 
         @Override
+        protected Scope visitCreateCatalogLike(CreateCatalogLike node, Optional<Scope> scope)
+        {
+            validateProperties(node.getProperties(), scope);
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
         protected Scope visitCreateCatalog(CreateCatalog node, Optional<Scope> scope)
         {
             for (Property property : node.getProperties()) {
@@ -1122,6 +1132,19 @@ class StatementAnalyzer
         @Override
         protected Scope visitDropCatalog(DropCatalog node, Optional<Scope> scope)
         {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitRenameCatalog(RenameCatalog node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitSetCatalogProperties(SetCatalogProperties node, Optional<Scope> scope)
+        {
+            validateProperties(node.getProperties(), scope);
             return createAndAssignScope(node, scope);
         }
 

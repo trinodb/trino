@@ -103,6 +103,13 @@ public interface AccessControl
     void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner);
 
     /**
+     * Check if identity is allowed to execute SHOW CREATE CATALOG.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanShowCreateCatalog(SecurityContext context, String catalog);
+
+    /**
      * Check if identity is allowed to create the specified catalog.
      *
      * @throws AccessDeniedException if not allowed
@@ -115,6 +122,20 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanDropCatalog(SecurityContext context, String catalog);
+
+    /**
+     * Check if identity is allowed to rename the specified catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanRenameCatalog(SecurityContext context, String catalog, String newCatalog);
+
+    /**
+     * Check if identity is allowed to set properties to the specified catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetCatalogProperties(SecurityContext context, String catalog, Map<String, Optional<String>> properties);
 
     /**
      * Filter the list of catalogs to those visible to the identity.

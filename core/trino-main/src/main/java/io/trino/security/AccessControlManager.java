@@ -348,6 +348,15 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanShowCreateCatalog(SecurityContext securityContext, String catalog)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(catalog, "catalog is null");
+
+        systemAuthorizationCheck(control -> control.checkCanShowCreateCatalog(securityContext.toSystemSecurityContext(), catalog));
+    }
+
+    @Override
     public void checkCanCreateCatalog(SecurityContext securityContext, String catalog)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -363,6 +372,26 @@ public class AccessControlManager
         requireNonNull(catalog, "catalog is null");
 
         systemAuthorizationCheck(control -> control.checkCanDropCatalog(securityContext.toSystemSecurityContext(), catalog));
+    }
+
+    @Override
+    public void checkCanRenameCatalog(SecurityContext securityContext, String catalog, String newCatalog)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(catalog, "catalog is null");
+        requireNonNull(newCatalog, "newCatalog is null");
+
+        systemAuthorizationCheck(control -> control.checkCanRenameCatalog(securityContext.toSystemSecurityContext(), catalog, newCatalog));
+    }
+
+    @Override
+    public void checkCanSetCatalogProperties(SecurityContext securityContext, String catalog, Map<String, Optional<String>> properties)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(catalog, "catalog is null");
+        requireNonNull(properties, "nonNullProperties is null");
+
+        systemAuthorizationCheck(control -> control.checkCanSetCatalogProperties(securityContext.toSystemSecurityContext(), catalog, properties));
     }
 
     @Override
