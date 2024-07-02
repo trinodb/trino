@@ -20,6 +20,7 @@ import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalConversions;
@@ -39,6 +40,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveTimestamp;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.spi.StandardErrorCode.BAD_DATA;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -66,11 +68,13 @@ public class RegexDeserializer
 {
     private final Pattern inputPattern;
     private final List<Column> columns;
+    private final boolean nullOnParseError;
 
-    public RegexDeserializer(List<Column> columns, String regex, boolean caseSensitive)
+    public RegexDeserializer(List<Column> columns, String regex, boolean caseSensitive, boolean nullOnParseError)
     {
         this.inputPattern = Pattern.compile(regex, DOTALL + (caseSensitive ? Pattern.CASE_INSENSITIVE : 0));
         this.columns = ImmutableList.copyOf(columns);
+        this.nullOnParseError = nullOnParseError;
     }
 
     @Override
@@ -103,11 +107,11 @@ public class RegexDeserializer
                 blockBuilder.appendNull();
                 continue;
             }
-            serializeValue(value, column, blockBuilder);
+            serializeValue(value, column, blockBuilder, this.nullOnParseError);
         }
     }
 
-    private static void serializeValue(String value, Column column, BlockBuilder builder)
+    private static void serializeValue(String value, Column column, BlockBuilder builder, boolean nullOnParseError)
     {
         try {
             Type type = column.type();
@@ -157,7 +161,12 @@ public class RegexDeserializer
         }
         catch (RuntimeException e) {
             // invalid columns are ignored
-            builder.appendNull();
+            if (nullOnParseError) {
+                builder.appendNull();
+            }
+            else {
+                throw new TrinoException(BAD_DATA, "Error Parsing a column in the table: " + e.getMessage(), e);
+            }
         }
     }
 
