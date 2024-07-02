@@ -47,6 +47,7 @@ import org.apache.iceberg.BaseTable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -141,7 +142,7 @@ public final class IcebergTestUtils
         verify(parquetMetadata.getBlocks().size() > 1, "Test must produce at least two row groups");
         for (BlockMetadata blockMetaData : parquetMetadata.getBlocks()) {
             ColumnChunkMetadata columnMetadata = blockMetaData.columns().stream()
-                    .filter(column -> getOnlyElement(column.getPath().iterator()).equalsIgnoreCase(sortColumnName))
+                    .filter(column -> column.getPath().toDotString().equalsIgnoreCase(sortColumnName))
                     .collect(onlyElement());
             if (previousMax != null) {
                 if (previousMax.compareTo(columnMetadata.getStatistics().genericGetMin()) > 0) {
