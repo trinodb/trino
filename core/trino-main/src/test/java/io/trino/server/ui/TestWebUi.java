@@ -298,6 +298,7 @@ public class TestWebUi
     private void testLogIn(URI baseUri, String username, String password, boolean sendPassword)
             throws Exception
     {
+        Thread.sleep(1000);
         CookieManager cookieManager = new CookieManager();
         OkHttpClient client = this.client.newBuilder()
                 .cookieJar(new JavaNetCookieJar(cookieManager))
@@ -396,6 +397,7 @@ public class TestWebUi
     private void testUserMapping(URI baseUri, String username, String password, boolean sendPassword)
             throws Exception
     {
+        Thread.sleep(1000);
         OkHttpClient client = this.client.newBuilder()
                 .cookieJar(new JavaNetCookieJar(new CookieManager()))
                 .build();
