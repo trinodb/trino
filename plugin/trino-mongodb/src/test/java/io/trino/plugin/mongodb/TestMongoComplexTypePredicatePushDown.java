@@ -13,8 +13,14 @@
  */
 package io.trino.plugin.mongodb;
 
+import io.trino.Session;
 import io.trino.testing.BaseComplexTypesPredicatePushDownTest;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
+
+import static io.trino.plugin.mongodb.MongoSessionProperties.COMPLEX_EXPRESSION_PUSHDOWN;
+import static io.trino.testing.TestingNames.randomNameSuffix;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMongoComplexTypePredicatePushDown
         extends BaseComplexTypesPredicatePushDownTest
@@ -26,5 +32,110 @@ public class TestMongoComplexTypePredicatePushDown
         MongoServer server = closeAfterClass(new MongoServer());
         return MongoQueryRunner.builder(server)
                 .build();
+    }
+
+    @Test
+    public void testArrayContainsPushdown()
+    {
+        String tableName = "test_array_contains_pushdown_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (colArray ARRAY(BIGINT))");
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM unnest(transform(SEQUENCE(1, 10000), x -> ROW(ARRAY[100, 200])))", 10000);
+
+        assertNoDataRead("SELECT * FROM " + tableName + " WHERE contains(colArray, -1)");
+
+        assertNoDataRead("SELECT * FROM " + tableName + " WHERE NOT contains(colArray, 100)");
+
+        assertNoDataRead("SELECT * FROM " + tableName + " WHERE contains(colArray, 100) AND contains(colArray, -1)");
+
+        assertNoDataRead("SELECT * FROM " + tableName + " WHERE NOT contains(colArray, 100) OR NOT contains(colArray, 200)");
+
+        assertQueryStats(
+                getSession(),
+                "SELECT * FROM " + tableName + " WHERE contains(colArray, 100)",
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
+                results -> assertThat(results.getRowCount()).isEqualTo(10000));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test void testExpressionPushdownDisabled()
+    {
+        String tableName = "test_expression_pushdown_disabled" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (colArray ARRAY(BIGINT))");
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM unnest(transform(SEQUENCE(1, 100), x -> ROW(ARRAY[100, 200])))", 100);
+        String querySql = "SELECT * FROM " + tableName + " WHERE contains(colArray, -1)";
+
+        assertQueryStats(
+                getSession(),
+                querySql,
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isEqualTo(0),
+                results -> assertThat(results.getRowCount()).isEqualTo(0));
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("mongodb", COMPLEX_EXPRESSION_PUSHDOWN, "false")
+                .build();
+
+        assertQueryStats(
+                session,
+                querySql,
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
+                results -> assertThat(results.getRowCount()).isEqualTo(0));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testArrayContainsPushdownDatatype()
+    {
+        String tableName = "test_array_contains_pushdown_datatype" + randomNameSuffix();
+        String createSql = """
+                CREATE TABLE %s (\
+                  boolArray ARRAY(BOOLEAN),\
+                  intArray ARRAY(BIGINT),\
+                  doubleArray ARRAY(DOUBLE),\
+                  decimalArray ARRAY(DECIMAL(10,3)),\
+                  tsArray ARRAY(TIMESTAMP(3)),\
+                  varcharArray ARRAY(VARCHAR),\
+                  varbinArray ARRAY(VARBINARY),\
+                  oidArray ARRAY(ObjectId))
+                """.formatted(tableName);
+        assertUpdate(createSql);
+        String insertSql = """
+                INSERT INTO %s SELECT * FROM unnest(transform(SEQUENCE(1, 10), x -> ROW(\
+                ARRAY[true, true],
+                ARRAY[100, 200],
+                ARRAY[10.3, 20.3],
+                ARRAY[10.3, 20.3],
+                ARRAY[TIMESTAMP '2024-03-19 15:28:23'],
+                ARRAY['hello', 'world'],
+                ARRAY[X'0D0A'],
+                ARRAY[ObjectId('55b151633864d6438c61a9ce')]
+                )))
+                """.formatted(tableName);
+        assertUpdate(insertSql, 10);
+
+        testFilterCount(tableName, "contains(boolArray, true)", 10);
+        testFilterCount(tableName,"contains(intArray, 100)", 10);
+        testFilterCount(tableName, "contains(doubleArray, 10.3)", 10);
+        testFilterCount(tableName, "contains(decimalArray, 10.3)", 10);
+        testFilterCount(tableName, "contains(tsArray, TIMESTAMP '2024-03-19 15:28:23')", 10);
+        testFilterCount(tableName, "contains(varcharArray, 'hello')", 10);
+        // testFilterCount(tableName, "contains(varbinArray, X'0D0A')", 10);
+        testFilterCount(tableName, "contains(oidArray, ObjectId('55b151633864d6438c61a9ce'))", 10);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private void testFilterCount(String tableName, String predicate, int expectCount)
+    {
+        assertQueryStats(
+                getSession(),
+                "SELECT * FROM %s WHERE %s".formatted(tableName, predicate),
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
+                results -> assertThat(results.getRowCount()).isEqualTo(expectCount));
+
+        assertThat(query("SELECT * FROM %s WHERE not %s".formatted(tableName, predicate)))
+                .returnsEmptyResult()
+                .isFullyPushedDown();
     }
 }

@@ -48,7 +48,8 @@ public class TestMongoClientConfig
                 .setImplicitRowFieldPrefix("_pos")
                 .setProjectionPushdownEnabled(true)
                 .setAllowLocalScheduling(false)
-                .setDynamicFilteringWaitTimeout(new Duration(5, SECONDS)));
+                .setDynamicFilteringWaitTimeout(new Duration(5, SECONDS))
+                .setComplexExpressionPushdownEnabled(true));
     }
 
     @Test
@@ -74,6 +75,7 @@ public class TestMongoClientConfig
                 .put("mongodb.projection-pushdown-enabled", "false")
                 .put("mongodb.allow-local-scheduling", "true")
                 .put("mongodb.dynamic-filtering.wait-timeout", "2ms")
+                .put("mongodb.complex-expression-pushdown-enabled", "false")
                 .buildOrThrow();
 
         MongoClientConfig expected = new MongoClientConfig()
@@ -94,7 +96,8 @@ public class TestMongoClientConfig
                 .setImplicitRowFieldPrefix("_prefix")
                 .setProjectionPushdownEnabled(false)
                 .setAllowLocalScheduling(true)
-                .setDynamicFilteringWaitTimeout(new Duration(2, MILLISECONDS));
+                .setDynamicFilteringWaitTimeout(new Duration(2, MILLISECONDS))
+                .setComplexExpressionPushdownEnabled(false);
 
         assertFullMapping(properties, expected);
     }

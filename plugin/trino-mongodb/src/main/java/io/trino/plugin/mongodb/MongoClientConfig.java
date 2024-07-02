@@ -51,6 +51,7 @@ public class MongoClientConfig
     private boolean projectionPushDownEnabled = true;
     private boolean allowLocalScheduling;
     private Duration dynamicFilteringWaitTimeout = new Duration(5, SECONDS);
+    private boolean complexExpressionPushdownEnabled = true;
 
     @NotNull
     public String getSchemaCollection()
@@ -283,6 +284,19 @@ public class MongoClientConfig
     public MongoClientConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
     {
         this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
+        return this;
+    }
+
+    public boolean isComplexExpressionPushdownEnabled()
+    {
+        return complexExpressionPushdownEnabled;
+    }
+
+    @Config("mongodb.complex-expression-pushdown-enabled")
+    @ConfigDescription("Allow complex expression pushdown")
+    public MongoClientConfig setComplexExpressionPushdownEnabled(boolean complexExpressionPushdownEnabled)
+    {
+        this.complexExpressionPushdownEnabled = complexExpressionPushdownEnabled;
         return this;
     }
 }

@@ -30,6 +30,7 @@ public final class MongoSessionProperties
 {
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     public static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
+    public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -47,6 +48,11 @@ public final class MongoSessionProperties
                         "Duration to wait for completion of dynamic filters",
                         mongoConfig.getDynamicFilteringWaitTimeout(),
                         false))
+                .add(booleanProperty(
+                        COMPLEX_EXPRESSION_PUSHDOWN,
+                        "Allow complex expression pushdown",
+                        mongoConfig.isComplexExpressionPushdownEnabled(),
+                        true))
                 .build();
     }
 
@@ -64,5 +70,10 @@ public final class MongoSessionProperties
     public static Duration getDynamicFilteringWaitTimeout(ConnectorSession session)
     {
         return session.getProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, Duration.class);
+    }
+
+    public static boolean isComplexExpressionPushdown(ConnectorSession session)
+    {
+        return session.getProperty(COMPLEX_EXPRESSION_PUSHDOWN, Boolean.class);
     }
 }
