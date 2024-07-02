@@ -311,8 +311,16 @@ public final class OkHttpUtil
             }
         }
 
-        KeyStore trustStore = KeyStore.getInstance(systemTrustStoreType.orElseGet(KeyStore::getDefaultType));
-        trustStore.load(null, null);
+        KeyStore trustStore;
+        if (systemTrustStoreType.isPresent()) {
+            trustStore = KeyStore.getInstance(systemTrustStoreType.orElseGet(KeyStore::getDefaultType));
+            trustStore.load(null, null);
+        }
+        else {
+            // return null if trustStoreType isn't specified and osName is unknown
+            // trustManagerFactory.init(null) will try to load the default Java trustStore
+            trustStore = null;
+        }
         return trustStore;
     }
 
