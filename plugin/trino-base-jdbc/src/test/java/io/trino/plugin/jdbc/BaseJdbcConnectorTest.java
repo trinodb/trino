@@ -2407,6 +2407,55 @@ public abstract class BaseJdbcConnectorTest
         }
     }
 
+    @Test
+    public void testUpdateProcedure()
+    {
+        String tableName = "test_update" + randomNameSuffix();
+        String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
+
+        assertUpdate("CREATE TABLE " + schemaTableName + "(a int)");
+        try {
+            assertUpdate("CALL system.update('INSERT INTO " + schemaTableName + " VALUES (1)')");
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES 1");
+
+            assertUpdate("CALL system.update('UPDATE " + schemaTableName + " SET a = 2')");
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES 2");
+
+            assertUpdate("CALL system.update('DELETE FROM " + schemaTableName + "')");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
+
+            assertUpdate("CALL system.update('DROP TABLE " + schemaTableName + "')");
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
+        }
+    }
+
+    @Test
+    public void testUpdateProcedureWithNamedArgument()
+    {
+        String tableName = "test_update" + randomNameSuffix();
+        String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
+
+        assertUpdate("CREATE TABLE " + schemaTableName + "(a int)");
+        try {
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
+            assertUpdate("CALL system.update(query => 'DROP TABLE " + schemaTableName + "')");
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
+        }
+    }
+
+    @Test
+    public void testUpdateProcedureWithInvalidQuery()
+    {
+        assertQueryFails("CALL system.update('SELECT 1')", "(?s)Failed to execute query.*");
+        assertQueryFails("CALL system.update('invalid')", "(?s)Failed to execute query.*");
+    }
+
     protected void assertDynamicFiltering(@Language("SQL") String sql, JoinDistributionType joinDistributionType)
     {
         assertDynamicFiltering(sql, joinDistributionType, true);

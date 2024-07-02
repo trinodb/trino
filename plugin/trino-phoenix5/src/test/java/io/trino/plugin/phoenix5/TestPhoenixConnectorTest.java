@@ -808,6 +808,29 @@ public class TestPhoenixConnectorTest
                 "VALUES('" + propertyName + "','5000', '5000', 'integer', 'Maximum ranges to allow in a tuple domain without simplifying it')");
     }
 
+    @Test
+    @Override // Override because Phoenix doesn't follow SQL standard syntax
+    public void testUpdateProcedure()
+    {
+        String tableName = "test_update" + randomNameSuffix();
+        String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
+
+        assertUpdate("CREATE TABLE " + schemaTableName + "(a int) WITH (rowkeys = 'a')");
+        try {
+            assertUpdate("CALL system.update('UPSERT INTO " + schemaTableName + " VALUES (1)')");
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES 1");
+
+            assertUpdate("CALL system.update('DELETE FROM " + schemaTableName + "')");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
+
+            assertUpdate("CALL system.update('DROP TABLE " + schemaTableName + "')");
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
+        }
+    }
+
     @Override
     protected OptionalInt maxTableNameLength()
     {

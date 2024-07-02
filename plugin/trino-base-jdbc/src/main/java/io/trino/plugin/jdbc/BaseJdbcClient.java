@@ -654,7 +654,8 @@ public abstract class BaseJdbcClient
         return getConnection(session);
     }
 
-    private Connection getConnection(ConnectorSession session)
+    @Override
+    public Connection getConnection(ConnectorSession session)
             throws SQLException
     {
         Connection connection = connectionFactory.openConnection(session);
