@@ -549,6 +549,30 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testIgnoreQueryPartitionFilterRequiredSchemas()
+    {
+        String schemaName = "schema_" + randomNameSuffix();
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = Session.builder(getSession())
+                .setIdentity(Identity.forUser("hive")
+                        .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
+                        .build())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "false")
+                .setCatalogSessionProperty("hive", "query_partition_filter_required_schemas", format("[\"%s\"]", schemaName))
+                .build();
+
+        assertUpdate(session, "CREATE SCHEMA " + schemaName);
+        assertUpdate(session, format("CREATE TABLE %s.%s (id integer, a varchar, b varchar, ds varchar) WITH (partitioned_by = ARRAY['ds'])", schemaName, tableName));
+        assertUpdate(session, format("INSERT INTO %s.%s (id, a, ds) VALUES (1, 'a', '1')", schemaName, tableName), 1);
+
+        assertQuerySucceeds(session, format("SELECT id FROM %s.%s WHERE a = '1'", schemaName, tableName));
+
+        assertUpdate(session, format("DROP TABLE %s.%s", schemaName, tableName));
+        assertUpdate(session, "DROP SCHEMA " + schemaName);
+    }
+
+    @Test
     public void testInvalidValueForQueryPartitionFilterRequiredSchemas()
     {
         assertQueryFails(
