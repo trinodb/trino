@@ -3421,7 +3421,7 @@ class AstBuilder
             type = DateTimeDataType.Type.TIMESTAMP;
         }
         else {
-            throw new ParsingException("Unexpected datetime type: " + context.getText());
+            throw new ParsingException("Unexpected datetime type: " + context.getText(), getLocation(context));
         }
 
         return new DateTimeDataType(
