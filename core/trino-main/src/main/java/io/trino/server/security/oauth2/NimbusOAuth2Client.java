@@ -13,6 +13,8 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
@@ -60,6 +62,7 @@ import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
 import com.nimbusds.openid.connect.sdk.validators.InvalidHashException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.server.security.oauth2.OAuth2ServerConfigProvider.OAuth2ServerConfig;
 import jakarta.ws.rs.core.UriBuilder;
 
@@ -71,6 +74,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -81,6 +85,7 @@ import static com.nimbusds.oauth2.sdk.ResponseType.CODE;
 import static com.nimbusds.openid.connect.sdk.OIDCScopeValue.OPENID;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class NimbusOAuth2Client
@@ -98,6 +103,7 @@ public class NimbusOAuth2Client
     private final Optional<String> jwtType;
     private final NimbusHttpClient httpClient;
     private final OAuth2ServerConfigProvider serverConfigurationProvider;
+    private final LoadingCache<String, Optional<JWTClaimsSet>> userInfoCache;
     private volatile boolean loaded;
     private URI authUrl;
     private URI tokenUrl;
@@ -124,6 +130,9 @@ public class NimbusOAuth2Client
 
         this.serverConfigurationProvider = requireNonNull(serverConfigurationProvider, "serverConfigurationProvider is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        userInfoCache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(5, MINUTES)
+                .build(CacheLoader.from(this::queryUserInfo));
     }
 
     @Override
@@ -389,7 +398,12 @@ public class NimbusOAuth2Client
     private Optional<JWTClaimsSet> getJWTClaimsSet(String accessToken)
     {
         if (userinfoUrl.isPresent()) {
-            return queryUserInfo(accessToken);
+            try {
+                return userInfoCache.get(accessToken);
+            }
+            catch (ExecutionException e) {
+                return Optional.empty();
+            }
         }
         return parseAccessToken(accessToken);
     }
