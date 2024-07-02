@@ -37,7 +37,6 @@ import static io.airlift.http.client.HttpStatus.REQUEST_TIMEOUT;
 import static io.airlift.http.client.HttpStatus.TOO_MANY_REQUESTS;
 import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.ACCESS_TOKEN_ISSUER;
 import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.AUTH_URL;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.END_SESSION_URL;
 import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.JWKS_URL;
 import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.TOKEN_URL;
 import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.USERINFO_URL;
@@ -115,7 +114,7 @@ public class OidcDiscovery
             else {
                 userinfoEndpoint = Optional.empty();
             }
-            Optional<URI> endSessionEndpoint = Optional.of(getRequiredField("end_session_endpoint", metadata.getEndSessionEndpointURI(), END_SESSION_URL, Optional.empty()));
+            Optional<URI> endSessionEndpoint = Optional.ofNullable(metadata.getEndSessionEndpointURI());
             return new OAuth2ServerConfig(
                     // AD FS server can include "access_token_issuer" field in OpenID Provider Metadata.
                     // It's not a part of the OIDC standard thus have to be handled separately.
