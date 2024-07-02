@@ -619,4 +619,6 @@ public interface AccessControl
     {
         return Optional.empty();
     }
+
+    void checkCanSetEntityAuthorization(SecurityContext context, String ownedKind, List<String> name, TrinoPrincipal principal);
 }

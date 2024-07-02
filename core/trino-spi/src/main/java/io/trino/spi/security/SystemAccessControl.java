@@ -79,6 +79,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivil
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
@@ -951,6 +952,11 @@ public interface SystemAccessControl
     default Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
         return Optional.empty();
+    }
+
+    default void checkCanSetEntityAuthorization(SystemSecurityContext context, String ownedKind, List<String> name, TrinoPrincipal principal)
+    {
+        denySetEntityAuthorization(ownedKind, name);
     }
 
     /**

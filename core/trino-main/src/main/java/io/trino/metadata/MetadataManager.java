@@ -2808,6 +2808,12 @@ public final class MetadataManager
         return metadata.getInsertWriterScalingOptions(session.toConnectorSession(tableHandle.catalogHandle()), tableHandle.connectorHandle());
     }
 
+    @Override
+    public void setEntityAuthorization(Session session, String ownedKind, List<String> name, TrinoPrincipal principal)
+    {
+        systemSecurityMetadata.setEntityAuthorization(session, ownedKind, name, principal);
+    }
+
     private Optional<ConnectorTableVersion> toConnectorVersion(Optional<TableVersion> version)
     {
         Optional<ConnectorTableVersion> connectorVersion = Optional.empty();

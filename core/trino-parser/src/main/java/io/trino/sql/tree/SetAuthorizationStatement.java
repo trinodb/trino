@@ -22,24 +22,38 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public abstract class SetAuthorizationStatement
+public class SetAuthorizationStatement
         extends Statement
 {
+    private final String entityKind;
     private final QualifiedName source;
     private final PrincipalSpecification principal;
 
-    public SetAuthorizationStatement(QualifiedName source, PrincipalSpecification principal)
+    public SetAuthorizationStatement(String entityKind, QualifiedName source, PrincipalSpecification principal)
     {
         super(Optional.empty());
+        this.entityKind = requireNonNull(entityKind, "entityKind is null");
         this.source = requireNonNull(source, "source is null");
         this.principal = requireNonNull(principal, "principal is null");
     }
 
-    public SetAuthorizationStatement(NodeLocation location, QualifiedName source, PrincipalSpecification principal)
+    public SetAuthorizationStatement(NodeLocation location, String entityKind, QualifiedName source, PrincipalSpecification principal)
     {
         super(Optional.of(location));
+        this.entityKind = requireNonNull(entityKind, "entityKind is null");
         this.source = requireNonNull(source, "source is null");
         this.principal = requireNonNull(principal, "principal is null");
+    }
+
+    @Override
+    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitSetAuthorization(this, context);
+    }
+
+    public String getEntityKind()
+    {
+        return entityKind;
     }
 
     public QualifiedName getSource()

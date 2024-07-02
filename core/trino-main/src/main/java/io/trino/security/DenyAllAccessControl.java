@@ -30,6 +30,7 @@ import io.trino.spi.security.TrinoPrincipal;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -82,6 +83,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivil
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
@@ -574,5 +576,11 @@ public class DenyAllAccessControl
     public void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         denyShowCreateFunction(functionName.toString());
+    }
+
+    @Override
+    public void checkCanSetEntityAuthorization(SecurityContext context, String ownedKind, List<String> name, TrinoPrincipal principal)
+    {
+        denySetEntityAuthorization(ownedKind, name);
     }
 }
