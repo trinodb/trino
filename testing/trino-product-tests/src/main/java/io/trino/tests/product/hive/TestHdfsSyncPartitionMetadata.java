@@ -21,12 +21,15 @@ import io.trino.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
+import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.TestGroups.TRINO_JDBC;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
+import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static java.lang.String.format;
 
 public class TestHdfsSyncPartitionMetadata
         extends BaseTestSyncPartitionMetadata
@@ -114,6 +117,45 @@ public class TestHdfsSyncPartitionMetadata
     public void testSyncPartitionMetadataWithNullArgument()
     {
         super.testSyncPartitionMetadataWithNullArgument();
+    }
+
+    @Test(groups = SMOKE)
+    public void testAddNonConventionalHivePartition()
+    {
+        String tableName = "test_sync_partition_metadata_add_partition_nonconventional";
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
+
+        String tableLocation = tableLocation(tableName);
+        makeHdfsDirectory(tableLocation);
+        onTrino().executeQuery(format("" +
+                        "CREATE TABLE %s (payload bigint, col_x varchar, col_y varchar) " +
+                        "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_x', 'col_y' ])",
+                tableName, tableLocation));
+
+        onHive().executeQuery("INSERT INTO " + tableName + " VALUES (1024, '10', '1'), (2048, '20', '11')");
+        String unconventionalPartitionLocation = schemaLocation() + "/unconventionalpartition";
+        makeHdfsDirectory(unconventionalPartitionLocation);
+        copyOrcFileToHdfsDirectory(tableName, unconventionalPartitionLocation);
+        onHive().executeQuery("ALTER TABLE %s ADD PARTITION (col_x = '30', col_y = '31') LOCATION '%s'".formatted(tableName, unconventionalPartitionLocation));
+        assertPartitions(tableName, row("10", "1"), row("20", "11"), row("30", "31"));
+
+        // Dropping an external table will not drop its contents
+        cleanup(tableName);
+
+        onTrino().executeQuery(format("" +
+                        "CREATE TABLE %s (payload bigint, col_x varchar, col_y varchar) " +
+                        "WITH (external_location = '%s', format = 'ORC', partitioned_by = ARRAY[ 'col_x', 'col_y' ])",
+                tableName, tableLocation));
+
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'FULL')");
+        assertPartitions(tableName, row("10", "1"), row("20", "11"));
+
+        onTrino().executeQuery("CALL system.sync_partition_metadata('default', '" + tableName + "', 'FULL')");
+        assertPartitions(tableName, row("10", "1"), row("20", "11"));
+
+        removeHdfsDirectory(unconventionalPartitionLocation);
+        cleanup(tableName);
+        removeHdfsDirectory(tableLocation);
     }
 
     @Override
