@@ -13,11 +13,15 @@
  */
 package io.trino.likematcher;
 
-import java.nio.charset.StandardCharsets;
+import io.airlift.slice.Slice;
+
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.invoke.MethodHandles.byteArrayViewVarHandle;
 import static java.util.Objects.requireNonNull;
 
 public class FjsMatcher
@@ -39,7 +43,7 @@ public class FjsMatcher
     }
 
     @Override
-    public boolean match(byte[] input, int offset, int length)
+    public boolean match(Slice input, int offset, int length)
     {
         Fjs matcher = this.matcher;
         if (matcher == null) {
@@ -52,8 +56,10 @@ public class FjsMatcher
 
     private static class Fjs
     {
+        private static final VarHandle LONG_HANDLE = byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
+
         private final boolean exact;
-        private final List<byte[]> patterns = new ArrayList<>();
+        private final List<Slice> patterns = new ArrayList<>();
         private final List<int[]> bmsShifts = new ArrayList<>();
         private final List<int[]> kmpShifts = new ArrayList<>();
 
@@ -65,27 +71,26 @@ public class FjsMatcher
                 Pattern element = pattern.get(i);
 
                 switch (element) {
-                    case Pattern.Literal literal -> {
+                    case Pattern.Literal(Slice bytes) -> {
                         checkArgument(i == 0 || !(pattern.get(i - 1) instanceof Pattern.Literal), "Multiple consecutive literals found");
-                        byte[] bytes = literal.value().getBytes(StandardCharsets.UTF_8);
                         patterns.add(bytes);
                         bmsShifts.add(computeBmsShifts(bytes));
                         kmpShifts.add(computeKmpShifts(bytes));
                     }
-                    case Pattern.Any any -> throw new IllegalArgumentException("'any' pattern not supported");
+                    case Pattern.Any _ -> throw new IllegalArgumentException("'any' pattern not supported");
                     case null, default -> {}
                 }
             }
         }
 
-        private static int[] computeKmpShifts(byte[] pattern)
+        private static int[] computeKmpShifts(Slice pattern)
         {
-            int[] result = new int[pattern.length + 1];
+            int[] result = new int[pattern.length() + 1];
             result[0] = -1;
 
             int j = -1;
             for (int i = 1; i < result.length; i++) {
-                while (j >= 0 && pattern[i - 1] != pattern[j]) {
+                while (j >= 0 && pattern.getByteUnchecked(i - 1) != pattern.getByteUnchecked(j)) {
                     j = result[j];
                 }
                 j++;
@@ -95,37 +100,44 @@ public class FjsMatcher
             return result;
         }
 
-        private static int[] computeBmsShifts(byte[] pattern)
+        private static int[] computeBmsShifts(Slice pattern)
         {
             int[] result = new int[256];
 
-            for (int i = 0; i < pattern.length; i++) {
-                result[pattern[i] & 0xFF] = i + 1;
+            for (int i = 0; i < pattern.length(); i++) {
+                result[pattern.getByteUnchecked(i) & 0xFF] = i + 1;
             }
 
             return result;
         }
 
-        private static int find(byte[] input, final int offset, final int length, byte[] pattern, int[] bmsShifts, int[] kmpShifts)
+        private static int find(Slice input, final int offset, final int length, Slice pattern, int[] bmsShifts, int[] kmpShifts)
         {
-            if (pattern.length > length || pattern.length == 0) {
+            int patternLength = pattern.length();
+            if (patternLength > length || patternLength == 0) {
                 return -1;
             }
 
+            byte[] inputBase = input.byteArray();
+            int inputBaseOffset = input.byteArrayOffset();
+            byte[] patternBase = pattern.byteArray();
+            int patternBaseOffset = pattern.byteArrayOffset();
+
             final int inputLimit = offset + length;
+            byte lastPatternByte = patternBase[patternBaseOffset + patternLength - 1];
 
             int i = offset;
             while (true) {
                 // Attempt to match the last position of the pattern
                 // As long as it doesn't match, skip ahead based on the Boyer-Moore-Sunday heuristic
-                int matchEnd = i + pattern.length - 1;
-                while (matchEnd < inputLimit - 1 && input[matchEnd] != pattern[pattern.length - 1]) {
-                    int shift = pattern.length + 1 - bmsShifts[input[matchEnd + 1] & 0xFF];
+                int matchEnd = i + patternLength - 1;
+                while (matchEnd < inputLimit - 1 && inputBase[inputBaseOffset + matchEnd] != lastPatternByte) {
+                    int shift = patternLength + 1 - bmsShifts[inputBase[inputBaseOffset + matchEnd + 1] & 0xFF];
                     matchEnd += shift;
                 }
 
-                if (matchEnd == inputLimit - 1 && match(input, inputLimit - pattern.length, pattern)) {
-                    return inputLimit - pattern.length;
+                if (matchEnd == inputLimit - 1 && match(input, inputLimit - patternLength, pattern)) {
+                    return inputLimit - patternLength;
                 }
                 else if (matchEnd >= inputLimit - 1) {
                     return -1;
@@ -135,11 +147,11 @@ public class FjsMatcher
                 // position in the input text given by "matchEnd"
                 // Use KMP to match the first length-1 characters of the pattern
 
-                i = matchEnd - (pattern.length - 1);
+                i = matchEnd - (patternLength - 1);
 
-                int j = findLongestMatch(input, i, pattern, 0, pattern.length - 1);
+                int j = findLongestMatch(inputBase, inputBaseOffset + i, patternBase, patternBaseOffset, patternLength - 1);
 
-                if (j == pattern.length - 1) {
+                if (j == patternLength - 1) {
                     return i;
                 }
 
@@ -148,11 +160,11 @@ public class FjsMatcher
 
                 // Continue to match the whole pattern using KMP
                 while (j >= 0) {
-                    int size = findLongestMatch(input, i, pattern, j, Math.min(inputLimit - i, pattern.length - j));
+                    int size = findLongestMatch(inputBase, inputBaseOffset + i, patternBase, patternBaseOffset + j, Math.min(inputLimit - i, patternLength - j));
                     i += size;
                     j += size;
 
-                    if (j == pattern.length) {
+                    if (j == patternLength) {
                         return i - j;
                     }
 
@@ -165,27 +177,32 @@ public class FjsMatcher
 
         private static int findLongestMatch(byte[] input, int inputOffset, byte[] pattern, int patternOffset, int length)
         {
-            for (int i = 0; i < length; i++) {
+            int i = 0;
+            while (i + Long.BYTES <= length) {
+                long inputWord = (long) LONG_HANDLE.get(input, inputOffset + i);
+                long patternWord = (long) LONG_HANDLE.get(pattern, patternOffset + i);
+                long xor = inputWord ^ patternWord;
+                if (xor != 0) {
+                    return i + (Long.numberOfTrailingZeros(xor) >>> 3);
+                }
+                i += Long.BYTES;
+            }
+
+            while (i < length) {
                 if (input[inputOffset + i] != pattern[patternOffset + i]) {
                     return i;
                 }
+                i++;
             }
-
             return length;
         }
 
-        private static boolean match(byte[] input, int offset, byte[] pattern)
+        private static boolean match(Slice input, int offset, Slice pattern)
         {
-            for (int i = 0; i < pattern.length; i++) {
-                if (input[offset + i] != pattern[i]) {
-                    return false;
-                }
-            }
-
-            return true;
+            return input.equals(offset, pattern.length(), pattern, 0, pattern.length());
         }
 
-        public boolean match(byte[] input, int offset, int length)
+        public boolean match(Slice input, int offset, int length)
         {
             int start = offset;
             int remaining = length;
@@ -195,14 +212,14 @@ public class FjsMatcher
                     return false;
                 }
 
-                byte[] term = patterns.get(i);
+                Slice term = patterns.get(i);
 
                 int position = find(input, start, remaining, term, bmsShifts.get(i), kmpShifts.get(i));
                 if (position == -1) {
                     return false;
                 }
 
-                position += term.length;
+                position += term.length();
                 remaining -= position - start;
                 start = position;
             }

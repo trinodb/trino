@@ -24,7 +24,6 @@ import io.trino.spi.type.TypeSignature;
 
 import java.util.Optional;
 
-import static io.airlift.slice.Slices.utf8Slice;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class LikePatternType
@@ -82,7 +81,7 @@ public class LikePatternType
 
         // layout is: <patternLength> <pattern> <hasEscape> <escape>?
         int length = slice.getInt(0);
-        String pattern = slice.toString(4, length, UTF_8);
+        Slice pattern = slice.slice(4, length);
 
         boolean hasEscape = slice.getByte(4 + length) != 0;
 
@@ -98,7 +97,7 @@ public class LikePatternType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         LikePattern likePattern = (LikePattern) value;
-        Slice pattern = utf8Slice(likePattern.getPattern());
+        Slice pattern = likePattern.getPattern();
 
         Slice slice = Slices.allocate(
                 Integer.BYTES +
