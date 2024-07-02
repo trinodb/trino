@@ -1601,7 +1601,7 @@ public class TestDomainTranslator
     {
         return new Call(
                 functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)),
-                ImmutableList.of(symbol.toSymbolReference(), new Constant(LikePatternType.LIKE_PATTERN, LikePattern.compile(pattern, Optional.empty()))));
+                ImmutableList.of(symbol.toSymbolReference(), new Constant(LikePatternType.LIKE_PATTERN, LikePattern.compile(utf8Slice(pattern), Optional.empty()))));
     }
 
     private Call like(Symbol symbol, Expression pattern, Expression escape)
@@ -1618,7 +1618,7 @@ public class TestDomainTranslator
     {
         return new Call(
                 functionResolution.resolveFunction(LIKE_FUNCTION_NAME, fromTypes(VARCHAR, LikePatternType.LIKE_PATTERN)),
-                ImmutableList.of(symbol.toSymbolReference(), new Constant(LikePatternType.LIKE_PATTERN, LikePattern.compile(pattern, Optional.of(escape)))));
+                ImmutableList.of(symbol.toSymbolReference(), new Constant(LikePatternType.LIKE_PATTERN, LikePattern.compile(utf8Slice(pattern), Optional.of(escape)))));
     }
 
     private Call startsWith(Symbol symbol, Expression expression)

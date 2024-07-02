@@ -63,6 +63,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Stream;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
@@ -261,7 +262,7 @@ public class TestColumnarFilters
         RowExpression likeFilter = call(
                 FUNCTION_RESOLUTION.resolveFunction("$like", fromTypes(VARCHAR, LIKE_PATTERN)),
                 field(STRING_CHANNEL, VARCHAR),
-                constant(LikePattern.compile(Long.toString(CONSTANT), Optional.empty()), LIKE_PATTERN));
+                constant(LikePattern.compile(utf8Slice(Long.toString(CONSTANT)), Optional.empty()), LIKE_PATTERN));
         assertThatColumnarFilterEvaluationIsSupported(likeFilter);
         verifyFilter(inputPages, likeFilter);
     }
@@ -386,7 +387,7 @@ public class TestColumnarFilters
                         call(
                                 customIsDistinctFromVarchars,
                                 field(STRING_CHANNEL, VARCHAR),
-                                constant(Slices.utf8Slice(Long.toString(CONSTANT + 5)), VARCHAR)),
+                                constant(utf8Slice(Long.toString(CONSTANT + 5)), VARCHAR)),
                         call(
                                 customIsDistinctFromIntegers,
                                 field(INT_CHANNEL_B, INTEGER),
@@ -673,7 +674,7 @@ public class TestColumnarFilters
             int dictionarySize = nonNullDictionarySize + (containsNulls ? 1 : 0); // last element in dictionary denotes null
             VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, dictionarySize, dictionarySize * 10);
             for (int i = 0; i < nonNullDictionarySize; i++) {
-                builder.writeEntry(Slices.utf8Slice(Long.toString(CONSTANT - 10 + i)));
+                builder.writeEntry(utf8Slice(Long.toString(CONSTANT - 10 + i)));
             }
             if (containsNulls) {
                 builder.appendNull();
@@ -689,7 +690,7 @@ public class TestColumnarFilters
                 builder.appendNull();
             }
             else {
-                builder.writeEntry(Slices.utf8Slice(Long.toString(RANDOM.nextLong(CONSTANT - 10, CONSTANT + 10))));
+                builder.writeEntry(utf8Slice(Long.toString(RANDOM.nextLong(CONSTANT - 10, CONSTANT + 10))));
             }
         }
         return builder.build();
@@ -767,7 +768,7 @@ public class TestColumnarFilters
                 builder.add(constant(CONSTANT + i, type));
             }
             else if (type == VARCHAR) {
-                builder.add(constant(Slices.utf8Slice(Long.toString(RANDOM.nextLong(CONSTANT + i))), type));
+                builder.add(constant(utf8Slice(Long.toString(RANDOM.nextLong(CONSTANT + i))), type));
             }
             else {
                 throw new UnsupportedOperationException();

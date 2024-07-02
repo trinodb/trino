@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import io.airlift.slice.Slice;
 import io.trino.likematcher.LikeMatcher;
 
 import java.util.Objects;
@@ -27,28 +28,28 @@ import static java.util.Objects.requireNonNull;
  */
 public class LikePattern
 {
-    private final String pattern;
+    private final Slice pattern;
     private final Optional<Character> escape;
     private final LikeMatcher matcher;
 
-    public static LikePattern compile(String pattern, Optional<Character> escape)
+    public static LikePattern compile(Slice pattern, Optional<Character> escape)
     {
         return new LikePattern(pattern, escape, LikeMatcher.compile(pattern, escape));
     }
 
-    public static LikePattern compile(String pattern, Optional<Character> escape, boolean optimize)
+    public static LikePattern compile(Slice pattern, Optional<Character> escape, boolean optimize)
     {
         return new LikePattern(pattern, escape, LikeMatcher.compile(pattern, escape, optimize));
     }
 
-    private LikePattern(String pattern, Optional<Character> escape, LikeMatcher matcher)
+    private LikePattern(Slice pattern, Optional<Character> escape, LikeMatcher matcher)
     {
         this.pattern = requireNonNull(pattern, "pattern is null");
         this.escape = requireNonNull(escape, "escape is null");
         this.matcher = requireNonNull(matcher, "likeMatcher is null");
     }
 
-    public String getPattern()
+    public Slice getPattern()
     {
         return pattern;
     }

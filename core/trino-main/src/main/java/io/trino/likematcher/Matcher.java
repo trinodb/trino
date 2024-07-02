@@ -13,7 +13,9 @@
  */
 package io.trino.likematcher;
 
+import io.airlift.slice.Slice;
+
 public interface Matcher
 {
-    boolean match(byte[] input, int offset, int length);
+    boolean match(Slice input, int offset, int length);
 }
