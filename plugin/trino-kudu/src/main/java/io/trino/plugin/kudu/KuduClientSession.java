@@ -326,12 +326,12 @@ public class KuduClientSession
             String rawName = schemaEmulation.toRawName(schemaTableName);
             AlterTableOptions alterOptions = new AlterTableOptions();
             Type type = TypeHelper.toKuduClientType(column.getType());
-            alterOptions.addColumn(
-                    new ColumnSchemaBuilder(column.getName(), type)
-                            .nullable(true)
-                            .defaultValue(null)
-                            .comment(nullToEmpty(column.getComment())) // Kudu doesn't allow null comment
-                            .build());
+            ColumnSchemaBuilder builder = new ColumnSchemaBuilder(column.getName(), type)
+                    .nullable(true)
+                    .defaultValue(null)
+                    .comment(nullToEmpty(column.getComment())); // Kudu doesn't allow null comment
+            setTypeAttributes(column, builder);
+            alterOptions.addColumn(builder.build());
             client.alterTable(rawName, alterOptions);
         }
         catch (KuduException e) {
