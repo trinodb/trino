@@ -1542,6 +1542,215 @@ public class TestDeltaLakeLocalConcurrentWritesTest
         }
     }
 
+    @Test
+    public void testConcurrentOptimizeReconciliation()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_optimize_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioned_by = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, 30)", 3);
+        // Add more files on each partition
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 10), (12, 20), (22, 30)", 3);
+
+        try {
+            // The OPTIMIZE operations operate on non-overlapping partitions
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE part = 10");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE part = 20");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE part = 30");
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (2, 10), (11, 20), (12, 20), (21, 30), (22, 30)");
+            assertQuery(
+                    "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
+                    """
+                            VALUES
+                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                                ('WRITE', 'WriteSerializable', true),
+                                ('OPTIMIZE', 'WriteSerializable', false),
+                                ('OPTIMIZE', 'WriteSerializable', false),
+                                ('OPTIMIZE', 'WriteSerializable', false)
+                            """);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    public void testConcurrentSerializableOptimizeReconciliationFailure()
+            throws Exception
+    {
+        int threads = 5;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_serializable_optimize_reconciliation" + randomNameSuffix();
+
+        // TODO create the table through Trino when `isolation_level` table property can be set
+        registerTableFromResources(tableName, "deltalake/serializable_partitioned_table", getQueryRunner());
+
+        assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (0, 10), (33, 40)");
+
+        try {
+            List<Future<Boolean>> futures = IntStream.range(0, threads)
+                    .mapToObj(threadNumber -> executor.submit(() -> {
+                        barrier.await(10, SECONDS);
+                        try {
+                            // Optimizing concurrently is not permitted on the same partition on Serializable of WriteSerializable isolation level
+                            getQueryRunner().execute("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE part = 10");
+                            return true;
+                        }
+                        catch (Exception e) {
+                            RuntimeException trinoException = getTrinoExceptionCause(e);
+                            try {
+                                assertThat(trinoException).hasMessage("Failed to write Delta Lake transaction log entry");
+                            }
+                            catch (Throwable verifyFailure) {
+                                if (verifyFailure != e) {
+                                    verifyFailure.addSuppressed(e);
+                                }
+                                throw verifyFailure;
+                            }
+                            return false;
+                        }
+                    }))
+                    .collect(toImmutableList());
+
+            long successfulOptimizeOperationsCount = futures.stream()
+                    .map(MoreFutures::getFutureValue)
+                    .filter(success -> success)
+                    .count();
+            assertThat(successfulOptimizeOperationsCount).isGreaterThanOrEqualTo(1);
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES  (0, 10), (33, 40)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    public void testConcurrentOptimizeAndBlindInsertsReconciliation()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_optimize_and_inserts_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioned_by = ARRAY['part']) AS VALUES (1, 10), (11, 20)", 2);
+
+        try {
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE part > 10");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("INSERT INTO " + tableName + " VALUES (8, 10)");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("INSERT INTO " + tableName + " VALUES (21, 30)");
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES  (1, 10), (8, 10), (11, 20), (21, 30)");
+            assertQuery(
+                    "SELECT operation, isolation_level FROM \"" + tableName + "$history\"",
+                    """
+                            VALUES
+                                ('CREATE TABLE AS SELECT', 'WriteSerializable'),
+                                ('OPTIMIZE', 'WriteSerializable'),
+                                ('WRITE', 'WriteSerializable'),
+                                ('WRITE', 'WriteSerializable')
+                            """);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    public void testConcurrentOptimizeAndNonBlindInsertsReconciliation()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_optimize_and_inserts_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioned_by = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, 30)", 3);
+        // Add more files in the partition 10
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 10)", 1);
+
+        try {
+            // The OPTIMIZE, DELETE and non-blind INSERT operations operate on non-overlapping partitions
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE part = 10");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("INSERT INTO " + tableName + " SELECT a + 1, part FROM " + tableName + " WHERE part = 20");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                // Use a non-partition filter as well to ensure the DELETE operation is not being pushed down
+                                getQueryRunner().execute("DELETE FROM " + tableName + " WHERE part = 30 AND a BETWEEN 20 AND 30");
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (2, 10), (11, 20), (12, 20)");
+            assertQuery(
+                    "SELECT operation, isolation_level, is_blind_append FROM \"" + tableName + "$history\"",
+                    """
+                            VALUES
+                                ('CREATE TABLE AS SELECT', 'WriteSerializable', true),
+                                ('WRITE', 'WriteSerializable', true),
+                                ('OPTIMIZE', 'WriteSerializable', false),
+                                ('MERGE', 'WriteSerializable', false),
+                                ('WRITE', 'WriteSerializable', false)
+                            """);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
     protected void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
             throws IOException
     {
