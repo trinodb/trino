@@ -93,7 +93,7 @@ public class TestAlterTable
     @Test(groups = SMOKE)
     public void dropColumn()
     {
-        onTrino().executeQuery(format("CREATE TABLE %s AS SELECT n_nationkey, n_regionkey, n_name FROM nation", TABLE_NAME));
+        onTrino().executeQuery(format("CREATE TABLE %s WITH (format = 'RCTEXT') AS SELECT n_nationkey, n_regionkey, n_name FROM nation", TABLE_NAME));
 
         assertThat(onTrino().executeQuery(format("SELECT count(n_nationkey) FROM %s", TABLE_NAME)))
                 .containsExactlyInOrder(row(25));

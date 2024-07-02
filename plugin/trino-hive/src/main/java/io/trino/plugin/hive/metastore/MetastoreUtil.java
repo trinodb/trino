@@ -27,6 +27,7 @@ import io.trino.hive.thrift.metastore.ResourceType;
 import io.trino.hive.thrift.metastore.ResourceUri;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.PartitionOfflineException;
 import io.trino.plugin.hive.TableOfflineException;
 import io.trino.spi.TrinoException;
@@ -84,6 +85,7 @@ import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_LITERAL_KEY;
 import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static io.trino.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
+import static io.trino.plugin.hive.HiveStorageFormat.getHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.SparkMetastoreUtil.getSparkBasicStatistics;
 import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_COMMENTS;
@@ -240,8 +242,8 @@ public final class MetastoreUtil
         return AVRO.getSerde().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
                 ((table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null)) ||
-                 (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
-                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null)));
+                        (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
+                                (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null)));
     }
 
     public static String makePartitionName(Table table, Partition partition)
@@ -303,6 +305,9 @@ public final class MetastoreUtil
         }
         if (table.getDataColumns().size() <= 1) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot drop the only non-partition column in a table");
+        }
+        if (!getHiveStorageFormat(table.getStorage().getStorageFormat()).map(HiveStorageFormat::supportsColumnDropOperation).orElse(false)) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop columns due to incompatible SerDe format");
         }
     }
 

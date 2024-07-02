@@ -5109,7 +5109,8 @@ public abstract class BaseHiveConnectorTest
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_drop_column\n" +
                 "WITH (\n" +
-                "  partitioned_by = ARRAY ['orderstatus']\n" +
+                "  partitioned_by = ARRAY ['orderstatus'],\n" +
+                tableFormatWhichAllowDroppingColumn() +
                 ")\n" +
                 "AS\n" +
                 "SELECT custkey, orderkey, orderstatus FROM orders";
@@ -5126,6 +5127,12 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE test_drop_column");
     }
 
+    @Override
+    protected String tableFormatWhichAllowDroppingColumn()
+    {
+        return "format = 'RCTEXT'";
+    }
+
     @Test
     @Override
     public void testDropAndAddColumnWithSameName()
@@ -5135,6 +5142,25 @@ public abstract class BaseHiveConnectorTest
                 .hasMessageContaining("""
                         Actual rows (up to 100 of 1 extra rows shown, 1 rows in total):
                             [1, 2]""");
+    }
+
+    @Test
+    public void testDropColumnWithUnsupportedSerDe()
+    {
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.AVRO);
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.ORC);
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.RCBINARY);
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.JSON);
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.OPENX_JSON);
+        testDropColumnWithUnsupportedSerDe(HiveStorageFormat.CSV);
+    }
+
+    private void testDropColumnWithUnsupportedSerDe(HiveStorageFormat format)
+    {
+        String tableName = format("test_drop_column_%s", format.name().toLowerCase(Locale.ROOT));
+        assertUpdate(format("CREATE TABLE %s (x varchar, y varchar) WITH (format = '%s')", tableName, format));
+        assertQueryFails(format("ALTER TABLE %s DROP COLUMN x", tableName), "Cannot drop columns due to incompatible SerDe format");
+        assertUpdate(format("DROP TABLE %s", tableName));
     }
 
     @Test
@@ -5561,7 +5587,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testSchemaMismatchesWithDereferenceProjections()
     {
-        testWithAllStorageFormats(this::testSchemaMismatchesWithDereferenceProjections);
+        testWithStorageFormatsSupportingDropColumn(this::testSchemaMismatchesWithDereferenceProjections);
     }
 
     private void testSchemaMismatchesWithDereferenceProjections(Session session, HiveStorageFormat format)
@@ -5659,19 +5685,21 @@ public abstract class BaseHiveConnectorTest
         String tableName = testReadWithPartitionSchemaMismatchAddedColumns(session, format);
 
         // with mapping by name also test behavior with dropping columns
-        // start with table with a, b, c, _part
-        // drop b
-        assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN b");
-        // create new partition
-        assertUpdate(session, "INSERT INTO " + tableName + " values (21, 22, 20)", 1); // a, c, _part
-        assertQuery(session, "SELECT a, c, _part FROM " + tableName, "VALUES (1, null, 0), (11, 13, 10), (21, 22, 20)");
-        assertQuery(session, "SELECT a, _part FROM " + tableName, "VALUES (1,  0), (11, 10), (21, 20)");
-        // add d
-        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN d bigint");
-        // create new partition
-        assertUpdate(session, "INSERT INTO " + tableName + " values (31, 32, 33, 30)", 1); // a, c, d, _part
-        assertQuery(session, "SELECT a, c, d, _part FROM " + tableName, "VALUES (1, null, null, 0), (11, 13, null, 10), (21, 22, null, 20), (31, 32, 33, 30)");
-        assertQuery(session, "SELECT a, d, _part FROM " + tableName, "VALUES (1, null, 0), (11, null, 10), (21, null, 20), (31, 33, 30)");
+        if (format.supportsColumnDropOperation()) {
+            // start with table with a, b, c, _part
+            // drop b
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN b");
+            // create new partition
+            assertUpdate(session, "INSERT INTO " + tableName + " values (21, 22, 20)", 1); // a, c, _part
+            assertQuery(session, "SELECT a, c, _part FROM " + tableName, "VALUES (1, null, 0), (11, 13, 10), (21, 22, 20)");
+            assertQuery(session, "SELECT a, _part FROM " + tableName, "VALUES (1,  0), (11, 10), (21, 20)");
+            // add d
+            assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN d bigint");
+            // create new partition
+            assertUpdate(session, "INSERT INTO " + tableName + " values (31, 32, 33, 30)", 1); // a, c, d, _part
+            assertQuery(session, "SELECT a, c, d, _part FROM " + tableName, "VALUES (1, null, null, 0), (11, 13, null, 10), (21, 22, null, 20), (31, 32, 33, 30)");
+            assertQuery(session, "SELECT a, d, _part FROM " + tableName, "VALUES (1, null, 0), (11, null, 10), (21, null, 20), (31, 33, 30)");
+        }
     }
 
     private void testReadWithPartitionSchemaMismatchByIndex(Session session, HiveStorageFormat format)
@@ -5703,37 +5731,33 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testSubfieldReordering()
     {
-        // Validate for formats for which subfield access is name based
-        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET, HiveStorageFormat.AVRO);
-        String tableName = "evolve_test_" + randomNameSuffix();
+        String tableName = "evolve_test";
+        // Subfields reordered in the file are read correctly. e.g. if partition column type is row(b bigint, c varchar) but the file
+        // column type is row(c varchar, b bigint), "a.b" should read the correct field from the file.
+        try {
+            // Validate for PARQUET format for which subfield access is name based and drop column is allowed
+            assertUpdate("CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c varchar)) with (format = 'PARQUET')");
+            assertUpdate("INSERT INTO " + tableName + " values (1, row(1, 'abc'))", 1);
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a row(c varchar, b bigint)");
+            assertQuery("SELECT a.b FROM " + tableName, "VALUES 1");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
 
-        for (HiveStorageFormat format : formats) {
-            // Subfields reordered in the file are read correctly. e.g. if partition column type is row(b bigint, c varchar) but the file
-            // column type is row(c varchar, b bigint), "a.b" should read the correct field from the file.
-            try {
-                assertUpdate("CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c varchar)) with (format = '" + format + "')");
-                assertUpdate("INSERT INTO " + tableName + " values (1, row(1, 'abc'))", 1);
-                assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
-                assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a row(c varchar, b bigint)");
-                assertQuery("SELECT a.b FROM " + tableName, "VALUES 1");
-            }
-            finally {
-                assertUpdate("DROP TABLE IF EXISTS " + tableName);
-            }
-
-            // Assert that reordered subfields are read correctly for a two-level nesting. This is useful for asserting correct adaptation
-            // of residue projections in HivePageSourceProvider
-            try {
-                assertUpdate("CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c row(x bigint, y varchar))) with (format = '" + format + "')");
-                assertUpdate("INSERT INTO " + tableName + " values (1, row(1, row(3, 'abc')))", 1);
-                assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
-                assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a row(c row(y varchar, x bigint), b bigint)");
-                // TODO: replace the following assertion with assertQuery once h2QueryRunner starts supporting row types
-                assertQuerySucceeds("SELECT a.c.y, a.c FROM " + tableName);
-            }
-            finally {
-                assertUpdate("DROP TABLE IF EXISTS " + tableName);
-            }
+        // Assert that reordered subfields are read correctly for a two-level nesting. This is useful for asserting correct adaptation
+        // of residue projections in HivePageSourceProvider
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c row(x bigint, y varchar))) with (format = 'PARQUET')");
+            assertUpdate("INSERT INTO " + tableName + " values (1, row(1, row(3, 'abc')))", 1);
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a row(c row(y varchar, x bigint), b bigint)");
+            // TODO: replace the following assertion with assertQuery once h2QueryRunner starts supporting row types
+            assertQuerySucceeds("SELECT a.c.y, a.c FROM " + tableName);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
@@ -8871,13 +8895,8 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testUseColumnAddDrop()
     {
-        testUseColumnAddDrop(HiveStorageFormat.ORC, true);
-        testUseColumnAddDrop(HiveStorageFormat.ORC, false);
         testUseColumnAddDrop(HiveStorageFormat.PARQUET, true);
         testUseColumnAddDrop(HiveStorageFormat.PARQUET, false);
-        testUseColumnAddDrop(HiveStorageFormat.AVRO, false);
-        testUseColumnAddDrop(HiveStorageFormat.JSON, false);
-        testUseColumnAddDrop(HiveStorageFormat.RCBINARY, false);
         testUseColumnAddDrop(HiveStorageFormat.RCTEXT, false);
         testUseColumnAddDrop(HiveStorageFormat.SEQUENCEFILE, false);
         testUseColumnAddDrop(HiveStorageFormat.TEXTFILE, false);
@@ -9338,6 +9357,13 @@ public abstract class BaseHiveConnectorTest
         }
     }
 
+    private void testWithStorageFormatsSupportingDropColumn(BiConsumer<Session, HiveStorageFormat> test)
+    {
+        for (TestingHiveStorageFormat storageFormat : getTestingHiveStorageFormatSupportingDropColumn()) {
+            testWithStorageFormat(storageFormat, test);
+        }
+    }
+
     private static void testWithStorageFormat(TestingHiveStorageFormat storageFormat, BiConsumer<Session, HiveStorageFormat> test)
     {
         requireNonNull(storageFormat, "storageFormat is null");
@@ -9365,6 +9391,17 @@ public abstract class BaseHiveConnectorTest
             }
 
             formats.add(new TestingHiveStorageFormat(getSession(), hiveStorageFormat));
+        }
+        return formats.build();
+    }
+
+    private List<TestingHiveStorageFormat> getTestingHiveStorageFormatSupportingDropColumn()
+    {
+        ImmutableList.Builder<TestingHiveStorageFormat> formats = ImmutableList.builder();
+        for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
+            if (hiveStorageFormat.supportsColumnDropOperation()) {
+                formats.add(new TestingHiveStorageFormat(getSession(), hiveStorageFormat));
+            }
         }
         return formats.build();
     }

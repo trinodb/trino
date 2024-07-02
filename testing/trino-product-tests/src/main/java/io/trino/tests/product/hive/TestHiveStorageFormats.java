@@ -58,6 +58,7 @@ import static io.trino.plugin.hive.HiveTimestampPrecision.MICROSECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
@@ -284,6 +285,30 @@ public class TestHiveStorageFormats
                 // nanoseconds are not supported with Avro
                 .filter(format -> !"AVRO".equals(format.getName()))
                 .iterator();
+    }
+
+    @DataProvider
+    public static StorageFormat[] storageFormatsWhichSupportColumnsDropping()
+    {
+        return new StorageFormat[] {
+                storageFormat("PARQUET"),
+                storageFormat("RCTEXT"),
+                storageFormat("SEQUENCEFILE"),
+                storageFormat("TEXTFILE"),
+        };
+    }
+
+    @DataProvider
+    public static StorageFormat[] storageFormatsWhichDoNotSupportColumnsDropping()
+    {
+        return new StorageFormat[] {
+                storageFormat("AVRO"),
+                storageFormat("ORC"),
+                storageFormat("JSON"),
+                storageFormat("OPENX_JSON"),
+                storageFormat("RCBINARY"),
+                storageFormat("CSV"),
+        };
     }
 
     @Test
@@ -788,6 +813,45 @@ public class TestHiveStorageFormats
     public void testLargeOrcInsert()
     {
         runLargeInsert(storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true")));
+    }
+
+    @Test(dataProvider = "storageFormatsWhichSupportColumnsDropping", groups = STORAGE_FORMATS_DETAILED)
+    public void testDropTableColumnWithAllowedFormat(StorageFormat storageFormat)
+    {
+        String tableName = format(
+                "test_storage_format_%s_drop_column",
+                storageFormat.getName());
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s" +
+                        " (a int, b int) " +
+                        "WITH ( " +
+                        "   format = '%s'" +
+                        ")",
+                tableName,
+                storageFormat.getName()));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES (1, 2)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s REPLACE COLUMNS (a int)", tableName));
+        assertThat(onHive().executeQuery(format("SELECT * FROM " + tableName))).contains(row(1));
+        onTrino().executeQuery("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "storageFormatsWhichDoNotSupportColumnsDropping", groups = STORAGE_FORMATS_DETAILED)
+    public void testDropTableColumnWithNotAllowedFormat(StorageFormat storageFormat)
+    {
+        String tableName = format(
+                "test_storage_format_%s_not_allowed_drop_column",
+                storageFormat.getName());
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s" +
+                        " (a varchar, b varchar) " +
+                        "WITH ( " +
+                        "   format = '%s'" +
+                        ")",
+                tableName,
+                storageFormat.getName()));
+        assertQueryFailure(() -> onHive().executeQuery(format("ALTER TABLE %s REPLACE COLUMNS (a varchar(20))", tableName)))
+                .hasMessageFindingMatch(".*SerDe may be incompatible.*");
+        onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
     private void runLargeInsert(StorageFormat storageFormat)
