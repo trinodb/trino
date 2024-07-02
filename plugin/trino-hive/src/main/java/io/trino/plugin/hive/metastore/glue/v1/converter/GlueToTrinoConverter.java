@@ -300,7 +300,7 @@ public final class GlueToTrinoConverter
 
     private static final class StorageFormatConverter
     {
-        private static final StorageFormat ALL_NULLS = StorageFormat.createNullable(null, null, null);
+        private static final StorageFormat ALL_NULLS = StorageFormat.createNullable(null, null, null, null);
         private final UnaryOperator<String> serializationLib = memoizeLast();
         private final UnaryOperator<String> inputFormat = memoizeLast();
         private final UnaryOperator<String> outputFormat = memoizeLast();
@@ -315,7 +315,7 @@ public final class GlueToTrinoConverter
             if (serializationLib == null && inputFormat == null && outputFormat == null) {
                 return ALL_NULLS;
             }
-            return this.storageFormat.apply(StorageFormat.createNullable(serializationLib, inputFormat, outputFormat));
+            return this.storageFormat.apply(StorageFormat.createNullable(serializationLib, inputFormat, outputFormat, null));
         }
     }
 

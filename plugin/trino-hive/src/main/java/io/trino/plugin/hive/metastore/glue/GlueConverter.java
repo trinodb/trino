@@ -105,7 +105,8 @@ final class GlueConverter
             StorageFormat.create(
                     "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe",
                     "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
-                    "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat"),
+                    "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
+                    ".parquet"),
             Optional.empty(),
             Optional.empty(),
             false,
@@ -304,7 +305,7 @@ final class GlueConverter
 
         SerDeInfo serdeInfo = requireNonNull(sd.serdeInfo(), () -> "StorageDescriptor SerDeInfo is null: " + tablePartitionName);
         return new Storage(
-                StorageFormat.createNullable(serdeInfo.serializationLibrary(), sd.inputFormat(), sd.outputFormat()),
+                StorageFormat.createNullable(serdeInfo.serializationLibrary(), sd.inputFormat(), sd.outputFormat(), null),
                 Optional.ofNullable(sd.location()),
                 bucketProperty,
                 sd.skewedInfo() != null && !sd.skewedInfo().skewedColumnNames().isEmpty(),
