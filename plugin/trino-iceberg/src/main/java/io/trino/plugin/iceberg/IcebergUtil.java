@@ -53,6 +53,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
@@ -591,6 +592,7 @@ public final class IcebergUtil
         }
     }
 
+    @Nullable
     public static Object deserializePartitionValue(Type type, String valueString, String name)
     {
         if (valueString == null) {
