@@ -28,6 +28,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MICROSECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.plugin.hive.HiveType.toHiveType;
@@ -309,7 +310,7 @@ public class TestTimestampCoercer
 
     public static void assertCoercions(Type fromType, Object valueToBeCoerced, Type toType, Object expectedValue, HiveTimestampPrecision timestampPrecision)
     {
-        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), new CoercionContext(timestampPrecision, false)).orElseThrow()
+        Block coercedValue = createCoercer(TESTING_TYPE_MANAGER, toHiveType(fromType), toHiveType(toType), new CoercionContext(timestampPrecision, PARQUET)).orElseThrow()
                 .apply(nativeValueToBlock(fromType, valueToBeCoerced));
         assertThat(blockToNativeValue(toType, coercedValue))
                 .isEqualTo(expectedValue);

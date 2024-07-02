@@ -23,6 +23,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import java.util.List;
@@ -87,7 +88,8 @@ public final class HiveCoercionPolicy
                     fromHiveType.equals(HIVE_FLOAT) ||
                     fromHiveType.equals(HIVE_DOUBLE) ||
                     fromHiveType.equals(HIVE_DATE) ||
-                    fromType instanceof DecimalType;
+                    fromType instanceof DecimalType ||
+                    fromType instanceof VarbinaryType;
         }
         if (toHiveType.equals(HIVE_DATE)) {
             return fromHiveType.equals(HIVE_TIMESTAMP);

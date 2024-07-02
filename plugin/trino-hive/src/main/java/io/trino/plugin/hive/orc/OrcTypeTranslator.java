@@ -59,6 +59,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.BINARY;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.BOOLEAN;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.BYTE;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.DATE;
@@ -74,6 +75,7 @@ import static io.trino.orc.metadata.OrcType.OrcTypeKind.STRING;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
 import static io.trino.orc.metadata.OrcType.OrcTypeKind.VARCHAR;
+import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToDoubleCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToInteger;
@@ -84,6 +86,7 @@ import static io.trino.plugin.hive.coercions.DecimalCoercers.createIntegerNumber
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DoubleToVarcharCoercers.createDoubleToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.FloatToVarcharCoercers.createFloatToVarcharCoercer;
+import static io.trino.plugin.hive.coercions.VarbinaryToVarcharCoercers.createVarbinaryToVarcharCoercer;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -283,6 +286,10 @@ public final class OrcTypeTranslator
                 return Optional.of(new MapCoercer(fromType, toType, keyCoercer, valueCoercer));
             }
             return Optional.empty();
+        }
+
+        if (fromOrcTypeKind == BINARY && toTrinoType instanceof VarcharType varcharType) {
+            return Optional.of(createVarbinaryToVarcharCoercer(varcharType, ORC));
         }
         return Optional.empty();
     }
