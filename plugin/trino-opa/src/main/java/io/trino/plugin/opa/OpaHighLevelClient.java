@@ -14,8 +14,10 @@
 package io.trino.plugin.opa;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
+import io.trino.plugin.opa.schema.OpaBatchColumnMaskQueryResult;
 import io.trino.plugin.opa.schema.OpaColumnMaskQueryResult;
 import io.trino.plugin.opa.schema.OpaQueryContext;
 import io.trino.plugin.opa.schema.OpaQueryInput;
@@ -27,16 +29,19 @@ import io.trino.plugin.opa.schema.OpaViewExpression;
 import io.trino.plugin.opa.schema.TrinoColumn;
 import io.trino.plugin.opa.schema.TrinoTable;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.security.AccessDeniedException;
-import io.trino.spi.type.Type;
 
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class OpaHighLevelClient
@@ -44,26 +49,31 @@ public class OpaHighLevelClient
     private final JsonCodec<OpaQueryResult> queryResultCodec;
     private final JsonCodec<OpaRowFiltersQueryResult> rowFiltersQueryResultCodec;
     private final JsonCodec<OpaColumnMaskQueryResult> columnMaskQueryResultCodec;
+    private final JsonCodec<OpaBatchColumnMaskQueryResult> batchColumnMaskQueryResultCodec;
     private final OpaHttpClient opaHttpClient;
     private final URI opaPolicyUri;
     private final Optional<URI> opaRowFiltersUri;
     private final Optional<URI> opaColumnMaskingUri;
+    private final Optional<URI> opaBatchColumnMaskingUri;
 
     @Inject
     public OpaHighLevelClient(
             JsonCodec<OpaQueryResult> queryResultCodec,
             JsonCodec<OpaRowFiltersQueryResult> rowFiltersQueryResultCodec,
             JsonCodec<OpaColumnMaskQueryResult> columnMaskQueryResultCodec,
+            JsonCodec<OpaBatchColumnMaskQueryResult> batchColumnMaskQueryResultCodec,
             OpaHttpClient opaHttpClient,
             OpaConfig config)
     {
         this.queryResultCodec = requireNonNull(queryResultCodec, "queryResultCodec is null");
         this.rowFiltersQueryResultCodec = requireNonNull(rowFiltersQueryResultCodec, "rowFiltersQueryResultCodec is null");
         this.columnMaskQueryResultCodec = requireNonNull(columnMaskQueryResultCodec, "columnMaskQueryResultCodec is null");
+        this.batchColumnMaskQueryResultCodec = requireNonNull(batchColumnMaskQueryResultCodec, "batchColumnMaskQueryResultCodec is null");
         this.opaHttpClient = requireNonNull(opaHttpClient, "opaHttpClient is null");
         this.opaPolicyUri = config.getOpaUri();
         this.opaRowFiltersUri = config.getOpaRowFiltersUri();
         this.opaColumnMaskingUri = config.getOpaColumnMaskingUri();
+        this.opaBatchColumnMaskingUri = config.getOpaBatchColumnMaskingUri();
     }
 
     public boolean queryOpa(OpaQueryInput input)
@@ -138,21 +148,42 @@ public class OpaHighLevelClient
                 .orElse(ImmutableList.of());
     }
 
-    public Optional<OpaViewExpression> getColumnMaskFromOpa(OpaQueryContext context, CatalogSchemaTableName table, String columnName, Type type)
+    public Map<ColumnSchema, OpaViewExpression> getTableColumnMasksFromOpa(OpaQueryContext context, CatalogSchemaTableName table, List<ColumnSchema> columns)
     {
-        OpaQueryInput queryInput = new OpaQueryInput(
-                context,
-                OpaQueryInputAction.builder()
-                        .operation("GetColumnMask")
-                        .resource(OpaQueryInputResource.builder().column(new TrinoColumn(table, columnName, type)).build())
-                        .build());
-        return opaColumnMaskingUri
-                .flatMap(uri -> opaHttpClient.consumeOpaResponse(opaHttpClient.submitOpaRequest(queryInput, uri, columnMaskQueryResultCodec)).result());
+        return opaBatchColumnMaskingUri.map(batchUri -> getBatchTableColumnMasksFromOpa(batchUri, context, table, columns))
+                .or(() -> opaColumnMaskingUri.map(maskUri -> getParallelTableColumnMasksFromOpa(maskUri, context, table, columns)))
+                .orElse(ImmutableMap.of());
     }
 
     public static OpaQueryInput buildQueryInputForSimpleResource(OpaQueryContext context, String operation, OpaQueryInputResource resource)
     {
         return new OpaQueryInput(context, OpaQueryInputAction.builder().operation(operation).resource(resource).build());
+    }
+
+    private Map<ColumnSchema, OpaViewExpression> getBatchTableColumnMasksFromOpa(URI uri, OpaQueryContext context, CatalogSchemaTableName table, List<ColumnSchema> columns)
+    {
+        OpaQueryInput input = new OpaQueryInput(context, OpaQueryInputAction.builder()
+                .operation("GetColumnMask")
+                .filterResources(columns.stream().map(column -> OpaQueryInputResource.builder().column(new TrinoColumn(table, column.getName(), column.getType())).build()).collect(toImmutableList()))
+                .build());
+        OpaBatchColumnMaskQueryResult result = opaHttpClient.consumeOpaResponse(opaHttpClient.submitOpaRequest(input, uri, batchColumnMaskQueryResultCodec));
+
+        return result.result().stream()
+                .collect(toImmutableMap(item -> columns.get(item.index()), OpaBatchColumnMaskQueryResult.OpaBatchColumnMaskQueryResultItem::viewExpression));
+    }
+
+    private Map<ColumnSchema, OpaViewExpression> getParallelTableColumnMasksFromOpa(URI uri, OpaQueryContext context, CatalogSchemaTableName table, List<ColumnSchema> columns)
+    {
+        return opaHttpClient.parallelColumnMasksFromOpa(
+                columns,
+                column -> new OpaQueryInput(
+                        context,
+                        OpaQueryInputAction.builder()
+                                .operation("GetColumnMask")
+                                .resource(OpaQueryInputResource.builder().column(new TrinoColumn(table, column.getName(), column.getType())).build())
+                                .build()),
+                uri,
+                columnMaskQueryResultCodec);
     }
 
     private static OpaQueryInput buildQueryInputForSimpleAction(OpaQueryContext context, String operation)

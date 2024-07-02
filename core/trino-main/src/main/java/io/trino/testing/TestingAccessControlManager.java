@@ -26,10 +26,10 @@ import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
-import io.trino.spi.type.Type;
 import io.trino.transaction.TransactionManager;
 
 import java.security.Principal;
@@ -739,13 +739,17 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(SecurityContext context, QualifiedObjectName tableName, String column, Type type)
+    public Map<ColumnSchema, ViewExpression> getTableColumnMasks(SecurityContext context, QualifiedObjectName tableName, List<ColumnSchema> columns)
     {
-        ViewExpression mask = columnMasks.get(new ColumnMaskKey(context.getIdentity().getUser(), tableName, column));
-        if (mask != null) {
-            return Optional.of(mask);
-        }
-        return super.getColumnMask(context, tableName, column, type);
+        Map<ColumnSchema, ViewExpression> superResult = super.getTableColumnMasks(context, tableName, columns);
+        return columns.stream()
+                .map(column ->
+                    Optional.ofNullable(columnMasks.get(new ColumnMaskKey(context.getIdentity().getUser(), tableName, column.getName())))
+                            .or(() -> Optional.ofNullable(superResult.get(column)))
+                            .map(viewExpression -> Map.entry(column, viewExpression)))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     private boolean shouldDenyPrivilege(String actorName, String entityName, TestingPrivilegeType verb)
