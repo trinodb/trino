@@ -8206,6 +8206,102 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails("TABLE \"nation$foo\"", "\\Qline 1:1: Table '%s.%s.\"nation$foo\"' does not exist".formatted(catalog, schema));
     }
 
+    @Test
+    public void testExtraProperties()
+    {
+        String tableName = "test_create_table_with_multiple_extra_properties_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))");
+
+        assertThat(query("SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.one', 'extra.property.two')"))
+                .skippingTypesCheck()
+                .matches("VALUES ('extra.property.one', 'one'), ('extra.property.two', 'two')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testReplaceTableExtraProperties()
+    {
+        String tableName = "test_replace_table_with_multiple_extra_properties_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))");
+        assertUpdate("CREATE OR REPLACE TABLE " + tableName + " (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.three'], ARRAY['three']))");
+
+        assertThat(query("SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.one', 'extra.property.two', 'extra.property.three')"))
+                .skippingTypesCheck()
+                .matches("VALUES ('extra.property.three', 'three')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableAsSelectWithExtraProperties()
+    {
+        String tableName = "test_create_table_ctas_with_multiple_extra_properties_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " +  tableName + " WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two'])) " +
+                "AS SELECT 1 as c1", 1);
+
+        assertQuery(
+            "SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.one', 'extra.property.two')",
+            "VALUES ('extra.property.one', 'one'), ('extra.property.two', 'two')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testShowCreateNotContainExtraProperties()
+    {
+        String tableName = "test_show_create_table_with_extra_prop_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))");
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE "+ tableName)).doesNotContain("extra_properties", "extra.property.one", "extra.property.two");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDuplicateExtraProperties()
+    {
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_duplicate_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false']))",
+                "\\QInvalid value for catalog 'iceberg' table property 'extra_properties': Cannot convert [MAP(ARRAY['extra.property','extra.property'], ARRAY['true','false'])] to map(varchar, varchar)");
+
+        assertQueryFails(
+                "CREATE TABLE test_create_table_as_with_duplicate_extra_properties WITH (extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false'])) AS SELECT 1 as c1",
+                "\\QInvalid value for catalog 'iceberg' table property 'extra_properties': Cannot convert [MAP(ARRAY['extra.property','extra.property'], ARRAY['true','false'])] to map(varchar, varchar)");
+    }
+
+    @Test
+    public void testNullExtraProperty()
+    {
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_duplicate_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['null.property'], ARRAY[null]))",
+                "\\QUnable to set catalog 'iceberg' table property 'extra_properties' to [MAP(ARRAY['null.property'], ARRAY[null])]: Extra table property value cannot be null '{null.property=null}'");
+
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_as_duplicate_extra_properties WITH (extra_properties = MAP(ARRAY['null.property'], ARRAY[null])) AS SELECT 1 as c1",
+                "\\QUnable to set catalog 'iceberg' table property 'extra_properties' to [MAP(ARRAY['null.property'], ARRAY[null])]: Extra table property value cannot be null '{null.property=null}'");
+    }
+
+    @Test
+    public void testIllegalExtraPropertyKey()
+    {
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_illegal_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['sorted_by'], ARRAY['id']))",
+                "\\QIllegal keys in extra_properties: [sorted_by]");
+
+        assertQueryFails(
+                "CREATE TABLE test_create_table_as_with_illegal_extra_properties WITH (extra_properties = MAP(ARRAY['extra_properties'], ARRAY['some_value'])) AS SELECT 1 as c1",
+                "\\QIllegal keys in extra_properties: [extra_properties]");
+
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_as_illegal_extra_properties WITH (extra_properties = MAP(ARRAY['write.format.default'], ARRAY['ORC'])) AS SELECT 1 as c1",
+                "\\QIllegal keys in extra_properties: [write.format.default]");
+
+        assertQueryFails(
+                "CREATE TABLE test_create_table_with_as_illegal_extra_properties WITH (extra_properties = MAP(ARRAY['comment'], ARRAY['some comment'])) AS SELECT 1 as c1",
+                "\\QIllegal keys in extra_properties: [comment]");
+    }
+
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
