@@ -54,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -71,6 +72,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressio
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageValueCount;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
@@ -113,6 +115,7 @@ public class DeltaLakeMergeSink
     private final int[] dataColumnsIndices;
     private final int[] dataAndRowIdColumnsIndices;
     private final DeltaLakeParquetSchemaMapping parquetSchemaMapping;
+    private final Set<String> bloomFilterColumns;
 
     @Nullable
     private DeltaLakeCdfPageSink cdfPageSink;
@@ -132,7 +135,8 @@ public class DeltaLakeMergeSink
             int domainCompactionThreshold,
             Supplier<DeltaLakeCdfPageSink> cdfPageSinkSupplier,
             boolean cdfEnabled,
-            DeltaLakeParquetSchemaMapping parquetSchemaMapping)
+            DeltaLakeParquetSchemaMapping parquetSchemaMapping,
+            Set<String> bloomFilterColumns)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
@@ -156,6 +160,7 @@ public class DeltaLakeMergeSink
         this.cdfPageSinkSupplier = requireNonNull(cdfPageSinkSupplier);
         this.cdfEnabled = cdfEnabled;
         this.parquetSchemaMapping = requireNonNull(parquetSchemaMapping, "parquetSchemaMapping is null");
+        this.bloomFilterColumns = requireNonNull(bloomFilterColumns, "bloomFilterColumns is null");
         dataColumnsIndices = new int[tableColumnCount];
         dataAndRowIdColumnsIndices = new int[tableColumnCount + 1];
         for (int i = 0; i < tableColumnCount; i++) {
@@ -361,6 +366,7 @@ public class DeltaLakeMergeSink
                 .setMaxBlockSize(getParquetWriterBlockSize(session))
                 .setMaxPageSize(getParquetWriterPageSize(session))
                 .setMaxPageValueCount(getParquetWriterPageValueCount(session))
+                .setBloomFilterColumns(bloomFilterColumns)
                 .build();
         CompressionCodec compressionCodec = getCompressionCodec(session).getParquetCompressionCodec()
                 .orElseThrow(); // validated on the session property level
@@ -512,7 +518,7 @@ public class DeltaLakeMergeSink
                 true,
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),
-                new ParquetReaderOptions().withBloomFilter(false),
+                new ParquetReaderOptions().withBloomFilter(useParquetBloomFilter(session)),
                 Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.of(fileSize));

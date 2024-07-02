@@ -19,8 +19,8 @@ import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -35,13 +35,12 @@ public record DeltaLakeOutputTableHandle(
         Optional<Long> checkpointInterval,
         boolean external,
         Optional<String> comment,
-        Optional<Boolean> changeDataFeedEnabled,
         String schemaString,
         ColumnMappingMode columnMappingMode,
-        OptionalInt maxColumnId,
         boolean replace,
         OptionalLong readVersion,
-        ProtocolEntry protocolEntry)
+        ProtocolEntry protocolEntry,
+        Map<String, String> configuration)
         implements ConnectorOutputTableHandle
 {
     public DeltaLakeOutputTableHandle
@@ -52,12 +51,11 @@ public record DeltaLakeOutputTableHandle(
         requireNonNull(location, "location is null");
         requireNonNull(checkpointInterval, "checkpointInterval is null");
         requireNonNull(comment, "comment is null");
-        requireNonNull(changeDataFeedEnabled, "changeDataFeedEnabled is null");
         requireNonNull(schemaString, "schemaString is null");
         requireNonNull(columnMappingMode, "columnMappingMode is null");
-        requireNonNull(maxColumnId, "maxColumnId is null");
         requireNonNull(readVersion, "readVersion is null");
         requireNonNull(protocolEntry, "protocolEntry is null");
+        requireNonNull(configuration, "configuration is null");
     }
 
     public List<String> partitionedBy()

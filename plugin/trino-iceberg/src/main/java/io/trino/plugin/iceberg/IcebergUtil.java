@@ -309,7 +309,7 @@ public final class IcebergUtil
         // iceberg Parquet format bloom filter properties
         Set<String> parquetBloomFilterColumns = getParquetBloomFilterColumns(icebergTable.properties());
         if (!parquetBloomFilterColumns.isEmpty()) {
-            properties.put(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY, ImmutableList.copyOf(parquetBloomFilterColumns));
+            properties.put(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY, ImmutableList.sortedCopyOf(parquetBloomFilterColumns));
         }
 
         return properties.buildOrThrow();
