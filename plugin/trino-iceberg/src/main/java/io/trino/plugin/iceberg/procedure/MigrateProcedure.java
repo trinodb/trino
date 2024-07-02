@@ -244,7 +244,7 @@ public class MigrateProcedure
             }
 
             log.debug("Start new transaction");
-            Transaction transaction = catalog.newCreateTableTransaction(
+            Transaction transaction = catalog.newMigrateTableTransaction(
                     session,
                     sourceTableName,
                     schema,
