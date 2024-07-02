@@ -27,9 +27,11 @@ import static io.trino.client.uri.PropertyName.DISABLE_COMPRESSION;
 import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
 import static io.trino.client.uri.PropertyName.HTTP_PROXY;
 import static io.trino.client.uri.PropertyName.SOCKS_PROXY;
+import static io.trino.client.uri.PropertyName.SSL_KEY_STORE_TYPE;
 import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_PASSWORD;
 import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_PATH;
 import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_TYPE;
+import static io.trino.client.uri.PropertyName.SSL_USE_SYSTEM_KEY_STORE;
 import static io.trino.client.uri.PropertyName.SSL_USE_SYSTEM_TRUST_STORE;
 import static io.trino.client.uri.PropertyName.SSL_VERIFICATION;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -106,7 +108,7 @@ public class TestTrinoUri
         assertInvalid("trino://localhost:8080?SSL=true&SSLKeyStorePassword=password", "Connection property SSLKeyStorePassword requires SSLKeyStorePath to be set");
 
         // ssl key store type without path
-        assertInvalid("trino://localhost:8080?SSL=true&SSLKeyStoreType=type", "Connection property SSLKeyStoreType requires SSLKeyStorePath to be set");
+        assertInvalid("trino://localhost:8080?SSL=true&SSLKeyStoreType=type", "Connection property SSLKeyStoreType requires SSLKeyStorePath to be set or SSLUseSystemKeyStore to be enabled");
 
         // ssl trust store password without path
         assertInvalid("trino://localhost:8080?SSL=true&SSLTrustStorePassword=password", "Connection property SSLTrustStorePassword requires SSLTrustStorePath to be set");
@@ -149,6 +151,12 @@ public class TestTrinoUri
 
         // key store path with ssl verification mode NONE
         assertInvalid("trino://localhost:8080?SSLKeyStorePath=keystore.jks", "Connection property SSLKeyStorePath cannot be set if SSLVerification is set to NONE");
+
+        // use system key store with ssl verification mode NONE
+        assertInvalid("trino://localhost:8080?SSLUseSystemKeyStore=true", "Connection property SSLUseSystemKeyStore cannot be set if SSLVerification is set to NONE");
+
+        // use system key store with key store path
+        assertInvalid("trino://localhost:8080?SSL=true&SSLUseSystemKeyStore=true&SSLKeyStorePath=keystore.jks", "Connection property SSLKeyStorePath cannot be set if SSLUseSystemKeyStore is enabled");
 
         // use system trust store with ssl verification mode NONE
         assertInvalid("trino://localhost:8080?SSLUseSystemTrustStore=true", "Connection property SSLUseSystemTrustStore cannot be set if SSLVerification is set to NONE");
@@ -337,6 +345,29 @@ public class TestTrinoUri
 
         Properties properties = parameters.getProperties();
         assertThat(properties.getProperty(SSL_VERIFICATION.toString())).isEqualTo(NONE.name());
+    }
+
+    @Test
+    public void testUriWithSslEnabledSystemKeyStoreDefault()
+            throws SQLException
+    {
+        TrinoUri parameters = createDriverUri("trino://localhost:8080/blackhole?SSL=true&SSLUseSystemKeyStore=true");
+        assertUriPortScheme(parameters, 8080, "https");
+
+        Properties properties = parameters.getProperties();
+        assertThat(properties.getProperty(SSL_USE_SYSTEM_KEY_STORE.toString())).isEqualTo("true");
+    }
+
+    @Test
+    public void testUriWithSslEnabledSystemKeyStoreOverride()
+            throws SQLException
+    {
+        TrinoUri parameters = createDriverUri("trino://localhost:8080/blackhole?SSL=true&SSLKeyStoreType=Override&SSLUseSystemKeyStore=true");
+        assertUriPortScheme(parameters, 8080, "https");
+
+        Properties properties = parameters.getProperties();
+        assertThat(properties.getProperty(SSL_KEY_STORE_TYPE.toString())).isEqualTo("Override");
+        assertThat(properties.getProperty(SSL_USE_SYSTEM_KEY_STORE.toString())).isEqualTo("true");
     }
 
     @Test
