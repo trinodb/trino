@@ -14,10 +14,13 @@
 package io.trino.execution;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -39,6 +42,8 @@ public class DynamicFilterConfig
 {
     private boolean enableDynamicFiltering = true;
     private boolean enableLargeDynamicFilters;
+    private boolean enableDynamicRowFiltering = true;
+    private double dynamicRowFilterSelectivityThreshold = 0.7;
 
     /*
      * dynamic-filtering.small.* and dynamic-filtering.large.* limits are applied when
@@ -93,6 +98,34 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setEnableLargeDynamicFilters(boolean enableLargeDynamicFilters)
     {
         this.enableLargeDynamicFilters = enableLargeDynamicFilters;
+        return this;
+    }
+
+    public boolean isEnableDynamicRowFiltering()
+    {
+        return enableDynamicRowFiltering;
+    }
+
+    @Config("enable-dynamic-row-filtering")
+    @ConfigDescription("Enable fine-grained filtering of rows in the scan operator using dynamic filters")
+    public DynamicFilterConfig setEnableDynamicRowFiltering(boolean enableDynamicRowFiltering)
+    {
+        this.enableDynamicRowFiltering = enableDynamicRowFiltering;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getDynamicRowFilterSelectivityThreshold()
+    {
+        return dynamicRowFilterSelectivityThreshold;
+    }
+
+    @Config("dynamic-row-filtering.selectivity-threshold")
+    @ConfigDescription("Avoid using dynamic row filters when fraction of rows selected is above threshold")
+    public DynamicFilterConfig setDynamicRowFilterSelectivityThreshold(double dynamicRowFilterSelectivityThreshold)
+    {
+        this.dynamicRowFilterSelectivityThreshold = dynamicRowFilterSelectivityThreshold;
         return this;
     }
 

@@ -608,7 +608,7 @@ public final class BlockAssertions
         return createBlock(INTEGER, (ValueWriter<Integer>) INTEGER::writeLong, values);
     }
 
-    public static ValueBlock createRowBlock(List<Type> fieldTypes, Object[]... rows)
+    public static RowBlock createRowBlock(List<Type> fieldTypes, Object[]... rows)
     {
         RowBlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
         for (Object[] row : rows) {
@@ -689,6 +689,11 @@ public final class BlockAssertions
     public static ValueBlock createTypedLongsBlock(Type type, Iterable<Long> values)
     {
         return createBlock(type, type::writeLong, values);
+    }
+
+    public static ValueBlock createTypedLongsBlock(Type type, Long... values)
+    {
+        return createBlock(type, type::writeLong, Arrays.asList(values));
     }
 
     public static ValueBlock createLongSequenceBlock(int start, int end)

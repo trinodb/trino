@@ -103,7 +103,6 @@ import static io.trino.sql.ir.IrUtils.combineDisjunctsWithDefault;
 import static io.trino.sql.ir.IrUtils.or;
 import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
 
 public final class DomainTranslator
@@ -117,15 +116,20 @@ public final class DomainTranslator
 
     public Expression toPredicate(TupleDomain<Symbol> tupleDomain)
     {
+        return IrUtils.combineConjuncts(toPredicateConjuncts(tupleDomain));
+    }
+
+    public List<Expression> toPredicateConjuncts(TupleDomain<Symbol> tupleDomain)
+    {
         if (tupleDomain.isNone()) {
-            return FALSE;
+            return ImmutableList.of(FALSE);
         }
 
         Map<Symbol, Domain> domains = tupleDomain.getDomains().get();
         return domains.entrySet().stream()
                 .sorted(Comparator.comparing(e -> e.getKey().name()))
                 .map(entry -> toPredicate(entry.getValue(), entry.getKey().toSymbolReference()))
-                .collect(collectingAndThen(toImmutableList(), IrUtils::combineConjuncts));
+                .collect(toImmutableList());
     }
 
     private Expression toPredicate(Domain domain, Reference reference)

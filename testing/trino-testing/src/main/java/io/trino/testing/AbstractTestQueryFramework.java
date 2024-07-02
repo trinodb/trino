@@ -690,13 +690,18 @@ public abstract class AbstractTestQueryFramework
                 .findOnlyElement()
                 .getId();
 
+        return extractOperatorStatsForNodeId(queryId, nodeId, "ScanFilterAndProjectOperator");
+    }
+
+    protected OperatorStats extractOperatorStatsForNodeId(QueryId queryId, PlanNodeId nodeId, String operatorType)
+    {
         return getDistributedQueryRunner().getCoordinator()
                 .getQueryManager()
                 .getFullQueryInfo(queryId)
                 .getQueryStats()
                 .getOperatorSummaries()
                 .stream()
-                .filter(summary -> nodeId.equals(summary.getPlanNodeId()) && summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
+                .filter(summary -> nodeId.equals(summary.getPlanNodeId()) && operatorType.equals(summary.getOperatorType()))
                 .collect(MoreCollectors.onlyElement());
     }
 

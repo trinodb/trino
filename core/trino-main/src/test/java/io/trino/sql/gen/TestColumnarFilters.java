@@ -48,7 +48,6 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.testing.TestingSession;
@@ -60,11 +59,11 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Random;
 import java.util.stream.Stream;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
@@ -118,7 +117,7 @@ public class TestColumnarFilters
             .scalar(CustomIsDistinctFrom.class)
             .build();
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution(FUNCTION_BUNDLE);
-    private static final ColumnarFilterCompiler COMPILER = new ColumnarFilterCompiler(createTestingFunctionManager(FUNCTION_BUNDLE), new CompilerConfig());
+    private static final ColumnarFilterCompiler COMPILER = FUNCTION_RESOLUTION.getColumnarFilterCompiler();
 
     @ParameterizedTest
     @MethodSource("inputProviders")
@@ -183,10 +182,11 @@ public class TestColumnarFilters
         verifyFilter(inputPages, isNullFilter);
     }
 
-    @Test
-    public void testNullableReturnFunction()
+    @ParameterizedTest
+    @MethodSource("inputProviders")
+    public void testNullableReturnFunction(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
-        List<Page> inputPages = createInputPages(NullsProvider.RANDOM_NULLS, false);
+        List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
         // custom_is_null(col, NULL)
         RowExpression customNullableReturnFilter = call(
                 FUNCTION_RESOLUTION.functionCallBuilder("custom_is_null")
@@ -194,8 +194,7 @@ public class TestColumnarFilters
                         .build()
                         .function(),
                 field(STRING_CHANNEL, VARCHAR));
-        // Functions with nullable return are not supported in columnar evaluation yet
-        assertThatColumnarFilterEvaluationIsNotSupported(customNullableReturnFilter);
+        assertThatColumnarFilterEvaluationIsSupported(customNullableReturnFilter);
         verifyFilter(inputPages, customNullableReturnFilter);
     }
 
@@ -227,6 +226,21 @@ public class TestColumnarFilters
                 field(INT_CHANNEL_A, INTEGER));
         assertThatColumnarFilterEvaluationIsSupported(customInstanceFactoryFilter);
         verifyFilter(inputPages, customInstanceFactoryFilter);
+    }
+
+    @Test
+    public void testBooleanConstant()
+    {
+        List<Page> inputPages = createInputPages(NullsProvider.RANDOM_NULLS, false);
+        // WHERE true
+        RowExpression trueFilter = constant(true, BOOLEAN);
+        assertThatColumnarFilterEvaluationIsSupported(trueFilter);
+        verifyFilter(inputPages, trueFilter);
+
+        // WHERE false
+        RowExpression falseFilter = constant(false, BOOLEAN);
+        assertThatColumnarFilterEvaluationIsSupported(falseFilter);
+        verifyFilter(inputPages, falseFilter);
     }
 
     @ParameterizedTest
@@ -290,6 +304,36 @@ public class TestColumnarFilters
         // colA < colB
         lessThanFilter = call(
                 FUNCTION_RESOLUTION.resolveOperator(LESS_THAN, ImmutableList.of(INTEGER, INTEGER)),
+                field(INT_CHANNEL_C, INTEGER),
+                field(INT_CHANNEL_A, INTEGER));
+        assertThatColumnarFilterEvaluationIsSupported(lessThanFilter);
+        verifyFilter(inputPages, lessThanFilter);
+    }
+
+    @ParameterizedTest
+    @MethodSource("inputProviders")
+    public void testEq(NullsProvider nullsProvider, boolean dictionaryEncoded)
+    {
+        List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
+        // constant = col
+        RowExpression lessThanFilter = call(
+                FUNCTION_RESOLUTION.resolveOperator(EQUAL, ImmutableList.of(INTEGER, INTEGER)),
+                constant(CONSTANT, INTEGER),
+                field(INT_CHANNEL_A, INTEGER));
+        assertThatColumnarFilterEvaluationIsSupported(lessThanFilter);
+        verifyFilter(inputPages, lessThanFilter);
+
+        // col = constant
+        lessThanFilter = call(
+                FUNCTION_RESOLUTION.resolveOperator(EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
+                field(DOUBLE_CHANNEL, DOUBLE),
+                constant((double) CONSTANT, DOUBLE));
+        assertThatColumnarFilterEvaluationIsSupported(lessThanFilter);
+        verifyFilter(inputPages, lessThanFilter);
+
+        // colA = colB
+        lessThanFilter = call(
+                FUNCTION_RESOLUTION.resolveOperator(EQUAL, ImmutableList.of(INTEGER, INTEGER)),
                 field(INT_CHANNEL_C, INTEGER),
                 field(INT_CHANNEL_A, INTEGER));
         assertThatColumnarFilterEvaluationIsSupported(lessThanFilter);
@@ -402,21 +446,44 @@ public class TestColumnarFilters
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
         List<ResolvedFunction> functionalDependencies = getInFunctionalDependencies(INTEGER);
-        // INTEGER type with small number of constants
+        // INTEGER type with small number of discontinuous constants
         List<RowExpression> arguments = ImmutableList.<RowExpression>builder()
                 .add(field(INT_CHANNEL_A, INTEGER))
                 .add(constant(null, INTEGER))
-                .addAll(buildConstantsList(INTEGER, 3))
+                .add(constant(CONSTANT + 1, INTEGER))
+                .add(constant(CONSTANT + 5, INTEGER))
+                .add(constant(CONSTANT + 10, INTEGER))
                 .build();
         RowExpression inFilter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
         assertThatColumnarFilterEvaluationIsSupported(inFilter);
         verifyFilter(inputPages, inFilter);
 
-        // INTEGER type with large number of constants
+        // INTEGER type with large number of discontinuous constants
+        arguments = ImmutableList.<RowExpression>builder()
+                .add(field(INT_CHANNEL_A, INTEGER))
+                .add(constant(null, INTEGER))
+                .add(constant(CONSTANT - 10, INTEGER))
+                .addAll(buildConstantsList(INTEGER, 100))
+                .add(constant(CONSTANT + 110, INTEGER))
+                .build();
+        inFilter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
+        assertThatColumnarFilterEvaluationIsSupported(inFilter);
+        verifyFilter(inputPages, inFilter);
+
+        // INTEGER type with continuous constants
         arguments = ImmutableList.<RowExpression>builder()
                 .add(field(INT_CHANNEL_A, INTEGER))
                 .add(constant(null, INTEGER))
                 .addAll(buildConstantsList(INTEGER, 100))
+                .build();
+        inFilter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
+        assertThatColumnarFilterEvaluationIsSupported(inFilter);
+        verifyFilter(inputPages, inFilter);
+
+        // INTEGER type with only null constant
+        arguments = ImmutableList.<RowExpression>builder()
+                .add(field(INT_CHANNEL_A, INTEGER))
+                .add(constant(null, INTEGER))
                 .build();
         inFilter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
         assertThatColumnarFilterEvaluationIsSupported(inFilter);
@@ -559,8 +626,10 @@ public class TestColumnarFilters
         PageProcessor compiledProcessor = FUNCTION_RESOLUTION.getExpressionCompiler().compilePageProcessor(
                         columnarEvaluationEnabled,
                         Optional.of(filter),
+                        Optional.empty(),
                         ImmutableList.of(field(ROW_NUM_CHANNEL, BIGINT)),
-                        Optional.empty())
+                        Optional.empty(),
+                        OptionalInt.empty())
                 .get();
         LocalMemoryContext context = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
         ImmutableList.Builder<Page> outputPagesBuilder = ImmutableList.builder();
