@@ -42,6 +42,7 @@
         <module>lib/trino-array</module>
         <module>lib/trino-cache</module>
         <module>lib/trino-filesystem</module>
+        <module>lib/trino-filesystem-alluxio</module>
         <module>lib/trino-filesystem-azure</module>
         <module>lib/trino-filesystem-cache-alluxio</module>
         <module>lib/trino-filesystem-gcs</module>
@@ -270,7 +271,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.1.111.Final</version>
+                <version>4.1.110.Final</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -1060,6 +1061,18 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-filesystem-alluxio</artifactId>
+                <version>${project.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>io.perfmark</groupId>
+                        <artifactId>perfmark-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-filesystem-azure</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1657,14 +1670,6 @@
                 <version>${dep.alluxio.version}</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>io.grpc</groupId>
-                        <artifactId>grpc-core</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>io.grpc</groupId>
-                        <artifactId>grpc-stub</artifactId>
-                    </exclusion>
-                    <exclusion>
                         <groupId>org.alluxio</groupId>
                         <artifactId>alluxio-core-common</artifactId>
                     </exclusion>
@@ -1697,30 +1702,6 @@
                         <artifactId>jetcd-core</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>io.grpc</groupId>
-                        <artifactId>grpc-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>io.grpc</groupId>
-                        <artifactId>grpc-core</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>io.grpc</groupId>
-                        <artifactId>grpc-netty</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>io.grpc</groupId>
-                        <artifactId>grpc-services</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>io.grpc</groupId>
-                        <artifactId>grpc-stub</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>io.netty</groupId>
-                        <artifactId>netty-tcnative-boringssl-static</artifactId>
-                    </exclusion>
-                    <exclusion>
                         <groupId>org.alluxio</groupId>
                         <artifactId>alluxio-core-common</artifactId>
                     </exclusion>
@@ -1743,6 +1724,30 @@
                     <exclusion>
                         <groupId>org.eclipse.jetty</groupId>
                         <artifactId>jetty-servlet</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.alluxio</groupId>
+                <artifactId>alluxio-core-transport</artifactId>
+                <version>${dep.alluxio.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-core</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.alluxio</groupId>
+                <artifactId>alluxio-underfs-local</artifactId>
+                <version>${dep.alluxio.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-core</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -2494,6 +2499,10 @@
                                         <groupId>org.alluxio</groupId>
                                         <artifactId>alluxio-core-transport</artifactId>
                                     </dependency>
+                                    <dependency>
+                                        <groupId>org.alluxio</groupId>
+                                        <artifactId>alluxio-underfs-local</artifactId>
+                                    </dependency>
                                 </conflictingDependencies>
                                 <resources>
                                     <resource>git.properties</resource>
@@ -2569,6 +2578,25 @@
                                     <resource>opencensus/proto/stats/v1/stats.proto</resource>
                                     <resource>opencensus/proto/trace/v1/trace.proto</resource>
                                     <resource>opencensus/proto/trace/v1/trace_config.proto</resource>
+                                </resources>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>org.alluxio</groupId>
+                                        <artifactId>alluxio-core-client-fs</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.alluxio</groupId>
+                                        <artifactId>alluxio-core-common</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.alluxio</groupId>
+                                        <artifactId>alluxio-core-transport</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <resources>
+                                    <resource>git.properties</resource>
                                 </resources>
                             </exception>
                         </exceptions>
