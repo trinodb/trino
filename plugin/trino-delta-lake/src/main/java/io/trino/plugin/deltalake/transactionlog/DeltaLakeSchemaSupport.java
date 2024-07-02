@@ -52,6 +52,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -503,8 +504,11 @@ public final class DeltaLakeSchemaSupport
         String physicalName;
         Type physicalColumnType;
         JsonNode metadata = node.get("metadata");
-        if (metadata.has("delta.typeChanges")) {
-            metadata.get("delta.typeChanges").elements().forEachRemaining(DeltaLakeSchemaSupport::verifyTypeChange);
+        if (metadata.isEmpty() && isStruct(typeNode)) {
+            verifyStructTypeChanges(typeNode);
+        }
+        else {
+            verifyTypeChanges(metadata);
         }
         switch (mappingMode) {
             case ID:
@@ -534,7 +538,41 @@ public final class DeltaLakeSchemaSupport
         return new DeltaLakeColumnMetadata(columnMetadata, fieldName, fieldId, physicalName, physicalColumnType);
     }
 
+    private static boolean isStruct(JsonNode typeNode)
+    {
+        return typeNode.isContainerNode() && Objects.equals(typeNode.get("type").asText(), "struct");
+    }
+
+    private static void verifyStructTypeChanges(JsonNode container)
+            throws UnsupportedTypeException
+    {
+        Iterator<JsonNode> fields = container.get("fields").elements();
+        while (fields.hasNext()) {
+            JsonNode field = fields.next();
+            JsonNode fieldMetadata = field.get("metadata");
+            JsonNode typeNode = field.get("type");
+            if (isStruct(typeNode)) {
+                verifyStructTypeChanges(typeNode);
+            }
+            else {
+                verifyTypeChanges(fieldMetadata);
+            }
+        }
+    }
+
+    private static void verifyTypeChanges(JsonNode metadata)
+            throws UnsupportedTypeException
+    {
+        if (metadata.has("delta.typeChanges")) {
+            Iterator<JsonNode> typeChanges = metadata.get("delta.typeChanges").elements();
+            while (typeChanges.hasNext()) {
+                DeltaLakeSchemaSupport.verifyTypeChange(typeChanges.next());
+            }
+        }
+    }
+
     private static void verifyTypeChange(JsonNode typeChange)
+            throws UnsupportedTypeException
     {
         String fromType = typeChange.get("fromType").asText();
         String toType = typeChange.get("toType").asText();
@@ -543,8 +581,7 @@ public final class DeltaLakeSchemaSupport
                 (fromType.equals("short") && toType.equals("integer"))) {
             return;
         }
-        // TODO: Skip unsupported columns instead of throwing an exception
-        throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Type change from '%s' to '%s' is not supported".formatted(fromType, toType));
+        throw new UnsupportedTypeException("Type change from '%s' to '%s' is not supported".formatted(fromType, toType));
     }
 
     public static Map<String, Object> getColumnTypes(MetadataEntry metadataEntry)
