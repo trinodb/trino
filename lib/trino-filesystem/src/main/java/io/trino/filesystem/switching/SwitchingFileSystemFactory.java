@@ -11,40 +11,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.manager;
+package io.trino.filesystem.switching;
 
-import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
-import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
-public class SwitchingFileSystemFactory
+public final class SwitchingFileSystemFactory
         implements TrinoFileSystemFactory
 {
-    private final Optional<TrinoFileSystemFactory> hdfsFactory;
-    private final Map<String, TrinoFileSystemFactory> factories;
+    private final Function<Location, TrinoFileSystemFactory> loader;
 
-    public SwitchingFileSystemFactory(Optional<TrinoFileSystemFactory> hdfsFactory, Map<String, TrinoFileSystemFactory> factories)
+    public SwitchingFileSystemFactory(Function<Location, TrinoFileSystemFactory> loader)
     {
-        this.hdfsFactory = requireNonNull(hdfsFactory, "hdfsFactory is null");
-        this.factories = ImmutableMap.copyOf(requireNonNull(factories, "factories is null"));
+        this.loader = requireNonNull(loader, "loader is null");
     }
 
     @Override
     public TrinoFileSystem create(ConnectorSession session)
     {
-        return new SwitchingFileSystem(Optional.of(session), Optional.empty(), hdfsFactory, factories);
+        return new SwitchingFileSystem(Optional.of(session), Optional.empty(), loader);
     }
 
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new SwitchingFileSystem(Optional.empty(), Optional.of(identity), hdfsFactory, factories);
+        return new SwitchingFileSystem(Optional.empty(), Optional.of(identity), loader);
     }
 }

@@ -14,13 +14,14 @@
 package io.trino.filesystem.manager;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.alluxio.AlluxioFileSystemCacheModule;
 import io.trino.filesystem.azure.AzureFileSystemFactory;
@@ -33,13 +34,15 @@ import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
-import io.trino.filesystem.s3.S3FileSystemFactory;
+import io.trino.filesystem.s3.FileSystemS3;
 import io.trino.filesystem.s3.S3FileSystemModule;
+import io.trino.filesystem.switching.SwitchingFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
 import io.trino.spi.NodeManager;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -90,9 +93,9 @@ public class FileSystemModule
 
         if (config.isNativeS3Enabled()) {
             install(new S3FileSystemModule());
-            factories.addBinding("s3").to(S3FileSystemFactory.class);
-            factories.addBinding("s3a").to(S3FileSystemFactory.class);
-            factories.addBinding("s3n").to(S3FileSystemFactory.class);
+            factories.addBinding("s3").to(Key.get(TrinoFileSystemFactory.class, FileSystemS3.class));
+            factories.addBinding("s3a").to(Key.get(TrinoFileSystemFactory.class, FileSystemS3.class));
+            factories.addBinding("s3n").to(Key.get(TrinoFileSystemFactory.class, FileSystemS3.class));
         }
 
         if (config.isNativeGcsEnabled()) {
@@ -112,18 +115,21 @@ public class FileSystemModule
 
     @Provides
     @Singleton
-    public TrinoFileSystemFactory createFileSystemFactory(
+    static TrinoFileSystemFactory createFileSystemFactory(
             Optional<HdfsFileSystemLoader> hdfsFileSystemLoader,
-            LifeCycleManager lifeCycleManager,
             Map<String, TrinoFileSystemFactory> factories,
             Optional<TrinoFileSystemCache> fileSystemCache,
             Optional<CacheKeyProvider> keyProvider,
             Tracer tracer)
     {
         Optional<TrinoFileSystemFactory> hdfsFactory = hdfsFileSystemLoader.map(HdfsFileSystemLoader::create);
-        hdfsFactory.ifPresent(lifeCycleManager::addInstance);
 
-        TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(hdfsFactory, factories);
+        Function<Location, TrinoFileSystemFactory> loader = location -> location.scheme()
+                .map(factories::get)
+                .or(() -> hdfsFactory)
+                .orElseThrow(() -> new IllegalArgumentException("No factory for location: " + location));
+
+        TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(loader);
         if (fileSystemCache.isPresent()) {
             delegate = new CacheFileSystemFactory(tracer, delegate, fileSystemCache.orElseThrow(), keyProvider.orElseThrow());
         }

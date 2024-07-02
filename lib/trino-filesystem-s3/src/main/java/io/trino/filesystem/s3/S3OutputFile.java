@@ -20,19 +20,19 @@ import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 
 import static java.util.Objects.requireNonNull;
 
 final class S3OutputFile
         implements TrinoOutputFile
 {
-    private final ExecutorService uploadExecutor;
+    private final Executor uploadExecutor;
     private final S3Client client;
     private final S3Context context;
     private final S3Location location;
 
-    public S3OutputFile(ExecutorService uploadExecutor, S3Client client, S3Context context, S3Location location)
+    public S3OutputFile(Executor uploadExecutor, S3Client client, S3Context context, S3Location location)
     {
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         this.client = requireNonNull(client, "client is null");
