@@ -342,6 +342,7 @@ statements, the connector supports the following features:
 
 - {doc}`/sql/insert`
 - {doc}`/sql/update`
+- {doc}`/sql/merge`
 - {doc}`/sql/delete`
 - {doc}`/sql/truncate`
 - {ref}`sql-schema-table-management`
