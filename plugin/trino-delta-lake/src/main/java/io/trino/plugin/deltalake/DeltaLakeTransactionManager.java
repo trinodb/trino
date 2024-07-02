@@ -53,6 +53,11 @@ public class DeltaLakeTransactionManager
     {
         MemoizedMetadata deltaLakeMetadata = transactions.remove(transaction);
         checkArgument(deltaLakeMetadata != null, "no such transaction: %s", transaction);
+        deltaLakeMetadata.optionalGet().ifPresent(metadata -> {
+            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+                metadata.commit();
+            }
+        });
     }
 
     public void rollback(ConnectorTransactionHandle transaction)
