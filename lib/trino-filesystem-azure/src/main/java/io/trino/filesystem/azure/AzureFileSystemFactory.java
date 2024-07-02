@@ -26,6 +26,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 import okhttp3.ConnectionPool;
+import okhttp3.Dispatcher;
 import okhttp3.OkHttpClient;
 
 import java.util.concurrent.TimeUnit;
@@ -96,6 +97,9 @@ public class AzureFileSystemFactory
         Integer poolSize = clientOptions.getMaximumConnectionPoolSize();
         // By default, OkHttp uses a maximum idle connection count of 5.
         int maximumConnectionPoolSize = (poolSize != null && poolSize > 0) ? poolSize : 5;
+        Dispatcher dispatcher = new Dispatcher();
+        dispatcher.setMaxRequests(Runtime.getRuntime().availableProcessors() * 4);
+        dispatcher.setMaxRequestsPerHost(Runtime.getRuntime().availableProcessors() * 2);
 
         return new OkHttpAsyncHttpClientBuilder(okHttpClient)
                 .proxy(clientOptions.getProxyOptions())
@@ -104,6 +108,8 @@ public class AzureFileSystemFactory
                 .writeTimeout(clientOptions.getWriteTimeout())
                 .readTimeout(clientOptions.getReadTimeout())
                 .connectionPool(new ConnectionPool(maximumConnectionPoolSize,
-                        clientOptions.getConnectionIdleTimeout().toMillis(), TimeUnit.MILLISECONDS)).build();
+                        clientOptions.getConnectionIdleTimeout().toMillis(), TimeUnit.MILLISECONDS))
+                .dispatcher(dispatcher)
+                .build();
     }
 }
