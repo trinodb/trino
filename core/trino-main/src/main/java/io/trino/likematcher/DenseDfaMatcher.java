@@ -13,6 +13,8 @@
  */
 package io.trino.likematcher;
 
+import io.airlift.slice.Slice;
+
 import java.util.Arrays;
 import java.util.List;
 
@@ -41,7 +43,7 @@ class DenseDfaMatcher
     }
 
     @Override
-    public boolean match(byte[] input, int offset, int length)
+    public boolean match(Slice input, int offset, int length)
     {
         DenseDfa matcher = this.matcher;
         if (matcher == null) {
@@ -100,11 +102,11 @@ class DenseDfaMatcher
         /**
          * Returns a positive match when the final state after all input has been consumed is an accepting state
          */
-        public boolean exactMatch(byte[] input, int offset, int length)
+        public boolean exactMatch(Slice input, int offset, int length)
         {
             int state = start << 8;
             for (int i = offset; i < offset + length; i++) {
-                byte inputByte = input[i];
+                byte inputByte = input.getByte(i);
                 state = transitions[state | (inputByte & 0xFF)];
 
                 if (state == FAIL_STATE) {
@@ -119,11 +121,11 @@ class DenseDfaMatcher
          * Returns a positive match as soon as the DFA reaches an accepting state, regardless of whether
          * the whole input has been consumed
          */
-        public boolean prefixMatch(byte[] input, int offset, int length)
+        public boolean prefixMatch(Slice input, int offset, int length)
         {
             int state = start << 8;
             for (int i = offset; i < offset + length; i++) {
-                byte inputByte = input[i];
+                byte inputByte = input.getByte(i);
                 state = transitions[state | (inputByte & 0xFF)];
 
                 if (state == FAIL_STATE) {
