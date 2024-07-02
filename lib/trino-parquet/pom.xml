@@ -26,11 +26,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>aircompressor</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
@@ -93,6 +88,11 @@
                     <artifactId>javax.annotation-api</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>pl.wendigo</groupId>
+            <artifactId>aircompressor</artifactId>
         </dependency>
 
         <dependency>

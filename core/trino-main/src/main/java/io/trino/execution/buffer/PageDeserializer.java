@@ -14,9 +14,13 @@
 package io.trino.execution.buffer;
 
 import com.google.common.base.VerifyException;
-import io.airlift.compress.Decompressor;
-import io.airlift.compress.lz4.Lz4Decompressor;
-import io.airlift.compress.lz4.Lz4RawCompressor;
+import io.airlift.compressor.Decompressor;
+import io.airlift.compressor.lz4.Lz4Compressor;
+import io.airlift.compressor.lz4.Lz4Decompressor;
+import io.airlift.compressor.snappy.SnappyCompressor;
+import io.airlift.compressor.snappy.SnappyDecompressor;
+import io.airlift.compressor.zstd.ZstdCompressor;
+import io.airlift.compressor.zstd.ZstdDecompressor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
@@ -122,7 +126,7 @@ public class PageDeserializer
                 int bufferSize;
                 if (decompressor.isPresent()) {
                     // to store compressed block size
-                    bufferSize = Lz4RawCompressor.maxCompressedLength(blockSizeInBytes)
+                    bufferSize = maxCompressedLength(decompressor.get(), blockSizeInBytes)
                             // to store compressed block size
                             + Integer.BYTES
                             // to guarantee a single long can always be read entirely
@@ -425,6 +429,16 @@ public class PageDeserializer
         private static int getCompressedBlockSize(int compressedBlockMarker)
         {
             return compressedBlockMarker & ~SERIALIZED_PAGE_COMPRESSED_BLOCK_MASK;
+        }
+
+        private static int maxCompressedLength(Decompressor decompressor, int blockSizeInBytes)
+        {
+            return switch (decompressor) {
+                case ZstdDecompressor _ -> ZstdCompressor.create().maxCompressedLength(blockSizeInBytes);
+                case SnappyDecompressor _ -> SnappyCompressor.create().maxCompressedLength(blockSizeInBytes);
+                case Lz4Decompressor _ -> Lz4Compressor.create().maxCompressedLength(blockSizeInBytes);
+                default -> throw new IllegalArgumentException("Cannot estimate max compressed length for decompressor: %s".formatted(decompressor));
+            };
         }
 
         private static boolean isCompressed(int compressedBlockMarker)

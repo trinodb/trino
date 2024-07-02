@@ -22,6 +22,9 @@ import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.compressor.lz4.Lz4NativeCompressor;
+import io.airlift.compressor.snappy.SnappyNativeCompressor;
+import io.airlift.compressor.zstd.ZstdNativeCompressor;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.discovery.client.ServiceAnnouncement;
@@ -186,6 +189,10 @@ public class Server
             injector.getInstance(Announcer.class).start();
 
             injector.getInstance(StartupStatus.class).startupComplete();
+
+            log.info("Zstd native is %s", ZstdNativeCompressor.isEnabled() ? "enabled" : "disabled");
+            log.info("Snappy native is %s", SnappyNativeCompressor.isEnabled() ? "enabled" : "disabled");
+            log.info("Lz4 native is %s", Lz4NativeCompressor.isEnabled() ? "enabled" : "disabled");
 
             log.info("Server startup completed in %s", Duration.nanosSince(startTime).convertToMostSuccinctTimeUnit());
             log.info("======== SERVER STARTED ========");

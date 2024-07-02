@@ -13,9 +13,9 @@
  */
 package io.trino.orc;
 
-import io.airlift.compress.Compressor;
+import io.airlift.compressor.Compressor;
 
-import java.nio.ByteBuffer;
+import java.lang.foreign.MemorySegment;
 import java.util.zip.Deflater;
 
 import static java.util.zip.Deflater.FULL_FLUSH;
@@ -58,8 +58,8 @@ public class DeflateCompressor
     }
 
     @Override
-    public void compress(ByteBuffer input, ByteBuffer output)
+    public int compress(MemorySegment input, MemorySegment output)
     {
-        throw new UnsupportedOperationException("Compression of byte buffer not supported for deflate");
+        throw new UnsupportedOperationException("Compression of memory segments not supported for deflate");
     }
 }

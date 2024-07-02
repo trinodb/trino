@@ -20,8 +20,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Longs;
-import io.airlift.compress.Compressor;
-import io.airlift.compress.zstd.ZstdCompressor;
+import io.airlift.compressor.Compressor;
+import io.airlift.compressor.zstd.ZstdCompressor;
 import io.airlift.slice.Slice;
 import io.trino.hive.thrift.metastore.ResourceType;
 import io.trino.hive.thrift.metastore.ResourceUri;
@@ -439,7 +439,7 @@ public final class MetastoreUtil
 
     public static List<ResourceUri> toResourceUris(byte[] input)
     {
-        Compressor compressor = new ZstdCompressor();
+        Compressor compressor = ZstdCompressor.create();
         byte[] compressed = new byte[compressor.maxCompressedLength(input.length)];
         int outputSize = compressor.compress(input, 0, input.length, compressed, 0, compressed.length);
 

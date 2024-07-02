@@ -61,11 +61,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>aircompressor</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
 
@@ -243,6 +238,11 @@
         <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>pl.wendigo</groupId>
+            <artifactId>aircompressor</artifactId>
         </dependency>
 
         <dependency>
@@ -518,6 +518,12 @@
             <groupId>io.trino.hive</groupId>
             <artifactId>hive-apache</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>aircompressor</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -530,6 +536,12 @@
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-hadoop</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>aircompressor</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

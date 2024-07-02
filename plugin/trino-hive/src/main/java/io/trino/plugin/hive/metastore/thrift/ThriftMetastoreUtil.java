@@ -20,7 +20,7 @@ import com.google.common.collect.Streams;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Shorts;
-import io.airlift.compress.zstd.ZstdDecompressor;
+import io.airlift.compressor.zstd.ZstdDecompressor;
 import io.airlift.json.JsonCodec;
 import io.trino.hive.thrift.metastore.BinaryColumnStatsData;
 import io.trino.hive.thrift.metastore.BooleanColumnStatsData;
@@ -915,9 +915,10 @@ public final class ThriftMetastoreUtil
         }
         byte[] compressed = bytes.toByteArray();
 
-        long size = ZstdDecompressor.getDecompressedSize(compressed, 0, compressed.length);
+        ZstdDecompressor decompressor = ZstdDecompressor.create();
+        long size = decompressor.getDecompressedSize(compressed, 0, compressed.length);
         byte[] output = new byte[toIntExact(size)];
-        new ZstdDecompressor().decompress(compressed, 0, compressed.length, output, 0, output.length);
+        decompressor.decompress(compressed, 0, compressed.length, output, 0, output.length);
         return output;
     }
 

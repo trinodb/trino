@@ -13,10 +13,10 @@
  */
 package io.trino.server.security.oauth2;
 
-import io.airlift.compress.zstd.ZstdCompressor;
-import io.airlift.compress.zstd.ZstdDecompressor;
-import io.airlift.compress.zstd.ZstdInputStream;
-import io.airlift.compress.zstd.ZstdOutputStream;
+import io.airlift.compressor.zstd.ZstdCompressor;
+import io.airlift.compressor.zstd.ZstdDecompressor;
+import io.airlift.compressor.zstd.ZstdInputStream;
+import io.airlift.compressor.zstd.ZstdOutputStream;
 import io.jsonwebtoken.CompressionCodec;
 import io.jsonwebtoken.CompressionException;
 
@@ -43,7 +43,7 @@ public class ZstdCodec
     public byte[] compress(byte[] bytes)
             throws CompressionException
     {
-        ZstdCompressor compressor = new ZstdCompressor();
+        ZstdCompressor compressor = ZstdCompressor.create();
         byte[] compressed = new byte[compressor.maxCompressedLength(bytes.length)];
         int outputSize = compressor.compress(bytes, 0, bytes.length, compressed, 0, compressed.length);
         return copyOfRange(compressed, 0, outputSize);
@@ -53,8 +53,9 @@ public class ZstdCodec
     public byte[] decompress(byte[] bytes)
             throws CompressionException
     {
-        byte[] output = new byte[toIntExact(ZstdDecompressor.getDecompressedSize(bytes, 0, bytes.length))];
-        new ZstdDecompressor().decompress(bytes, 0, bytes.length, output, 0, output.length);
+        ZstdDecompressor decompressor = ZstdDecompressor.create();
+        byte[] output = new byte[toIntExact(decompressor.getDecompressedSize(bytes, 0, bytes.length))];
+        decompressor.decompress(bytes, 0, bytes.length, output, 0, output.length);
         return output;
     }
 

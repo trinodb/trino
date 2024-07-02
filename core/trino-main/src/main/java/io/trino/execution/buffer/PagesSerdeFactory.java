@@ -13,12 +13,12 @@
  */
 package io.trino.execution.buffer;
 
-import io.airlift.compress.Compressor;
-import io.airlift.compress.Decompressor;
-import io.airlift.compress.lz4.Lz4Compressor;
-import io.airlift.compress.lz4.Lz4Decompressor;
-import io.airlift.compress.zstd.ZstdCompressor;
-import io.airlift.compress.zstd.ZstdDecompressor;
+import io.airlift.compressor.Compressor;
+import io.airlift.compressor.Decompressor;
+import io.airlift.compressor.lz4.Lz4Compressor;
+import io.airlift.compressor.lz4.Lz4Decompressor;
+import io.airlift.compressor.zstd.ZstdCompressor;
+import io.airlift.compressor.zstd.ZstdDecompressor;
 import io.trino.spi.block.BlockEncodingSerde;
 
 import javax.crypto.SecretKey;
@@ -54,8 +54,8 @@ public class PagesSerdeFactory
     {
         return switch (compressionCodec) {
             case NONE -> Optional.empty();
-            case LZ4 -> Optional.of(new Lz4Compressor());
-            case ZSTD -> Optional.of(new ZstdCompressor());
+            case LZ4 -> Optional.of(Lz4Compressor.create());
+            case ZSTD -> Optional.of(ZstdCompressor.create());
         };
     }
 
@@ -63,8 +63,8 @@ public class PagesSerdeFactory
     {
         return switch (compressionCodec) {
             case NONE -> Optional.empty();
-            case LZ4 -> Optional.of(new Lz4Decompressor());
-            case ZSTD -> Optional.of(new ZstdDecompressor());
+            case LZ4 -> Optional.of(Lz4Decompressor.create());
+            case ZSTD -> Optional.of(ZstdDecompressor.create());
         };
     }
 }

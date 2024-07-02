@@ -45,12 +45,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>aircompressor</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
@@ -97,6 +91,12 @@
         <dependency>
             <groupId>org.gaul</groupId>
             <artifactId>modernizer-maven-annotations</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>pl.wendigo</groupId>
+            <artifactId>aircompressor</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>

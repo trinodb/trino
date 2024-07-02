@@ -667,12 +667,6 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>aircompressor</artifactId>
-                <version>0.27</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
                 <artifactId>bytecode</artifactId>
                 <version>1.6</version>
             </dependency>
@@ -1539,6 +1533,10 @@
                 <version>3.1.2-22</version>
                 <exclusions>
                     <exclusion>
+                        <groupId>io.airlift</groupId>
+                        <artifactId>aircompressor</artifactId>
+                    </exclusion>
+                    <exclusion>
                         <groupId>javax.annotation</groupId>
                         <artifactId>javax.annotation-api</artifactId>
                     </exclusion>
@@ -1967,6 +1965,10 @@
                         <artifactId>commons-pool</artifactId>
                     </exclusion>
                     <exclusion>
+                        <groupId>io.airlift</groupId>
+                        <artifactId>aircompressor</artifactId>
+                    </exclusion>
+                    <exclusion>
                         <groupId>org.apache.yetus</groupId>
                         <artifactId>audience-annotations</artifactId>
                     </exclusion>
@@ -2203,6 +2205,12 @@
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
                 <version>2.2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>pl.wendigo</groupId>
+                <artifactId>aircompressor</artifactId>
+                <version>2.0-SNAPSHOT</version>
             </dependency>
 
             <dependency>

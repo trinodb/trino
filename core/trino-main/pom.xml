@@ -86,11 +86,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>aircompressor</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>bootstrap</artifactId>
         </dependency>
 
@@ -373,6 +368,11 @@
         <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>pl.wendigo</groupId>
+            <artifactId>aircompressor</artifactId>
         </dependency>
 
         <dependency>
