@@ -182,22 +182,26 @@ public final class DeltaLakeWriter
     public DataFileInfo getDataFileInfo()
             throws IOException
     {
-        Map</* lowercase */ String, Type> dataColumnTypes = columnHandles.stream()
-                // Lowercase because the subsequent logic expects lowercase
-                .collect(toImmutableMap(column -> column.getBasePhysicalColumnName().toLowerCase(ENGLISH), DeltaLakeColumnHandle::getBasePhysicalType));
+        Location path = rootTableLocation.appendPath(relativeFilePath);
+        FileMetaData fileMetaData = fileWriter.getFileMetadata();
+        ParquetMetadata parquetMetadata = MetadataReader.createParquetMetadata(fileMetaData, new ParquetDataSourceId(path.toString()));
+
         return new DataFileInfo(
                 relativeFilePath,
                 getWrittenBytes(),
                 creationTime,
                 dataFileType,
                 partitionValues,
-                readStatistics(fileWriter.getFileMetadata(), rootTableLocation.appendPath(relativeFilePath), dataColumnTypes, rowCount));
+                readStatistics(parquetMetadata, columnHandles, rowCount),
+                Optional.empty());
     }
 
-    private static DeltaLakeJsonFileStatistics readStatistics(FileMetaData fileMetaData, Location path, Map</* lowercase */ String, Type> typeForColumn, long rowCount)
+    public static DeltaLakeJsonFileStatistics readStatistics(ParquetMetadata parquetMetadata, List<DeltaLakeColumnHandle> columnHandles, long rowCount)
             throws IOException
     {
-        ParquetMetadata parquetMetadata = MetadataReader.createParquetMetadata(fileMetaData, new ParquetDataSourceId(path.toString()));
+        Map</* lowercase */ String, Type> typeForColumn = columnHandles.stream()
+                // Lowercase because the subsequent logic expects lowercase
+                .collect(toImmutableMap(column -> column.getBasePhysicalColumnName().toLowerCase(ENGLISH), DeltaLakeColumnHandle::getBasePhysicalType));
 
         ImmutableMultimap.Builder<String, ColumnChunkMetadata> metadataForColumn = ImmutableMultimap.builder();
         for (BlockMetadata blockMetaData : parquetMetadata.getBlocks()) {

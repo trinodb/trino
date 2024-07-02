@@ -42,6 +42,7 @@ public class DeltaLakeTableProperties
     public static final String CHECKPOINT_INTERVAL_PROPERTY = "checkpoint_interval";
     public static final String CHANGE_DATA_FEED_ENABLED_PROPERTY = "change_data_feed_enabled";
     public static final String COLUMN_MAPPING_MODE_PROPERTY = "column_mapping_mode";
+    // TODO Add support for creating tables with deletion vectors
 
     private final List<PropertyMetadata<?>> tableProperties;
 

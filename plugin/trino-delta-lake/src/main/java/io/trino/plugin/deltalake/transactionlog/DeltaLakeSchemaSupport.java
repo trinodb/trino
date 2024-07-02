@@ -131,6 +131,7 @@ public final class DeltaLakeSchemaSupport
             .build();
     private static final Set<String> SUPPORTED_WRITER_FEATURES = ImmutableSet.<String>builder()
             .add(APPEND_ONLY_FEATURE_NAME)
+            .add(DELETION_VECTORS_FEATURE_NAME)
             .add(INVARIANTS_FEATURE_NAME)
             .add(CHECK_CONSTRAINTS_FEATURE_NAME)
             .add(CHANGE_DATA_FEED_FEATURE_NAME)
