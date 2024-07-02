@@ -185,10 +185,12 @@ public class LikeMatcher
 
     private boolean startsWith(Slice pattern, Slice input, int offset)
     {
-        if (pattern.length() == 0) {
-            return true;
+        for (int i = 0; i < pattern.length(); i++) {
+            if (pattern.getByte(i) != input.getByte(offset + i)) {
+                return false;
+            }
         }
-        return pattern.mismatch(0, pattern.length(), input, offset, pattern.length()) == -1;
+        return true;
     }
 
     static List<Pattern> parse(Slice pattern, Optional<Character> escape)

@@ -108,24 +108,26 @@ public class FjsMatcher
 
         private static int find(Slice input, final int offset, final int length, Slice pattern, int[] bmsShifts, int[] kmpShifts)
         {
-            if (pattern.length() > length || pattern.length() == 0) {
+            int patternLength = pattern.length();
+            if (patternLength > length || patternLength == 0) {
                 return -1;
             }
 
             final int inputLimit = offset + length;
+            byte lastByte = pattern.getByte(patternLength - 1);
 
             int i = offset;
             while (true) {
                 // Attempt to match the last position of the pattern
                 // As long as it doesn't match, skip ahead based on the Boyer-Moore-Sunday heuristic
                 int matchEnd = i + pattern.length() - 1;
-                while (matchEnd < inputLimit - 1 && input.getByte(matchEnd) != pattern.getByte(pattern.length() - 1)) {
-                    int shift = pattern.length() + 1 - bmsShifts[input.getByte(matchEnd + 1) & 0xFF];
+                while (matchEnd < inputLimit - 1 && input.getByte(matchEnd) != lastByte) {
+                    int shift = patternLength + 1 - bmsShifts[input.getByte(matchEnd + 1) & 0xFF];
                     matchEnd += shift;
                 }
 
-                if (matchEnd == inputLimit - 1 && match(input, inputLimit - pattern.length(), pattern)) {
-                    return inputLimit - pattern.length();
+                if (matchEnd == inputLimit - 1 && match(input, inputLimit - patternLength, pattern)) {
+                    return inputLimit - patternLength;
                 }
                 else if (matchEnd >= inputLimit - 1) {
                     return -1;
@@ -135,9 +137,9 @@ public class FjsMatcher
                 // position in the input text given by "matchEnd"
                 // Use KMP to match the first length-1 characters of the pattern
 
-                i = matchEnd - (pattern.length() - 1);
+                i = matchEnd - (patternLength - 1);
 
-                int j = findLongestMatch(input, i, pattern, 0, pattern.length() - 1);
+                int j = findLongestMatch(input, i, pattern, 0, patternLength - 1);
 
                 if (j == pattern.length() - 1) {
                     return i;
@@ -148,11 +150,11 @@ public class FjsMatcher
 
                 // Continue to match the whole pattern using KMP
                 while (j >= 0) {
-                    int size = findLongestMatch(input, i, pattern, j, Math.min(inputLimit - i, pattern.length() - j));
+                    int size = findLongestMatch(input, i, pattern, j, Math.min(inputLimit - i, patternLength - j));
                     i += size;
                     j += size;
 
-                    if (j == pattern.length()) {
+                    if (j == patternLength) {
                         return i - j;
                     }
 
@@ -165,16 +167,22 @@ public class FjsMatcher
 
         private static int findLongestMatch(Slice input, int inputOffset, Slice pattern, int patternOffset, int length)
         {
-            int mismatch = input.mismatch(inputOffset, length, pattern, patternOffset, length);
-            if (mismatch == -1) {
-                return length;
+            for (int i = 0; i < length; i++) {
+                if (input.getByte(inputOffset + i) != pattern.getByte(patternOffset + i)) {
+                    return i;
+                }
             }
-            return mismatch;
+            return length;
         }
 
         private static boolean match(Slice input, int offset, Slice pattern)
         {
-            return input.slice(offset, pattern.length()).equals(pattern);
+            for (int i = 0; i < pattern.length(); i++) {
+                if (input.getByte(offset + i) != pattern.getByte(i)) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         public boolean match(Slice input, int offset, int length)
