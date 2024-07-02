@@ -44,7 +44,6 @@ public class DynamicCatalogManagerModule
                 }
                 default -> {
                     binder.bind(CatalogStoreManager.class).in(Scopes.SINGLETON);
-                    newOptionalBinder(binder, CatalogStoreManager.class).setBinding().to(CatalogStoreManager.class).in(Scopes.SINGLETON);
                     binder.bind(CatalogStore.class).to(CatalogStoreManager.class).in(Scopes.SINGLETON);
                 }
             }
