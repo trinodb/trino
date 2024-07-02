@@ -47,6 +47,7 @@ public abstract class BaseMariaDbConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
                  SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_ARRAY,
+                 SUPPORTS_NAN_INFINITY,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
@@ -367,5 +368,11 @@ public abstract class BaseMariaDbConnectorTest
     protected void verifyColumnNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching("(.*Identifier name '.*' is too long|.*Incorrect column name.*)");
+    }
+
+    @Override
+    protected void verifyApproximateNumericSpecialValueFailure(Throwable e)
+    {
+        assertThat(e).hasMessageMatching("Failed to insert data: .* Unknown column '.*' in 'field list'");
     }
 }

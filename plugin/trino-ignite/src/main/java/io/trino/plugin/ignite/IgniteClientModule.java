@@ -26,6 +26,8 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadataFactory;
+import io.trino.plugin.jdbc.NaNSpecificQueryBuilder;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import org.apache.ignite.IgniteJdbcThinDriver;
 
@@ -41,6 +43,7 @@ public class IgniteClientModule
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(IgniteClient.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(IgniteJdbcMetadataFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, QueryBuilder.class).setBinding().to(NaNSpecificQueryBuilder.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(IgniteJdbcConfig.class);
         bindTablePropertiesProvider(binder, IgniteTableProperties.class);
         binder.install(new DecimalModule());

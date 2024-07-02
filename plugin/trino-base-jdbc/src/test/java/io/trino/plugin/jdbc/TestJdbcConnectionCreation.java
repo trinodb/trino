@@ -93,9 +93,9 @@ public class TestJdbcConnectionCreation
         @Provides
         @Singleton
         @ForBaseJdbc
-        public static JdbcClient provideJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
+        public static JdbcClient provideJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
         {
-            return new TestingH2JdbcClient(config, connectionFactory, identifierMapping);
+            return new TestingH2JdbcClient(config, connectionFactory, queryBuilder, identifierMapping);
         }
 
         @Provides
