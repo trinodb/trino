@@ -27,9 +27,11 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.StandardFunctions;
+import io.trino.spi.expression.VarArgs;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.ir.Between;
@@ -44,6 +46,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
@@ -508,6 +511,25 @@ public class TestConnectorExpressionTranslator
                                     List.of(
                                             new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                             new io.trino.spi.expression.Constant(Slices.wrappedBuffer(value.getBytes(UTF_8)), VARCHAR_TYPE))))));
+    }
+
+    @Test
+    public void testTranslateFormat()
+    {
+        assertTranslationRoundTrips(
+                BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
+                        .setName("$format").addArgument(VARCHAR_TYPE, new Constant(VARCHAR_TYPE, utf8Slice("%s")))
+                        .addArgument(RowType.anonymousRow(DOUBLE), new Row(List.of(new Reference(DOUBLE, "double_symbol_1"))))
+                        .build(),
+                new io.trino.spi.expression.Call(
+                        VARCHAR_TYPE,
+                        new FunctionName("$format"),
+                        List.of(
+                                new io.trino.spi.expression.Constant(Slices.wrappedBuffer("%s".getBytes(UTF_8)), VARCHAR_TYPE),
+                                new VarArgs(
+                                        List.of(new Variable("double_symbol_1", DOUBLE)),
+                                        List.of(DOUBLE))))
+        );
     }
 
     private void assertTranslationRoundTrips(Expression expression, ConnectorExpression connectorExpression)

@@ -28,6 +28,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.StandardFunctions;
+import io.trino.spi.expression.VarArgs;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.OperatorType;
@@ -49,6 +50,7 @@ import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.Row;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.type.JoniRegexp;
 import io.trino.type.JsonPathType;
@@ -201,6 +203,18 @@ public final class ConnectorExpressionTranslator
             if (expression instanceof FieldDereference dereference) {
                 return translate(dereference.getTarget())
                         .map(base -> new FieldReference(base, dereference.getField()));
+            }
+
+            if (expression instanceof VarArgs varArgs) {
+                ImmutableList.Builder<Expression> items = ImmutableList.builder();
+                for (ConnectorExpression item : varArgs.getChildren()) {
+                    Optional<Expression> result = translate(item);
+                    if (result.isEmpty()) {
+                        return Optional.empty();
+                    }
+                    items.add(result.get());
+                }
+                return Optional.of(new Row(items.build()));
             }
 
             if (expression instanceof io.trino.spi.expression.Call call) {
@@ -643,6 +657,22 @@ public final class ConnectorExpressionTranslator
             }
 
             return Optional.empty();
+        }
+
+        @Override
+        protected Optional<ConnectorExpression> visitRow(Row node, Void context)
+        {
+            ImmutableList.Builder<ConnectorExpression> items = ImmutableList.builder();
+            ImmutableList.Builder<Type> types = ImmutableList.builder();
+            for (Expression itemExpression : node.items()) {
+                Optional<ConnectorExpression> item = process(itemExpression);
+                if (item.isEmpty()) {
+                    return Optional.empty();
+                }
+                items.add(item.get());
+                types.add(item.get().getType());
+            }
+            return Optional.of(new VarArgs(items.build(), types.build()));
         }
 
         @Override
