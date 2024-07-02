@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.connector.MockConnectorTableHandle;
 import io.trino.spi.type.TimestampType;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
@@ -38,7 +39,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public class TestCreateTableColumnTypeCoercion
+public class TestCreateAndAlterTableColumnTypeCoercion
 {
     private static final String catalogName = "mock";
     private QueryRunner queryRunner;
@@ -59,7 +60,12 @@ public class TestCreateTableColumnTypeCoercion
     {
         return MockConnectorFactory.builder()
                 .withName(catalogName)
-                .withGetTableHandle((session, schemaTableName) -> null)
+                .withGetTableHandle((session, schemaTableName) -> {
+                    if (schemaTableName.getTableName().equals("existing_table")) {
+                        return new MockConnectorTableHandle(schemaTableName);
+                    }
+                    return null;
+                })
                 .withGetSupportedType((session, type) -> {
                     if (type instanceof TimestampType) {
                         return Optional.of(VARCHAR);
@@ -81,6 +87,14 @@ public class TestCreateTableColumnTypeCoercion
     public void testIncompatibleTypeForCreateTableAsSelectWithNoData()
     {
         assertTrinoExceptionThrownBy(() -> queryRunner.execute("CREATE TABLE test_incompatible_type AS SELECT TIMESTAMP '2020-09-27 12:34:56.999' a WITH NO DATA"))
+                .hasErrorCode(FUNCTION_IMPLEMENTATION_ERROR)
+                .hasMessage("Type 'timestamp(3)' is not compatible with the supplied type 'varchar' in getSupportedType");
+    }
+
+    @Test
+    public void testIncompatibleTypeForAddColumn()
+    {
+        assertTrinoExceptionThrownBy(() -> queryRunner.execute("ALTER TABLE existing_table ADD COLUMN new_col TIMESTAMP"))
                 .hasErrorCode(FUNCTION_IMPLEMENTATION_ERROR)
                 .hasMessage("Type 'timestamp(3)' is not compatible with the supplied type 'varchar' in getSupportedType");
     }
