@@ -536,6 +536,28 @@ public class TestKuduConnectorTest
     }
 
     @Test
+    public void testAddColumnWithDecimal()
+    {
+        String tableName = "test_add_column_with_decimal" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + "(" +
+                "id INT WITH (primary_key=true), " +
+                "a_varchar VARCHAR" +
+                ") WITH (" +
+                " partition_by_hash_columns = ARRAY['id'], " +
+                " partition_by_hash_buckets = 2" +
+                ")");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_decimal decimal(14,5)");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c_decimal decimal(35,5)");
+
+        assertThat(getColumnType(tableName, "b_decimal")).isEqualTo("decimal(14,5)");
+        assertThat(getColumnType(tableName, "c_decimal")).isEqualTo("decimal(35,5)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testInsertIntoTableHavingRowUuid()
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", " AS SELECT * FROM region WITH NO DATA")) {
