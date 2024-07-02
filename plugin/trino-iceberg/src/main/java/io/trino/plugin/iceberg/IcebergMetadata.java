@@ -229,6 +229,7 @@ import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshotMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogName;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getQueryPartitionFilterRequiredSchemas;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getRemoveOrphanFilesMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isCollectExtendedStatisticsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
@@ -742,7 +743,7 @@ public class IcebergMetadata
     public void validateScan(ConnectorSession session, ConnectorTableHandle handle)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
-        if (isQueryPartitionFilterRequired(session) && table.getEnforcedPredicate().isAll() && !table.getForAnalyze().orElseThrow()) {
+        if (isQueryPartitionFilterRequiredForTable(session, table) && table.getEnforcedPredicate().isAll() && !table.getForAnalyze().orElseThrow()) {
             Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
             Optional<PartitionSpec> partitionSpec = table.getPartitionSpecJson()
                     .map(partitionSpecJson -> PartitionSpecParser.fromJson(schema, partitionSpecJson));
@@ -771,6 +772,14 @@ public class IcebergMetadata
                         format("Filter required for %s on at least one of the partition columns: %s", table.getSchemaTableName(), partitionColumnNames));
             }
         }
+    }
+
+    private static boolean isQueryPartitionFilterRequiredForTable(ConnectorSession session, IcebergTableHandle table)
+    {
+        Set<String> requiredSchemas = getQueryPartitionFilterRequiredSchemas(session);
+        // If query_partition_filter_required_schemas is empty then we would apply partition filter for all tables.
+        return isQueryPartitionFilterRequired(session) &&
+                (requiredSchemas.isEmpty() || requiredSchemas.contains(table.getSchemaName()));
     }
 
     @Override

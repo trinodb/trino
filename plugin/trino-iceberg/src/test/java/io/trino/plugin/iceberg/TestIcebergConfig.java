@@ -67,6 +67,7 @@ public class TestIcebergConfig
                 .setRegisterTableProcedureEnabled(false)
                 .setSortedWritingEnabled(true)
                 .setQueryPartitionFilterRequired(false)
+                .setQueryPartitionFilterRequiredSchemas("")
                 .setSplitManagerThreads(Runtime.getRuntime().availableProcessors() * 2)
                 .setIncrementalRefreshEnabled(true));
     }
@@ -99,6 +100,7 @@ public class TestIcebergConfig
                 .put("iceberg.register-table-procedure.enabled", "true")
                 .put("iceberg.sorted-writing-enabled", "false")
                 .put("iceberg.query-partition-filter-required", "true")
+                .put("iceberg.query-partition-filter-required-schemas", "bronze,silver")
                 .put("iceberg.split-manager-threads", "42")
                 .put("iceberg.incremental-refresh-enabled", "false")
                 .buildOrThrow();
@@ -128,6 +130,7 @@ public class TestIcebergConfig
                 .setRegisterTableProcedureEnabled(true)
                 .setSortedWritingEnabled(false)
                 .setQueryPartitionFilterRequired(true)
+                .setQueryPartitionFilterRequiredSchemas("bronze,silver")
                 .setSplitManagerThreads(42)
                 .setIncrementalRefreshEnabled(false);
 
