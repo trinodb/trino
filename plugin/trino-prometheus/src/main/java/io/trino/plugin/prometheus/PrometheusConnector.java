@@ -16,14 +16,20 @@ package io.trino.plugin.prometheus;
 import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
+import java.util.List;
+import java.util.Set;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.prometheus.PrometheusTransactionHandle.INSTANCE;
 import static java.util.Objects.requireNonNull;
 
@@ -36,18 +42,23 @@ public class PrometheusConnector
     private final PrometheusMetadata metadata;
     private final PrometheusSplitManager splitManager;
     private final PrometheusRecordSetProvider recordSetProvider;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
     public PrometheusConnector(
             LifeCycleManager lifeCycleManager,
             PrometheusMetadata metadata,
             PrometheusSplitManager splitManager,
-            PrometheusRecordSetProvider recordSetProvider)
+            PrometheusRecordSetProvider recordSetProvider,
+            Set<SessionPropertiesProvider> sessionPropertiesProviders)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+        this.sessionProperties = requireNonNull(sessionPropertiesProviders, "sessionPropertiesProviders is null").stream()
+                .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
+                .collect(toImmutableList());
     }
 
     @Override
@@ -72,6 +83,12 @@ public class PrometheusConnector
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
     }
 
     @Override

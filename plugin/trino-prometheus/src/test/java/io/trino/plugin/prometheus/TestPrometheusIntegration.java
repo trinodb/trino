@@ -14,12 +14,14 @@
 package io.trino.plugin.prometheus;
 
 import io.airlift.units.Duration;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.TimeUnit;
@@ -119,9 +121,13 @@ public class TestPrometheusIntegration
         config.setCacheDuration(new Duration(30, SECONDS));
         PrometheusTable table = client.getTable("default", "up");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, new PrometheusClock(), config);
+        PrometheusSessionProperties sessionProperties = new PrometheusSessionProperties(config);
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(sessionProperties.getSessionProperties())
+                .build();
         ConnectorSplitSource splits = splitManager.getSplits(
                 null,
-                null,
+                session,
                 new PrometheusTableHandle("default", table.name()),
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
