@@ -53,6 +53,7 @@ import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getSkewedPartitionMinDataProcessedRebalanceThreshold;
 import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
 import static io.trino.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
+import static io.trino.operator.output.SkewedPartitionRebalancer.ScaleWriterStats;
 import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
@@ -98,7 +99,8 @@ public class LocalExchange
             DataSize maxBufferedBytes,
             TypeOperators typeOperators,
             DataSize writerScalingMinDataProcessed,
-            Supplier<Long> totalMemoryUsed)
+            Supplier<Long> totalMemoryUsed,
+            Consumer<ScaleWriterStats> scaleWriterStatsConsumer)
     {
         int bufferCount = computeBufferCount(partitioning, defaultConcurrency, partitionChannels);
 
@@ -145,7 +147,8 @@ public class LocalExchange
                     bufferCount,
                     1,
                     writerScalingMinDataProcessed.toBytes(),
-                    getSkewedPartitionMinDataProcessedRebalanceThreshold(session).toBytes());
+                    getSkewedPartitionMinDataProcessedRebalanceThreshold(session).toBytes(),
+                    scaleWriterStatsConsumer);
             LocalExchangeMemoryManager memoryManager = new LocalExchangeMemoryManager(maxBufferedBytes.toBytes());
             sources = IntStream.range(0, bufferCount)
                     .mapToObj(i -> new LocalExchangeSource(memoryManager, source -> checkAllSourcesFinished()))

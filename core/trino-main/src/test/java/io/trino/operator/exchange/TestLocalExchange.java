@@ -61,6 +61,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static io.trino.SystemSessionProperties.SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD;
 import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
+import static io.trino.operator.output.SkewedPartitionRebalancer.ScaleWriterStats;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -89,6 +90,7 @@ public class TestLocalExchange
     private static final Session SESSION = testSessionBuilder().build();
     private static final DataSize WRITER_SCALING_MIN_DATA_PROCESSED = DataSize.of(32, MEGABYTE);
     private static final Supplier<Long> TOTAL_MEMORY_USED = () -> 0L;
+    private static final Consumer<ScaleWriterStats> SCALE_WRITER_STATS_CONSUMER = scaleWriterStats -> {};
 
     private final ConcurrentMap<CatalogHandle, ConnectorNodePartitioningProvider> partitionManagers = new ConcurrentHashMap<>();
     private NodePartitioningManager nodePartitioningManager;
@@ -125,7 +127,8 @@ public class TestLocalExchange
                 DataSize.ofBytes(retainedSizeOfPages(99)),
                 TYPE_OPERATORS,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
-                TOTAL_MEMORY_USED);
+                TOTAL_MEMORY_USED,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(1);
@@ -199,7 +202,8 @@ public class TestLocalExchange
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATORS,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
-                TOTAL_MEMORY_USED);
+                TOTAL_MEMORY_USED,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(2);
@@ -249,7 +253,8 @@ public class TestLocalExchange
                 DataSize.ofBytes(retainedSizeOfPages(4)),
                 TYPE_OPERATORS,
                 DataSize.ofBytes(sizeOfPages(2)),
-                TOTAL_MEMORY_USED);
+                TOTAL_MEMORY_USED,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(3);
@@ -309,7 +314,8 @@ public class TestLocalExchange
                 DataSize.ofBytes(retainedSizeOfPages(4)),
                 TYPE_OPERATORS,
                 DataSize.ofBytes(sizeOfPages(10)),
-                TOTAL_MEMORY_USED);
+                TOTAL_MEMORY_USED,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(3);
@@ -360,7 +366,8 @@ public class TestLocalExchange
                 DataSize.ofBytes(retainedSizeOfPages(2)),
                 TYPE_OPERATORS,
                 DataSize.of(10, KILOBYTE),
-                TOTAL_MEMORY_USED);
+                TOTAL_MEMORY_USED,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(4);
@@ -469,7 +476,8 @@ public class TestLocalExchange
                 DataSize.ofBytes(retainedSizeOfPages(4)),
                 TYPE_OPERATORS,
                 DataSize.ofBytes(sizeOfPages(2)),
-                totalMemoryUsed::get);
+                totalMemoryUsed::get,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(3);
@@ -513,7 +521,8 @@ public class TestLocalExchange
                 DataSize.ofBytes(retainedSizeOfPages(20)),
                 TYPE_OPERATORS,
                 DataSize.ofBytes(sizeOfPages(2)),
-                TOTAL_MEMORY_USED);
+                TOTAL_MEMORY_USED,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(3);
@@ -566,7 +575,8 @@ public class TestLocalExchange
                 DataSize.ofBytes(retainedSizeOfPages(2)),
                 TYPE_OPERATORS,
                 DataSize.of(10, KILOBYTE),
-                TOTAL_MEMORY_USED);
+                TOTAL_MEMORY_USED,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(4);
@@ -662,7 +672,8 @@ public class TestLocalExchange
                 DataSize.ofBytes(retainedSizeOfPages(2)),
                 TYPE_OPERATORS,
                 DataSize.of(50, MEGABYTE),
-                TOTAL_MEMORY_USED);
+                TOTAL_MEMORY_USED,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(4);
@@ -732,7 +743,8 @@ public class TestLocalExchange
                 DataSize.of(50, MEGABYTE),
                 TYPE_OPERATORS,
                 DataSize.of(10, KILOBYTE),
-                TOTAL_MEMORY_USED);
+                TOTAL_MEMORY_USED,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(4);
@@ -804,7 +816,8 @@ public class TestLocalExchange
                 DataSize.ofBytes(retainedSizeOfPages(2)),
                 TYPE_OPERATORS,
                 DataSize.of(10, KILOBYTE),
-                totalMemoryUsed::get);
+                totalMemoryUsed::get,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(4);
@@ -891,7 +904,8 @@ public class TestLocalExchange
                 DataSize.ofBytes(retainedSizeOfPages(2)),
                 TYPE_OPERATORS,
                 DataSize.of(10, KILOBYTE),
-                totalMemoryUsed::get);
+                totalMemoryUsed::get,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(4);
@@ -984,7 +998,8 @@ public class TestLocalExchange
                 DataSize.ofBytes(retainedSizeOfPages(2)),
                 TYPE_OPERATORS,
                 DataSize.of(50, KILOBYTE),
-                TOTAL_MEMORY_USED);
+                TOTAL_MEMORY_USED,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(2);
@@ -1032,7 +1047,8 @@ public class TestLocalExchange
                 DataSize.ofBytes(retainedSizeOfPages(1)),
                 TYPE_OPERATORS,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
-                TOTAL_MEMORY_USED);
+                TOTAL_MEMORY_USED,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(2);
@@ -1100,7 +1116,8 @@ public class TestLocalExchange
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATORS,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
-                TOTAL_MEMORY_USED);
+                TOTAL_MEMORY_USED,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(2);
@@ -1197,7 +1214,8 @@ public class TestLocalExchange
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATORS,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
-                TOTAL_MEMORY_USED);
+                TOTAL_MEMORY_USED,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(2);
@@ -1249,7 +1267,8 @@ public class TestLocalExchange
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATORS,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
-                TOTAL_MEMORY_USED);
+                TOTAL_MEMORY_USED,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(2);
@@ -1297,7 +1316,8 @@ public class TestLocalExchange
                 DataSize.ofBytes(2),
                 TYPE_OPERATORS,
                 WRITER_SCALING_MIN_DATA_PROCESSED,
-                TOTAL_MEMORY_USED);
+                TOTAL_MEMORY_USED,
+                SCALE_WRITER_STATS_CONSUMER);
 
         run(localExchange, exchange -> {
             assertThat(exchange.getBufferCount()).isEqualTo(2);
