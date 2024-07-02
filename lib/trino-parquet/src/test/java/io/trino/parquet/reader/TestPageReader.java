@@ -346,10 +346,11 @@ public class TestPageReader
             {
                 // compress only the date, copy definition and repetition levels uncompressed
                 byte[] compressedData = TestPageReader.compress(compressionCodec, dataPage, 2, dataPage.length - 2);
-                Slice slice = Slices.allocate(2 + compressedData.length);
+                byte[] compressedPage = new byte[2 + compressedData.length];
+                Slice slice = Slices.wrappedBuffer(compressedPage);
                 slice.setBytes(0, dataPage, 0, 2);
                 slice.setBytes(2, compressedData);
-                return slice.byteArray();
+                return compressedPage;
             }
         };
 

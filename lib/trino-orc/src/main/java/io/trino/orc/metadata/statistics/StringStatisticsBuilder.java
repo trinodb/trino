@@ -28,7 +28,6 @@ import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Math.addExact;
-import static java.lang.System.arraycopy;
 import static java.util.Objects.requireNonNull;
 
 public class StringStatisticsBuilder
@@ -236,10 +235,10 @@ public class StringStatisticsBuilder
 
             lastRetainedCharacter++;
             Slice sliceToAppend = codePointToUtf8(lastRetainedCharacter);
-            byte[] result = new byte[lastRetainedCharacterIndex + sliceToAppend.length()];
-            arraycopy(slice.byteArray(), slice.byteArrayOffset(), result, 0, lastRetainedCharacterIndex);
-            arraycopy(sliceToAppend.byteArray(), 0, result, lastRetainedCharacterIndex, sliceToAppend.length());
-            return Slices.wrappedBuffer(result);
+            Slice result = Slices.allocate(lastRetainedCharacterIndex + sliceToAppend.length());
+            slice.getBytes(0, result, 0, lastRetainedCharacterIndex);
+            sliceToAppend.getBytes(0, result, lastRetainedCharacterIndex, sliceToAppend.length());
+            return result;
         }
 
         private static int findLastCharacterInRange(Slice slice, int toInclusive)

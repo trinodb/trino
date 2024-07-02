@@ -171,14 +171,13 @@ public final class VarbinaryFunctions
     @SqlType(StandardTypes.VARCHAR)
     public static Slice toHex(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
-        byte[] result = new byte[slice.length() * 2];
-        byte[] source = slice.byteArray();
-        for (int sourceIndex = slice.byteArrayOffset(), resultIndex = 0; resultIndex < result.length; sourceIndex++, resultIndex += 2) {
-            int value = source[sourceIndex] & 0xFF;
-            result[resultIndex] = UPPERCASE_HEX_DIGITS[(value & 0xF0) >>> 4];
-            result[resultIndex + 1] = UPPERCASE_HEX_DIGITS[(value & 0x0F)];
+        Slice result = Slices.allocate(slice.length() * 2);
+        for (int sourceIndex = slice.byteArrayOffset(), resultIndex = 0; resultIndex < result.length(); sourceIndex++, resultIndex += 2) {
+            int value = slice.getByte(sourceIndex) & 0xFF;
+            result.setByte(resultIndex, UPPERCASE_HEX_DIGITS[(value & 0xF0) >>> 4]);
+            result.setByte(resultIndex + 1, UPPERCASE_HEX_DIGITS[(value & 0x0F)]);
         }
-        return Slices.wrappedBuffer(result);
+        return result;
     }
 
     @Description("Decode hex encoded binary data")
@@ -193,14 +192,14 @@ public final class VarbinaryFunctions
         }
 
         try {
-            byte[] result = new byte[resultLength];
-            byte[] source = slice.byteArray();
-            for (int sourceIndex = slice.byteArrayOffset(), resultIndex = 0; resultIndex < result.length; resultIndex++, sourceIndex += 2) {
-                int high = HexFormat.fromHexDigit(source[sourceIndex]);
-                int low = HexFormat.fromHexDigit(source[sourceIndex + 1]);
-                result[resultIndex] = (byte) ((high << 4) | low);
+            Slice result = Slices.allocate(resultLength);
+            for (int sourceIndex = 0, resultIndex = 0; resultIndex < result.length(); resultIndex++, sourceIndex += 2) {
+                short value = slice.getShort(sourceIndex);
+                int high = HexFormat.fromHexDigit(value & 0xff);
+                int low = HexFormat.fromHexDigit((value >> 8) & 0xff);
+                result.setByte(resultIndex, (byte) ((high << 4) | low));
             }
-            return Slices.wrappedBuffer(result);
+            return result;
         }
         catch (NumberFormatException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e.getMessage());
@@ -375,7 +374,7 @@ public final class VarbinaryFunctions
     public static long crc32(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         CRC32 crc32 = new CRC32();
-        crc32.update(slice.byteArray(), slice.byteArrayOffset(), slice.length());
+        crc32.update(slice.toByteBuffer());
         return crc32.getValue();
     }
 

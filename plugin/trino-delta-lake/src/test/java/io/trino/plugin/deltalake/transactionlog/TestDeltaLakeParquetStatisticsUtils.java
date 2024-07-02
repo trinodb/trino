@@ -152,9 +152,10 @@ public class TestDeltaLakeParquetStatisticsUtils
         long epochMicros = localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
                 + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
 
-        Slice slice = Slices.allocate(8);
+        byte[] value = new byte[8];
+        Slice slice = Slices.wrappedBuffer(value);
         slice.setLong(0, epochMicros);
-        return slice.byteArray();
+        return value;
     }
 
     @Test
@@ -208,10 +209,11 @@ public class TestDeltaLakeParquetStatisticsUtils
     {
         long timeOfDayNanos = (long) time.getNano() + (time.toEpochSecond(UTC) - time.toLocalDate().atStartOfDay().toEpochSecond(UTC)) * 1_000_000_000;
 
-        Slice slice = Slices.allocate(12);
+        byte[] value = new byte[12];
+        Slice slice = Slices.wrappedBuffer(value);
         slice.setLong(0, timeOfDayNanos);
         slice.setInt(8, millisToJulianDay(time.toInstant(UTC).toEpochMilli()));
-        return slice.byteArray();
+        return value;
     }
 
     static final int JULIAN_EPOCH_OFFSET_DAYS = 2_440_588;

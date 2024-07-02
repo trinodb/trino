@@ -574,6 +574,49 @@
                                     <old>interface io.trino.spi.exchange.ExchangeManagerHandleResolver</old>
                                     <justification>cleanup</justification>
                                 </item>
+                                <item>
+                                    <code>java.annotation.removed</code>
+                                    <old>method byte[] io.airlift.slice.Slice::byteArray()</old>
+                                    <new>method byte[] io.airlift.slice.Slice::byteArray()</new>
+                                    <annotation>@edu.umd.cs.findbugs.annotations.SuppressFBWarnings({"EI_EXPOSE_REP"})</annotation>
+                                    <justification>FFM based Slice</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method byte io.airlift.slice.Slice::getByteUnchecked(int)</old>
+                                    <justification>FFM based Slice</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method double io.airlift.slice.Slice::getDoubleUnchecked(int)</old>
+                                    <justification>FFM based Slice</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method float io.airlift.slice.Slice::getFloatUnchecked(int)</old>
+                                    <justification>FFM based Slice</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.airlift.slice.Slice::getIntUnchecked(int)</old>
+                                    <justification>FFM based Slice</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.airlift.slice.Slice::getLongUnchecked(int)</old>
+                                    <justification>FFM based Slice</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method short io.airlift.slice.Slice::getShortUnchecked(int)</old>
+                                    <justification>FFM based Slice</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

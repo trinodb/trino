@@ -20,6 +20,7 @@ import io.trino.spi.block.MapHashTables;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 
 import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.reflect.Array.getLength;
 
@@ -82,17 +83,17 @@ public final class ReferenceCountMap
         if (key == null) {
             extraIdentity = 0;
         }
-        else if (key instanceof Block) {
-            extraIdentity = (int) ((Block) key).getRetainedSizeInBytes();
+        else if (key instanceof Block block) {
+            extraIdentity = toIntExact(block.getRetainedSizeInBytes());
         }
-        else if (key instanceof Slice) {
-            extraIdentity = (int) ((Slice) key).getRetainedSize();
+        else if (key instanceof Slice slice) {
+            extraIdentity = toIntExact(slice.getRetainedSize());
         }
         else if (key.getClass().isArray()) {
             extraIdentity = getLength(key);
         }
-        else if (key instanceof MapHashTables) {
-            extraIdentity = (int) ((MapHashTables) key).getRetainedSizeInBytes();
+        else if (key instanceof MapHashTables hashTables) {
+            extraIdentity = toIntExact(hashTables.getRetainedSizeInBytes());
         }
         else {
             throw new IllegalArgumentException(format("Unsupported type for %s", key));
