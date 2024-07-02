@@ -1273,7 +1273,7 @@ class AstBuilder
     @Override
     public Node visitGroupBy(SqlBaseParser.GroupByContext context)
     {
-        return new GroupBy(getLocation(context), isDistinct(context.setQuantifier()), visit(context.groupingElement(), GroupingElement.class));
+        return new GroupBy(getLocation(context), setQuantifier(context), visit(context.groupingElement(), GroupingElement.class));
     }
 
     @Override
@@ -4066,6 +4066,20 @@ class AstBuilder
     private static boolean isDistinct(SqlBaseParser.SetQuantifierContext setQuantifier)
     {
         return setQuantifier != null && setQuantifier.DISTINCT() != null;
+    }
+
+    private static Optional<GroupBy.Type> setQuantifier(SqlBaseParser.GroupByContext groupBy)
+    {
+        if (groupBy.setQuantifier() == null) {
+            return Optional.empty();
+        }
+        if (groupBy.setQuantifier().DISTINCT() != null) {
+            return Optional.of(GroupBy.Type.DISTINCT);
+        }
+        if (groupBy.setQuantifier().ALL() != null) {
+            return Optional.of(GroupBy.Type.ALL);
+        }
+        throw new UnsupportedOperationException("Unexpected group by context: " + groupBy);
     }
 
     private static boolean isHexDigit(char c)

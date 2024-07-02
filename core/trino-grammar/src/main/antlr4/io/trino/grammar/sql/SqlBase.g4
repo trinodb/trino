@@ -290,7 +290,7 @@ querySpecification
     ;
 
 groupBy
-    : setQuantifier? groupingElement (',' groupingElement)*
+    : setQuantifier? (groupingElement (',' groupingElement)*)?
     ;
 
 groupingElement
@@ -985,7 +985,7 @@ authorizationUser
 
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
-    : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
+    : ABSENT | ADD | ADMIN | AFTER | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
     | BEGIN | BERNOULLI | BOTH
     | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE

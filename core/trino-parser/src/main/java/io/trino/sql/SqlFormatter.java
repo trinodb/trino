@@ -71,6 +71,7 @@ import io.trino.sql.tree.Grant;
 import io.trino.sql.tree.GrantObject;
 import io.trino.sql.tree.GrantRoles;
 import io.trino.sql.tree.GrantorSpecification;
+import io.trino.sql.tree.GroupBy;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IfStatement;
 import io.trino.sql.tree.Insert;
@@ -698,7 +699,7 @@ public final class SqlFormatter
                     append(indent, "WHERE " + formatExpression(where)).append('\n'));
 
             node.getGroupBy().ifPresent(groupBy ->
-                    append(indent, "GROUP BY " + (groupBy.isDistinct() ? " DISTINCT " : "") + formatGroupBy(groupBy.getGroupingElements())).append('\n'));
+                    append(indent, "GROUP BY " + formatGroupByType(groupBy.getType()) + formatGroupBy(groupBy.getGroupingElements())).append('\n'));
 
             node.getHaving().ifPresent(having -> append(indent, "HAVING " + formatExpression(having))
                     .append('\n'));
@@ -714,6 +715,20 @@ public final class SqlFormatter
             node.getOffset().ifPresent(offset -> process(offset, indent));
             node.getLimit().ifPresent(limit -> process(limit, indent));
             return null;
+        }
+
+        private static String formatGroupByType(Optional<GroupBy.Type> type)
+        {
+            if (!type.isPresent()) {
+                return "";
+            }
+            switch (type.get()) {
+                case DISTINCT:
+                    return " DISTINCT ";
+                case ALL:
+                    return " ALL ";
+            }
+            throw new UnsupportedOperationException("unknown group by type: " + type);
         }
 
         @Override

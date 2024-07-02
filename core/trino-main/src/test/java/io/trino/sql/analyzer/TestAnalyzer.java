@@ -3122,6 +3122,8 @@ public class TestAnalyzer
     {
         // TODO: validate output
         analyze("SELECT a, SUM(b) FROM t1 GROUP BY a");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY ALL");
+        analyze("SELECT a as x, SUM(b) FROM t1 GROUP BY ALL");
     }
 
     @Test
