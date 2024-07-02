@@ -13,13 +13,14 @@
  */
 package io.trino.likematcher;
 
+import io.airlift.slice.Slice;
 import io.trino.type.LikePattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLikeMatcher
@@ -100,17 +101,17 @@ public class TestLikeMatcher
         assertThat(match("%paya%", "papapapapapaya")).isTrue();
 
         // utf-8
-        LikeMatcher singleOptimized = LikePattern.compile("_", Optional.empty(), true).getMatcher();
-        LikeMatcher multipleOptimized = LikePattern.compile("_a%b_", Optional.empty(), true).getMatcher(); // prefix and suffix with _a and b_ to avoid optimizations
-        LikeMatcher single = LikePattern.compile("_", Optional.empty(), false).getMatcher();
-        LikeMatcher multiple = LikePattern.compile("_a%b_", Optional.empty(), false).getMatcher(); // prefix and suffix with _a and b_ to avoid optimizations
+        LikeMatcher singleOptimized = LikePattern.compile(utf8Slice("_"), Optional.empty(), true).getMatcher();
+        LikeMatcher multipleOptimized = LikePattern.compile(utf8Slice("_a%b_"), Optional.empty(), true).getMatcher(); // prefix and suffix with _a and b_ to avoid optimizations
+        LikeMatcher single = LikePattern.compile(utf8Slice("_"), Optional.empty(), false).getMatcher();
+        LikeMatcher multiple = LikePattern.compile(utf8Slice("_a%b_"), Optional.empty(), false).getMatcher(); // prefix and suffix with _a and b_ to avoid optimizations
         for (int i = 0; i < Character.MAX_CODE_POINT; i++) {
-            assertThat(singleOptimized.match(Character.toString(i).getBytes(StandardCharsets.UTF_8))).isTrue();
-            assertThat(single.match(Character.toString(i).getBytes(StandardCharsets.UTF_8))).isTrue();
+            assertThat(singleOptimized.match(utf8Slice(Character.toString(i)))).isTrue();
+            assertThat(single.match(utf8Slice(Character.toString(i)))).isTrue();
 
             String value = "aa" + (char) i + "bb";
-            assertThat(multipleOptimized.match(value.getBytes(StandardCharsets.UTF_8))).isTrue();
-            assertThat(multiple.match(value.getBytes(StandardCharsets.UTF_8))).isTrue();
+            assertThat(multipleOptimized.match(utf8Slice(value))).isTrue();
+            assertThat(multiple.match(utf8Slice(value))).isTrue();
         }
     }
 
@@ -133,29 +134,29 @@ public class TestLikeMatcher
 
     private static boolean match(String pattern, String value)
     {
-        return match(pattern, value, Optional.empty());
+        return match(utf8Slice(pattern), value, Optional.empty());
     }
 
     private static boolean match(String pattern, String value, char escape)
     {
-        return match(pattern, value, Optional.of(escape));
+        return match(utf8Slice(pattern), value, Optional.of(escape));
     }
 
-    private static boolean match(String pattern, String value, Optional<Character> escape)
+    private static boolean match(Slice pattern, String value, Optional<Character> escape)
     {
         String padding = "++++";
         String padded = padding + value + padding;
-        byte[] bytes = padded.getBytes(StandardCharsets.UTF_8);
+        Slice bytes = utf8Slice(padded);
 
-        boolean optimizedWithoutPadding = LikeMatcher.compile(pattern, escape, true).match(value.getBytes(StandardCharsets.UTF_8));
+        boolean optimizedWithoutPadding = LikeMatcher.compile(pattern, escape, true).match(utf8Slice(value));
 
-        boolean optimizedWithPadding = LikeMatcher.compile(pattern, escape, true).match(bytes, padding.length(), bytes.length - padding.length() * 2);  // exclude padding
+        boolean optimizedWithPadding = LikeMatcher.compile(pattern, escape, true).match(bytes, padding.length(), bytes.length() - padding.length() * 2);  // exclude padding
         assertThat(optimizedWithPadding).isEqualTo(optimizedWithoutPadding);
 
-        boolean withoutPadding = LikeMatcher.compile(pattern, escape, false).match(value.getBytes(StandardCharsets.UTF_8));
+        boolean withoutPadding = LikeMatcher.compile(pattern, escape, false).match(utf8Slice(value));
         assertThat(withoutPadding).isEqualTo(optimizedWithoutPadding);
 
-        boolean withPadding = LikeMatcher.compile(pattern, escape, false).match(bytes, padding.length(), bytes.length - padding.length() * 2);  // exclude padding
+        boolean withPadding = LikeMatcher.compile(pattern, escape, false).match(bytes, padding.length(), bytes.length() - padding.length() * 2);  // exclude padding
         assertThat(withPadding).isEqualTo(optimizedWithoutPadding);
 
         return withPadding;

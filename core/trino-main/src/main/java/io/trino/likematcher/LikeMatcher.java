@@ -13,6 +13,9 @@
  */
 package io.trino.likematcher;
 
+import io.airlift.slice.Slice;
+import io.airlift.slice.SliceUtf8;
+import io.airlift.slice.Slices;
 import io.trino.likematcher.Pattern.Any;
 import io.trino.likematcher.Pattern.Literal;
 
@@ -21,21 +24,22 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
+import static io.airlift.slice.Slices.utf8Slice;
 
 public class LikeMatcher
 {
     private final int minSize;
     private final OptionalInt maxSize;
-    private final byte[] prefix;
-    private final byte[] suffix;
+    private final Slice prefix;
+    private final Slice suffix;
     private final Optional<Matcher> matcher;
 
     private LikeMatcher(
             int minSize,
             OptionalInt maxSize,
-            byte[] prefix,
-            byte[] suffix,
+            Slice prefix,
+            Slice suffix,
             Optional<Matcher> matcher)
     {
         this.minSize = minSize;
@@ -45,20 +49,19 @@ public class LikeMatcher
         this.matcher = matcher;
     }
 
-    public static LikeMatcher compile(String pattern)
+    public static LikeMatcher compile(Slice pattern)
     {
         return compile(pattern, Optional.empty(), true);
     }
 
-    public static LikeMatcher compile(String pattern, Optional<Character> escape)
+    public static LikeMatcher compile(Slice pattern, Optional<Character> escape)
     {
         return compile(pattern, escape, true);
     }
 
-    public static LikeMatcher compile(String pattern, Optional<Character> escape, boolean optimize)
+    public static LikeMatcher compile(Slice pattern, Optional<Character> escape, boolean optimize)
     {
         List<Pattern> parsed = parse(pattern, escape);
-
         // Calculate minimum and maximum size for candidate strings
         // This is used for short-circuiting the match if the size of
         // the input is outside those bounds
@@ -67,14 +70,12 @@ public class LikeMatcher
         boolean unbounded = false;
         for (Pattern expression : parsed) {
             switch (expression) {
-                case Literal literal -> {
-                    int length = literal.value().getBytes(UTF_8).length;
+                case Literal(Slice value) -> {
+                    int length = value.length();
                     minSize += length;
                     maxSize += length;
                 }
-                case Pattern.ZeroOrMore zeroOrMore -> {
-                    unbounded = true;
-                }
+                case Pattern.ZeroOrMore _ -> unbounded = true;
                 case Any any -> {
                     int length = any.length();
                     minSize += length;
@@ -86,18 +87,18 @@ public class LikeMatcher
         // Calculate exact match prefix and suffix
         // If the pattern starts and ends with a literal, we can perform a quick
         // exact match to short-circuit DFA evaluation
-        byte[] prefix = new byte[0];
-        byte[] suffix = new byte[0];
+        Slice prefix = Slices.EMPTY_SLICE;
+        Slice suffix = Slices.EMPTY_SLICE;
 
         int patternStart = 0;
         int patternEnd = parsed.size() - 1;
-        if (parsed.size() > 0 && parsed.getFirst() instanceof Literal literal) {
-            prefix = literal.value().getBytes(UTF_8);
+        if (!parsed.isEmpty() && parsed.getFirst() instanceof Literal(Slice value)) {
+            prefix = value;
             patternStart++;
         }
 
-        if (parsed.size() > 1 && parsed.getLast() instanceof Literal literal) {
-            suffix = literal.value().getBytes(UTF_8);
+        if (parsed.size() > 1 && parsed.getLast() instanceof Literal(Slice value)) {
+            suffix = value;
             patternEnd--;
         }
 
@@ -152,12 +153,12 @@ public class LikeMatcher
                 matcher);
     }
 
-    public boolean match(byte[] input)
+    public boolean match(Slice input)
     {
-        return match(input, 0, input.length);
+        return match(input, 0, input.length());
     }
 
-    public boolean match(byte[] input, int offset, int length)
+    public boolean match(Slice input, int offset, int length)
     {
         if (length < minSize) {
             return false;
@@ -171,29 +172,26 @@ public class LikeMatcher
             return false;
         }
 
-        if (!startsWith(suffix, input, offset + length - suffix.length)) {
+        if (!startsWith(suffix, input, offset + length - suffix.length())) {
             return false;
         }
 
         if (matcher.isPresent()) {
-            return matcher.get().match(input, offset + prefix.length, length - suffix.length - prefix.length);
+            return matcher.get().match(input, offset + prefix.length(), length - suffix.length() - prefix.length());
         }
 
         return true;
     }
 
-    private boolean startsWith(byte[] pattern, byte[] input, int offset)
+    private boolean startsWith(Slice pattern, Slice input, int offset)
     {
-        for (int i = 0; i < pattern.length; i++) {
-            if (pattern[i] != input[offset + i]) {
-                return false;
-            }
+        if (pattern.length() == 0) {
+            return true;
         }
-
-        return true;
+        return pattern.mismatch(0, pattern.length(), input, offset, pattern.length()) == -1;
     }
 
-    static List<Pattern> parse(String pattern, Optional<Character> escape)
+    static List<Pattern> parse(Slice pattern, Optional<Character> escape)
     {
         List<Pattern> result = new ArrayList<>();
 
@@ -201,15 +199,17 @@ public class LikeMatcher
         int anyCount = 0;
         boolean anyUnbounded = false;
         boolean inEscape = false;
-        for (int i = 0; i < pattern.length(); i++) {
-            char character = pattern.charAt(i);
 
+        int position = 0;
+        while (position < pattern.length()) {
+            int character = SliceUtf8.getCodePointAt(pattern, position);
+            position += lengthOfCodePoint(character);
             if (inEscape) {
                 if (character != '%' && character != '_' && character != escape.get()) {
                     throw new IllegalArgumentException("Escape character must be followed by '%', '_' or the escape character itself");
                 }
 
-                literal.append(character);
+                literal.appendCodePoint(character);
                 inEscape = false;
             }
             else if (escape.isPresent() && character == escape.get()) {
@@ -226,8 +226,8 @@ public class LikeMatcher
                 }
             }
             else if (character == '%' || character == '_') {
-                if (literal.length() != 0) {
-                    result.add(new Literal(literal.toString()));
+                if (!literal.isEmpty()) {
+                    result.add(new Literal(utf8Slice(literal.toString())));
                     literal.setLength(0);
                 }
 
@@ -249,7 +249,7 @@ public class LikeMatcher
                     anyUnbounded = false;
                 }
 
-                literal.append(character);
+                literal.appendCodePoint(character);
             }
         }
 
@@ -257,8 +257,8 @@ public class LikeMatcher
             throw new IllegalArgumentException("Escape character must be followed by '%', '_' or the escape character itself");
         }
 
-        if (literal.length() != 0) {
-            result.add(new Literal(literal.toString()));
+        if (!literal.isEmpty()) {
+            result.add(new Literal(utf8Slice(literal.toString())));
         }
         else {
             if (anyCount != 0) {

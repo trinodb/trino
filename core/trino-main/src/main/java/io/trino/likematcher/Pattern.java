@@ -13,18 +13,20 @@
  */
 package io.trino.likematcher;
 
+import io.airlift.slice.Slice;
+
 import static com.google.common.base.Preconditions.checkArgument;
 
 sealed interface Pattern
         permits Pattern.Any, Pattern.Literal, Pattern.ZeroOrMore
 {
-    record Literal(String value)
+    record Literal(Slice value)
             implements Pattern
     {
         @Override
         public String toString()
         {
-            return value;
+            return value.toStringUtf8();
         }
     }
 

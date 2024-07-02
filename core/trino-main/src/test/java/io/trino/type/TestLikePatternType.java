@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,16 +30,16 @@ public class TestLikePatternType
     public void testGetObject()
     {
         BlockBuilder blockBuilder = LIKE_PATTERN.createBlockBuilder(new PageBuilderStatus().createBlockBuilderStatus(), 10);
-        LIKE_PATTERN.writeObject(blockBuilder, LikePattern.compile("helloX_world", Optional.of('X')));
-        LIKE_PATTERN.writeObject(blockBuilder, LikePattern.compile("foo%_bar", Optional.empty()));
+        LIKE_PATTERN.writeObject(blockBuilder, LikePattern.compile(utf8Slice("helloX_world"), Optional.of('X')));
+        LIKE_PATTERN.writeObject(blockBuilder, LikePattern.compile(utf8Slice("foo%_bar"), Optional.empty()));
         Block block = blockBuilder.build();
 
         LikePattern pattern = (LikePattern) LIKE_PATTERN.getObject(block, 0);
-        assertThat(pattern.getPattern()).isEqualTo("helloX_world");
+        assertThat(pattern.getPattern()).isEqualTo(utf8Slice("helloX_world"));
         assertThat(pattern.getEscape()).isEqualTo(Optional.of('X'));
 
         pattern = (LikePattern) LIKE_PATTERN.getObject(block, 1);
-        assertThat(pattern.getPattern()).isEqualTo("foo%_bar");
+        assertThat(pattern.getPattern()).isEqualTo(utf8Slice("foo%_bar"));
         assertThat(pattern.getEscape()).isEqualTo(Optional.empty());
     }
 }
