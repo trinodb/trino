@@ -1031,78 +1031,7 @@ public class TestTrinoDatabaseMetaData
             throws Exception
     {
         try (Connection connection = createConnection()) {
-            verify(connection.getMetaData().getSearchStringEscape().equals("\\")); // this test uses escape inline for readability
-
-            // No filter
-            assertMetadataCalls(
-                    connection,
-                    readMetaData(
-                            databaseMetaData -> databaseMetaData.getSchemas(null, null),
-                            list("TABLE_CATALOG", "TABLE_SCHEM")),
-                    ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
-
-            // Equality predicate on catalog name
-            assertMetadataCalls(
-                    connection,
-                    readMetaData(
-                            databaseMetaData -> databaseMetaData.getSchemas(COUNTING_CATALOG, null),
-                            list("TABLE_CATALOG", "TABLE_SCHEM")),
-                    list(
-                            list(COUNTING_CATALOG, "information_schema"),
-                            list(COUNTING_CATALOG, "test_schema1"),
-                            list(COUNTING_CATALOG, "test_schema2"),
-                            list(COUNTING_CATALOG, "test_schema3_empty"),
-                            list(COUNTING_CATALOG, "test_schema4_empty")),
-                    ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
-
-            // Equality predicate on schema name
-            assertMetadataCalls(
-                    connection,
-                    readMetaData(
-                            databaseMetaData -> databaseMetaData.getSchemas(COUNTING_CATALOG, "test\\_schema%"),
-                            list("TABLE_CATALOG", "TABLE_SCHEM")),
-                    list(
-                            list(COUNTING_CATALOG, "test_schema1"),
-                            list(COUNTING_CATALOG, "test_schema2"),
-                            list(COUNTING_CATALOG, "test_schema3_empty"),
-                            list(COUNTING_CATALOG, "test_schema4_empty")),
-                    ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
-
-            // LIKE predicate on schema name
-            assertMetadataCalls(
-                    connection,
-                    readMetaData(
-                            databaseMetaData -> databaseMetaData.getSchemas(COUNTING_CATALOG, "test_sch_ma1"),
-                            list("TABLE_CATALOG", "TABLE_SCHEM")),
-                    list(list(COUNTING_CATALOG, "test_schema1")),
-                    ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
-
-            // Empty schema name
-            assertMetadataCalls(
-                    connection,
-                    readMetaData(
-                            databaseMetaData -> databaseMetaData.getSchemas(COUNTING_CATALOG, ""),
-                            list("TABLE_CATALOG", "TABLE_SCHEM")),
-                    list(),
-                    ImmutableMultiset.of());
-
-            // catalog does not exist
-            assertMetadataCalls(
-                    connection,
-                    readMetaData(
-                            databaseMetaData -> databaseMetaData.getSchemas("wrong", null),
-                            list("TABLE_CATALOG", "TABLE_SCHEM")),
-                    list(),
-                    ImmutableMultiset.of());
-
-            // empty catalog name (means null filter)
-            assertMetadataCalls(
-                    connection,
-                    readMetaData(
-                            databaseMetaData -> databaseMetaData.getSchemas("", null),
-                            list("TABLE_CATALOG", "TABLE_SCHEM")),
-                    list(),
-                    ImmutableMultiset.of());
+            testGetSchemasMetadataCalls(connection);
         }
     }
 
@@ -1176,6 +1105,83 @@ public class TestTrinoDatabaseMetaData
                             list("blackhole", "test_schema1")),
                     ImmutableMultiset.of());
         }
+    }
+
+    private void testGetSchemasMetadataCalls(Connection connection)
+            throws Exception
+    {
+        verify(connection.getMetaData().getSearchStringEscape().equals("\\")); // this test uses escape inline for readability
+
+        // No filter
+        assertMetadataCalls(
+                connection,
+                readMetaData(
+                        databaseMetaData -> databaseMetaData.getSchemas(null, null),
+                        list("TABLE_CATALOG", "TABLE_SCHEM")),
+                ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
+
+        // Equality predicate on catalog name
+        assertMetadataCalls(
+                connection,
+                readMetaData(
+                        databaseMetaData -> databaseMetaData.getSchemas(COUNTING_CATALOG, null),
+                        list("TABLE_CATALOG", "TABLE_SCHEM")),
+                list(
+                        list(COUNTING_CATALOG, "information_schema"),
+                        list(COUNTING_CATALOG, "test_schema1"),
+                        list(COUNTING_CATALOG, "test_schema2"),
+                        list(COUNTING_CATALOG, "test_schema3_empty"),
+                        list(COUNTING_CATALOG, "test_schema4_empty")),
+                ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
+
+        // Equality predicate on schema name
+        assertMetadataCalls(
+                connection,
+                readMetaData(
+                        databaseMetaData -> databaseMetaData.getSchemas(COUNTING_CATALOG, "test\\_schema%"),
+                        list("TABLE_CATALOG", "TABLE_SCHEM")),
+                list(
+                        list(COUNTING_CATALOG, "test_schema1"),
+                        list(COUNTING_CATALOG, "test_schema2"),
+                        list(COUNTING_CATALOG, "test_schema3_empty"),
+                        list(COUNTING_CATALOG, "test_schema4_empty")),
+                ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
+
+        // LIKE predicate on schema name
+        assertMetadataCalls(
+                connection,
+                readMetaData(
+                        databaseMetaData -> databaseMetaData.getSchemas(COUNTING_CATALOG, "test_sch_ma1"),
+                        list("TABLE_CATALOG", "TABLE_SCHEM")),
+                list(list(COUNTING_CATALOG, "test_schema1")),
+                ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
+
+        // Empty schema name
+        assertMetadataCalls(
+                connection,
+                readMetaData(
+                        databaseMetaData -> databaseMetaData.getSchemas(COUNTING_CATALOG, ""),
+                        list("TABLE_CATALOG", "TABLE_SCHEM")),
+                list(),
+                ImmutableMultiset.of());
+
+        // catalog does not exist
+        assertMetadataCalls(
+                connection,
+                readMetaData(
+                        databaseMetaData -> databaseMetaData.getSchemas("wrong", null),
+                        list("TABLE_CATALOG", "TABLE_SCHEM")),
+                list(),
+                ImmutableMultiset.of());
+
+        // empty catalog name (means null filter)
+        assertMetadataCalls(
+                connection,
+                readMetaData(
+                        databaseMetaData -> databaseMetaData.getSchemas("", null),
+                        list("TABLE_CATALOG", "TABLE_SCHEM")),
+                list(),
+                ImmutableMultiset.of());
     }
 
     @Test
