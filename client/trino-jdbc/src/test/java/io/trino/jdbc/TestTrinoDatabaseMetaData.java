@@ -1104,7 +1104,12 @@ public class TestTrinoDatabaseMetaData
                     list(),
                     ImmutableMultiset.of());
         }
+    }
 
+    @Test
+    public void testGetSchemasMetadataCallsWithNullCatalogMeansCurrent()
+            throws Exception
+    {
         try (Connection connection = createConnectionWithNullCatalogMeansCurrent()) {
             // should list all schemas as the catalog is not set
             assertMetadataCalls(
@@ -1325,7 +1330,12 @@ public class TestTrinoDatabaseMetaData
                     list(),
                     ImmutableMultiset.of());
         }
+    }
 
+    @Test
+    public void testGetTablesMetadataCallsWithNullCatalogMeansCurrent()
+            throws Exception
+    {
         try (Connection connection = createConnectionWithNullCatalogMeansCurrent()) {
             assertMetadataCalls(
                     connection,
@@ -1610,7 +1620,12 @@ public class TestTrinoDatabaseMetaData
                     list(),
                     ImmutableMultiset.of("ConnectorMetadata.streamRelationColumns"));
         }
+    }
 
+    @Test
+    public void testGetColumnsMetadataCallsWithNullCatalogMeansCurrent()
+            throws Exception
+    {
         try (Connection connection = createConnectionWithNullCatalogMeansCurrent()) {
             assertMetadataCalls(
                     connection,
