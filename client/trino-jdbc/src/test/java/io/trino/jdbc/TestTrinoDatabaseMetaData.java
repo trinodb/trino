@@ -1040,7 +1040,11 @@ public class TestTrinoDatabaseMetaData
             throws Exception
     {
         try (Connection connection = createConnectionWithNullCatalogMeansCurrent()) {
-            // should list all schemas as the catalog is not set
+            verify(connection.getMetaData().getSearchStringEscape().equals("\\")); // this test uses escape inline for readability
+
+            testGetSchemasMetadataCalls(connection);
+
+            // No filter without connection catalog - lists all schemas across all catalogs
             assertMetadataCalls(
                     connection,
                     readMetaData(
@@ -1075,8 +1079,23 @@ public class TestTrinoDatabaseMetaData
                     ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
 
             // set a different catalog to check if current catalog is used
-            connection.setCatalog(COUNTING_CATALOG);
+            connection.setCatalog("system");
+            // No filter with connection catalog - lists schemas in the connection catalog
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getSchemas(null, null),
+                            list("TABLE_CATALOG", "TABLE_SCHEM")),
+                    list(
+                            list("system", "information_schema"),
+                            list("system", "jdbc"),
+                            list("system", "metadata"),
+                            list("system", "runtime")),
+                    ImmutableMultiset.of());
 
+            // change the catalog back using a statement on the connection
+            connection.createStatement().execute(String.format("USE %s.%s", COUNTING_CATALOG, "test_schema1"));
+            // No filter with connection catalog - lists schemas in the connection catalog
             assertMetadataCalls(
                     connection,
                     readMetaData(
@@ -1090,20 +1109,27 @@ public class TestTrinoDatabaseMetaData
                             list(COUNTING_CATALOG, "test_schema4_empty")),
                     ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
 
-            // change the catalog back using a statement on the connection
-            connection.createStatement().execute(String.format("USE %s.%s", "blackhole", "blackhole"));
-
+            // Equality predicate on schema name - lists matching schemas in the connection catalog
             assertMetadataCalls(
                     connection,
                     readMetaData(
-                            databaseMetaData -> databaseMetaData.getSchemas(null, null),
+                            databaseMetaData -> databaseMetaData.getSchemas(null, "test\\_schema%"),
                             list("TABLE_CATALOG", "TABLE_SCHEM")),
                     list(
-                            list("blackhole", "information_schema"),
-                            list("blackhole", "default"),
-                            list("blackhole", "blackhole"),
-                            list("blackhole", "test_schema1")),
-                    ImmutableMultiset.of());
+                            list(COUNTING_CATALOG, "test_schema1"),
+                            list(COUNTING_CATALOG, "test_schema2"),
+                            list(COUNTING_CATALOG, "test_schema3_empty"),
+                            list(COUNTING_CATALOG, "test_schema4_empty")),
+                    ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
+
+            // LIKE predicate on schema name - lists matching schemas in the connection catalog
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getSchemas(null, "test_sch_ma1"),
+                            list("TABLE_CATALOG", "TABLE_SCHEM")),
+                    list(list(COUNTING_CATALOG, "test_schema1")),
+                    ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
         }
     }
 
