@@ -60,7 +60,11 @@ public class SymbolAllocator
         requireNonNull(nameHint, "nameHint is null");
         requireNonNull(type, "type is null");
 
+        String tmpNameHint = nameHint;
         nameHint = EXCLUDED_CHARACTERS.trimAndCollapseFrom(nameHint.toLowerCase(ENGLISH), '_');
+        if (nameHint.isEmpty()) {
+            nameHint = tmpNameHint;
+        }
 
         // don't strip the tail if the only _ is the first character
         int index = nameHint.lastIndexOf("_");
