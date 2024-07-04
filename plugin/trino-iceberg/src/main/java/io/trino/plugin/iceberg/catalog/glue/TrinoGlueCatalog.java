@@ -173,7 +173,6 @@ public class TrinoGlueCatalog
     private static final int PER_QUERY_CACHES_SIZE = 1000;
 
     private final String trinoVersion;
-    private final TypeManager typeManager;
     private final boolean cacheTableMetadata;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final Optional<String> defaultSchemaLocation;
@@ -213,7 +212,6 @@ public class TrinoGlueCatalog
     {
         super(catalogName, typeManager, tableOperationsProvider, fileSystemFactory, useUniqueTableLocation);
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.cacheTableMetadata = cacheTableMetadata;
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
