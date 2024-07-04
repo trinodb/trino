@@ -40,12 +40,10 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.puffin.StandardBlobTypes;
-import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -180,16 +178,14 @@ public final class TableStatisticsReader
 
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
         double recordCount = summary.recordCount();
-        for (Entry<Integer, IcebergColumnHandle> columnHandleTuple : idToColumnHandle.entrySet()) {
-            IcebergColumnHandle columnHandle = columnHandleTuple.getValue();
+        for (IcebergColumnHandle columnHandle : columnHandles) {
             int fieldId = columnHandle.getId();
             ColumnStatistics.Builder columnBuilder = new ColumnStatistics.Builder();
             Long nullCount = summary.nullCounts().get(fieldId);
             if (nullCount != null) {
                 columnBuilder.setNullsFraction(Estimate.of(nullCount / recordCount));
             }
-            if (idToType.get(columnHandleTuple.getKey()).typeId() == Type.TypeID.FIXED) {
-                Types.FixedType fixedType = (Types.FixedType) idToType.get(columnHandleTuple.getKey());
+            if (idToType.get(columnHandle.getId()) instanceof Types.FixedType fixedType) {
                 long columnSize = fixedType.length();
                 columnBuilder.setDataSize(Estimate.of(columnSize));
             }
@@ -239,13 +235,12 @@ public final class TableStatisticsReader
         }
 
         ImmutableMap.Builder<Integer, Long> ndvByColumnId = ImmutableMap.builder();
-        Set<Integer> remainingColumnIds = new HashSet<>(columnIds);
 
         getLatestStatisticsFile(icebergTable, snapshotId).ifPresent(statisticsFile -> {
             Map<Integer, BlobMetadata> thetaBlobsByFieldId = statisticsFile.blobMetadata().stream()
                     .filter(blobMetadata -> blobMetadata.type().equals(StandardBlobTypes.APACHE_DATASKETCHES_THETA_V1))
                     .filter(blobMetadata -> blobMetadata.fields().size() == 1)
-                    .filter(blobMetadata -> remainingColumnIds.contains(getOnlyElement(blobMetadata.fields())))
+                    .filter(blobMetadata -> columnIds.contains(getOnlyElement(blobMetadata.fields())))
                     // Fail loud upon duplicates (there must be none)
                     .collect(toImmutableMap(blobMetadata -> getOnlyElement(blobMetadata.fields()), identity()));
 
@@ -255,10 +250,8 @@ public final class TableStatisticsReader
                 String ndv = blobMetadata.properties().get(APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY);
                 if (ndv == null) {
                     log.debug("Blob %s is missing %s property", blobMetadata.type(), APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY);
-                    remainingColumnIds.remove(fieldId);
                 }
                 else {
-                    remainingColumnIds.remove(fieldId);
                     ndvByColumnId.put(fieldId, parseLong(ndv));
                 }
             }
