@@ -342,13 +342,16 @@ public final class MapBlock
         checkArrayRange(positions, offset, length);
 
         int[] newOffsets = new int[length + 1];
-        boolean[] newMapIsNull = new boolean[length];
+        boolean[] newMapIsNull = null;
 
         IntArrayList entriesPositions = new IntArrayList();
         int newPosition = 0;
         for (int i = offset; i < offset + length; ++i) {
             int position = positions[i];
             if (isNull(position)) {
+                if (newMapIsNull == null) {
+                    newMapIsNull = new boolean[length];
+                }
                 newMapIsNull[newPosition] = true;
                 newOffsets[newPosition + 1] = newOffsets[newPosition];
             }
@@ -389,7 +392,7 @@ public final class MapBlock
                 mapType,
                 0,
                 length,
-                Optional.of(newMapIsNull),
+                Optional.ofNullable(newMapIsNull),
                 newOffsets,
                 newKeys,
                 newValues,
