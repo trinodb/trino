@@ -18,6 +18,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.EntityPrivilege;
+import io.trino.spi.connector.PrimaryKey;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
@@ -25,6 +26,7 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -120,6 +122,11 @@ public interface SystemSecurityMetadata
     {
         throw new UnsupportedOperationException();
     }
+
+    /**
+     * Gets the primary keys metadata for all tables that match the specified prefix.
+     */
+    List<PrimaryKey> listTablePrimaryKeys(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Grants the specified privilege to the specified user on the specified entity

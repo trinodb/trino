@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.PrimaryKey;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -387,6 +388,12 @@ public abstract class ForwardingJdbcClient
     public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
     {
         delegate().setColumnType(session, handle, column, type);
+    }
+
+    @Override
+    public Set<PrimaryKey> getPrimaryKeys(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        return delegate().getPrimaryKeys(session, schemaTableName);
     }
 
     @Override

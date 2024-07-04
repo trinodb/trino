@@ -223,7 +223,7 @@ public abstract class AbstractTestingTrinoClient<T>
         return trinoServer;
     }
 
-    protected List<Type> getTypes(List<Column> columns)
+    protected List<Type> getTypes(List<? extends Column> columns)
     {
         return columns.stream()
                 .map(Column::getType)
@@ -231,7 +231,7 @@ public abstract class AbstractTestingTrinoClient<T>
                 .collect(toImmutableList());
     }
 
-    protected List<String> getNames(List<Column> columns)
+    protected List<String> getNames(List<? extends Column> columns)
     {
         return columns.stream()
                 .map(Column::getName)

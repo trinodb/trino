@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.TrinoException;
@@ -20,6 +21,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.EntityPrivilege;
+import io.trino.spi.connector.PrimaryKey;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
@@ -139,6 +141,12 @@ public class DisabledSystemSecurityMetadata
     public Set<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix)
     {
         return ImmutableSet.of();
+    }
+
+    @Override
+    public List<PrimaryKey> listTablePrimaryKeys(Session session, QualifiedTablePrefix prefix)
+    {
+        return ImmutableList.of();
     }
 
     @Override

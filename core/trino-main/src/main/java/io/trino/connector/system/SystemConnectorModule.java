@@ -20,6 +20,7 @@ import com.google.inject.multibindings.Multibinder;
 import io.trino.connector.system.jdbc.AttributeJdbcTable;
 import io.trino.connector.system.jdbc.CatalogJdbcTable;
 import io.trino.connector.system.jdbc.ColumnJdbcTable;
+import io.trino.connector.system.jdbc.PrimaryKeysJdbcTable;
 import io.trino.connector.system.jdbc.ProcedureColumnJdbcTable;
 import io.trino.connector.system.jdbc.ProcedureJdbcTable;
 import io.trino.connector.system.jdbc.PseudoColumnJdbcTable;
@@ -57,6 +58,7 @@ public class SystemConnectorModule
         globalTableBinder.addBinding().to(TransactionsSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(RuleStatsSystemTable.class).in(Scopes.SINGLETON);
 
+        globalTableBinder.addBinding().to(PrimaryKeysJdbcTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(AttributeJdbcTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(CatalogJdbcTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(ColumnJdbcTable.class).in(Scopes.SINGLETON);

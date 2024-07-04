@@ -26,6 +26,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.PrimaryKey;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
@@ -56,6 +57,7 @@ import static io.trino.connector.informationschema.InformationSchemaMetadata.def
 import static io.trino.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
 import static io.trino.metadata.MetadataListing.getRelationTypes;
 import static io.trino.metadata.MetadataListing.getViews;
+import static io.trino.metadata.MetadataListing.listPrimaryKeys;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataListing.listTableColumns;
 import static io.trino.metadata.MetadataListing.listTablePrivileges;
@@ -153,6 +155,7 @@ public class InformationSchemaPageSource
             }
             return new Page(page.getPositionCount(), blocks);
         };
+        System.out.println("InformationSchemaPageSource() 1");
     }
 
     @Override
@@ -228,6 +231,9 @@ public class InformationSchemaPageSource
                     break;
                 case TABLE_PRIVILEGES:
                     addTablePrivilegesRecords(prefix);
+                    break;
+                case TABLE_PRIMARYKEYS:
+                    addTablePrimaryKeysRecords(prefix);
                     break;
                 case ROLES:
                     addRolesRecords();
@@ -324,6 +330,24 @@ public class InformationSchemaPageSource
                 return;
             }
         }
+    }
+
+    private void addTablePrimaryKeysRecords(QualifiedTablePrefix prefix)
+    {
+        System.out.println("InformationSchemaPageSource.addTablePrimaryKeysRecords() 1");
+        for (PrimaryKey primaryKey : listPrimaryKeys(session, metadata, accessControl, prefix)) {
+            addRecord(
+                    prefix.getCatalogName(),
+                    primaryKey.getSchema(),
+                    primaryKey.getTable(),
+                    primaryKey.getColumn(),
+                    primaryKey.getSequence(),
+                    primaryKey.getPrimaryKey());
+            if (isLimitExhausted()) {
+                return;
+            }
+        }
+        System.out.println("InformationSchemaPageSource.addTablePrimaryKeysRecords() 2");
     }
 
     private void addSchemataRecords()

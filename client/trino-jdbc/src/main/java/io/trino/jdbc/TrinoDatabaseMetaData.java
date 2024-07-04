@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
 import io.trino.client.Column;
+import io.trino.client.ResultColumn;
 import jakarta.annotation.Nullable;
 
 import java.sql.Connection;
@@ -1057,15 +1058,35 @@ public class TrinoDatabaseMetaData
     public ResultSet getPrimaryKeys(String catalog, String schema, String table)
             throws SQLException
     {
-        String query = "SELECT " +
-                " CAST(NULL AS varchar) TABLE_CAT, " +
-                " CAST(NULL AS varchar) TABLE_SCHEM, " +
-                " CAST(NULL AS varchar) TABLE_NAME, " +
-                " CAST(NULL AS varchar) COLUMN_NAME, " +
-                " CAST(NULL AS smallint) KEY_SEQ, " +
-                " CAST(NULL AS varchar) PK_NAME " +
-                "WHERE false";
-        return select(query);
+        System.out.println("TrinoDatabaseMetaData.getPrimaryKeys() 1");
+        StringBuilder query = new StringBuilder("" +
+                "SELECT TABLE_CAT, TABLE_SCHEM, TABLE_NAME,\n" +
+                "  COLUMN_NAME, KEY_SEQ, PK_NAME\n" +
+                "FROM system.jdbc.table_primarykeys");
+
+        List<String> filters = new ArrayList<>();
+        emptyStringEqualsFilter(filters, "TABLE_CAT", effectiveCatalog(catalog));
+        emptyStringEqualsFilter(filters, "TABLE_SCHEM", schema);
+        emptyStringEqualsFilter(filters, "TABLE_NAME", table);
+        buildFilters(query, filters);
+
+        query.append("\nORDER BY COLUMN_NAME");
+
+        System.out.println("TrinoDatabaseMetaData.getPrimaryKeys() 2");
+        ResultSet result = select(query.toString());
+        while (result.next()) {
+
+            System.out.println("TrinoDatabaseMetaData.getTableTypes() 3 Catalog: " + result.getString("TABLE_CAT"));
+            System.out.println("TrinoDatabaseMetaData.getTableTypes() 4 Schema: " + result.getString("TABLE_SHEM"));
+            System.out.println("TrinoDatabaseMetaData.getTableTypes() 5 Table: " + result.getString("TABLE_NAME"));
+            System.out.println("TrinoDatabaseMetaData.getTableTypes() 6 Column: " + result.getString("COLUMN_NAME"));
+            System.out.println("TrinoDatabaseMetaData.getTableTypes() 7 Sequence: " + result.getInt("KEY_SEQ"));
+            System.out.println("TrinoDatabaseMetaData.getTableTypes() 8 PkName: " + result.getString("PK_NAME"));
+        }
+        result.close();
+
+        System.out.println("TrinoDatabaseMetaData.getPrimaryKeys() 9");
+        return select(query.toString());
     }
 
     @Override

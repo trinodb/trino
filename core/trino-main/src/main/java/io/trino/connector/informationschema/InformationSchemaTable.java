@@ -71,6 +71,14 @@ public enum InformationSchemaTable
             .column("is_grantable", createUnboundedVarcharType())
             .column("with_hierarchy", createUnboundedVarcharType())
             .build()),
+    TABLE_PRIMARYKEYS(table("table_primarykeys")
+            .column("table_catalog", createUnboundedVarcharType())
+            .column("table_schema", createUnboundedVarcharType())
+            .column("table_name", createUnboundedVarcharType())
+            .column("column_name", createUnboundedVarcharType())
+            .column("sequence", BIGINT)
+            .column("primarykey_name", createUnboundedVarcharType())
+            .build()),
     ROLES(table("roles")
             .column("role_name", createUnboundedVarcharType())
             .build()),

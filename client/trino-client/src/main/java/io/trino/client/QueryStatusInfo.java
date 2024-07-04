@@ -26,7 +26,7 @@ public interface QueryStatusInfo
 
     URI getNextUri();
 
-    List<Column> getColumns();
+    List<? extends Column> getColumns();
 
     StatementStats getStats();
 

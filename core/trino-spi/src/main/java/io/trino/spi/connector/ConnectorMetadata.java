@@ -71,6 +71,7 @@ import static io.trino.spi.expression.Constant.FALSE;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
 import static java.util.Locale.ENGLISH;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.collectingAndThen;
@@ -978,6 +979,14 @@ public interface ConnectorMetadata
     {
         // Delegate to deprecated SPI to not break existing connectors
         finishMerge(session, mergeTableHandle, fragments, computedStatistics);
+    }
+
+    /**
+     * Gets the metadata for all primary keys that match the specified {@code tableName}.
+     */
+     default Set<PrimaryKey> getPrimaryKeys(ConnectorSession session, SchemaTableName tableName)
+    {
+         return emptySet();
     }
 
     /**

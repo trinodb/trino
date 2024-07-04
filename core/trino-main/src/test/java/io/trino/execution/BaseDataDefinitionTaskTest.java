@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
@@ -44,6 +45,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.PrimaryKey;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TestingColumnHandle;
@@ -71,6 +73,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -311,6 +314,12 @@ public abstract class BaseDataDefinitionTaskTest
                         .forEach(tables::remove);
             }
             schemas.remove(schema);
+        }
+
+        @Override
+        public Set<PrimaryKey> getPrimaryKeys(Session session, QualifiedObjectName prefix)
+        {
+            return ImmutableSet.of();
         }
 
         @Override

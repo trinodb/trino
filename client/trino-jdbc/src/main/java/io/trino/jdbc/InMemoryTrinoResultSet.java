@@ -25,7 +25,7 @@ class InMemoryTrinoResultSet
 {
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    public InMemoryTrinoResultSet(List<Column> columns, List<List<Object>> results)
+    public InMemoryTrinoResultSet(List<? extends Column> columns, List<List<Object>> results)
     {
         super(Optional.empty(), columns, results.iterator());
     }

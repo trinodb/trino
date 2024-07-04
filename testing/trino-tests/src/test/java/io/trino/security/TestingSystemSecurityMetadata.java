@@ -13,6 +13,7 @@
  */
 package io.trino.security;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
@@ -20,6 +21,7 @@ import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.PrimaryKey;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
@@ -30,6 +32,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
@@ -204,6 +207,12 @@ class TestingSystemSecurityMetadata
     public Set<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<PrimaryKey> listTablePrimaryKeys(Session session, QualifiedTablePrefix prefix)
+    {
+        return ImmutableList.of();
     }
 
     @Override

@@ -37,6 +37,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.PrimaryKey;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -280,6 +281,46 @@ public abstract class BaseJdbcClient
     public JdbcProcedureHandle getProcedureHandle(ConnectorSession session, ProcedureQuery procedureQuery)
     {
         throw new TrinoException(NOT_SUPPORTED, "Procedure is not supported");
+    }
+
+    @Override
+    public Set<PrimaryKey> getPrimaryKeys(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        System.out.println("BaseJdbcClient.getPrimaryKeys() 1");
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            ConnectorIdentity identity = session.getIdentity();
+            RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
+            String schema = identifierMapping.toRemoteSchemaName(remoteIdentifiers, identity, schemaTableName.getSchemaName());
+            String table = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, schema, schemaTableName.getTableName());
+            System.out.println("BaseJdbcClient.getPrimaryKeys() 2");
+            return getPrimaryKeys(connection, connection.getCatalog(), schema, table);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    private Set<PrimaryKey> getPrimaryKeys(Connection connection, String catalog, String schema, String table)
+    {
+        System.out.println("BaseJdbcClient.getPrimaryKeys() 1");
+        try (ResultSet resultSet = connection.getMetaData().getPrimaryKeys(catalog, schema, table)) {
+            ImmutableSet.Builder<PrimaryKey> primaryKeys = ImmutableSet.builder();
+            while (resultSet.next()) {
+                System.out.println("BaseJdbcClient.getPrimaryKeys() 2");
+                String remoteSchemaFromResultSet = getTableSchemaName(resultSet);
+                String tableSchema = identifierMapping.fromRemoteSchemaName(remoteSchemaFromResultSet);
+                String tableName = identifierMapping.fromRemoteTableName(remoteSchemaFromResultSet, resultSet.getString("TABLE_NAME"));
+                String columnName = resultSet.getString("COLUMN_NAME");
+                int sequence = resultSet.getInt("KEY_SEQ");
+                String primaryKeyName = resultSet.getString("PK_NAME");
+                primaryKeys.add(new PrimaryKey(tableSchema, tableName, columnName, sequence, primaryKeyName));
+            }
+            System.out.println("BaseJdbcClient.getPrimaryKeys() 3");
+            return primaryKeys.build();
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     protected List<JdbcColumnHandle> getColumns(ConnectorSession session, Connection connection, ResultSetMetaData metadata)

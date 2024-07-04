@@ -36,6 +36,7 @@ class ColumnInfo
     private final List<Integer> columnParameterTypes;
     private final ClientTypeSignature columnTypeSignature;
     private final Nullable nullable;
+    private final boolean autoincrement;
     private final boolean currency;
     private final boolean signed;
     private final int precision;
@@ -57,6 +58,7 @@ class ColumnInfo
             List<Integer> columnParameterTypes,
             ClientTypeSignature columnTypeSignature,
             Nullable nullable,
+            boolean autoincrement,
             boolean currency,
             boolean signed,
             int precision,
@@ -72,6 +74,7 @@ class ColumnInfo
         this.columnParameterTypes = ImmutableList.copyOf(requireNonNull(columnParameterTypes, "columnParameterTypes is null"));
         this.columnTypeSignature = requireNonNull(columnTypeSignature, "columnTypeSignature is null");
         this.nullable = requireNonNull(nullable, "nullable is null");
+        this.autoincrement = autoincrement;
         this.currency = currency;
         this.signed = signed;
         this.precision = precision;
@@ -273,6 +276,11 @@ class ColumnInfo
         return nullable;
     }
 
+    public boolean isAutoIncrement()
+    {
+        return autoincrement;
+    }
+
     public boolean isCurrency()
     {
         return currency;
@@ -329,6 +337,7 @@ class ColumnInfo
         private List<Integer> columnParameterTypes;
         private ClientTypeSignature columnTypeSignature;
         private Nullable nullable;
+        private boolean autoincrement;
         private boolean currency;
         private boolean signed;
         private int precision;
@@ -357,9 +366,30 @@ class ColumnInfo
             return this;
         }
 
+        public Builder setNullable(int nullable)
+        {
+            switch (nullable) {
+                case 0:
+                    this.nullable = Nullable.NO_NULLS;
+                    break;
+                case 1:
+                    this.nullable = Nullable.NULLABLE;
+                    break;
+                default:
+                    this.nullable = Nullable.UNKNOWN;
+            }
+            return this;
+        }
+
         public Builder setNullable(Nullable nullable)
         {
             this.nullable = nullable;
+            return this;
+        }
+
+        public Builder setAutoIncrement(boolean autoincrement)
+        {
+            this.autoincrement = autoincrement;
             return this;
         }
 
@@ -430,6 +460,7 @@ class ColumnInfo
                     columnParameterTypes,
                     columnTypeSignature,
                     nullable,
+                    autoincrement,
                     currency,
                     signed,
                     precision,

@@ -38,6 +38,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.PrimaryKey;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
@@ -481,6 +482,11 @@ public interface Metadata
     Map<QualifiedObjectName, ViewInfo> getViews(Session session, QualifiedTablePrefix prefix);
 
     boolean isView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Gets the primary keys for all tables that match the specified prefix.
+     */
+    Set<PrimaryKey> getPrimaryKeys(Session session, QualifiedObjectName tableName);
 
     /**
      * Returns the view definition for the specified view name.

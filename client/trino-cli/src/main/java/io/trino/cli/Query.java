@@ -267,7 +267,7 @@ public class Query
         }
     }
 
-    private void renderResults(Terminal terminal, PrintStream out, OutputFormat outputFormat, Optional<String> pager, List<Column> columns)
+    private void renderResults(Terminal terminal, PrintStream out, OutputFormat outputFormat, Optional<String> pager, List<? extends Column> columns)
     {
         try {
             doRenderResults(terminal, out, outputFormat, pager, columns);
@@ -281,7 +281,7 @@ public class Query
         }
     }
 
-    private void doRenderResults(Terminal terminal, PrintStream out, OutputFormat format, Optional<String> pager, List<Column> columns)
+    private void doRenderResults(Terminal terminal, PrintStream out, OutputFormat format, Optional<String> pager, List<? extends Column> columns)
             throws IOException
     {
         if (isInteractive(pager)) {
@@ -292,7 +292,7 @@ public class Query
         }
     }
 
-    private void pageOutput(Optional<String> pagerName, OutputFormat format, int maxWidth, List<Column> columns)
+    private void pageOutput(Optional<String> pagerName, OutputFormat format, int maxWidth, List<? extends Column> columns)
             throws IOException
     {
         try (Pager pager = Pager.create(pagerName);
@@ -318,7 +318,7 @@ public class Query
         }
     }
 
-    private void sendOutput(PrintStream out, OutputFormat format, int maxWidth, List<Column> fieldNames)
+    private void sendOutput(PrintStream out, OutputFormat format, int maxWidth, List<? extends Column> fieldNames)
             throws IOException
     {
         try (OutputHandler handler = createOutputHandler(format, maxWidth, createWriter(out), fieldNames)) {
@@ -326,12 +326,12 @@ public class Query
         }
     }
 
-    private static OutputHandler createOutputHandler(OutputFormat format, int maxWidth, Writer writer, List<Column> columns)
+    private static OutputHandler createOutputHandler(OutputFormat format, int maxWidth, Writer writer, List<? extends Column> columns)
     {
         return new OutputHandler(createOutputPrinter(format, maxWidth, writer, columns));
     }
 
-    private static OutputPrinter createOutputPrinter(OutputFormat format, int maxWidth, Writer writer, List<Column> columns)
+    private static OutputPrinter createOutputPrinter(OutputFormat format, int maxWidth, Writer writer, List<? extends Column> columns)
     {
         List<String> fieldNames = columns.stream()
                 .map(Column::getName)

@@ -22,6 +22,7 @@ import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.PrimaryKey;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableColumnsMetadata;
@@ -158,6 +159,21 @@ public final class MetadataListing
         }
         return accessibleNames.stream()
                 .collect(toImmutableMap(identity(), relationTypes::get));
+    }
+
+    public static Set<PrimaryKey> listPrimaryKeys(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    {
+        try {
+            return doListPrimaryKeys(session, metadata, accessControl, prefix);
+        }
+        catch (RuntimeException exception) {
+            throw handleListingException(exception, "primarykeys", prefix.getCatalogName());
+        }
+    }
+
+    private static Set<PrimaryKey> doListPrimaryKeys(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    {
+        return metadata.getPrimaryKeys(session, prefix.asQualifiedObjectName().get());
     }
 
     public static Map<SchemaTableName, ViewInfo> getViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)

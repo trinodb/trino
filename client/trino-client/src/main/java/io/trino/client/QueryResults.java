@@ -37,7 +37,7 @@ public class QueryResults
     private final URI infoUri;
     private final URI partialCancelUri;
     private final URI nextUri;
-    private final List<Column> columns;
+    private final List<? extends Column> columns;
     private final Iterable<List<Object>> data;
     private final StatementStats stats;
     private final QueryError error;
@@ -51,7 +51,7 @@ public class QueryResults
             @JsonProperty("infoUri") URI infoUri,
             @JsonProperty("partialCancelUri") URI partialCancelUri,
             @JsonProperty("nextUri") URI nextUri,
-            @JsonProperty("columns") List<Column> columns,
+            @JsonProperty("columns") List<? extends Column> columns,
             @JsonProperty("data") List<List<Object>> data,
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") QueryError error,
@@ -78,7 +78,7 @@ public class QueryResults
             URI infoUri,
             URI partialCancelUri,
             URI nextUri,
-            List<Column> columns,
+            List<? extends Column> columns,
             Iterable<List<Object>> data,
             StatementStats stats,
             QueryError error,
@@ -133,7 +133,7 @@ public class QueryResults
     @Nullable
     @JsonProperty
     @Override
-    public List<Column> getColumns()
+    public List<? extends Column> getColumns()
     {
         return columns;
     }

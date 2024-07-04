@@ -50,7 +50,7 @@ public class TrinoResultSetMetaData
     public boolean isAutoIncrement(int column)
             throws SQLException
     {
-        return false;
+        return column(column).isAutoIncrement();
     }
 
     @Override

@@ -69,6 +69,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.PrimaryKey;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
@@ -1475,6 +1476,32 @@ public final class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         return metadata.getSchemaOwner(connectorSession, schemaName.getSchemaName());
+    }
+
+    @Override
+    public Set<PrimaryKey> getPrimaryKeys(Session session, QualifiedObjectName tableName)
+    {
+        Logger log = Logger.get(MetadataManager.class);
+        log.info("MatedataManager.getPrimaryKeys() 1");
+        if (cannotExist(tableName)) {
+            return ImmutableSet.of();
+        }
+
+        log.info("MatedataManager.getPrimaryKeys() 2");
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.catalogName());
+        if (!catalog.isPresent()) {
+            return ImmutableSet.of();
+        }
+
+        log.info("MatedataManager.getPrimaryKeys() 3");
+        CatalogMetadata catalogMetadata = catalog.get();
+        CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, tableName, Optional.empty(), Optional.empty());
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+
+        log.info("MatedataManager.getPrimaryKeys() 4");
+        ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+        log.info("MatedataManager.getPrimaryKeys() 5");
+        return metadata.getPrimaryKeys(connectorSession, tableName.asSchemaTableName());
     }
 
     @Override

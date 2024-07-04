@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.client.Column;
 import io.trino.client.QueryStatusInfo;
+import io.trino.client.ResultColumn;
 import io.trino.client.StatementClient;
 
 import java.sql.SQLException;
@@ -58,11 +59,11 @@ public class TrinoResultSet
             throws SQLException
     {
         requireNonNull(client, "client is null");
-        List<Column> columns = getColumns(client, progressCallback);
+        List<? extends Column> columns = getColumns(client, progressCallback);
         return new TrinoResultSet(statement, client, columns, maxRows, progressCallback, warningsManager);
     }
 
-    private TrinoResultSet(Statement statement, StatementClient client, List<Column> columns, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
+    private TrinoResultSet(Statement statement, StatementClient client, List<? extends Column> columns, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
     {
         super(
@@ -297,13 +298,13 @@ public class TrinoResultSet
         }
     }
 
-    private static List<Column> getColumns(StatementClient client, Consumer<QueryStats> progressCallback)
+    private static List<? extends Column> getColumns(StatementClient client, Consumer<QueryStats> progressCallback)
             throws SQLException
     {
         while (client.isRunning()) {
             QueryStatusInfo results = client.currentStatusInfo();
             progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
-            List<Column> columns = results.getColumns();
+            List<? extends Column> columns = results.getColumns();
             if (columns != null) {
                 return columns;
             }

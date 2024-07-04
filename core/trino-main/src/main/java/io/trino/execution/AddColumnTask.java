@@ -227,7 +227,6 @@ public class AddColumnTask
 
         return candidates;
     }
-
     private Type getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
     {
         return plannerContext.getMetadata()

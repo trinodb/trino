@@ -26,6 +26,7 @@ import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
 import io.trino.client.QueryError;
 import io.trino.client.QueryStatusInfo;
+import io.trino.client.ResultColumn;
 import io.trino.jdbc.ColumnInfo.Nullable;
 import io.trino.jdbc.TypeConversions.NoConversionRegisteredException;
 import org.joda.time.DateTimeZone;
@@ -190,7 +191,7 @@ abstract class AbstractTrinoResultSet
     private final AtomicBoolean wasNull = new AtomicBoolean();
     private final Optional<Statement> statement;
 
-    AbstractTrinoResultSet(Optional<Statement> statement, List<Column> columns, Iterator<List<Object>> results)
+    AbstractTrinoResultSet(Optional<Statement> statement, List<? extends Column> columns, Iterator<List<Object>> results)
     {
         this.statement = requireNonNull(statement, "statement is null");
         this.resultTimeZone = DateTimeZone.forID(ZoneId.systemDefault().getId());
@@ -1937,7 +1938,7 @@ abstract class AbstractTrinoResultSet
         return new SQLException(message, error.getSqlState(), error.getErrorCode(), cause);
     }
 
-    private static Map<String, Integer> getFieldMap(List<Column> columns)
+    private static Map<String, Integer> getFieldMap(List<? extends Column> columns)
     {
         Map<String, Integer> map = Maps.newHashMapWithExpectedSize(columns.size());
         for (int i = 0; i < columns.size(); i++) {
@@ -1949,7 +1950,7 @@ abstract class AbstractTrinoResultSet
         return ImmutableMap.copyOf(map);
     }
 
-    private static List<ColumnInfo> getColumnInfo(List<Column> columns)
+    private static List<ColumnInfo> getColumnInfo(List<? extends Column> columns)
     {
         ImmutableList.Builder<ColumnInfo> list = ImmutableList.builderWithExpectedSize(columns.size());
         for (Column column : columns) {
@@ -1962,6 +1963,18 @@ abstract class AbstractTrinoResultSet
                     .setColumnTypeSignature(column.getTypeSignature())
                     .setNullable(Nullable.UNKNOWN)
                     .setCurrency(false);
+            if (column instanceof ResultColumn) {
+                ResultColumn resultColumn = (ResultColumn) column;
+                builder.setCatalogName(resultColumn.getCatalog())
+                        .setSchemaName(resultColumn.getSchema())
+                        .setTableName(resultColumn.getTable())
+                        .setColumnLabel(resultColumn.getLabel())
+                        .setAutoIncrement(resultColumn.isAutoIncrement())
+                        .setCurrency(resultColumn.isCurrency())
+                        .setSigned(resultColumn.isSigned())
+                        .setPrecision(resultColumn.getPrecision())
+                        .setScale(resultColumn.getScale());
+            }
             setTypeInfo(builder, column.getTypeSignature());
             list.add(builder.build());
         }

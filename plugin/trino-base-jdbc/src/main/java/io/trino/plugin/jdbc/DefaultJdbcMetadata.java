@@ -47,6 +47,7 @@ import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.PrimaryKey;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
@@ -182,6 +183,12 @@ public class DefaultJdbcMetadata
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return jdbcClient.getSystemTable(session, tableName);
+    }
+
+    @Override
+    public Set<PrimaryKey> getPrimaryKeys(ConnectorSession session, SchemaTableName tableName)
+    {
+        return jdbcClient.getPrimaryKeys(session, tableName);
     }
 
     @Override

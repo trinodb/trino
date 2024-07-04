@@ -14,6 +14,7 @@
 package io.trino.tracing;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
@@ -67,6 +68,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.PrimaryKey;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
@@ -328,6 +330,12 @@ public class TracingMetadata
         try (var _ = scopedSpan(span)) {
             return delegate.getRelationTypes(session, prefix);
         }
+    }
+
+    @Override
+    public Set<PrimaryKey> getPrimaryKeys(Session session, QualifiedObjectName prefix)
+    {
+        return ImmutableSet.of();
     }
 
     @Override

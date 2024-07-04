@@ -36,6 +36,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.PrimaryKey;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -382,6 +383,12 @@ public class CachingJdbcClient
     {
         ProcedureHandlesByQueryCacheKey key = new ProcedureHandlesByQueryCacheKey(getIdentityKey(session), procedureQuery);
         return get(procedureHandlesByQueryCache, key, () -> delegate.getProcedureHandle(session, procedureQuery));
+    }
+
+    @Override
+    public Set<PrimaryKey> getPrimaryKeys(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        return delegate.getPrimaryKeys(session, schemaTableName);
     }
 
     @Override

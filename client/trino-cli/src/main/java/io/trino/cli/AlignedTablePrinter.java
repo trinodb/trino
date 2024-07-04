@@ -55,7 +55,7 @@ public class AlignedTablePrinter
     private boolean headerRendered;
     private long rowCount;
 
-    public AlignedTablePrinter(List<Column> columns, Writer writer)
+    public AlignedTablePrinter(List<? extends Column> columns, Writer writer)
     {
         requireNonNull(columns, "columns is null");
         this.fieldNames = columns.stream()

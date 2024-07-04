@@ -33,7 +33,7 @@ public class AutoTablePrinter
     private final StringWriter bufferWriter = new StringWriter();
     private final Writer writer;
 
-    public AutoTablePrinter(List<Column> columns, Writer writer, int maxWidth)
+    public AutoTablePrinter(List<? extends Column> columns, Writer writer, int maxWidth)
     {
         requireNonNull(columns, "columns is null");
         this.writer = requireNonNull(writer, "writer is null");

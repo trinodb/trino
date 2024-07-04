@@ -57,7 +57,7 @@ final class FixJsonDataUtils
 {
     private FixJsonDataUtils() {}
 
-    public static Iterable<List<Object>> fixData(List<Column> columns, List<List<Object>> data)
+    public static Iterable<List<Object>> fixData(List<? extends Column> columns, List<List<Object>> data)
     {
         if (data == null) {
             return null;
@@ -82,7 +82,7 @@ final class FixJsonDataUtils
         return rows.build();
     }
 
-    private static ColumnTypeHandler[] createTypeHandlers(List<Column> columns)
+    private static ColumnTypeHandler[] createTypeHandlers(List<? extends Column> columns)
     {
         requireNonNull(columns, "columns is null");
         ColumnTypeHandler[] typeHandlers = new ColumnTypeHandler[columns.size()];
