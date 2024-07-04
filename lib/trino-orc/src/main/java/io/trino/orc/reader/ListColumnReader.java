@@ -124,7 +124,7 @@ public class ListColumnReader
         // We will use the offsetVector as the buffer to read the length values from lengthStream,
         // and the length values will be converted in-place to an offset vector.
         int[] offsetVector = new int[nextBatchSize + 1];
-        boolean[] nullVector = null;
+        byte[] nullVector = null;
         if (presentStream == null) {
             if (lengthStream == null) {
                 throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but data stream is not present");
@@ -132,7 +132,7 @@ public class ListColumnReader
             lengthStream.next(offsetVector, nextBatchSize);
         }
         else {
-            nullVector = new boolean[nextBatchSize];
+            nullVector = new byte[nextBatchSize];
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 if (lengthStream == null) {

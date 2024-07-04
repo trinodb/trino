@@ -186,7 +186,7 @@ public abstract class TestAvroBase
         ALL_TYPES_GENERIC_RECORD.put("aRecord", SIMPLE_GENERIC_RECORD);
         allTypeBlocks.add(createRowBlock(ImmutableList.of(INTEGER, DoubleType.DOUBLE, VARCHAR), new Object[] {5, 3.14159265358979, "Simple Record String Field"}));
         ALL_TYPES_GENERIC_RECORD.put("aUnion", null);
-        allTypeBlocks.add(new VariableWidthBlock(1, Slices.wrappedBuffer(), new int[] {0, 0}, Optional.of(new boolean[] {true})));
+        allTypeBlocks.add(new VariableWidthBlock(1, Slices.wrappedBuffer(), new int[] {0, 0}, Optional.of(new byte[] {1})));
         ALL_TYPES_PAGE = new Page(allTypeBlocks.build().toArray(Block[]::new));
     }
 

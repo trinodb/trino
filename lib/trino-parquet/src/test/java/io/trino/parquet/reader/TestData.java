@@ -18,7 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.ParquetReaderUtils;
 import io.trino.spi.type.Decimals;
-import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
+import it.unimi.dsi.fastutil.bytes.ByteArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
@@ -118,25 +118,25 @@ public final class TestData
         return result;
     }
 
-    public static boolean[] generateMixedData(Random r, int size, int maxGroupSize)
+    public static byte[] generateMixedData(Random r, int size, int maxGroupSize)
     {
-        BooleanArrayList mixedList = new BooleanArrayList(size);
+        ByteArrayList mixedList = new ByteArrayList(size);
         while (mixedList.size() < size) {
             boolean isGroup = r.nextBoolean();
             int groupSize = r.nextInt(maxGroupSize);
             if (isGroup) {
-                boolean value = r.nextBoolean();
+                byte value = r.nextBoolean() ? (byte) 1 : 0;
                 for (int i = 0; i < groupSize; i++) {
                     mixedList.add(value);
                 }
             }
             else {
                 for (int i = 0; i < groupSize; i++) {
-                    mixedList.add(r.nextBoolean());
+                    mixedList.add(r.nextBoolean() ? (byte) 1 : 0);
                 }
             }
         }
-        boolean[] result = new boolean[size];
+        byte[] result = new byte[size];
         mixedList.getElements(0, result, 0, size);
         return result;
     }

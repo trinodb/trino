@@ -26,7 +26,6 @@ import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -34,6 +33,7 @@ import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static io.trino.plugin.thrift.api.TrinoThriftBlock.dateData;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.fromIntBasedBlock;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.fromIntBasedColumn;
+import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.toNullByteArray;
 import static io.trino.spi.type.DateType.DATE;
 
 /**
@@ -80,7 +80,7 @@ public final class TrinoThriftDate
         int numberOfRecords = numberOfRecords();
         return new IntArrayBlock(
                 numberOfRecords,
-                Optional.ofNullable(nulls),
+                toNullByteArray(nulls, numberOfRecords),
                 dates == null ? new int[numberOfRecords] : dates);
     }
 

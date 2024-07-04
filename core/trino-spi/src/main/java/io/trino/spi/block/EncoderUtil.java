@@ -73,27 +73,27 @@ final class EncoderUtil
     /**
      * Decode the bit stream created by encodeNullsAsBits.
      */
-    public static Optional<boolean[]> decodeNullBits(SliceInput sliceInput, int positionCount)
+    public static Optional<byte[]> decodeNullBits(SliceInput sliceInput, int positionCount)
     {
         return Optional.ofNullable(retrieveNullBits(sliceInput, positionCount))
                 .map(packedIsNull -> decodeNullBits(packedIsNull, positionCount));
     }
 
-    public static boolean[] decodeNullBits(byte[] packedIsNull, int positionCount)
+    public static byte[] decodeNullBits(byte[] packedIsNull, int positionCount)
     {
         // read null bits 8 at a time
-        boolean[] valueIsNull = new boolean[positionCount];
+        byte[] valueIsNull = new byte[positionCount];
         int currentByte = 0;
         for (int position = 0; position < (positionCount & ~0b111); position += 8, currentByte++) {
             byte value = packedIsNull[currentByte];
-            valueIsNull[position] = ((value & 0b1000_0000) != 0);
-            valueIsNull[position + 1] = ((value & 0b0100_0000) != 0);
-            valueIsNull[position + 2] = ((value & 0b0010_0000) != 0);
-            valueIsNull[position + 3] = ((value & 0b0001_0000) != 0);
-            valueIsNull[position + 4] = ((value & 0b0000_1000) != 0);
-            valueIsNull[position + 5] = ((value & 0b0000_0100) != 0);
-            valueIsNull[position + 6] = ((value & 0b0000_0010) != 0);
-            valueIsNull[position + 7] = ((value & 0b0000_0001) != 0);
+            valueIsNull[position] = ((value & 0b1000_0000) != 0) ? (byte) 1 : 0;
+            valueIsNull[position + 1] = ((value & 0b0100_0000) != 0) ? (byte) 1 : 0;
+            valueIsNull[position + 2] = ((value & 0b0010_0000) != 0) ? (byte) 1 : 0;
+            valueIsNull[position + 3] = ((value & 0b0001_0000) != 0) ? (byte) 1 : 0;
+            valueIsNull[position + 4] = ((value & 0b0000_1000) != 0) ? (byte) 1 : 0;
+            valueIsNull[position + 5] = ((value & 0b0000_0100) != 0) ? (byte) 1 : 0;
+            valueIsNull[position + 6] = ((value & 0b0000_0010) != 0) ? (byte) 1 : 0;
+            valueIsNull[position + 7] = ((value & 0b0000_0001) != 0) ? (byte) 1 : 0;
         }
 
         // read last null bits
@@ -101,7 +101,7 @@ final class EncoderUtil
             byte value = packedIsNull[packedIsNull.length - 1];
             int mask = 0b1000_0000;
             for (int position = positionCount & ~0b111; position < positionCount; position++) {
-                valueIsNull[position] = ((value & mask) != 0);
+                valueIsNull[position] = ((value & mask) != 0) ? (byte) 1 : 0;
                 mask >>>= 1;
             }
         }

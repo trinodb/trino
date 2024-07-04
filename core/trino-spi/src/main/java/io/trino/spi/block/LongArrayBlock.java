@@ -37,17 +37,17 @@ public final class LongArrayBlock
     private final int arrayOffset;
     private final int positionCount;
     @Nullable
-    private final boolean[] valueIsNull;
+    private final byte[] valueIsNull;
     private final long[] values;
 
     private final long retainedSizeInBytes;
 
-    public LongArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, long[] values)
+    public LongArrayBlock(int positionCount, Optional<byte[]> valueIsNull, long[] values)
     {
         this(0, positionCount, valueIsNull.orElse(null), values);
     }
 
-    LongArrayBlock(int arrayOffset, int positionCount, boolean[] valueIsNull, long[] values)
+    LongArrayBlock(int arrayOffset, int positionCount, byte[] valueIsNull, long[] values)
     {
         if (arrayOffset < 0) {
             throw new IllegalArgumentException("arrayOffset is negative");
@@ -139,7 +139,7 @@ public final class LongArrayBlock
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);
-        return valueIsNull != null && valueIsNull[position + arrayOffset];
+        return valueIsNull != null && valueIsNull[position + arrayOffset] != 0;
     }
 
     @Override
@@ -149,7 +149,7 @@ public final class LongArrayBlock
         return new LongArrayBlock(
                 0,
                 1,
-                isNull(position) ? new boolean[] {true} : null,
+                isNull(position) ? new byte[] {1} : null,
                 new long[] {values[position + arrayOffset]});
     }
 
@@ -158,9 +158,9 @@ public final class LongArrayBlock
     {
         checkArrayRange(positions, offset, length);
 
-        boolean[] newValueIsNull = null;
+        byte[] newValueIsNull = null;
         if (valueIsNull != null) {
-            newValueIsNull = new boolean[length];
+            newValueIsNull = new byte[length];
         }
         long[] newValues = new long[length];
         for (int i = 0; i < length; i++) {
@@ -188,7 +188,7 @@ public final class LongArrayBlock
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         positionOffset += arrayOffset;
-        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
+        byte[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
         long[] newValues = compactArray(values, positionOffset, length);
 
         if (newValueIsNull == valueIsNull && newValues == values) {
@@ -206,7 +206,7 @@ public final class LongArrayBlock
     @Override
     public LongArrayBlock copyWithAppendedNull()
     {
-        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
+        byte[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
         long[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1);
 
         return new LongArrayBlock(arrayOffset, positionCount + 1, newValueIsNull, newValues);
@@ -240,7 +240,7 @@ public final class LongArrayBlock
         return values;
     }
 
-    boolean[] getRawValueIsNull()
+    byte[] getRawValueIsNull()
     {
         return valueIsNull;
     }

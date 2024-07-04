@@ -45,11 +45,11 @@ public final class RleBitPackingHybridBooleanDecoder
     @Override
     public void read(byte[] values, int offset, int length)
     {
-        boolean[] buffer = new boolean[length];
+        byte[] buffer = new byte[length];
         decoder.readNext(buffer, 0, length);
         for (int i = 0; i < length; i++) {
             // NullsDecoder returns false for 1 (non-null) and true for 0 (null)
-            values[offset + i] = buffer[i] ? (byte) 0 : (byte) 1;
+            values[offset + i] = buffer[i] != 0 ? (byte) 0 : (byte) 1;
         }
     }
 

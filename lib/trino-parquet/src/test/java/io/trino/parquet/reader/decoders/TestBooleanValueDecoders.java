@@ -71,8 +71,8 @@ public final class TestBooleanValueDecoders
             @Override
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {
-                boolean[] values = new boolean[dataSize];
-                Arrays.fill(values, true);
+                byte[] values = new byte[dataSize];
+                Arrays.fill(values, (byte) 1);
                 return writeBooleans(valuesWriter, values);
             }
         },
@@ -80,7 +80,7 @@ public final class TestBooleanValueDecoders
             @Override
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {
-                return writeBooleans(valuesWriter, new boolean[dataSize]);
+                return writeBooleans(valuesWriter, new byte[dataSize]);
             }
         },
         BOOLEAN_RANDOM {
@@ -88,9 +88,9 @@ public final class TestBooleanValueDecoders
             public DataBuffer write(ValuesWriter valuesWriter, int dataSize)
             {
                 Random random = new Random(dataSize);
-                boolean[] values = new boolean[dataSize];
+                byte[] values = new byte[dataSize];
                 for (int i = 0; i < dataSize; i++) {
-                    values[i] = random.nextBoolean();
+                    values[i] = random.nextBoolean() ? (byte) 1 : 0;
                 }
                 return writeBooleans(valuesWriter, values);
             }
@@ -121,14 +121,14 @@ public final class TestBooleanValueDecoders
     private static DataBuffer writeMixedAndGroupedBooleans(ValuesWriter valuesWriter, int maxGroupSize, int dataSize)
     {
         Random random = new Random((long) maxGroupSize * dataSize);
-        boolean[] values = generateMixedData(random, dataSize, maxGroupSize);
+        byte[] values = generateMixedData(random, dataSize, maxGroupSize);
         return writeBooleans(valuesWriter, values);
     }
 
-    private static DataBuffer writeBooleans(ValuesWriter valuesWriter, boolean[] input)
+    private static DataBuffer writeBooleans(ValuesWriter valuesWriter, byte[] input)
     {
-        for (boolean value : input) {
-            valuesWriter.writeBoolean(value);
+        for (byte value : input) {
+            valuesWriter.writeBoolean(value != 0);
         }
 
         return getWrittenBuffer(valuesWriter);

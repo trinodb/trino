@@ -100,7 +100,7 @@ public class TestDeleteAndInsertMergeProcessor
         //           THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)
         // expected: ('Aaron', 17, 'Arches/Arches'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire/Darbyshire'), ('Ed', 14, 'Etherville/Etherville'), ('Fred', 30, 'Franklin')
         DeleteAndInsertMergeProcessor processor = makeMergeProcessor();
-        boolean[] rowIdNulls = new boolean[] {false, true, false, false, false};
+        byte[] rowIdNulls = new byte[] {0, 1, 0, 0, 0};
         Page inputPage = makePageFromBlocks(
                 5,
                 Optional.of(rowIdNulls),
@@ -140,7 +140,7 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
           Expected row count to be <5>, but was <7>; rows=[[Bill, 7, Buena], [Dave, 11, Devon], [Aaron, 11, Arches], [Aaron, 17, Arches/Arches], [Carol, 9, Centreville], [Dave, 22, Darbyshire/Darbyshire], [Ed, 14, Etherville/Etherville]]
          */
         DeleteAndInsertMergeProcessor processor = makeMergeProcessor();
-        boolean[] rowIdNulls = new boolean[] {false, true, false, false, false};
+        byte[] rowIdNulls = new byte[] {0, 1, 0, 0, 0};
         Page inputPage = makePageFromBlocks(
                 5,
                 Optional.of(rowIdNulls),
@@ -169,7 +169,7 @@ Page[positions=8 0:Dict[VarWidth["Aaron", "Dave", "Dave", "Ed", "Aaron", "Carol"
         assertThat(getString(outputPage.getBlock(2), 1)).isEqualTo("Arches/Arches");
     }
 
-    private static Page makePageFromBlocks(int positionCount, Optional<boolean[]> rowIdNulls, Block[] rowIdBlocks, Block[] mergeCaseBlocks)
+    private static Page makePageFromBlocks(int positionCount, Optional<byte[]> rowIdNulls, Block[] rowIdBlocks, Block[] mergeCaseBlocks)
     {
         Block[] pageBlocks = new Block[] {
                 RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIdNulls, rowIdBlocks),

@@ -41,7 +41,7 @@ public class ArrayBlockBuilder
     private final int initialEntryCount;
 
     private int[] offsets = new int[1];
-    private boolean[] valueIsNull = new boolean[0];
+    private byte[] valueIsNull = new byte[0];
     private boolean hasNullValue;
     private boolean hasNonNullValue;
 
@@ -177,11 +177,11 @@ public class ArrayBlockBuilder
             offsets[positionCount + i + 1] = offsets[positionCount + i] + entrySize;
         }
 
-        boolean[] rawValueIsNull = arrayBlock.getRawValueIsNull();
+        byte[] rawValueIsNull = arrayBlock.getRawValueIsNull();
         if (rawValueIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawValueIsNull[rawOffsetBase + offset + i]) {
-                    valueIsNull[positionCount + i] = true;
+                if (rawValueIsNull[rawOffsetBase + offset + i] != 0) {
+                    valueIsNull[positionCount + i] = 1;
                     hasNullValue = true;
                 }
                 else {
@@ -238,7 +238,7 @@ public class ArrayBlockBuilder
         ensureCapacity(positionCount + 1);
 
         offsets[positionCount + 1] = values.getPositionCount();
-        valueIsNull[positionCount] = isNull;
+        valueIsNull[positionCount] = isNull ? (byte) 1 : 0;
         hasNullValue |= isNull;
         hasNonNullValue |= !isNull;
         positionCount++;
@@ -314,7 +314,7 @@ public class ArrayBlockBuilder
 
     private Block nullRle(int positionCount)
     {
-        ArrayBlock nullValueBlock = createArrayBlockInternal(0, 1, new boolean[] {true}, new int[] {0, 0}, values.newBlockBuilderLike(null).build());
+        ArrayBlock nullValueBlock = createArrayBlockInternal(0, 1, new byte[] {1}, new int[] {0, 0}, values.newBlockBuilderLike(null).build());
         return RunLengthEncodedBlock.create(nullValueBlock, positionCount);
     }
 }

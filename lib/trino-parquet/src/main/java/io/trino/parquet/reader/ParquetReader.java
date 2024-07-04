@@ -380,7 +380,7 @@ public class ParquetReader
         }
 
         StructColumnReader.RowBlockPositions structIsNull = StructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
-        Optional<boolean[]> isNull = structIsNull.isNull();
+        Optional<byte[]> isNull = structIsNull.isNull();
         for (int i = 0; i < blocks.length; i++) {
             if (blocks[i] == null) {
                 blocks[i] = RunLengthEncodedBlock.create(field.getType().getTypeParameters().get(i), null, structIsNull.positionsCount());
@@ -393,7 +393,7 @@ public class ParquetReader
         return new ColumnChunk(rowBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
     }
 
-    private static Block toNotNullSupressedBlock(int positionCount, boolean[] rowIsNull, Block fieldBlock)
+    private static Block toNotNullSupressedBlock(int positionCount, byte[] rowIsNull, Block fieldBlock)
     {
         // find a existing position in the block that is null
         int nullIndex = -1;
@@ -416,7 +416,7 @@ public class ParquetReader
         int[] dictionaryIds = new int[positionCount];
         int nullSuppressedPosition = 0;
         for (int position = 0; position < positionCount; position++) {
-            if (rowIsNull[position]) {
+            if (rowIsNull[position] != 0) {
                 dictionaryIds[position] = nullIndex;
             }
             else {

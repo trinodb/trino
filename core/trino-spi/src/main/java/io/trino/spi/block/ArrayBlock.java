@@ -41,7 +41,7 @@ public final class ArrayBlock
 
     private final int arrayOffset;
     private final int positionCount;
-    private final boolean[] valueIsNull;
+    private final byte[] valueIsNull;
     private final Block values;
     private final int[] offsets;
 
@@ -52,9 +52,9 @@ public final class ArrayBlock
      * Create an array block directly from columnar nulls, values, and offsets into the values.
      * A null array must have no entries.
      */
-    public static ArrayBlock fromElementBlock(int positionCount, Optional<boolean[]> valueIsNullOptional, int[] arrayOffset, Block values)
+    public static ArrayBlock fromElementBlock(int positionCount, Optional<byte[]> valueIsNullOptional, int[] arrayOffset, Block values)
     {
-        boolean[] valueIsNull = valueIsNullOptional.orElse(null);
+        byte[] valueIsNull = valueIsNullOptional.orElse(null);
         validateConstructorArguments(0, positionCount, valueIsNull, arrayOffset, values);
         // for performance reasons per element checks are only performed on the public construction
         for (int i = 0; i < positionCount; i++) {
@@ -63,7 +63,7 @@ public final class ArrayBlock
             if (length < 0) {
                 throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, arrayOffset[i], i + 1, arrayOffset[i + 1]));
             }
-            if (valueIsNull != null && valueIsNull[i] && length != 0) {
+            if (valueIsNull != null && valueIsNull[i] != 0 && length != 0) {
                 throw new IllegalArgumentException("A null array must have zero entries");
             }
         }
@@ -73,13 +73,13 @@ public final class ArrayBlock
     /**
      * Create an array block directly without per-element validations.
      */
-    static ArrayBlock createArrayBlockInternal(int arrayOffset, int positionCount, @Nullable boolean[] valueIsNull, int[] offsets, Block values)
+    static ArrayBlock createArrayBlockInternal(int arrayOffset, int positionCount, @Nullable byte[] valueIsNull, int[] offsets, Block values)
     {
         validateConstructorArguments(arrayOffset, positionCount, valueIsNull, offsets, values);
         return new ArrayBlock(arrayOffset, positionCount, valueIsNull, offsets, values);
     }
 
-    private static void validateConstructorArguments(int arrayOffset, int positionCount, @Nullable boolean[] valueIsNull, int[] offsets, Block values)
+    private static void validateConstructorArguments(int arrayOffset, int positionCount, @Nullable byte[] valueIsNull, int[] offsets, Block values)
     {
         if (arrayOffset < 0) {
             throw new IllegalArgumentException("arrayOffset is negative");
@@ -105,7 +105,7 @@ public final class ArrayBlock
      * Use createArrayBlockInternal or fromElementBlock instead of this method.  The caller of this method is assumed to have
      * validated the arguments with validateConstructorArguments.
      */
-    private ArrayBlock(int arrayOffset, int positionCount, @Nullable boolean[] valueIsNull, int[] offsets, Block values)
+    private ArrayBlock(int arrayOffset, int positionCount, @Nullable byte[] valueIsNull, int[] offsets, Block values)
     {
         // caller must check arguments with validateConstructorArguments
         this.arrayOffset = arrayOffset;
@@ -175,7 +175,7 @@ public final class ArrayBlock
         return offsets;
     }
 
-    boolean[] getRawValueIsNull()
+    byte[] getRawValueIsNull()
     {
         return valueIsNull;
     }
@@ -228,7 +228,7 @@ public final class ArrayBlock
     @Override
     public ArrayBlock copyWithAppendedNull()
     {
-        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, getPositionCount());
+        byte[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, getPositionCount());
         int[] newOffsets = copyOffsetsAndAppendNull(offsets, arrayOffset, getPositionCount());
 
         return createArrayBlockInternal(
@@ -246,13 +246,13 @@ public final class ArrayBlock
 
         int[] newOffsets = new int[length + 1];
         newOffsets[0] = 0;
-        boolean[] newValueIsNull = valueIsNull == null ? null : new boolean[length];
+        byte[] newValueIsNull = valueIsNull == null ? null : new byte[length];
 
         IntArrayList valuesPositions = new IntArrayList();
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
             if (newValueIsNull != null && isNull(position)) {
-                newValueIsNull[i] = true;
+                newValueIsNull[i] = 1;
                 newOffsets[i + 1] = newOffsets[i];
             }
             else {
@@ -347,8 +347,8 @@ public final class ArrayBlock
         Block newValues = values.copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
         int[] newOffsets = compactOffsets(offsets, position + arrayOffset, length);
-        boolean[] valueIsNull = this.valueIsNull;
-        boolean[] newValueIsNull;
+        byte[] valueIsNull = this.valueIsNull;
+        byte[] newValueIsNull;
         newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, position + arrayOffset, length);
 
         if (newValues == values && newOffsets == offsets && newValueIsNull == valueIsNull) {
@@ -377,7 +377,7 @@ public final class ArrayBlock
         return createArrayBlockInternal(
                 0,
                 1,
-                isNull(position) ? new boolean[] {true} : null,
+                isNull(position) ? new byte[] {1} : null,
                 new int[] {0, valueLength},
                 newValues);
     }
@@ -406,8 +406,8 @@ public final class ArrayBlock
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);
-        boolean[] valueIsNull = this.valueIsNull;
-        return valueIsNull != null && valueIsNull[position + arrayOffset];
+        byte[] valueIsNull = this.valueIsNull;
+        return valueIsNull != null && valueIsNull[position + arrayOffset] != 0;
     }
 
     @Override

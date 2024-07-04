@@ -45,7 +45,7 @@ final class BlockUtil
         }
     }
 
-    static void checkArrayRange(boolean[] array, int offset, int length)
+    static void checkArrayRange(byte[] array, int offset, int length)
     {
         requireNonNull(array, "array is null");
         if (offset < 0 || length < 0 || offset + length > array.length) {
@@ -163,14 +163,6 @@ final class BlockUtil
      * If the range matches the entire array, the input array will be returned.
      * Otherwise, a copy will be returned.
      */
-    static boolean[] compactArray(boolean[] array, int index, int length)
-    {
-        if (index == 0 && length == array.length) {
-            return array;
-        }
-        return Arrays.copyOfRange(array, index, index + length);
-    }
-
     static byte[] compactArray(byte[] array, int index, int length)
     {
         if (index == 0 && length == array.length) {
@@ -269,16 +261,16 @@ final class BlockUtil
         return blocks;
     }
 
-    static boolean[] copyIsNullAndAppendNull(@Nullable boolean[] isNull, int offsetBase, int positionCount)
+    static byte[] copyIsNullAndAppendNull(@Nullable byte[] isNull, int offsetBase, int positionCount)
     {
         int desiredLength = offsetBase + positionCount + 1;
-        boolean[] newIsNull = new boolean[desiredLength];
+        byte[] newIsNull = new byte[desiredLength];
         if (isNull != null) {
             checkArrayRange(isNull, offsetBase, positionCount);
             System.arraycopy(isNull, 0, newIsNull, 0, desiredLength - 1);
         }
         // mark the last element to append null
-        newIsNull[desiredLength - 1] = true;
+        newIsNull[desiredLength - 1] = 1;
         return newIsNull;
     }
 
@@ -371,24 +363,11 @@ final class BlockUtil
         }
     }
 
-    /**
-     * Ideally, the underlying nulls array in Block implementations should be a byte array instead of a boolean array.
-     * This method is used to perform that conversion until the Block implementations are changed.
-     */
-    static Optional<ByteArrayBlock> getNulls(@Nullable boolean[] valueIsNull, int arrayOffset, int positionCount)
+    static Optional<ByteArrayBlock> getNulls(@Nullable byte[] valueIsNull, int arrayOffset, int positionCount)
     {
-        if (valueIsNull == null) {
+        if (null == valueIsNull) {
             return Optional.empty();
         }
-        byte[] booleansAsBytes = new byte[positionCount];
-        boolean foundAnyNull = false;
-        for (int i = 0; i < positionCount; i++) {
-            booleansAsBytes[i] = (byte) (valueIsNull[arrayOffset + i] ? 1 : 0);
-            foundAnyNull = foundAnyNull || valueIsNull[arrayOffset + i];
-        }
-        if (!foundAnyNull) {
-            return Optional.empty();
-        }
-        return Optional.of(new ByteArrayBlock(booleansAsBytes.length, Optional.empty(), booleansAsBytes));
+        return Optional.of(new ByteArrayBlock(arrayOffset, positionCount, null, valueIsNull));
     }
 }

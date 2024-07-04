@@ -206,35 +206,35 @@ public class ParquetTestUtils
         return groupsBuilder.build();
     }
 
-    public static RowBlock createRowBlock(Optional<boolean[]> rowIsNull, int positionCount)
+    public static RowBlock createRowBlock(Optional<byte[]> rowIsNull, int positionCount)
     {
         // TODO test with nested null fields and without nulls
         Block[] fieldBlocks = new Block[4];
         // no nulls block
         fieldBlocks[0] = new LongArrayBlock(positionCount, rowIsNull, new long[positionCount]);
         // no nulls with mayHaveNull block
-        fieldBlocks[1] = new LongArrayBlock(positionCount, rowIsNull.or(() -> Optional.of(new boolean[positionCount])), new long[positionCount]);
+        fieldBlocks[1] = new LongArrayBlock(positionCount, rowIsNull.or(() -> Optional.of(new byte[positionCount])), new long[positionCount]);
         // all nulls block
-        boolean[] allNulls = new boolean[positionCount];
-        Arrays.fill(allNulls, true);
+        byte[] allNulls = new byte[positionCount];
+        Arrays.fill(allNulls, (byte) 1);
         fieldBlocks[2] = new LongArrayBlock(positionCount, Optional.of(allNulls), new long[positionCount]);
         // random nulls block
-        boolean[] valueIsNull = rowIsNull.map(boolean[]::clone).orElseGet(() -> new boolean[positionCount]);
+        byte[] valueIsNull = rowIsNull.map(byte[]::clone).orElseGet(() -> new byte[positionCount]);
         for (int i = 0; i < positionCount; i++) {
-            valueIsNull[i] |= RANDOM.nextBoolean();
+            valueIsNull[i] |= RANDOM.nextBoolean() ? (byte) 1 : 0;
         }
         fieldBlocks[3] = new LongArrayBlock(positionCount, Optional.of(valueIsNull), new long[positionCount]);
 
         return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIsNull, fieldBlocks);
     }
 
-    public static Block createArrayBlock(Optional<boolean[]> valueIsNull, int positionCount)
+    public static Block createArrayBlock(Optional<byte[]> valueIsNull, int positionCount)
     {
         int[] arrayOffset = generateOffsets(valueIsNull, positionCount);
         return fromElementBlock(positionCount, valueIsNull, arrayOffset, createLongsBlockWithRandomNulls(arrayOffset[positionCount]));
     }
 
-    public static Block createMapBlock(Optional<boolean[]> mapIsNull, int positionCount)
+    public static Block createMapBlock(Optional<byte[]> mapIsNull, int positionCount)
     {
         int[] offsets = generateOffsets(mapIsNull, positionCount);
         int entriesCount = offsets[positionCount];
@@ -243,12 +243,12 @@ public class ParquetTestUtils
         return fromKeyValueBlock(mapIsNull, offsets, keyBlock, valueBlock, new MapType(BIGINT, BIGINT, TYPE_OPERATORS));
     }
 
-    public static int[] generateOffsets(Optional<boolean[]> valueIsNull, int positionCount)
+    public static int[] generateOffsets(Optional<byte[]> valueIsNull, int positionCount)
     {
         int maxCardinality = 7; // array length or map size at the current position
         int[] offsets = new int[positionCount + 1];
         for (int position = 0; position < positionCount; position++) {
-            if (valueIsNull.isPresent() && valueIsNull.get()[position]) {
+            if (valueIsNull.isPresent() && valueIsNull.get()[position] != 0) {
                 offsets[position + 1] = offsets[position];
             }
             else {
@@ -260,9 +260,9 @@ public class ParquetTestUtils
 
     private static Block createLongsBlockWithRandomNulls(int positionCount)
     {
-        boolean[] valueIsNull = new boolean[positionCount];
+        byte[] valueIsNull = new byte[positionCount];
         for (int i = 0; i < positionCount; i++) {
-            valueIsNull[i] = RANDOM.nextBoolean();
+            valueIsNull[i] = RANDOM.nextBoolean() ? (byte) 1 : 0;
         }
         return new LongArrayBlock(positionCount, Optional.of(valueIsNull), new long[positionCount]);
     }

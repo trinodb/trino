@@ -245,6 +245,98 @@
                                     <newValue>{@com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.predicate.AllOrNoneValueSet.class, name = "allOrNone"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.predicate.EquatableValueSet.class, name = "equatable"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.predicate.SortedRangeSet.class, name = "sortable")}</newValue>
                                     <justification>cleanup</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::fromElementBlock(int, ===java.util.Optional&lt;boolean[]&gt;===, int[], io.trino.spi.block.Block)</old>
+                                    <new>parameter io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::fromElementBlock(int, ===java.util.Optional&lt;byte[]&gt;===, int[], io.trino.spi.block.Block)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.block.ByteArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;boolean[]&gt;===, byte[])</old>
+                                    <new>parameter void io.trino.spi.block.ByteArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;byte[]&gt;===, byte[])</new>
+                                    <parameterIndex>1</parameterIndex>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.block.Fixed12Block::&lt;init&gt;(int, ===java.util.Optional&lt;boolean[]&gt;===, int[])</old>
+                                    <new>parameter void io.trino.spi.block.Fixed12Block::&lt;init&gt;(int, ===java.util.Optional&lt;byte[]&gt;===, int[])</new>
+                                    <parameterIndex>1</parameterIndex>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.block.Int128ArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;boolean[]&gt;===, long[])</old>
+                                    <new>parameter void io.trino.spi.block.Int128ArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;byte[]&gt;===, long[])</new>
+                                    <parameterIndex>1</parameterIndex>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.block.IntArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;boolean[]&gt;===, int[])</old>
+                                    <new>parameter void io.trino.spi.block.IntArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;byte[]&gt;===, int[])</new>
+                                    <parameterIndex>1</parameterIndex>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.block.LongArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;boolean[]&gt;===, long[])</old>
+                                    <new>parameter void io.trino.spi.block.LongArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;byte[]&gt;===, long[])</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::createMapBlockInternal(io.trino.spi.type.MapType, int, int, ===java.util.Optional&lt;boolean[]&gt;===, int[], io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.block.MapHashTables)</old>
+                                    <new>parameter io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::createMapBlockInternal(io.trino.spi.type.MapType, int, int, ===java.util.Optional&lt;byte[]&gt;===, int[], io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.block.MapHashTables)</new>
+                                    <parameterIndex>3</parameterIndex>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::fromKeyValueBlock(===java.util.Optional&lt;boolean[]&gt;===, int[], io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.type.MapType)</old>
+                                    <new>parameter io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::fromKeyValueBlock(===java.util.Optional&lt;byte[]&gt;===, int[], io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.type.MapType)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::fromKeyValueBlock(===java.util.Optional&lt;boolean[]&gt;===, int[], int, io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.type.MapType)</old>
+                                    <new>parameter io.trino.spi.block.MapBlock io.trino.spi.block.MapBlock::fromKeyValueBlock(===java.util.Optional&lt;byte[]&gt;===, int[], int, io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.type.MapType)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::fromNotNullSuppressedFieldBlocks(int, ===java.util.Optional&lt;boolean[]&gt;===, io.trino.spi.block.Block[])</old>
+                                    <new>parameter io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::fromNotNullSuppressedFieldBlocks(int, ===java.util.Optional&lt;byte[]&gt;===, io.trino.spi.block.Block[])</new>
+                                    <parameterIndex>1</parameterIndex>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.block.ShortArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;boolean[]&gt;===, short[])</old>
+                                    <new>parameter void io.trino.spi.block.ShortArrayBlock::&lt;init&gt;(int, ===java.util.Optional&lt;byte[]&gt;===, short[])</new>
+                                    <parameterIndex>1</parameterIndex>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter void io.trino.spi.block.VariableWidthBlock::&lt;init&gt;(int, io.airlift.slice.Slice, int[], ===java.util.Optional&lt;boolean[]&gt;===)</old>
+                                    <new>parameter void io.trino.spi.block.VariableWidthBlock::&lt;init&gt;(int, io.airlift.slice.Slice, int[], ===java.util.Optional&lt;byte[]&gt;===)</new>
+                                    <parameterIndex>3</parameterIndex>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.block.MapBlock io.trino.spi.type.MapType::createBlockFromKeyValue(===java.util.Optional&lt;boolean[]&gt;===, int[], io.trino.spi.block.Block, io.trino.spi.block.Block)</old>
+                                    <new>parameter io.trino.spi.block.MapBlock io.trino.spi.type.MapType::createBlockFromKeyValue(===java.util.Optional&lt;byte[]&gt;===, int[], io.trino.spi.block.Block, io.trino.spi.block.Block)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

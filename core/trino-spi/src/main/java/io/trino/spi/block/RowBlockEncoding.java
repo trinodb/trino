@@ -57,7 +57,7 @@ public class RowBlockEncoding
             fieldBlocks[i] = blockEncodingSerde.readBlock(sliceInput);
         }
 
-        Optional<boolean[]> rowIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
+        Optional<byte[]> rowIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
         return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIsNull, fieldBlocks);
     }
 }

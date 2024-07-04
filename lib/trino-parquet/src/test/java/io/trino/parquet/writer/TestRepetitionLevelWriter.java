@@ -54,7 +54,7 @@ public class TestRepetitionLevelWriter
     {
         for (NullsProvider nullsProvider : NullsProvider.values()) {
             // Using an array of row blocks for testing as Structs don't have a repetition level by themselves
-            Optional<boolean[]> valueIsNull = RANDOM_NULLS.getNulls(POSITIONS);
+            Optional<byte[]> valueIsNull = RANDOM_NULLS.getNulls(POSITIONS);
             int[] arrayOffsets = generateOffsets(valueIsNull, POSITIONS);
             int rowBlockPositions = arrayOffsets[POSITIONS];
             RowBlock rowBlock = createRowBlock(nullsProvider.getNulls(rowBlockPositions), rowBlockPositions);
@@ -146,7 +146,7 @@ public class TestRepetitionLevelWriter
         }
     }
 
-    private static RowBlock createNestedRowBlock(Optional<boolean[]> rowIsNull, int positionCount)
+    private static RowBlock createNestedRowBlock(Optional<byte[]> rowIsNull, int positionCount)
     {
         Block[] fieldBlocks = new Block[2];
         // no nulls map block
@@ -157,7 +157,7 @@ public class TestRepetitionLevelWriter
         return RowBlock.fromNotNullSuppressedFieldBlocks(positionCount, rowIsNull, fieldBlocks);
     }
 
-    private static Block createMapOfArraysBlock(Optional<boolean[]> mapIsNull, int positionCount)
+    private static Block createMapOfArraysBlock(Optional<byte[]> mapIsNull, int positionCount)
     {
         int[] offsets = generateOffsets(mapIsNull, positionCount);
         int entriesCount = offsets[positionCount];

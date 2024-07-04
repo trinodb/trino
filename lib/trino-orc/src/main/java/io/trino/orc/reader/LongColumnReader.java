@@ -133,7 +133,7 @@ public class LongColumnReader
             block = readNonNullBlock();
         }
         else {
-            boolean[] isNull = new boolean[nextBatchSize];
+            byte[] isNull = new byte[nextBatchSize];
             int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
             if (nullCount == 0) {
                 block = readNonNullBlock();
@@ -182,7 +182,7 @@ public class LongColumnReader
 
     protected void maybeTransformValues(long[] values, int nextBatchSize) {}
 
-    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+    private Block readNullBlock(byte[] isNull, int nonNullCount)
             throws IOException
     {
         if (type instanceof BigintType) {
@@ -200,7 +200,7 @@ public class LongColumnReader
         throw new VerifyError("Unsupported type " + type);
     }
 
-    private Block longReadNullBlock(boolean[] isNull, int nonNullCount)
+    private Block longReadNullBlock(byte[] isNull, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);
@@ -218,7 +218,7 @@ public class LongColumnReader
         return new LongArrayBlock(nextBatchSize, Optional.of(isNull), result);
     }
 
-    private Block intReadNullBlock(boolean[] isNull, int nonNullCount)
+    private Block intReadNullBlock(byte[] isNull, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);
@@ -235,7 +235,7 @@ public class LongColumnReader
         return new IntArrayBlock(nextBatchSize, Optional.of(isNull), result);
     }
 
-    private Block shortReadNullBlock(boolean[] isNull, int nonNullCount)
+    private Block shortReadNullBlock(byte[] isNull, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);

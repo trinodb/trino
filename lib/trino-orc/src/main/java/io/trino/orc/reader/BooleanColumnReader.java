@@ -120,7 +120,7 @@ public class BooleanColumnReader
             block = readNonNullBlock();
         }
         else {
-            boolean[] isNull = new boolean[nextBatchSize];
+            byte[] isNull = new byte[nextBatchSize];
             int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
             if (nullCount == 0) {
                 block = readNonNullBlock();
@@ -147,7 +147,7 @@ public class BooleanColumnReader
         return new ByteArrayBlock(nextBatchSize, Optional.empty(), values);
     }
 
-    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+    private Block readNullBlock(byte[] isNull, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);

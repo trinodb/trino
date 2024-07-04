@@ -104,7 +104,7 @@ public class MapBlockEncoding
         int positionCount = sliceInput.readInt();
         int[] offsets = new int[positionCount + 1];
         sliceInput.readInts(offsets);
-        Optional<boolean[]> mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
+        Optional<byte[]> mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
         MapHashTables hashTables = new MapHashTables(mapType, DUPLICATE_NOT_CHECKED, positionCount, Optional.ofNullable(hashTable));
         return createMapBlockInternal(mapType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTables);
     }

@@ -124,7 +124,7 @@ public class ByteColumnReader
             block = readNonNullBlock();
         }
         else {
-            boolean[] isNull = new boolean[nextBatchSize];
+            byte[] isNull = new byte[nextBatchSize];
             int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
             if (nullCount == 0) {
                 block = readNonNullBlock();
@@ -158,7 +158,7 @@ public class ByteColumnReader
         throw new VerifyError("Unsupported type " + type);
     }
 
-    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+    private Block readNullBlock(byte[] isNull, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);

@@ -81,7 +81,7 @@ public class VariableWidthBlockEncoding
         int lengthIndex = offsets.length - nonNullsCount;
         sliceInput.readInts(offsets, lengthIndex, nonNullsCount);
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
+        byte[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
         // Transform lengths back to offsets
         if (valueIsNull == null) {
             if (positionCount != nonNullsCount || lengthIndex != 1) {
@@ -103,7 +103,7 @@ public class VariableWidthBlockEncoding
         return new VariableWidthBlock(0, positionCount, slice, offsets, valueIsNull);
     }
 
-    private static void computeOffsetsFromLengths(int[] offsets, boolean[] valueIsNull, int lengthIndex)
+    private static void computeOffsetsFromLengths(int[] offsets, byte[] valueIsNull, int lengthIndex)
     {
         if (lengthIndex < 0 || lengthIndex > offsets.length) {
             throw new IllegalArgumentException(format("Invalid lengthIndex %s for offsets %s", lengthIndex, offsets.length));
@@ -115,7 +115,7 @@ public class VariableWidthBlockEncoding
                 Arrays.fill(offsets, i, offsets.length, currentOffset);
                 break;
             }
-            boolean isNull = valueIsNull[i - 1];
+            boolean isNull = valueIsNull[i - 1] != 0;
             // must be accessed unconditionally, otherwise CMOV optimization isn't applied due to
             // ArrayIndexOutOfBoundsException checks
             int length = offsets[lengthIndex];

@@ -105,10 +105,10 @@ public class UuidColumnReader
             return nullValueBlock;
         }
 
-        boolean[] isNullVector = null;
+        byte[] isNullVector = null;
         int nullCount = 0;
         if (presentStream != null) {
-            isNullVector = new boolean[nextBatchSize];
+            isNullVector = new byte[nextBatchSize];
             nullCount = presentStream.getUnsetBits(nextBatchSize, isNullVector);
             if (nullCount == nextBatchSize) {
                 // all nulls
@@ -217,7 +217,7 @@ public class UuidColumnReader
         }
     }
 
-    private long[] readNullableLongs(boolean[] isNullVector, int nonNullCount)
+    private long[] readNullableLongs(byte[] isNullVector, int nonNullCount)
             throws IOException
     {
         byte[] data = new byte[nonNullCount * 2 * Long.BYTES];
@@ -228,13 +228,13 @@ public class UuidColumnReader
         int offsetPosition = 0;
         for (int i = 0; i < isNullVector.length; i++) {
             offsets[i] = Math.min(offsetPosition * 2 * Long.BYTES, data.length - Long.BYTES * 2);
-            offsetPosition += isNullVector[i] ? 0 : 1;
+            offsetPosition += isNullVector[i] != 0 ? 0 : 1;
         }
 
         long[] values = new long[isNullVector.length * 2];
 
         for (int i = 0; i < isNullVector.length; i++) {
-            int isNonNull = isNullVector[i] ? 0 : 1;
+            int isNonNull = isNullVector[i] != 0 ? 0 : 1;
             values[i * 2] = (long) LONG_ARRAY_HANDLE.get(data, offsets[i]) * isNonNull;
             values[i * 2 + 1] = (long) LONG_ARRAY_HANDLE.get(data, offsets[i] + Long.BYTES) * isNonNull;
         }

@@ -172,7 +172,7 @@ public class TestArrayBlock
         Block compactValueBlock = new ByteArrayBlock(16, Optional.empty(), createExpectedValue(16).getBytes());
         Block inCompactValueBlock = new ByteArrayBlock(16, Optional.empty(), createExpectedValue(17).getBytes());
         int[] offsets = {0, 1, 1, 2, 4, 8, 16};
-        boolean[] valueIsNull = {false, true, false, false, false, false};
+        byte[] valueIsNull = {0, 1, 0, 0, 0, 0};
 
         testCompactBlock(fromElementBlock(0, Optional.empty(), new int[1], emptyValueBlock));
         testCompactBlock(fromElementBlock(valueIsNull.length, Optional.of(valueIsNull), offsets, compactValueBlock));

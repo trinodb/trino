@@ -206,10 +206,10 @@ public class BenchmarkColumnarFilter
     private static Block createShortsBlock(int positionsCount, int nullsPercentage)
     {
         short[] values = new short[positionsCount];
-        boolean[] isNull = new boolean[positionsCount];
+        byte[] isNull = new byte[positionsCount];
         for (int i = 0; i < positionsCount; i++) {
             if (RANDOM.nextInt(100) < nullsPercentage) {
-                isNull[i] = true;
+                isNull[i] = 1;
             }
             else {
                 values[i] = (short) RANDOM.nextInt(toIntExact(CONSTANT - 10), toIntExact(CONSTANT + 10));
@@ -221,10 +221,10 @@ public class BenchmarkColumnarFilter
     private static Block createIntsBlock(int positionsCount, int nullsPercentage)
     {
         int[] values = new int[positionsCount];
-        boolean[] isNull = new boolean[positionsCount];
+        byte[] isNull = new byte[positionsCount];
         for (int i = 0; i < positionsCount; i++) {
             if (RANDOM.nextInt(100) < nullsPercentage) {
-                isNull[i] = true;
+                isNull[i] = 1;
             }
             else {
                 values[i] = RANDOM.nextInt(toIntExact(CONSTANT - 10), toIntExact(CONSTANT + 10));
@@ -236,10 +236,10 @@ public class BenchmarkColumnarFilter
     private static Block createLongsBlock(int positionsCount, int nullsPercentage)
     {
         long[] values = new long[positionsCount];
-        boolean[] isNull = new boolean[positionsCount];
+        byte[] isNull = new byte[positionsCount];
         for (int i = 0; i < positionsCount; i++) {
             if (RANDOM.nextInt(100) < nullsPercentage) {
-                isNull[i] = true;
+                isNull[i] = 1;
             }
             else {
                 values[i] = RANDOM.nextInt(toIntExact(CONSTANT - 10), toIntExact(CONSTANT + 10));

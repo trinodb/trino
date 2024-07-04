@@ -130,7 +130,7 @@ public class TestVariableWidthBlock
         Slice compactSlice = createExpectedValue(16).copy();
         Slice incompactSlice = createExpectedValue(20).copy().slice(0, 16);
         int[] offsets = {0, 1, 1, 2, 4, 8, 16};
-        boolean[] valueIsNull = {false, true, false, false, false, false};
+        byte[] valueIsNull = {0, 1, 0, 0, 0, 0};
 
         testCompactBlock(new VariableWidthBlock(0, EMPTY_SLICE, new int[1], Optional.empty()));
         testCompactBlock(new VariableWidthBlock(valueIsNull.length, compactSlice, offsets, Optional.of(valueIsNull)));

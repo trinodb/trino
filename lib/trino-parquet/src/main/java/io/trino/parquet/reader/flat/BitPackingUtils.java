@@ -13,22 +13,22 @@
  */
 package io.trino.parquet.reader.flat;
 
-import static io.trino.parquet.ParquetReaderUtils.castToByteNegate;
-
 public class BitPackingUtils
 {
     private BitPackingUtils() {}
 
     /**
+     * Sets the value to 1 if the bit is not set, 0 otherwise.
+     *
      * @return number of bits equal to 0 (non-nulls)
      */
-    public static int unpack(boolean[] values, int offset, byte packedByte, int startBit, int endBit)
+    public static int unpackUnset(byte[] values, int offset, byte packedByte, int startBit, int endBit)
     {
         int nonNullCount = 0;
         for (int i = 0; i < endBit - startBit; i++) {
             // We need to negate the value as we convert the "does exist" to "is null", hence '== 0' instead of '== 1'
-            boolean value = (((packedByte >>> (startBit + i)) & 1) == 1);
-            nonNullCount += castToByteNegate(value);
+            byte value = (byte) ((packedByte >>> (startBit + i)) & 1);
+            nonNullCount += (value == 1 ? 0 : 1);
             values[offset + i] = value;
         }
 
@@ -36,23 +36,20 @@ public class BitPackingUtils
     }
 
     /**
+     * Sets the value to 1 if the bit is not set, 0 otherwise.
+     *
      * @return number of bits equal to 0 (non-nulls)
      */
-    public static int unpack(boolean[] values, int offset, byte packedByte)
+    public static int unpackUnset(byte[] values, int offset, byte packedByte)
     {
-        values[offset] = (packedByte & 1) == 1;
-        values[offset + 1] = ((packedByte >>> 1) & 1) == 1;
-        values[offset + 2] = ((packedByte >>> 2) & 1) == 1;
-        values[offset + 3] = ((packedByte >>> 3) & 1) == 1;
-        values[offset + 4] = ((packedByte >>> 4) & 1) == 1;
-        values[offset + 5] = ((packedByte >>> 5) & 1) == 1;
-        values[offset + 6] = ((packedByte >>> 6) & 1) == 1;
-        values[offset + 7] = ((packedByte >>> 7) & 1) == 1;
-
+        unpack8FromByte(values, offset, packedByte);
         return Byte.SIZE - bitCount(packedByte);
     }
 
-    public static void unpack(byte[] values, int offset, byte packedByte, int startBit, int endBit)
+    /**
+     * Sets the value to 1 if the bit is set, 0 otherwise.
+     */
+    public static void unpackSet(byte[] values, int offset, byte packedByte, int startBit, int endBit)
     {
         for (int i = 0; i < endBit - startBit; i++) {
             values[offset + i] = (byte) ((packedByte >>> (startBit + i)) & 1);

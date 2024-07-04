@@ -64,7 +64,7 @@ public class Fixed12BlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
+        byte[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
 
         int[] values = new int[positionCount * 3];
         if (valueIsNull == null) {
@@ -76,7 +76,7 @@ public class Fixed12BlockEncoding
             int position = 3 * (nonNullPositionCount - 1);
             for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
                 System.arraycopy(values, position, values, 3 * i, 3);
-                if (!valueIsNull[i]) {
+                if (valueIsNull[i] == 0) {
                     position -= 3;
                 }
             }

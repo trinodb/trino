@@ -625,16 +625,16 @@ public class TestPositionsAppender
     {
         if (block instanceof RunLengthEncodedBlock) {
             checkArgument(block.getPositionCount() == 0 || block.isNull(0));
-            return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[] {0, 0}, Optional.of(new boolean[] {true})), block.getPositionCount());
+            return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[] {0, 0}, Optional.of(new byte[] {1})), block.getPositionCount());
         }
 
         VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
         int[] offsets = new int[variableWidthBlock.getPositionCount() + 1];
-        boolean[] valueIsNull = new boolean[variableWidthBlock.getPositionCount()];
+        byte[] valueIsNull = new byte[variableWidthBlock.getPositionCount()];
         boolean hasNullValue = false;
         for (int i = 0; i < variableWidthBlock.getPositionCount(); i++) {
             if (variableWidthBlock.isNull(i)) {
-                valueIsNull[i] = true;
+                valueIsNull[i] = 1;
                 hasNullValue = true;
                 offsets[i + 1] = offsets[i];
             }

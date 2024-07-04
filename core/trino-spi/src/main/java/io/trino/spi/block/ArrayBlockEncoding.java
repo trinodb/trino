@@ -61,7 +61,7 @@ public class ArrayBlockEncoding
         int positionCount = sliceInput.readInt();
         int[] offsets = new int[positionCount + 1];
         sliceInput.readInts(offsets);
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
+        byte[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
         return createArrayBlockInternal(0, positionCount, valueIsNull, offsets, values);
     }
 }

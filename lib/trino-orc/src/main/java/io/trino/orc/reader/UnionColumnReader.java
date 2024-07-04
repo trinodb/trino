@@ -137,14 +137,14 @@ public class UnionColumnReader
             }
         }
 
-        boolean[] nullVector = null;
+        byte[] nullVector = null;
         Block[] blocks;
 
         if (presentStream == null) {
             blocks = getBlocks(nextBatchSize, nextBatchSize, null);
         }
         else {
-            nullVector = new boolean[nextBatchSize];
+            nullVector = new byte[nextBatchSize];
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 blocks = getBlocks(nextBatchSize, nextBatchSize - nullValues, nullVector);
@@ -229,7 +229,7 @@ public class UnionColumnReader
                 .toString();
     }
 
-    private Block[] getBlocks(int positionCount, int nonNullCount, boolean[] rowIsNull)
+    private Block[] getBlocks(int positionCount, int nonNullCount, byte[] rowIsNull)
             throws IOException
     {
         if (dataStream == null) {
@@ -248,15 +248,15 @@ public class UnionColumnReader
         }
 
         // build a null vector for each field
-        boolean[][] valueIsNull = new boolean[fieldReaders.size()][positionCount];
-        for (boolean[] fieldIsNull : valueIsNull) {
-            Arrays.fill(fieldIsNull, true);
+        byte[][] valueIsNull = new byte[fieldReaders.size()][positionCount];
+        for (byte[] fieldIsNull : valueIsNull) {
+            Arrays.fill(fieldIsNull, (byte) 1);
         }
         int[] nonNullValueCount = new int[fieldReaders.size()];
         for (int position = 0; position < positionCount; position++) {
-            if (rowIsNull != null && rowIsNull[position]) {
+            if (rowIsNull != null && rowIsNull[position] != 0) {
                 byte tag = tags[position];
-                valueIsNull[tag][position] = false;
+                valueIsNull[tag][position] = 0;
                 nonNullValueCount[tag]++;
             }
         }
@@ -267,7 +267,7 @@ public class UnionColumnReader
                 ColumnReader reader = fieldReaders.get(i);
                 reader.prepareNextRead(nonNullValueCount[i]);
                 LazyBlockLoader lazyBlockLoader = blockFactory.createLazyBlockLoader(reader::readBlock, true);
-                boolean[] fieldIsNull = valueIsNull[i];
+                byte[] fieldIsNull = valueIsNull[i];
                 blocks[i] = new LazyBlock(positionCount, () -> toNotNullSupressedBlock(positionCount, fieldIsNull, lazyBlockLoader.load()));
             }
             else {

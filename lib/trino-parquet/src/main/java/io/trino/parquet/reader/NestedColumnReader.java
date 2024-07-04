@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.reader;
 
-import com.google.common.primitives.Booleans;
+import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -160,7 +160,7 @@ public class NestedColumnReader<BufferType>
     {
         log.debug("readNullable field %s, nextBatchSize %d", field, nextBatchSize);
         NullableValuesBuffer<BufferType> data = createNullableValuesBuffer();
-        BooleansBuffer isNull = new BooleansBuffer();
+        NullsBuffer isNull = new NullsBuffer();
         IntegersBuffer outputRepetitionLevels = new IntegersBuffer();
         IntegersBuffer outputDefinitionLevels = new IntegersBuffer();
         int remainingInBatch = nextBatchSize;
@@ -313,14 +313,14 @@ public class NestedColumnReader<BufferType>
 
     private void readNullableValues(
             NullableValuesBuffer<BufferType> data,
-            BooleansBuffer isNull,
+            NullsBuffer isNull,
             IntegersBuffer outputRepetitionLevels,
             int pageValuesIndex,
             int valueCount,
             int[] definitionLevels,
             int existingValueCount)
     {
-        boolean[] isNullChunk = new boolean[existingValueCount];
+        byte[] isNullChunk = new byte[existingValueCount];
         isNull.add(isNullChunk);
         int nonNullCount = getNulls(definitionLevels, field.getDefinitionLevel(), isNullChunk);
         checkState(
@@ -379,7 +379,7 @@ public class NestedColumnReader<BufferType>
         return false;
     }
 
-    private int getNulls(int[] definitionLevels, int maxDefinitionLevel, boolean[] localIsNull)
+    private int getNulls(int[] definitionLevels, int maxDefinitionLevel, byte[] localIsNull)
     {
         // Value is null if its definition level is equal to (max def level - 1)
         int outputIndex = 0;
@@ -388,7 +388,7 @@ public class NestedColumnReader<BufferType>
             boolean isValueNull = definitionLevel == maxDefinitionLevel - 1;
             boolean isValueNonNull = definitionLevel == maxDefinitionLevel;
             if (isValueNull) {
-                localIsNull[outputIndex] = true;
+                localIsNull[outputIndex] = 1;
             }
             outputIndex += castToByte(isValueNull | isValueNonNull);
             nonNullCount += castToByte(isValueNonNull);
@@ -570,9 +570,9 @@ public class NestedColumnReader<BufferType>
 
     private interface NullableValuesBuffer<T>
     {
-        void readNullableValues(ValueDecoder<T> valueDecoder, boolean[] isNull, int nonNullCount, int existingValueCount);
+        void readNullableValues(ValueDecoder<T> valueDecoder, byte[] isNull, int nonNullCount, int existingValueCount);
 
-        ColumnChunk createNullableBlock(BooleansBuffer isNull, int[] definitions, int[] repetitions);
+        ColumnChunk createNullableBlock(NullsBuffer isNull, int[] definitions, int[] repetitions);
     }
 
     private static final class DataValuesBuffer<T>
@@ -601,7 +601,7 @@ public class NestedColumnReader<BufferType>
         }
 
         @Override
-        public void readNullableValues(ValueDecoder<T> valueDecoder, boolean[] isNull, int nonNullCount, int existingValueCount)
+        public void readNullableValues(ValueDecoder<T> valueDecoder, byte[] isNull, int nonNullCount, int existingValueCount)
         {
             // No nulls
             if (nonNullCount > 0 && nonNullCount == existingValueCount) {
@@ -638,7 +638,7 @@ public class NestedColumnReader<BufferType>
         }
 
         @Override
-        public ColumnChunk createNullableBlock(BooleansBuffer isNull, int[] definitions, int[] repetitions)
+        public ColumnChunk createNullableBlock(NullsBuffer isNull, int[] definitions, int[] repetitions)
         {
             log.debug("DataValuesBuffer createNullableBlock field %s, totalNonNullsCount %d, totalExistingValueCount %d", field, totalNonNullsCount, totalExistingValueCount);
             if (totalNonNullsCount == 0) {
@@ -686,7 +686,7 @@ public class NestedColumnReader<BufferType>
         }
 
         @Override
-        public void readNullableValues(ValueDecoder<T> valueDecoder, boolean[] isNull, int nonNullCount, int existingValueCount)
+        public void readNullableValues(ValueDecoder<T> valueDecoder, byte[] isNull, int nonNullCount, int existingValueCount)
         {
             // No nulls
             if (nonNullCount > 0 && nonNullCount == existingValueCount) {
@@ -730,7 +730,7 @@ public class NestedColumnReader<BufferType>
         }
 
         @Override
-        public ColumnChunk createNullableBlock(BooleansBuffer isNull, int[] definitions, int[] repetitions)
+        public ColumnChunk createNullableBlock(NullsBuffer isNull, int[] definitions, int[] repetitions)
         {
             log.debug("DictionaryValuesBuffer createNullableBlock field %s, totalNonNullsCount %d, totalExistingValueCount %d", field, totalNonNullsCount, totalExistingValueCount);
             if (totalNonNullsCount == 0) {
@@ -740,21 +740,21 @@ public class NestedColumnReader<BufferType>
         }
     }
 
-    private static class BooleansBuffer
+    private static class NullsBuffer
     {
-        private final List<boolean[]> buffers = new ArrayList<>();
+        private final List<byte[]> buffers = new ArrayList<>();
 
-        private void add(boolean[] buffer)
+        private void add(byte[] buffer)
         {
             buffers.add(buffer);
         }
 
-        private boolean[] getMergedBuffer()
+        private byte[] getMergedBuffer()
         {
             if (buffers.size() == 1) {
                 return buffers.get(0);
             }
-            return Booleans.concat(buffers.toArray(boolean[][]::new));
+            return Bytes.concat(buffers.toArray(byte[][]::new));
         }
     }
 

@@ -71,7 +71,7 @@ public class ShortArrayBlockEncoding
             sliceInput.readShorts(values);
             return new ShortArrayBlock(0, positionCount, null, values);
         }
-        boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
+        byte[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
 
         int nonNullPositionCount = sliceInput.readInt();
         sliceInput.readShorts(values, 0, nonNullPositionCount);
@@ -80,7 +80,7 @@ public class ShortArrayBlockEncoding
         // Handle Last (positionCount % 8) values
         for (int i = positionCount - 1; i >= (positionCount & ~0b111) && position >= 0; i--) {
             values[i] = values[position];
-            if (!valueIsNull[i]) {
+            if (valueIsNull[i] == 0) {
                 position--;
             }
         }
@@ -95,7 +95,7 @@ public class ShortArrayBlockEncoding
             else if (packed != -1) { // At least one non-null
                 for (int j = i + 7; j >= i && position >= 0; j--) {
                     values[j] = values[position];
-                    if (!valueIsNull[j]) {
+                    if (valueIsNull[j] == 0) {
                         position--;
                     }
                 }

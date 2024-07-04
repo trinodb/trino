@@ -26,7 +26,6 @@ import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -34,6 +33,7 @@ import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static io.trino.plugin.thrift.api.TrinoThriftBlock.timestampData;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.fromLongBasedBlock;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.fromLongBasedColumn;
+import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.toNullByteArray;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.floorDiv;
@@ -90,7 +90,7 @@ public final class TrinoThriftTimestamp
         }
         return new LongArrayBlock(
                 numberOfRecords,
-                Optional.ofNullable(nulls),
+                toNullByteArray(nulls, numberOfRecords),
                 timestampsInMicros);
     }
 

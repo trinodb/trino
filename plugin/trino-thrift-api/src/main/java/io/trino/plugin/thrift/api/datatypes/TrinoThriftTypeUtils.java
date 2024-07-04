@@ -19,6 +19,7 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
 
+import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -171,5 +172,18 @@ final class TrinoThriftTypeUtils
     public static boolean sameSizeIfPresent(boolean[] nulls, int[] sizes)
     {
         return nulls == null || sizes == null || nulls.length == sizes.length;
+    }
+
+    public static Optional<byte[]> toNullByteArray(boolean[] nulls, int numberOfRecords)
+    {
+        if (nulls == null) {
+            return Optional.empty();
+        }
+
+        byte[] nullBytes = new byte[numberOfRecords];
+        for (int i = 0; i < nulls.length; i++) {
+            nullBytes[i] = nulls[i] ? (byte) 1 : 0;
+        }
+        return Optional.of(nullBytes);
     }
 }

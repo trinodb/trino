@@ -40,7 +40,7 @@ public final class RowBlock
 
     private final int positionCount;
     @Nullable
-    private final boolean[] rowIsNull;
+    private final byte[] rowIsNull;
     /**
      * Field blocks have the same position count as this row block. The field value of a null row must be null.
      */
@@ -61,11 +61,11 @@ public final class RowBlock
     /**
      * Create a row block directly from field blocks that are not null-suppressed. The field value of a null row must be null.
      */
-    public static RowBlock fromNotNullSuppressedFieldBlocks(int positionCount, Optional<boolean[]> rowIsNullOptional, Block[] fieldBlocks)
+    public static RowBlock fromNotNullSuppressedFieldBlocks(int positionCount, Optional<byte[]> rowIsNullOptional, Block[] fieldBlocks)
     {
         // verify that field values for null rows are null
         if (rowIsNullOptional.isPresent()) {
-            boolean[] rowIsNull = rowIsNullOptional.get();
+            byte[] rowIsNull = rowIsNullOptional.get();
             checkArrayRange(rowIsNull, 0, positionCount);
 
             for (int fieldIndex = 0; fieldIndex < fieldBlocks.length; fieldIndex++) {
@@ -73,7 +73,7 @@ public final class RowBlock
                 // LazyBlock may not have loaded the field yet
                 if (!(field instanceof LazyBlock lazyBlock) || lazyBlock.isLoaded()) {
                     for (int position = 0; position < positionCount; position++) {
-                        if (rowIsNull[position] && !field.isNull(position)) {
+                        if (rowIsNull[position] != 0 && !field.isNull(position)) {
                             throw new IllegalArgumentException(format("Field value for null row must be null: field %s, position %s", fieldIndex, position));
                         }
                     }
@@ -83,7 +83,7 @@ public final class RowBlock
         return createRowBlockInternal(positionCount, rowIsNullOptional.orElse(null), fieldBlocks);
     }
 
-    static RowBlock createRowBlockInternal(int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks)
+    static RowBlock createRowBlockInternal(int positionCount, @Nullable byte[] rowIsNull, Block[] fieldBlocks)
     {
         int fixedSize = Byte.BYTES;
         for (Block fieldBlock : fieldBlocks) {
@@ -103,7 +103,7 @@ public final class RowBlock
      * Use createRowBlockInternal or fromFieldBlocks instead of this method. The caller of this method is assumed to have
      * validated the arguments with validateConstructorArguments.
      */
-    private RowBlock(int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks, int fixedSizePerRow)
+    private RowBlock(int positionCount, @Nullable byte[] rowIsNull, Block[] fieldBlocks, int fixedSizePerRow)
     {
         if (positionCount < 0) {
             throw new IllegalArgumentException("positionCount is negative");
@@ -152,7 +152,7 @@ public final class RowBlock
         return rowIsNull != null;
     }
 
-    boolean[] getRawRowIsNull()
+    byte[] getRawRowIsNull()
     {
         return rowIsNull;
     }
@@ -237,15 +237,15 @@ public final class RowBlock
     @Override
     public RowBlock copyWithAppendedNull()
     {
-        boolean[] newRowIsNull;
+        byte[] newRowIsNull;
         if (rowIsNull != null) {
             newRowIsNull = Arrays.copyOf(rowIsNull, positionCount + 1);
         }
         else {
-            newRowIsNull = new boolean[positionCount + 1];
+            newRowIsNull = new byte[positionCount + 1];
         }
         // mark the (new) last element as null
-        newRowIsNull[positionCount] = true;
+        newRowIsNull[positionCount] = 1;
 
         Block[] newBlocks = new Block[fieldBlocks.length];
         for (int i = 0; i < fieldBlocks.length; i++) {
@@ -270,9 +270,9 @@ public final class RowBlock
             newBlocks[i] = fieldBlocks[i].copyPositions(positions, offset, length);
         }
 
-        boolean[] newRowIsNull = null;
+        byte[] newRowIsNull = null;
         if (rowIsNull != null) {
-            newRowIsNull = new boolean[length];
+            newRowIsNull = new byte[length];
             for (int i = 0; i < length; i++) {
                 newRowIsNull[i] = rowIsNull[positions[offset + i]];
             }
@@ -289,7 +289,7 @@ public final class RowBlock
         // This copies the null array, but this dramatically simplifies this class.
         // Without a copy here, we would need a null array offset, and that would mean that the
         // null array would be offset while the field blocks are not offset, which is confusing.
-        boolean[] newRowIsNull = rowIsNull == null ? null : compactArray(rowIsNull, positionOffset, length);
+        byte[] newRowIsNull = rowIsNull == null ? null : compactArray(rowIsNull, positionOffset, length);
         Block[] newBlocks = new Block[fieldBlocks.length];
         for (int i = 0; i < newBlocks.length; i++) {
             newBlocks[i] = fieldBlocks[i].getRegion(positionOffset, length);
@@ -347,7 +347,7 @@ public final class RowBlock
             newBlocks[i] = fieldBlocks[i].copyRegion(positionOffset, length);
         }
 
-        boolean[] newRowIsNull = rowIsNull == null ? null : compactArray(rowIsNull, positionOffset, length);
+        byte[] newRowIsNull = rowIsNull == null ? null : compactArray(rowIsNull, positionOffset, length);
         if (newRowIsNull == rowIsNull && arraySame(newBlocks, fieldBlocks)) {
             return this;
         }
@@ -372,7 +372,7 @@ public final class RowBlock
         for (int i = 0; i < fieldBlocks.length; i++) {
             newBlocks[i] = fieldBlocks[i].getSingleValueBlock(position);
         }
-        boolean[] newRowIsNull = isNull(position) ? new boolean[] {true} : null;
+        byte[] newRowIsNull = isNull(position) ? new byte[] {1} : null;
         return new RowBlock(1, newRowIsNull, newBlocks, fixedSizePerRow);
     }
 
@@ -396,7 +396,7 @@ public final class RowBlock
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);
-        return rowIsNull != null && rowIsNull[position];
+        return rowIsNull != null && rowIsNull[position] != 0;
     }
 
     /**

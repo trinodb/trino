@@ -25,13 +25,13 @@ public class VectorBitPackingUtils
 
     private VectorBitPackingUtils() {}
 
-    public static int vectorUnpackAndInvert8(boolean[] values, int offset, byte packedByte)
+    public static int vectorUnpackAndInvert8(byte[] values, int offset, byte packedByte)
     {
         ByteVector.broadcast(ByteVector.SPECIES_64, packedByte)
                 .lanewise(VectorOperators.LSHR, LSHR_BYTE_VECTOR)
-                .and(MASK_1)
                 .lanewise(VectorOperators.NOT)
-                .intoBooleanArray(values, offset);
+                .and(MASK_1)
+                .intoArray(values, offset);
         return bitCount(packedByte);
     }
 

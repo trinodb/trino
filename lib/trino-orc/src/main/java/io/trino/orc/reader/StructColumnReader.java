@@ -150,14 +150,14 @@ public class StructColumnReader
             }
         }
 
-        boolean[] nullVector = null;
+        byte[] nullVector = null;
         Block[] blocks;
 
         if (presentStream == null) {
             blocks = getBlocks(nextBatchSize, nextBatchSize, null);
         }
         else {
-            nullVector = new boolean[nextBatchSize];
+            nullVector = new byte[nextBatchSize];
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
             if (nullValues != nextBatchSize) {
                 blocks = getBlocks(nextBatchSize, nextBatchSize - nullValues, nullVector);
@@ -237,7 +237,7 @@ public class StructColumnReader
                 .toString();
     }
 
-    private Block[] getBlocks(int positionCount, int nonNullCount, boolean[] nullVector)
+    private Block[] getBlocks(int positionCount, int nonNullCount, byte[] nullVector)
     {
         Block[] blocks = new Block[fieldNames.size()];
 

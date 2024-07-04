@@ -296,12 +296,12 @@ public class BenchmarkPartitionedOutputOperator
                         Optional.of(ImmutableList.of(0)),
                         types.stream()
                                 .map(type -> {
-                                    boolean[] isNull = null;
+                                    byte[] isNull = null;
                                     if (nullRate > 0) {
-                                        isNull = new boolean[positionCount];
+                                        isNull = new byte[positionCount];
                                         Set<Integer> nullPositions = chooseNullPositions(positionCount, nullRate);
                                         for (int nullPosition : nullPositions) {
-                                            isNull[nullPosition] = true;
+                                            isNull[nullPosition] = 1;
                                         }
                                     }
 

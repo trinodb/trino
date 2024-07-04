@@ -39,17 +39,17 @@ public final class Int128ArrayBlock
     private final int positionOffset;
     private final int positionCount;
     @Nullable
-    private final boolean[] valueIsNull;
+    private final byte[] valueIsNull;
     private final long[] values;
 
     private final long retainedSizeInBytes;
 
-    public Int128ArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, long[] values)
+    public Int128ArrayBlock(int positionCount, Optional<byte[]> valueIsNull, long[] values)
     {
         this(0, positionCount, valueIsNull.orElse(null), values);
     }
 
-    Int128ArrayBlock(int positionOffset, int positionCount, boolean[] valueIsNull, long[] values)
+    Int128ArrayBlock(int positionOffset, int positionCount, byte[] valueIsNull, long[] values)
     {
         if (positionOffset < 0) {
             throw new IllegalArgumentException("positionOffset is negative");
@@ -154,7 +154,7 @@ public final class Int128ArrayBlock
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);
-        return valueIsNull != null && valueIsNull[position + positionOffset];
+        return valueIsNull != null && valueIsNull[position + positionOffset] != 0;
     }
 
     @Override
@@ -164,7 +164,7 @@ public final class Int128ArrayBlock
         return new Int128ArrayBlock(
                 0,
                 1,
-                isNull(position) ? new boolean[] {true} : null,
+                isNull(position) ? new byte[] {1} : null,
                 new long[] {
                         values[(position + positionOffset) * 2],
                         values[((position + positionOffset) * 2) + 1]});
@@ -175,9 +175,9 @@ public final class Int128ArrayBlock
     {
         checkArrayRange(positions, offset, length);
 
-        boolean[] newValueIsNull = null;
+        byte[] newValueIsNull = null;
         if (valueIsNull != null) {
-            newValueIsNull = new boolean[length];
+            newValueIsNull = new byte[length];
         }
         long[] newValues = new long[length * 2];
         for (int i = 0; i < length; i++) {
@@ -206,7 +206,7 @@ public final class Int128ArrayBlock
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         positionOffset += this.positionOffset;
-        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
+        byte[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
         long[] newValues = compactArray(values, positionOffset * 2, length * 2);
 
         if (newValueIsNull == valueIsNull && newValues == values) {
@@ -224,7 +224,7 @@ public final class Int128ArrayBlock
     @Override
     public Int128ArrayBlock copyWithAppendedNull()
     {
-        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, positionOffset, positionCount);
+        byte[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, positionOffset, positionCount);
         long[] newValues = ensureCapacity(values, (positionOffset + positionCount + 1) * 2);
         return new Int128ArrayBlock(positionOffset, positionCount + 1, newValueIsNull, newValues);
     }
@@ -253,7 +253,7 @@ public final class Int128ArrayBlock
     }
 
     @Nullable
-    boolean[] getRawValueIsNull()
+    byte[] getRawValueIsNull()
     {
         return valueIsNull;
     }

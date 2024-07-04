@@ -93,7 +93,7 @@ public class TestAggregationOperator
                 createLongsBlock(1, 2, 3, 4),
                 new ByteArrayBlock(
                         4,
-                        Optional.of(new boolean[] {true, true, false, false}),
+                        Optional.of(new byte[] {1, 1, 0, 0}),
                         new byte[] {0, 27 /* dirty null */, 0, 75 /* non-zero value is true */})));
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
@@ -128,7 +128,7 @@ public class TestAggregationOperator
 
         ByteArrayBlock trueMaskAllNull = new ByteArrayBlock(
                 4,
-                Optional.of(new boolean[] {true, true, true, true}), /* all positions are null */
+                Optional.of(new byte[] {1, 1, 1, 1}), /* all positions are null */
                 new byte[] {1, 1, 1, 1}); /* non-zero value is true, all masks are true */
 
         Block trueNullRleMask = RunLengthEncodedBlock.create(trueMaskAllNull.getSingleValueBlock(0), 4);

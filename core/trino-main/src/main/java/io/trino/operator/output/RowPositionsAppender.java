@@ -44,7 +44,7 @@ public class RowPositionsAppender
     private int positionCount;
     private boolean hasNullRow;
     private boolean hasNonNullRow;
-    private boolean[] rowIsNull = new boolean[0];
+    private byte[] rowIsNull = new byte[0];
     private long retainedSizeInBytes = -1;
     private long sizeInBytes = -1;
 
@@ -87,7 +87,7 @@ public class RowPositionsAppender
         if (sourceRowBlock.mayHaveNull()) {
             for (int i = 0; i < positions.size(); i++) {
                 boolean positionIsNull = sourceRowBlock.isNull(positions.getInt(i));
-                rowIsNull[positionCount + i] = positionIsNull;
+                rowIsNull[positionCount + i] = positionIsNull ? (byte) 1 : 0;
                 hasNullRow |= positionIsNull;
                 hasNonNullRow |= !positionIsNull;
             }
@@ -115,7 +115,7 @@ public class RowPositionsAppender
 
         if (sourceRowBlock.isNull(0)) {
             // append rlePositionCount nulls
-            Arrays.fill(rowIsNull, positionCount, positionCount + rlePositionCount, true);
+            Arrays.fill(rowIsNull, positionCount, positionCount + rlePositionCount, (byte) 1);
             hasNullRow = true;
         }
         else {
@@ -140,7 +140,7 @@ public class RowPositionsAppender
         }
 
         if (sourceRowBlock.isNull(position)) {
-            rowIsNull[positionCount] = true;
+            rowIsNull[positionCount] = 1;
             hasNullRow = true;
         }
         else {
@@ -214,7 +214,7 @@ public class RowPositionsAppender
         }
         initialEntryCount = calculateBlockResetSize(positionCount);
         initialized = false;
-        rowIsNull = new boolean[0];
+        rowIsNull = new byte[0];
         positionCount = 0;
         hasNonNullRow = false;
         hasNullRow = false;

@@ -59,9 +59,9 @@ public class TestAggregationMaskCompiler
         assertThat(maskBuilderSupplier.get().buildAggregationMask(page, Optional.empty()))
                 .isNotSameAs(maskBuilderSupplier.get().buildAggregationMask(page, Optional.empty()));
 
-        boolean[] nullFlags = new boolean[5];
-        nullFlags[1] = true;
-        nullFlags[3] = true;
+        byte[] nullFlags = new byte[5];
+        nullFlags[1] = 1;
+        nullFlags[3] = 1;
         Page pageWithNulls = buildSingleColumnPage(nullFlags);
         assertThat(maskBuilderSupplier.get().buildAggregationMask(pageWithNulls, Optional.empty()))
                 .isNotSameAs(maskBuilderSupplier.get().buildAggregationMask(pageWithNulls, Optional.empty()));
@@ -94,19 +94,19 @@ public class TestAggregationMaskCompiler
 
             assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.empty()), positionCount);
 
-            boolean[] nullFlags = new boolean[positionCount];
+            byte[] nullFlags = new byte[positionCount];
             assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(nullFlags), Optional.empty()), positionCount);
 
-            Arrays.fill(nullFlags, true);
-            nullFlags[1] = false;
-            nullFlags[3] = false;
-            nullFlags[5] = false;
+            Arrays.fill(nullFlags, (byte) 1);
+            nullFlags[1] = 0;
+            nullFlags[3] = 0;
+            nullFlags[5] = 0;
             assertAggregationMaskPositions(maskBuilder.buildAggregationMask(buildSingleColumnPage(nullFlags), Optional.empty()), positionCount, 1, 3, 5);
 
-            nullFlags[3] = true;
+            nullFlags[3] = 1;
             assertAggregationMaskPositions(maskBuilder.buildAggregationMask(buildSingleColumnPage(nullFlags), Optional.empty()), positionCount, 1, 5);
 
-            nullFlags[2] = false;
+            nullFlags[2] = 0;
             assertAggregationMaskPositions(maskBuilder.buildAggregationMask(buildSingleColumnPage(nullFlags), Optional.empty()), positionCount, 1, 2, 5);
 
             assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPageRle(positionCount, Optional.empty()), Optional.empty()), positionCount);
@@ -173,20 +173,20 @@ public class TestAggregationMaskCompiler
             assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlock(positionCount, mask))), positionCount);
             assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockAsDictionary(positionCount, mask))), positionCount);
 
-            boolean[] nullFlags = new boolean[positionCount];
+            byte[] nullFlags = new byte[positionCount];
             assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockNulls(nullFlags))), positionCount);
 
-            Arrays.fill(nullFlags, true);
-            nullFlags[1] = false;
-            nullFlags[3] = false;
-            nullFlags[5] = false;
+            Arrays.fill(nullFlags, (byte) 1);
+            nullFlags[1] = 0;
+            nullFlags[3] = 0;
+            nullFlags[5] = 0;
             assertAggregationMaskPositions(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockNulls(nullFlags))), positionCount, 1, 3, 5);
 
-            nullFlags[3] = true;
+            nullFlags[3] = 1;
             assertAggregationMaskPositions(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockNulls(nullFlags))), positionCount, 1, 5);
 
-            nullFlags[1] = true;
-            nullFlags[5] = true;
+            nullFlags[1] = 1;
+            nullFlags[5] = 1;
             assertAggregationMaskPositions(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockNulls(nullFlags))), positionCount);
 
             assertAggregationMaskAll(maskBuilder.buildAggregationMask(buildSingleColumnPage(positionCount), Optional.of(createMaskBlockNullsRle(positionCount, false))), positionCount);
@@ -217,7 +217,7 @@ public class TestAggregationMaskCompiler
         return block.getPositions(IntStream.range(0, positionCount).map(i -> i * 2).toArray(), 0, positionCount);
     }
 
-    private static Block createMaskBlockNulls(boolean[] nulls)
+    private static Block createMaskBlockNulls(byte[] nulls)
     {
         int positionCount = nulls.length;
         byte[] mask = new byte[positionCount];
@@ -227,24 +227,24 @@ public class TestAggregationMaskCompiler
 
     private static Block createMaskBlockNullsRle(int positionCount, boolean nullValue)
     {
-        return RunLengthEncodedBlock.create(createMaskBlockNulls(new boolean[] {nullValue}), positionCount);
+        return RunLengthEncodedBlock.create(createMaskBlockNulls(new byte[] {nullValue ? (byte) 1 : 0}), positionCount);
     }
 
     private static Page buildSingleColumnPage(int positionCount)
     {
-        boolean[] ignoredColumnNulls = new boolean[positionCount];
-        Arrays.fill(ignoredColumnNulls, true);
+        byte[] ignoredColumnNulls = new byte[positionCount];
+        Arrays.fill(ignoredColumnNulls, (byte) 1);
         return new Page(
                 new ShortArrayBlock(positionCount, Optional.of(ignoredColumnNulls), new short[positionCount]),
                 // provide a null array to ensure the generated code for null checks does not fail
-                new IntArrayBlock(positionCount, Optional.of(new boolean[positionCount]), new int[positionCount]));
+                new IntArrayBlock(positionCount, Optional.of(new byte[positionCount]), new int[positionCount]));
     }
 
-    private static Page buildSingleColumnPage(boolean[] nulls)
+    private static Page buildSingleColumnPage(byte[] nulls)
     {
         int positionCount = nulls.length;
-        boolean[] ignoredColumnNulls = new boolean[positionCount];
-        Arrays.fill(ignoredColumnNulls, true);
+        byte[] ignoredColumnNulls = new byte[positionCount];
+        Arrays.fill(ignoredColumnNulls, (byte) 1);
         return new Page(
                 new ShortArrayBlock(positionCount, Optional.of(ignoredColumnNulls), new short[positionCount]),
                 new IntArrayBlock(positionCount, Optional.of(nulls), new int[positionCount]));
@@ -252,9 +252,9 @@ public class TestAggregationMaskCompiler
 
     private static Page buildSingleColumnPageRle(int positionCount, Optional<Boolean> nullValue)
     {
-        Optional<boolean[]> nulls = nullValue.map(value -> new boolean[] {value});
-        boolean[] ignoredColumnNulls = new boolean[positionCount];
-        Arrays.fill(ignoredColumnNulls, true);
+        Optional<byte[]> nulls = nullValue.map(value -> new byte[] {value ? (byte) 1 : 0});
+        byte[] ignoredColumnNulls = new byte[positionCount];
+        Arrays.fill(ignoredColumnNulls, (byte) 1);
         return new Page(
                 new ShortArrayBlock(positionCount, Optional.of(ignoredColumnNulls), new short[positionCount]),
                 RunLengthEncodedBlock.create(new IntArrayBlock(1, nulls, new int[positionCount]), positionCount));

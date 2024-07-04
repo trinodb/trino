@@ -100,7 +100,7 @@ public class BenchmarkCopyPositions
                 block = createBlockBuilderWithValues(slices).build();
             }
             else if (type.equals("ROW(BIGINT)")) {
-                Optional<boolean[]> rowIsNull = nullsAllowed ? Optional.of(generateIsNull(POSITIONS)) : Optional.empty();
+                Optional<byte[]> rowIsNull = nullsAllowed ? Optional.of(generateIsNull(POSITIONS)) : Optional.empty();
                 LongArrayBlock randomLongArrayBlock = new LongArrayBlock(POSITIONS, rowIsNull, new Random(SEED).longs().limit(POSITIONS).toArray());
                 block = RowBlock.fromNotNullSuppressedFieldBlocks(POSITIONS, rowIsNull, new Block[] {randomLongArrayBlock});
             }
@@ -145,12 +145,12 @@ public class BenchmarkCopyPositions
             return blockBuilder;
         }
 
-        private static boolean[] generateIsNull(int positionCount)
+        private static byte[] generateIsNull(int positionCount)
         {
             Random random = new Random(SEED);
-            boolean[] result = new boolean[positionCount];
+            byte[] result = new byte[positionCount];
             for (int i = 0; i < positionCount; i++) {
-                result[i] = randomNullChance(random);
+                result[i] = randomNullChance(random) ? (byte) 1 : 0;
             }
             return result;
         }

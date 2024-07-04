@@ -27,7 +27,7 @@ public class LongArrayBlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(LongArrayBlockBuilder.class);
-    private static final Block NULL_VALUE_BLOCK = new LongArrayBlock(0, 1, new boolean[] {true}, new long[1]);
+    private static final Block NULL_VALUE_BLOCK = new LongArrayBlock(0, 1, new byte[] {1}, new long[1]);
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
@@ -39,7 +39,7 @@ public class LongArrayBlockBuilder
     private boolean hasNonNullValue;
 
     // it is assumed that these arrays are the same length
-    private boolean[] valueIsNull = new boolean[0];
+    private byte[] valueIsNull = new byte[0];
     private long[] values = new long[0];
 
     private long retainedSizeInBytes;
@@ -73,7 +73,7 @@ public class LongArrayBlockBuilder
 
         LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         if (longArrayBlock.isNull(position)) {
-            valueIsNull[positionCount] = true;
+            valueIsNull[positionCount] = 1;
             hasNullValue = true;
         }
         else {
@@ -102,7 +102,7 @@ public class LongArrayBlockBuilder
 
         LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         if (longArrayBlock.isNull(position)) {
-            Arrays.fill(valueIsNull, positionCount, positionCount + count, true);
+            Arrays.fill(valueIsNull, positionCount, positionCount + count, (byte) 1);
             hasNullValue = true;
         }
         else {
@@ -136,11 +136,11 @@ public class LongArrayBlockBuilder
         long[] rawValues = longArrayBlock.getRawValues();
         System.arraycopy(rawValues, rawOffset + offset, values, positionCount, length);
 
-        boolean[] rawValueIsNull = longArrayBlock.getRawValueIsNull();
+        byte[] rawValueIsNull = longArrayBlock.getRawValueIsNull();
         if (rawValueIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawValueIsNull[rawOffset + offset + i]) {
-                    valueIsNull[positionCount + i] = true;
+                if (rawValueIsNull[rawOffset + offset + i] != 0) {
+                    valueIsNull[positionCount + i] = 1;
                     hasNullValue = true;
                 }
                 else {
@@ -174,12 +174,12 @@ public class LongArrayBlockBuilder
         LongArrayBlock longArrayBlock = (LongArrayBlock) block;
         int rawOffset = longArrayBlock.getRawValuesOffset();
         long[] rawValues = longArrayBlock.getRawValues();
-        boolean[] rawValueIsNull = longArrayBlock.getRawValueIsNull();
+        byte[] rawValueIsNull = longArrayBlock.getRawValueIsNull();
         if (rawValueIsNull != null) {
             for (int i = 0; i < length; i++) {
                 int rawPosition = positions[offset + i] + rawOffset;
-                if (rawValueIsNull[rawPosition]) {
-                    valueIsNull[positionCount + i] = true;
+                if (rawValueIsNull[rawPosition] != 0) {
+                    valueIsNull[positionCount + i] = 1;
                     hasNullValue = true;
                 }
                 else {
@@ -207,7 +207,7 @@ public class LongArrayBlockBuilder
     {
         ensureCapacity(positionCount + 1);
 
-        valueIsNull[positionCount] = true;
+        valueIsNull[positionCount] = 1;
 
         hasNullValue = true;
         positionCount++;

@@ -135,7 +135,7 @@ public class SliceDirectColumnReader
         }
 
         // create new isNullVector and offsetVector for VariableWidthBlock
-        boolean[] isNullVector = null;
+        byte[] isNullVector = null;
 
         // We will use the offsetVector as the buffer to read the length values from lengthStream,
         // and the length values will be converted in-place to an offset vector.
@@ -145,7 +145,7 @@ public class SliceDirectColumnReader
             lengthStream.next(offsetVector, nextBatchSize);
         }
         else {
-            isNullVector = new boolean[nextBatchSize];
+            isNullVector = new byte[nextBatchSize];
             int nullCount = presentStream.getUnsetBits(nextBatchSize, isNullVector);
             if (nullCount == nextBatchSize) {
                 // all nulls
@@ -205,7 +205,7 @@ public class SliceDirectColumnReader
             offsetVector[0] = 0;
             for (int i = 1; i <= currentBatchSize; i++) {
                 int nextLength = offsetVector[i];
-                if (isNullVector != null && isNullVector[i - 1]) {
+                if (isNullVector != null && isNullVector[i - 1] != 0) {
                     checkState(currentLength == 0, "Corruption in slice direct stream: length is non-zero for null entry");
                     offsetVector[i] = offsetVector[i - 1];
                     currentLength = nextLength;
@@ -231,7 +231,7 @@ public class SliceDirectColumnReader
 
     private Block readAllNullsBlock()
     {
-        return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new boolean[] {true})), nextBatchSize);
+        return RunLengthEncodedBlock.create(new VariableWidthBlock(1, EMPTY_SLICE, new int[2], Optional.of(new byte[] {1})), nextBatchSize);
     }
 
     private void openRowGroup()

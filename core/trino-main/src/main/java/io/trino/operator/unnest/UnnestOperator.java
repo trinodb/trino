@@ -312,12 +312,12 @@ public class UnnestOperator
     private static Block buildOrdinalityBlockWithNulls(int[] outputEntriesPerPosition, boolean[] ordinalityNull, int offset, int inputEntryCount, int outputEntryCount)
     {
         long[] values = new long[outputEntryCount];
-        boolean[] isNull = new boolean[outputEntryCount];
+        byte[] isNull = new byte[outputEntryCount];
 
         int outputPosition = 0;
         for (int i = 0; i < inputEntryCount; i++) {
             if (ordinalityNull[offset + i]) {
-                isNull[outputPosition++] = true;
+                isNull[outputPosition++] = 1;
             }
             else {
                 int currentOutputEntries = outputEntriesPerPosition[offset + i];

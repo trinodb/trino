@@ -67,14 +67,14 @@ public class BenchmarkFlatDefinitionLevelDecoder
 
     private byte[] data;
     // Dummy output array
-    private boolean[] output;
+    private byte[] output;
 
     @Setup
     public void setup()
             throws IOException
     {
         data = dataGenerator.getData(size);
-        output = new boolean[size];
+        output = new byte[size];
     }
 
     @Benchmark
@@ -127,9 +127,9 @@ public class BenchmarkFlatDefinitionLevelDecoder
             public void generate(RunLengthBitPackingHybridEncoder encoder, Random random, int size)
                     throws IOException
             {
-                boolean[] data = generateMixedData(random, size, 23);
+                byte[] data = generateMixedData(random, size, 23);
                 for (int i = 0; i < size; i++) {
-                    encoder.writeInt(data[i] ? 1 : 0);
+                    encoder.writeInt(data[i]);
                 }
             }
         },
@@ -138,9 +138,9 @@ public class BenchmarkFlatDefinitionLevelDecoder
             public void generate(RunLengthBitPackingHybridEncoder encoder, Random random, int size)
                     throws IOException
             {
-                boolean[] data = generateMixedData(random, size, 127);
+                byte[] data = generateMixedData(random, size, 127);
                 for (int i = 0; i < size; i++) {
-                    encoder.writeInt(data[i] ? 1 : 0);
+                    encoder.writeInt(data[i]);
                 }
             }
         },

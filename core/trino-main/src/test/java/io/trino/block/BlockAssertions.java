@@ -206,10 +206,10 @@ public final class BlockAssertions
     public static ValueBlock createRandomBlockForNestedType(Type type, int positionCount, float nullRate, int maxCardinality)
     {
         // Builds isNull and offsets of size positionCount
-        boolean[] isNull = null;
+        byte[] isNull = null;
         Set<Integer> nullPositions = null;
         if (nullRate > 0) {
-            isNull = new boolean[positionCount];
+            isNull = new byte[positionCount];
             nullPositions = chooseNullPositions(positionCount, nullRate);
         }
         int[] offsets = new int[positionCount + 1];
@@ -217,7 +217,7 @@ public final class BlockAssertions
         Random random = random();
         for (int position = 0; position < positionCount; position++) {
             if (nullRate > 0 && nullPositions.contains(position)) {
-                isNull[position] = true;
+                isNull[position] = 1;
                 offsets[position + 1] = offsets[position];
             }
             else {

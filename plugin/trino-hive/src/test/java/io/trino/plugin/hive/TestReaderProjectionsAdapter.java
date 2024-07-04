@@ -168,7 +168,7 @@ public class TestReaderProjectionsAdapter
     {
         int positionCount = data.size();
 
-        boolean[] isNull = new boolean[positionCount];
+        byte[] isNull = new byte[positionCount];
         int fieldCount = rowType.getFields().size();
 
         List<List<Object>> fieldsData = new ArrayList<>();
@@ -180,7 +180,7 @@ public class TestReaderProjectionsAdapter
         for (int position = 0; position < data.size(); position++) {
             RowData row = (RowData) data.get(position);
             if (row == null) {
-                isNull[position] = true;
+                isNull[position] = 1;
                 for (int field = 0; field < fieldCount; field++) {
                     fieldsData.get(field).add(null);
                 }

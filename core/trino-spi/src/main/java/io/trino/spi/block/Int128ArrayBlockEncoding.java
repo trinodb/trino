@@ -63,7 +63,7 @@ public class Int128ArrayBlockEncoding
     {
         int positionCount = sliceInput.readInt();
 
-        boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
+        byte[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
 
         long[] values = new long[positionCount * 2];
         if (valueIsNull == null) {
@@ -75,7 +75,7 @@ public class Int128ArrayBlockEncoding
             int position = 2 * (nonNullPositionCount - 1);
             for (int i = positionCount - 1; i >= 0 && position >= 0; i--) {
                 System.arraycopy(values, position, values, 2 * i, 2);
-                if (!valueIsNull[i]) {
+                if (valueIsNull[i] == 0) {
                     position -= 2;
                 }
             }

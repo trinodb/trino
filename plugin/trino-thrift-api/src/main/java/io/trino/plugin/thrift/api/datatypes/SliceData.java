@@ -24,13 +24,13 @@ import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.calculateOffsets;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.sameSizeIfPresent;
+import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.toNullByteArray;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.totalSize;
 
 final class SliceData
@@ -77,7 +77,7 @@ final class SliceData
                 numberOfRecords,
                 values,
                 calculateOffsets(sizes, nulls, numberOfRecords),
-                Optional.ofNullable(nulls));
+                toNullByteArray(nulls, numberOfRecords));
     }
 
     @Override

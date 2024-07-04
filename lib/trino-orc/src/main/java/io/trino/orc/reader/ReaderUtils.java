@@ -53,63 +53,63 @@ final class ReaderUtils
         return max(nonNullCount + 1, 1025);
     }
 
-    public static byte[] unpackByteNulls(byte[] values, boolean[] isNull)
+    public static byte[] unpackByteNulls(byte[] values, byte[] isNull)
     {
         byte[] result = new byte[isNull.length];
 
         int position = 0;
         for (int i = 0; i < isNull.length; i++) {
             result[i] = values[position];
-            if (!isNull[i]) {
+            if (isNull[i] == 0) {
                 position++;
             }
         }
         return result;
     }
 
-    public static short[] unpackShortNulls(short[] values, boolean[] isNull)
+    public static short[] unpackShortNulls(short[] values, byte[] isNull)
     {
         short[] result = new short[isNull.length];
 
         int position = 0;
         for (int i = 0; i < isNull.length; i++) {
             result[i] = values[position];
-            if (!isNull[i]) {
+            if (isNull[i] == 0) {
                 position++;
             }
         }
         return result;
     }
 
-    public static int[] unpackIntNulls(int[] values, boolean[] isNull)
+    public static int[] unpackIntNulls(int[] values, byte[] isNull)
     {
         int[] result = new int[isNull.length];
 
         int position = 0;
         for (int i = 0; i < isNull.length; i++) {
             result[i] = values[position];
-            if (!isNull[i]) {
+            if (isNull[i] == 0) {
                 position++;
             }
         }
         return result;
     }
 
-    public static long[] unpackLongNulls(long[] values, boolean[] isNull)
+    public static long[] unpackLongNulls(long[] values, byte[] isNull)
     {
         long[] result = new long[isNull.length];
 
         int position = 0;
         for (int i = 0; i < isNull.length; i++) {
             result[i] = values[position];
-            if (!isNull[i]) {
+            if (isNull[i] == 0) {
                 position++;
             }
         }
         return result;
     }
 
-    public static long[] unpackInt128Nulls(long[] values, boolean[] isNull)
+    public static long[] unpackInt128Nulls(long[] values, byte[] isNull)
     {
         long[] result = new long[isNull.length * 2];
 
@@ -118,7 +118,7 @@ final class ReaderUtils
         for (int i = 0; i < isNull.length; i++) {
             result[outputPosition] = values[position];
             result[outputPosition + 1] = values[position + 1];
-            if (!isNull[i]) {
+            if (isNull[i] == 0) {
                 position += 2;
             }
             outputPosition += 2;
@@ -126,11 +126,11 @@ final class ReaderUtils
         return result;
     }
 
-    public static void unpackLengthNulls(int[] values, boolean[] isNull, int nonNullCount)
+    public static void unpackLengthNulls(int[] values, byte[] isNull, int nonNullCount)
     {
         int nullSuppressedPosition = nonNullCount - 1;
         for (int outputPosition = isNull.length - 1; outputPosition >= 0; outputPosition--) {
-            if (isNull[outputPosition]) {
+            if (isNull[outputPosition] != 0) {
                 values[outputPosition] = 0;
             }
             else {
@@ -151,7 +151,7 @@ final class ReaderUtils
         }
     }
 
-    static Block toNotNullSupressedBlock(int positionCount, boolean[] rowIsNull, Block fieldBlock)
+    static Block toNotNullSupressedBlock(int positionCount, byte[] rowIsNull, Block fieldBlock)
     {
         requireNonNull(rowIsNull, "rowIsNull is null");
         requireNonNull(fieldBlock, "fieldBlock is null");
@@ -177,7 +177,7 @@ final class ReaderUtils
         int[] dictionaryIds = new int[positionCount];
         int nullSuppressedPosition = 0;
         for (int position = 0; position < positionCount; position++) {
-            if (rowIsNull[position]) {
+            if (rowIsNull[position] != 0) {
                 dictionaryIds[position] = nullIndex;
             }
             else {

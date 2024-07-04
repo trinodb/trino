@@ -78,7 +78,7 @@ public class TestShortArrayBlock
     public void testCompactBlock()
     {
         short[] shortArray = {(short) 0, (short) 0, (short) 1, (short) 2, (short) 3, (short) 4};
-        boolean[] valueIsNull = {false, true, false, false, false, false};
+        byte[] valueIsNull = {0, 1, 0, 0, 0, 0};
 
         testCompactBlock(new ShortArrayBlock(0, Optional.empty(), new short[0]));
         testCompactBlock(new ShortArrayBlock(shortArray.length, Optional.of(valueIsNull), shortArray));

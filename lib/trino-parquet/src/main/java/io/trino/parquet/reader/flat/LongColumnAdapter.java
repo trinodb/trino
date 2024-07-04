@@ -40,7 +40,7 @@ public class LongColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, long[] values)
+    public Block createNullableBlock(byte[] nulls, long[] values)
     {
         return new LongArrayBlock(values.length, Optional.of(nulls), values);
     }

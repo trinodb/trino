@@ -88,8 +88,8 @@ public class DictionaryBuilder
 
     public VariableWidthBlock getElementBlock()
     {
-        boolean[] isNull = new boolean[entryCount];
-        isNull[NULL_POSITION] = true;
+        byte[] isNull = new byte[entryCount];
+        isNull[NULL_POSITION] = 1;
         return new VariableWidthBlock(entryCount, sliceOutput.slice(), offsets, Optional.of(isNull));
     }
 

@@ -31,15 +31,15 @@ public class TestNullsDecoder
 {
     private static final int N = 1000;
     private static final int MAX_MIXED_GROUP_SIZE = 23;
-    private static final boolean[] ALL_NON_NULLS_ARRAY = new boolean[N];
-    private static final boolean[] RANDOM_ARRAY = new boolean[N];
-    private static final boolean[] MIXED_RANDOM_AND_GROUPED_ARRAY;
+    private static final byte[] ALL_NON_NULLS_ARRAY = new byte[N];
+    private static final byte[] RANDOM_ARRAY = new byte[N];
+    private static final byte[] MIXED_RANDOM_AND_GROUPED_ARRAY;
 
     static {
-        Arrays.fill(ALL_NON_NULLS_ARRAY, true);
+        Arrays.fill(ALL_NON_NULLS_ARRAY, (byte) 1);
         Random r = new Random(0);
         for (int i = 0; i < N; i++) {
-            RANDOM_ARRAY[i] = r.nextBoolean();
+            RANDOM_ARRAY[i] = r.nextBoolean() ? (byte) 1 : 0;
         }
 
         MIXED_RANDOM_AND_GROUPED_ARRAY = generateMixedData(r, N, MAX_MIXED_GROUP_SIZE);
@@ -58,17 +58,17 @@ public class TestNullsDecoder
     {
         for (NullValuesProvider nullValuesProvider : NullValuesProvider.values()) {
             for (int batchSize : Arrays.asList(1, 3, 16, 100, 1000)) {
-                boolean[] values = nullValuesProvider.getPositions();
+                byte[] values = nullValuesProvider.getPositions();
                 byte[] encoded = encode(values);
                 FlatDefinitionLevelDecoder decoder = createNullsDecoder(vectorizedDecodingEnabled);
                 decoder.init(Slices.wrappedBuffer(encoded));
-                boolean[] result = new boolean[N];
+                byte[] result = new byte[N];
                 int nonNullCount = 0;
                 for (int i = 0; i < N; i += batchSize) {
                     nonNullCount += decoder.readNext(result, i, min(batchSize, N - i));
                 }
                 // Parquet encodes whether value exists, Trino whether value is null
-                boolean[] byteResult = flip(result);
+                byte[] byteResult = flip(result);
                 assertThat(byteResult).containsExactly(values);
                 int expectedNonNull = nonNullCount(values);
                 assertThat(nonNullCount).isEqualTo(expectedNonNull);
@@ -89,7 +89,7 @@ public class TestNullsDecoder
     {
         for (NullValuesProvider nullValuesProvider : NullValuesProvider.values()) {
             for (int batchSize : Arrays.asList(1, 3, 16, 100, 1000)) {
-                boolean[] values = nullValuesProvider.getPositions();
+                byte[] values = nullValuesProvider.getPositions();
                 byte[] encoded = encode(values);
                 FlatDefinitionLevelDecoder decoder = createNullsDecoder(vectorizedDecodingEnabled);
                 decoder.init(Slices.wrappedBuffer(encoded));
@@ -105,8 +105,8 @@ public class TestNullsDecoder
                 }
                 assertThat(nonNullCount).isEqualTo(nonNullCount(values, alreadyRead));
 
-                boolean[] result = new boolean[N - alreadyRead];
-                boolean[] expected = Arrays.copyOfRange(values, alreadyRead, values.length);
+                byte[] result = new byte[N - alreadyRead];
+                byte[] expected = Arrays.copyOfRange(values, alreadyRead, values.length);
                 int offset = 0;
                 while (alreadyRead < N) {
                     int chunkSize = min(batchSize, N - alreadyRead);
@@ -115,7 +115,7 @@ public class TestNullsDecoder
                     offset += chunkSize;
                 }
                 // Parquet encodes whether value exists, Trino whether value is null
-                boolean[] byteResult = flip(result);
+                byte[] byteResult = flip(result);
                 assertThat(byteResult).containsExactly(expected);
 
                 assertThat(nonNullCount).isEqualTo(nonNullCount(values));
@@ -127,65 +127,65 @@ public class TestNullsDecoder
     {
         ALL_NULLS {
             @Override
-            boolean[] getPositions()
+            byte[] getPositions()
             {
-                return new boolean[N];
+                return new byte[N];
             }
         },
         ALL_NON_NULLS {
             @Override
-            boolean[] getPositions()
+            byte[] getPositions()
             {
                 return ALL_NON_NULLS_ARRAY;
             }
         },
         RANDOM {
             @Override
-            boolean[] getPositions()
+            byte[] getPositions()
             {
                 return RANDOM_ARRAY;
             }
         },
         MIXED_RANDOM_AND_GROUPED {
             @Override
-            boolean[] getPositions()
+            byte[] getPositions()
             {
                 return MIXED_RANDOM_AND_GROUPED_ARRAY;
             }
         };
 
-        abstract boolean[] getPositions();
+        abstract byte[] getPositions();
     }
 
-    private static byte[] encode(boolean[] values)
+    private static byte[] encode(byte[] values)
             throws IOException
     {
         RunLengthBitPackingHybridEncoder encoder = new RunLengthBitPackingHybridEncoder(1, N, N, HeapByteBufferAllocator.getInstance());
         for (int i = 0; i < N; i++) {
-            encoder.writeInt(values[i] ? 1 : 0);
+            encoder.writeInt(values[i] != 0 ? 1 : 0);
         }
         return encoder.toBytes().toByteArray();
     }
 
-    private static boolean[] flip(boolean[] values)
+    private static byte[] flip(byte[] values)
     {
-        boolean[] result = new boolean[values.length];
+        byte[] result = new byte[values.length];
         for (int i = 0; i < values.length; i++) {
-            result[i] = !values[i];
+            result[i] = values[i] != 0 ? (byte) 0 : 1;
         }
         return result;
     }
 
-    private static int nonNullCount(boolean[] values)
+    private static int nonNullCount(byte[] values)
     {
         return nonNullCount(values, values.length);
     }
 
-    private static int nonNullCount(boolean[] values, int length)
+    private static int nonNullCount(byte[] values, int length)
     {
         int nonNullCount = 0;
         for (int i = 0; i < length; i++) {
-            nonNullCount += values[i] ? 1 : 0;
+            nonNullCount += values[i] != 0 ? 1 : 0;
         }
         return nonNullCount;
     }

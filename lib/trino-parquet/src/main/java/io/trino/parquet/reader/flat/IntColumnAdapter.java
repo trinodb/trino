@@ -40,7 +40,7 @@ public class IntColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, int[] values)
+    public Block createNullableBlock(byte[] nulls, int[] values)
     {
         return new IntArrayBlock(values.length, Optional.of(nulls), values);
     }

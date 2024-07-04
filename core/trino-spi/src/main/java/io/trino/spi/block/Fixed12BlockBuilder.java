@@ -29,7 +29,7 @@ public class Fixed12BlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(Fixed12BlockBuilder.class);
-    private static final Block NULL_VALUE_BLOCK = new Fixed12Block(0, 1, new boolean[] {true}, new int[3]);
+    private static final Block NULL_VALUE_BLOCK = new Fixed12Block(0, 1, new byte[] {1}, new int[3]);
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
@@ -41,7 +41,7 @@ public class Fixed12BlockBuilder
     private boolean hasNonNullValue;
 
     // it is assumed that these arrays are the same length
-    private boolean[] valueIsNull = new boolean[0];
+    private byte[] valueIsNull = new byte[0];
     private int[] values = new int[0];
 
     private long retainedSizeInBytes;
@@ -74,7 +74,7 @@ public class Fixed12BlockBuilder
 
         Fixed12Block fixed12Block = (Fixed12Block) block;
         if (fixed12Block.isNull(position)) {
-            valueIsNull[positionCount] = true;
+            valueIsNull[positionCount] = 1;
             hasNullValue = true;
         }
         else {
@@ -109,7 +109,7 @@ public class Fixed12BlockBuilder
 
         Fixed12Block fixed12Block = (Fixed12Block) block;
         if (fixed12Block.isNull(position)) {
-            Arrays.fill(valueIsNull, positionCount, positionCount + count, true);
+            Arrays.fill(valueIsNull, positionCount, positionCount + count, (byte) 1);
             hasNullValue = true;
         }
         else {
@@ -155,11 +155,11 @@ public class Fixed12BlockBuilder
         int[] rawValues = fixed12Block.getRawValues();
         System.arraycopy(rawValues, (rawOffset + offset) * 3, values, positionCount * 3, length * 3);
 
-        boolean[] rawValueIsNull = fixed12Block.getRawValueIsNull();
+        byte[] rawValueIsNull = fixed12Block.getRawValueIsNull();
         if (rawValueIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawValueIsNull[rawOffset + offset + i]) {
-                    valueIsNull[positionCount + i] = true;
+                if (rawValueIsNull[rawOffset + offset + i] != 0) {
+                    valueIsNull[positionCount + i] = 1;
                     hasNullValue = true;
                 }
                 else {
@@ -193,14 +193,14 @@ public class Fixed12BlockBuilder
         Fixed12Block fixed12Block = (Fixed12Block) block;
         int rawOffset = fixed12Block.getRawOffset();
         int[] rawValues = fixed12Block.getRawValues();
-        boolean[] rawValueIsNull = fixed12Block.getRawValueIsNull();
+        byte[] rawValueIsNull = fixed12Block.getRawValueIsNull();
 
         int positionIndex = positionCount * 3;
         if (rawValueIsNull != null) {
             for (int i = 0; i < length; i++) {
                 int rawPosition = positions[offset + i] + rawOffset;
-                if (rawValueIsNull[rawPosition]) {
-                    valueIsNull[positionCount + i] = true;
+                if (rawValueIsNull[rawPosition] != 0) {
+                    valueIsNull[positionCount + i] = 1;
                     hasNullValue = true;
                 }
                 else {
@@ -236,7 +236,7 @@ public class Fixed12BlockBuilder
     {
         ensureCapacity(positionCount + 1);
 
-        valueIsNull[positionCount] = true;
+        valueIsNull[positionCount] = 1;
 
         hasNullValue = true;
         positionCount++;

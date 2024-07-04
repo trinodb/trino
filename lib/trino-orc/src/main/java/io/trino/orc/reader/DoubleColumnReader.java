@@ -121,7 +121,7 @@ public class DoubleColumnReader
             block = readNonNullBlock();
         }
         else {
-            boolean[] isNull = new boolean[nextBatchSize];
+            byte[] isNull = new byte[nextBatchSize];
             int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
             if (nullCount == 0) {
                 block = readNonNullBlock();
@@ -149,7 +149,7 @@ public class DoubleColumnReader
         return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
     }
 
-    private Block readNullBlock(boolean[] isNull, int nonNullCount)
+    private Block readNullBlock(byte[] isNull, int nonNullCount)
             throws IOException
     {
         verifyNotNull(dataStream);

@@ -487,56 +487,56 @@ public class TestColumnarFilters
     {
         NO_NULLS {
             @Override
-            Optional<boolean[]> getNulls(int positionCount)
+            Optional<byte[]> getNulls(int positionCount)
             {
                 return Optional.empty();
             }
         },
         NO_NULLS_WITH_MAY_HAVE_NULL {
             @Override
-            Optional<boolean[]> getNulls(int positionCount)
+            Optional<byte[]> getNulls(int positionCount)
             {
-                return Optional.of(new boolean[positionCount]);
+                return Optional.of(new byte[positionCount]);
             }
         },
         ALL_NULLS {
             @Override
-            Optional<boolean[]> getNulls(int positionCount)
+            Optional<byte[]> getNulls(int positionCount)
             {
-                boolean[] nulls = new boolean[positionCount];
-                Arrays.fill(nulls, true);
+                byte[] nulls = new byte[positionCount];
+                Arrays.fill(nulls, (byte) 1);
                 return Optional.of(nulls);
             }
         },
         RANDOM_NULLS {
             @Override
-            Optional<boolean[]> getNulls(int positionCount)
+            Optional<byte[]> getNulls(int positionCount)
             {
-                boolean[] nulls = new boolean[positionCount];
+                byte[] nulls = new byte[positionCount];
                 for (int i = 0; i < positionCount; i++) {
-                    nulls[i] = RANDOM.nextBoolean();
+                    nulls[i] = RANDOM.nextBoolean() ? (byte) 1 : 0;
                 }
                 return Optional.of(nulls);
             }
         },
         GROUPED_NULLS {
             @Override
-            Optional<boolean[]> getNulls(int positionCount)
+            Optional<byte[]> getNulls(int positionCount)
             {
-                boolean[] nulls = new boolean[positionCount];
+                byte[] nulls = new byte[positionCount];
                 int maxGroupSize = 23;
                 int position = 0;
                 while (position < positionCount) {
                     int remaining = positionCount - position;
                     int groupSize = Math.min(RANDOM.nextInt(maxGroupSize) + 1, remaining);
-                    Arrays.fill(nulls, position, position + groupSize, RANDOM.nextBoolean());
+                    Arrays.fill(nulls, position, position + groupSize, RANDOM.nextBoolean() ? (byte) 1 : 0);
                     position += groupSize;
                 }
                 return Optional.of(nulls);
             }
         };
 
-        abstract Optional<boolean[]> getNulls(int positionCount);
+        abstract Optional<byte[]> getNulls(int positionCount);
     }
 
     private static Object[][] inputProviders()
@@ -623,16 +623,16 @@ public class TestColumnarFilters
             for (int i = 0; i < nonNullDictionarySize; i++) {
                 dictionaryValues[i] = toIntExact(CONSTANT - 10 + i);
             }
-            Optional<boolean[]> dictionaryIsNull = getDictionaryIsNull(nullsProvider, dictionarySize);
+            Optional<byte[]> dictionaryIsNull = getDictionaryIsNull(nullsProvider, dictionarySize);
             Block dictionary = new IntArrayBlock(dictionarySize, dictionaryIsNull, dictionaryValues);
             return createDictionaryBlock(positionsCount, nullsProvider, dictionary);
         }
 
-        Optional<boolean[]> isNull = nullsProvider.getNulls(positionsCount);
+        Optional<byte[]> isNull = nullsProvider.getNulls(positionsCount);
         assertThat(isNull.isEmpty() || isNull.get().length == positionsCount).isTrue();
         int[] values = new int[positionsCount];
         for (int i = 0; i < positionsCount; i++) {
-            if (isNull.isEmpty() || !isNull.get()[i]) {
+            if (isNull.isEmpty() || isNull.get()[i] == 0) {
                 values[i] = toIntExact(RANDOM.nextLong(CONSTANT - 10, CONSTANT + 10));
             }
         }
@@ -649,16 +649,16 @@ public class TestColumnarFilters
             for (int i = 0; i < nonNullDictionarySize; i++) {
                 dictionaryValues[i] = doubleToLongBits(CONSTANT - 100 + i);
             }
-            Optional<boolean[]> dictionaryIsNull = getDictionaryIsNull(nullsProvider, dictionarySize);
+            Optional<byte[]> dictionaryIsNull = getDictionaryIsNull(nullsProvider, dictionarySize);
             Block dictionary = new LongArrayBlock(dictionarySize, dictionaryIsNull, dictionaryValues);
             return createDictionaryBlock(positionsCount, nullsProvider, dictionary);
         }
 
-        Optional<boolean[]> isNull = nullsProvider.getNulls(positionsCount);
+        Optional<byte[]> isNull = nullsProvider.getNulls(positionsCount);
         assertThat(isNull.isEmpty() || isNull.get().length == positionsCount).isTrue();
         long[] values = new long[positionsCount];
         for (int i = 0; i < positionsCount; i++) {
-            if (isNull.isEmpty() || !isNull.get()[i]) {
+            if (isNull.isEmpty() || isNull.get()[i] == 0) {
                 values[i] = doubleToLongBits(RANDOM.nextDouble(CONSTANT - 100, CONSTANT + 100));
             }
         }
@@ -681,11 +681,11 @@ public class TestColumnarFilters
             return createDictionaryBlock(positionsCount, nullsProvider, builder.build());
         }
 
-        Optional<boolean[]> isNull = nullsProvider.getNulls(positionsCount);
+        Optional<byte[]> isNull = nullsProvider.getNulls(positionsCount);
         assertThat(isNull.isEmpty() || isNull.get().length == positionsCount).isTrue();
         VariableWidthBlockBuilder builder = new VariableWidthBlockBuilder(null, positionsCount, positionsCount * 10);
         for (int i = 0; i < positionsCount; i++) {
-            if (isNull.isPresent() && isNull.get()[i]) {
+            if (isNull.isPresent() && isNull.get()[i] != 0) {
                 builder.appendNull();
             }
             else {
@@ -698,10 +698,10 @@ public class TestColumnarFilters
     private static Block createArraysBlock(int positionsCount, NullsProvider nullsProvider)
     {
         ArrayBlockBuilder builder = new ArrayBlockBuilder(INTEGER, null, positionsCount);
-        Optional<boolean[]> isNull = nullsProvider.getNulls(positionsCount);
+        Optional<byte[]> isNull = nullsProvider.getNulls(positionsCount);
         assertThat(isNull.isEmpty() || isNull.get().length == positionsCount).isTrue();
         for (int position = 0; position < positionsCount; position++) {
-            if (isNull.isPresent() && isNull.get()[position]) {
+            if (isNull.isPresent() && isNull.get()[position] != 0) {
                 builder.appendNull();
             }
             else {
@@ -720,13 +720,13 @@ public class TestColumnarFilters
         return builder.build();
     }
 
-    private static Optional<boolean[]> getDictionaryIsNull(NullsProvider nullsProvider, int dictionarySize)
+    private static Optional<byte[]> getDictionaryIsNull(NullsProvider nullsProvider, int dictionarySize)
     {
-        Optional<boolean[]> dictionaryIsNull = Optional.empty();
+        Optional<byte[]> dictionaryIsNull = Optional.empty();
         if (nullsProvider != NullsProvider.NO_NULLS) {
-            dictionaryIsNull = Optional.of(new boolean[dictionarySize]);
+            dictionaryIsNull = Optional.of(new byte[dictionarySize]);
             if (nullsProvider != NullsProvider.NO_NULLS_WITH_MAY_HAVE_NULL) {
-                dictionaryIsNull.get()[dictionarySize - 1] = true;
+                dictionaryIsNull.get()[dictionarySize - 1] = 1;
             }
         }
         return dictionaryIsNull;
@@ -734,14 +734,14 @@ public class TestColumnarFilters
 
     private static Block createDictionaryBlock(int positionsCount, NullsProvider nullsProvider, Block dictionary)
     {
-        Optional<boolean[]> isNull = nullsProvider.getNulls(positionsCount);
+        Optional<byte[]> isNull = nullsProvider.getNulls(positionsCount);
         assertThat(isNull.isEmpty() || isNull.get().length == positionsCount).isTrue();
         boolean containsNulls = nullsProvider != NullsProvider.NO_NULLS && nullsProvider != NullsProvider.NO_NULLS_WITH_MAY_HAVE_NULL;
         int dictionarySize = dictionary.getPositionCount();
         int nonNullDictionarySize = dictionarySize - (containsNulls ? 1 : 0);
         int[] ids = new int[positionsCount];
         for (int i = 0; i < positionsCount; i++) {
-            if (isNull.isPresent() && isNull.get()[i]) {
+            if (isNull.isPresent() && isNull.get()[i] != 0) {
                 ids[i] = dictionarySize - 1;
             }
             else {

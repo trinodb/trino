@@ -38,17 +38,17 @@ public final class Fixed12Block
     private final int positionOffset;
     private final int positionCount;
     @Nullable
-    private final boolean[] valueIsNull;
+    private final byte[] valueIsNull;
     private final int[] values;
 
     private final long retainedSizeInBytes;
 
-    public Fixed12Block(int positionCount, Optional<boolean[]> valueIsNull, int[] values)
+    public Fixed12Block(int positionCount, Optional<byte[]> valueIsNull, int[] values)
     {
         this(0, positionCount, valueIsNull.orElse(null), values);
     }
 
-    Fixed12Block(int positionOffset, int positionCount, boolean[] valueIsNull, int[] values)
+    Fixed12Block(int positionOffset, int positionCount, byte[] valueIsNull, int[] values)
     {
         if (positionOffset < 0) {
             throw new IllegalArgumentException("positionOffset is negative");
@@ -160,7 +160,7 @@ public final class Fixed12Block
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);
-        return valueIsNull != null && valueIsNull[position + positionOffset];
+        return valueIsNull != null && valueIsNull[position + positionOffset] != 0;
     }
 
     @Override
@@ -171,7 +171,7 @@ public final class Fixed12Block
         return new Fixed12Block(
                 0,
                 1,
-                isNull(position) ? new boolean[] {true} : null,
+                isNull(position) ? new byte[] {1} : null,
                 new int[] {values[index], values[index + 1], values[index + 2]});
     }
 
@@ -180,9 +180,9 @@ public final class Fixed12Block
     {
         checkArrayRange(positions, offset, length);
 
-        boolean[] newValueIsNull = null;
+        byte[] newValueIsNull = null;
         if (valueIsNull != null) {
-            newValueIsNull = new boolean[length];
+            newValueIsNull = new byte[length];
         }
         int[] newValues = new int[length * 3];
         for (int i = 0; i < length; i++) {
@@ -214,7 +214,7 @@ public final class Fixed12Block
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         positionOffset += this.positionOffset;
-        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
+        byte[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
         int[] newValues = compactArray(values, positionOffset * 3, length * 3);
 
         if (newValueIsNull == valueIsNull && newValues == values) {
@@ -232,7 +232,7 @@ public final class Fixed12Block
     @Override
     public Fixed12Block copyWithAppendedNull()
     {
-        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, positionOffset, positionCount);
+        byte[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, positionOffset, positionCount);
         int[] newValues = ensureCapacity(values, (positionOffset + positionCount + 1) * 3);
         return new Fixed12Block(positionOffset, positionCount + 1, newValueIsNull, newValues);
     }
@@ -292,7 +292,7 @@ public final class Fixed12Block
     }
 
     @Nullable
-    boolean[] getRawValueIsNull()
+    byte[] getRawValueIsNull()
     {
         return valueIsNull;
     }

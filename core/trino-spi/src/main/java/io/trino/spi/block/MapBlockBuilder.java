@@ -43,7 +43,7 @@ public class MapBlockBuilder
 
     private int positionCount;
     private int[] offsets;
-    private boolean[] mapIsNull;
+    private byte[] mapIsNull;
     private boolean hasNullValue;
     private final BlockBuilder keyBlockBuilder;
     private final BlockBuilder valueBlockBuilder;
@@ -59,7 +59,7 @@ public class MapBlockBuilder
                 mapType.getKeyType().createBlockBuilder(blockBuilderStatus, expectedEntries),
                 mapType.getValueType().createBlockBuilder(blockBuilderStatus, expectedEntries),
                 new int[expectedEntries + 1],
-                new boolean[expectedEntries]);
+                new byte[expectedEntries]);
     }
 
     private MapBlockBuilder(
@@ -68,7 +68,7 @@ public class MapBlockBuilder
             BlockBuilder keyBlockBuilder,
             BlockBuilder valueBlockBuilder,
             int[] offsets,
-            boolean[] mapIsNull)
+            byte[] mapIsNull)
     {
         this.mapType = requireNonNull(mapType, "mapType is null");
 
@@ -226,7 +226,7 @@ public class MapBlockBuilder
             offsets = Arrays.copyOf(offsets, newSize + 1);
         }
         offsets[positionCount + 1] = keyBlockBuilder.getPositionCount();
-        mapIsNull[positionCount] = isNull;
+        mapIsNull[positionCount] = isNull ? (byte) 1 : 0;
         hasNullValue |= isNull;
         positionCount++;
 
@@ -242,13 +242,13 @@ public class MapBlockBuilder
         if (positionCount > 1 && hasNullValue) {
             boolean hasNonNull = false;
             for (int i = 0; i < positionCount; i++) {
-                hasNonNull |= !mapIsNull[i];
+                hasNonNull |= (mapIsNull[i] == 0);
             }
             if (!hasNonNull) {
                 Block emptyKeyBlock = mapType.getKeyType().createBlockBuilder(null, 0).build();
                 Block emptyValueBlock = mapType.getValueType().createBlockBuilder(null, 0).build();
                 int[] emptyOffsets = {0, 0};
-                boolean[] nulls = {true};
+                byte[] nulls = {1};
                 return RunLengthEncodedBlock.create(
                         createMapBlockInternal(
                                 mapType,
@@ -304,6 +304,6 @@ public class MapBlockBuilder
                 keyBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
                 valueBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
                 new int[expectedEntries + 1],
-                new boolean[expectedEntries]);
+                new byte[expectedEntries]);
     }
 }

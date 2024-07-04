@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.parquet.ParquetReaderUtils.castToByteNegate;
 
 public class BinaryColumnAdapter
         implements ColumnAdapter<BinaryBuffer>
@@ -49,7 +48,7 @@ public class BinaryColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, BinaryBuffer values)
+    public Block createNullableBlock(byte[] nulls, BinaryBuffer values)
     {
         return new VariableWidthBlock(values.getValueCount(), values.asSlice(), values.getOffsets(), Optional.of(nulls));
     }
@@ -62,8 +61,8 @@ public class BinaryColumnAdapter
                 "Dictionary buffer size %s did not match the expected value of %s",
                 dictionary.getValueCount(),
                 nonNullsCount + 1);
-        boolean[] nulls = new boolean[nonNullsCount + 1];
-        nulls[nonNullsCount] = true;
+        byte[] nulls = new byte[nonNullsCount + 1];
+        nulls[nonNullsCount] = 1;
         // Overwrite the next after last position with an empty value. This will be used as null.
         int[] offsets = dictionary.getOffsets();
         offsets[nonNullsCount + 1] = offsets[nonNullsCount];
@@ -77,7 +76,7 @@ public class BinaryColumnAdapter
     }
 
     @Override
-    public void unpackNullValues(BinaryBuffer sourceBuffer, BinaryBuffer destinationBuffer, boolean[] isNull, int destOffset, int nonNullCount, int totalValuesCount)
+    public void unpackNullValues(BinaryBuffer sourceBuffer, BinaryBuffer destinationBuffer, byte[] isNull, int destOffset, int nonNullCount, int totalValuesCount)
     {
         int endOffset = destOffset + totalValuesCount;
         int srcOffset = 0;
@@ -86,7 +85,7 @@ public class BinaryColumnAdapter
 
         while (srcOffset < nonNullCount) {
             destination[destOffset] = source[srcOffset];
-            srcOffset += castToByteNegate(isNull[destOffset]);
+            srcOffset += (byte) (isNull[destOffset] != 0 ? 0 : 1);
             destOffset++;
         }
         // The last+1 offset is always a sentinel value equal to last offset + last position length.

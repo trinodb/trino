@@ -141,7 +141,7 @@ public class FlatColumnReader<BufferType>
     {
         log.debug("readNullable field %s, nextBatchSize %d, remainingPageValueCount %d", field, nextBatchSize, remainingPageValueCount);
         NullableValuesBuffer<BufferType> valuesBuffer = createNullableValuesBuffer(nextBatchSize);
-        boolean[] isNull = new boolean[nextBatchSize];
+        byte[] isNull = new byte[nextBatchSize];
         int remainingInBatch = nextBatchSize;
         int offset = 0;
         while (remainingInBatch > 0) {
@@ -330,9 +330,9 @@ public class FlatColumnReader<BufferType>
 
     private interface NullableValuesBuffer<T>
     {
-        void readNullableValues(ValueDecoder<T> valueDecoder, boolean[] isNull, int offset, int nonNullCount, int valuesCount);
+        void readNullableValues(ValueDecoder<T> valueDecoder, byte[] isNull, int offset, int nonNullCount, int valuesCount);
 
-        ColumnChunk createNullableBlock(boolean[] isNull, Type type);
+        ColumnChunk createNullableBlock(byte[] isNull, Type type);
     }
 
     private static final class DataValuesBuffer<T>
@@ -359,7 +359,7 @@ public class FlatColumnReader<BufferType>
         }
 
         @Override
-        public void readNullableValues(ValueDecoder<T> valueDecoder, boolean[] isNull, int offset, int nonNullCount, int valuesCount)
+        public void readNullableValues(ValueDecoder<T> valueDecoder, byte[] isNull, int offset, int nonNullCount, int valuesCount)
         {
             // Only nulls
             if (nonNullCount == 0) {
@@ -393,7 +393,7 @@ public class FlatColumnReader<BufferType>
         }
 
         @Override
-        public ColumnChunk createNullableBlock(boolean[] isNull, Type type)
+        public ColumnChunk createNullableBlock(byte[] isNull, Type type)
         {
             log.debug("DataValuesBuffer createNullableBlock field %s, totalNullsCount %d, batchSize %d", field, totalNullsCount, batchSize);
             if (totalNullsCount == batchSize) {
@@ -430,7 +430,7 @@ public class FlatColumnReader<BufferType>
         }
 
         @Override
-        public void readNullableValues(ValueDecoder<T> valueDecoder, boolean[] isNull, int offset, int nonNullCount, int valuesCount)
+        public void readNullableValues(ValueDecoder<T> valueDecoder, byte[] isNull, int offset, int nonNullCount, int valuesCount)
         {
             // Parquet dictionary encodes only non-null values
             // Dictionary size is used as the id to denote nulls for Trino dictionary block
@@ -466,7 +466,7 @@ public class FlatColumnReader<BufferType>
         }
 
         @Override
-        public ColumnChunk createNullableBlock(boolean[] isNull, Type type)
+        public ColumnChunk createNullableBlock(byte[] isNull, Type type)
         {
             log.debug("DictionaryValuesBuffer createNullableBlock field %s, totalNullsCount %d, batchSize %d", field, totalNullsCount, batchSize);
             if (totalNullsCount == batchSize) {

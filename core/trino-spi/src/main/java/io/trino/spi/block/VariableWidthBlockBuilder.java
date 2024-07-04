@@ -33,7 +33,7 @@ public class VariableWidthBlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(VariableWidthBlockBuilder.class);
-    private static final Block NULL_VALUE_BLOCK = new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
+    private static final Block NULL_VALUE_BLOCK = new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new byte[] {1});
     private static final int SIZE_IN_BYTES_PER_POSITION = Integer.BYTES + Byte.BYTES;
 
     private final BlockBuilderStatus blockBuilderStatus;
@@ -46,7 +46,7 @@ public class VariableWidthBlockBuilder
     private boolean hasNullValue;
     private boolean hasNonNullValue;
     // it is assumed that the offsets array is one position longer than the valueIsNull array
-    private boolean[] valueIsNull = new boolean[0];
+    private byte[] valueIsNull = new byte[0];
     private int[] offsets = new int[1];
 
     private int positionCount;
@@ -114,7 +114,7 @@ public class VariableWidthBlockBuilder
         VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
         int bytesWritten = 0;
         if (variableWidthBlock.isNull(position)) {
-            valueIsNull[positionCount] = true;
+            valueIsNull[positionCount] = 1;
             hasNullValue = true;
         }
         else {
@@ -157,7 +157,7 @@ public class VariableWidthBlockBuilder
         VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;
         int bytesWritten = 0;
         if (variableWidthBlock.isNull(position)) {
-            Arrays.fill(valueIsNull, positionCount, positionCount + count, true);
+            Arrays.fill(valueIsNull, positionCount, positionCount + count, (byte) 1);
             Arrays.fill(offsets, positionCount + 1, positionCount + count + 1, offsets[positionCount]);
             hasNullValue = true;
         }
@@ -241,11 +241,11 @@ public class VariableWidthBlockBuilder
         }
 
         // update nulls
-        boolean[] rawValueIsNull = variableWidthBlock.getRawValueIsNull();
+        byte[] rawValueIsNull = variableWidthBlock.getRawValueIsNull();
         if (rawValueIsNull != null) {
             for (int i = 0; i < length; i++) {
-                if (rawValueIsNull[rawArrayBase + offset + i]) {
-                    valueIsNull[positionCount + i] = true;
+                if (rawValueIsNull[rawArrayBase + offset + i] != 0) {
+                    valueIsNull[positionCount + i] = 1;
                     hasNullValue = true;
                 }
                 else {
@@ -304,12 +304,12 @@ public class VariableWidthBlockBuilder
         }
 
         // update nulls
-        boolean[] rawValueIsNull = variableWidthBlock.getRawValueIsNull();
+        byte[] rawValueIsNull = variableWidthBlock.getRawValueIsNull();
         if (rawValueIsNull != null) {
             for (int i = 0; i < length; i++) {
                 int rawPosition = positions[offset + i] + rawArrayBase;
-                if (rawValueIsNull[rawPosition]) {
-                    valueIsNull[positionCount + i] = true;
+                if (rawValueIsNull[rawPosition] != 0) {
+                    valueIsNull[positionCount + i] = 1;
                     hasNullValue = true;
                 }
                 else {
@@ -346,7 +346,7 @@ public class VariableWidthBlockBuilder
     {
         ensureCapacity(positionCount + 1);
 
-        valueIsNull[positionCount] = isNull;
+        valueIsNull[positionCount] = isNull ? (byte) 1 : 0;
         offsets[positionCount + 1] = offsets[positionCount] + bytesWritten;
 
         positionCount++;

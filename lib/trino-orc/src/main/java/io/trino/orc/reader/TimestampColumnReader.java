@@ -201,7 +201,7 @@ public class TimestampColumnReader
             block = readNonNullBlock();
         }
         else {
-            boolean[] isNull = new boolean[nextBatchSize];
+            byte[] isNull = new byte[nextBatchSize];
             int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
             if (nullCount == 0) {
                 block = readNonNullBlock();
@@ -245,7 +245,7 @@ public class TimestampColumnReader
         };
     }
 
-    private Block readNullBlock(boolean[] isNull)
+    private Block readNullBlock(byte[] isNull)
             throws IOException
     {
         verifyStreamsPresent();
@@ -361,12 +361,12 @@ public class TimestampColumnReader
         return new LongArrayBlock(nextBatchSize, Optional.empty(), millis);
     }
 
-    private Block readNullTimestampMillis(boolean[] isNull)
+    private Block readNullTimestampMillis(byte[] isNull)
             throws IOException
     {
         long[] millis = new long[isNull.length];
         for (int i = 0; i < isNull.length; i++) {
-            if (!isNull[i]) {
+            if (isNull[i] == 0) {
                 millis[i] = readTimestampMillis();
             }
         }
@@ -410,12 +410,12 @@ public class TimestampColumnReader
         return new LongArrayBlock(nextBatchSize, Optional.empty(), micros);
     }
 
-    private Block readNullTimestampMicros(boolean[] isNull)
+    private Block readNullTimestampMicros(byte[] isNull)
             throws IOException
     {
         long[] micros = new long[nextBatchSize];
         for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNull[i]) {
+            if (isNull[i] == 0) {
                 micros[i] = readTimestampMicros();
             }
         }
@@ -462,12 +462,12 @@ public class TimestampColumnReader
         return new Fixed12Block(nextBatchSize, Optional.empty(), values);
     }
 
-    private Block readNullTimestampNanos(boolean[] isNull)
+    private Block readNullTimestampNanos(byte[] isNull)
             throws IOException
     {
         int[] values = new int[nextBatchSize * 3];
         for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNull[i]) {
+            if (isNull[i] == 0) {
                 readTimestampNanos(i, values);
             }
         }
@@ -519,12 +519,12 @@ public class TimestampColumnReader
         return new LongArrayBlock(nextBatchSize, Optional.empty(), millis);
     }
 
-    private Block readNullInstantMillis(boolean[] isNull)
+    private Block readNullInstantMillis(byte[] isNull)
             throws IOException
     {
         long[] millis = new long[nextBatchSize];
         for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNull[i]) {
+            if (isNull[i] == 0) {
                 millis[i] = readInstantMillis();
             }
         }
@@ -564,12 +564,12 @@ public class TimestampColumnReader
         return new Fixed12Block(nextBatchSize, Optional.empty(), values);
     }
 
-    private Block readNullInstantMicros(boolean[] isNull)
+    private Block readNullInstantMicros(byte[] isNull)
             throws IOException
     {
         int[] values = new int[nextBatchSize * 3];
         for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNull[i]) {
+            if (isNull[i] == 0) {
                 readInstantMicros(i, values);
             }
         }
@@ -620,12 +620,12 @@ public class TimestampColumnReader
         return new Fixed12Block(nextBatchSize, Optional.empty(), values);
     }
 
-    private Block readNullInstantNanos(boolean[] isNull)
+    private Block readNullInstantNanos(byte[] isNull)
             throws IOException
     {
         int[] values = new int[nextBatchSize * 3];
         for (int i = 0; i < nextBatchSize; i++) {
-            if (!isNull[i]) {
+            if (isNull[i] == 0) {
                 readInstantNanos(i, values);
             }
         }

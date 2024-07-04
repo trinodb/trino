@@ -78,7 +78,7 @@ public class TestLongArrayBlock
     public void testCompactBlock()
     {
         long[] longArray = {0L, 0L, 1L, 2L, 3L, 4L};
-        boolean[] valueIsNull = {false, true, false, false, false, false};
+        byte[] valueIsNull = {0, 1, 0, 0, 0, 0};
 
         testCompactBlock(new LongArrayBlock(0, Optional.empty(), new long[0]));
         testCompactBlock(new LongArrayBlock(longArray.length, Optional.of(valueIsNull), longArray));

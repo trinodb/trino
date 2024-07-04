@@ -38,17 +38,17 @@ public final class IntArrayBlock
     private final int arrayOffset;
     private final int positionCount;
     @Nullable
-    private final boolean[] valueIsNull;
+    private final byte[] valueIsNull;
     private final int[] values;
 
     private final long retainedSizeInBytes;
 
-    public IntArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, int[] values)
+    public IntArrayBlock(int positionCount, Optional<byte[]> valueIsNull, int[] values)
     {
         this(0, positionCount, valueIsNull.orElse(null), values);
     }
 
-    IntArrayBlock(int arrayOffset, int positionCount, boolean[] valueIsNull, int[] values)
+    IntArrayBlock(int arrayOffset, int positionCount, byte[] valueIsNull, int[] values)
     {
         if (arrayOffset < 0) {
             throw new IllegalArgumentException("arrayOffset is negative");
@@ -140,7 +140,7 @@ public final class IntArrayBlock
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);
-        return valueIsNull != null && valueIsNull[position + arrayOffset];
+        return valueIsNull != null && valueIsNull[position + arrayOffset] != 0;
     }
 
     @Override
@@ -150,7 +150,7 @@ public final class IntArrayBlock
         return new IntArrayBlock(
                 0,
                 1,
-                isNull(position) ? new boolean[] {true} : null,
+                isNull(position) ? new byte[] {1} : null,
                 new int[] {values[position + arrayOffset]});
     }
 
@@ -159,9 +159,9 @@ public final class IntArrayBlock
     {
         checkArrayRange(positions, offset, length);
 
-        boolean[] newValueIsNull = null;
+        byte[] newValueIsNull = null;
         if (valueIsNull != null) {
-            newValueIsNull = new boolean[length];
+            newValueIsNull = new byte[length];
         }
         int[] newValues = new int[length];
         for (int i = 0; i < length; i++) {
@@ -189,7 +189,7 @@ public final class IntArrayBlock
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         positionOffset += arrayOffset;
-        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
+        byte[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
         int[] newValues = compactArray(values, positionOffset, length);
 
         if (newValueIsNull == valueIsNull && newValues == values) {
@@ -207,7 +207,7 @@ public final class IntArrayBlock
     @Override
     public IntArrayBlock copyWithAppendedNull()
     {
-        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
+        byte[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
         int[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1);
 
         return new IntArrayBlock(arrayOffset, positionCount + 1, newValueIsNull, newValues);
@@ -231,7 +231,7 @@ public final class IntArrayBlock
         return BlockUtil.getNulls(valueIsNull, arrayOffset, positionCount);
     }
 
-    boolean[] getRawValueIsNull()
+    byte[] getRawValueIsNull()
     {
         return valueIsNull;
     }

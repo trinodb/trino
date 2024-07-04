@@ -14,7 +14,7 @@
 package io.trino.parquet.reader;
 
 import io.trino.parquet.Field;
-import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
+import it.unimi.dsi.fastutil.bytes.ByteArrayList;
 
 import java.util.Optional;
 
@@ -52,17 +52,17 @@ public final class StructColumnReader
         }
 
         int nullValuesCount = 0;
-        BooleanArrayList structIsNull = new BooleanArrayList();
+        ByteArrayList structIsNull = new ByteArrayList();
         for (int i = 0; i < fieldDefinitionLevels.length; i++) {
             if (fieldRepetitionLevels[i] <= maxRepetitionLevel) {
                 if (isOptionalFieldValueNull(fieldDefinitionLevels[i], maxDefinitionLevel)) {
                     // Struct is null
-                    structIsNull.add(true);
+                    structIsNull.add((byte) 1);
                     nullValuesCount++;
                 }
                 else if (fieldDefinitionLevels[i] >= maxDefinitionLevel) {
                     // Struct is defined and not empty
-                    structIsNull.add(false);
+                    structIsNull.add((byte) 0);
                 }
             }
         }
@@ -72,5 +72,5 @@ public final class StructColumnReader
         return new RowBlockPositions(Optional.of(structIsNull.elements()), structIsNull.size());
     }
 
-    public record RowBlockPositions(Optional<boolean[]> isNull, int positionsCount) {}
+    public record RowBlockPositions(Optional<byte[]> isNull, int positionsCount) {}
 }

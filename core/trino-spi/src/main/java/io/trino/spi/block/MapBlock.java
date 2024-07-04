@@ -50,7 +50,7 @@ public final class MapBlock
     private final int positionCount;
 
     @Nullable
-    private final boolean[] mapIsNull;
+    private final byte[] mapIsNull;
     private final int[] offsets;
     private final Block keyBlock;
     private final Block valueBlock;
@@ -65,7 +65,7 @@ public final class MapBlock
      * A null map must have no entries.
      */
     public static MapBlock fromKeyValueBlock(
-            Optional<boolean[]> mapIsNull,
+            Optional<byte[]> mapIsNull,
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
@@ -75,7 +75,7 @@ public final class MapBlock
     }
 
     public static MapBlock fromKeyValueBlock(
-            Optional<boolean[]> mapIsNull,
+            Optional<byte[]> mapIsNull,
             int[] offsets,
             int mapCount,
             Block keyBlock,
@@ -104,7 +104,7 @@ public final class MapBlock
             MapType mapType,
             int startOffset,
             int positionCount,
-            Optional<boolean[]> mapIsNull,
+            Optional<byte[]> mapIsNull,
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
@@ -118,7 +118,7 @@ public final class MapBlock
     private static void validateConstructorArguments(
             MapType mapType, int startOffset,
             int positionCount,
-            @Nullable boolean[] mapIsNull,
+            @Nullable byte[] mapIsNull,
             int[] offsets,
             Block keyBlock,
             Block valueBlock)
@@ -157,7 +157,7 @@ public final class MapBlock
             MapType mapType,
             int startOffset,
             int positionCount,
-            @Nullable boolean[] mapIsNull,
+            @Nullable byte[] mapIsNull,
             int[] offsets,
             Block keyBlock,
             Block valueBlock,
@@ -306,7 +306,7 @@ public final class MapBlock
     @Override
     public MapBlock copyWithAppendedNull()
     {
-        boolean[] newMapIsNull = copyIsNullAndAppendNull(mapIsNull, startOffset, getPositionCount());
+        byte[] newMapIsNull = copyIsNullAndAppendNull(mapIsNull, startOffset, getPositionCount());
         int[] newOffsets = copyOffsetsAndAppendNull(offsets, startOffset, getPositionCount());
 
         return createMapBlockInternal(
@@ -342,7 +342,7 @@ public final class MapBlock
         checkArrayRange(positions, offset, length);
 
         int[] newOffsets = new int[length + 1];
-        boolean[] newMapIsNull = null;
+        byte[] newMapIsNull = null;
 
         IntArrayList entriesPositions = new IntArrayList();
         int newPosition = 0;
@@ -350,9 +350,9 @@ public final class MapBlock
             int position = positions[i];
             if (isNull(position)) {
                 if (newMapIsNull == null) {
-                    newMapIsNull = new boolean[length];
+                    newMapIsNull = new byte[length];
                 }
-                newMapIsNull[newPosition] = true;
+                newMapIsNull[newPosition] = 1;
                 newOffsets[newPosition + 1] = newOffsets[newPosition];
             }
             else {
@@ -504,8 +504,8 @@ public final class MapBlock
         Block newValues = valueBlock.copyRegion(startValueOffset, endValueOffset - startValueOffset);
 
         int[] newOffsets = compactOffsets(offsets, position + startOffset, length);
-        boolean[] mapIsNull = this.mapIsNull;
-        boolean[] newMapIsNull;
+        byte[] mapIsNull = this.mapIsNull;
+        byte[] newMapIsNull;
         newMapIsNull = mapIsNull == null ? null : compactArray(mapIsNull, position + startOffset, length);
         int[] rawHashTables = hashTables.tryGet().orElse(null);
         int[] newRawHashTables = null;
@@ -562,7 +562,7 @@ public final class MapBlock
                 mapType,
                 0,
                 1,
-                Optional.of(new boolean[] {isNull(position)}),
+                Optional.of(new byte[] {mapIsNull == null ? 0 : mapIsNull[position + startOffset]}),
                 new int[] {0, valueLength},
                 newKeys,
                 newValues,
@@ -595,8 +595,8 @@ public final class MapBlock
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);
-        boolean[] mapIsNull = this.mapIsNull;
-        return mapIsNull != null && mapIsNull[position + startOffset];
+        byte[] mapIsNull = this.mapIsNull;
+        return mapIsNull != null && mapIsNull[position + startOffset] != 0;
     }
 
     @Override

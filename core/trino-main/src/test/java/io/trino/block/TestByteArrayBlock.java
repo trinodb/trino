@@ -79,7 +79,7 @@ public class TestByteArrayBlock
     public void testCompactBlock()
     {
         byte[] byteArray = {(byte) 0, (byte) 0, (byte) 1, (byte) 2, (byte) 3, (byte) 4};
-        boolean[] valueIsNull = {false, true, false, false, false, false};
+        byte[] valueIsNull = {0, 1, 0, 0, 0, 0};
 
         testCompactBlock(new ByteArrayBlock(0, Optional.empty(), new byte[0]));
         testCompactBlock(new ByteArrayBlock(byteArray.length, Optional.of(valueIsNull), byteArray));

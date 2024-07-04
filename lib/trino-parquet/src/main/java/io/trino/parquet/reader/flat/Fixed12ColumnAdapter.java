@@ -40,7 +40,7 @@ public class Fixed12ColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, int[] values)
+    public Block createNullableBlock(byte[] nulls, int[] values)
     {
         return new Fixed12Block(values.length / 3, Optional.of(nulls), values);
     }

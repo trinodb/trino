@@ -14,7 +14,7 @@
 package io.trino.parquet.reader;
 
 import io.trino.parquet.Field;
-import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
+import it.unimi.dsi.fastutil.bytes.ByteArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.util.Optional;
@@ -55,12 +55,12 @@ public final class ListColumnReader
             return new BlockPositions(Optional.empty(), offsets.toIntArray());
         }
 
-        BooleanArrayList collectionIsNull = new BooleanArrayList();
+        ByteArrayList collectionIsNull = new ByteArrayList();
         int nullValuesCount = 0;
         for (int i = 0; i < definitionLevels.length; i = getNextCollectionStartIndex(repetitionLevels, maxElementRepetitionLevel, i)) {
             if (definitionLevels[i] >= maxDefinitionLevel - 1) {
                 boolean isNull = isOptionalFieldValueNull(definitionLevels[i], maxDefinitionLevel);
-                collectionIsNull.add(isNull);
+                collectionIsNull.add(isNull ? (byte) 1 : 0);
                 nullValuesCount += isNull ? 1 : 0;
                 // definitionLevels[i] == maxDefinitionLevel - 1 => Collection is null
                 // definitionLevels[i] == maxDefinitionLevel     => Collection is defined but empty
@@ -77,7 +77,7 @@ public final class ListColumnReader
         return new BlockPositions(Optional.of(collectionIsNull.elements()), offsets.toIntArray());
     }
 
-    public record BlockPositions(Optional<boolean[]> isNull, int[] offsets) {}
+    public record BlockPositions(Optional<byte[]> isNull, int[] offsets) {}
 
     private static int getNextCollectionStartIndex(int[] repetitionLevels, int maxRepetitionLevel, int elementIndex)
     {

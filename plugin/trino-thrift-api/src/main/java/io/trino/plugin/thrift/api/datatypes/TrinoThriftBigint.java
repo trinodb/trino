@@ -26,7 +26,6 @@ import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -34,6 +33,7 @@ import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static io.trino.plugin.thrift.api.TrinoThriftBlock.bigintData;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.fromLongBasedBlock;
 import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.fromLongBasedColumn;
+import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.toNullByteArray;
 import static io.trino.spi.type.BigintType.BIGINT;
 
 /**
@@ -78,7 +78,7 @@ public final class TrinoThriftBigint
         int numberOfRecords = numberOfRecords();
         return new LongArrayBlock(
                 numberOfRecords,
-                Optional.ofNullable(nulls),
+                toNullByteArray(nulls, numberOfRecords),
                 longs == null ? new long[numberOfRecords] : longs);
     }
 

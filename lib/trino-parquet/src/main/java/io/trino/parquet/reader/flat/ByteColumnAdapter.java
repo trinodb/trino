@@ -40,7 +40,7 @@ public class ByteColumnAdapter
     }
 
     @Override
-    public Block createNullableBlock(boolean[] nulls, byte[] values)
+    public Block createNullableBlock(byte[] nulls, byte[] values)
     {
         return new ByteArrayBlock(values.length, Optional.of(nulls), values);
     }

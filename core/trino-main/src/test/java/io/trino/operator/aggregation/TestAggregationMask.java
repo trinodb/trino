@@ -39,23 +39,23 @@ public class TestAggregationMask
             aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.empty(), new int[positionCount]));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
-            boolean[] nullFlags = new boolean[positionCount];
+            byte[] nullFlags = new byte[positionCount];
             aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(nullFlags), new int[positionCount]));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
-            Arrays.fill(nullFlags, true);
-            nullFlags[1] = false;
-            nullFlags[3] = false;
-            nullFlags[5] = false;
+            Arrays.fill(nullFlags, (byte) 1);
+            nullFlags[1] = 0;
+            nullFlags[3] = 0;
+            nullFlags[5] = 0;
             aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(nullFlags), new int[positionCount]));
             assertAggregationMaskPositions(aggregationMask, positionCount, 1, 3, 5);
 
-            nullFlags[3] = true;
+            nullFlags[3] = 1;
             aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(nullFlags), new int[positionCount]));
             assertAggregationMaskPositions(aggregationMask, positionCount, 1, 5);
 
-            nullFlags[1] = true;
-            nullFlags[5] = true;
+            nullFlags[1] = 1;
+            nullFlags[5] = 1;
             aggregationMask.unselectNullPositions(new IntArrayBlock(positionCount, Optional.of(nullFlags), new int[positionCount]));
             assertAggregationMaskPositions(aggregationMask, positionCount);
 
@@ -65,10 +65,10 @@ public class TestAggregationMask
             aggregationMask.unselectNullPositions(RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.empty(), new int[1]), positionCount));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
-            aggregationMask.unselectNullPositions(RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.of(new boolean[] {false}), new int[1]), positionCount));
+            aggregationMask.unselectNullPositions(RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.of(new byte[] {0}), new int[1]), positionCount));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
-            aggregationMask.unselectNullPositions(RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.of(new boolean[] {true}), new int[1]), positionCount));
+            aggregationMask.unselectNullPositions(RunLengthEncodedBlock.create(new IntArrayBlock(1, Optional.of(new byte[] {1}), new int[1]), positionCount));
             assertAggregationMaskPositions(aggregationMask, positionCount);
         }
     }
@@ -132,23 +132,23 @@ public class TestAggregationMask
             aggregationMask.applyMaskBlock(new ByteArrayBlock(positionCount, Optional.empty(), mask));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
-            boolean[] nullFlags = new boolean[positionCount];
+            byte[] nullFlags = new byte[positionCount];
             aggregationMask.applyMaskBlock(new ByteArrayBlock(positionCount, Optional.of(nullFlags), mask));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
-            Arrays.fill(nullFlags, true);
-            nullFlags[1] = false;
-            nullFlags[3] = false;
-            nullFlags[5] = false;
+            Arrays.fill(nullFlags, (byte) 1);
+            nullFlags[1] = 0;
+            nullFlags[3] = 0;
+            nullFlags[5] = 0;
             aggregationMask.applyMaskBlock(new ByteArrayBlock(positionCount, Optional.of(nullFlags), mask));
             assertAggregationMaskPositions(aggregationMask, positionCount, 1, 3, 5);
 
-            nullFlags[3] = true;
+            nullFlags[3] = 1;
             aggregationMask.applyMaskBlock(new ByteArrayBlock(positionCount, Optional.of(nullFlags), mask));
             assertAggregationMaskPositions(aggregationMask, positionCount, 1, 5);
 
-            nullFlags[1] = true;
-            nullFlags[5] = true;
+            nullFlags[1] = 1;
+            nullFlags[5] = 1;
             aggregationMask.applyMaskBlock(new ByteArrayBlock(positionCount, Optional.of(nullFlags), mask));
             assertAggregationMaskPositions(aggregationMask, positionCount);
 
@@ -158,10 +158,10 @@ public class TestAggregationMask
             aggregationMask.applyMaskBlock(RunLengthEncodedBlock.create(new ByteArrayBlock(1, Optional.empty(), new byte[] {1}), positionCount));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
-            aggregationMask.applyMaskBlock(RunLengthEncodedBlock.create(new ByteArrayBlock(1, Optional.of(new boolean[] {false}), new byte[] {1}), positionCount));
+            aggregationMask.applyMaskBlock(RunLengthEncodedBlock.create(new ByteArrayBlock(1, Optional.of(new byte[] {0}), new byte[] {1}), positionCount));
             assertAggregationMaskAll(aggregationMask, positionCount);
 
-            aggregationMask.applyMaskBlock(RunLengthEncodedBlock.create(new ByteArrayBlock(1, Optional.of(new boolean[] {true}), new byte[] {1}), positionCount));
+            aggregationMask.applyMaskBlock(RunLengthEncodedBlock.create(new ByteArrayBlock(1, Optional.of(new byte[] {1}), new byte[] {1}), positionCount));
             assertAggregationMaskPositions(aggregationMask, positionCount);
         }
     }

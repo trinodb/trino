@@ -21,49 +21,49 @@ enum NullsProvider
 {
     NO_NULLS {
         @Override
-        Optional<boolean[]> getNulls(int positionCount)
+        Optional<byte[]> getNulls(int positionCount)
         {
             return Optional.empty();
         }
     },
     NO_NULLS_WITH_MAY_HAVE_NULL {
         @Override
-        Optional<boolean[]> getNulls(int positionCount)
+        Optional<byte[]> getNulls(int positionCount)
         {
-            return Optional.of(new boolean[positionCount]);
+            return Optional.of(new byte[positionCount]);
         }
     },
     ALL_NULLS {
         @Override
-        Optional<boolean[]> getNulls(int positionCount)
+        Optional<byte[]> getNulls(int positionCount)
         {
-            boolean[] nulls = new boolean[positionCount];
-            Arrays.fill(nulls, true);
+            byte[] nulls = new byte[positionCount];
+            Arrays.fill(nulls, (byte) 1);
             return Optional.of(nulls);
         }
     },
     RANDOM_NULLS {
         @Override
-        Optional<boolean[]> getNulls(int positionCount)
+        Optional<byte[]> getNulls(int positionCount)
         {
-            boolean[] nulls = new boolean[positionCount];
+            byte[] nulls = new byte[positionCount];
             for (int i = 0; i < positionCount; i++) {
-                nulls[i] = RANDOM.nextBoolean();
+                nulls[i] = RANDOM.nextBoolean() ? (byte) 1 : 0;
             }
             return Optional.of(nulls);
         }
     },
     GROUPED_NULLS {
         @Override
-        Optional<boolean[]> getNulls(int positionCount)
+        Optional<byte[]> getNulls(int positionCount)
         {
-            boolean[] nulls = new boolean[positionCount];
+            byte[] nulls = new byte[positionCount];
             int maxGroupSize = 23;
             int position = 0;
             while (position < positionCount) {
                 int remaining = positionCount - position;
                 int groupSize = Math.min(RANDOM.nextInt(maxGroupSize) + 1, remaining);
-                Arrays.fill(nulls, position, position + groupSize, RANDOM.nextBoolean());
+                Arrays.fill(nulls, position, position + groupSize, RANDOM.nextBoolean() ? (byte) 1 : 0);
                 position += groupSize;
             }
             return Optional.of(nulls);
@@ -72,11 +72,11 @@ enum NullsProvider
 
     private static final Random RANDOM = new Random(42);
 
-    abstract Optional<boolean[]> getNulls(int positionCount);
+    abstract Optional<byte[]> getNulls(int positionCount);
 
-    Optional<boolean[]> getNulls(int positionCount, Optional<boolean[]> forcedNulls)
+    Optional<byte[]> getNulls(int positionCount, Optional<byte[]> forcedNulls)
     {
-        Optional<boolean[]> nulls = getNulls(positionCount);
+        Optional<byte[]> nulls = getNulls(positionCount);
         if (forcedNulls.isEmpty()) {
             return nulls;
         }
@@ -84,11 +84,11 @@ enum NullsProvider
             return forcedNulls;
         }
 
-        boolean[] nullPositions = nulls.get();
-        boolean[] forcedNullPositions = forcedNulls.get();
+        byte[] nullPositions = nulls.get();
+        byte[] forcedNullPositions = forcedNulls.get();
         for (int i = 0; i < positionCount; i++) {
-            if (forcedNullPositions[i]) {
-                nullPositions[i] = true;
+            if (forcedNullPositions[i] != 0) {
+                nullPositions[i] = 1;
             }
         }
         return Optional.of(nullPositions);

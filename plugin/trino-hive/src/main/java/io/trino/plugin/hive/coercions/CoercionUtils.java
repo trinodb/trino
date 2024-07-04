@@ -393,10 +393,10 @@ public final class CoercionUtils
         {
             ColumnarArray arrayBlock = toColumnarArray(block);
             Block elementsBlock = elementCoercer.apply(arrayBlock.getElementsBlock());
-            boolean[] valueIsNull = new boolean[arrayBlock.getPositionCount()];
+            byte[] valueIsNull = new byte[arrayBlock.getPositionCount()];
             int[] offsets = new int[arrayBlock.getPositionCount() + 1];
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                valueIsNull[i] = arrayBlock.isNull(i);
+                valueIsNull[i] = arrayBlock.isNull(i) ? (byte) 1 : 0;
                 offsets[i + 1] = offsets[i] + arrayBlock.getLength(i);
             }
             return ArrayBlock.fromElementBlock(arrayBlock.getPositionCount(), Optional.of(valueIsNull), offsets, elementsBlock);
@@ -432,10 +432,10 @@ public final class CoercionUtils
             ColumnarMap mapBlock = toColumnarMap(block);
             Block keysBlock = keyCoercer.isEmpty() ? mapBlock.getKeysBlock() : keyCoercer.get().apply(mapBlock.getKeysBlock());
             Block valuesBlock = valueCoercer.isEmpty() ? mapBlock.getValuesBlock() : valueCoercer.get().apply(mapBlock.getValuesBlock());
-            boolean[] valueIsNull = new boolean[mapBlock.getPositionCount()];
+            byte[] valueIsNull = new byte[mapBlock.getPositionCount()];
             int[] offsets = new int[mapBlock.getPositionCount() + 1];
             for (int i = 0; i < mapBlock.getPositionCount(); i++) {
-                valueIsNull[i] = mapBlock.isNull(i);
+                valueIsNull[i] = mapBlock.isNull(i) ? (byte) 1 : 0;
                 offsets[i + 1] = offsets[i] + mapBlock.getEntryCount(i);
             }
             return toType.createBlockFromKeyValue(Optional.of(valueIsNull), offsets, keysBlock, valuesBlock);
@@ -473,7 +473,7 @@ public final class CoercionUtils
                 RowBlock rowBlock = (RowBlock) runLengthEncodedBlock.getValue();
                 RowBlock newRowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(
                         1,
-                        rowBlock.isNull(0) ? Optional.of(new boolean[] {true}) : Optional.empty(),
+                        rowBlock.isNull(0) ? Optional.of(new byte[] {1}) : Optional.empty(),
                         coerceFields(rowBlock.getFieldBlocks()));
                 return RunLengthEncodedBlock.create(newRowBlock, runLengthEncodedBlock.getPositionCount());
             }
@@ -497,15 +497,15 @@ public final class CoercionUtils
                     coerceFields(rowBlock.getFieldBlocks()));
         }
 
-        private static Optional<boolean[]> getNulls(Block rowBlock)
+        private static Optional<byte[]> getNulls(Block rowBlock)
         {
             if (!rowBlock.mayHaveNull()) {
                 return Optional.empty();
             }
 
-            boolean[] valueIsNull = new boolean[rowBlock.getPositionCount()];
+            byte[] valueIsNull = new byte[rowBlock.getPositionCount()];
             for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                valueIsNull[i] = rowBlock.isNull(i);
+                valueIsNull[i] = rowBlock.isNull(i) ? (byte) 1 : 0;
             }
             return Optional.of(valueIsNull);
         }

@@ -37,17 +37,17 @@ public final class ShortArrayBlock
     private final int arrayOffset;
     private final int positionCount;
     @Nullable
-    private final boolean[] valueIsNull;
+    private final byte[] valueIsNull;
     private final short[] values;
 
     private final long retainedSizeInBytes;
 
-    public ShortArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, short[] values)
+    public ShortArrayBlock(int positionCount, Optional<byte[]> valueIsNull, short[] values)
     {
         this(0, positionCount, valueIsNull.orElse(null), values);
     }
 
-    ShortArrayBlock(int arrayOffset, int positionCount, boolean[] valueIsNull, short[] values)
+    ShortArrayBlock(int arrayOffset, int positionCount, byte[] valueIsNull, short[] values)
     {
         if (arrayOffset < 0) {
             throw new IllegalArgumentException("arrayOffset is negative");
@@ -139,7 +139,7 @@ public final class ShortArrayBlock
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);
-        return valueIsNull != null && valueIsNull[position + arrayOffset];
+        return valueIsNull != null && valueIsNull[position + arrayOffset] != 0;
     }
 
     @Override
@@ -149,7 +149,7 @@ public final class ShortArrayBlock
         return new ShortArrayBlock(
                 0,
                 1,
-                isNull(position) ? new boolean[] {true} : null,
+                isNull(position) ? new byte[] {1} : null,
                 new short[] {values[position + arrayOffset]});
     }
 
@@ -158,9 +158,9 @@ public final class ShortArrayBlock
     {
         checkArrayRange(positions, offset, length);
 
-        boolean[] newValueIsNull = null;
+        byte[] newValueIsNull = null;
         if (valueIsNull != null) {
-            newValueIsNull = new boolean[length];
+            newValueIsNull = new byte[length];
         }
         short[] newValues = new short[length];
         for (int i = 0; i < length; i++) {
@@ -188,7 +188,7 @@ public final class ShortArrayBlock
         checkValidRegion(getPositionCount(), positionOffset, length);
 
         positionOffset += arrayOffset;
-        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
+        byte[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
         short[] newValues = compactArray(values, positionOffset, length);
 
         if (newValueIsNull == valueIsNull && newValues == values) {
@@ -206,7 +206,7 @@ public final class ShortArrayBlock
     @Override
     public ShortArrayBlock copyWithAppendedNull()
     {
-        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
+        byte[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
         short[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1);
         return new ShortArrayBlock(arrayOffset, positionCount + 1, newValueIsNull, newValues);
     }
@@ -239,7 +239,7 @@ public final class ShortArrayBlock
         return values;
     }
 
-    boolean[] getRawValueIsNull()
+    byte[] getRawValueIsNull()
     {
         return valueIsNull;
     }

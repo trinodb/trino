@@ -59,7 +59,7 @@ public class TestMapBlock
         Block inCompactKeyBlock = new ByteArrayBlock(16, Optional.empty(), createExpectedValue(17).getBytes());
         Block inCompactValueBlock = new ByteArrayBlock(16, Optional.empty(), createExpectedValue(17).getBytes());
         int[] offsets = {0, 1, 1, 2, 4, 8, 16};
-        boolean[] mapIsNull = {false, true, false, false, false, false};
+        byte[] mapIsNull = {0, 1, 0, 0, 0, 0};
 
         testCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.empty(), new int[1], emptyBlock, emptyBlock));
         testCompactBlock(mapType(TINYINT, TINYINT).createBlockFromKeyValue(Optional.of(mapIsNull), offsets, compactKeyBlock, compactValueBlock));
@@ -239,12 +239,12 @@ public class TestMapBlock
         List<String> keys = new ArrayList<>();
         List<Long> values = new ArrayList<>();
         int[] offsets = new int[maps.length + 1];
-        boolean[] mapIsNull = new boolean[maps.length];
+        byte[] mapIsNull = new byte[maps.length];
         boolean hasNullValue = false;
         for (int i = 0; i < maps.length; i++) {
             Map<String, Long> map = maps[i];
             boolean isNull = map == null;
-            mapIsNull[i] = isNull;
+            mapIsNull[i] = isNull ? (byte) 1 : 0;
             hasNullValue |= isNull;
             if (map == null) {
                 offsets[i + 1] = offsets[i];

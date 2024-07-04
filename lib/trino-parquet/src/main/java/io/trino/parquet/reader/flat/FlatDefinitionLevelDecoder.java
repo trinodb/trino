@@ -23,10 +23,10 @@ public interface FlatDefinitionLevelDecoder
     void init(Slice input);
 
     /**
-     * Populate 'values' with true for nulls and return the number of non-nulls encountered.
-     * 'values' array is assumed to be empty at the start of reading a batch, i.e. contain only false values.
+     * Populate 'values' with 1 for nulls and return the number of non-nulls encountered.
+     * 'values' array is assumed to be empty at the start of reading a batch, i.e. contain only 0 values.
      */
-    int readNext(boolean[] values, int offset, int length);
+    int readNext(byte[] values, int offset, int length);
 
     /**
      * Skip 'length' values and return the number of non-nulls encountered

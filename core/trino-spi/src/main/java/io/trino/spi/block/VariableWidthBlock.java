@@ -44,17 +44,17 @@ public final class VariableWidthBlock
     private final Slice slice;
     private final int[] offsets;
     @Nullable
-    private final boolean[] valueIsNull;
+    private final byte[] valueIsNull;
 
     private final long retainedSizeInBytes;
     private final long sizeInBytes;
 
-    public VariableWidthBlock(int positionCount, Slice slice, int[] offsets, Optional<boolean[]> valueIsNull)
+    public VariableWidthBlock(int positionCount, Slice slice, int[] offsets, Optional<byte[]> valueIsNull)
     {
         this(0, positionCount, slice, offsets, valueIsNull.orElse(null));
     }
 
-    VariableWidthBlock(int arrayOffset, int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)
+    VariableWidthBlock(int arrayOffset, int positionCount, Slice slice, int[] offsets, byte[] valueIsNull)
     {
         if (arrayOffset < 0) {
             throw new IllegalArgumentException("arrayOffset is negative");
@@ -195,14 +195,14 @@ public final class VariableWidthBlock
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);
-        return valueIsNull != null && valueIsNull[position + arrayOffset];
+        return valueIsNull != null && valueIsNull[position + arrayOffset] != 0;
     }
 
     @Override
     public VariableWidthBlock getSingleValueBlock(int position)
     {
         if (isNull(position)) {
-            return new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
+            return new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new byte[] {1});
         }
 
         int offset = getPositionOffset(position);
@@ -230,10 +230,10 @@ public final class VariableWidthBlock
         }
 
         SliceOutput newSlice = Slices.allocate(finalLength).getOutput();
-        boolean[] newValueIsNull = null;
+        byte[] newValueIsNull = null;
         int firstPosition = positions[offset];
         if (valueIsNull != null) {
-            newValueIsNull = new boolean[length];
+            newValueIsNull = new byte[length];
             newValueIsNull[0] = valueIsNull[firstPosition + arrayOffset];
         }
         int currentStart = getPositionOffset(firstPosition);
@@ -273,7 +273,7 @@ public final class VariableWidthBlock
 
         int[] newOffsets = compactOffsets(offsets, positionOffset, length);
         Slice newSlice = compactSlice(slice, offsets[positionOffset], newOffsets[length]);
-        boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
+        byte[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
 
         if (newOffsets == offsets && newSlice == slice && newValueIsNull == valueIsNull) {
             return this;
@@ -290,7 +290,7 @@ public final class VariableWidthBlock
     @Override
     public VariableWidthBlock copyWithAppendedNull()
     {
-        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
+        byte[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
         int[] newOffsets = copyOffsetsAndAppendNull(offsets, arrayOffset, positionCount);
 
         return new VariableWidthBlock(arrayOffset, positionCount + 1, slice, newOffsets, newValueIsNull);
@@ -306,7 +306,7 @@ public final class VariableWidthBlock
         return offsets;
     }
 
-    boolean[] getRawValueIsNull()
+    byte[] getRawValueIsNull()
     {
         return valueIsNull;
     }

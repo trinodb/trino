@@ -16,7 +16,7 @@ package io.trino.parquet.reader.decoders;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.parquet.reader.flat.BitPackingUtils;
 
-import static io.trino.parquet.reader.flat.BitPackingUtils.unpack;
+import static io.trino.parquet.reader.flat.BitPackingUtils.unpackSet;
 import static io.trino.parquet.reader.flat.VectorBitPackingUtils.vectorUnpack8FromByte;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -74,7 +74,7 @@ public class BooleanPlainValueDecoders
             if (alreadyReadBits != 0) { // Use partially unpacked byte
                 int bitsRemaining = Byte.SIZE - alreadyReadBits;
                 int chunkSize = min(bitsRemaining, length);
-                unpack(values, offset, partiallyReadByte, alreadyReadBits, alreadyReadBits + chunkSize);
+                unpackSet(values, offset, partiallyReadByte, alreadyReadBits, alreadyReadBits + chunkSize);
                 alreadyReadBits = (alreadyReadBits + chunkSize) % Byte.SIZE; // Set to 0 when full byte reached
                 if (length == chunkSize) {
                     return;
@@ -96,7 +96,7 @@ public class BooleanPlainValueDecoders
             alreadyReadBits = length % Byte.SIZE;
             if (alreadyReadBits != 0) {
                 partiallyReadByte = input.readByte();
-                unpack(values, offset, partiallyReadByte, 0, alreadyReadBits);
+                unpackSet(values, offset, partiallyReadByte, 0, alreadyReadBits);
             }
         }
     }
@@ -110,7 +110,7 @@ public class BooleanPlainValueDecoders
             if (alreadyReadBits != 0) { // Use partially unpacked byte
                 int bitsRemaining = Byte.SIZE - alreadyReadBits;
                 int chunkSize = min(bitsRemaining, length);
-                unpack(values, offset, partiallyReadByte, alreadyReadBits, alreadyReadBits + chunkSize);
+                unpackSet(values, offset, partiallyReadByte, alreadyReadBits, alreadyReadBits + chunkSize);
                 alreadyReadBits = (alreadyReadBits + chunkSize) % Byte.SIZE; // Set to 0 when full byte reached
                 if (length == chunkSize) {
                     return;
@@ -135,7 +135,7 @@ public class BooleanPlainValueDecoders
             alreadyReadBits = length % Byte.SIZE;
             if (alreadyReadBits != 0) {
                 partiallyReadByte = input.readByte();
-                unpack(values, offset, partiallyReadByte, 0, alreadyReadBits);
+                unpackSet(values, offset, partiallyReadByte, 0, alreadyReadBits);
             }
         }
     }
