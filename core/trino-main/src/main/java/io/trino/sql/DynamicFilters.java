@@ -116,6 +116,20 @@ public final class DynamicFilters
 
     public static Multimap<DynamicFilterId, Descriptor> extractSourceSymbols(List<DynamicFilters.Descriptor> dynamicFilters)
     {
+        // Let's imagine if the probe-side is a union, and we need to match multiple
+        // probe-side symbols to the dynamic filter. For example, the following SQL:
+        // ```
+        // SELECT b.orderkey
+        // FROM (
+        //    SELECT custkey FROM tpch.sf1.customer WHERE custkey = 1
+        //    UNION
+        //    SELECT custkey FROM tpch.sf1.customer WHERE custkey = 2
+        // ) a
+        // JOIN tpch.sf1.orders b ON a.custkey = b.custkey
+        // ```
+        // We need to pass the dynamic filter generated from "tpch.sf1.orders" to the two
+        // "tpch.sf1.customer" in the union, so we use `Multimap` here to match the case
+        // where there may be one dynamic filter for multiple symbols on the probe-side.
         return dynamicFilters.stream()
                 .collect(toImmutableListMultimap(
                         DynamicFilters.Descriptor::getId,
