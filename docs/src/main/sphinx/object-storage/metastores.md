@@ -550,8 +550,7 @@ iceberg.jdbc-catalog.connection-password=test
 iceberg.jdbc-catalog.default-warehouse-dir=s3://bucket
 ```
 
-The JDBC catalog does not support [view management](sql-view-management) or
-[materialized view management](sql-materialized-view-management).
+The JDBC catalog does not support [materialized view management](sql-materialized-view-management).
 
 (iceberg-nessie-catalog)=
 ### Nessie catalog
