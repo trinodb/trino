@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.TypeManager;
@@ -65,7 +64,6 @@ record IcebergStatistics(
 
     static class Builder
     {
-        private final List<Types.NestedField> columns;
         private final TypeManager typeManager;
         private final Map<Integer, io.trino.spi.type.Type> fieldIdToTrinoType;
 
@@ -81,9 +79,7 @@ record IcebergStatistics(
                 List<Types.NestedField> columns,
                 TypeManager typeManager)
         {
-            this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
-
             this.fieldIdToTrinoType = columns.stream()
                     .collect(toImmutableMap(Types.NestedField::fieldId, column -> toTrinoType(column.type(), typeManager)));
         }
@@ -96,11 +92,10 @@ record IcebergStatistics(
 
             Map<Integer, Long> newColumnSizes = dataFile.columnSizes();
             if (newColumnSizes != null) {
-                for (Types.NestedField column : columns) {
-                    int id = column.fieldId();
-                    Long addedSize = newColumnSizes.get(id);
+                for (Map.Entry<Integer, Long> entry : newColumnSizes.entrySet()) {
+                    Long addedSize = entry.getValue();
                     if (addedSize != null) {
-                        columnSizes.merge(id, addedSize, Long::sum);
+                        columnSizes.merge(entry.getKey(), addedSize, Long::sum);
                     }
                 }
             }
