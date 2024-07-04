@@ -501,6 +501,40 @@ public class TestIcebergFileOperations
     }
 
     @Test
+    public void testSelfJoinStatistics()
+    {
+        assertUpdate("CREATE TABLE test_self_join AS SELECT 'name1' AS name, 2 AS age, 'id1' AS id", 1);
+
+        // We use column statistics for all three columns from t1 and single column from t2.
+        // IcebergMetadata#tableStatisticsCache should be able to avoid multiple reads by re-using stats from t1.
+        assertFileSystemAccesses("EXPLAIN SELECT t1.name, t1.age FROM test_self_join t1 JOIN test_self_join t2 ON t1.id = t2.id",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .build());
+
+        // Same columns projected from both t1 and t2, but with different predicate which prevents reuse of statistics from IcebergMetadata#tableStatisticsCache
+        assertFileSystemAccesses("EXPLAIN SELECT t1.age FROM test_self_join t1 JOIN test_self_join t2 ON t1.id = t2.id WHERE t2.age > 0",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .build());
+
+        // Different columns projected from t1 and t2 prevents reuse of statistics from IcebergMetadata#tableStatisticsCache
+        assertFileSystemAccesses("EXPLAIN SELECT t1.name FROM test_self_join t1 JOIN test_self_join t2 ON t1.name = t2.id",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .addCopies(new FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .build());
+    }
+
+    @Test
     public void testJoinWithPartitionedTable()
     {
         assertUpdate("CREATE TABLE test_join_partitioned_t1 (a BIGINT, b TIMESTAMP(6) with time zone) WITH (partitioning = ARRAY['a', 'day(b)'])");

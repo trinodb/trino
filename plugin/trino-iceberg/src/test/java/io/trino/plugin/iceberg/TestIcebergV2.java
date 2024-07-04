@@ -36,6 +36,9 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.DoubleRange;
+import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.TypeManager;
@@ -935,7 +938,15 @@ public class TestIcebergV2
             Optional<Long> snapshotId = Optional.of((long) computeScalar("SELECT snapshot_id FROM \"" + testTable.getName() + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
             TypeManager typeManager = new TestingTypeManager();
             Table table = loadTable(testTable.getName());
-            TableStatistics withNoFilter = TableStatisticsReader.makeTableStatistics(typeManager, table, snapshotId, TupleDomain.all(), TupleDomain.all(), true, fileSystemFactory.create(SESSION));
+            TableStatistics withNoFilter = TableStatisticsReader.makeTableStatistics(
+                    typeManager,
+                    table,
+                    snapshotId,
+                    TupleDomain.all(),
+                    TupleDomain.all(),
+                    ImmutableSet.of(),
+                    true,
+                    fileSystemFactory.create(SESSION));
             assertThat(withNoFilter.getRowCount().getValue()).isEqualTo(4.0);
 
             TableStatistics withPartitionFilter = TableStatisticsReader.makeTableStatistics(
@@ -943,24 +954,90 @@ public class TestIcebergV2
                     table,
                     snapshotId,
                     TupleDomain.withColumnDomains(ImmutableMap.of(
-                            new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(1, "b"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty()),
+                            new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(2, "b"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty()),
                             Domain.singleValue(INTEGER, 10L))),
                     TupleDomain.all(),
+                    ImmutableSet.of(),
                     true,
                     fileSystemFactory.create(SESSION));
             assertThat(withPartitionFilter.getRowCount().getValue()).isEqualTo(3.0);
 
+            IcebergColumnHandle column = new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(1, "a"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
             TableStatistics withUnenforcedFilter = TableStatisticsReader.makeTableStatistics(
                     typeManager,
                     table,
                     snapshotId,
                     TupleDomain.all(),
                     TupleDomain.withColumnDomains(ImmutableMap.of(
-                            new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(0, "a"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty()),
+                            column,
                             Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 100L)), true))),
+                    ImmutableSet.of(column),
                     true,
                     fileSystemFactory.create(SESSION));
             assertThat(withUnenforcedFilter.getRowCount().getValue()).isEqualTo(2.0);
+        }
+    }
+
+    @Test
+    public void testColumnStatsPruning()
+    {
+        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_column_stats_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (1, 10), (10, 10)", 2);
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (200, 10), (300, 20)", 2);
+
+            Optional<Long> snapshotId = Optional.of((long) computeScalar("SELECT snapshot_id FROM \"" + testTable.getName() + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
+            TypeManager typeManager = new TestingTypeManager();
+            Table table = loadTable(testTable.getName());
+            TableStatistics withNoProjectedColumns = TableStatisticsReader.makeTableStatistics(
+                    typeManager,
+                    table,
+                    snapshotId,
+                    TupleDomain.all(),
+                    TupleDomain.all(),
+                    ImmutableSet.of(),
+                    true,
+                    fileSystemFactory.create(SESSION));
+            assertThat(withNoProjectedColumns.getRowCount().getValue()).isEqualTo(4.0);
+            assertThat(withNoProjectedColumns.getColumnStatistics()).isEmpty();
+
+            IcebergColumnHandle column = new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(1, "a"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
+            TableStatistics withProjectedColumns = TableStatisticsReader.makeTableStatistics(
+                    typeManager,
+                    table,
+                    snapshotId,
+                    TupleDomain.all(),
+                    TupleDomain.all(),
+                    ImmutableSet.of(column),
+                    true,
+                    fileSystemFactory.create(SESSION));
+            assertThat(withProjectedColumns.getRowCount().getValue()).isEqualTo(4.0);
+            assertThat(withProjectedColumns.getColumnStatistics()).containsOnlyKeys(column);
+            assertThat(withProjectedColumns.getColumnStatistics().get(column))
+                    .isEqualTo(ColumnStatistics.builder()
+                            .setNullsFraction(Estimate.zero())
+                            .setDistinctValuesCount(Estimate.of(4.0))
+                            .setRange(new DoubleRange(1.0, 300.0))
+                            .build());
+
+            TableStatistics withPartitionFilterAndProjectedColumn = TableStatisticsReader.makeTableStatistics(
+                    typeManager,
+                    table,
+                    snapshotId,
+                    TupleDomain.all(),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(
+                            new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(2, "b"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty()),
+                            Domain.singleValue(INTEGER, 10L))),
+                    ImmutableSet.of(column),
+                    true,
+                    fileSystemFactory.create(SESSION));
+            assertThat(withPartitionFilterAndProjectedColumn.getRowCount().getValue()).isEqualTo(3.0);
+            assertThat(withPartitionFilterAndProjectedColumn.getColumnStatistics()).containsOnlyKeys(column);
+            assertThat(withPartitionFilterAndProjectedColumn.getColumnStatistics().get(column))
+                    .isEqualTo(ColumnStatistics.builder()
+                            .setNullsFraction(Estimate.zero())
+                            .setDistinctValuesCount(Estimate.of(4.0))
+                            .setRange(new DoubleRange(1.0, 200.0))
+                            .build());
         }
     }
 
