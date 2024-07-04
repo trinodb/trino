@@ -187,7 +187,9 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -345,7 +347,7 @@ public class IcebergMetadata
     private final IcebergFileSystemFactory fileSystemFactory;
     private final TableStatisticsWriter tableStatisticsWriter;
 
-    private final Map<IcebergTableHandle, TableStatistics> tableStatisticsCache = new ConcurrentHashMap<>();
+    private final Map<IcebergTableHandle, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
 
     private Transaction transaction;
     private Optional<Long> fromSnapshotForRefresh = Optional.empty();
@@ -2249,7 +2251,11 @@ public class IcebergMetadata
             // Assume new table (CTAS), collect all stats possible
             return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), availableColumnNames -> {});
         }
-        TableStatistics tableStatistics = getTableStatistics(session, checkValidTableHandle(tableHandle));
+        IcebergTableHandle table = checkValidTableHandle(tableHandle);
+        Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
+        TableStatistics tableStatistics = getTableStatistics(
+                session,
+                table.withProjectedColumns(ImmutableSet.copyOf(getTopLevelColumns(schema, typeManager))));
         if (tableStatistics.getRowCount().getValue() == 0.0) {
             // Table has no data (empty, or wiped out). Collect all stats possible
             return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), availableColumnNames -> {});
@@ -2891,36 +2897,41 @@ public class IcebergMetadata
         checkArgument(!originalHandle.isRecordScannedFiles(), "Unexpected scanned files recording set");
         checkArgument(originalHandle.getMaxScannedFileSize().isEmpty(), "Unexpected max scanned file size set");
 
-        return tableStatisticsCache.computeIfAbsent(
-                new IcebergTableHandle(
-                        originalHandle.getCatalog(),
-                        originalHandle.getSchemaName(),
-                        originalHandle.getTableName(),
-                        originalHandle.getTableType(),
-                        originalHandle.getSnapshotId(),
-                        originalHandle.getTableSchemaJson(),
-                        originalHandle.getPartitionSpecJson(),
-                        originalHandle.getFormatVersion(),
-                        originalHandle.getUnenforcedPredicate(),
-                        originalHandle.getEnforcedPredicate(),
-                        OptionalLong.empty(), // limit is currently not included in stats and is not enforced by the connector
-                        ImmutableSet.of(), // projectedColumns don't affect stats
-                        originalHandle.getNameMappingJson(),
-                        originalHandle.getTableLocation(),
-                        originalHandle.getStorageProperties(),
-                        false, // recordScannedFiles does not affect stats
-                        originalHandle.getMaxScannedFileSize(),
-                        ImmutableSet.of(), // constraintColumns do not affect stats
-                        Optional.empty()), // forAnalyze does not affect stats
-                handle -> {
-                    Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
+        IcebergTableHandle cacheKey = new IcebergTableHandle(
+                originalHandle.getCatalog(),
+                originalHandle.getSchemaName(),
+                originalHandle.getTableName(),
+                originalHandle.getTableType(),
+                originalHandle.getSnapshotId(),
+                originalHandle.getTableSchemaJson(),
+                originalHandle.getPartitionSpecJson(),
+                originalHandle.getFormatVersion(),
+                originalHandle.getUnenforcedPredicate(),
+                originalHandle.getEnforcedPredicate(),
+                OptionalLong.empty(), // limit is currently not included in stats and is not enforced by the connector
+                ImmutableSet.of(), // projectedColumns are used to request statistics only for the required columns, but are not part of cache key
+                originalHandle.getNameMappingJson(),
+                originalHandle.getTableLocation(),
+                originalHandle.getStorageProperties(),
+                false, // recordScannedFiles does not affect stats
+                originalHandle.getMaxScannedFileSize(),
+                ImmutableSet.of(), // constraintColumns do not affect stats
+                Optional.empty()); // forAnalyze does not affect stats
+        return getIncrementally(
+                tableStatisticsCache,
+                cacheKey,
+                currentStatistics -> currentStatistics.getColumnStatistics().keySet().containsAll(originalHandle.getProjectedColumns()),
+                projectedColumns -> {
+                    Table icebergTable = catalog.loadTable(session, originalHandle.getSchemaTableName());
                     return TableStatisticsReader.getTableStatistics(
                             typeManager,
                             session,
-                            handle,
+                            originalHandle,
+                            projectedColumns,
                             icebergTable,
                             fileSystemFactory.create(session.getIdentity(), icebergTable.io().properties()));
-                });
+                },
+                originalHandle.getProjectedColumns());
     }
 
     @Override
@@ -3370,4 +3381,48 @@ public class IcebergMetadata
 
     private record UnknownTableChange()
             implements TableChangeInfo {}
+
+    private static TableStatistics getIncrementally(
+            Map<IcebergTableHandle, AtomicReference<TableStatistics>> cache,
+            IcebergTableHandle key,
+            Predicate<TableStatistics> isSufficient,
+            Function<Set<IcebergColumnHandle>, TableStatistics> columnStatisticsLoader,
+            Set<IcebergColumnHandle> projectedColumns)
+    {
+        AtomicReference<TableStatistics> valueHolder = cache.computeIfAbsent(key, _ -> new AtomicReference<>());
+        TableStatistics oldValue = valueHolder.get();
+        if (oldValue != null && isSufficient.test(oldValue)) {
+            return oldValue;
+        }
+
+        TableStatistics newValue;
+        if (oldValue == null) {
+            newValue = columnStatisticsLoader.apply(projectedColumns);
+        }
+        else {
+            Sets.SetView<IcebergColumnHandle> missingColumns = difference(projectedColumns, oldValue.getColumnStatistics().keySet());
+            newValue = columnStatisticsLoader.apply(missingColumns);
+        }
+
+        verifyNotNull(newValue, "loader returned null for %s", key);
+
+        TableStatistics merged = mergeColumnStatistics(oldValue, newValue);
+        if (!valueHolder.compareAndSet(oldValue, merged)) {
+            // if the value changed in the valueHolder, we only add newly loaded value to be sure we have up-to-date value
+            valueHolder.accumulateAndGet(newValue, IcebergMetadata::mergeColumnStatistics);
+        }
+        return merged;
+    }
+
+    private static TableStatistics mergeColumnStatistics(TableStatistics currentStats, TableStatistics newStats)
+    {
+        requireNonNull(newStats, "newStats is null");
+        TableStatistics.Builder statisticsBuilder = TableStatistics.builder();
+        if (currentStats != null) {
+            currentStats.getColumnStatistics().forEach(statisticsBuilder::setColumnStatistics);
+        }
+        statisticsBuilder.setRowCount(newStats.getRowCount());
+        newStats.getColumnStatistics().forEach(statisticsBuilder::setColumnStatistics);
+        return statisticsBuilder.build();
+    }
 }
