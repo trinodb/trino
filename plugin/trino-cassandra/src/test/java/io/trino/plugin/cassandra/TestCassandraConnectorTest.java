@@ -1481,20 +1481,23 @@ public class TestCassandraConnectorTest
     @Test
     public void testNativeQueryCaseSensitivity()
     {
-        String tableName = "test_case" + randomNameSuffix();
-        onCassandra("CREATE TABLE tpch." + tableName + "(col_case BIGINT PRIMARY KEY, \"COL_CASE\" BIGINT)");
-        onCassandra("INSERT INTO tpch." + tableName + "(col_case, \"COL_CASE\") VALUES (1, 2)");
-        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row(tableName)
-                .build(), new Duration(1, MINUTES));
+        // This test creates columns with names that collide in a way not supported by the connector. Run it exclusively to prevent other tests from failing.
+        executeExclusively(() -> {
+            String tableName = "test_case" + randomNameSuffix();
+            onCassandra("CREATE TABLE tpch." + tableName + "(col_case BIGINT PRIMARY KEY, \"COL_CASE\" BIGINT)");
+            onCassandra("INSERT INTO tpch." + tableName + "(col_case, \"COL_CASE\") VALUES (1, 2)");
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row(tableName)
+                    .build(), new Duration(1, MINUTES));
 
-        assertQuery(
-                "SELECT * FROM TABLE(cassandra.system.query(query => 'SELECT * FROM tpch." + tableName + "'))",
-                "VALUES (1, 2)");
+            assertQuery(
+                    "SELECT * FROM TABLE(cassandra.system.query(query => 'SELECT * FROM tpch." + tableName + "'))",
+                    "VALUES (1, 2)");
 
-        onCassandra("DROP TABLE tpch." + tableName);
-        // Wait until the table becomes invisible to Trino. Otherwise, testSelectInformationSchemaColumns may fail due to ambiguous column names.
-        assertEventually(() -> assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse());
+            onCassandra("DROP TABLE tpch." + tableName);
+            // Wait until the table becomes invisible to Trino. Otherwise, testSelectInformationSchemaColumns may fail due to ambiguous column names.
+            assertEventually(() -> assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse());
+        });
     }
 
     @Test
