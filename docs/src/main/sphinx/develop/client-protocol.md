@@ -229,9 +229,9 @@ subsequent requests to be consistent with the response headers received.
     *property* with value *value* in the `X-Trino-Session` header of subsequent
     client requests.
 * - `X-Trino-Clear-Session`
-  - Instructs the client to remove the session property with the whose name is
-    the value of the `X-Trino-Clear-Session` header from the list of session
-    properties in the `X-Trino-Session` header in subsequent client requests.
+  - Instructs the client to remove the session property whose name is the value
+    of the `X-Trino-Clear-Session` header from the list of session properties
+    in the `X-Trino-Session` header in subsequent client requests.
 * - `X-Trino-Set-Role`
   - Instructs the client to set `X-Trino-Role` request header to the catalog
     role supplied by the `X-Trino-Set-Role` header in subsequent client
