@@ -80,7 +80,7 @@ public class TestBlockRetainedSizeBreakdown
     {
         BlockBuilder blockBuilder = new LongArrayBlockBuilder(null, EXPECTED_ENTRIES);
         writeEntries(EXPECTED_ENTRIES, blockBuilder, BIGINT);
-        checkRetainedSize(blockBuilder.build(), false);
+        checkRetainedSize(blockBuilder.build(), true);
     }
 
     @Test
@@ -88,7 +88,7 @@ public class TestBlockRetainedSizeBreakdown
     {
         BlockBuilder blockBuilder = new LongArrayBlockBuilder(null, 1);
         writeEntries(1, blockBuilder, BIGINT);
-        checkRetainedSize(RunLengthEncodedBlock.create(blockBuilder.build(), 1), false);
+        checkRetainedSize(RunLengthEncodedBlock.create(blockBuilder.build(), 1), true);
     }
 
     @Test

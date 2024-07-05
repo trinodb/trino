@@ -337,6 +337,22 @@
                                     <new>parameter io.trino.spi.block.MapBlock io.trino.spi.type.MapType::createBlockFromKeyValue(===java.util.Optional&lt;byte[]&gt;===, int[], io.trino.spi.block.Block, io.trino.spi.block.Block)</new>
                                     <parameterIndex>0</parameterIndex>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method void io.trino.spi.block.LongArrayBlock::&lt;init&gt;(int, java.util.Optional&lt;boolean[]&gt;, long[])</old>
+                                    <new>method void io.trino.spi.block.LongArrayBlock::&lt;init&gt;(java.lang.foreign.MemorySegment, java.lang.foreign.MemorySegment)</new>
+                                    <oldVisibility>public</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method void io.trino.spi.block.LongArrayBlock::&lt;init&gt;(int, int, boolean[], long[])</old>
+                                    <new>method void io.trino.spi.block.LongArrayBlock::&lt;init&gt;(int, java.util.Optional&lt;byte[]&gt;, long[])</new>
+                                    <oldVisibility>package</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

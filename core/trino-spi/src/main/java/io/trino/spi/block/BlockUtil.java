@@ -16,12 +16,15 @@ package io.trino.spi.block;
 import io.airlift.slice.Slice;
 import jakarta.annotation.Nullable;
 
+import java.lang.foreign.MemorySegment;
 import java.util.Arrays;
 import java.util.Optional;
 
 import static java.lang.Math.ceil;
 import static java.lang.Math.clamp;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.foreign.ValueLayout.JAVA_BYTE;
 import static java.util.Objects.requireNonNull;
 
 final class BlockUtil
@@ -150,6 +153,50 @@ final class BlockUtil
      * If the range matches the entire slice, the input slice will be returned.
      * Otherwise, a copy will be returned.
      */
+    static MemorySegment compactMemorySegment(MemorySegment memorySegment, int index, int length)
+    {
+        Object heapBase = memorySegment.heapBase().orElseThrow(() -> new IllegalArgumentException("Cannot compact native memory segment"));
+        if (memorySegment.address() == 0 && index == 0 && length == memorySegment.byteSize()) {
+            return memorySegment;
+        }
+        return switch (heapBase) {
+            case byte[] bytes -> {
+                byte[] newBytes = compactArray(bytes, index, length);
+                if (newBytes == bytes) {
+                    yield memorySegment;
+                }
+                yield MemorySegment.ofArray(newBytes);
+            }
+            case short[] shorts -> {
+                short[] newShorts = compactArray(shorts, index, length);
+                if (newShorts == shorts) {
+                    yield memorySegment;
+                }
+                yield MemorySegment.ofArray(newShorts);
+            }
+            case int[] ints -> {
+                int[] newInts = compactArray(ints, index, length);
+                if (newInts == ints) {
+                    yield memorySegment;
+                }
+                yield MemorySegment.ofArray(newInts);
+            }
+            case long[] longs -> {
+                long[] newLongs = compactArray(longs, index, length);
+                if (newLongs == longs) {
+                    yield memorySegment;
+                }
+                yield MemorySegment.ofArray(newLongs);
+            }
+            default -> throw new IllegalArgumentException("Unsupported array type: " + heapBase.getClass().getName());
+        };
+    }
+
+    /**
+     * Returns a slice containing values in the specified range of the specified slice.
+     * If the range matches the entire slice, the input slice will be returned.
+     * Otherwise, a copy will be returned.
+     */
     static Slice compactSlice(Slice slice, int index, int length)
     {
         if (slice.isCompact() && index == 0 && length == slice.length()) {
@@ -261,6 +308,58 @@ final class BlockUtil
         return blocks;
     }
 
+    static MemorySegment copyIsNullAndAppendNull(@Nullable MemorySegment isNull, int positionCount)
+    {
+        int desiredLength = positionCount + 1;
+        byte[] newIsNull = new byte[desiredLength];
+        if (isNull != null) {
+            MemorySegment.copy(isNull, JAVA_BYTE, 0, newIsNull, 0, desiredLength - 1);
+        }
+        // mark the last element to append null
+        newIsNull[desiredLength - 1] = 1;
+        return MemorySegment.ofArray(newIsNull);
+    }
+
+    public static MemorySegment expandValueWithNullValue(MemorySegment values)
+    {
+        Object heapBase = values.heapBase().orElseThrow(() -> new IllegalArgumentException("Cannot compact native memory segment"));
+        switch (heapBase) {
+            case byte[] bytes -> {
+                int positionCount = (int) values.byteSize();
+                int offset = (int) values.address();
+                if (bytes.length >= offset + positionCount + 1) {
+                    return MemorySegment.ofArray(bytes).asSlice(values.address(), values.byteSize() + 1);
+                }
+                return MemorySegment.ofArray(Arrays.copyOfRange(bytes, 0, positionCount + 1));
+            }
+            case short[] shorts -> {
+                int positionCount = (int) (values.byteSize() / 2);
+                int offset = (int) (values.address() / 2);
+                if (shorts.length >= offset + positionCount + 2) {
+                    return MemorySegment.ofArray(shorts).asSlice(values.address(), values.byteSize() + 2);
+                }
+                return MemorySegment.ofArray(Arrays.copyOfRange(shorts, 0, positionCount + 1));
+            }
+            case int[] ints -> {
+                int positionCount = (int) (values.byteSize() / 4);
+                int offset = (int) (values.address() / 4);
+                if (ints.length >= offset + positionCount + 1) {
+                    return MemorySegment.ofArray(ints).asSlice(values.address(), values.byteSize() + 4);
+                }
+                return MemorySegment.ofArray(Arrays.copyOfRange(ints, 0, positionCount + 1));
+            }
+            case long[] longs -> {
+                int positionCount = (int) (values.byteSize() / 8);
+                int offset = (int) (values.address() / 8);
+                if (longs.length >= offset + positionCount + 1) {
+                    return MemorySegment.ofArray(longs).asSlice(values.address(), values.byteSize() + 8);
+                }
+                return MemorySegment.ofArray(Arrays.copyOfRange(longs, 0, positionCount + 1));
+            }
+            default -> throw new IllegalArgumentException("Unsupported array type: " + heapBase.getClass().getName());
+        }
+    }
+
     static byte[] copyIsNullAndAppendNull(@Nullable byte[] isNull, int offsetBase, int positionCount)
     {
         int desiredLength = offsetBase + positionCount + 1;
@@ -369,5 +468,17 @@ final class BlockUtil
             return Optional.empty();
         }
         return Optional.of(new ByteArrayBlock(arrayOffset, positionCount, null, valueIsNull));
+    }
+
+    static Optional<ByteArrayBlock> getNulls(MemorySegment valueIsNull)
+    {
+        if (null == valueIsNull) {
+            return Optional.empty();
+        }
+        Object heapBase = valueIsNull.heapBase().orElseThrow(() -> new IllegalArgumentException("Cannot compact native memory segment"));
+        if (!(heapBase instanceof byte[] bytes)) {
+            throw new IllegalArgumentException("valueIsNull is not backed by a byte array");
+        }
+        return Optional.of(new ByteArrayBlock(0, toIntExact(valueIsNull.byteSize()), null, bytes));
     }
 }

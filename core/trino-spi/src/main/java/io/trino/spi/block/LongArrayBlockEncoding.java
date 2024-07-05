@@ -16,9 +16,12 @@ package io.trino.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import java.lang.foreign.MemorySegment;
+
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
 import static io.trino.spi.block.EncoderUtil.retrieveNullBits;
+import static java.lang.Math.toIntExact;
 import static java.lang.System.arraycopy;
 
 public class LongArrayBlockEncoding
@@ -42,7 +45,13 @@ public class LongArrayBlockEncoding
         encodeNullsAsBits(sliceOutput, longArrayBlock);
 
         if (!longArrayBlock.mayHaveNull()) {
-            sliceOutput.writeLongs(longArrayBlock.getRawValues(), longArrayBlock.getRawValuesOffset(), longArrayBlock.getPositionCount());
+            MemorySegment blockValues = longArrayBlock.getValues();
+            Object heapBase = blockValues.heapBase().orElseThrow(() -> new IllegalArgumentException("values is not on heap"));
+            if (!(heapBase instanceof long[] values)) {
+                throw new IllegalArgumentException("values is not a long[] array");
+            }
+            int offset = toIntExact(blockValues.address() / 8);
+            sliceOutput.writeLongs(values, offset, block.getPositionCount());
         }
         else {
             long[] valuesWithoutNull = new long[positionCount];
@@ -69,7 +78,7 @@ public class LongArrayBlockEncoding
 
         if (valueIsNullPacked == null) {
             sliceInput.readLongs(values);
-            return new LongArrayBlock(0, positionCount, null, values);
+            return new LongArrayBlock(null, MemorySegment.ofArray(values));
         }
         byte[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
 
@@ -102,6 +111,6 @@ public class LongArrayBlockEncoding
             }
             // Do nothing if there are only nulls
         }
-        return new LongArrayBlock(0, positionCount, valueIsNull, values);
+        return new LongArrayBlock(MemorySegment.ofArray(valueIsNull), MemorySegment.ofArray(values));
     }
 }

@@ -15,19 +15,22 @@ package io.trino.spi.block;
 
 import jakarta.annotation.Nullable;
 
+import java.lang.foreign.MemorySegment;
 import java.util.Arrays;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static java.lang.Math.max;
+import static java.lang.foreign.ValueLayout.JAVA_BYTE;
+import static java.lang.foreign.ValueLayout.JAVA_LONG;
 import static java.util.Objects.checkIndex;
 
 public class LongArrayBlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(LongArrayBlockBuilder.class);
-    private static final Block NULL_VALUE_BLOCK = new LongArrayBlock(0, 1, new byte[] {1}, new long[1]);
+    private static final Block NULL_VALUE_BLOCK = new LongArrayBlock(MemorySegment.ofArray(new byte[] {1}), MemorySegment.ofArray(new long[1]));
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
@@ -131,20 +134,20 @@ public class LongArrayBlockBuilder
         ensureCapacity(positionCount + length);
 
         LongArrayBlock longArrayBlock = (LongArrayBlock) block;
-        int rawOffset = longArrayBlock.getRawValuesOffset();
 
-        long[] rawValues = longArrayBlock.getRawValues();
-        System.arraycopy(rawValues, rawOffset + offset, values, positionCount, length);
+        MemorySegment.copy(longArrayBlock.getValues(), JAVA_LONG, offset * 8L, values, positionCount, length);
 
-        byte[] rawValueIsNull = longArrayBlock.getRawValueIsNull();
-        if (rawValueIsNull != null) {
-            for (int i = 0; i < length; i++) {
-                if (rawValueIsNull[rawOffset + offset + i] != 0) {
-                    valueIsNull[positionCount + i] = 1;
-                    hasNullValue = true;
-                }
-                else {
-                    hasNonNullValue = true;
+        MemorySegment nulls = longArrayBlock.getValueIsNull();
+        if (nulls != null) {
+            MemorySegment.copy(nulls, JAVA_BYTE, offset, valueIsNull, positionCount, length);
+            if (!hasNullValue && !hasNonNullValue) {
+                for (int i = 0; i < length; i++) {
+                    if (nulls.get(JAVA_BYTE, offset + i) != 0) {
+                        hasNullValue = true;
+                    }
+                    else {
+                        hasNonNullValue = true;
+                    }
                 }
             }
         }
@@ -172,26 +175,25 @@ public class LongArrayBlockBuilder
         ensureCapacity(positionCount + length);
 
         LongArrayBlock longArrayBlock = (LongArrayBlock) block;
-        int rawOffset = longArrayBlock.getRawValuesOffset();
-        long[] rawValues = longArrayBlock.getRawValues();
-        byte[] rawValueIsNull = longArrayBlock.getRawValueIsNull();
-        if (rawValueIsNull != null) {
+        MemorySegment blockValues = longArrayBlock.getValues();
+        MemorySegment blockNulls = longArrayBlock.getValueIsNull();
+        if (blockNulls != null) {
             for (int i = 0; i < length; i++) {
-                int rawPosition = positions[offset + i] + rawOffset;
-                if (rawValueIsNull[rawPosition] != 0) {
+                int position = positions[offset + i];
+                if (blockNulls.get(JAVA_BYTE, position) != 0) {
                     valueIsNull[positionCount + i] = 1;
                     hasNullValue = true;
                 }
                 else {
-                    values[positionCount + i] = rawValues[rawPosition];
+                    values[positionCount + i] = blockValues.getAtIndex(JAVA_LONG, position);
                     hasNonNullValue = true;
                 }
             }
         }
         else {
             for (int i = 0; i < length; i++) {
-                int rawPosition = positions[offset + i] + rawOffset;
-                values[positionCount + i] = rawValues[rawPosition];
+                int position = positions[offset + i];
+                values[positionCount + i] = blockValues.getAtIndex(JAVA_LONG, position);
             }
             hasNonNullValue = true;
         }
@@ -236,7 +238,8 @@ public class LongArrayBlockBuilder
     @Override
     public LongArrayBlock buildValueBlock()
     {
-        return new LongArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, values);
+        return new LongArrayBlock(hasNullValue ? MemorySegment.ofArray(valueIsNull).asSlice(0, positionCount) : null,
+                MemorySegment.ofArray(values).asSlice(0, positionCount * 8L));
     }
 
     @Override

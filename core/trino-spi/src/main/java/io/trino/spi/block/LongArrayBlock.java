@@ -15,6 +15,7 @@ package io.trino.spi.block;
 
 import jakarta.annotation.Nullable;
 
+import java.lang.foreign.MemorySegment;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
@@ -22,11 +23,13 @@ import java.util.function.ObjLongConsumer;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
-import static io.trino.spi.block.BlockUtil.checkReadablePosition;
-import static io.trino.spi.block.BlockUtil.checkValidRegion;
-import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactMemorySegment;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
-import static io.trino.spi.block.BlockUtil.ensureCapacity;
+import static io.trino.spi.block.BlockUtil.expandValueWithNullValue;
+import static java.lang.Math.toIntExact;
+import static java.lang.foreign.ValueLayout.JAVA_BYTE;
+import static java.lang.foreign.ValueLayout.JAVA_LONG;
+import static java.util.Objects.requireNonNull;
 
 public final class LongArrayBlock
         implements ValueBlock
@@ -34,41 +37,34 @@ public final class LongArrayBlock
     private static final int INSTANCE_SIZE = instanceSize(LongArrayBlock.class);
     public static final int SIZE_IN_BYTES_PER_POSITION = Long.BYTES + Byte.BYTES;
 
-    private final int arrayOffset;
-    private final int positionCount;
     @Nullable
-    private final byte[] valueIsNull;
-    private final long[] values;
+    private final MemorySegment valueIsNull;
+    private final MemorySegment values;
 
     private final long retainedSizeInBytes;
 
     public LongArrayBlock(int positionCount, Optional<byte[]> valueIsNull, long[] values)
     {
-        this(0, positionCount, valueIsNull.orElse(null), values);
+        this(valueIsNull.map(byteArray -> MemorySegment.ofArray(byteArray).asSlice(0, positionCount)).orElse(null),
+                MemorySegment.ofArray(values).asSlice(0, positionCount * 8L));
     }
 
-    LongArrayBlock(int arrayOffset, int positionCount, byte[] valueIsNull, long[] values)
+    LongArrayBlock(MemorySegment valueIsNull, MemorySegment values)
     {
-        if (arrayOffset < 0) {
-            throw new IllegalArgumentException("arrayOffset is negative");
+        this.values = requireNonNull(values, "values is null");
+        if (!(values.heapBase().orElse(null) instanceof long[])) {
+            throw new IllegalArgumentException("values is not backed by a long[] array");
         }
-        this.arrayOffset = arrayOffset;
-        if (positionCount < 0) {
-            throw new IllegalArgumentException("positionCount is negative");
+        if (values.byteSize() % 8 != 0) {
+            throw new IllegalArgumentException("values is not a multiple of 8");
         }
-        this.positionCount = positionCount;
 
-        if (values.length - arrayOffset < positionCount) {
-            throw new IllegalArgumentException("values length is less than positionCount");
-        }
-        this.values = values;
-
-        if (valueIsNull != null && valueIsNull.length - arrayOffset < positionCount) {
-            throw new IllegalArgumentException("isNull length is less than positionCount");
+        if (valueIsNull != null && valueIsNull.byteSize() != values.byteSize() / 8) {
+            throw new IllegalArgumentException("valueIsNull length does not match values length");
         }
         this.valueIsNull = valueIsNull;
 
-        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(values) + (valueIsNull == null ? 0 : sizeOf(valueIsNull));
     }
 
     @Override
@@ -80,7 +76,7 @@ public final class LongArrayBlock
     @Override
     public long getSizeInBytes()
     {
-        return SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
+        return SIZE_IN_BYTES_PER_POSITION * (long) getPositionCount();
     }
 
     @Override
@@ -120,13 +116,12 @@ public final class LongArrayBlock
     @Override
     public int getPositionCount()
     {
-        return positionCount;
+        return toIntExact(values.byteSize() / 8);
     }
 
     public long getLong(int position)
     {
-        checkReadablePosition(this, position);
-        return values[position + arrayOffset];
+        return values.getAtIndex(JAVA_LONG, position);
     }
 
     @Override
@@ -138,19 +133,15 @@ public final class LongArrayBlock
     @Override
     public boolean isNull(int position)
     {
-        checkReadablePosition(this, position);
-        return valueIsNull != null && valueIsNull[position + arrayOffset] != 0;
+        return valueIsNull != null && valueIsNull.get(JAVA_BYTE, position) != 0;
     }
 
     @Override
     public LongArrayBlock getSingleValueBlock(int position)
     {
-        checkReadablePosition(this, position);
         return new LongArrayBlock(
-                0,
-                1,
-                isNull(position) ? new byte[] {1} : null,
-                new long[] {values[position + arrayOffset]});
+                isNull(position) ? MemorySegment.ofArray(new byte[] {1}) : null,
+                MemorySegment.ofArray(new long[] {getLong(position)}));
     }
 
     @Override
@@ -165,36 +156,32 @@ public final class LongArrayBlock
         long[] newValues = new long[length];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
-            checkReadablePosition(this, position);
             if (valueIsNull != null) {
-                newValueIsNull[i] = valueIsNull[position + arrayOffset];
+                newValueIsNull[i] = valueIsNull.get(JAVA_BYTE, position);
             }
-            newValues[i] = values[position + arrayOffset];
+            newValues[i] = values.getAtIndex(JAVA_LONG, position);
         }
-        return new LongArrayBlock(0, length, newValueIsNull, newValues);
+        return new LongArrayBlock(newValueIsNull == null ? null : MemorySegment.ofArray(newValueIsNull), MemorySegment.ofArray(newValues));
     }
 
     @Override
     public LongArrayBlock getRegion(int positionOffset, int length)
     {
-        checkValidRegion(getPositionCount(), positionOffset, length);
-
-        return new LongArrayBlock(positionOffset + arrayOffset, length, valueIsNull, values);
+        return new LongArrayBlock(
+                valueIsNull == null ? null : valueIsNull.asSlice(positionOffset, length),
+                values.asSlice(positionOffset * 8L, length * 8L));
     }
 
     @Override
     public LongArrayBlock copyRegion(int positionOffset, int length)
     {
-        checkValidRegion(getPositionCount(), positionOffset, length);
-
-        positionOffset += arrayOffset;
-        byte[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
-        long[] newValues = compactArray(values, positionOffset, length);
+        MemorySegment newValueIsNull = valueIsNull == null ? null : compactMemorySegment(valueIsNull, positionOffset, length);
+        MemorySegment newValues = compactMemorySegment(values, positionOffset, length);
 
         if (newValueIsNull == valueIsNull && newValues == values) {
             return this;
         }
-        return new LongArrayBlock(0, length, newValueIsNull, newValues);
+        return new LongArrayBlock(newValueIsNull, newValues);
     }
 
     @Override
@@ -206,10 +193,9 @@ public final class LongArrayBlock
     @Override
     public LongArrayBlock copyWithAppendedNull()
     {
-        byte[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);
-        long[] newValues = ensureCapacity(values, arrayOffset + positionCount + 1);
-
-        return new LongArrayBlock(arrayOffset, positionCount + 1, newValueIsNull, newValues);
+        MemorySegment newValueIsNull = copyIsNullAndAppendNull(valueIsNull, getPositionCount());
+        MemorySegment newValues = expandValueWithNullValue(values);
+        return new LongArrayBlock(newValueIsNull, newValues);
     }
 
     @Override
@@ -227,21 +213,17 @@ public final class LongArrayBlock
     @Override
     public Optional<ByteArrayBlock> getNulls()
     {
-        return BlockUtil.getNulls(valueIsNull, arrayOffset, positionCount);
+        return BlockUtil.getNulls(valueIsNull);
     }
 
-    int getRawValuesOffset()
-    {
-        return arrayOffset;
-    }
-
-    long[] getRawValues()
-    {
-        return values;
-    }
-
-    byte[] getRawValueIsNull()
+    @Nullable
+    MemorySegment getValueIsNull()
     {
         return valueIsNull;
+    }
+
+    MemorySegment getValues()
+    {
+        return values;
     }
 }
