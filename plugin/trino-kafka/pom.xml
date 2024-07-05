@@ -361,6 +361,24 @@
     </repositories>
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>com.github.os72</groupId>
+                    <artifactId>protoc-jar-maven-plugin</artifactId>
+                    <version>3.11.4</version>
+                    <configuration>
+                        <protocArtifact>com.google.protobuf:protoc:${dep.protobuf.version}</protocArtifact>
+                        <protocVersion>${dep.protobuf.version}</protocVersion>
+                        <addSources>none</addSources>
+                        <inputDirectories>
+                            <include>src/test/resources/protobuf-sources</include>
+                        </inputDirectories>
+                        <outputDirectory>target/generated-test-sources/</outputDirectory>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>io.trino</groupId>
@@ -387,7 +405,6 @@
             <plugin>
                 <groupId>com.github.os72</groupId>
                 <artifactId>protoc-jar-maven-plugin</artifactId>
-                <version>3.11.4</version>
                 <executions>
                     <execution>
                         <id>generate-test-sources</id>
@@ -395,15 +412,6 @@
                             <goal>run</goal>
                         </goals>
                         <phase>generate-test-sources</phase>
-                        <configuration>
-                            <protocArtifact>com.google.protobuf:protoc:${dep.protobuf.version}</protocArtifact>
-                            <protocVersion>${dep.protobuf.version}</protocVersion>
-                            <addSources>none</addSources>
-                            <inputDirectories>
-                                <include>src/test/resources/protobuf-sources</include>
-                            </inputDirectories>
-                            <outputDirectory>target/generated-test-sources/</outputDirectory>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>
