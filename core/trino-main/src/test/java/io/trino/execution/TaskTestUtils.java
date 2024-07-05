@@ -38,6 +38,7 @@ import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spiller.GenericSpillerFactory;
 import io.trino.split.PageSinkManager;
@@ -183,7 +184,7 @@ public final class TaskTestUtils
                 blockTypeOperators,
                 PLANNER_CONTEXT.getTypeOperators(),
                 new TableExecuteContextManager(),
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
+                new ExchangeManagerRegistry(new ConfigurationResolver(ImmutableMap.of()), OpenTelemetry.noop(), Tracing.noopTracer()),
                 new NodeVersion("test"),
                 new CompilerConfig());
     }
@@ -196,7 +197,7 @@ public final class TaskTestUtils
     public static SplitMonitor createTestSplitMonitor()
     {
         return new SplitMonitor(
-                new EventListenerManager(new EventListenerConfig()),
+                new EventListenerManager(new EventListenerConfig(), new ConfigurationResolver(ImmutableMap.of())),
                 new ObjectMapperProvider().get());
     }
 }

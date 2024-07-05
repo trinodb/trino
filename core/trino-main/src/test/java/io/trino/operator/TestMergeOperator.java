@@ -17,6 +17,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.node.NodeInfo;
@@ -30,6 +31,7 @@ import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.metadata.Split;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
@@ -96,7 +98,7 @@ public class TestMergeOperator
                 new DirectExchangeClientConfig(),
                 httpClient,
                 executor,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()));
+                new ExchangeManagerRegistry(new ConfigurationResolver(ImmutableMap.of()), OpenTelemetry.noop(), Tracing.noopTracer()));
         orderingCompiler = new OrderingCompiler(new TypeOperators());
     }
 

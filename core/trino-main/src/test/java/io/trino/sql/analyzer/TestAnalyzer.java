@@ -67,6 +67,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
@@ -7322,6 +7323,7 @@ public class TestAnalyzer
                 transactionManager,
                 emptyEventListenerManager(),
                 new AccessControlConfig(),
+                new ConfigurationResolver(ImmutableMap.of()),
                 OpenTelemetry.noop(),
                 DefaultSystemAccessControl.NAME);
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));

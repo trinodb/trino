@@ -23,6 +23,7 @@ import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.security.FileBasedSystemAccessControl;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -144,6 +145,7 @@ public class TestFileBasedSystemAccessControl
                 transactionManager,
                 emptyEventListenerManager(),
                 new AccessControlConfig(),
+                new ConfigurationResolver(ImmutableMap.of()),
                 OpenTelemetry.noop(),
                 DefaultSystemAccessControl.NAME);
         accessControlManager.loadSystemAccessControl(
@@ -804,6 +806,7 @@ public class TestFileBasedSystemAccessControl
                 transactionManager,
                 emptyEventListenerManager(),
                 new AccessControlConfig(),
+                new ConfigurationResolver(ImmutableMap.of()),
                 OpenTelemetry.noop(),
                 DefaultSystemAccessControl.NAME);
         File configFile = newTemporaryFile();
@@ -870,6 +873,7 @@ public class TestFileBasedSystemAccessControl
                 transactionManager,
                 emptyEventListenerManager(),
                 new AccessControlConfig(),
+                new ConfigurationResolver(ImmutableMap.of()),
                 OpenTelemetry.noop(),
                 DefaultSystemAccessControl.NAME);
 

@@ -13,12 +13,14 @@
  */
 package io.trino.exchange;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.tracing.Tracing;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.RetryPolicy;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.QueryId;
 import io.trino.spi.exchange.ExchangeId;
 import org.junit.jupiter.api.Test;
@@ -43,7 +45,7 @@ public class TestLazyExchangeDataSource
                     throw new UnsupportedOperationException();
                 },
                 RetryPolicy.NONE,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()))) {
+                new ExchangeManagerRegistry(new ConfigurationResolver(ImmutableMap.of()), OpenTelemetry.noop(), Tracing.noopTracer()))) {
             ListenableFuture<Void> first = source.isBlocked();
             ListenableFuture<Void> second = source.isBlocked();
             assertThat(first)

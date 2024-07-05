@@ -13,6 +13,8 @@
  */
 package io.trino.eventlistener;
 
+import com.google.common.collect.ImmutableMap;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.eventlistener.EventListener;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +27,7 @@ class TestEventListenerManager
     @Test
     public void testShutdownIsForwardedToListeners()
     {
-        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig());
+        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), new ConfigurationResolver(ImmutableMap.of()));
         AtomicBoolean wasCalled = new AtomicBoolean(false);
         EventListener listener = new EventListener()
         {

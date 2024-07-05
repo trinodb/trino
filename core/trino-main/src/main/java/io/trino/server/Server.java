@@ -16,12 +16,15 @@ package io.trino.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.discovery.client.Announcer;
 import io.airlift.discovery.client.DiscoveryModule;
 import io.airlift.discovery.client.ServiceAnnouncement;
@@ -57,6 +60,9 @@ import io.trino.metadata.CatalogManager;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AccessControlModule;
 import io.trino.security.GroupProviderManager;
+import io.trino.server.configuration.ConfigurationProviderModule;
+import io.trino.server.configuration.ConfigurationResolver;
+import io.trino.server.configuration.ConfigurationResolverManager;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
@@ -68,16 +74,20 @@ import io.trino.util.EmbedVersion;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.MoreCollectors.toOptional;
+import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static io.trino.server.TrinoSystemRequirements.verifySystemRequirements;
@@ -105,6 +115,33 @@ public class Server
         Logger log = Logger.get(Server.class);
         log.info("Java version: %s", StandardSystemProperty.JAVA_VERSION.value());
 
+        Map<String, String> baseProperties = Collections.emptyMap();
+        String configFile = System.getProperty("config");
+        if (baseProperties != null) {
+            try {
+                baseProperties = loadPropertiesFrom(configFile);
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        ConfigurationFactory configurationFactory = new ConfigurationFactory(baseProperties);
+
+        Bootstrap bootstrap = new Bootstrap(new ConfigurationProviderModule(configurationFactory))
+                .quiet()
+                .setRequiredConfigurationProperties(ImmutableMap.of())
+                .doNotInitializeLogging();
+
+        ConfigurationResolverManager configurationResolverManager = bootstrap.initialize().getInstance(ConfigurationResolverManager.class);
+        configurationResolverManager.load();
+
+        Set<String> usedProperties = configurationFactory.getUsedProperties();
+
+        ConfigurationResolver configurationResolver = configurationResolverManager.getConfigurationResolver();
+
+        Map<String, String> configProperties = ImmutableMap.copyOf(configurationResolver.getResolvedConfiguration(Maps.filterKeys(baseProperties, input -> !usedProperties.contains(input))));
+
         ImmutableList.Builder<Module> modules = ImmutableList.builder();
         modules.add(
                 new NodeModule(),
@@ -122,6 +159,7 @@ public class Server
                 new TracingModule("trino", trinoVersion),
                 new EventModule(),
                 new JsonEventModule(),
+                binder -> binder.bind(ConfigurationResolver.class).toInstance(configurationResolver),
                 new ServerSecurityModule(),
                 new AccessControlModule(),
                 new EventListenerModule(),
@@ -135,7 +173,8 @@ public class Server
 
         modules.addAll(getAdditionalModules());
 
-        Bootstrap app = new Bootstrap(modules.build());
+        Bootstrap app = new Bootstrap(modules.build())
+                .setRequiredConfigurationProperties(configProperties);
 
         try {
             Injector injector = app.initialize();

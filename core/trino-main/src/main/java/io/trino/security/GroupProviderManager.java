@@ -16,7 +16,9 @@ package io.trino.security;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.GroupProviderFactory;
@@ -45,6 +47,13 @@ public class GroupProviderManager
     private static final String GROUP_PROVIDER_PROPERTY_NAME = "group-provider.name";
     private final Map<String, GroupProviderFactory> groupProviderFactories = new ConcurrentHashMap<>();
     private final AtomicReference<Optional<GroupProvider>> configuredGroupProvider = new AtomicReference<>(Optional.empty());
+    private final ConfigurationResolver configurationResolver;
+
+    @Inject
+    public GroupProviderManager(ConfigurationResolver configurationResolver)
+    {
+        this.configurationResolver = requireNonNull(configurationResolver, "configurationResolver is null");
+    }
 
     public void addGroupProviderFactory(GroupProviderFactory groupProviderFactory)
     {
@@ -90,7 +99,7 @@ public class GroupProviderManager
 
         GroupProvider groupProvider;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            groupProvider = factory.create(ImmutableMap.copyOf(properties));
+            groupProvider = factory.create(ImmutableMap.copyOf(configurationResolver.getResolvedConfiguration(properties)));
         }
 
         setConfiguredGroupProvider(groupProvider);

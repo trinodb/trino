@@ -19,6 +19,7 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.Session;
 import io.trino.security.AccessControl;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
@@ -51,13 +52,15 @@ public class SessionPropertyDefaults
     private final Map<String, SessionPropertyConfigurationManagerFactory> factories = new ConcurrentHashMap<>();
     private final AtomicReference<SessionPropertyConfigurationManager> delegate = new AtomicReference<>();
 
+    private final ConfigurationResolver configurationResolver;
     private final AccessControl accessControl;
 
     @Inject
-    public SessionPropertyDefaults(NodeInfo nodeInfo, AccessControl accessControl)
+    public SessionPropertyDefaults(NodeInfo nodeInfo, ConfigurationResolver configurationResolver, AccessControl accessControl)
     {
         this.configurationManagerContext = new SessionPropertyConfigurationManagerContextInstance(nodeInfo.getEnvironment());
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.configurationResolver = requireNonNull(configurationResolver, "configurationResolver is null");
     }
 
     public void addConfigurationManagerFactory(SessionPropertyConfigurationManagerFactory sessionConfigFactory)
@@ -97,7 +100,7 @@ public class SessionPropertyDefaults
 
         SessionPropertyConfigurationManager manager;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            manager = factory.create(properties, configurationManagerContext);
+            manager = factory.create(configurationResolver.getResolvedConfiguration(properties), configurationManagerContext);
         }
 
         checkState(delegate.compareAndSet(null, manager), "sessionPropertyConfigurationManager is already set");

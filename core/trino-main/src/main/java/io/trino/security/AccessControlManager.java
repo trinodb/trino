@@ -33,6 +33,7 @@ import io.trino.plugin.base.security.FileBasedSystemAccessControl;
 import io.trino.plugin.base.security.ForwardingSystemAccessControl;
 import io.trino.plugin.base.security.ReadOnlySystemAccessControl;
 import io.trino.plugin.base.util.AutoCloseableCloser;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -105,6 +106,7 @@ public class AccessControlManager
     private final TransactionManager transactionManager;
     private final EventListenerManager eventListenerManager;
     private final List<File> configFiles;
+    private final ConfigurationResolver configurationResolver;
     private final OpenTelemetry openTelemetry;
     private final String defaultAccessControlName;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
@@ -121,6 +123,7 @@ public class AccessControlManager
             TransactionManager transactionManager,
             EventListenerManager eventListenerManager,
             AccessControlConfig config,
+            ConfigurationResolver configurationResolver,
             OpenTelemetry openTelemetry,
             @DefaultSystemAccessControlName String defaultAccessControlName)
     {
@@ -128,6 +131,7 @@ public class AccessControlManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.configFiles = ImmutableList.copyOf(config.getAccessControlFiles());
+        this.configurationResolver = requireNonNull(configurationResolver, "configurationResolver is null");
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.defaultAccessControlName = requireNonNull(defaultAccessControlName, "defaultAccessControl is null");
         addSystemAccessControlFactory(new DefaultSystemAccessControl.Factory());
@@ -214,7 +218,7 @@ public class AccessControlManager
 
         SystemAccessControl systemAccessControl;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            systemAccessControl = factory.create(ImmutableMap.copyOf(properties), createContext(name));
+            systemAccessControl = factory.create(ImmutableMap.copyOf(configurationResolver.getResolvedConfiguration(properties)), createContext(name));
         }
 
         log.info("-- Loaded system access control %s --", name);
@@ -232,7 +236,7 @@ public class AccessControlManager
 
         SystemAccessControl systemAccessControl;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            systemAccessControl = factory.create(ImmutableMap.copyOf(properties), createContext(name));
+            systemAccessControl = factory.create(ImmutableMap.copyOf(configurationResolver.getResolvedConfiguration(properties)), createContext(name));
         }
 
         systemAccessControl.getEventListeners()

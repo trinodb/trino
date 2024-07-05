@@ -36,6 +36,7 @@ import io.trino.security.AccessControlManager;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.server.ResultQueryInfo;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
 import io.trino.spi.TrinoException;
@@ -845,6 +846,7 @@ public class TestQueryStateMachine
                     transactionManager,
                     emptyEventListenerManager(),
                     new AccessControlConfig(),
+                    new ConfigurationResolver(ImmutableMap.of()),
                     OpenTelemetry.noop(),
                     DefaultSystemAccessControl.NAME);
             accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));

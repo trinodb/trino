@@ -84,6 +84,7 @@ import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.SessionSupplier;
 import io.trino.server.ShutdownAction;
 import io.trino.server.StartupStatus;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
 import io.trino.spi.ErrorType;
@@ -300,6 +301,7 @@ public class TestingTrinoServer
                 .add(new ServerMainModule(VERSION))
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {
+                    binder.bind(ConfigurationResolver.class).toInstance(new ConfigurationResolver(ImmutableMap.of()));
                     binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlConfig.class).in(Scopes.SINGLETON);
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);

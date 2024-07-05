@@ -13,7 +13,9 @@
  */
 package io.trino.testing;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.security.GroupProviderManager;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.security.GroupProvider;
 
 import java.util.Map;
@@ -21,6 +23,11 @@ import java.util.Map;
 public class TestingGroupProviderManager
         extends GroupProviderManager
 {
+    public TestingGroupProviderManager()
+    {
+        super(new ConfigurationResolver(ImmutableMap.of()));
+    }
+
     @Override
     public void setConfiguredGroupProvider(String name, Map<String, String> properties)
     {

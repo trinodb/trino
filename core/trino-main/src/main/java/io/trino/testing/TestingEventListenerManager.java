@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
@@ -42,7 +43,7 @@ public class TestingEventListenerManager
     @Inject
     public TestingEventListenerManager(EventListenerConfig config)
     {
-        super(config);
+        super(config, new ConfigurationResolver(ImmutableMap.of()));
     }
 
     @Override

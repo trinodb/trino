@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.HeaderAuthenticator;
 import io.trino.spi.security.HeaderAuthenticatorFactory;
@@ -35,6 +36,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static java.util.Objects.requireNonNull;
 
 public class HeaderAuthenticatorManager
 {
@@ -45,12 +47,14 @@ public class HeaderAuthenticatorManager
     private final AtomicBoolean required = new AtomicBoolean();
     private final Map<String, HeaderAuthenticatorFactory> factories = new ConcurrentHashMap<>();
     private final AtomicReference<List<HeaderAuthenticator>> authenticators = new AtomicReference<>();
+    private final ConfigurationResolver configurationResolver;
 
     @Inject
-    public HeaderAuthenticatorManager(HeaderAuthenticatorConfig config)
+    public HeaderAuthenticatorManager(HeaderAuthenticatorConfig config, ConfigurationResolver configurationResolver)
     {
         this.configFiles = ImmutableList.copyOf(config.getHeaderAuthenticatorFiles());
         checkArgument(!configFiles.isEmpty(), "header authenticator files list is empty");
+        this.configurationResolver = requireNonNull(configurationResolver, "configurationResolver is null");
     }
 
     public List<HeaderAuthenticator> getAuthenticators()
@@ -99,7 +103,7 @@ public class HeaderAuthenticatorManager
 
         HeaderAuthenticator authenticator;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            authenticator = factory.create(ImmutableMap.copyOf(properties));
+            authenticator = factory.create(ImmutableMap.copyOf(configurationResolver.getResolvedConfiguration(properties)));
         }
 
         log.info("-- Loaded header authenticator %s --", name);

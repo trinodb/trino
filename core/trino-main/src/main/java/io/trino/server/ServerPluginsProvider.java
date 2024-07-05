@@ -61,7 +61,7 @@ public class ServerPluginsProvider
                         .collect(toImmutableList()));
     }
 
-    private static List<URL> buildClassPath(File path)
+    public static List<URL> buildClassPath(File path)
     {
         return listFiles(path).stream()
                 .map(ServerPluginsProvider::fileToUrl)

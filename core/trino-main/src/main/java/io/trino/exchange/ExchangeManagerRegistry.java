@@ -17,6 +17,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.exchange.ExchangeManager;
@@ -45,6 +46,7 @@ public class ExchangeManagerRegistry
     private static final File CONFIG_FILE = new File("etc/exchange-manager.properties");
     private static final String EXCHANGE_MANAGER_NAME_PROPERTY = "exchange-manager.name";
 
+    private final ConfigurationResolver configurationResolver;
     private final OpenTelemetry openTelemetry;
     private final Tracer tracer;
     private final Map<String, ExchangeManagerFactory> exchangeManagerFactories = new ConcurrentHashMap<>();
@@ -53,9 +55,11 @@ public class ExchangeManagerRegistry
 
     @Inject
     public ExchangeManagerRegistry(
+            ConfigurationResolver configurationResolver,
             OpenTelemetry openTelemetry,
             Tracer tracer)
     {
+        this.configurationResolver = requireNonNull(configurationResolver, "configurationResolver is null");
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
     }
@@ -92,7 +96,7 @@ public class ExchangeManagerRegistry
 
         ExchangeManager exchangeManager;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            exchangeManager = factory.create(properties, new ExchangeManagerContextInstance(openTelemetry, tracer));
+            exchangeManager = factory.create(configurationResolver.getResolvedConfiguration(properties), new ExchangeManagerContextInstance(openTelemetry, tracer));
         }
 
         log.info("-- Loaded exchange manager %s --", name);

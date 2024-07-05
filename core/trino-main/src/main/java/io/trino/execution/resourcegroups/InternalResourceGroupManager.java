@@ -22,6 +22,7 @@ import io.airlift.node.NodeInfo;
 import io.trino.execution.ManagedQueryExecution;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.server.ResourceGroupInfo;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
@@ -80,14 +81,16 @@ public final class InternalResourceGroupManager<C>
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicLong lastCpuQuotaGenerationNanos = new AtomicLong(System.nanoTime());
     private final Map<String, ResourceGroupConfigurationManagerFactory> configurationManagerFactories = new ConcurrentHashMap<>();
+    private final ConfigurationResolver configurationResolver;
 
     @Inject
-    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManager legacyManager, ClusterMemoryManager memoryPoolManager, NodeInfo nodeInfo, MBeanExporter exporter)
+    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManager legacyManager, ConfigurationResolver configurationResolver, ClusterMemoryManager memoryPoolManager, NodeInfo nodeInfo, MBeanExporter exporter)
     {
         this.exporter = requireNonNull(exporter, "exporter is null");
         this.configurationManagerContext = new ResourceGroupConfigurationManagerContextInstance(memoryPoolManager::addChangeListener, nodeInfo.getEnvironment());
         this.legacyManager = requireNonNull(legacyManager, "legacyManager is null");
         this.configurationManager = new AtomicReference<>(cast(legacyManager));
+        this.configurationResolver = requireNonNull(configurationResolver, "configurationResolver is null");
     }
 
     @Override
@@ -159,7 +162,7 @@ public final class InternalResourceGroupManager<C>
 
         ResourceGroupConfigurationManager<C> configurationManager;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            configurationManager = cast(factory.create(ImmutableMap.copyOf(properties), configurationManagerContext));
+            configurationManager = cast(factory.create(ImmutableMap.copyOf(configurationResolver.getResolvedConfiguration(properties)), configurationManagerContext));
         }
 
         checkState(this.configurationManager.compareAndSet(cast(legacyManager), configurationManager), "configurationManager already set");

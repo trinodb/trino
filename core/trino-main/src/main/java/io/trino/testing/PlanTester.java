@@ -125,6 +125,7 @@ import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.PluginManager;
 import io.trino.server.SessionPropertyDefaults;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorConfig;
 import io.trino.server.security.HeaderAuthenticatorManager;
@@ -360,7 +361,7 @@ public class PlanTester
         this.joinCompiler = new JoinCompiler(typeOperators);
         this.hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(hashStrategyCompiler);
-        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig());
+        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), new ConfigurationResolver(ImmutableMap.of()));
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
@@ -378,7 +379,8 @@ public class PlanTester
                 typeManager,
                 nodeSchedulerConfig,
                 optimizerConfig,
-                new LocalMemoryManager(new NodeMemoryConfig())));
+                new LocalMemoryManager(new NodeMemoryConfig()),
+                new ConfigurationResolver(ImmutableMap.of())));
         this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProviderFactory(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
@@ -444,7 +446,7 @@ public class PlanTester
                 ImmutableSet.of(),
                 ImmutableSet.of(new ExcludeColumnsFunction()));
 
-        exchangeManagerRegistry = new ExchangeManagerRegistry(OpenTelemetry.noop(), noopTracer());
+        exchangeManagerRegistry = new ExchangeManagerRegistry(new ConfigurationResolver(ImmutableMap.of()), OpenTelemetry.noop(), noopTracer());
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 Optional.empty(),
@@ -452,12 +454,12 @@ public class PlanTester
                 globalFunctionCatalog,
                 new NoOpResourceGroupManager(),
                 accessControl,
-                Optional.of(new PasswordAuthenticatorManager(new PasswordAuthenticatorConfig())),
-                new CertificateAuthenticatorManager(),
-                Optional.of(new HeaderAuthenticatorManager(new HeaderAuthenticatorConfig())),
+                Optional.of(new PasswordAuthenticatorManager(new PasswordAuthenticatorConfig(), new ConfigurationResolver(ImmutableMap.of()))),
+                new CertificateAuthenticatorManager(new ConfigurationResolver(ImmutableMap.of())),
+                Optional.of(new HeaderAuthenticatorManager(new HeaderAuthenticatorConfig(), new ConfigurationResolver(ImmutableMap.of()))),
                 eventListenerManager,
-                new GroupProviderManager(),
-                new SessionPropertyDefaults(nodeInfo, accessControl),
+                new GroupProviderManager(new ConfigurationResolver(ImmutableMap.of())),
+                new SessionPropertyDefaults(nodeInfo, new ConfigurationResolver(ImmutableMap.of()), accessControl),
                 typeRegistry,
                 blockEncodingManager,
                 new HandleResolver(),

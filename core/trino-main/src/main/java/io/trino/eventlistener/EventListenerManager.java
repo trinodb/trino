@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
@@ -58,6 +59,7 @@ public class EventListenerManager
     private final Map<String, EventListenerFactory> eventListenerFactories = new ConcurrentHashMap<>();
     private final List<EventListener> providedEventListeners = Collections.synchronizedList(new ArrayList<>());
     private final AtomicReference<List<EventListener>> configuredEventListeners = new AtomicReference<>(ImmutableList.of());
+    private final ConfigurationResolver configurationResolver;
     private final AtomicBoolean loading = new AtomicBoolean(false);
 
     private final TimeStat queryCreatedTime = new TimeStat(MILLISECONDS);
@@ -65,9 +67,10 @@ public class EventListenerManager
     private final TimeStat splitCompletedTime = new TimeStat(MILLISECONDS);
 
     @Inject
-    public EventListenerManager(EventListenerConfig config)
+    public EventListenerManager(EventListenerConfig config, ConfigurationResolver configurationResolver)
     {
         this.configFiles = ImmutableList.copyOf(config.getEventListenerFiles());
+        this.configurationResolver = requireNonNull(configurationResolver, "configurationResolver is null");
     }
 
     public void addEventListenerFactory(EventListenerFactory eventListenerFactory)
@@ -124,7 +127,7 @@ public class EventListenerManager
 
         EventListener eventListener;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            eventListener = factory.create(properties);
+            eventListener = factory.create(configurationResolver.getResolvedConfiguration(properties));
         }
 
         log.info("-- Loaded event listener %s --", configFile);

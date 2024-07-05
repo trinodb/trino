@@ -28,6 +28,7 @@ import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
+import io.trino.server.configuration.ConfigurationResolver;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
@@ -73,6 +74,7 @@ public class DefaultCatalogFactory
 
     private final ConcurrentMap<ConnectorName, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
     private final LocalMemoryManager localMemoryManager;
+    private final ConfigurationResolver configurationResolver;
 
     @Inject
     public DefaultCatalogFactory(
@@ -88,7 +90,8 @@ public class DefaultCatalogFactory
             TypeManager typeManager,
             NodeSchedulerConfig nodeSchedulerConfig,
             OptimizerConfig optimizerConfig,
-            LocalMemoryManager localMemoryManager)
+            LocalMemoryManager localMemoryManager,
+            ConfigurationResolver configurationResolver)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -103,6 +106,7 @@ public class DefaultCatalogFactory
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         this.maxPrefetchedInformationSchemaPrefixes = optimizerConfig.getMaxPrefetchedInformationSchemaPrefixes();
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
+        this.configurationResolver = requireNonNull(configurationResolver, "configurationResolver is null");
     }
 
     @Override
@@ -204,7 +208,7 @@ public class DefaultCatalogFactory
                 pageIndexerFactory);
 
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
-            return connectorFactory.create(catalogName, properties, context);
+            return connectorFactory.create(catalogName, configurationResolver.getResolvedConfiguration(properties), context);
         }
     }
 
