@@ -19,10 +19,12 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -494,6 +496,48 @@ public abstract class BaseOracleConnectorTest
             assertThat(query(format("SELECT * FROM %s WHERE c %s %s", table.getName(), operator, filterLiteral)))
                     .isFullyPushedDown();
         }
+    }
+
+    @Test
+    public void testJoinPushdownWithImplicitCast()
+    {
+        try (TestTable leftTable = new TestTable(getQueryRunner()::execute, "left_table", "(id int, varchar_50 varchar(50))", ImmutableList.of("(1, 'India')", "(2, 'Poland')"));
+                TestTable rightTable = new TestTable(getQueryRunner()::execute, "right_table_", "(varchar_100 varchar(100), varchar_unbounded varchar)", ImmutableList.of("('India', 'Japan')", "('France', 'Poland')"))) {
+            String leftTableName = leftTable.getName();
+            String rightTableName = rightTable.getName();
+            Session session = joinPushdownEnabled(getSession());
+
+            // Implict cast between bounded varchar
+            assertJoin(session, leftTableName, rightTableName, "LEFT JOIN", "l.varchar_50 = r.varchar_100")
+                    .isFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "RIGHT JOIN", "l.varchar_50 = r.varchar_100")
+                    .isFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "INNER JOIN", "l.varchar_50 = r.varchar_100")
+                    .isFullyPushedDown();
+
+            // Implict cast between bounded and unbounded varchar
+            assertJoin(session, leftTableName, rightTableName, "LEFT JOIN", "l.varchar_50 = r.varchar_unbounded")
+                    .joinIsNotFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "RIGHT JOIN", "l.varchar_50 = r.varchar_unbounded")
+                    .joinIsNotFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "INNER JOIN", "l.varchar_50 = r.varchar_unbounded")
+                    .joinIsNotFullyPushedDown();
+        }
+    }
+
+    @Nested
+    public class TestCastPushdown
+            extends OracleCastPushdownTest
+    {
+        public TestCastPushdown()
+        {
+            super(joinPushdownEnabled(BaseOracleConnectorTest.this.getSession()), BaseOracleConnectorTest.this.getQueryRunner(), BaseOracleConnectorTest.this.onRemoteDatabase());
+        }
+    }
+
+    public QueryAssertions.QueryAssert assertJoin(Session session, String leftTable, String rightTable, String joinType, String joinCondition)
+    {
+        return assertThat(query(session, "SELECT id FROM %s l %s %s r ON %s".formatted(leftTable, joinType, rightTable, joinCondition)));
     }
 
     protected String getUser()
