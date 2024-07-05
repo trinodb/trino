@@ -394,9 +394,6 @@ public class BigQueryClient
 
     private static String fullTableName(TableId remoteTableId)
     {
-        String remoteSchemaName = remoteTableId.getDataset();
-        String remoteTableName = remoteTableId.getTable();
-        remoteTableId = TableId.of(remoteTableId.getProject(), remoteSchemaName, remoteTableName);
         return format("%s.%s.%s", remoteTableId.getProject(), remoteTableId.getDataset(), remoteTableId.getTable());
     }
 
