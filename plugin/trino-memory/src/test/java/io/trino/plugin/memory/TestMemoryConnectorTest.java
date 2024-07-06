@@ -94,7 +94,6 @@ public class TestMemoryConnectorTest
                  SUPPORTS_DEREFERENCE_PUSHDOWN,
                  SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_MERGE,
-                 SUPPORTS_NOT_NULL_CONSTRAINT,
                  SUPPORTS_PREDICATE_PUSHDOWN,
                  SUPPORTS_RENAME_COLUMN,
                  SUPPORTS_RENAME_SCHEMA,
@@ -603,5 +602,11 @@ public class TestMemoryConnectorTest
 
         assertUpdate("DROP VIEW test_different_schema.test_view_renamed");
         assertUpdate("DROP SCHEMA test_different_schema");
+    }
+
+    @Override
+    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
+    {
+        return "NULL value not allowed for NOT NULL column: " + columnName;
     }
 }
