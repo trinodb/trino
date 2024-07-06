@@ -13,14 +13,15 @@
  */
 package io.trino.tests.product;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.tempto.fulfillment.ldap.LdapObjectDefinition;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
 public final class ImmutableLdapObjectDefinitions
@@ -42,27 +43,27 @@ public final class ImmutableLdapObjectDefinitions
 
     public static final LdapObjectDefinition EUROPE_ORG = buildLdapOrganizationObject("Europe", EUROPE_DISTINGUISHED_NAME, "Europe");
 
-    public static final LdapObjectDefinition DEFAULT_GROUP = buildLdapGroupObject("DefaultGroup", "DefaultGroupUser", Optional.of(Arrays.asList("ChildGroup")));
-
-    public static final LdapObjectDefinition PARENT_GROUP = buildLdapGroupObject("ParentGroup", "ParentGroupUser", Optional.of(Arrays.asList("DefaultGroup")));
-
     public static final LdapObjectDefinition CHILD_GROUP = buildLdapGroupObject("ChildGroup", "ChildGroupUser", Optional.empty());
 
-    public static final LdapObjectDefinition DEFAULT_GROUP_USER = buildLdapUserObject("DefaultGroupUser", Optional.of(Arrays.asList("DefaultGroup")), LDAP_PASSWORD);
+    public static final LdapObjectDefinition DEFAULT_GROUP = buildLdapGroupObject("DefaultGroup", "DefaultGroupUser", Optional.of(ImmutableList.of(CHILD_GROUP)));
 
-    public static final LdapObjectDefinition PARENT_GROUP_USER = buildLdapUserObject("ParentGroupUser", Optional.of(Arrays.asList("ParentGroup")), LDAP_PASSWORD);
+    public static final LdapObjectDefinition PARENT_GROUP = buildLdapGroupObject("ParentGroup", "ParentGroupUser", Optional.of(ImmutableList.of(DEFAULT_GROUP)));
 
-    public static final LdapObjectDefinition CHILD_GROUP_USER = buildLdapUserObject("ChildGroupUser", Optional.of(Arrays.asList("ChildGroup")), LDAP_PASSWORD);
+    public static final LdapObjectDefinition DEFAULT_GROUP_USER = buildLdapUserObject("DefaultGroupUser", Optional.of(ImmutableList.of(DEFAULT_GROUP)), LDAP_PASSWORD);
+
+    public static final LdapObjectDefinition PARENT_GROUP_USER = buildLdapUserObject("ParentGroupUser", Optional.of(ImmutableList.of(PARENT_GROUP)), LDAP_PASSWORD);
+
+    public static final LdapObjectDefinition CHILD_GROUP_USER = buildLdapUserObject("ChildGroupUser", Optional.of(ImmutableList.of(CHILD_GROUP)), LDAP_PASSWORD);
 
     public static final LdapObjectDefinition ORPHAN_USER = buildLdapUserObject("OrphanUser", Optional.empty(), LDAP_PASSWORD);
 
-    public static final LdapObjectDefinition SPECIAL_USER = buildLdapUserObject("User WithSpecialPwd", Optional.of(Arrays.asList("DefaultGroup")), "LDAP:Pass ~!@#$%^&*()_+{}|:\"<>?/.,';\\][=-`");
+    public static final LdapObjectDefinition SPECIAL_USER = buildLdapUserObject("User WithSpecialPwd", Optional.of(ImmutableList.of(DEFAULT_GROUP)), "LDAP:Pass ~!@#$%^&*()_+{}|:\"<>?/.,';\\][=-`");
 
-    public static final LdapObjectDefinition USER_IN_MULTIPLE_GROUPS = buildLdapUserObject("UserInMultipleGroups", Optional.of(Arrays.asList("DefaultGroup", "ParentGroup")), LDAP_PASSWORD);
+    public static final LdapObjectDefinition USER_IN_MULTIPLE_GROUPS = buildLdapUserObject("UserInMultipleGroups", Optional.of(ImmutableList.of(DEFAULT_GROUP, PARENT_GROUP)), LDAP_PASSWORD);
 
-    public static final LdapObjectDefinition USER_IN_EUROPE = buildLdapUserObject("EuropeUser", EUROPE_DISTINGUISHED_NAME, Optional.of(Arrays.asList("DefaultGroup")), Optional.of(AMERICA_DISTINGUISHED_NAME), LDAP_PASSWORD);
+    public static final LdapObjectDefinition USER_IN_EUROPE = buildLdapUserObject("EuropeUser", EUROPE_DISTINGUISHED_NAME, Optional.of(ImmutableList.of(DEFAULT_GROUP)), LDAP_PASSWORD);
 
-    public static final LdapObjectDefinition USER_IN_AMERICA = buildLdapUserObject("AmericanUser", AMERICA_DISTINGUISHED_NAME, Optional.of(Arrays.asList("DefaultGroup")), Optional.of(AMERICA_DISTINGUISHED_NAME), LDAP_PASSWORD);
+    public static final LdapObjectDefinition USER_IN_AMERICA = buildLdapUserObject("AmericanUser", AMERICA_DISTINGUISHED_NAME, Optional.of(ImmutableList.of(DEFAULT_GROUP)), LDAP_PASSWORD);
 
     public static LdapObjectDefinition buildLdapOrganizationObject(String id, String distinguishedName, String unit)
     {
@@ -73,25 +74,29 @@ public final class ImmutableLdapObjectDefinitions
                 .build();
     }
 
-    public static LdapObjectDefinition buildLdapGroupObject(String groupName, String userName, Optional<List<String>> childGroupNames)
+    public static LdapObjectDefinition buildLdapGroupObject(String groupName, String userName, Optional<List<LdapObjectDefinition>> childGroups)
     {
-        if (childGroupNames.isPresent()) {
-            return buildLdapGroupObject(groupName, AMERICA_DISTINGUISHED_NAME, userName, ASIA_DISTINGUISHED_NAME, childGroupNames, Optional.of(AMERICA_DISTINGUISHED_NAME));
-        }
-        return buildLdapGroupObject(groupName, AMERICA_DISTINGUISHED_NAME, userName, ASIA_DISTINGUISHED_NAME,
-                Optional.empty(), Optional.empty());
+        return buildLdapGroupObject(groupName, AMERICA_DISTINGUISHED_NAME, userName, ASIA_DISTINGUISHED_NAME, childGroups);
     }
 
-    public static LdapObjectDefinition buildLdapGroupObject(String groupName, String groupOrganizationName,
-            String userName, String userOrganizationName, Optional<List<String>> childGroupNames, Optional<String> childGroupOrganizationName)
+    public static LdapObjectDefinition buildLdapGroupObject(
+            String groupName,
+            String groupOrganizationName,
+            String userName,
+            String userOrganizationName,
+            Optional<List<LdapObjectDefinition>> childGroups)
     {
-        if (childGroupNames.isPresent() && childGroupOrganizationName.isPresent()) {
+        if (childGroups.isPresent()) {
             return LdapObjectDefinition.builder(groupName)
                     .setDistinguishedName(format("cn=%s,%s", groupName, groupOrganizationName))
                     .setAttributes(ImmutableMap.of(
                             "cn", groupName,
                             "member", format("uid=%s,%s", userName, userOrganizationName)))
-                    .setModificationAttributes(getAttributes(childGroupNames.get(), childGroupOrganizationName.get(), MEMBER))
+                    .setModificationAttributes(ImmutableMap.of(
+                            MEMBER,
+                            childGroups.get().stream()
+                                    .map(LdapObjectDefinition::getDistinguishedName)
+                                    .collect(toImmutableList())))
                     .setObjectClasses(Arrays.asList("groupOfNames"))
                     .build();
         }
@@ -104,20 +109,18 @@ public final class ImmutableLdapObjectDefinitions
                 .build();
     }
 
-    public static LdapObjectDefinition buildLdapUserObject(String userName, Optional<List<String>> groupNames, String password)
+    public static LdapObjectDefinition buildLdapUserObject(String userName, Optional<List<LdapObjectDefinition>> groups, String password)
     {
-        if (groupNames.isPresent()) {
-            return buildLdapUserObject(userName, ASIA_DISTINGUISHED_NAME,
-                    groupNames, Optional.of(AMERICA_DISTINGUISHED_NAME), password);
-        }
-        return buildLdapUserObject(userName, ASIA_DISTINGUISHED_NAME,
-                Optional.empty(), Optional.empty(), password);
+        return buildLdapUserObject(userName, ASIA_DISTINGUISHED_NAME, groups, password);
     }
 
-    public static LdapObjectDefinition buildLdapUserObject(String userName, String userOrganizationName,
-            Optional<List<String>> groupNames, Optional<String> groupOrganizationName, String password)
+    public static LdapObjectDefinition buildLdapUserObject(
+            String userName,
+            String userOrganizationName,
+            Optional<List<LdapObjectDefinition>> groups,
+            String password)
     {
-        if (groupNames.isPresent() && groupOrganizationName.isPresent()) {
+        if (groups.isPresent()) {
             return LdapObjectDefinition.builder(userName)
                     .setDistinguishedName(format("uid=%s,%s", userName, userOrganizationName))
                     .setAttributes(ImmutableMap.of(
@@ -125,7 +128,11 @@ public final class ImmutableLdapObjectDefinitions
                             "sn", userName,
                             "userPassword", password))
                     .setObjectClasses(Arrays.asList("person", "inetOrgPerson"))
-                    .setModificationAttributes(getAttributes(groupNames.get(), groupOrganizationName.get(), MEMBER_OF))
+                    .setModificationAttributes(ImmutableMap.of(
+                            MEMBER_OF,
+                            groups.get().stream()
+                                    .map(LdapObjectDefinition::getDistinguishedName)
+                                    .collect(toImmutableList())))
                     .build();
         }
         return LdapObjectDefinition.builder(userName)
@@ -136,12 +143,5 @@ public final class ImmutableLdapObjectDefinitions
                         "userPassword", password))
                 .setObjectClasses(Arrays.asList("person", "inetOrgPerson"))
                 .build();
-    }
-
-    private static ImmutableMap<String, List<String>> getAttributes(List<String> groupNames, String groupOrganizationName, String relation)
-    {
-        return ImmutableMap.of(relation, groupNames.stream()
-                .map(groupName -> format("cn=%s,%s", groupName, groupOrganizationName))
-                .collect(Collectors.toList()));
     }
 }
