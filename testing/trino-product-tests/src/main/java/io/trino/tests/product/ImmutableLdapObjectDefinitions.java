@@ -15,7 +15,9 @@ package io.trino.tests.product;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.tempto.Requirement;
 import io.trino.tempto.fulfillment.ldap.LdapObjectDefinition;
+import io.trino.tempto.fulfillment.ldap.LdapObjectRequirement;
 
 import java.util.Arrays;
 import java.util.List;
@@ -64,6 +66,15 @@ public final class ImmutableLdapObjectDefinitions
     public static final LdapObjectDefinition USER_IN_EUROPE = buildLdapUserObject("EuropeUser", EUROPE_DISTINGUISHED_NAME, Optional.of(ImmutableList.of(DEFAULT_GROUP)), LDAP_PASSWORD);
 
     public static final LdapObjectDefinition USER_IN_AMERICA = buildLdapUserObject("AmericanUser", AMERICA_DISTINGUISHED_NAME, Optional.of(ImmutableList.of(DEFAULT_GROUP)), LDAP_PASSWORD);
+
+    public static Requirement getLdapRequirement()
+    {
+        return new LdapObjectRequirement(
+                ImmutableList.of(
+                        AMERICA_ORG, ASIA_ORG, EUROPE_ORG,
+                        DEFAULT_GROUP, PARENT_GROUP, CHILD_GROUP,
+                        DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER, SPECIAL_USER, USER_IN_MULTIPLE_GROUPS, USER_IN_AMERICA, USER_IN_EUROPE));
+    }
 
     public static LdapObjectDefinition buildLdapOrganizationObject(String id, String distinguishedName, String unit)
     {
