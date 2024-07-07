@@ -302,7 +302,7 @@ public class MemoryMetadata
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
             ColumnMetadata column = tableMetadata.getColumns().get(i);
-            columns.add(new ColumnInfo(new MemoryColumnHandle(i), column.getName(), column.getType(), column.isNullable(), Optional.ofNullable(column.getComment())));
+            columns.add(new ColumnInfo(new MemoryColumnHandle(i, column.getType()), column.getName(), column.getType(), column.isNullable(), Optional.ofNullable(column.getComment())));
         }
 
         tableIds.put(tableMetadata.getTable(), tableId);
@@ -375,6 +375,25 @@ public class MemoryMetadata
         long tableId = handle.id();
         TableInfo info = tables.get(handle.id());
         tables.put(tableId, new TableInfo(tableId, info.schemaName(), info.tableName(), info.columns(), ImmutableMap.of(), info.comment()));
+    }
+
+    @Override
+    public synchronized void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    {
+        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
+        long tableId = handle.id();
+        TableInfo table = tables.get(handle.id());
+
+        if (!column.isNullable() && !table.dataFragments().isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Unable to add NOT NULL column '%s' for non-empty table: %s", column.getName(), table.getSchemaTableName()));
+        }
+
+        List<ColumnInfo> columns = ImmutableList.<ColumnInfo>builderWithExpectedSize(table.columns().size() + 1)
+                .addAll(table.columns())
+                .add(new ColumnInfo(new MemoryColumnHandle(table.columns().size(), column.getType()), column.getName(), column.getType(), column.isNullable(), Optional.ofNullable(column.getComment())))
+                .build();
+
+        tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), columns, table.dataFragments(), table.comment()));
     }
 
     @Override
