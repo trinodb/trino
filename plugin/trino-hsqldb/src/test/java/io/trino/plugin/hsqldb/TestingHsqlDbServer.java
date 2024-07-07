@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hsqldb;
 
+import io.trino.testing.containers.PrintingLogConsumer;
 import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.images.builder.ImageFromDockerfile;
@@ -25,7 +26,8 @@ import java.sql.Statement;
 public class TestingHsqlDbServer
         implements AutoCloseable
 {
-    public static final String DEFAULT_VERSION = "2.7.3";
+    public static final String DEFAULT_VERSION = "2.7.2";
+    public static final String LATEST_VERSION = "2.7.3";
     private static final String HSQLDB_ARCHIVE = "hsqldb-%s.jar";
     private static final String DOWNLOAD_LOCATION = "https://repo1.maven.org/maven2/org/hsqldb/hsqldb/%s/%s";
     private static final int HSQLDB_PORT = 9001;
@@ -55,10 +57,12 @@ public class TestingHsqlDbServer
                                                                 .expose(HSQLDB_PORT)
                                                                 .cmd("java", "-cp",
                                                                         archive, "org.hsqldb.server.Server",
-                                                                        "--port", String.valueOf(HSQLDB_PORT))
+                                                                        "--port", String.valueOf(HSQLDB_PORT),
+                                                                        "--silent", "false")
                                                                 .build());
         container = new HsqldbContainer(image).withExposedPorts(HSQLDB_PORT);
         container.start();
+        container.followOutput(new PrintingLogConsumer("HsqlDB"));
     }
 
     public void execute(String sql)

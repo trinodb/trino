@@ -109,33 +109,6 @@ public class TestHsqlDbTypeMapping
                 .addRoundTrip("boolean", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
                 .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_boolean"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_boolean"));
-
-        SqlDataTypeTest.create()
-                .addRoundTrip("tinyint(1)", "true", TINYINT, "TINYINT '1'")
-                .addRoundTrip("tinyint(1)", "false", TINYINT, "TINYINT '0'")
-                .addRoundTrip("tinyint(1)", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
-                .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_boolean"));
-    }
-
-    @Test
-    public void testTinyInt()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("tinyint", "-128", TINYINT, "TINYINT '-128'")
-                .addRoundTrip("tinyint", "127", TINYINT, "TINYINT '127'")
-                .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
-                .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_tinyint"))
-                .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_tinyint"));
-    }
-
-    @Test
-    public void testTinyIntUnsigned()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("tinyint unsigned", "0", SMALLINT, "SMALLINT '0'")
-                .addRoundTrip("tinyint unsigned", "255", SMALLINT, "SMALLINT '255'")
-                .addRoundTrip("tinyint unsigned", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
-                .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_tinyint"));
     }
 
     @Test
@@ -150,16 +123,6 @@ public class TestHsqlDbTypeMapping
     }
 
     @Test
-    public void testSmallIntUnsigned()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("smallint unsigned", "0", INTEGER, "0")
-                .addRoundTrip("smallint unsigned", "65535", INTEGER, "65535")
-                .addRoundTrip("smallint unsigned", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
-                .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_smallint_unsigned"));
-    }
-
-    @Test
     public void testMediumInt()
     {
         SqlDataTypeTest.create()
@@ -168,16 +131,6 @@ public class TestHsqlDbTypeMapping
                 .addRoundTrip("integer", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
                 .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_mediumint"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_mediumint"));
-    }
-
-    @Test
-    public void testMediumIntUnsigned()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("mediumint unsigned", "0", INTEGER, "0")
-                .addRoundTrip("mediumint unsigned", "16777215", INTEGER, "16777215")
-                .addRoundTrip("mediumint unsigned", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
-                .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_mediumint_unsigned"));
     }
 
     @Test
@@ -192,16 +145,6 @@ public class TestHsqlDbTypeMapping
     }
 
     @Test
-    public void testIntUnsigned()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("int unsigned", "0", BIGINT, "BIGINT '0'")
-                .addRoundTrip("int unsigned", "4294967295", BIGINT, "BIGINT '4294967295'")
-                .addRoundTrip("int unsigned", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
-                .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_integer_unsigned"));
-    }
-
-    @Test
     public void testBigInt()
     {
         SqlDataTypeTest.create()
@@ -210,29 +153,6 @@ public class TestHsqlDbTypeMapping
                 .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
                 .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_bigint"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("tpch.test_bigint"));
-    }
-
-    @Test
-    public void testBigIntUnsigned()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("bigint unsigned", "0", createDecimalType(20, 0), "CAST('0' AS DECIMAL(20,0))")
-                .addRoundTrip("bigint unsigned", "18446744073709551615", createDecimalType(20, 0), "DECIMAL '18446744073709551615'")
-                .addRoundTrip("bigint unsigned", "NULL", createDecimalType(20, 0), "CAST(NULL AS DECIMAL(20,0))")
-                .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_bigint_unsigned"));
-    }
-
-    @Test
-    public void testTypeAliases()
-    {
-        SqlDataTypeTest.create()
-                .addRoundTrip("int1", "1", TINYINT, "TINYINT '1'")
-                .addRoundTrip("int2", "2", SMALLINT, "SMALLINT '2'")
-                .addRoundTrip("int3", "3", INTEGER, "3") // INT3 is a synonym for MEDIUMINT
-                .addRoundTrip("int4", "4", INTEGER, "4") // INT4 is a synonym for INT
-                .addRoundTrip("integer", "5", INTEGER, "5") // INTEGER is a synonym for INT
-                .addRoundTrip("int8", "8", BIGINT, "BIGINT '8'") // INT8 is a synonym for BIGINT
-                .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_synonym"));
     }
 
     @Test
@@ -479,10 +399,6 @@ public class TestHsqlDbTypeMapping
     public void testHsqlDbCreatedParameterizedVarchar()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("tinytext", "'a'", createVarcharType(255), "CAST('a' AS VARCHAR(255))")
-                .addRoundTrip("text", "'b'", createVarcharType(65535), "CAST('b' AS VARCHAR(65535))")
-                .addRoundTrip("mediumtext", "'c'", createVarcharType(16777215), "CAST('c' AS VARCHAR(16777215))")
-                .addRoundTrip("longtext", "'d'", createUnboundedVarcharType(), "CAST('d' AS VARCHAR)")
                 .addRoundTrip("varchar(32)", "'e'", createVarcharType(32), "CAST('e' AS VARCHAR(32))")
                 .addRoundTrip("varchar(15000)", "'f'", createVarcharType(15000), "CAST('f' AS VARCHAR(15000))")
                 .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.hsqldb_test_parameterized_varchar"));
@@ -492,15 +408,11 @@ public class TestHsqlDbTypeMapping
     public void testHsqlDbCreatedParameterizedVarcharUnicode()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("tinytext CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(255), "CAST('攻殻機動隊' AS VARCHAR(255))")
-                .addRoundTrip("text CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(65535), "CAST('攻殻機動隊' AS VARCHAR(65535))")
-                .addRoundTrip("mediumtext CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(16777215), "CAST('攻殻機動隊' AS VARCHAR(16777215))")
-                .addRoundTrip("longtext CHARACTER SET utf8", "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS VARCHAR)")
-                .addRoundTrip("varchar(5) CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS VARCHAR(5))")
-                .addRoundTrip("varchar(32) CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(32), "CAST('攻殻機動隊' AS VARCHAR(32))")
-                .addRoundTrip("varchar(20000) CHARACTER SET utf8", "'攻殻機動隊'", createVarcharType(20000), "CAST('攻殻機動隊' AS VARCHAR(20000))")
-                .addRoundTrip("varchar(1) CHARACTER SET utf8mb4", "'😂'", createVarcharType(1), "CAST('😂' AS VARCHAR(1))")
-                .addRoundTrip("varchar(77) CHARACTER SET utf8mb4", "'Ну, погоди!'", createVarcharType(77), "CAST('Ну, погоди!' AS VARCHAR(77))")
+                .addRoundTrip("varchar(5)", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS VARCHAR(5))")
+                .addRoundTrip("varchar(32)", "'攻殻機動隊'", createVarcharType(32), "CAST('攻殻機動隊' AS VARCHAR(32))")
+                .addRoundTrip("varchar(20000)", "'攻殻機動隊'", createVarcharType(20000), "CAST('攻殻機動隊' AS VARCHAR(20000))")
+                .addRoundTrip("varchar(1)", "'😂'", createVarcharType(1), "CAST('😂' AS VARCHAR(1))")
+                .addRoundTrip("varchar(77)", "'Ну, погоди!'", createVarcharType(77), "CAST('Ну, погоди!' AS VARCHAR(77))")
                 .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.hsqldb_test_parameterized_varchar_unicode"));
     }
 
@@ -522,9 +434,9 @@ public class TestHsqlDbTypeMapping
     public void testHsqlDbParameterizedCharUnicode()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("char(1) CHARACTER SET utf8", "'攻'", createCharType(1), "CAST('攻' AS CHAR(1))")
-                .addRoundTrip("char(5) CHARACTER SET utf8", "'攻殻'", createCharType(5), "CAST('攻殻' AS CHAR(5))")
-                .addRoundTrip("char(5) CHARACTER SET utf8", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS CHAR(5))")
+                .addRoundTrip("char(1)", "'攻'", createCharType(1), "CAST('攻' AS CHAR(1))")
+                .addRoundTrip("char(5)", "'攻殻'", createCharType(5), "CAST('攻殻' AS CHAR(5))")
+                .addRoundTrip("char(5)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS CHAR(5))")
                 .addRoundTrip("char(1)", "'😂'", createCharType(1), "CAST('😂' AS char(1))")
                 .addRoundTrip("char(77)", "'Ну, погоди!'", createCharType(77), "CAST('Ну, погоди!' AS char(77))")
                 .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.hsqldb_test_parameterized_char"));
@@ -546,16 +458,7 @@ public class TestHsqlDbTypeMapping
         varbinaryTestCases("varbinary(50)")
                 .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_varbinary"));
 
-        varbinaryTestCases("tinyblob")
-                .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_varbinary"));
-
         varbinaryTestCases("blob")
-                .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_varbinary"));
-
-        varbinaryTestCases("mediumblob")
-                .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_varbinary"));
-
-        varbinaryTestCases("longblob")
                 .execute(getQueryRunner(), hsqlDbCreateAndInsert("tpch.test_varbinary"));
 
         varbinaryTestCases("varbinary")
@@ -879,7 +782,7 @@ public class TestHsqlDbTypeMapping
         // MariaDB supports any valid TIMESTAMP literal of type YYYY-MM-DD hh:mm:ss.S(up to 6 digits), fails otherwise
         try (TestTable table = new TestTable(server::execute, "test_incorrect_datetime", "(dt DATETIME)")) {
             assertQueryFails(format("INSERT INTO %s VALUES (TIMESTAMP '999-01-01 00:00:00.000')", table.getName()), ".*not a valid TIMESTAMP literal.*");
-            assertQueryFails(format("INSERT INTO %s VALUES (TIMESTAMP '10000-01-19 03:14:08.000')", table.getName()), ".*Failed to insert data.*");
+            assertQueryFails(format("INSERT INTO %s VALUES (TIMESTAMP '100000-01-19 03:14:08.000')", table.getName()), ".*Failed to insert data.*");
         }
     }
 

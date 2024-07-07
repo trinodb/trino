@@ -18,6 +18,6 @@ public class TestHsqlDbTableIndexStatisticsLatest
 {
     public TestHsqlDbTableIndexStatisticsLatest()
     {
-        super(TestingHsqlDbServer.DEFAULT_VERSION);
+        super(TestingHsqlDbServer.LATEST_VERSION);
     }
 }
