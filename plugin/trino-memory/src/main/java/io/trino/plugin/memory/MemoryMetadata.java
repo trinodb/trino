@@ -378,6 +378,21 @@ public class MemoryMetadata
     }
 
     @Override
+    public synchronized void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, String target)
+    {
+        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
+        MemoryColumnHandle column = (MemoryColumnHandle) columnHandle;
+        long tableId = handle.id();
+        TableInfo table = tables.get(handle.id());
+
+        List<ColumnInfo> columns = new ArrayList<>(table.columns());
+        ColumnInfo columnInfo = columns.get(column.columnIndex());
+        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), target, columnInfo.type(), columnInfo.nullable(), columnInfo.comment()));
+
+        tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.dataFragments(), table.comment()));
+    }
+
+    @Override
     public synchronized void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
