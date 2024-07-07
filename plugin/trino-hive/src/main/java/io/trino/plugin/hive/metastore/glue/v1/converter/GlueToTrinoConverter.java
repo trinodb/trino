@@ -194,7 +194,7 @@ public final class GlueToTrinoConverter
             return HiveType.valueOf(column.getType().toLowerCase(Locale.ENGLISH));
         }
         catch (IllegalArgumentException e) {
-            throw new TrinoException(HIVE_INVALID_METADATA, "Glue table '%s' column '%s' has invalid data type: %s".formatted(table, column.getName(), column.getType()));
+            throw new TrinoException(HIVE_INVALID_METADATA, "Glue table '%s' column '%s' has invalid data type: %s".formatted(table, column.getName(), column.getType()), e);
         }
     }
 
