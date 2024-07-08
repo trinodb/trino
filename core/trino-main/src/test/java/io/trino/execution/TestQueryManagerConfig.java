@@ -98,7 +98,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(2.0)
                 .setFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(2000)
                 .setFaultTolerantExecutionStandardSplitSize(DataSize.of(64, MEGABYTE))
-                .setFaultTolerantExecutionMaxTaskSplitCount(256)
+                .setFaultTolerantExecutionMaxTaskSplitCount(2048)
                 .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.ofBytes(round(AVAILABLE_HEAP_MEMORY * 0.15)))
                 .setFaultTolerantExecutionMaxPartitionCount(50)
                 .setFaultTolerantExecutionMinPartitionCount(4)

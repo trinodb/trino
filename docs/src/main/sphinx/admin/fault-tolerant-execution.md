@@ -237,7 +237,7 @@ properties only apply to a `TASK` retry policy.
     May be overridden for the current session with the
     `fault_tolerant_execution_max_task_split_count` [session
     property](session-properties-definition).
-  - `256`
+  - `2048`
 * - `fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-growth-period`
   - The number of tasks created for any given non-writer stage of arbitrary
     distribution before task size is increased.
