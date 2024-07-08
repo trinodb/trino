@@ -1766,6 +1766,11 @@ public class EventDrivenFaultTolerantQueryScheduler
             TaskId taskId = taskStatus.getTaskId();
             TaskState taskState = taskStatus.getState();
             StageExecution stageExecution = getStageExecution(taskId.getStageId());
+
+            if (stageExecution.getState().isDone()) {
+                return null;
+            }
+
             if (taskState == TaskState.FINISHED) {
                 Optional<List<PrioritizedScheduledTask>> failOverrideReplacementTasks = stageExecution.taskFinished(taskId, taskStatus);
                 failOverrideReplacementTasks.ifPresent(prioritizedScheduledTasks -> prioritizedScheduledTasks.forEach(schedulingQueue::addOrUpdate));
@@ -2325,10 +2330,6 @@ public class EventDrivenFaultTolerantQueryScheduler
          */
         public Optional<List<PrioritizedScheduledTask>> taskFinished(TaskId taskId, TaskStatus taskStatus)
         {
-            if (getState().isDone()) {
-                return Optional.empty();
-            }
-
             int partitionId = taskId.getPartitionId();
             StagePartition partition = getStagePartition(partitionId);
             Optional<SpoolingOutputStats.Snapshot> outputStats = partition.taskFinished(taskId);
@@ -2405,10 +2406,6 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public List<PrioritizedScheduledTask> taskFailed(TaskId taskId, ExecutionFailureInfo failureInfo, TaskStatus taskStatus)
         {
-            if (getState().isDone()) {
-                return ImmutableList.of();
-            }
-
             int partitionId = taskId.getPartitionId();
             StagePartition partition = getStagePartition(partitionId);
             partition.taskFailed(taskId);
