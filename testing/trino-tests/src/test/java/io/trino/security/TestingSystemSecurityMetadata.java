@@ -277,10 +277,7 @@ class TestingSystemSecurityMetadata
     }
 
     @Override
-    public void columnDropped(Session session, CatalogSchemaTableName table, String column)
-    {
-        throw new UnsupportedOperationException();
-    }
+    public void columnDropped(Session session, CatalogSchemaTableName table, String column) {}
 
     @Override
     public void columnTypeChanged(Session session, CatalogSchemaTableName table, String column, String oldType, String newType) {}

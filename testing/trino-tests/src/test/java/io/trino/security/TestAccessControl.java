@@ -751,6 +751,18 @@ public class TestAccessControl
     }
 
     @Test
+    public void testDropColumn()
+    {
+        reset();
+
+        String tableName = "test_drop_column" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
+
+        assertAccessDenied("ALTER TABLE " + tableName + " DROP COLUMN orderkey", "Cannot drop a column from table .*." + tableName + ".*", privilege(tableName, DROP_COLUMN));
+        assertAccessAllowed("ALTER TABLE " + tableName + " DROP COLUMN orderkey", privilege(tableName + ".orderkey", DROP_COLUMN));
+    }
+
+    @Test
     public void testSetColumnType()
     {
         reset();

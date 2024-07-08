@@ -406,4 +406,20 @@ public class TestBlackHoleSmoke
 
         assertUpdate("DROP TABLE test_add_column");
     }
+
+    @Test
+    void testDropColumn()
+    {
+        assertUpdate("CREATE TABLE test_drop_column(col int, another_col varchar)");
+
+        assertUpdate("ALTER TABLE test_drop_column DROP COLUMN another_col");
+
+        assertQueryReturnsEmptyResult("SELECT * FROM test_drop_column");
+        assertThat(query("DESCRIBE test_drop_column")).result()
+                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                        .row("col", "integer", "", "")
+                        .build());
+
+        assertUpdate("DROP TABLE test_drop_column");
+    }
 }
