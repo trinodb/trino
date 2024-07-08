@@ -195,15 +195,7 @@ public class BlackHoleMetadata
         List<BlackHoleColumnHandle> columns = new ArrayList<>(table.columnHandles());
         columns.set(columns.indexOf(column), new BlackHoleColumnHandle(column.name(), type));
 
-        tables.put(table.toSchemaTableName(), new BlackHoleTableHandle(
-                table.schemaName(),
-                table.tableName(),
-                ImmutableList.copyOf(columns),
-                table.splitCount(),
-                table.pagesPerSplit(),
-                table.rowsPerPage(),
-                table.fieldsLength(),
-                table.pageProcessingDelay()));
+        tables.put(table.toSchemaTableName(), table.withColumnHandles(ImmutableList.copyOf(columns)));
     }
 
     @Override
