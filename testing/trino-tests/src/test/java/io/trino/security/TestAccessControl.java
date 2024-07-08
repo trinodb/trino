@@ -739,6 +739,18 @@ public class TestAccessControl
     }
 
     @Test
+    public void testAddColumn()
+    {
+        reset();
+
+        String tableName = "test_add_column" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
+
+        assertAccessDenied("ALTER TABLE " + tableName + " ADD COLUMN new_col char(100)", "Cannot add a column to table .*." + tableName + ".*", privilege(tableName, ADD_COLUMN));
+        assertAccessAllowed("ALTER TABLE " + tableName + " ADD COLUMN new_col char(100)", privilege(tableName + ".orderkey", ADD_COLUMN));
+    }
+
+    @Test
     public void testSetColumnType()
     {
         reset();
