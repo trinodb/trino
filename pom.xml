@@ -31,6 +31,7 @@
         <module>client/trino-cli</module>
         <module>client/trino-client</module>
         <module>client/trino-jdbc</module>
+        <module>configuration-resolver/trino-configuration-resolvers</module>
         <module>core/trino-grammar</module>
         <module>core/trino-main</module>
         <module>core/trino-parser</module>
@@ -997,6 +998,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-client</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-configuration-resolvers</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

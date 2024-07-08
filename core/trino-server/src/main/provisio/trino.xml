@@ -25,6 +25,13 @@
         <artifact id="${project.groupId}:trino-server-main:${project.version}" />
     </artifactSet>
 
+    <!-- Configuration Resolver -->
+    <artifactSet to="configuration-resolver/trino-configuration-resolvers">
+        <artifact id="${project.groupId}:trino-configuration-resolvers:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <!-- Plugins -->
     <artifactSet to="plugin/accumulo">
         <artifact id="${project.groupId}:trino-accumulo:zip:${project.version}">
