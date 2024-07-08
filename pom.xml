@@ -202,7 +202,7 @@
         <dep.kafka-clients.version>3.7.1</dep.kafka-clients.version>
         <dep.okio.version>3.9.0</dep.okio.version>
         <!-- temporary: required to be in sync with version pulled by libraries-bom -->
-        <dep.opentelemetry.version>1.38.0</dep.opentelemetry.version>
+        <dep.opentelemetry.version>1.39.0</dep.opentelemetry.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.14.1</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
@@ -230,7 +230,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.41.0</version>
+                <version>26.43.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -262,7 +262,7 @@
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-bom</artifactId>
-                <version>1.64.0</version>
+                <version>1.65.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
