@@ -213,6 +213,19 @@ public class BlackHoleMetadata
     }
 
     @Override
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, String target)
+    {
+        BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
+        BlackHoleColumnHandle column = (BlackHoleColumnHandle) columnHandle;
+
+        List<BlackHoleColumnHandle> columns = table.columnHandles().stream()
+                .map(c -> c.name().equals(column.name()) ? new BlackHoleColumnHandle(target, c.columnType()) : c)
+                .collect(toImmutableList());
+
+        tables.put(table.toSchemaTableName(), table.withColumnHandles(columns));
+    }
+
+    @Override
     public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Type type)
     {
         BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;

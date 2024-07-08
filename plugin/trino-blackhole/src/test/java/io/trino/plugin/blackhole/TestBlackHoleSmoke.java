@@ -422,4 +422,20 @@ public class TestBlackHoleSmoke
 
         assertUpdate("DROP TABLE test_drop_column");
     }
+
+    @Test
+    void testRenameColumn()
+    {
+        assertUpdate("CREATE TABLE test_rename_column(col int)");
+
+        assertUpdate("ALTER TABLE test_rename_column RENAME COLUMN col TO renamed");
+
+        assertQueryReturnsEmptyResult("SELECT * FROM test_rename_column");
+        assertThat(query("DESCRIBE test_rename_column")).result()
+                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                        .row("renamed", "integer", "", "")
+                        .build());
+
+        assertUpdate("DROP TABLE test_rename_column");
+    }
 }
