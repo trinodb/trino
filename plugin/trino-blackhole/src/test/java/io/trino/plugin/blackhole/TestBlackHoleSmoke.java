@@ -38,6 +38,8 @@ import static io.trino.plugin.blackhole.BlackHoleConnector.PAGES_PER_SPLIT_PROPE
 import static io.trino.plugin.blackhole.BlackHoleConnector.PAGE_PROCESSING_DELAY;
 import static io.trino.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
 import static io.trino.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -386,5 +388,22 @@ public class TestBlackHoleSmoke
     {
         QueryRunner queryRunner = getQueryRunner();
         return queryRunner.listTables(queryRunner.getDefaultSession(), "blackhole", "default");
+    }
+
+    @Test
+    void testAddColumn()
+    {
+        assertUpdate("CREATE TABLE test_add_column(col int)");
+
+        assertUpdate("ALTER TABLE test_add_column ADD COLUMN new_col varchar");
+
+        assertQueryReturnsEmptyResult("SELECT * FROM test_add_column");
+        assertThat(query("DESCRIBE test_add_column")).result()
+                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                        .row("col", "integer", "", "")
+                        .row("new_col", "varchar", "", "")
+                        .build());
+
+        assertUpdate("DROP TABLE test_add_column");
     }
 }

@@ -188,6 +188,18 @@ public class BlackHoleMetadata
     }
 
     @Override
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    {
+        BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
+        List<BlackHoleColumnHandle> columns = ImmutableList.<BlackHoleColumnHandle>builderWithExpectedSize(table.columnHandles().size() + 1)
+                .addAll(table.columnHandles())
+                .add(new BlackHoleColumnHandle(column.getName(), column.getType()))
+                .build();
+
+        tables.put(table.toSchemaTableName(), table.withColumnHandles(columns));
+    }
+
+    @Override
     public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Type type)
     {
         BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
