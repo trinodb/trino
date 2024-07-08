@@ -132,7 +132,7 @@ public class QueryManagerConfig
     private int faultTolerantExecutionHashDistributionWriteTaskTargetMaxCount = 2000;
 
     private DataSize faultTolerantExecutionStandardSplitSize = DataSize.of(64, MEGABYTE);
-    private int faultTolerantExecutionMaxTaskSplitCount = 256;
+    private int faultTolerantExecutionMaxTaskSplitCount = 2048;
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(round(AVAILABLE_HEAP_MEMORY * 0.15));
     private int faultTolerantExecutionMaxPartitionCount = 50;
     private int faultTolerantExecutionMinPartitionCount = 4;
