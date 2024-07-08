@@ -763,6 +763,18 @@ public class TestAccessControl
     }
 
     @Test
+    public void testRenameColumn()
+    {
+        reset();
+
+        String tableName = "test_rename_column" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
+
+        assertAccessDenied("ALTER TABLE " + tableName + " RENAME COLUMN orderkey TO renamed", "Cannot rename a column in table .*." + tableName + ".*", privilege(tableName, RENAME_COLUMN));
+        assertAccessAllowed("ALTER TABLE " + tableName + " RENAME COLUMN orderkey TO renamed", privilege(tableName + ".orderkey", RENAME_COLUMN));
+    }
+
+    @Test
     public void testSetColumnType()
     {
         reset();
