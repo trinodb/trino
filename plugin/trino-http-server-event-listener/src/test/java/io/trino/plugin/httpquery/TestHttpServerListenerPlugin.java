@@ -23,7 +23,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 public class TestHttpServerListenerPlugin
 {
     @Test
-    public void testCreateConnector()
+    public void testCreateEventListener()
     {
         HttpServerEventListenerPlugin plugin = new HttpServerEventListenerPlugin();
         EventListenerFactory factory = getOnlyElement(plugin.getEventListenerFactories());
