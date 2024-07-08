@@ -27,7 +27,7 @@ class TestAzureLocation
     void test()
     {
         assertValid("abfs://container@account.dfs.core.windows.net/some/path/file", "account", "container", "some/path/file");
-        assertValid("abfss://container@account.dfs.core.windows.net/some/path/file", "account", "container", "some/path/file");
+        assertValid("abfss://container@account.dfs.core.windows.net/some/path/file", "account", "container", "some/path/file", "abfss");
 
         assertValid("abfs://container-stuff@account.dfs.core.windows.net/some/path/file", "account", "container-stuff", "some/path/file");
         assertValid("abfs://container2@account.dfs.core.windows.net/some/path/file", "account", "container2", "some/path/file");
@@ -64,7 +64,7 @@ class TestAzureLocation
         assertInvalid("abfs://container@account.fake.dfs.core.windows.net/some/path/file");
     }
 
-    private static void assertValid(String uri, String expectedAccount, String expectedContainer, String expectedPath)
+    private static void assertValid(String uri, String expectedAccount, String expectedContainer, String expectedPath, String expectedScheme)
     {
         Location location = Location.of(uri);
         AzureLocation azureLocation = new AzureLocation(location);
@@ -72,6 +72,12 @@ class TestAzureLocation
         assertThat(azureLocation.account()).isEqualTo(expectedAccount);
         assertThat(azureLocation.container()).isEqualTo(Optional.ofNullable(expectedContainer));
         assertThat(azureLocation.path()).contains(expectedPath);
+        assertThat(azureLocation.baseLocation().scheme()).isEqualTo(Optional.of(expectedScheme));
+    }
+
+    private static void assertValid(String uri, String expectedAccount, String expectedContainer, String expectedPath)
+    {
+        assertValid(uri, expectedAccount, expectedContainer, expectedPath, "abfs");
     }
 
     private static void assertInvalid(String uri)
