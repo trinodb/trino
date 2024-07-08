@@ -52,7 +52,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
-class TestHttpServerEventListener
+final class TestHttpServerEventListener
 {
     private final HttpServerEventListenerFactory factory = new HttpServerEventListenerFactory();
     HttpClient httpClient = new JettyHttpClient();
@@ -191,7 +191,7 @@ class TestHttpServerEventListener
     }
 
     @AfterAll
-    public void cleanUp()
+    void cleanUp()
     {
         if (httpClient != null) {
             httpClient.close();
