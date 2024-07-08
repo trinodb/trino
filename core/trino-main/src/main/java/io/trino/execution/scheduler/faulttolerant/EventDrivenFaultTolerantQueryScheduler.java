@@ -1490,6 +1490,11 @@ public class EventDrivenFaultTolerantQueryScheduler
                     checkArgument(stageExecution != null, "stage for fragment %s not started yet", planFragmentId);
                     return stageExecution.getStageInfo().getPlan();
                 };
+
+                List<StageExecution> sourceStageExecutions = subPlan.getChildren().stream()
+                        .map(source -> getStageExecution(getStageId(source.getFragment().getId())))
+                        .collect(toImmutableList());
+
                 StageExecution execution = new StageExecution(
                         taskDescriptorStorage,
                         taskFailures,
@@ -1497,6 +1502,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         taskSource,
                         sinkPartitioningScheme,
                         exchange,
+                        sourceStageExecutions,
                         stageExecutionStats,
                         memoryEstimatorFactory.createPartitionMemoryEstimator(session, fragment, planFragmentLookup),
                         outputStatsEstimator,
@@ -1509,10 +1515,8 @@ public class EventDrivenFaultTolerantQueryScheduler
 
                 stageExecutions.put(execution.getStageId(), execution);
 
-                for (SubPlan source : subPlan.getChildren()) {
-                    PlanFragmentId sourceFragmentId = source.getFragment().getId();
-                    StageExecution sourceExecution = getStageExecution(getStageId(sourceFragmentId));
-                    execution.setSourceOutputSelector(sourceFragmentId, sourceExecution.getSinkOutputSelector());
+                for (StageExecution sourceExecution : sourceStageExecutions) {
+                    execution.setSourceOutputSelector(sourceExecution.getStageFragmentId(), sourceExecution.getSinkOutputSelector());
                 }
             }
             catch (Throwable t) {
@@ -1902,6 +1906,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final EventDrivenTaskSource taskSource;
         private final FaultTolerantPartitioningScheme sinkPartitioningScheme;
         private final Exchange exchange;
+        private final List<StageExecution> sourceStageExecutions;
         private final StageExecutionStats stageExecutionStats;
         private final PartitionMemoryEstimator partitionMemoryEstimator;
         private final OutputStatsEstimator outputStatsEstimator;
@@ -1942,6 +1947,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 EventDrivenTaskSource taskSource,
                 FaultTolerantPartitioningScheme sinkPartitioningScheme,
                 Exchange exchange,
+                List<StageExecution> sourceStageExecutions,
                 StageExecutionStats stageExecutionStats,
                 PartitionMemoryEstimator partitionMemoryEstimator,
                 OutputStatsEstimator outputStatsEstimator,
@@ -1957,6 +1963,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.taskSource = requireNonNull(taskSource, "taskSource is null");
             this.sinkPartitioningScheme = requireNonNull(sinkPartitioningScheme, "sinkPartitioningScheme is null");
             this.exchange = requireNonNull(exchange, "exchange is null");
+            this.sourceStageExecutions = ImmutableList.copyOf(requireNonNull(sourceStageExecutions, "sourceStageExecutions is null"));
             this.stageExecutionStats = requireNonNull(stageExecutionStats, "stageExecutionStats is null");
             this.partitionMemoryEstimator = requireNonNull(partitionMemoryEstimator, "partitionMemoryEstimator is null");
             this.outputStatsEstimator = requireNonNull(outputStatsEstimator, "outputStatsEstimator is null");
@@ -2370,18 +2377,38 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private void finish()
         {
+            doFinish(false);
+        }
+
+        private void finishSubStages()
+        {
+            // parent already finished so no need to continue execution
+            // mark substages which can still be running as finished
+            if (stage.getState().isDone()) {
+                return;
+            }
+            doFinish(true);
+        }
+
+        private void doFinish(boolean force)
+        {
             dynamicFilterService.stageCannotScheduleMoreTasks(stage.getStageId(), 0, partitions.size());
             exchange.noMoreSinks();
             exchange.allRequiredSinksFinished();
-            verify(finalSinkOutputSelector == null, "finalOutputSelector is already set");
-            sinkOutputSelectorBuilder.setPartitionCount(exchange.getId(), partitions.size());
-            sinkOutputSelectorBuilder.setFinal();
-            finalSinkOutputSelector = sinkOutputSelectorBuilder.build();
+            if (!force) {
+                // not relevant if we are marking stage still running; no more output will be read
+                verify(finalSinkOutputSelector == null, "finalOutputSelector is already set");
+                sinkOutputSelectorBuilder.setPartitionCount(exchange.getId(), partitions.size());
+                sinkOutputSelectorBuilder.setFinal();
+                finalSinkOutputSelector = sinkOutputSelectorBuilder.build();
+            }
             sinkOutputSelectorBuilder = null;
             stage.finish();
             taskSource.close();
 
             recordFinishStats();
+
+            sourceStageExecutions.forEach(StageExecution::finishSubStages);
         }
 
         private void recordFinishStats()
