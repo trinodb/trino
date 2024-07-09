@@ -272,7 +272,7 @@ column masks from OPA.
 For these policies to be enabled, make sure to set
 `opa.policy.column-masking-uri` in the opa-plugin configuration.
 
-For instance, a policy configuring column masking may be implemented as below:
+For example, a policy configuring column masking may be defined by the following rego script:
 
 ```rego
   package trino
