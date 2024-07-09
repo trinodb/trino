@@ -16,6 +16,7 @@ package io.trino.server.security;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.log.Logger;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.HeaderAuthenticator;
@@ -35,6 +36,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static java.util.Objects.requireNonNull;
 
 public class HeaderAuthenticatorManager
 {
@@ -45,12 +47,14 @@ public class HeaderAuthenticatorManager
     private final AtomicBoolean required = new AtomicBoolean();
     private final Map<String, HeaderAuthenticatorFactory> factories = new ConcurrentHashMap<>();
     private final AtomicReference<List<HeaderAuthenticator>> authenticators = new AtomicReference<>();
+    private final SecretsResolver secretsResolver;
 
     @Inject
-    public HeaderAuthenticatorManager(HeaderAuthenticatorConfig config)
+    public HeaderAuthenticatorManager(HeaderAuthenticatorConfig config, SecretsResolver secretsResolver)
     {
         this.configFiles = ImmutableList.copyOf(config.getHeaderAuthenticatorFiles());
         checkArgument(!configFiles.isEmpty(), "header authenticator files list is empty");
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
     }
 
     public List<HeaderAuthenticator> getAuthenticators()
@@ -83,7 +87,7 @@ public class HeaderAuthenticatorManager
     {
         Map<String, String> properties;
         try {
-            properties = new HashMap<>(loadPropertiesFrom(configFile.getPath()));
+            properties = new HashMap<>(secretsResolver.getResolvedConfiguration(loadPropertiesFrom(configFile.getPath())));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

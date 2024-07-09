@@ -17,6 +17,8 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.testing.TestingHttpClient;
@@ -98,7 +100,7 @@ public class TestMergeOperator
                 httpClient,
                 new HttpClientConfig(),
                 executor,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()));
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())));
         orderingCompiler = new OrderingCompiler(new TypeOperators());
     }
 

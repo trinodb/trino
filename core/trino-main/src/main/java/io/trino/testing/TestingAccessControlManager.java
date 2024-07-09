@@ -15,6 +15,7 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.client.NodeVersion;
 import io.trino.eventlistener.EventListenerManager;
@@ -147,14 +148,15 @@ public class TestingAccessControlManager
             TransactionManager transactionManager,
             EventListenerManager eventListenerManager,
             AccessControlConfig accessControlConfig,
+            SecretsResolver secretsResolver,
             OpenTelemetry openTelemetry)
     {
-        super(NodeVersion.UNKNOWN, transactionManager, eventListenerManager, accessControlConfig, openTelemetry, DefaultSystemAccessControl.NAME);
+        super(NodeVersion.UNKNOWN, transactionManager, eventListenerManager, accessControlConfig, openTelemetry, secretsResolver, DefaultSystemAccessControl.NAME);
     }
 
-    public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager)
+    public TestingAccessControlManager(TransactionManager transactionManager, EventListenerManager eventListenerManager, SecretsResolver secretsResolver)
     {
-        this(transactionManager, eventListenerManager, new AccessControlConfig(), OpenTelemetry.noop());
+        this(transactionManager, eventListenerManager, new AccessControlConfig(), secretsResolver, OpenTelemetry.noop());
     }
 
     public static TestingPrivilege privilege(String entityName, TestingPrivilegeType type)

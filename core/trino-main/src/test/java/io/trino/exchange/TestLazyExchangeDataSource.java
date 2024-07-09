@@ -13,7 +13,9 @@
  */
 package io.trino.exchange;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.tracing.Tracing;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
@@ -43,7 +45,7 @@ public class TestLazyExchangeDataSource
                     throw new UnsupportedOperationException();
                 },
                 RetryPolicy.NONE,
-                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()))) {
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer(), new SecretsResolver(ImmutableMap.of())))) {
             ListenableFuture<Void> first = source.isBlocked();
             ListenableFuture<Void> second = source.isBlocked();
             assertThat(first)

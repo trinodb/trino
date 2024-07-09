@@ -15,6 +15,8 @@ package io.trino.connector;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.log.Logger;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
@@ -46,6 +48,13 @@ public class CatalogStoreManager
     private static final String CATALOG_STORE_PROPERTY_NAME = "catalog-store.name";
     private final Map<String, CatalogStoreFactory> catalogStoreFactories = new ConcurrentHashMap<>();
     private final AtomicReference<Optional<CatalogStore>> configuredCatalogStore = new AtomicReference<>(Optional.empty());
+    private final SecretsResolver secretsResolver;
+
+    @Inject
+    public CatalogStoreManager(SecretsResolver secretsResolver)
+    {
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
+    }
 
     public void addCatalogStoreFactory(CatalogStoreFactory catalogStoreFactory)
     {
@@ -91,7 +100,7 @@ public class CatalogStoreManager
 
         CatalogStore catalogStore;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            catalogStore = factory.create(ImmutableMap.copyOf(properties));
+            catalogStore = factory.create(ImmutableMap.copyOf(secretsResolver.getResolvedConfiguration(properties)));
         }
 
         setConfiguredCatalogStore(catalogStore);

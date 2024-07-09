@@ -15,6 +15,7 @@ package io.trino.server.security;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.HeaderAuthenticator;
@@ -47,8 +48,10 @@ public class TestHeaderAuthenticatorManager
         ImmutableMap<String, List<String>> validRequestTwo = ImmutableMap.of(trustedHeaderTwo, ImmutableList.of("cat", "dog"));
         ImmutableMap<String, List<String>> invalidRequestOne = ImmutableMap.of("try-hard-authn", ImmutableList.of("foo", "bar"));
 
-        HeaderAuthenticatorManager manager = new HeaderAuthenticatorManager(new HeaderAuthenticatorConfig()
-                .setHeaderAuthenticatorFiles(ImmutableList.of(config1.toAbsolutePath().toString(), config2.toAbsolutePath().toString())));
+        HeaderAuthenticatorManager manager = new HeaderAuthenticatorManager(
+                new HeaderAuthenticatorConfig()
+                        .setHeaderAuthenticatorFiles(ImmutableList.of(config1.toAbsolutePath().toString(), config2.toAbsolutePath().toString())),
+                new SecretsResolver(ImmutableMap.of()));
         manager.setRequired();
 
         manager.addHeaderAuthenticatorFactory(new TestingHeaderAuthenticatorFactory("type1", trustedHeaderOne));
