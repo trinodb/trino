@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.execution.ManagedQueryExecution;
@@ -80,14 +81,21 @@ public final class InternalResourceGroupManager<C>
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicLong lastCpuQuotaGenerationNanos = new AtomicLong(System.nanoTime());
     private final Map<String, ResourceGroupConfigurationManagerFactory> configurationManagerFactories = new ConcurrentHashMap<>();
+    private final SecretsResolver secretsResolver;
 
     @Inject
-    public InternalResourceGroupManager(LegacyResourceGroupConfigurationManager legacyManager, ClusterMemoryManager memoryPoolManager, NodeInfo nodeInfo, MBeanExporter exporter)
+    public InternalResourceGroupManager(
+            LegacyResourceGroupConfigurationManager legacyManager,
+            ClusterMemoryManager memoryPoolManager,
+            NodeInfo nodeInfo,
+            MBeanExporter exporter,
+            SecretsResolver secretsResolver)
     {
         this.exporter = requireNonNull(exporter, "exporter is null");
         this.configurationManagerContext = new ResourceGroupConfigurationManagerContextInstance(memoryPoolManager::addChangeListener, nodeInfo.getEnvironment());
         this.legacyManager = requireNonNull(legacyManager, "legacyManager is null");
         this.configurationManager = new AtomicReference<>(cast(legacyManager));
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
     }
 
     @Override
@@ -159,7 +167,7 @@ public final class InternalResourceGroupManager<C>
 
         ResourceGroupConfigurationManager<C> configurationManager;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            configurationManager = cast(factory.create(ImmutableMap.copyOf(properties), configurationManagerContext));
+            configurationManager = cast(factory.create(ImmutableMap.copyOf(secretsResolver.getResolvedConfiguration(properties)), configurationManagerContext));
         }
 
         checkState(this.configurationManager.compareAndSet(cast(legacyManager), configurationManager), "configurationManager already set");

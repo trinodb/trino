@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
@@ -342,6 +343,7 @@ public class PlanTester
         TypeRegistry typeRegistry = new TypeRegistry(typeOperators, new FeaturesConfig());
         TypeManager typeManager = new InternalTypeManager(typeRegistry);
         InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeManager);
+        SecretsResolver secretsResolver = new SecretsResolver(ImmutableMap.of());
 
         this.globalFunctionCatalog = new GlobalFunctionCatalog(
                 () -> getPlannerContext().getMetadata(),
@@ -360,8 +362,8 @@ public class PlanTester
         this.joinCompiler = new JoinCompiler(typeOperators);
         this.hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(hashStrategyCompiler);
-        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig());
-        this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
+        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), secretsResolver);
+        this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager, secretsResolver);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
         NodeInfo nodeInfo = new NodeInfo("test");
@@ -378,7 +380,8 @@ public class PlanTester
                 typeManager,
                 nodeSchedulerConfig,
                 optimizerConfig,
-                new LocalMemoryManager(new NodeMemoryConfig())));
+                new LocalMemoryManager(new NodeMemoryConfig()),
+                secretsResolver));
         this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProviderFactory(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
@@ -444,7 +447,7 @@ public class PlanTester
                 ImmutableSet.of(),
                 ImmutableSet.of(new ExcludeColumnsFunction()));
 
-        exchangeManagerRegistry = new ExchangeManagerRegistry(OpenTelemetry.noop(), noopTracer());
+        exchangeManagerRegistry = new ExchangeManagerRegistry(OpenTelemetry.noop(), noopTracer(), secretsResolver);
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 Optional.empty(),
@@ -452,12 +455,12 @@ public class PlanTester
                 globalFunctionCatalog,
                 new NoOpResourceGroupManager(),
                 accessControl,
-                Optional.of(new PasswordAuthenticatorManager(new PasswordAuthenticatorConfig())),
-                new CertificateAuthenticatorManager(),
-                Optional.of(new HeaderAuthenticatorManager(new HeaderAuthenticatorConfig())),
+                Optional.of(new PasswordAuthenticatorManager(new PasswordAuthenticatorConfig(), secretsResolver)),
+                new CertificateAuthenticatorManager(secretsResolver),
+                Optional.of(new HeaderAuthenticatorManager(new HeaderAuthenticatorConfig(), secretsResolver)),
                 eventListenerManager,
-                new GroupProviderManager(),
-                new SessionPropertyDefaults(nodeInfo, accessControl),
+                new GroupProviderManager(secretsResolver),
+                new SessionPropertyDefaults(nodeInfo, accessControl, secretsResolver),
                 typeRegistry,
                 blockEncodingManager,
                 new HandleResolver(),

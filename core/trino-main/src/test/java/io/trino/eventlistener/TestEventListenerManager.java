@@ -13,6 +13,8 @@
  */
 package io.trino.eventlistener;
 
+import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryContext;
@@ -150,7 +152,7 @@ class TestEventListenerManager
     @Test
     public void testShutdownIsForwardedToListeners()
     {
-        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig());
+        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of()));
         AtomicBoolean wasCalled = new AtomicBoolean(false);
         EventListener listener = new EventListener()
         {
@@ -172,7 +174,7 @@ class TestEventListenerManager
     public void testMaxConcurrentQueryCompletedEvents()
             throws InterruptedException
     {
-        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig().setMaxConcurrentQueryCompletedEvents(1));
+        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig().setMaxConcurrentQueryCompletedEvents(1), new SecretsResolver(ImmutableMap.of()));
         eventListenerManager.addEventListener(new BlockingEventListener());
         eventListenerManager.loadEventListeners();
         ExecutorService executor = newFixedThreadPool(2);

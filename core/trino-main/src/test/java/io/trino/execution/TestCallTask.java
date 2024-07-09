@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
@@ -116,7 +117,7 @@ public class TestCallTask
     @Test
     public void testExecuteNoPermissionOnInsert()
     {
-        TestingAccessControlManager accessControl = new TestingAccessControlManager(queryRunner.getTransactionManager(), emptyEventListenerManager());
+        TestingAccessControlManager accessControl = new TestingAccessControlManager(queryRunner.getTransactionManager(), emptyEventListenerManager(), new SecretsResolver(ImmutableMap.of()));
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         accessControl.deny(privilege("testing_table", INSERT_TABLE));
 

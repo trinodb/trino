@@ -16,6 +16,7 @@ package io.trino.eventlistener;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeStat;
@@ -68,12 +69,14 @@ public class EventListenerManager
     private final TimeStat queryCreatedTime = new TimeStat(MILLISECONDS);
     private final TimeStat queryCompletedTime = new TimeStat(MILLISECONDS);
     private final TimeStat splitCompletedTime = new TimeStat(MILLISECONDS);
+    private final SecretsResolver secretsResolver;
 
     @Inject
-    public EventListenerManager(EventListenerConfig config)
+    public EventListenerManager(EventListenerConfig config, SecretsResolver secretsResolver)
     {
         this.configFiles = ImmutableList.copyOf(config.getEventListenerFiles());
         this.maxConcurrentQueryCompletedEvents = config.getMaxConcurrentQueryCompletedEvents();
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
     }
 
     public void addEventListenerFactory(EventListenerFactory eventListenerFactory)
@@ -130,7 +133,7 @@ public class EventListenerManager
 
         EventListener eventListener;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            eventListener = factory.create(properties);
+            eventListener = factory.create(secretsResolver.getResolvedConfiguration(properties));
         }
 
         log.info("-- Loaded event listener %s --", configFile);

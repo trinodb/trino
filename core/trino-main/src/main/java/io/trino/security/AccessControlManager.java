@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.opentelemetry.api.OpenTelemetry;
@@ -114,6 +115,7 @@ public class AccessControlManager
 
     private final CounterStat authorizationSuccess = new CounterStat();
     private final CounterStat authorizationFail = new CounterStat();
+    private final SecretsResolver secretsResolver;
 
     @Inject
     public AccessControlManager(
@@ -122,6 +124,7 @@ public class AccessControlManager
             EventListenerManager eventListenerManager,
             AccessControlConfig config,
             OpenTelemetry openTelemetry,
+            SecretsResolver secretsResolver,
             @DefaultSystemAccessControlName String defaultAccessControlName)
     {
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
@@ -129,6 +132,7 @@ public class AccessControlManager
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.configFiles = ImmutableList.copyOf(config.getAccessControlFiles());
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
         this.defaultAccessControlName = requireNonNull(defaultAccessControlName, "defaultAccessControl is null");
         addSystemAccessControlFactory(new DefaultSystemAccessControl.Factory());
         addSystemAccessControlFactory(new AllowAllSystemAccessControl.Factory());
@@ -232,7 +236,7 @@ public class AccessControlManager
 
         SystemAccessControl systemAccessControl;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            systemAccessControl = factory.create(ImmutableMap.copyOf(properties), createContext(name));
+            systemAccessControl = factory.create(ImmutableMap.copyOf(secretsResolver.getResolvedConfiguration(properties)), createContext(name));
         }
 
         systemAccessControl.getEventListeners()

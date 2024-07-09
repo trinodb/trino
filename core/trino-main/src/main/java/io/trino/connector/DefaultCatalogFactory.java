@@ -15,6 +15,7 @@ package io.trino.connector;
 
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.node.NodeInfo;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
@@ -73,6 +74,7 @@ public class DefaultCatalogFactory
 
     private final ConcurrentMap<ConnectorName, ConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
     private final LocalMemoryManager localMemoryManager;
+    private final SecretsResolver secretsResolver;
 
     @Inject
     public DefaultCatalogFactory(
@@ -88,7 +90,8 @@ public class DefaultCatalogFactory
             TypeManager typeManager,
             NodeSchedulerConfig nodeSchedulerConfig,
             OptimizerConfig optimizerConfig,
-            LocalMemoryManager localMemoryManager)
+            LocalMemoryManager localMemoryManager,
+            SecretsResolver secretsResolver)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -103,6 +106,7 @@ public class DefaultCatalogFactory
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
         this.maxPrefetchedInformationSchemaPrefixes = optimizerConfig.getMaxPrefetchedInformationSchemaPrefixes();
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
     }
 
     @Override
@@ -125,7 +129,7 @@ public class DefaultCatalogFactory
                 catalogProperties.catalogHandle().getCatalogName().toString(),
                 catalogProperties.catalogHandle(),
                 connectorFactory,
-                catalogProperties.properties());
+                secretsResolver.getResolvedConfiguration(catalogProperties.properties()));
 
         return createCatalog(
                 catalogProperties.catalogHandle(),
