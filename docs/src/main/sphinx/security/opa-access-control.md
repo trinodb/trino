@@ -48,7 +48,7 @@ The following table lists the configuration properties for the OPA access contro
     `https://opa.example.com/v1/data/allow`.
 * - `opa.policy.row-filters-uri`
   - The **optional** URI for fetching row filters - if not set no row filtering
-    will be applied, example, `https://opa.example.com/v1/data/rowFilters`.
+    is applied. For example, `https://opa.example.com/v1/data/rowFilters`.
 * - `opa.policy.column-masking-uri`
   - The **optional** URI for fetching column masks - if not set no masking will
     be applied, for example, `https://opa.example.com/v1/data/columnMask`.
