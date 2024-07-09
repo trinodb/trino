@@ -51,7 +51,7 @@ The following table lists the configuration properties for the OPA access contro
     is applied. For example, `https://opa.example.com/v1/data/rowFilters`.
 * - `opa.policy.column-masking-uri`
   - The **optional** URI for fetching column masks - if not set no masking will
-    be applied, for example, `https://opa.example.com/v1/data/columnMask`.
+    is applied. For example, `https://opa.example.com/v1/data/columnMask`.
 * - `opa.policy.batched-uri`
   - The **optional** URI for activating batch mode for certain authorization
     queries where batching is applicable, for example
