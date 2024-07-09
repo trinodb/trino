@@ -265,7 +265,7 @@ About "identity"
 
 ## Column masking
 
-Column masking allows Trino to mask out/obscure the data in some columns for
+Column masking allows Trino to obscure data in one or more columns of the result set for
 specific users, without outright denying access. The plugin supports fetching
 column masks from OPA.
 
