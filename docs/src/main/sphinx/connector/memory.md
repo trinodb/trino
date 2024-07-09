@@ -66,6 +66,7 @@ statements, the connector supports the following features:
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`
 - {doc}`/sql/comment`
+- [](sql-view-management)
 - [](sql-routine-management)
 
 ### TRUNCATE and DROP TABLE
