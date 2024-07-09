@@ -228,7 +228,7 @@ for row filter processing with `opa.policy.row-filters-uri`.
 For example, an OPA policy for row filtering may be defined by the following
 rego script:
 
-```rego
+```text
   package trino
   import future.keywords.in
   import future.keywords.if
@@ -268,7 +268,7 @@ processing with `opa.policy.column-masking-uri` in the opa-plugin configuration.
 For example, a policy configuring column masking may be defined by the following
 rego script:
 
-```rego
+```text
   package trino
   import future.keywords.in
   import future.keywords.if
