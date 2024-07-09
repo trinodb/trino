@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.spi.eventlistener.EventListener;
@@ -34,15 +35,15 @@ public class TestingEventListenerManager
 {
     public static TestingEventListenerManager emptyEventListenerManager()
     {
-        return new TestingEventListenerManager(new EventListenerConfig());
+        return new TestingEventListenerManager(new EventListenerConfig(), new SecretsResolver(ImmutableMap.of()));
     }
 
     private final Set<EventListener> configuredEventListeners = Collections.synchronizedSet(new HashSet<>());
 
     @Inject
-    public TestingEventListenerManager(EventListenerConfig config)
+    public TestingEventListenerManager(EventListenerConfig config, SecretsResolver secretsResolver)
     {
-        super(config);
+        super(config, secretsResolver);
     }
 
     @Override

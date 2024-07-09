@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.log.Logger;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.PasswordAuthenticator;
@@ -36,6 +37,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static java.util.Objects.requireNonNull;
 
 public class PasswordAuthenticatorManager
 {
@@ -47,12 +49,14 @@ public class PasswordAuthenticatorManager
     private final AtomicBoolean required = new AtomicBoolean();
     private final Map<String, PasswordAuthenticatorFactory> factories = new ConcurrentHashMap<>();
     private final AtomicReference<List<PasswordAuthenticator>> authenticators = new AtomicReference<>();
+    private final SecretsResolver secretsResolver;
 
     @Inject
-    public PasswordAuthenticatorManager(PasswordAuthenticatorConfig config)
+    public PasswordAuthenticatorManager(PasswordAuthenticatorConfig config, SecretsResolver secretsResolver)
     {
         this.configFiles = ImmutableList.copyOf(config.getPasswordAuthenticatorFiles());
         checkArgument(!configFiles.isEmpty(), "password authenticator files list is empty");
+        this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
     }
 
     public void setRequired()
@@ -104,7 +108,7 @@ public class PasswordAuthenticatorManager
 
         PasswordAuthenticator authenticator;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            authenticator = factory.create(ImmutableMap.copyOf(properties));
+            authenticator = factory.create(ImmutableMap.copyOf(secretsResolver.getResolvedConfiguration(properties)));
         }
 
         log.info("-- Loaded password authenticator %s --", name);

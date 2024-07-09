@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import io.airlift.configuration.secrets.SecretsResolver;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -846,6 +847,7 @@ public class TestQueryStateMachine
                     emptyEventListenerManager(),
                     new AccessControlConfig(),
                     OpenTelemetry.noop(),
+                    new SecretsResolver(ImmutableMap.of()),
                     DefaultSystemAccessControl.NAME);
             accessControl.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
             QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
