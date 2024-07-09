@@ -266,7 +266,7 @@ About "identity"
 ## Column masking
 
 Column masking allows Trino to mask out/obscure the data in some columns for
-specific users, without outright denying access. This plugin supports fetching
+specific users, without outright denying access. The plugin supports fetching
 column masks from OPA.
 
 For these policies to be enabled, make sure to set
