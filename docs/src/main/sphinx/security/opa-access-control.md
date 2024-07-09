@@ -218,7 +218,8 @@ The `targetResource` is used in cases where a new resource, distinct from the on
   }
 }
 ```
-## RowFilters 
+## Row filtering
+
 Row filtering allows Trino to remove some rows from the result before
 returning it to the caller, controlling what data different users can see. This
 plugin supports retrieving filters from OPA.
