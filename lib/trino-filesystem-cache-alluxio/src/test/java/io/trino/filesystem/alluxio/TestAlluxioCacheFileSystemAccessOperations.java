@@ -413,7 +413,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
     private Multiset<CacheOperationSpan> getCacheOperations(List<SpanData> spans)
     {
         return spans.stream().filter(span -> span.getName().startsWith("Alluxio"))
-                        .map(CacheOperationSpan::create)
+                .map(CacheOperationSpan::create)
                 .collect(toCollection(HashMultiset::create));
     }
 
