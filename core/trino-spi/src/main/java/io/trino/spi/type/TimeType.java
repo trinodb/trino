@@ -25,6 +25,7 @@ import io.trino.spi.function.ScalarOperator;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
+import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
@@ -34,6 +35,9 @@ import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.rescale;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -99,6 +103,32 @@ public final class TimeType
         }
 
         return SqlTime.newInstance(precision, getLong(block, position));
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        return Optional.of(new Range(0, PICOSECONDS_PER_DAY));
+    }
+
+    @Override
+    public Optional<Object> getPreviousValue(Object object)
+    {
+        long value = (long) object;
+        if (0 == value) {
+            return Optional.empty();
+        }
+        return Optional.of(value - rescale(PICOSECONDS_PER_SECOND, getPrecision(), 0));
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object object)
+    {
+        long value = (long) object;
+        if (PICOSECONDS_PER_DAY == value) {
+            return Optional.empty();
+        }
+        return Optional.of(value + rescale(PICOSECONDS_PER_SECOND, getPrecision(), 0));
     }
 
     @ScalarOperator(READ_VALUE)
