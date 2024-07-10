@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.opensearch;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.opensearch.client.IndexMetadata;
 import io.trino.plugin.opensearch.decoders.IdColumnDecoder;
 import io.trino.plugin.opensearch.decoders.ScoreColumnDecoder;
@@ -86,7 +87,7 @@ enum BuiltinColumns
     public ColumnHandle getColumnHandle()
     {
         return new OpenSearchColumnHandle(
-                name,
+                ImmutableList.of(name),
                 type,
                 opensearchType,
                 decoderDescriptor,
