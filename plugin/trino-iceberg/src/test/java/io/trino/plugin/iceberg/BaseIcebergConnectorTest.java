@@ -3486,7 +3486,9 @@ public abstract class BaseIcebergConnectorTest
                 .isFullyPushedDown();
 
         assertThat(query("SELECT * FROM test_truncate_decimal_transform WHERE d >= 12.20"))
-                .isNotFullyPushedDown(FilterNode.class); // TODO subsume partition boundary filters on decimals
+                .isFullyPushedDown();
+        assertThat(query("SELECT * FROM test_truncate_decimal_transform WHERE d > 12.19"))
+                .isFullyPushedDown();
         assertThat(query("SELECT * FROM test_truncate_decimal_transform WHERE d > 12.20"))
                 .isNotFullyPushedDown(FilterNode.class);
         assertThat(query("SELECT * FROM test_truncate_decimal_transform WHERE d >= 12.21"))
