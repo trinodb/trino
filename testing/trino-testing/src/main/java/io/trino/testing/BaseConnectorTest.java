@@ -87,6 +87,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.server.testing.TestingSystemSessionProperties.TESTING_SESSION_TIME;
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
@@ -6839,6 +6840,25 @@ public abstract class BaseConnectorTest
         assertQueryFails("SELECT " + recursive2 + "(42)", "Recursive language functions are not supported: " + recursive2 + "\\(integer\\):integer");
         assertUpdate("DROP FUNCTION " + recursive1 + "(integer)");
         assertUpdate("DROP FUNCTION " + recursive2 + "(integer)");
+
+        // verify exception code when function references another, not existing function
+        String wrappingFunction = "wrapping_" + randomNameSuffix();
+        String wrappedFunction = "wrapped_" + randomNameSuffix();
+
+        // wrapped_() not yet registered
+        assertThat(query("CREATE FUNCTION " + wrappingFunction + "() RETURNS integer RETURN " + wrappedFunction + "()")).failure()
+                .hasMessage("line 1:62: Function '" + wrappedFunction + "' not registered")
+                .hasErrorCode(FUNCTION_NOT_FOUND);
+
+        assertUpdate("CREATE FUNCTION " + wrappedFunction + "() RETURNS integer RETURN 42");
+        assertUpdate("CREATE FUNCTION " + wrappingFunction + "() RETURNS integer RETURN " + wrappedFunction + "()");
+        assertQuery("SELECT " + wrappingFunction + "()", "SELECT 42");
+        assertUpdate("DROP FUNCTION " + wrappedFunction + "()");
+
+        // wrapped_() dropped
+        assertThat(query("SELECT " + wrappingFunction + "()")).failure()
+                .hasMessage("line 1:8: Function '" + wrappedFunction + "' not registered")
+                .hasErrorCode(FUNCTION_NOT_FOUND);
     }
 
     @Test
