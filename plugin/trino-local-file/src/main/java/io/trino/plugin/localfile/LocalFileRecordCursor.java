@@ -98,7 +98,7 @@ public class LocalFileRecordCursor
 
     private static boolean isThisServerIncluded(HostAddress address, TupleDomain<LocalFileColumnHandle> predicate, LocalFileTableHandle table)
     {
-        if (table.getServerAddressColumn().isEmpty()) {
+        if (table.serverAddressColumn().isEmpty()) {
             return true;
         }
 
@@ -108,7 +108,7 @@ public class LocalFileRecordCursor
         }
 
         Set<Domain> serverAddressDomain = domains.get().entrySet().stream()
-                .filter(entry -> entry.getKey().ordinalPosition() == table.getServerAddressColumn().getAsInt())
+                .filter(entry -> entry.getKey().ordinalPosition() == table.serverAddressColumn().getAsInt())
                 .map(Map.Entry::getValue)
                 .collect(toSet());
 
@@ -129,7 +129,7 @@ public class LocalFileRecordCursor
         LocalFileTableHandle table = localFileTables.getTable(tableName);
         List<File> fileNames = localFileTables.getFiles(tableName);
         try {
-            return new FilesReader(table.getTimestampColumn(), fileNames.iterator(), predicate);
+            return new FilesReader(table.timestampColumn(), fileNames.iterator(), predicate);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
