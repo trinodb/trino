@@ -14,6 +14,7 @@
 package io.trino.plugin.opensearch;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
@@ -21,6 +22,7 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
@@ -32,7 +34,8 @@ public record OpenSearchTableHandle(
         TupleDomain<ColumnHandle> constraint,
         Map<String, String> regexes,
         Optional<String> query,
-        OptionalLong limit)
+        OptionalLong limit,
+        Set<OpenSearchColumnHandle> columns)
         implements ConnectorTableHandle
 {
     public enum Type
@@ -49,7 +52,21 @@ public record OpenSearchTableHandle(
                 TupleDomain.all(),
                 ImmutableMap.of(),
                 query,
-                OptionalLong.empty());
+                OptionalLong.empty(),
+                ImmutableSet.of());
+    }
+
+    public OpenSearchTableHandle withColumns(Set<OpenSearchColumnHandle> columns)
+    {
+        return new OpenSearchTableHandle(
+                type,
+                schema,
+                index,
+                constraint,
+                regexes,
+                query,
+                limit,
+                columns);
     }
 
     public OpenSearchTableHandle
@@ -59,6 +76,7 @@ public record OpenSearchTableHandle(
         requireNonNull(index, "index is null");
         requireNonNull(constraint, "constraint is null");
         regexes = ImmutableMap.copyOf(requireNonNull(regexes, "regexes is null"));
+        columns = ImmutableSet.copyOf(requireNonNull(columns, "columns is null"));
         requireNonNull(query, "query is null");
         requireNonNull(limit, "limit is null");
     }

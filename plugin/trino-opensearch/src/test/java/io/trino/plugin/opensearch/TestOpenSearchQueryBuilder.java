@@ -41,10 +41,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOpenSearchQueryBuilder
 {
-    private static final OpenSearchColumnHandle NAME = new OpenSearchColumnHandle("name", VARCHAR, new IndexMetadata.PrimitiveType("text"), new VarcharDecoder.Descriptor("name"), true);
-    private static final OpenSearchColumnHandle AGE = new OpenSearchColumnHandle("age", INTEGER, new IndexMetadata.PrimitiveType("int"), new IntegerDecoder.Descriptor("age"), true);
-    private static final OpenSearchColumnHandle SCORE = new OpenSearchColumnHandle("score", DOUBLE, new IndexMetadata.PrimitiveType("double"), new DoubleDecoder.Descriptor("score"), true);
-    private static final OpenSearchColumnHandle LENGTH = new OpenSearchColumnHandle("length", DOUBLE, new IndexMetadata.PrimitiveType("double"), new DoubleDecoder.Descriptor("length"), true);
+    private static final OpenSearchColumnHandle NAME = new OpenSearchColumnHandle(ImmutableList.of("name"), VARCHAR, new IndexMetadata.PrimitiveType("text"), new VarcharDecoder.Descriptor("name"), true);
+    private static final OpenSearchColumnHandle AGE = new OpenSearchColumnHandle(ImmutableList.of("age"), INTEGER, new IndexMetadata.PrimitiveType("int"), new IntegerDecoder.Descriptor("age"), true);
+    private static final OpenSearchColumnHandle SCORE = new OpenSearchColumnHandle(ImmutableList.of("score"), DOUBLE, new IndexMetadata.PrimitiveType("double"), new DoubleDecoder.Descriptor("score"), true);
+    private static final OpenSearchColumnHandle LENGTH = new OpenSearchColumnHandle(ImmutableList.of("length"), DOUBLE, new IndexMetadata.PrimitiveType("double"), new DoubleDecoder.Descriptor("length"), true);
 
     @Test
     public void testMatchAll()
