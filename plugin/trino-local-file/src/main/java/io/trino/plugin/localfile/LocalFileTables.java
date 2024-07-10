@@ -96,8 +96,8 @@ public class LocalFileTables
 
     public List<ColumnMetadata> getColumns(LocalFileTableHandle tableHandle)
     {
-        checkArgument(tableColumns.containsKey(tableHandle.getSchemaTableName()), "Table '%s' not registered", tableHandle.getSchemaTableName());
-        return tableColumns.get(tableHandle.getSchemaTableName());
+        checkArgument(tableColumns.containsKey(tableHandle.schemaTableName()), "Table '%s' not registered", tableHandle.schemaTableName());
+        return tableColumns.get(tableHandle.schemaTableName());
     }
 
     public List<File> getFiles(SchemaTableName table)
