@@ -193,7 +193,6 @@
         <dep.errorprone.version>2.28.0</dep.errorprone.version>
         <dep.flyway.version>10.15.2</dep.flyway.version>
         <dep.google.http.client.version>1.44.2</dep.google.http.client.version>
-        <dep.guava.version>33.2.0-jre</dep.guava.version>
         <dep.iceberg.version>1.5.2</dep.iceberg.version>
         <dep.jna.version>5.14.0</dep.jna.version>
         <dep.joda.version>2.12.7</dep.joda.version>
