@@ -76,7 +76,7 @@ public class ScanQueryPageSource
 
         // When the _source field is requested, we need to bypass column pruning when fetching the document
         boolean needAllFields = columns.stream()
-                .map(OpenSearchColumnHandle::name)
+                .map(OpenSearchColumnHandle::dereferencePath)
                 .anyMatch(isEqual(SOURCE.getName()));
 
         // Columns to fetch as doc_fields instead of pulling them out of the JSON source
@@ -93,7 +93,7 @@ public class ScanQueryPageSource
                 .toArray(BlockBuilder[]::new);
 
         List<String> requiredFields = columns.stream()
-                .map(OpenSearchColumnHandle::name)
+                .map(OpenSearchColumnHandle::dereferencePath)
                 .filter(name -> !isBuiltinColumn(name))
                 .collect(toList());
 
@@ -158,8 +158,22 @@ public class ScanQueryPageSource
             Map<String, Object> document = hit.getSourceAsMap();
 
             for (int i = 0; i < decoders.size(); i++) {
-                String field = columns.get(i).name();
-                decoders.get(i).decode(hit, () -> getField(document, field), columnBuilders[i]);
+                OpenSearchColumnHandle columnHandle = columns.get(i);
+                if (columnHandle.path().size() == 1) {
+                    decoders.get(i).decode(hit, () -> getField(document, columnHandle.path().getFirst()), columnBuilders[i]);
+                    continue;
+                }
+                Map<String, Object> value = (Map<String, Object>) getField(document, columnHandle.path().getFirst());
+                if (value != null) {
+                    for (int j = 1; j < columnHandle.path().size() - 1; j++) {
+                        value = (Map<String, Object>) getField(value, columnHandle.path().get(j));
+                        if (value == null) {
+                            break;
+                        }
+                    }
+                }
+                Map<String, Object> leafDocument = value;
+                decoders.get(i).decode(hit, () -> getField(leafDocument, columnHandle.path().getLast()), columnBuilders[i]);
             }
 
             if (hit.getSourceRef() != null) {
@@ -182,6 +196,9 @@ public class ScanQueryPageSource
 
     public static Object getField(Map<String, Object> document, String field)
     {
+        if (document == null) {
+            return null;
+        }
         Object value = document.get(field);
         if (value == null) {
             Map<String, Object> result = new HashMap<>();
@@ -206,7 +223,7 @@ public class ScanQueryPageSource
         Map<String, Type> result = new HashMap<>();
 
         for (OpenSearchColumnHandle column : columns) {
-            flattenFields(result, column.name(), column.type());
+            flattenFields(result, column.dereferencePath(), column.type());
         }
 
         return result;

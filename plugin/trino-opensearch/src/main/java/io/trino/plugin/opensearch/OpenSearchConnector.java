@@ -16,6 +16,7 @@ package io.trino.plugin.opensearch;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -24,10 +25,13 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.function.table.ConnectorTableFunction;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
+import java.util.List;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
@@ -41,6 +45,7 @@ public class OpenSearchConnector
     private final OpenSearchPageSourceProvider pageSourceProvider;
     private final NodesSystemTable nodesSystemTable;
     private final Set<ConnectorTableFunction> connectorTableFunctions;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
     public OpenSearchConnector(
@@ -49,7 +54,8 @@ public class OpenSearchConnector
             OpenSearchSplitManager splitManager,
             OpenSearchPageSourceProvider pageSourceProvider,
             NodesSystemTable nodesSystemTable,
-            Set<ConnectorTableFunction> connectorTableFunctions)
+            Set<ConnectorTableFunction> connectorTableFunctions,
+            Set<SessionPropertiesProvider> sessionPropertiesProviders)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -57,6 +63,9 @@ public class OpenSearchConnector
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.nodesSystemTable = requireNonNull(nodesSystemTable, "nodesSystemTable is null");
         this.connectorTableFunctions = ImmutableSet.copyOf(requireNonNull(connectorTableFunctions, "connectorTableFunctions is null"));
+        this.sessionProperties = sessionPropertiesProviders.stream()
+                .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
+                .collect(toImmutableList());
     }
 
     @Override
@@ -94,6 +103,12 @@ public class OpenSearchConnector
     public Set<ConnectorTableFunction> getTableFunctions()
     {
         return connectorTableFunctions;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
     }
 
     @Override
