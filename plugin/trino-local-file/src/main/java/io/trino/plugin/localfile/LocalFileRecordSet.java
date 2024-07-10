@@ -43,7 +43,7 @@ public class LocalFileRecordSet
 
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (LocalFileColumnHandle column : columns) {
-            types.add(column.getColumnType());
+            types.add(column.columnType());
         }
         this.columnTypes = types.build();
         this.address = Iterables.getOnlyElement(split.getAddresses());
