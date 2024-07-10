@@ -90,7 +90,7 @@ public class LocalFileRecordCursor
         fieldToColumnIndex = new int[columns.size()];
         for (int i = 0; i < columns.size(); i++) {
             LocalFileColumnHandle columnHandle = columns.get(i);
-            fieldToColumnIndex[i] = columnHandle.getOrdinalPosition();
+            fieldToColumnIndex[i] = columnHandle.ordinalPosition();
         }
         this.includeServer = isThisServerIncluded(address, predicate, localFileTables.getTable(tableName));
         this.reader = includeServer ? getFilesReader(localFileTables, predicate, tableName) : null;
@@ -108,7 +108,7 @@ public class LocalFileRecordCursor
         }
 
         Set<Domain> serverAddressDomain = domains.get().entrySet().stream()
-                .filter(entry -> entry.getKey().getOrdinalPosition() == table.getServerAddressColumn().getAsInt())
+                .filter(entry -> entry.getKey().ordinalPosition() == table.getServerAddressColumn().getAsInt())
                 .map(Map.Entry::getValue)
                 .collect(toSet());
 
@@ -152,7 +152,7 @@ public class LocalFileRecordCursor
     public Type getType(int field)
     {
         checkArgument(field < columns.size(), "Invalid field index");
-        return columns.get(field).getColumnType();
+        return columns.get(field).columnType();
     }
 
     @Override
@@ -287,7 +287,7 @@ public class LocalFileRecordCursor
             if (domains.isPresent() && timestampOrdinalPosition.isPresent()) {
                 Map<LocalFileColumnHandle, Domain> domainMap = domains.get();
                 Set<Domain> timestampDomain = domainMap.entrySet().stream()
-                        .filter(entry -> entry.getKey().getOrdinalPosition() == timestampOrdinalPosition.getAsInt())
+                        .filter(entry -> entry.getKey().ordinalPosition() == timestampOrdinalPosition.getAsInt())
                         .map(Map.Entry::getValue)
                         .collect(toSet());
 
