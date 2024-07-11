@@ -37,11 +37,10 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Table;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
@@ -123,8 +122,6 @@ public class TestIcebergHiveMetastoreAutoCleanMetadataFile
 
         this.fileSystemFactory = getFileSystemFactory(queryRunner);
         this.tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
-
-
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
         this.trinoCatalog = new TrinoHiveCatalog(
                 new CatalogName("hive"),
@@ -138,12 +135,12 @@ public class TestIcebergHiveMetastoreAutoCleanMetadataFile
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable());
 
-
         return queryRunner;
     }
 
     @Test
     public void testInsertWithAutoCleanMetadataFile()
+            throws Exception
     {
         assertUpdate("CREATE TABLE table_to_metadata_count (_bigint BIGINT, _varchar VARCHAR)");
 
@@ -156,20 +153,15 @@ public class TestIcebergHiveMetastoreAutoCleanMetadataFile
         for (int i = 0; i < 10; i++) {
             assertUpdate("INSERT INTO table_to_metadata_count VALUES (1, 'a')", 1);
         }
-        try {
-            int count = 0;
-            fileSystem = fileSystemFactory.create(SESSION);
-            FileIterator fileIterator = fileSystem.listFiles(Location.of(table.location()));
-            while (fileIterator.hasNext()) {
-                FileEntry next = fileIterator.next();
-                if (next.location().path().endsWith("metadata.json")) {
-                    count++;
-                }
+        int count = 0;
+        fileSystem = fileSystemFactory.create(SESSION);
+        FileIterator fileIterator = fileSystem.listFiles(Location.of(table.location()));
+        while (fileIterator.hasNext()) {
+            FileEntry next = fileIterator.next();
+            if (next.location().path().endsWith("metadata.json")) {
+                count++;
             }
-            assertThat(count).isEqualTo(1 + METADATA_PREVIOUS_VERSIONS_MAX);
         }
-        catch (IOException e) {
-            e.printStackTrace();
-        }
+        assertThat(count).isEqualTo(1 + METADATA_PREVIOUS_VERSIONS_MAX);
     }
 }
