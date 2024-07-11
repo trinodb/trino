@@ -69,7 +69,7 @@ public class StaticCatalogManager
     private enum State { CREATED, INITIALIZED, STOPPED }
 
     private final CatalogFactory catalogFactory;
-    private final List<CatalogProperties> catalogProperties;
+    private final Map<CatalogHandle, CatalogProperties> catalogProperties;
     private final Executor executor;
 
     private final ConcurrentMap<CatalogName, CatalogConnector> catalogs = new ConcurrentHashMap<>();
@@ -82,7 +82,7 @@ public class StaticCatalogManager
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         List<String> disabledCatalogs = firstNonNull(config.getDisabledCatalogs(), ImmutableList.of());
 
-        ImmutableList.Builder<CatalogProperties> catalogProperties = ImmutableList.builder();
+        ImmutableMap.Builder<CatalogHandle, CatalogProperties> catalogProperties = ImmutableMap.builder();
         for (File file : listCatalogFiles(config.getCatalogConfigurationDir())) {
             String catalogName = Files.getNameWithoutExtension(file.getName());
             checkArgument(!catalogName.equals(GlobalSystemConnector.NAME), "Catalog name SYSTEM is reserved for internal usage");
@@ -107,12 +107,13 @@ public class StaticCatalogManager
                 log.warn("Catalog '%s' is using the deprecated connector name '%s'. The correct connector name is '%s'", catalogName, deprecatedConnectorName, connectorName);
             }
 
-            catalogProperties.add(new CatalogProperties(
-                    createRootCatalogHandle(new CatalogName(catalogName), new CatalogVersion("default")),
+            CatalogHandle catalogHandle = createRootCatalogHandle(new CatalogName(catalogName), new CatalogVersion("default"));
+            catalogProperties.put(catalogHandle, new CatalogProperties(
+                    catalogHandle,
                     new ConnectorName(connectorName),
                     ImmutableMap.copyOf(properties)));
         }
-        this.catalogProperties = catalogProperties.build();
+        this.catalogProperties = catalogProperties.buildOrThrow();
         this.executor = requireNonNull(executor, "executor is null");
     }
 
@@ -154,7 +155,7 @@ public class StaticCatalogManager
 
         executeUntilFailure(
                 executor,
-                catalogProperties.stream()
+                catalogProperties.values().stream()
                         .map(catalog -> (Callable<?>) () -> {
                             CatalogName catalogName = catalog.catalogHandle().getCatalogName();
                             log.info("-- Loading catalog %s --", catalogName);
@@ -200,8 +201,7 @@ public class StaticCatalogManager
     @Override
     public Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle)
     {
-        // static catalog manager does not propagate catalogs between machines
-        return Optional.empty();
+        return Optional.ofNullable(catalogProperties.get(catalogHandle));
     }
 
     @Override
