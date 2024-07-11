@@ -84,7 +84,7 @@ public final class TypeHelper
             return org.apache.kudu.Type.BINARY;
         }
         if (type == DateType.DATE) {
-            return org.apache.kudu.Type.STRING;
+            return org.apache.kudu.Type.DATE;
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
             return org.apache.kudu.Type.UNIXTIME_MICROS;
@@ -116,15 +116,16 @@ public final class TypeHelper
                 return DoubleType.DOUBLE;
             case DECIMAL:
                 return DecimalType.createDecimalType(attributes.getPrecision(), attributes.getScale());
-            // TODO: add support for varchar and date types: https://github.com/trinodb/trino/issues/11009
             case STRING:
                 return VarcharType.VARCHAR;
             case BINARY:
                 return VarbinaryType.VARBINARY;
+            case DATE:
+                return DateType.DATE;
             case UNIXTIME_MICROS:
                 return TIMESTAMP_MILLIS;
+            // TODO: add support for varchar types: https://github.com/trinodb/trino/issues/11009
             case VARCHAR:
-            case DATE:
                 break;
         }
         throw new IllegalStateException("Kudu type not implemented for " + ktype);
@@ -166,6 +167,9 @@ public final class TypeHelper
         if (type instanceof VarbinaryType) {
             return ((Slice) nativeValue).toByteBuffer();
         }
+        if (type.equals(DateType.DATE)) {
+            return nativeValue;
+        }
         if (type.equals(TIMESTAMP_MILLIS)) {
             // Kudu's native format is in microseconds
             return nativeValue;
@@ -203,6 +207,9 @@ public final class TypeHelper
                 return row.getDecimal(field).unscaledValue().longValue();
             }
             throw new IllegalStateException("getLong not supported for long decimal: " + type);
+        }
+        if (type.equals(DateType.DATE)) {
+            return row.getInt(field);
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
             return truncateEpochMicrosToMillis(row.getLong(field));

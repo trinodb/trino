@@ -73,6 +73,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcWriterValida
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getOrcBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getOrcBloomFilterFpp;
+import static io.trino.plugin.iceberg.IcebergUtil.getParquetBloomFilterColumns;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.toOrcType;
 import static io.trino.plugin.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
@@ -126,7 +127,7 @@ public class IcebergFileWriterFactory
     {
         return switch (fileFormat) {
             // TODO use metricsConfig https://github.com/trinodb/trino/issues/9791
-            case PARQUET -> createParquetWriter(MetricsConfig.getDefault(), fileSystem, outputPath, icebergSchema, session);
+            case PARQUET -> createParquetWriter(MetricsConfig.getDefault(), fileSystem, outputPath, icebergSchema, session, storageProperties);
             case ORC -> createOrcWriter(metricsConfig, fileSystem, outputPath, icebergSchema, session, storageProperties, getOrcStringStatisticsLimit(session));
             case AVRO -> createAvroWriter(fileSystem, outputPath, icebergSchema, session);
         };
@@ -140,7 +141,7 @@ public class IcebergFileWriterFactory
             Map<String, String> storageProperties)
     {
         return switch (fileFormat) {
-            case PARQUET -> createParquetWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session);
+            case PARQUET -> createParquetWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties);
             case ORC -> createOrcWriter(FULL_METRICS_CONFIG, fileSystem, outputPath, POSITION_DELETE_SCHEMA, session, storageProperties, DataSize.ofBytes(Integer.MAX_VALUE));
             case AVRO -> createAvroWriter(fileSystem, outputPath, POSITION_DELETE_SCHEMA, session);
         };
@@ -151,7 +152,8 @@ public class IcebergFileWriterFactory
             TrinoFileSystem fileSystem,
             Location outputPath,
             Schema icebergSchema,
-            ConnectorSession session)
+            ConnectorSession session,
+            Map<String, String> storageProperties)
     {
         List<String> fileColumnNames = icebergSchema.columns().stream()
                 .map(Types.NestedField::name)
@@ -170,6 +172,7 @@ public class IcebergFileWriterFactory
                     .setMaxPageValueCount(getParquetWriterPageValueCount(session))
                     .setMaxBlockSize(getParquetWriterBlockSize(session))
                     .setBatchSize(getParquetWriterBatchSize(session))
+                    .setBloomFilterColumns(getParquetBloomFilterColumns(storageProperties))
                     .build();
 
             HiveCompressionCodec hiveCompressionCodec = getCompressionCodec(session);

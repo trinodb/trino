@@ -4346,6 +4346,42 @@ public class TestDeltaLakeConnectorTest
         }
     }
 
+    @Test
+    public void testAddColumnWithTypeCoercion()
+    {
+        testAddColumnWithTypeCoercion("timestamp", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(0)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(1)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(2)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(3)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(4)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(5)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(6)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(7)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(8)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(9)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(10)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(11)", "timestamp(6)");
+        testAddColumnWithTypeCoercion("timestamp(12)", "timestamp(6)");
+
+        testAddColumnWithTypeCoercion("char(1)", "varchar");
+
+        testAddColumnWithTypeCoercion("array(char(10))", "array(varchar)");
+        testAddColumnWithTypeCoercion("map(char(20), char(30))", "map(varchar, varchar)");
+        testAddColumnWithTypeCoercion("row(x char(40))", "row(x varchar)");
+    }
+
+    private void testAddColumnWithTypeCoercion(String columnType, String expectedColumnType)
+    {
+        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_coercion_add_column", "(a varchar, b row(x integer))")) {
+            // TODO: Update this test once the connector supports adding a new field to a row type
+            assertQueryFails("ALTER TABLE " + testTable.getName() + " ADD COLUMN b.y " + columnType, "This connector does not support adding fields");
+
+            assertUpdate("ALTER TABLE " + testTable.getName() + " ADD COLUMN c " + columnType);
+            assertThat(getColumnType(testTable.getName(), "c")).isEqualTo(expectedColumnType);
+        }
+    }
+
     private void assertTimestampNtzFeature(String tableName)
     {
         assertThat(query("SELECT * FROM \"" + tableName + "$properties\""))
@@ -4642,5 +4678,38 @@ public class TestDeltaLakeConnectorTest
                 .hasMessageMatching("This connector does not support reading tables with TIMESTAMP AS OF|" +
                         "Delta Lake snapshot ID does not exists: .*|" +
                         "Unsupported type for table version: .*");
+    }
+
+    @Test
+    public void testMissingFieldName()
+    {
+        assertQueryFails("CREATE TABLE test_missing_field_name(a row(int, int))", "\\QRow type field does not have a name: row(integer, integer)");
+    }
+
+    @Test
+    public void testDuplicatedFieldNames()
+    {
+        String tableName = "test_duplicated_field_names" + randomNameSuffix();
+
+        assertQueryFails("CREATE TABLE " + tableName + "(col row(x int, \"X\" int))", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS row(x int, \"X\" int)) col", "Field name 'x' specified more than once");
+
+        assertQueryFails("CREATE TABLE " + tableName + "(col array(row(x int, \"X\" int)))", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS array(row(x int, \"X\" int))) col", "Field name 'x' specified more than once");
+
+        assertQueryFails("CREATE TABLE " + tableName + "(col map(int, row(x int, \"X\" int)))", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS map(int, row(x int, \"X\" int))) col", "Field name 'x' specified more than once");
+
+        assertQueryFails("CREATE TABLE " + tableName + "(col row(a row(x int, \"X\" int)))", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS row(a row(x int, \"X\" int))) col", "Field name 'x' specified more than once");
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_duplicated_field_names_", "(id int)")) {
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col row(x int, \"X\" int)", ".* Field name 'x' specified more than once");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col row(\"X\" int)");
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col.x int", "line 1:1: Field 'x' already exists");
+
+            assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE row(x int, \"X\" int)", "This connector does not support setting column types");
+        }
     }
 }

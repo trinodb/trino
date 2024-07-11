@@ -368,6 +368,12 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
+        {
+            return Optional.empty();
+        }
+
+        @Override
         public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column)
         {
             SchemaTableName tableName = table.getSchemaTableName();

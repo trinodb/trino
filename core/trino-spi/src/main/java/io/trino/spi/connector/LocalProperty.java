@@ -28,8 +28,9 @@ import static java.lang.String.format;
         property = "@type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = ConstantProperty.class, name = "constant"),
+        @JsonSubTypes.Type(value = GroupingProperty.class, name = "grouping"),
         @JsonSubTypes.Type(value = SortingProperty.class, name = "sorting"),
-        @JsonSubTypes.Type(value = GroupingProperty.class, name = "grouping")})
+})
 public sealed interface LocalProperty<E>
         permits GroupingProperty, SortingProperty, ConstantProperty
 {

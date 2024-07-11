@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.CreationException;
 import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
@@ -285,6 +286,7 @@ public class TestIcebergPlugin
                                 "iceberg.catalog.type", "nessie",
                                 "iceberg.nessie-catalog.default-warehouse-dir", "/tmp",
                                 "iceberg.nessie-catalog.uri", "http://foo:1234",
+                                "iceberg.nessie-catalog.client-api-version", "V1",
                                 "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
@@ -301,6 +303,7 @@ public class TestIcebergPlugin
                                 "iceberg.catalog.type", "nessie",
                                 "iceberg.nessie-catalog.default-warehouse-dir", "/tmp",
                                 "iceberg.nessie-catalog.uri", "http://foo:1234",
+                                "iceberg.nessie-catalog.client-api-version", "V2",
                                 "iceberg.nessie-catalog.authentication.type", "BEARER",
                                 "iceberg.nessie-catalog.authentication.token", "someToken"),
                         new TestingConnectorContext())
@@ -341,6 +344,23 @@ public class TestIcebergPlugin
                 .shutdown())
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("'iceberg.nessie-catalog.authentication.token' must be configured with 'iceberg.nessie-catalog.authentication.type' BEARER");
+    }
+
+    @Test
+    public void testNessieCatalogClientAPIVersion()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        assertThatThrownBy(() -> factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "nessie",
+                                "iceberg.nessie-catalog.uri", "http://foo:1234",
+                                "iceberg.nessie-catalog.default-warehouse-dir", "/tmp"),
+                        new TestingConnectorContext())
+                .shutdown())
+                .isInstanceOf(CreationException.class)
+                .hasMessageContaining("URI doesn't end with the version: http://foo:1234. Please configure `client-api-version` in the catalog properties explicitly.");
     }
 
     @Test

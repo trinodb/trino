@@ -46,7 +46,7 @@ are also available. They are discussed later in this topic.
     You must set this property in all Iceberg catalog property files. Valid
     values are `hive_metastore`, `glue`, `jdbc`, `rest`, `nessie`, and
     `snowflake`.
-  -
+  - `hive_metastore`
 * - `hive.metastore-cache.cache-partitions`
   - Enable caching for partition metadata. You can disable caching to avoid
     inconsistent behavior that results from it.
@@ -475,6 +475,9 @@ following properties:
 * - `iceberg.rest-catalog.uri`
   - REST server API endpoint URI (required). Example:
     `http://iceberg-with-rest:8181`
+* - `iceberg.rest-catalog.prefix`
+  - The prefix for the resource path to use with the REST catalog server (optional).
+    Example: `dev`
 * - `iceberg.rest-catalog.warehouse`
   - Warehouse identifier/location for the catalog (optional). Example:
     `s3://my_bucket/warehouse_location`
@@ -559,7 +562,7 @@ properties:
   - Description
 * - `iceberg.nessie-catalog.uri`
   - Nessie API endpoint URI (required). Example:
-    `https://localhost:19120/api/v1`
+    `https://localhost:19120/api/v2`
 * - `iceberg.nessie-catalog.ref`
   - The branch/tag to use for Nessie. Defaults to `main`.
 * - `iceberg.nessie-catalog.default-warehouse-dir`
@@ -580,12 +583,15 @@ properties:
 * - `iceberg.nessie-catalog.authentication.token`
   - The token to use with `BEARER` authentication. Example:
 `SXVLUXUhIExFQ0tFUiEK`
+* - `iceberg.nessie-catalog.client-api-version`
+  - Optional version of the Client API version to use. By default it is inferred from the `iceberg.nessie-catalog.uri` value.
+    Valid values are `V1` or `V2`.
 :::
 
 ```text
 connector.name=iceberg
 iceberg.catalog.type=nessie
-iceberg.nessie-catalog.uri=https://localhost:19120/api/v1
+iceberg.nessie-catalog.uri=https://localhost:19120/api/v2
 iceberg.nessie-catalog.default-warehouse-dir=/tmp
 ```
 

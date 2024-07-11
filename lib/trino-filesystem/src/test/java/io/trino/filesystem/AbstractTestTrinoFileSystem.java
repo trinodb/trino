@@ -477,6 +477,12 @@ public abstract class AbstractTestTrinoFileSystem
                         .isInstanceOf(IOException.class)
                         .hasMessageContaining(tempBlob.location().toString());
             }
+
+            // overwrite with an empty file and verify that reading it doesn't throw errors
+            tempBlob.outputFile().createOrOverwrite(new byte[0]);
+            try (TrinoInputStream inputStream = tempBlob.inputFile().newStream()) {
+                assertThat(inputStream.read()).isLessThan(0);
+            }
         }
     }
 

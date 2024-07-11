@@ -15,8 +15,8 @@ package io.trino.server.remotetask;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.net.HttpHeaders;
@@ -159,7 +159,7 @@ public final class HttpRemoteTask
     private final AtomicReference<Future<?>> currentRequest = new AtomicReference<>();
 
     @GuardedBy("this")
-    private final SetMultimap<PlanNodeId, ScheduledSplit> pendingSplits = HashMultimap.create();
+    private final SetMultimap<PlanNodeId, ScheduledSplit> pendingSplits = LinkedHashMultimap.create();
     private final int maxUnacknowledgedSplits;
     @GuardedBy("this")
     private volatile int pendingSourceSplitCount;
@@ -975,6 +975,10 @@ public final class HttpRemoteTask
             public void onSuccess(JsonResponse<TaskInfo> result)
             {
                 try {
+                    if (!result.hasValue()) {
+                        log.warn("TaskInfo result did not contain JSON payload; payload=" + result.getResponseBody());
+                        throw new IllegalArgumentException("TaskInfo result did not contain JSON payload");
+                    }
                     updateTaskInfo(result.getValue());
                 }
                 finally {

@@ -151,11 +151,11 @@ public class ConstantPopulatingPageSource
             for (int columnChannel = 0; columnChannel < columns.size(); columnChannel++) {
                 ColumnType column = columns.get(columnChannel);
                 if (column instanceof ConstantColumn) {
-                    constantValues[columnChannel] = ((ConstantColumn) column).getValue();
+                    constantValues[columnChannel] = ((ConstantColumn) column).value();
                     isRequired = true;
                 }
                 else if (column instanceof DelegateColumn) {
-                    int delegateChannel = ((DelegateColumn) column).getSourceChannel();
+                    int delegateChannel = ((DelegateColumn) column).sourceChannel();
                     delegateIndexes[columnChannel] = delegateChannel;
                     if (columnChannel != delegateChannel) {
                         isRequired = true;
@@ -176,36 +176,18 @@ public class ConstantPopulatingPageSource
 
     public interface ColumnType {}
 
-    private static class ConstantColumn
+    private record ConstantColumn(Block value)
             implements ColumnType
     {
-        private final Block value;
-
-        private ConstantColumn(Block value)
+        private ConstantColumn
         {
-            this.value = requireNonNull(value, "value is null");
+            requireNonNull(value, "value is null");
             checkArgument(value.getPositionCount() == 1, "ConstantColumn may only contain one value");
-        }
-
-        public Block getValue()
-        {
-            return value;
         }
     }
 
-    private static class DelegateColumn
+    private record DelegateColumn(int sourceChannel)
             implements ColumnType
     {
-        private final int sourceChannel;
-
-        private DelegateColumn(int sourceChannel)
-        {
-            this.sourceChannel = sourceChannel;
-        }
-
-        public int getSourceChannel()
-        {
-            return sourceChannel;
-        }
     }
 }

@@ -53,6 +53,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
@@ -70,6 +71,7 @@ import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type.PrimitiveType;
+import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StructType;
 
@@ -101,6 +103,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
 import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
@@ -117,6 +120,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROP
 import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
@@ -166,6 +170,7 @@ import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_FPP;
+import static org.apache.iceberg.TableProperties.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
@@ -231,6 +236,44 @@ public final class IcebergUtil
         return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
     }
 
+    public static List<IcebergColumnHandle> getProjectedColumns(Schema schema, TypeManager typeManager)
+    {
+        ImmutableList.Builder<IcebergColumnHandle> projectedColumns = ImmutableList.builder();
+        StructType schemaAsStruct = schema.asStruct();
+        Map<Integer, NestedField> indexById = TypeUtil.indexById(schemaAsStruct);
+        Map<Integer, Integer> indexParents = TypeUtil.indexParents(schemaAsStruct);
+        Map<Integer, List<Integer>> indexPaths = indexById.entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, e -> ImmutableList.copyOf(buildPath(indexParents, e.getKey()))));
+
+        for (Map.Entry<Integer, NestedField> entry : indexById.entrySet()) {
+            int fieldId = entry.getKey();
+            NestedField childField = entry.getValue();
+            NestedField baseField = childField;
+
+            List<Integer> path = requireNonNull(indexPaths.get(fieldId));
+            if (!path.isEmpty()) {
+                baseField = indexById.get(path.getFirst());
+                path = ImmutableList.<Integer>builder()
+                        .addAll(path.subList(1, path.size())) // Base column id shouldn't exist in IcebergColumnHandle.path
+                        .add(fieldId) // Append the leaf field id
+                        .build();
+            }
+            projectedColumns.add(createColumnHandle(baseField, childField, typeManager, path));
+        }
+        return projectedColumns.build();
+    }
+
+    private static List<Integer> buildPath(Map<Integer, Integer> indexParents, int fieldId)
+    {
+        List<Integer> path = new ArrayList<>();
+        while (indexParents.containsKey(fieldId)) {
+            int parentId = indexParents.get(fieldId);
+            path.add(parentId);
+            fieldId = parentId;
+        }
+        return ImmutableList.copyOf(path.reversed());
+    }
+
     public static Map<String, Object> getIcebergTableProperties(Table icebergTable)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
@@ -264,6 +307,12 @@ public final class IcebergUtil
             properties.put(ORC_BLOOM_FILTER_FPP_PROPERTY, Double.parseDouble(orcBloomFilterFpp.get()));
         }
 
+        // iceberg Parquet format bloom filter properties
+        Set<String> parquetBloomFilterColumns = getParquetBloomFilterColumns(icebergTable.properties());
+        if (!parquetBloomFilterColumns.isEmpty()) {
+            properties.put(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY, ImmutableList.copyOf(parquetBloomFilterColumns));
+        }
+
         return properties.buildOrThrow();
     }
 
@@ -280,6 +329,14 @@ public final class IcebergUtil
         return orcBloomFilterColumns;
     }
 
+    public static Set<String> getParquetBloomFilterColumns(Map<String, String> properties)
+    {
+        return properties.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX) && "true".equals(entry.getValue()))
+                .map(entry -> entry.getKey().substring(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX.length()))
+                .collect(toImmutableSet());
+    }
+
     public static Optional<String> getOrcBloomFilterFpp(Map<String, String> properties)
     {
         return Stream.of(
@@ -289,7 +346,7 @@ public final class IcebergUtil
                 .findFirst();
     }
 
-    public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)
+    public static List<IcebergColumnHandle> getTopLevelColumns(Schema schema, TypeManager typeManager)
     {
         return schema.columns().stream()
                 .map(column -> getColumnHandle(column, typeManager))
@@ -329,14 +386,18 @@ public final class IcebergUtil
 
     public static IcebergColumnHandle getColumnHandle(NestedField column, TypeManager typeManager)
     {
-        Type type = toTrinoType(column.type(), typeManager);
+        return createColumnHandle(column, column, typeManager, ImmutableList.of());
+    }
+
+    private static IcebergColumnHandle createColumnHandle(NestedField baseColumn, NestedField childColumn, TypeManager typeManager, List<Integer> path)
+    {
         return new IcebergColumnHandle(
-                createColumnIdentity(column),
-                type,
-                ImmutableList.of(),
-                type,
-                column.isOptional(),
-                Optional.ofNullable(column.doc()));
+                createColumnIdentity(baseColumn),
+                toTrinoType(baseColumn.type(), typeManager),
+                path,
+                toTrinoType(childColumn.type(), typeManager),
+                childColumn.isOptional(),
+                Optional.ofNullable(childColumn.doc()));
     }
 
     public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)
@@ -469,7 +530,7 @@ public final class IcebergUtil
         boolean canEnforce = valueSet.getValuesProcessor().transform(
                 ranges -> {
                     MethodHandle targetTypeEqualOperator = typeOperators.getEqualOperator(
-                            transform.getType(), InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+                            transform.type(), InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
                     for (Range range : ranges.getOrderedRanges()) {
                         if (!canEnforceRangeWithPartitioningField(field, transform, range, targetTypeEqualOperator)) {
                             return false;
@@ -484,7 +545,7 @@ public final class IcebergUtil
 
     private static boolean canEnforceRangeWithPartitioningField(PartitionField field, ColumnTransform transform, Range range, MethodHandle targetTypeEqualOperator)
     {
-        if (!transform.isMonotonic()) {
+        if (!transform.monotonic()) {
             // E.g. bucketing transform
             return false;
         }
@@ -519,8 +580,8 @@ public final class IcebergUtil
     {
         requireNonNull(first, "first is null");
         requireNonNull(second, "second is null");
-        Object firstTransformed = transform.getValueTransform().apply(nativeValueToBlock(sourceType, first), 0);
-        Object secondTransformed = transform.getValueTransform().apply(nativeValueToBlock(sourceType, second), 0);
+        Object firstTransformed = transform.valueTransform().apply(nativeValueToBlock(sourceType, first), 0);
+        Object secondTransformed = transform.valueTransform().apply(nativeValueToBlock(sourceType, second), 0);
         // The pushdown logic assumes NULLs and non-NULLs are segregated, so that we have to think about non-null values only.
         verify(firstTransformed != null && secondTransformed != null, "Transform for %s returned null for non-null input", field);
         try {
@@ -531,6 +592,7 @@ public final class IcebergUtil
         }
     }
 
+    @Nullable
     public static Object deserializePartitionValue(Type type, String valueString, String name)
     {
         if (valueString == null) {
@@ -707,7 +769,7 @@ public final class IcebergUtil
 
     public static List<ViewColumn> viewColumnsFromSchema(TypeManager typeManager, Schema schema)
     {
-        return IcebergUtil.getColumns(schema, typeManager).stream()
+        return IcebergUtil.getTopLevelColumns(schema, typeManager).stream()
                 .map(column -> new ViewColumn(column.getName(), column.getType().getTypeId(), column.getComment()))
                 .toList();
     }
@@ -733,12 +795,22 @@ public final class IcebergUtil
         propertiesBuilder.put(FORMAT_VERSION, Integer.toString(IcebergTableProperties.getFormatVersion(tableMetadata.getProperties())));
 
         // iceberg ORC format bloom filter properties used by create table
-        List<String> columns = IcebergTableProperties.getOrcBloomFilterColumns(tableMetadata.getProperties());
-        if (!columns.isEmpty()) {
+        List<String> orcBloomFilterColumns = IcebergTableProperties.getOrcBloomFilterColumns(tableMetadata.getProperties());
+        if (!orcBloomFilterColumns.isEmpty()) {
             checkFormatForProperty(fileFormat.toIceberg(), FileFormat.ORC, ORC_BLOOM_FILTER_COLUMNS_PROPERTY);
-            validateOrcBloomFilterColumns(tableMetadata, columns);
-            propertiesBuilder.put(ORC_BLOOM_FILTER_COLUMNS, Joiner.on(",").join(columns));
+            validateOrcBloomFilterColumns(tableMetadata, orcBloomFilterColumns);
+            propertiesBuilder.put(ORC_BLOOM_FILTER_COLUMNS, Joiner.on(",").join(orcBloomFilterColumns));
             propertiesBuilder.put(ORC_BLOOM_FILTER_FPP, String.valueOf(IcebergTableProperties.getOrcBloomFilterFpp(tableMetadata.getProperties())));
+        }
+
+        // iceberg Parquet format bloom filter properties used by create table
+        List<String> parquetBloomFilterColumns = IcebergTableProperties.getParquetBloomFilterColumns(tableMetadata.getProperties());
+        if (!parquetBloomFilterColumns.isEmpty()) {
+            checkFormatForProperty(fileFormat.toIceberg(), FileFormat.PARQUET, PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY);
+            validateParquetBloomFilterColumns(tableMetadata, parquetBloomFilterColumns);
+            for (String column : parquetBloomFilterColumns) {
+                propertiesBuilder.put(PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX + column, "true");
+            }
         }
 
         if (tableMetadata.getComment().isPresent()) {
@@ -838,6 +910,21 @@ public final class IcebergUtil
                 .collect(toImmutableSet());
         if (!allColumns.containsAll(orcBloomFilterColumns)) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Orc bloom filter columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(orcBloomFilterColumns), allColumns)));
+        }
+    }
+
+    private static void validateParquetBloomFilterColumns(ConnectorTableMetadata tableMetadata, List<String> parquetBloomFilterColumns)
+    {
+        Map<String, Type> columnTypes = tableMetadata.getColumns().stream()
+                .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::getType));
+        for (String column : parquetBloomFilterColumns) {
+            Type type = columnTypes.get(column);
+            if (type == null) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Parquet Bloom filter column %s not present in schema", column));
+            }
+            if (!SUPPORTED_BLOOM_FILTER_TYPES.contains(type)) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Parquet Bloom filter column %s has unsupported type %s", column, type.getDisplayName()));
+            }
         }
     }
 

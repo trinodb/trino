@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>450-SNAPSHOT</version>
+        <version>452-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -13,7 +13,6 @@
     <description>Trino - Pinot connector</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.pinot.version>1.1.0</dep.pinot.version>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
         <!-- additional JVM flags required by chronicle-hft which is used by pinot-segment spi -->
@@ -423,6 +422,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-testing-services</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-tpch</artifactId>
             <scope>test</scope>
         </dependency>
@@ -506,6 +511,10 @@
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
                 <configuration>
+                    <ignoredResourcePatterns>
+                        <!-- Conflicts between org.openjdk.jmh:jmh-core:1.37 and org.quartz-scheduler:quartz:2.3.2 -->
+                        <ignoredResourcePattern>checkstyle.xml</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
                     <ignoredDependencies>
                         <dependency>
                             <groupId>io.netty</groupId>

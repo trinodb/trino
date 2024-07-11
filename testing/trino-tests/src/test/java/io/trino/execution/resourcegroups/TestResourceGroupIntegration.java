@@ -59,10 +59,10 @@ public class TestResourceGroupIntegration
             List<ResourceGroupInfo> path = manager.tryGetPathToRoot(new ResourceGroupId(new ResourceGroupId(new ResourceGroupId("global"), "user-user"), "dashboard-user"))
                     .orElseThrow(() -> new IllegalStateException("Resource group not found"));
             assertThat(path.size()).isEqualTo(3);
-            assertThat(path.get(1).getSubGroups()).isPresent();
-            assertThat(path.get(2).getId()).isEqualTo(new ResourceGroupId("global"));
-            assertThat(path.get(2).getHardConcurrencyLimit()).isEqualTo(100);
-            assertThat(path.get(2).getRunningQueries()).isNotPresent();
+            assertThat(path.get(1).subGroups()).isPresent();
+            assertThat(path.get(2).id()).isEqualTo(new ResourceGroupId("global"));
+            assertThat(path.get(2).hardConcurrencyLimit()).isEqualTo(100);
+            assertThat(path.get(2).runningQueries()).isNotPresent();
         }
     }
 
@@ -79,7 +79,7 @@ public class TestResourceGroupIntegration
             SECONDS.sleep(1);
             ResourceGroupInfo global = getResourceGroupManager(queryRunner).tryGetResourceGroupInfo(new ResourceGroupId("global"))
                     .orElseThrow(() -> new IllegalStateException("Resource group not found"));
-            if (global.getSoftMemoryLimit().toBytes() > 0) {
+            if (global.softMemoryLimit().toBytes() > 0) {
                 break;
             }
             assertLessThan(nanosSince(startTime).roundTo(SECONDS), 60L);

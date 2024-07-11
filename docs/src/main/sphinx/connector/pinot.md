@@ -109,6 +109,7 @@ WHERE bar = 3 AND baz IN ('ONE', 'TWO', 'THREE')
 LIMIT 25000;
 ```
 
+(pinot-dynamic-tables)=
 ## Dynamic tables
 
 To leverage Pinot's fast aggregation, a Pinot query written in PQL can be used as the table name.

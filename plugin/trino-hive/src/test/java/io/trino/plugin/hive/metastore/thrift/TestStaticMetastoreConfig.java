@@ -44,7 +44,7 @@ public class TestStaticMetastoreConfig
                 .buildOrThrow();
 
         StaticMetastoreConfig expected = new StaticMetastoreConfig()
-                .setMetastoreUris("thrift://localhost:9083")
+                .setMetastoreUris(ImmutableList.of("thrift://localhost:9083"))
                 .setMetastoreUsername("trino");
 
         assertFullMapping(properties, expected);
@@ -61,7 +61,7 @@ public class TestStaticMetastoreConfig
                 .buildOrThrow();
 
         StaticMetastoreConfig expected = new StaticMetastoreConfig()
-                .setMetastoreUris("thrift://localhost:9083,thrift://192.0.2.3:8932")
+                .setMetastoreUris(ImmutableList.of("thrift://localhost:9083", "thrift://192.0.2.3:8932"))
                 .setMetastoreUsername("trino");
 
         assertFullMapping(properties, expected);

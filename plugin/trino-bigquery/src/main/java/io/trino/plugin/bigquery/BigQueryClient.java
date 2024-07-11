@@ -20,6 +20,7 @@ import com.google.cloud.bigquery.Dataset;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.Job;
+import com.google.cloud.bigquery.JobConfiguration;
 import com.google.cloud.bigquery.JobException;
 import com.google.cloud.bigquery.JobInfo;
 import com.google.cloud.bigquery.JobStatistics;
@@ -399,6 +400,36 @@ public class BigQueryClient
         return requireNonNull(queryStatistics.getSchema(), "Cannot determine schema for query");
     }
 
+    public boolean useStorageApi(String sql, TableId destinationTable)
+    {
+        JobInfo jobInfo = JobInfo.of(QueryJobConfiguration.newBuilder(sql).setDryRun(true).setDestinationTable(destinationTable).build());
+        try {
+            bigQuery.create(jobInfo);
+        }
+        catch (BigQueryException e) {
+            if (e.getMessage().startsWith("Duplicate column names in the result are not supported when a destination table is present.")) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public TableId getDestinationTable(String sql)
+    {
+        log.debug("Get destination table from query: %s", sql);
+        JobInfo jobInfo = JobInfo.of(QueryJobConfiguration.newBuilder(sql).setDryRun(true).build());
+
+        JobConfiguration jobConfiguration;
+        try {
+            jobConfiguration = bigQuery.create(jobInfo).getConfiguration();
+        }
+        catch (BigQueryException e) {
+            throw new TrinoException(BIGQUERY_INVALID_STATEMENT, "Failed to get destination table for query. " + firstNonNull(e.getMessage(), e), e);
+        }
+
+        return requireNonNull(((QueryJobConfiguration) jobConfiguration).getDestinationTable(), "Cannot determine destination table for query");
+    }
+
     public static String selectSql(TableId table, List<String> requiredColumns, Optional<String> filter)
     {
         String columns = requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
@@ -417,9 +448,6 @@ public class BigQueryClient
 
     private static String fullTableName(TableId remoteTableId)
     {
-        String remoteSchemaName = remoteTableId.getDataset();
-        String remoteTableName = remoteTableId.getTable();
-        remoteTableId = TableId.of(remoteTableId.getProject(), remoteSchemaName, remoteTableName);
         return format("%s.%s.%s", remoteTableId.getProject(), remoteTableId.getDataset(), remoteTableId.getTable());
     }
 

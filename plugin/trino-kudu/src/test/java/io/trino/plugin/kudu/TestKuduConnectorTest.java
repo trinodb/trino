@@ -173,7 +173,7 @@ public class TestKuduConnectorTest
                 .row("custkey", "bigint", extra, "")
                 .row("orderstatus", "varchar", extra, "")
                 .row("totalprice", "double", extra, "")
-                .row("orderdate", "varchar", extra, "")
+                .row("orderdate", "date", extra, "")
                 .row("orderpriority", "varchar", extra, "")
                 .row("clerk", "varchar", extra, "")
                 .row("shippriority", "integer", extra, "")
@@ -198,7 +198,7 @@ public class TestKuduConnectorTest
                         "   custkey bigint COMMENT '' WITH (nullable = true),\n" +
                         "   orderstatus varchar COMMENT '' WITH (nullable = true),\n" +
                         "   totalprice double COMMENT '' WITH (nullable = true),\n" +
-                        "   orderdate varchar COMMENT '' WITH (nullable = true),\n" +
+                        "   orderdate date COMMENT '' WITH (nullable = true),\n" +
                         "   orderpriority varchar COMMENT '' WITH (nullable = true),\n" +
                         "   clerk varchar COMMENT '' WITH (nullable = true),\n" +
                         "   shippriority integer COMMENT '' WITH (nullable = true),\n" +
@@ -536,6 +536,28 @@ public class TestKuduConnectorTest
     }
 
     @Test
+    public void testAddColumnWithDecimal()
+    {
+        String tableName = "test_add_column_with_decimal" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + "(" +
+                "id INT WITH (primary_key=true), " +
+                "a_varchar VARCHAR" +
+                ") WITH (" +
+                " partition_by_hash_columns = ARRAY['id'], " +
+                " partition_by_hash_buckets = 2" +
+                ")");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_decimal decimal(14,5)");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c_decimal decimal(35,5)");
+
+        assertThat(getColumnType(tableName, "b_decimal")).isEqualTo("decimal(14,5)");
+        assertThat(getColumnType(tableName, "c_decimal")).isEqualTo("decimal(35,5)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testInsertIntoTableHavingRowUuid()
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", " AS SELECT * FROM region WITH NO DATA")) {
@@ -601,8 +623,6 @@ public class TestKuduConnectorTest
     public void testInsertNegativeDate()
     {
         // TODO Remove this overriding test once kudu connector can create tables with default partitions
-        // TODO Update this test once kudu connector supports DATE type: https://github.com/trinodb/trino/issues/11009
-        // DATE type is not supported by Kudu connector
         try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date",
                 "(dt DATE WITH (primary_key=true)) " +
                         "WITH (partition_by_hash_columns = ARRAY['dt'], partition_by_hash_buckets = 2)")) {
@@ -613,7 +633,7 @@ public class TestKuduConnectorTest
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return "Insert query has mismatched column types: Table: \\[varchar\\], Query: \\[date\\]";
+        return "Date value <-719893>} is out of range '0001-01-01':'9999-12-31'";
     }
 
     @Test
@@ -731,37 +751,24 @@ public class TestKuduConnectorTest
 
     @Test
     @Override
-    public void testCreateTableAsSelectNegativeDate()
-    {
-        // Map date column type to varchar
-        String tableName = "negative_date_" + randomNameSuffix();
-
-        try {
-            assertUpdate(format("CREATE TABLE %s AS SELECT DATE '-0001-01-01' AS dt", tableName), 1);
-            assertQuery("SELECT * FROM " + tableName, "VALUES '-0001-01-01'");
-            assertQuery(format("SELECT * FROM %s WHERE dt = '-0001-01-01'", tableName), "VALUES '-0001-01-01'");
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
-    }
-
-    @Test
-    @Override
-    public void testDateYearOfEraPredicate()
-    {
-        assertThatThrownBy(super::testDateYearOfEraPredicate)
-                .hasStackTraceContaining("Cannot apply operator: varchar = date");
-    }
-
-    @Test
-    @Override
     public void testVarcharCastToDateInPredicate()
     {
         assertThatThrownBy(super::testVarcharCastToDateInPredicate)
                 .hasStackTraceContaining("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
 
         abort("TODO: implement the test for Kudu");
+    }
+
+    @Test
+    @Override
+    @SuppressWarnings("deprecation")
+    public void testDateYearOfEraPredicate()
+    {
+        // Override because the connector throws an exception instead of an empty result when the value is out of supported range
+        assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
+        // TODO Replace failure with a TrinoException
+        assertThat(query("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'"))
+                .nonTrinoExceptionFailure().hasMessageContaining("integer value out of range for Type: date column: -1448295");
     }
 
     @Test
@@ -1011,10 +1018,14 @@ public class TestKuduConnectorTest
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
-        if (typeName.equals("date") // date gets stored as varchar
-                || typeName.equals("varbinary") // TODO (https://github.com/trinodb/trino/issues/3416)
+        if (typeName.equals("varbinary") // TODO (https://github.com/trinodb/trino/issues/3416)
                 || (typeName.startsWith("char") && dataMappingTestSetup.getSampleValueLiteral().contains(" "))) { // TODO: https://github.com/trinodb/trino/issues/3597
             // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+
+        if (typeName.equals("date") && dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'")) {
+            // Kudu connector returns +10 days during julian->gregorian switch. The test case exists in TestKuduTypeMapping.testDate().
             return Optional.empty();
         }
 
@@ -1063,6 +1074,12 @@ public class TestKuduConnectorTest
     protected void verifyColumnNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageContaining("invalid column name: identifier");
+    }
+
+    @Override
+    protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
+    {
+        return ".*Date value <-719893>} is out of range '0001-01-01':'9999-12-31'.*";
     }
 
     private void assertTableProperty(String tableProperties, String key, String regexValue)

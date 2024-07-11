@@ -18,6 +18,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
+import io.trino.server.ExternalUriInfo;
 import io.trino.server.ui.OAuth2WebUiInstalled;
 import io.trino.server.ui.OAuthIdTokenCookie;
 import io.trino.server.ui.OAuthWebUiCookie;
@@ -41,6 +42,7 @@ import static com.google.common.hash.Hashing.sha256;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
+import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.security.oauth2.TokenPairSerializer.TokenPair.fromOAuth2Response;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
 import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
@@ -119,6 +121,7 @@ public class OAuth2Service
                 .compact();
 
         OAuth2Client.Request request = client.createAuthorizationRequest(state, callbackUri);
+        // redirect the user to the OAuth2 server
         Response.ResponseBuilder response = Response.seeOther(request.getAuthorizationUri());
         request.getNonce().ifPresent(nce -> response.cookie(NonceCookie.create(nce, challengeExpiration)));
         return response.build();
@@ -149,7 +152,7 @@ public class OAuth2Service
                 .build();
     }
 
-    public Response finishOAuth2Challenge(String state, String code, URI callbackUri, Optional<String> nonce)
+    public Response finishOAuth2Challenge(String state, String code, ExternalUriInfo externalUriInfo, Optional<String> nonce)
     {
         Optional<String> handlerState;
         try {
@@ -167,14 +170,14 @@ public class OAuth2Service
         // Note: the Web UI may be disabled, so REST requests can not redirect to a success or error page inside of the Web UI
         try {
             // fetch access token
-            OAuth2Client.Response oauth2Response = client.getOAuth2Response(code, callbackUri, nonce);
+            OAuth2Client.Response oauth2Response = client.getOAuth2Response(code, externalUriInfo.absolutePath(CALLBACK_ENDPOINT), nonce);
 
             Instant cookieExpirationTime = tokenExpiration
                     .map(expiration -> Instant.now().plus(expiration))
                     .orElse(oauth2Response.getExpiration());
             if (handlerState.isEmpty()) {
                 Response.ResponseBuilder builder = Response
-                        .seeOther(URI.create(UI_LOCATION))
+                        .seeOther(externalUriInfo.absolutePath(UI_LOCATION))
                         .cookie(OAuthWebUiCookie.create(tokenPairSerializer.serialize(fromOAuth2Response(oauth2Response)), cookieExpirationTime))
                         .cookie(NonceCookie.delete());
                 if (oauth2Response.getIdToken().isPresent()) {

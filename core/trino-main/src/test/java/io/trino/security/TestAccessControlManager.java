@@ -392,7 +392,7 @@ public class TestAccessControlManager
 
         return createAccessControlManager(
                 eventListenerManager,
-                new AccessControlConfig().setAccessControlFiles(accessControlConfigPath));
+                new AccessControlConfig().setAccessControlFiles(ImmutableList.of(accessControlConfigPath)));
     }
 
     private static AccessControlManager createAccessControlManager(TransactionManager testTransactionManager)

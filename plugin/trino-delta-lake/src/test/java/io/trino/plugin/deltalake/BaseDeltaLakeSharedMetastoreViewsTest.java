@@ -146,6 +146,9 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
             assertQuery(format("SELECT * FROM %s", trinoViewOnHive), "VALUES 1");
             assertQuery(format("SELECT * FROM %s", trinoViewOnHiveOnDeltaCatalog), "VALUES 1");
             assertQuery(format("SELECT table_type FROM %s.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", DELTA_CATALOG_NAME, trinoViewOnHiveName, SCHEMA), "VALUES 'VIEW'");
+            assertQuery(
+                    format("SELECT table_name FROM %s.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'", DELTA_CATALOG_NAME, trinoViewOnHiveName, SCHEMA),
+                    "VALUES '" + trinoViewOnHiveName + "'");
         }
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s", hiveTable));

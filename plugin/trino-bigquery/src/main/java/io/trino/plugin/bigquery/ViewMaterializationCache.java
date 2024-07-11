@@ -64,10 +64,10 @@ public class ViewMaterializationCache
 
     public TableInfo getCachedTable(BigQueryClient client, String query, Duration viewExpiration, TableInfo remoteTableId)
     {
-        return uncheckedCacheGet(destinationTableCache, query, new DestinationTableBuilder(client, viewExpiration, query, createDestinationTable(remoteTableId.getTableId())));
+        return uncheckedCacheGet(destinationTableCache, query, new DestinationTableBuilder(client, viewExpiration, query, buildDestinationTable(remoteTableId.getTableId())));
     }
 
-    private TableId createDestinationTable(TableId remoteTableId)
+    private TableId buildDestinationTable(TableId remoteTableId)
     {
         String project = viewMaterializationProject.orElseGet(remoteTableId::getProject);
         String dataset = viewMaterializationDataset.orElseGet(remoteTableId::getDataset);
@@ -76,7 +76,7 @@ public class ViewMaterializationCache
         return TableId.of(project, dataset, name);
     }
 
-    private static class DestinationTableBuilder
+    public static class DestinationTableBuilder
             implements Supplier<TableInfo>
     {
         private final BigQueryClient bigQueryClient;

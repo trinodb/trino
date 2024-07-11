@@ -20,12 +20,12 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         use = JsonTypeInfo.Id.NAME,
         property = "@type")
 @JsonSubTypes({
+        @JsonSubTypes.Type(value = IrAlternation.class, name = "alternation"),
         @JsonSubTypes.Type(value = IrAnchor.class, name = "anchor"),
+        @JsonSubTypes.Type(value = IrConcatenation.class, name = "concatenation"),
         @JsonSubTypes.Type(value = IrEmpty.class, name = "empty"),
         @JsonSubTypes.Type(value = IrExclusion.class, name = "exclusion"),
         @JsonSubTypes.Type(value = IrLabel.class, name = "label"),
-        @JsonSubTypes.Type(value = IrAlternation.class, name = "alternation"),
-        @JsonSubTypes.Type(value = IrConcatenation.class, name = "concatenation"),
         @JsonSubTypes.Type(value = IrPermutation.class, name = "permutation"),
         @JsonSubTypes.Type(value = IrQuantified.class, name = "quantified"),
 })

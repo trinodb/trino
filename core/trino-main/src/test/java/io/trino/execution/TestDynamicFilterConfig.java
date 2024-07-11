@@ -32,8 +32,9 @@ public class TestDynamicFilterConfig
     {
         assertRecordedDefaults(recordDefaults(DynamicFilterConfig.class)
                 .setEnableDynamicFiltering(true)
-                .setEnableCoordinatorDynamicFiltersDistribution(true)
                 .setEnableLargeDynamicFilters(false)
+                .setEnableDynamicRowFiltering(true)
+                .setDynamicRowFilterSelectivityThreshold(0.7)
                 .setSmallMaxDistinctValuesPerDriver(1_000)
                 .setSmallMaxSizePerDriver(DataSize.of(100, KILOBYTE))
                 .setSmallRangeRowLimitPerDriver(2_000)
@@ -59,8 +60,9 @@ public class TestDynamicFilterConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("enable-dynamic-filtering", "false")
-                .put("enable-coordinator-dynamic-filters-distribution", "false")
                 .put("enable-large-dynamic-filters", "true")
+                .put("enable-dynamic-row-filtering", "false")
+                .put("dynamic-row-filtering.selectivity-threshold", "0.8")
                 .put("dynamic-filtering.small.max-distinct-values-per-driver", "256")
                 .put("dynamic-filtering.small.max-size-per-driver", "64kB")
                 .put("dynamic-filtering.small.range-row-limit-per-driver", "20000")
@@ -83,8 +85,9 @@ public class TestDynamicFilterConfig
 
         DynamicFilterConfig expected = new DynamicFilterConfig()
                 .setEnableDynamicFiltering(false)
-                .setEnableCoordinatorDynamicFiltersDistribution(false)
                 .setEnableLargeDynamicFilters(true)
+                .setEnableDynamicRowFiltering(false)
+                .setDynamicRowFilterSelectivityThreshold(0.8)
                 .setSmallMaxDistinctValuesPerDriver(256)
                 .setSmallMaxSizePerDriver(DataSize.of(64, KILOBYTE))
                 .setSmallRangeRowLimitPerDriver(20000)

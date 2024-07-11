@@ -16,6 +16,7 @@ package io.trino.plugin.kudu;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
@@ -47,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -61,6 +63,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.kudu.util.DateUtil.epochDaysToSqlDate;
 
 public class KuduPageSink
         implements ConnectorPageSink, ConnectorMergeSink
@@ -138,8 +141,8 @@ public class KuduPageSink
             }
             return NOT_BLOCKED;
         }
-        catch (KuduException e) {
-            throw new RuntimeException(e);
+        catch (KuduException | RuntimeException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -149,6 +152,9 @@ public class KuduPageSink
         Type type = columnTypes.get(destChannel);
         if (block.isNull(position)) {
             row.setNull(destChannel);
+        }
+        else if (DATE.equals(type)) {
+            row.addDate(destChannel, epochDaysToSqlDate(INTEGER.getInt(block, position)));
         }
         else if (TIMESTAMP_MILLIS.equals(type)) {
             row.addLong(destChannel, truncateEpochMicrosToMillis(TIMESTAMP_MILLIS.getLong(block, position)));
@@ -228,8 +234,8 @@ public class KuduPageSink
                     try {
                         operationApplier.applyOperationAsync(delete);
                     }
-                    catch (KuduException e) {
-                        throw new RuntimeException(e);
+                    catch (KuduException | RuntimeException e) {
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
                     }
                 }
 
@@ -248,14 +254,14 @@ public class KuduPageSink
                     try {
                         operationApplier.applyOperationAsync(insert);
                     }
-                    catch (KuduException e) {
-                        throw new RuntimeException(e);
+                    catch (KuduException | RuntimeException e) {
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
                     }
                 }
             }
         }
-        catch (KuduException e) {
-            throw new RuntimeException(e);
+        catch (KuduException | RuntimeException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 

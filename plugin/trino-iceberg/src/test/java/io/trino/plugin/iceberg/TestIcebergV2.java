@@ -15,10 +15,15 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.filesystem.FileEntry;
+import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.blackhole.BlackHolePlugin;
+import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
@@ -30,6 +35,7 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
@@ -63,15 +69,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
@@ -87,6 +97,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.iceberg.FileFormat.ORC;
+import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -109,6 +120,11 @@ public class TestIcebergV2
         metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
                 .getInstance(HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
+
+        queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data")));
+        queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
+                .put("hive.security", "allow-all")
+                .buildOrThrow());
 
         try {
             queryRunner.installPlugin(new BlackHolePlugin());
@@ -227,6 +243,45 @@ public class TestIcebergV2
         Table icebergTable = loadTable(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
         assertQuery("SELECT array_column[1], map_column[1], row_column.x FROM " + tableName, "SELECT 1, 2, 1 FROM nation WHERE regionkey != 1");
+    }
+
+    @Test
+    public void testParquetMissingFieldId()
+            throws Exception
+    {
+        String hiveTableName = "test_hive_parquet" + randomNameSuffix();
+        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + "(names ARRAY(varchar)) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO hive.tpch." + hiveTableName + " VALUES ARRAY['Alice', 'Bob'], ARRAY['Carol', 'Dave'], ARRAY['Eve', 'Frank']", 3);
+
+        String location = metastore.getTable("tpch", hiveTableName).orElseThrow().getStorage().getLocation();
+        FileIterator files = fileSystemFactory.create(SESSION).listFiles(Location.of(location));
+        ImmutableList.Builder<FileEntry> fileEntries = ImmutableList.builder();
+        while (files.hasNext()) {
+            FileEntry file = files.next();
+            if (!file.location().path().contains(".trinoSchema") && !file.location().path().contains(".trinoPermissions")) {
+                fileEntries.add(file);
+            }
+        }
+        FileEntry parquetFile = getOnlyElement(fileEntries.build());
+
+        String icebergTableName = "test_iceberg_parquet" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + icebergTableName + "(names ARRAY(varchar))");
+        Table icebergTable = loadTable(icebergTableName);
+        icebergTable.newAppend()
+                .appendFile(DataFiles.builder(icebergTable.spec())
+                        .withPath(parquetFile.location().toString())
+                        .withFileSizeInBytes(parquetFile.length())
+                        .withRecordCount(3)
+                        .withFormat(PARQUET).build())
+                .commit();
+        icebergTable.updateProperties()
+                .set("schema.name-mapping.default", "[{\"field-id\":1,\"names\":[\"names\"]}]")
+                .commit();
+
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES ARRAY['Alice', 'Bob'], ARRAY['Carol', 'Dave'], ARRAY['Eve', 'Frank']");
+
+        assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
+        assertUpdate("DROP TABLE " + icebergTableName);
     }
 
     @Test
@@ -971,6 +1026,247 @@ public class TestIcebergV2
                 ".*?Cannot find snapshot with reference name: test-wrong-ref");
         assertQueryFails("SELECT * FROM " + tableName + " FOR VERSION AS OF 'TEST-TAG'",
                 ".*?Cannot find snapshot with reference name: TEST-TAG");
+    }
+
+    @Test
+    public void testNestedFieldPartitioning()
+    {
+        String tableName = "test_nested_field_partitioning_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, district ROW(name VARCHAR), state ROW(name VARCHAR)) WITH (partitioning = ARRAY['\"state.name\"'])");
+
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, ROW('Patna'), ROW('BH')), " +
+                        "(2, ROW('Patna'), ROW('BH')), " +
+                        "(3, ROW('Bengaluru'), ROW('KA')), " +
+                        "(4, ROW('Bengaluru'), ROW('KA'))",
+                4);
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(5, ROW('Patna'), ROW('BH')), " +
+                        "(6, ROW('Patna'), ROW('BH')), " +
+                        "(7, ROW('Bengaluru'), ROW('KA')), " +
+                        "(8, ROW('Bengaluru'), ROW('KA'))",
+                4);
+        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE district.name = 'Bengaluru'", 4);
+        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['\"state.name\"', '\"district.name\"']");
+        Table icebergTable = updateTableToV2(tableName);
+        assertThat(icebergTable.spec().fields().stream().map(PartitionField::name).toList())
+                .containsExactlyInAnyOrder("state.name", "district.name");
+
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(9, ROW('Patna'), ROW('BH')), " +
+                        "(10, ROW('Bengaluru'), ROW('BH')), " +
+                        "(11, ROW('Bengaluru'), ROW('KA')), " +
+                        "(12, ROW('Bengaluru'), ROW('KA'))",
+                4);
+        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(7);
+
+        assertQuery("SELECT id, district.name, state.name FROM " + tableName, "VALUES " +
+                "(1, 'Patna', 'BH'), " +
+                "(2, 'Patna', 'BH'), " +
+                "(5, 'Patna', 'BH'), " +
+                "(6, 'Patna', 'BH'), " +
+                "(9, 'Patna', 'BH'), " +
+                "(10, 'Bengaluru', 'BH'), " +
+                "(11, 'Bengaluru', 'KA'), " +
+                "(12, 'Bengaluru', 'KA')");
+
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(3);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testHighlyNestedFieldPartitioning()
+    {
+        String tableName = "test_highly_nested_field_partitioning_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
+                " WITH (partitioning = ARRAY['\"country.state.district.name\"'])");
+
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
+                        "(2, ROW('India', ROW('BH', ROW('Patna')))), " +
+                        "(3, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
+                        "(4, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                4);
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(5, ROW('India', ROW('BH', ROW('Patna')))), " +
+                        "(6, ROW('India', ROW('BH', ROW('Patna')))), " +
+                        "(7, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
+                        "(8, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                4);
+        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
+
+        assertQuery("SELECT partition.\"country.state.district.name\" FROM \"" + tableName + "$partitions\"", "VALUES 'Patna', 'Bengaluru'");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE country.state.district.name = 'Bengaluru'", 4);
+        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['\"country.state.district.name\"', '\"country.state.name\"']");
+        Table icebergTable = updateTableToV2(tableName);
+        assertThat(icebergTable.spec().fields().stream().map(PartitionField::name).toList())
+                .containsExactlyInAnyOrder("country.state.district.name", "country.state.name");
+
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(9, ROW('India', ROW('BH', ROW('Patna')))), " +
+                        "(10, ROW('India', ROW('BH', ROW('Bengaluru')))), " +
+                        "(11, ROW('India', ROW('KA', ROW('Bengaluru')))), " +
+                        "(12, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                4);
+
+        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(5);
+
+        assertQuery("SELECT id, country.name, country.state.name, country.state.district.name FROM " + tableName, "VALUES " +
+                "(1, 'India', 'BH', 'Patna'), " +
+                "(2, 'India', 'BH', 'Patna'), " +
+                "(5, 'India', 'BH', 'Patna'), " +
+                "(6, 'India', 'BH', 'Patna'), " +
+                "(9, 'India', 'BH', 'Patna'), " +
+                "(10, 'India', 'BH', 'Bengaluru'), " +
+                "(11, 'India', 'KA', 'Bengaluru'), " +
+                "(12, 'India', 'KA', 'Bengaluru')");
+
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(3);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testHighlyNestedFieldPartitioningWithTruncateTransform()
+    {
+        String tableName = "test_highly_nested_field_partitioning_with_transform_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
+                " WITH (partitioning = ARRAY['truncate(\"country.state.district.name\", 5)'])");
+
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
+                        "(2, ROW('India', ROW('BH', ROW('Patna_Truncate')))), " +
+                        "(3, ROW('India', ROW('DL', ROW('Delhi')))), " +
+                        "(4, ROW('India', ROW('DL', ROW('Delhi_Truncate'))))",
+                4);
+
+        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
+        List<MaterializedRow> files = computeActual("SELECT file_path, record_count FROM \"" + tableName + "$files\"").getMaterializedRows();
+        List<MaterializedRow> partitionedFiles = files.stream()
+                .filter(file -> ((String) file.getField(0)).contains("country.state.district.name_trunc="))
+                .collect(toImmutableList());
+
+        assertThat(partitionedFiles).hasSize(2);
+        assertThat(partitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(4L);
+
+        assertQuery("SELECT id, country.state.district.name, country.state.name, country.name FROM " + tableName, "VALUES " +
+                "(1, 'Patna', 'BH', 'India'), " +
+                "(2, 'Patna_Truncate', 'BH', 'India'), " +
+                "(3, 'Delhi', 'DL', 'India'), " +
+                "(4, 'Delhi_Truncate', 'DL', 'India')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testHighlyNestedFieldPartitioningWithBucketTransform()
+    {
+        String tableName = "test_highly_nested_field_partitioning_with_transform_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, country ROW(name VARCHAR, state ROW(name VARCHAR, district ROW(name VARCHAR))))" +
+                " WITH (partitioning = ARRAY['bucket(\"country.state.district.name\", 2)'])");
+
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, ROW('India', ROW('BH', ROW('Patna')))), " +
+                        "(2, ROW('India', ROW('MH', ROW('Mumbai')))), " +
+                        "(3, ROW('India', ROW('DL', ROW('Delhi')))), " +
+                        "(4, ROW('India', ROW('KA', ROW('Bengaluru'))))",
+                4);
+
+        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
+        List<MaterializedRow> files = computeActual("SELECT file_path, record_count FROM \"" + tableName + "$files\"").getMaterializedRows();
+        List<MaterializedRow> partitionedFiles = files.stream()
+                .filter(file -> ((String) file.getField(0)).contains("country.state.district.name_bucket="))
+                .collect(toImmutableList());
+
+        assertThat(partitionedFiles).hasSize(2);
+        assertThat(partitionedFiles.stream().mapToLong(row -> (long) row.getField(1)).sum()).isEqualTo(4L);
+
+        assertQuery("SELECT id, country.state.district.name, country.state.name, country.name FROM " + tableName, "VALUES " +
+                "(1, 'Patna', 'BH', 'India'), " +
+                "(2, 'Mumbai', 'MH', 'India'), " +
+                "(3, 'Delhi', 'DL', 'India'), " +
+                "(4, 'Bengaluru', 'KA', 'India')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testHighlyNestedFieldPartitioningWithTimestampTransform()
+    {
+        testHighlyNestedFieldPartitioningWithTimestampTransform(
+                "ARRAY['year(\"grandparent.parent.ts\")']",
+                ".*?(grandparent\\.parent\\.ts_year=.*/).*",
+                ImmutableSet.of("grandparent.parent.ts_year=2021/", "grandparent.parent.ts_year=2022/", "grandparent.parent.ts_year=2023/"));
+        testHighlyNestedFieldPartitioningWithTimestampTransform(
+                "ARRAY['month(\"grandparent.parent.ts\")']",
+                ".*?(grandparent\\.parent\\.ts_month=.*/).*",
+                ImmutableSet.of("grandparent.parent.ts_month=2021-01/", "grandparent.parent.ts_month=2022-02/", "grandparent.parent.ts_month=2023-03/"));
+        testHighlyNestedFieldPartitioningWithTimestampTransform(
+                "ARRAY['day(\"grandparent.parent.ts\")']",
+                ".*?(grandparent\\.parent\\.ts_day=.*/).*",
+                ImmutableSet.of("grandparent.parent.ts_day=2021-01-01/", "grandparent.parent.ts_day=2022-02-02/", "grandparent.parent.ts_day=2023-03-03/"));
+        testHighlyNestedFieldPartitioningWithTimestampTransform(
+                "ARRAY['hour(\"grandparent.parent.ts\")']",
+                ".*?(grandparent\\.parent\\.ts_hour=.*/).*",
+                ImmutableSet.of("grandparent.parent.ts_hour=2021-01-01-01/", "grandparent.parent.ts_hour=2022-02-02-02/", "grandparent.parent.ts_hour=2023-03-03-03/"));
+    }
+
+    private void testHighlyNestedFieldPartitioningWithTimestampTransform(String partitioning, String partitionDirectoryRegex, Set<String> expectedPartitionDirectories)
+    {
+        String tableName = "test_highly_nested_field_partitioning_with_timestamp_transform_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, grandparent ROW(parent ROW(ts TIMESTAMP(6), a INT), b INT)) WITH (partitioning = " + partitioning + ")");
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, ROW(ROW(TIMESTAMP '2021-01-01 01:01:01.111111', 1), 1)), " +
+                        "(2, ROW(ROW(TIMESTAMP '2022-02-02 02:02:02.222222', 2), 2)), " +
+                        "(3, ROW(ROW(TIMESTAMP '2023-03-03 03:03:03.333333', 3), 3)), " +
+                        "(4, ROW(ROW(TIMESTAMP '2022-02-02 02:04:04.444444', 4), 4))",
+                4);
+
+        assertThat(loadTable(tableName).newScan().planFiles()).hasSize(3);
+        Set<String> partitionedDirectories = computeActual("SELECT file_path FROM \"" + tableName + "$files\"")
+                .getMaterializedRows().stream()
+                .map(entry -> extractPartitionFolder((String) entry.getField(0), partitionDirectoryRegex))
+                .flatMap(Optional::stream)
+                .collect(toImmutableSet());
+
+        assertThat(partitionedDirectories).isEqualTo(expectedPartitionDirectories);
+
+        assertQuery("SELECT id, grandparent.parent.ts, grandparent.parent.a, grandparent.b FROM " + tableName, "VALUES " +
+                "(1, '2021-01-01 01:01:01.111111', 1, 1), " +
+                "(2, '2022-02-02 02:02:02.222222', 2, 2), " +
+                "(3, '2023-03-03 03:03:03.333333', 3, 3), " +
+                "(4, '2022-02-02 02:04:04.444444', 4, 4)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private Optional<String> extractPartitionFolder(String file, String regex)
+    {
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(file);
+        if (matcher.matches()) {
+            return Optional.of(matcher.group(1));
+        }
+        return Optional.empty();
     }
 
     private void writeEqualityDeleteToNationTable(Table icebergTable)

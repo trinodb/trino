@@ -157,12 +157,12 @@ public class TestResourceGroups
         group2.run(query2a);
         assertThat(query2a.getState()).isEqualTo(QUEUED);
 
-        assertThat(root.getInfo().getNumEligibleSubGroups()).isEqualTo(2);
+        assertThat(root.getInfo().numEligibleSubGroups()).isEqualTo(2);
         assertThat(root.getOrCreateSubGroup("1").getQueuedQueries()).isEqualTo(2);
         assertThat(root.getOrCreateSubGroup("2").getQueuedQueries()).isEqualTo(1);
         assertThat(root.getSchedulingPolicy()).isEqualTo(FAIR);
         root.setSchedulingPolicy(QUERY_PRIORITY);
-        assertThat(root.getInfo().getNumEligibleSubGroups()).isEqualTo(2);
+        assertThat(root.getInfo().numEligibleSubGroups()).isEqualTo(2);
         assertThat(root.getOrCreateSubGroup("1").getQueuedQueries()).isEqualTo(2);
         assertThat(root.getOrCreateSubGroup("2").getQueuedQueries()).isEqualTo(1);
 
@@ -1043,15 +1043,15 @@ public class TestResourceGroups
         queries.addAll(fillGroupTo(rootBY, ImmutableSet.of(), 10, true));
 
         ResourceGroupInfo info = root.getInfo();
-        assertThat(info.getNumRunningQueries()).isEqualTo(0);
-        assertThat(info.getNumQueuedQueries()).isEqualTo(40);
+        assertThat(info.numRunningQueries()).isEqualTo(0);
+        assertThat(info.numQueuedQueries()).isEqualTo(40);
 
         // root.maxRunningQueries = 4, root.a.maxRunningQueries = 2, root.b.maxRunningQueries = 2. Will have 4 queries running and 36 left queued.
         root.setHardConcurrencyLimit(4);
         root.updateGroupsAndProcessQueuedQueries();
         info = root.getInfo();
-        assertThat(info.getNumRunningQueries()).isEqualTo(4);
-        assertThat(info.getNumQueuedQueries()).isEqualTo(36);
+        assertThat(info.numRunningQueries()).isEqualTo(4);
+        assertThat(info.numQueuedQueries()).isEqualTo(36);
 
         // Complete running queries
         Iterator<MockManagedQueryExecution> iterator = queries.iterator();
@@ -1066,22 +1066,22 @@ public class TestResourceGroups
         // 4 more queries start running, 32 left queued.
         root.updateGroupsAndProcessQueuedQueries();
         info = root.getInfo();
-        assertThat(info.getNumRunningQueries()).isEqualTo(4);
-        assertThat(info.getNumQueuedQueries()).isEqualTo(32);
+        assertThat(info.numRunningQueries()).isEqualTo(4);
+        assertThat(info.numQueuedQueries()).isEqualTo(32);
 
         // root.maxRunningQueries = 10, root.a.maxRunningQueries = 2, root.b.maxRunningQueries = 2. Still only have 4 running queries and 32 left queued.
         root.setHardConcurrencyLimit(10);
         root.updateGroupsAndProcessQueuedQueries();
         info = root.getInfo();
-        assertThat(info.getNumRunningQueries()).isEqualTo(4);
-        assertThat(info.getNumQueuedQueries()).isEqualTo(32);
+        assertThat(info.numRunningQueries()).isEqualTo(4);
+        assertThat(info.numQueuedQueries()).isEqualTo(32);
 
         // root.maxRunningQueries = 10, root.a.maxRunningQueries = 2, root.b.maxRunningQueries = 10. Will have 10 running queries and 26 left queued.
         rootB.setHardConcurrencyLimit(10);
         root.updateGroupsAndProcessQueuedQueries();
         info = root.getInfo();
-        assertThat(info.getNumRunningQueries()).isEqualTo(10);
-        assertThat(info.getNumQueuedQueries()).isEqualTo(26);
+        assertThat(info.numRunningQueries()).isEqualTo(10);
+        assertThat(info.numQueuedQueries()).isEqualTo(26);
     }
 
     @Test
@@ -1120,36 +1120,36 @@ public class TestResourceGroups
         queries.addAll(fillGroupTo(rootB, ImmutableSet.of(), 10, true));
 
         ResourceGroupInfo rootInfo = root.getFullInfo();
-        assertThat(rootInfo.getId()).isEqualTo(root.getId());
-        assertThat(rootInfo.getState()).isEqualTo(CAN_RUN);
-        assertThat(rootInfo.getSoftMemoryLimit().toBytes()).isEqualTo(root.getSoftMemoryLimitBytes());
-        assertThat(rootInfo.getMemoryUsage()).isEqualTo(DataSize.ofBytes(0));
-        assertThat(rootInfo.getCpuUsage().toMillis()).isEqualTo(0);
-        List<ResourceGroupInfo> subGroups = rootInfo.getSubGroups().get();
+        assertThat(rootInfo.id()).isEqualTo(root.getId());
+        assertThat(rootInfo.state()).isEqualTo(CAN_RUN);
+        assertThat(rootInfo.softMemoryLimit().toBytes()).isEqualTo(root.getSoftMemoryLimitBytes());
+        assertThat(rootInfo.memoryUsage()).isEqualTo(DataSize.ofBytes(0));
+        assertThat(rootInfo.cpuUsage().toMillis()).isEqualTo(0);
+        List<ResourceGroupInfo> subGroups = rootInfo.subGroups().get();
         assertThat(subGroups.size()).isEqualTo(2);
         assertGroupInfoEquals(subGroups.get(0), rootA.getInfo());
-        assertThat(subGroups.get(0).getId()).isEqualTo(rootA.getId());
-        assertThat(subGroups.get(0).getState()).isEqualTo(CAN_QUEUE);
-        assertThat(subGroups.get(0).getSoftMemoryLimit().toBytes()).isEqualTo(rootA.getSoftMemoryLimitBytes());
-        assertThat(subGroups.get(0).getHardConcurrencyLimit()).isEqualTo(rootA.getHardConcurrencyLimit());
-        assertThat(subGroups.get(0).getMaxQueuedQueries()).isEqualTo(rootA.getMaxQueuedQueries());
-        assertThat(subGroups.get(0).getNumEligibleSubGroups()).isEqualTo(2);
-        assertThat(subGroups.get(0).getNumRunningQueries()).isEqualTo(0);
-        assertThat(subGroups.get(0).getNumQueuedQueries()).isEqualTo(10);
+        assertThat(subGroups.get(0).id()).isEqualTo(rootA.getId());
+        assertThat(subGroups.get(0).state()).isEqualTo(CAN_QUEUE);
+        assertThat(subGroups.get(0).softMemoryLimit().toBytes()).isEqualTo(rootA.getSoftMemoryLimitBytes());
+        assertThat(subGroups.get(0).hardConcurrencyLimit()).isEqualTo(rootA.getHardConcurrencyLimit());
+        assertThat(subGroups.get(0).maxQueuedQueries()).isEqualTo(rootA.getMaxQueuedQueries());
+        assertThat(subGroups.get(0).numEligibleSubGroups()).isEqualTo(2);
+        assertThat(subGroups.get(0).numRunningQueries()).isEqualTo(0);
+        assertThat(subGroups.get(0).numQueuedQueries()).isEqualTo(10);
         assertGroupInfoEquals(subGroups.get(1), rootB.getInfo());
-        assertThat(subGroups.get(1).getId()).isEqualTo(rootB.getId());
-        assertThat(subGroups.get(1).getState()).isEqualTo(CAN_QUEUE);
-        assertThat(subGroups.get(1).getSoftMemoryLimit().toBytes()).isEqualTo(rootB.getSoftMemoryLimitBytes());
-        assertThat(subGroups.get(1).getHardConcurrencyLimit()).isEqualTo(rootB.getHardConcurrencyLimit());
-        assertThat(subGroups.get(1).getMaxQueuedQueries()).isEqualTo(rootB.getMaxQueuedQueries());
-        assertThat(subGroups.get(1).getNumEligibleSubGroups()).isEqualTo(0);
-        assertThat(subGroups.get(1).getNumRunningQueries()).isEqualTo(1);
-        assertThat(subGroups.get(1).getNumQueuedQueries()).isEqualTo(9);
-        assertThat(rootInfo.getSoftConcurrencyLimit()).isEqualTo(root.getSoftConcurrencyLimit());
-        assertThat(rootInfo.getHardConcurrencyLimit()).isEqualTo(root.getHardConcurrencyLimit());
-        assertThat(rootInfo.getMaxQueuedQueries()).isEqualTo(root.getMaxQueuedQueries());
-        assertThat(rootInfo.getNumQueuedQueries()).isEqualTo(19);
-        List<QueryStateInfo> runningQueries = rootInfo.getRunningQueries().get();
+        assertThat(subGroups.get(1).id()).isEqualTo(rootB.getId());
+        assertThat(subGroups.get(1).state()).isEqualTo(CAN_QUEUE);
+        assertThat(subGroups.get(1).softMemoryLimit().toBytes()).isEqualTo(rootB.getSoftMemoryLimitBytes());
+        assertThat(subGroups.get(1).hardConcurrencyLimit()).isEqualTo(rootB.getHardConcurrencyLimit());
+        assertThat(subGroups.get(1).maxQueuedQueries()).isEqualTo(rootB.getMaxQueuedQueries());
+        assertThat(subGroups.get(1).numEligibleSubGroups()).isEqualTo(0);
+        assertThat(subGroups.get(1).numRunningQueries()).isEqualTo(1);
+        assertThat(subGroups.get(1).numQueuedQueries()).isEqualTo(9);
+        assertThat(rootInfo.softConcurrencyLimit()).isEqualTo(root.getSoftConcurrencyLimit());
+        assertThat(rootInfo.hardConcurrencyLimit()).isEqualTo(root.getHardConcurrencyLimit());
+        assertThat(rootInfo.maxQueuedQueries()).isEqualTo(root.getMaxQueuedQueries());
+        assertThat(rootInfo.numQueuedQueries()).isEqualTo(19);
+        List<QueryStateInfo> runningQueries = rootInfo.runningQueries().get();
         assertThat(runningQueries.size()).isEqualTo(1);
         QueryStateInfo queryInfo = runningQueries.get(0);
         assertThat(queryInfo.getResourceGroupId()).isEqualTo(Optional.of(rootB.getId()));
@@ -1256,19 +1256,19 @@ public class TestResourceGroups
 
     private static void assertGroupInfoEquals(ResourceGroupInfo actual, ResourceGroupInfo expected)
     {
-        assertThat(actual.getSchedulingWeight() == expected.getSchedulingWeight() &&
-                actual.getSoftConcurrencyLimit() == expected.getSoftConcurrencyLimit() &&
-                actual.getHardConcurrencyLimit() == expected.getHardConcurrencyLimit() &&
-                actual.getMaxQueuedQueries() == expected.getMaxQueuedQueries() &&
-                actual.getNumQueuedQueries() == expected.getNumQueuedQueries() &&
-                actual.getNumRunningQueries() == expected.getNumRunningQueries() &&
-                actual.getNumEligibleSubGroups() == expected.getNumEligibleSubGroups() &&
-                Objects.equals(actual.getId(), expected.getId()) &&
-                actual.getState() == expected.getState() &&
-                actual.getSchedulingPolicy() == expected.getSchedulingPolicy() &&
-                Objects.equals(actual.getSoftMemoryLimit(), expected.getSoftMemoryLimit()) &&
-                Objects.equals(actual.getMemoryUsage(), expected.getMemoryUsage()) &&
-                Objects.equals(actual.getCpuUsage(), expected.getCpuUsage())).isTrue();
+        assertThat(actual.schedulingWeight() == expected.schedulingWeight() &&
+                actual.softConcurrencyLimit() == expected.softConcurrencyLimit() &&
+                actual.hardConcurrencyLimit() == expected.hardConcurrencyLimit() &&
+                actual.maxQueuedQueries() == expected.maxQueuedQueries() &&
+                actual.numQueuedQueries() == expected.numQueuedQueries() &&
+                actual.numRunningQueries() == expected.numRunningQueries() &&
+                actual.numEligibleSubGroups() == expected.numEligibleSubGroups() &&
+                Objects.equals(actual.id(), expected.id()) &&
+                actual.state() == expected.state() &&
+                actual.schedulingPolicy() == expected.schedulingPolicy() &&
+                Objects.equals(actual.softMemoryLimit(), expected.softMemoryLimit()) &&
+                Objects.equals(actual.memoryUsage(), expected.memoryUsage()) &&
+                Objects.equals(actual.cpuUsage(), expected.cpuUsage())).isTrue();
     }
 
     private static void assertExceedsCpuLimit(InternalResourceGroup group, long expectedMillis)

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.pinot;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
@@ -49,8 +48,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 })
 public class PinotConfig
 {
-    private static final Splitter LIST_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings();
-
     private List<URI> controllerUrls = ImmutableList.of();
 
     private Optional<HostAndPort> brokerUrl = Optional.empty();
@@ -77,9 +74,9 @@ public class PinotConfig
     }
 
     @Config("pinot.controller-urls")
-    public PinotConfig setControllerUrls(String controllerUrl)
+    public PinotConfig setControllerUrls(List<String> controllerUrl)
     {
-        this.controllerUrls = LIST_SPLITTER.splitToList(controllerUrl).stream()
+        this.controllerUrls = controllerUrl.stream()
                 .map(PinotConfig::stringToUri)
                 .collect(toImmutableList());
         return this;

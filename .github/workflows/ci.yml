@@ -56,8 +56,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { java-version: 22, cache: 'true', cleanup-node: false }
-          - { java-version: 23-ea, cache: 'restore', cleanup-node: true }
+          - { java-version: 22, cache: 'true' }
+          - { java-version: 23-ea, cache: 'restore' }
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -72,7 +72,7 @@ jobs:
         with:
           cache: ${{ matrix.cache }}
           java-version: ${{ matrix.java-version }}
-          cleanup-node: ${{ matrix.cleanup-node }}
+          cleanup-node: true
       - name: Check SPI backward compatibility
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -118,7 +118,7 @@ jobs:
           $MAVEN failsafe:integration-test failsafe:verify -B --strict-checksums -P ci -pl :trino-jdbc
       - name: Clean Maven Output
         run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@68827325e0b33c7199eb31dd4e31fbe9023e06e3 # v3
         with:
           platforms: arm64,ppc64le
       - name: Build and Test Docker Image
@@ -832,7 +832,7 @@ jobs:
         with:
           cache: restore
           cleanup-node: true
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3
         id: filter
         with:
           filters: |

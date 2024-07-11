@@ -84,7 +84,7 @@ public class TrinoColumnIndexStore
 
         ImmutableList.Builder<ColumnIndexMetadata> columnIndexBuilder = ImmutableList.builderWithExpectedSize(columnsFiltered.size());
         ImmutableList.Builder<ColumnIndexMetadata> offsetIndexBuilder = ImmutableList.builderWithExpectedSize(columnsRead.size());
-        for (ColumnChunkMetadata column : block.getColumns()) {
+        for (ColumnChunkMetadata column : block.columns()) {
             ColumnPath path = column.getPath();
             if (column.getColumnIndexReference() != null && columnsFiltered.contains(path)) {
                 columnIndexBuilder.add(new ColumnIndexMetadata(
@@ -149,7 +149,7 @@ public class TrinoColumnIndexStore
         }
 
         boolean hasColumnIndex = false;
-        for (ColumnChunkMetadata column : blockMetadata.getColumns()) {
+        for (ColumnChunkMetadata column : blockMetadata.columns()) {
             if (column.getColumnIndexReference() != null && column.getOffsetIndexReference() != null) {
                 hasColumnIndex = true;
                 break;

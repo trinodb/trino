@@ -752,56 +752,22 @@ public final class PartitionTransforms
         int hash(Block block, int position);
     }
 
-    public static class ColumnTransform
+    /**
+     * @param type Result type.
+     */
+    public record ColumnTransform(
+            Type type,
+            boolean preservesNonNull,
+            boolean monotonic,
+            boolean temporal,
+            Function<Block, Block> blockTransform,
+            ValueTransform valueTransform)
     {
-        private final Type type;
-        private final boolean preservesNonNull;
-        private final boolean monotonic;
-        private final boolean temporal;
-        private final Function<Block, Block> blockTransform;
-        private final ValueTransform valueTransform;
-
-        public ColumnTransform(Type type, boolean preservesNonNull, boolean monotonic, boolean temporal, Function<Block, Block> blockTransform, ValueTransform valueTransform)
+        public ColumnTransform
         {
-            this.type = requireNonNull(type, "type is null");
-            this.preservesNonNull = preservesNonNull;
-            this.monotonic = monotonic;
-            this.temporal = temporal;
-            this.blockTransform = requireNonNull(blockTransform, "transform is null");
-            this.valueTransform = requireNonNull(valueTransform, "valueTransform is null");
-        }
-
-        /**
-         * Result type.
-         */
-        public Type getType()
-        {
-            return type;
-        }
-
-        public boolean preservesNonNull()
-        {
-            return preservesNonNull;
-        }
-
-        public boolean isMonotonic()
-        {
-            return monotonic;
-        }
-
-        public boolean isTemporal()
-        {
-            return temporal;
-        }
-
-        public Function<Block, Block> getBlockTransform()
-        {
-            return blockTransform;
-        }
-
-        public ValueTransform getValueTransform()
-        {
-            return valueTransform;
+            requireNonNull(type, "type is null");
+            requireNonNull(blockTransform, "transform is null");
+            requireNonNull(valueTransform, "valueTransform is null");
         }
     }
 

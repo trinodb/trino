@@ -41,11 +41,12 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
+import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpecParser;
+import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
@@ -58,6 +59,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -110,7 +112,7 @@ public class IcebergSplitSource
     private final ConnectorSession session;
     private final IcebergTableHandle tableHandle;
     private final Map<String, String> fileIoProperties;
-    private final TableScan tableScan;
+    private final Scan<?, FileScanTask, CombinedScanTask> tableScan;
     private final Optional<Long> maxScannedFileSizeInBytes;
     private final Map<Integer, Type.PrimitiveType> fieldIdToType;
     private final DynamicFilter dynamicFilter;
@@ -144,7 +146,7 @@ public class IcebergSplitSource
             ConnectorSession session,
             IcebergTableHandle tableHandle,
             Map<String, String> fileIoProperties,
-            TableScan tableScan,
+            Scan<?, FileScanTask, CombinedScanTask> tableScan,
             Optional<DataSize> maxScannedFileSize,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringWaitTimeout,
@@ -221,11 +223,16 @@ public class IcebergSplitSource
             }
 
             Expression filterExpression = toIcebergExpression(effectivePredicate);
+            Scan scan = (Scan) tableScan.filter(filterExpression);
             // Use stats to populate fileStatisticsDomain if there are predicated columns. Otherwise, skip them.
-            boolean requiresColumnStats = !predicatedColumnIds.isEmpty();
-            TableScan scan = tableScan.filter(filterExpression);
-            if (requiresColumnStats) {
-                scan = scan.includeColumnStats();
+            if (!predicatedColumnIds.isEmpty()) {
+                Schema schema = tableScan.schema();
+                scan = (Scan) scan.includeColumnStats(
+                        predicatedColumnIds.stream()
+                                .map(schema::findColumnName)
+                                // Newly added column may not be found in current snapshot schema until new files are added
+                                .filter(Objects::nonNull)
+                                .collect(toImmutableList()));
             }
             this.fileScanIterable = closer.register(scan.planFiles());
             this.targetSplitSize = getSplitSize(session)

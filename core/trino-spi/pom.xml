@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>450-SNAPSHOT</version>
+        <version>452-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -13,7 +13,6 @@
     <description>Trino - Service Provider Interface (SPI)</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <released-artifacts.dir>${project.build.directory}/released-artifacts</released-artifacts.dir>
         <trino.check.skip-revapi>${air.check.skip-basic}</trino.check.skip-revapi>
     </properties>
@@ -233,6 +232,16 @@
                                     <code>java.method.numberOfParametersChanged</code>
                                     <old>method io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::fromJson(io.trino.spi.type.Type, boolean[], io.trino.spi.block.Block)</old>
                                     <new>method io.trino.spi.predicate.SortedRangeSet io.trino.spi.predicate.SortedRangeSet::fromJson(io.trino.spi.type.Type, boolean[], io.trino.spi.block.Block, io.trino.spi.predicate.SortedRangeSet.DiscreteSetMarker)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method io.trino.spi.connector.ConnectorInsertTableHandle io.trino.spi.connector.ConnectorMetadata::beginRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, io.trino.spi.connector.RetryMode)</old>
+                                    <new>method io.trino.spi.connector.ConnectorInsertTableHandle io.trino.spi.connector.ConnectorMetadata::beginRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, io.trino.spi.connector.RetryMode, io.trino.spi.QueryTransformationType)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method io.trino.spi.connector.ConnectorInsertTableHandle io.trino.spi.connector.ConnectorMetadata::beginRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, io.trino.spi.connector.RetryMode)</old>
+                                    <new>method io.trino.spi.connector.ConnectorInsertTableHandle io.trino.spi.connector.ConnectorMetadata::beginRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, io.trino.spi.connector.RetryMode, io.trino.spi.RefreshType)</new>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
@@ -508,6 +517,49 @@
                                 <item>
                                     <code>java.method.visibilityIncreased</code>
                                     <new>method int io.trino.spi.block.ByteArrayBlock::getRawValuesOffset()</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>interface io.opentelemetry.api.metrics.DoubleGauge</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>interface io.opentelemetry.api.metrics.LongGauge</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>interface io.trino.spi.connector.LocalProperty&lt;E&gt;</old>
+                                    <new>interface io.trino.spi.connector.LocalProperty&lt;E&gt;</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonSubTypes</annotationType>
+                                    <attribute>value</attribute>
+                                    <oldValue>{@com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.connector.ConstantProperty.class, name = "constant"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.connector.SortingProperty.class, name = "sorting"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.connector.GroupingProperty.class, name = "grouping")}</oldValue>
+                                    <newValue>{@com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.connector.ConstantProperty.class, name = "constant"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.connector.GroupingProperty.class, name = "grouping"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.connector.SortingProperty.class, name = "sorting")}</newValue>
+                                    <justification>cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>interface io.trino.spi.eventlistener.TableReferenceInfo</old>
+                                    <new>interface io.trino.spi.eventlistener.TableReferenceInfo</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonSubTypes</annotationType>
+                                    <attribute>value</attribute>
+                                    <oldValue>{@com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.eventlistener.ViewReferenceInfo.class, name = "view"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.eventlistener.MaterializedViewReferenceInfo.class, name = "materializedView"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.eventlistener.RowFilterReferenceInfo.class, name = "rowFilter"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.eventlistener.ColumnMaskReferenceInfo.class, name = "columnMask")}</oldValue>
+                                    <newValue>{@com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.eventlistener.ColumnMaskReferenceInfo.class, name = "columnMask"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.eventlistener.MaterializedViewReferenceInfo.class, name = "materializedView"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.eventlistener.RowFilterReferenceInfo.class, name = "rowFilter"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.eventlistener.ViewReferenceInfo.class, name = "view")}</newValue>
+                                    <justification>cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.attributeValueChanged</code>
+                                    <old>interface io.trino.spi.predicate.ValueSet</old>
+                                    <new>interface io.trino.spi.predicate.ValueSet</new>
+                                    <annotationType>com.fasterxml.jackson.annotation.JsonSubTypes</annotationType>
+                                    <attribute>value</attribute>
+                                    <oldValue>{@com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.predicate.EquatableValueSet.class, name = "equatable"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.predicate.SortedRangeSet.class, name = "sortable"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.predicate.AllOrNoneValueSet.class, name = "allOrNone")}</oldValue>
+                                    <newValue>{@com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.predicate.AllOrNoneValueSet.class, name = "allOrNone"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.predicate.EquatableValueSet.class, name = "equatable"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.predicate.SortedRangeSet.class, name = "sortable")}</newValue>
+                                    <justification>cleanup</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

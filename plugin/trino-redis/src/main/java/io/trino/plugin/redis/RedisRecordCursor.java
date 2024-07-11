@@ -139,7 +139,7 @@ public class RedisRecordCursor
         if (redisCursor == null) {
             return false;
         }
-        // no more keys are unscanned when
+        // no more keys are unscanned
         // when redis scan command
         // returns 0 string cursor
         return !redisCursor.getCursor().equals("0");

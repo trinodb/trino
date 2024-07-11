@@ -14,6 +14,7 @@
 package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
@@ -40,7 +41,7 @@ public class TestOAuth2Config
                 .setIssuer(null)
                 .setClientId(null)
                 .setClientSecret(null)
-                .setScopes("openid")
+                .setScopes(ImmutableSet.of("openid"))
                 .setChallengeTimeout(new Duration(15, MINUTES))
                 .setPrincipalField("sub")
                 .setGroupsField(null)
@@ -81,7 +82,7 @@ public class TestOAuth2Config
                 .setIssuer("http://127.0.0.1:9000/oauth2")
                 .setClientId("another-consumer")
                 .setClientSecret("consumer-secret")
-                .setScopes("email, offline")
+                .setScopes(ImmutableSet.of("email", "offline"))
                 .setPrincipalField("some-field")
                 .setGroupsField("groups")
                 .setAdditionalAudiences(List.of("test-aud1", "test-aud2"))

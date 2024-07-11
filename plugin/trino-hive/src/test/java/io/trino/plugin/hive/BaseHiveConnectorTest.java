@@ -549,6 +549,26 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testIgnoreQueryPartitionFilterRequiredSchemas()
+    {
+        String schemaName = "test_partition_filter_" + randomNameSuffix();
+        String tableName = schemaName + ".test_partition_filter" + randomNameSuffix();
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "false")
+                .setCatalogSessionProperty("hive", "query_partition_filter_required_schemas", format("[\"%s\"]", schemaName))
+                .build();
+
+        assertUpdate(session, "CREATE SCHEMA " + schemaName);
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, part varchar) WITH (partitioned_by = ARRAY['part'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, 'test')", 1);
+
+        assertQuerySucceeds(session, "SELECT * FROM " + tableName + " WHERE id = 1");
+
+        assertUpdate(session, "DROP SCHEMA " + schemaName + " CASCADE");
+    }
+
+    @Test
     public void testInvalidValueForQueryPartitionFilterRequiredSchemas()
     {
         assertQueryFails(
@@ -8393,6 +8413,18 @@ public abstract class BaseHiveConnectorTest
                 getQueryRunner()::execute,
                 "test_coercion_ctas_nd_varchar",
                 "AS SELECT '' AS var_column WITH NO DATA")) {
+            assertThat(getColumnType(testTable.getName(), "var_column")).isEqualTo("varchar(1)");
+        }
+    }
+
+    @Test
+    public void testCoercingVarchar0ToVarchar1WithAddColumn()
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_coercion_add_column_varchar",
+                "(col integer)")) {
+            assertUpdate("ALTER TABLE " + testTable.getName() + " ADD COLUMN var_column varchar(0)");
             assertThat(getColumnType(testTable.getName(), "var_column")).isEqualTo("varchar(1)");
         }
     }

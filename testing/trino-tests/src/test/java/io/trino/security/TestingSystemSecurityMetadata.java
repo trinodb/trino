@@ -268,22 +268,13 @@ class TestingSystemSecurityMetadata
     public void tableDropped(Session session, CatalogSchemaTableName table) {}
 
     @Override
-    public void columnCreated(Session session, CatalogSchemaTableName table, String column)
-    {
-        throw new UnsupportedOperationException();
-    }
+    public void columnCreated(Session session, CatalogSchemaTableName table, String column) {}
 
     @Override
-    public void columnRenamed(Session session, CatalogSchemaTableName table, String oldName, String newName)
-    {
-        throw new UnsupportedOperationException();
-    }
+    public void columnRenamed(Session session, CatalogSchemaTableName table, String oldName, String newName) {}
 
     @Override
-    public void columnDropped(Session session, CatalogSchemaTableName table, String column)
-    {
-        throw new UnsupportedOperationException();
-    }
+    public void columnDropped(Session session, CatalogSchemaTableName table, String column) {}
 
     @Override
     public void columnTypeChanged(Session session, CatalogSchemaTableName table, String column, String oldType, String newType) {}

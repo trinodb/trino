@@ -77,7 +77,7 @@ public class TestBinaryFileSpiller
     {
         spillerStats = new SpillerStats();
         FeaturesConfig featuresConfig = new FeaturesConfig();
-        featuresConfig.setSpillerSpillPaths(spillPath.getAbsolutePath());
+        featuresConfig.setSpillerSpillPaths(ImmutableList.of(spillPath.getAbsolutePath()));
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
         NodeSpillConfig nodeSpillConfig = new NodeSpillConfig();
         BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();

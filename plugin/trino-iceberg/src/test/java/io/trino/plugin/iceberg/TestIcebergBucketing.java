@@ -272,7 +272,7 @@ public class TestIcebergBucketing
     {
         io.trino.spi.type.Type trinoType = toTrinoType(icebergType, TYPE_MANAGER);
         ColumnTransform transform = PartitionTransforms.bucket(trinoType, bucketCount);
-        Function<Block, Block> blockTransform = transform.getBlockTransform();
+        Function<Block, Block> blockTransform = transform.blockTransform();
 
         BlockBuilder blockBuilder = trinoType.createBlockBuilder(null, 1);
 
@@ -285,7 +285,7 @@ public class TestIcebergBucketing
         verify(bucketBlock.getPositionCount() == 1);
         Integer trinoBucketWithBlock = bucketBlock.isNull(0) ? null : INTEGER.getInt(bucketBlock, 0);
 
-        Long trinoBucketWithValue = (Long) transform.getValueTransform().apply(block, 0);
+        Long trinoBucketWithValue = (Long) transform.valueTransform().apply(block, 0);
         Integer trinoBucketWithValueAsInteger = trinoBucketWithValue == null ? null : toIntExact(trinoBucketWithValue);
         assertThat(trinoBucketWithValueAsInteger).isEqualTo(trinoBucketWithBlock);
 

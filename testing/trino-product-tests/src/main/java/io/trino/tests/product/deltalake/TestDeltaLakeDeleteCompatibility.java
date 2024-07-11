@@ -117,33 +117,6 @@ public class TestDeltaLakeDeleteCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
-    public void testDeleteOnAppendOnlyTableFails()
-    {
-        String tableName = "test_delete_on_append_only_table_fails_" + randomNameSuffix();
-        onDelta().executeQuery("" +
-                "CREATE TABLE default." + tableName +
-                "         (a INT, b INT)" +
-                "         USING delta " +
-                "         LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "' " +
-                "         TBLPROPERTIES ('delta.appendOnly' = true)");
-
-        onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1,11), (2, 12)");
-        assertQueryFailure(() -> onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a = 1"))
-                .hasMessageContaining("This table is configured to only allow appends");
-        assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM default." + tableName + " WHERE a = 1"))
-                .hasMessageContaining("Cannot modify rows from a table with 'delta.appendOnly' set to true");
-        // Whole table deletes should be disallowed as well
-        assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM default." + tableName))
-                .hasMessageContaining("Cannot modify rows from a table with 'delta.appendOnly' set to true");
-        assertQueryFailure(() -> onTrino().executeQuery("TRUNCATE TABLE delta.default." + tableName))
-                .hasMessageContaining("Cannot modify rows from a table with 'delta.appendOnly' set to true");
-
-        assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
-                .containsOnly(row(1, 11), row(2, 12));
-        onTrino().executeQuery("DROP TABLE " + tableName);
-    }
-
-    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     public void testDeleteOnAppendOnlyWriterFeature()
     {
         String tableName = "test_delete_on_append_only_feature_" + randomNameSuffix();

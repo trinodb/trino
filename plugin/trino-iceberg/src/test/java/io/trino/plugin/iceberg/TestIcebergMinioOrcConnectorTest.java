@@ -36,7 +36,6 @@ import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Iceberg connector test ORC and with S3-compatible storage (but without real metastore).
@@ -158,16 +157,6 @@ public class TestIcebergMinioOrcConnectorTest
                             (null, null, null, null, 3, null, null)
                             """);
         }
-    }
-
-    @Test
-    @Override
-    public void testDropAmbiguousRowFieldCaseSensitivity()
-    {
-        // TODO https://github.com/trinodb/trino/issues/16273 The connector can't read row types having ambiguous field names in ORC files. e.g. row(X int, x int)
-        assertThatThrownBy(super::testDropAmbiguousRowFieldCaseSensitivity)
-                .hasMessageContaining("Error opening Iceberg split")
-                .hasStackTraceContaining("Multiple entries with same key");
     }
 
     @Override

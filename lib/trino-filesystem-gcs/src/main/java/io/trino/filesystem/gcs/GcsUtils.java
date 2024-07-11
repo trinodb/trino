@@ -49,7 +49,7 @@ public class GcsUtils
             throws IOException
     {
         long fileSize = requireNonNull(blob.getSize(), "blob size is null");
-        if (position >= fileSize) {
+        if (position != 0 && position >= fileSize) {
             throw new IOException("Cannot read at %s. File size is %s: %s".formatted(position, fileSize, location));
         }
         // Enable shouldReturnRawInputStream: currently set by default but just to ensure the behavior is predictable

@@ -158,6 +158,8 @@ public class TestHiveCoercionOnUnpartitionedTable
                             timestamp_to_smaller_varchar       TIMESTAMP,
                             smaller_varchar_to_timestamp       VARCHAR(4),
                             varchar_to_timestamp               STRING,
+                            binary_to_string                   BINARY,
+                            binary_to_smaller_varchar          BINARY,
                             id                                 BIGINT)
                        STORED AS\s""" + fileFormat);
     }
@@ -235,13 +237,6 @@ public class TestHiveCoercionOnUnpartitionedTable
     {
         // TODO: These expected failures should be fixed.
         return ImmutableMap.<ColumnContext, String>builder()
-                // ORC
-                .put(columnContext("orc", "row_to_row"), "Cannot read SQL type 'smallint' from ORC stream '.row_to_row.ti2si' of type BYTE")
-                .put(columnContext("orc", "list_to_list"), "Cannot read SQL type 'integer' from ORC stream '.list_to_list.item.ti2int' of type BYTE")
-                .put(columnContext("orc", "map_to_map"), "Cannot read SQL type 'integer' from ORC stream '.map_to_map.key' of type BYTE")
-                .put(columnContext("orc", "timestamp_row_to_row"), "Cannot read SQL type 'varchar' from ORC stream '.timestamp_row_to_row.timestamp2string' of type TIMESTAMP with attributes {}")
-                .put(columnContext("orc", "timestamp_list_to_list"), "Cannot read SQL type 'varchar' from ORC stream '.timestamp_row_to_row.timestamp2string' of type TIMESTAMP with attributes {}")
-                .put(columnContext("orc", "timestamp_map_to_map"), "Cannot read SQL type 'varchar' from ORC stream '.timestamp_row_to_row.timestamp2string' of type TIMESTAMP with attributes {}")
                 // PARQUET
                 .put(columnContext("parquet", "row_to_row"), "Unsupported Trino column type (varchar) for Parquet column ([row_to_row, bi2vc] optional int64 bi2vc (INTEGER(64,true)))")
                 .put(columnContext("parquet", "list_to_list"), "Unsupported Trino column type (varchar) for Parquet column ([list_to_list, list, element, bi2vc] optional int64 bi2vc (INTEGER(64,true)))")
@@ -250,12 +245,9 @@ public class TestHiveCoercionOnUnpartitionedTable
                 .put(columnContext("parquet", "special_string_to_boolean"), "Unsupported Trino column type (boolean) for Parquet column ([special_string_to_boolean] optional binary special_string_to_boolean (STRING))")
                 .put(columnContext("parquet", "numeric_string_to_boolean"), "Unsupported Trino column type (boolean) for Parquet column ([numeric_string_to_boolean] optional binary numeric_string_to_boolean (STRING))")
                 .put(columnContext("parquet", "varchar_to_boolean"), "Unsupported Trino column type (boolean) for Parquet column ([varchar_to_boolean] optional binary varchar_to_boolean (STRING))")
-                .put(columnContext("parquet", "tinyint_to_shortdecimal"), "// TODO This coercion is giving incorrect result")
                 .put(columnContext("parquet", "tinyint_to_longdecimal"), "Unsupported Trino column type (decimal(20,2)) for Parquet column ([tinyint_to_longdecimal] optional int32 tinyint_to_longdecimal (INTEGER(8,true)))")
                 .put(columnContext("parquet", "smallint_to_longdecimal"), "Unsupported Trino column type (decimal(20,2)) for Parquet column ([smallint_to_longdecimal] optional int32 smallint_to_longdecimal (INTEGER(16,true)))")
-                .put(columnContext("parquet", "smallint_to_shortdecimal"), "// TODO This coercion is giving incorrect result")
                 .put(columnContext("parquet", "int_to_longdecimal"), "Unsupported Trino column type (decimal(20,2)) for Parquet column ([int_to_longdecimal] optional int32 int_to_longdecimal (INTEGER(32,true)))")
-                .put(columnContext("parquet", "int_to_shortdecimal"), "// TODO This coercion is giving incorrect result")
                 .put(columnContext("parquet", "bigint_to_shortdecimal"), "Unsupported Trino column type (decimal(10,2)) for Parquet column ([bigint_to_shortdecimal] optional int64 bigint_to_shortdecimal (INTEGER(64,true)))")
                 .put(columnContext("parquet", "bigint_to_longdecimal"), "Unsupported Trino column type (decimal(20,2)) for Parquet column ([bigint_to_longdecimal] optional int64 bigint_to_longdecimal (INTEGER(64,true)))")
                 .put(columnContext("parquet", "longdecimal_to_tinyint"), "Unsupported Trino column type (tinyint) for Parquet column ([longdecimal_to_tinyint] optional fixed_len_byte_array(9) longdecimal_to_tinyint (DECIMAL(20,12)))")
@@ -361,6 +353,8 @@ public class TestHiveCoercionOnUnpartitionedTable
                 .put(columnContext("3.1", "parquet", "string_to_timestamp"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.TimestampWritableV2")
                 .put(columnContext("3.1", "parquet", "timestamp_to_date"), "org.apache.hadoop.io.Text cannot be cast to org.apache.hadoop.hive.serde2.io.TimestampWritableV2")
                 .put(columnContext("3.1", "parquet", "double_to_float"), "org.apache.hadoop.hive.serde2.io.DoubleWritable cannot be cast to org.apache.hadoop.io.FloatWritable")
+                .put(columnContext("3.1", "parquet", "binary_to_string"), "org.apache.hadoop.io.BytesWritable cannot be cast to org.apache.hadoop.hive.serde2.io.HiveVarcharWritable")
+                .put(columnContext("3.1", "parquet", "binary_to_smaller_varchar"), "org.apache.hadoop.io.BytesWritable cannot be cast to org.apache.hadoop.hive.serde2.io.HiveVarcharWritable")
                 .buildOrThrow();
     }
 }

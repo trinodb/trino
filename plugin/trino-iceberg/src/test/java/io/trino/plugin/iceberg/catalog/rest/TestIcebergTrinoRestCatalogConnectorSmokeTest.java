@@ -22,10 +22,12 @@ import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
-import org.apache.iceberg.catalog.Catalog;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
+import org.apache.iceberg.types.Types;
 import org.assertj.core.util.Files;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -42,7 +44,10 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.apache.iceberg.FileFormat.PARQUET;
+import static org.apache.iceberg.types.Types.NestedField.required;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -52,7 +57,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
 {
     private File warehouseLocation;
 
-    private Catalog backend;
+    private JdbcCatalog backend;
 
     public TestIcebergTrinoRestCatalogConnectorSmokeTest()
     {
@@ -105,6 +110,35 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     public void teardown()
     {
         backend = null; // closed by closeAfterClass
+    }
+
+    @Test
+    void testUnsupportedViewDialect()
+    {
+        String viewName = "test_unsupported_dialect" + randomNameSuffix();
+        TableIdentifier identifier = TableIdentifier.of("tpch", viewName);
+
+        backend.buildView(identifier)
+                .withDefaultNamespace(Namespace.of("tpch"))
+                .withDefaultCatalog("iceberg")
+                .withQuery("spark", "SELECT 1 x")
+                .withSchema(new Schema(required(1, "x", Types.LongType.get())))
+                .create();
+
+        assertThat(computeActual("SHOW TABLES FROM iceberg.tpch").getOnlyColumnAsSet())
+                .contains(viewName);
+
+        assertThat(computeActual("SELECT table_name FROM information_schema.views WHERE table_schema = 'tpch'").getOnlyColumnAsSet())
+                .doesNotContain(viewName);
+
+        assertThat(computeActual("SELECT table_name FROM information_schema.columns WHERE table_schema = 'tpch'").getOnlyColumnAsSet())
+                .doesNotContain(viewName);
+
+        assertQueryReturnsEmptyResult("SELECT * FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '" + viewName + "'");
+
+        assertQueryFails("SELECT * FROM " + viewName, "Cannot read unsupported dialect 'spark' for view '.*'");
+
+        backend.dropView(identifier);
     }
 
     @Test

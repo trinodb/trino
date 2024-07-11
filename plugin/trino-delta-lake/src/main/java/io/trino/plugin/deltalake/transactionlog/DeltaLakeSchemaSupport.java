@@ -48,6 +48,7 @@ import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 
 import java.util.AbstractMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +68,7 @@ import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -109,6 +111,8 @@ public final class DeltaLakeSchemaSupport
     private static final String IDENTITY_COLUMNS_FEATURE_NAME = "identityColumns";
     private static final String INVARIANTS_FEATURE_NAME = "invariants";
     public static final String TIMESTAMP_NTZ_FEATURE_NAME = "timestampNtz";
+    public static final String TYPE_WIDENING_FEATURE_NAME = "typeWidening";
+    public static final String TYPE_WIDENING_PREVIEW_FEATURE_NAME = "typeWidening-preview";
     public static final String VACUUM_PROTOCOL_CHECK_FEATURE_NAME = "vacuumProtocolCheck";
     public static final String VARIANT_TYPE_FEATURE_NAME = "variantType";
     public static final String VARIANT_TYPE_PREVIEW_FEATURE_NAME = "variantType-preview";
@@ -117,6 +121,8 @@ public final class DeltaLakeSchemaSupport
     private static final Set<String> SUPPORTED_READER_FEATURES = ImmutableSet.<String>builder()
             .add(COLUMN_MAPPING_FEATURE_NAME)
             .add(TIMESTAMP_NTZ_FEATURE_NAME)
+            .add(TYPE_WIDENING_FEATURE_NAME)
+            .add(TYPE_WIDENING_PREVIEW_FEATURE_NAME)
             .add(DELETION_VECTORS_FEATURE_NAME)
             .add(VACUUM_PROTOCOL_CHECK_FEATURE_NAME)
             .add(VARIANT_TYPE_FEATURE_NAME)
@@ -335,14 +341,20 @@ public final class DeltaLakeSchemaSupport
 
     private static Map<String, Object> serializeStructType(ColumnMappingMode columnMappingMode, AtomicInteger maxColumnId, RowType rowType)
     {
+        Set<String> fieldNames = new HashSet<>();
         ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
 
         fields.put("type", "struct");
         fields.put("fields", rowType.getFields().stream()
                 .map(field -> {
+                    String name = field.getName().orElseThrow(() ->
+                            new TrinoException(NOT_SUPPORTED, "Row type field does not have a name: " + rowType.getDisplayName()));
+                    if (!fieldNames.add(name.toLowerCase(ENGLISH))) {
+                        throw new TrinoException(DUPLICATE_COLUMN_NAME, "Field name '%s' specified more than once".formatted(name.toLowerCase(ENGLISH)));
+                    }
                     Object fieldType = serializeColumnType(columnMappingMode, maxColumnId, field.getType());
                     Map<String, Object> metadata = generateColumnMetadata(columnMappingMode, maxColumnId);
-                    return serializeStructField(field.getName().orElse(null), fieldType, null, true, metadata);
+                    return serializeStructField(name, fieldType, null, true, metadata);
                 })
                 .collect(toImmutableList()));
 
@@ -490,18 +502,22 @@ public final class DeltaLakeSchemaSupport
         OptionalInt fieldId = OptionalInt.empty();
         String physicalName;
         Type physicalColumnType;
+        JsonNode metadata = node.get("metadata");
+        if (metadata.has("delta.typeChanges")) {
+            metadata.get("delta.typeChanges").elements().forEachRemaining(DeltaLakeSchemaSupport::verifyTypeChange);
+        }
         switch (mappingMode) {
             case ID:
-                String columnMappingId = node.get("metadata").get("delta.columnMapping.id").asText();
+                String columnMappingId = metadata.get("delta.columnMapping.id").asText();
                 verify(!isNullOrEmpty(columnMappingId), "id is null or empty");
                 fieldId = OptionalInt.of(Integer.parseInt(columnMappingId));
                 // Databricks stores column statistics with physical name
-                physicalName = node.get("metadata").get("delta.columnMapping.physicalName").asText();
+                physicalName = metadata.get("delta.columnMapping.physicalName").asText();
                 verify(!isNullOrEmpty(physicalName), "physicalName is null or empty");
                 physicalColumnType = buildType(typeManager, typeNode, true);
                 break;
             case NAME:
-                physicalName = node.get("metadata").get("delta.columnMapping.physicalName").asText();
+                physicalName = metadata.get("delta.columnMapping.physicalName").asText();
                 verify(!isNullOrEmpty(physicalName), "physicalName is null or empty");
                 physicalColumnType = buildType(typeManager, typeNode, true);
                 break;
@@ -516,6 +532,19 @@ public final class DeltaLakeSchemaSupport
                 .setComment(Optional.ofNullable(getComment(node)))
                 .build();
         return new DeltaLakeColumnMetadata(columnMetadata, fieldName, fieldId, physicalName, physicalColumnType);
+    }
+
+    private static void verifyTypeChange(JsonNode typeChange)
+    {
+        String fromType = typeChange.get("fromType").asText();
+        String toType = typeChange.get("toType").asText();
+
+        if ((fromType.equals("byte") && (toType.equals("short") || toType.equals("integer"))) ||
+                (fromType.equals("short") && toType.equals("integer"))) {
+            return;
+        }
+        // TODO: Skip unsupported columns instead of throwing an exception
+        throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Type change from '%s' to '%s' is not supported".formatted(fromType, toType));
     }
 
     public static Map<String, Object> getColumnTypes(MetadataEntry metadataEntry)

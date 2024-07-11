@@ -139,8 +139,9 @@ public final class SystemSessionProperties
     public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
-    public static final String ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION = "enable_coordinator_dynamic_filters_distribution";
     public static final String ENABLE_LARGE_DYNAMIC_FILTERS = "enable_large_dynamic_filters";
+    public static final String ENABLE_DYNAMIC_ROW_FILTERING = "enable_dynamic_row_filtering";
+    public static final String DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD = "dynamic_row_filtering_selectivity_threshold";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
     public static final String FILTERING_SEMI_JOIN_TO_INNER = "rewrite_filtering_semi_join_to_inner_join";
@@ -678,14 +679,24 @@ public final class SystemSessionProperties
                         dynamicFilterConfig.isEnableDynamicFiltering(),
                         false),
                 booleanProperty(
-                        ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION,
-                        "Enable distribution of dynamic filters from coordinator to all workers",
-                        dynamicFilterConfig.isEnableCoordinatorDynamicFiltersDistribution(),
-                        false),
-                booleanProperty(
                         ENABLE_LARGE_DYNAMIC_FILTERS,
                         "Enable collection of large dynamic filters",
                         dynamicFilterConfig.isEnableLargeDynamicFilters(),
+                        false),
+                booleanProperty(
+                        ENABLE_DYNAMIC_ROW_FILTERING,
+                        "Enable fine-grained filtering of rows in the scan operator using dynamic filters",
+                        dynamicFilterConfig.isEnableDynamicRowFiltering(),
+                        false),
+                doubleProperty(
+                        DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD,
+                        "Avoid using dynamic row filters when fraction of rows selected is above threshold",
+                        dynamicFilterConfig.getDynamicRowFilterSelectivityThreshold(),
+                        value -> {
+                            if (value < 0 || value > 1) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be in the range [0, 1]: %s", DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD, value));
+                            }
+                        },
                         false),
                 dataSizeProperty(
                         QUERY_MAX_MEMORY_PER_NODE,
@@ -1581,14 +1592,19 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
     }
 
-    public static boolean isEnableCoordinatorDynamicFiltersDistribution(Session session)
-    {
-        return session.getSystemProperty(ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION, Boolean.class);
-    }
-
     public static boolean isEnableLargeDynamicFilters(Session session)
     {
         return session.getSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, Boolean.class);
+    }
+
+    public static boolean isEnableDynamicRowFiltering(Session session)
+    {
+        return session.getSystemProperty(ENABLE_DYNAMIC_ROW_FILTERING, Boolean.class);
+    }
+
+    public static double getDynamicRowFilterSelectivityThreshold(Session session)
+    {
+        return session.getSystemProperty(DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD, Double.class);
     }
 
     public static DataSize getQueryMaxMemoryPerNode(Session session)

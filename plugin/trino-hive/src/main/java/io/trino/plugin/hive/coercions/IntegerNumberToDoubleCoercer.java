@@ -43,7 +43,7 @@ public class IntegerNumberToDoubleCoercer<F extends Type>
         if (overflow(value)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot read value '%s' as DOUBLE".formatted(value));
         }
-        DOUBLE.writeDouble(blockBuilder, fromType.getLong(block, position));
+        DOUBLE.writeDouble(blockBuilder, value);
     }
 
     private static boolean overflow(long value)

@@ -51,12 +51,10 @@ To configure the Iceberg connector, create a catalog properties file
 `etc/catalog/example.properties` that references the `iceberg`
 connector and defines a metastore type. The Hive metastore catalog is the
 default implementation. To use a {ref}`Hive metastore <hive-thrift-metastore>`,
-`iceberg.catalog.type` must be set to `hive_metastore` and
 `hive.metastore.uri` must be configured:
 
 ```properties
 connector.name=iceberg
-iceberg.catalog.type=hive_metastore
 hive.metastore.uri=thrift://example.net:9083
 ```
 
@@ -85,7 +83,7 @@ implementation is used:
     * `rest`
     * `nessie`
     * `snowflake`
-  -
+  - `hive_metastore`
 * - `iceberg.file-format`
   - Define the data storage file format for Iceberg tables. Possible values are:
 
@@ -168,6 +166,16 @@ implementation is used:
     `query_partition_filter_required` catalog session property for temporary,
     catalog specific use.
   - `false`
+* - `iceberg.incremental-refresh-enabled`
+  - Set to `false` to force the materialized view refresh operation to always
+    perform a full refresh. You can use the `incremental_refresh_enabled`
+    catalog session property for temporary, catalog specific use. In the
+    majority of cases, using incremental refresh, as compared to a full refresh,
+    is beneficial since a much smaller subset of the source tables needs to be
+    scanned. While incremental refresh may scan less data, it may result in the
+    creation of more data files, since it uses the append operation to insert
+    the new records.
+  - `true`
 :::
 
 (iceberg-file-system-configuration)=
@@ -716,6 +724,10 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
 * - `orc_bloom_filter_fpp`
   - The ORC bloom filters false positive probability. Requires ORC format.
     Defaults to `0.05`.
+* - `parquet_bloom_filter_columns`
+  - Comma-separated list of columns to use for Parquet bloom filter. It improves
+    the performance of queries using Equality and IN predicates when reading
+    Parquet files. Requires Parquet format. Defaults to `[]`.
 :::
 
 The table definition below specifies to use Parquet files, partitioning by columns
@@ -747,6 +759,18 @@ WITH (
     location = '/var/example_tables/test_table',
     orc_bloom_filter_columns = ARRAY['c1', 'c2'],
     orc_bloom_filter_fpp = 0.05)
+```
+
+The table definition below specifies to use Avro files, partitioning
+by `child1` field in `parent` column:
+
+```
+CREATE TABLE test_table (
+    data INTEGER,
+    parent ROW(child1 DOUBLE, child2 INTEGER))
+WITH (
+    format = 'AVRO',
+    partitioning = ARRAY['"parent.child1"'])
 ```
 
 (iceberg-metadata-tables)=
@@ -1487,15 +1511,20 @@ Creating a materialized view does not automatically populate it with data. You
 must run {doc}`/sql/refresh-materialized-view` to populate data in the
 materialized view.
 
-Updating the data in the materialized view with `REFRESH MATERIALIZED VIEW`
+Updating the data in the materialized view can be achieved using the `REFRESH
+MATERIALIZED VIEW` command. This operation may perform either an incremental or
+a full refresh, depending on the complexity of the materialized view definition
+and the snapshot history of the source tables. For a full refresh, the operation
 deletes the data from the storage table, and inserts the data that is the result
-of executing the materialized view query into the existing table. Data is
-replaced atomically, so users can continue to query the materialized view while
-it is being refreshed. Refreshing a materialized view also stores the
-snapshot-ids of all Iceberg tables that are part of the materialized view's
-query in the materialized view metadata. When the materialized view is queried,
-the snapshot-ids are used to check if the data in the storage table is up to
-date.
+of executing the materialized view query into the existing table. For
+incremental refresh, the existing data is not deleted from the storage table and
+only the delta records are processed from the source tables and appended into
+the storage table as needed. In both cases, data is replaced or appended
+atomically, so users can continue to query the materialized view while it is
+being refreshed. Refreshing a materialized view also stores the snapshot-ids of
+all Iceberg tables that are part of the materialized view's query in the
+materialized view metadata. When the materialized view is queried, the
+snapshot-ids are used to check if the data in the storage table is up to date.
 
 Materialized views that use non-Iceberg tables in the query show the [default
 behavior around grace periods](mv-grace-period). If all tables are Iceberg

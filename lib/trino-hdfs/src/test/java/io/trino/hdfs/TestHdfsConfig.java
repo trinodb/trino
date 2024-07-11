@@ -37,7 +37,7 @@ public class TestHdfsConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(HdfsConfig.class)
-                .setResourceConfigFiles("")
+                .setResourceConfigFiles(ImmutableList.of())
                 .setNewDirectoryPermissions("0777")
                 .setNewFileInheritOwnership(false)
                 .setVerifyChecksum(true)
@@ -78,7 +78,7 @@ public class TestHdfsConfig
                 .buildOrThrow();
 
         HdfsConfig expected = new HdfsConfig()
-                .setResourceConfigFiles(ImmutableList.of(resource1.toFile(), resource2.toFile()))
+                .setResourceConfigFiles(ImmutableList.of(resource1.toFile().getAbsolutePath(), resource2.toFile().getAbsolutePath()))
                 .setNewDirectoryPermissions("0700")
                 .setNewFileInheritOwnership(true)
                 .setVerifyChecksum(false)

@@ -79,6 +79,7 @@ public class IcebergConfig
     private boolean sortedWritingEnabled = true;
     private boolean queryPartitionFilterRequired;
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors() * 2;
+    private boolean incrementalRefreshEnabled = true;
 
     public CatalogType getCatalogType()
     {
@@ -427,6 +428,19 @@ public class IcebergConfig
     public IcebergConfig setSplitManagerThreads(int splitManagerThreads)
     {
         this.splitManagerThreads = splitManagerThreads;
+        return this;
+    }
+
+    public boolean isIncrementalRefreshEnabled()
+    {
+        return incrementalRefreshEnabled;
+    }
+
+    @Config("iceberg.incremental-refresh-enabled")
+    @ConfigDescription("Enable Incremental refresh for MVs backed by Iceberg tables, when possible")
+    public IcebergConfig setIncrementalRefreshEnabled(boolean incrementalRefreshEnabled)
+    {
+        this.incrementalRefreshEnabled = incrementalRefreshEnabled;
         return this;
     }
 

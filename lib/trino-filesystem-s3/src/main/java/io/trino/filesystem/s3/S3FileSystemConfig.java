@@ -13,6 +13,8 @@
  */
 package io.trino.filesystem.s3;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -23,11 +25,17 @@ import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import software.amazon.awssdk.retries.api.RetryStrategy;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 
 import java.util.Optional;
+import java.util.Set;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.adaptiveRetryStrategy;
+import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.legacyRetryStrategy;
+import static software.amazon.awssdk.awscore.retry.AwsRetryStrategy.standardRetryStrategy;
 
 public class S3FileSystemConfig
 {
@@ -66,12 +74,12 @@ public class S3FileSystemConfig
         LEGACY,
         ADAPTIVE;
 
-        public static software.amazon.awssdk.core.retry.RetryMode getRetryMode(RetryMode retryMode)
+        public static RetryStrategy getRetryStrategy(RetryMode retryMode)
         {
             return switch (retryMode) {
-                case STANDARD -> software.amazon.awssdk.core.retry.RetryMode.STANDARD;
-                case LEGACY -> software.amazon.awssdk.core.retry.RetryMode.LEGACY;
-                case ADAPTIVE -> software.amazon.awssdk.core.retry.RetryMode.ADAPTIVE;
+                case STANDARD -> standardRetryStrategy();
+                case LEGACY -> legacyRetryStrategy();
+                case ADAPTIVE -> adaptiveRetryStrategy();
             };
         }
     }
@@ -91,7 +99,7 @@ public class S3FileSystemConfig
     private boolean useWebIdentityTokenCredentialsProvider;
     private DataSize streamingPartSize = DataSize.of(16, MEGABYTE);
     private boolean requesterPays;
-    private Integer maxConnections;
+    private Integer maxConnections = 500;
     private Duration connectionTtl;
     private Duration connectionMaxIdleTime;
     private Duration socketConnectTimeout;
@@ -99,6 +107,10 @@ public class S3FileSystemConfig
     private boolean tcpKeepAlive;
     private HostAndPort httpProxy;
     private boolean httpProxySecure;
+    private String httpProxyUsername;
+    private String httpProxyPassword;
+    private boolean preemptiveBasicProxyAuth;
+    private Set<String> nonProxyHosts = ImmutableSet.of();
     private ObjectCannedAcl objectCannedAcl = ObjectCannedAcl.NONE;
     private RetryMode retryMode = RetryMode.LEGACY;
     private int maxErrorRetries = 10;
@@ -434,6 +446,55 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setHttpProxySecure(boolean httpProxySecure)
     {
         this.httpProxySecure = httpProxySecure;
+        return this;
+    }
+
+    public String getHttpProxyUsername()
+    {
+        return httpProxyUsername;
+    }
+
+    @Config("s3.http-proxy.username")
+    public S3FileSystemConfig setHttpProxyUsername(String httpProxyUsername)
+    {
+        this.httpProxyUsername = httpProxyUsername;
+        return this;
+    }
+
+    public String getHttpProxyPassword()
+    {
+        return httpProxyPassword;
+    }
+
+    @Config("s3.http-proxy.password")
+    @ConfigSecuritySensitive
+    public S3FileSystemConfig setHttpProxyPassword(String httpProxyPassword)
+    {
+        this.httpProxyPassword = httpProxyPassword;
+        return this;
+    }
+
+    public boolean getHttpProxyPreemptiveBasicProxyAuth()
+    {
+        return preemptiveBasicProxyAuth;
+    }
+
+    @Config("s3.http-proxy.preemptive-basic-auth")
+    public S3FileSystemConfig setHttpProxyPreemptiveBasicProxyAuth(boolean preemptiveBasicProxyAuth)
+    {
+        this.preemptiveBasicProxyAuth = preemptiveBasicProxyAuth;
+        return this;
+    }
+
+    public Set<String> getNonProxyHosts()
+    {
+        return nonProxyHosts;
+    }
+
+    @Config("s3.http-proxy.non-proxy-hosts")
+    public S3FileSystemConfig setNonProxyHosts(String nonProxyHosts)
+    {
+        this.nonProxyHosts = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(nullToEmpty(nonProxyHosts)));
         return this;
     }
 }
