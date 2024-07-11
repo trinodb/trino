@@ -52,10 +52,6 @@ import io.trino.testing.sql.TestView;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -1259,17 +1255,7 @@ public class TestPostgreSqlConnectorTest
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return sql -> {
-            try {
-                try (Connection connection = DriverManager.getConnection(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
-                        Statement statement = connection.createStatement()) {
-                    statement.execute(sql);
-                }
-            }
-            catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-        };
+        return postgreSqlServer::execute;
     }
 
     @Override
