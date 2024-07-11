@@ -386,7 +386,6 @@ public class OpenSearchClient
     {
         return doRequest("/_cat/indices?h=index,docs.count,docs.deleted&format=json&s=index:asc", body -> {
             try {
-                ImmutableList.Builder<String> result = ImmutableList.builder();
                 JsonNode root = OBJECT_MAPPER.readTree(body);
                 List<String> indices = new ArrayList<>();
 
