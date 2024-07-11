@@ -1447,7 +1447,7 @@ public class PostgreSqlClient
         return ColumnMapping.sliceMapping(
                 jsonType,
                 arrayAsJsonReadFunction(session, baseElementMapping),
-                (statement, index, block) -> { throw new UnsupportedOperationException(); },
+                (statement, index, block) -> { throw new TrinoException(NOT_SUPPORTED, "Writing to array type is unsupported"); },
                 DISABLE_PUSHDOWN);
     }
 
