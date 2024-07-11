@@ -489,7 +489,7 @@
             <dependency>
                 <groupId>com.github.docker-java</groupId>
                 <artifactId>docker-java-api</artifactId>
-                <version>3.3.6</version>
+                <version>3.4.0</version>
             </dependency>
 
             <dependency>
