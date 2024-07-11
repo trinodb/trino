@@ -73,10 +73,12 @@ import javax.net.ssl.SSLContext;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -86,6 +88,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -385,32 +388,34 @@ public class OpenSearchClient
             try {
                 ImmutableList.Builder<String> result = ImmutableList.builder();
                 JsonNode root = OBJECT_MAPPER.readTree(body);
-                for (int i = 0; i < root.size(); i++) {
-                    String index = root.get(i).get("index").asText();
+                List<String> indices = new ArrayList<>();
 
+                for (int i = 0; i < root.size(); i++) {
+                    indices.add(root.get(i).get("index").asText());
+                }
+
+                return indices.parallelStream().map(index -> {
                     try {
                         // Ensure we have access to the index. In AWS role, one can restrict access to certain indices
                         // It returns 403 given credential has no access to the index.
                         if (getIndexMetadata(index).schema().fields().isEmpty()) {
-                            continue;
+                            return null;
                         }
                     }
                     catch (TrinoException e) {
                         if (e.getErrorCode().equals(OPENSEARCH_INVALID_METADATA.toErrorCode())) {
-                            continue;
+                            return null;
                         }
                         if (e.getCause() instanceof ResponseException cause && cause.getResponse().getStatusLine().getStatusCode() == 404) {
-                            continue;
+                            return null;
                         }
                         if (e.getCause() instanceof ResponseException cause && cause.getResponse().getStatusLine().getStatusCode() == 403) {
-                            continue;
+                            return null;
                         }
                         throw e;
                     }
-
-                    result.add(index);
-                }
-                return result.build();
+                    return index;
+                }).filter(Objects::nonNull).collect(Collectors.toList());
             }
             catch (IOException e) {
                 throw new TrinoException(OPENSEARCH_INVALID_RESPONSE, e);
