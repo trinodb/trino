@@ -92,7 +92,7 @@ public class TestMemoryConnectorTest
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_DELETE,
                  SUPPORTS_DEREFERENCE_PUSHDOWN,
-                 SUPPORTS_DROP_COLUMN,
+                 SUPPORTS_DROP_FIELD,
                  SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_MERGE,
                  SUPPORTS_PREDICATE_PUSHDOWN,

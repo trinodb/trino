@@ -14,7 +14,6 @@
 package io.trino.plugin.memory;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
@@ -23,11 +22,10 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public record ColumnInfo(ColumnHandle handle, String name, Type type, boolean nullable, Optional<String> comment)
+public record ColumnInfo(int id, String name, Type type, boolean nullable, Optional<String> comment)
 {
     public ColumnInfo
     {
-        requireNonNull(handle, "handle is null");
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
         requireNonNull(comment, "comment is null");

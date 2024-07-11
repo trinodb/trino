@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.HostAddress;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 
@@ -26,7 +25,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
@@ -63,13 +61,5 @@ public record TableInfo(
                         .collect(Collectors.toList()),
                 emptyMap(),
                 comment);
-    }
-
-    @JsonIgnore
-    public ColumnInfo getColumn(ColumnHandle handle)
-    {
-        return columns.stream()
-                .filter(column -> column.handle().equals(handle))
-                .collect(onlyElement());
     }
 }
