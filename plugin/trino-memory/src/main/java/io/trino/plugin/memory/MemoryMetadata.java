@@ -154,6 +154,42 @@ public class MemoryMetadata
         verify(schemas.remove(schemaName));
     }
 
+    @Override
+    public synchronized void renameSchema(ConnectorSession session, String source, String target)
+    {
+        if (!schemas.remove(source)) {
+            throw new SchemaNotFoundException(source);
+        }
+        schemas.add(target);
+
+        for (Map.Entry<SchemaTableName, Long> table : tableIds.entrySet()) {
+            if (table.getKey().getSchemaName().equals(source)) {
+                tableIds.remove(table.getKey());
+                tableIds.put(new SchemaTableName(target, table.getKey().getTableName()), table.getValue());
+            }
+        }
+
+        for (TableInfo table : tables.values()) {
+            if (table.schemaName().equals(source)) {
+                tables.put(table.id(), new TableInfo(table.id(), target, table.tableName(), table.columns(), false, table.dataFragments(), table.comment()));
+            }
+        }
+
+        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> view : views.entrySet()) {
+            if (view.getKey().getSchemaName().equals(source)) {
+                views.remove(view.getKey());
+                views.put(new SchemaTableName(target, view.getKey().getTableName()), view.getValue());
+            }
+        }
+
+        for (Map.Entry<SchemaFunctionName, Map<String, LanguageFunction>> function : functions.entrySet()) {
+            if (function.getKey().getSchemaName().equals(source)) {
+                functions.remove(function.getKey());
+                functions.put(new SchemaFunctionName(target, function.getKey().getFunctionName()), function.getValue());
+            }
+        }
+    }
+
     @GuardedBy("this")
     private boolean isSchemaEmpty(String schemaName)
     {
