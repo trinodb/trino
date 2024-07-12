@@ -33,15 +33,13 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Set;
 
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createAbfsDeltaLakeQueryRunner;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -50,7 +48,6 @@ public class TestDeltaLakeAdlsStorage
         extends AbstractTestQueryFramework
 {
     private static final String HADOOP_BASE_IMAGE = System.getenv().getOrDefault("HADOOP_BASE_IMAGE", "ghcr.io/trinodb/testing/hdp3.1-hive");
-    private static final String SCHEMA_NAME = "default";
     private static final List<String> TABLES = ImmutableList.of(NATION.getTableName(), REGION.getTableName(), CUSTOMER.getTableName());
 
     private final String account;
@@ -62,10 +59,9 @@ public class TestDeltaLakeAdlsStorage
 
     public TestDeltaLakeAdlsStorage()
     {
-        String container = System.getProperty("testing.azure-abfs-container");
-        requireNonNull(container, "container is null");
-        this.account = requireNonNull(System.getProperty("testing.azure-abfs-account"), "account is null");
-        this.accessKey = requireNonNull(System.getProperty("testing.azure-abfs-access-key"), "accessKey is null");
+        String container = requiredNonEmptySystemProperty("testing.azure-abfs-container");
+        this.account = requiredNonEmptySystemProperty("testing.azure-abfs-account");
+        this.accessKey = requiredNonEmptySystemProperty("testing.azure-abfs-access-key");
 
         String directoryBase = format("abfs://%s@%s.dfs.core.windows.net", container, account);
         adlsDirectory = format("%s/tpch-tiny-%s/", directoryBase, randomUUID());
@@ -84,12 +80,17 @@ public class TestDeltaLakeAdlsStorage
                         "/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.toString()))
                 .build());
         hiveHadoop.start();
-        return createAbfsDeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                SCHEMA_NAME,
-                ImmutableMap.of(),
-                ImmutableMap.of("delta.register-table-procedure.enabled", "true"),
-                hiveHadoop);
+
+        return DeltaLakeQueryRunner.builder()
+                .setDeltaProperties(ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
+                        .put("fs.hadoop.enabled", "false")
+                        .put("fs.native-azure.enabled", "true")
+                        .put("azure.auth-type", "ACCESS_KEY")
+                        .put("azure.access-key", accessKey)
+                        .put("delta.register-table-procedure.enabled", "true")
+                        .buildOrThrow())
+                .build();
     }
 
     private Path createHadoopCoreSiteXmlTempFileWithAbfsSettings()
@@ -113,7 +114,7 @@ public class TestDeltaLakeAdlsStorage
         hiveHadoop.executeInContainerFailOnError("hadoop", "fs", "-mkdir", "-p", adlsDirectory);
         TABLES.forEach(table -> {
             hiveHadoop.executeInContainerFailOnError("hadoop", "fs", "-copyFromLocal", "-f", "/tmp/tpch-tiny/" + table, adlsDirectory);
-            getQueryRunner().execute(format("CALL system.register_table('%s', '%s', '%s/%s')", SCHEMA_NAME, table, adlsDirectory, table));
+            getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s/%s')", table, adlsDirectory, table));
         });
     }
 

@@ -41,7 +41,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.ADD;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
@@ -84,7 +84,7 @@ public class TestPolymorphicScalarFunction
                 .returnType(BOOLEAN)
                 .build();
 
-        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(IS_DISTINCT_FROM, TestMethods.class)
+        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(IDENTICAL, TestMethods.class)
                 .signature(signature)
                 .argumentNullability(true, true)
                 .deterministic(true)
@@ -102,7 +102,7 @@ public class TestPolymorphicScalarFunction
                 .build();
 
         BoundSignature shortDecimalBoundSignature = new BoundSignature(
-                builtinFunctionName(mangleOperatorName(IS_DISTINCT_FROM)),
+                builtinFunctionName(mangleOperatorName(IDENTICAL)),
                 BOOLEAN,
                 ImmutableList.of(SHORT_DECIMAL_BOUND_TYPE, SHORT_DECIMAL_BOUND_TYPE));
         ChoicesSpecializedSqlScalarFunction specializedFunction = (ChoicesSpecializedSqlScalarFunction) function.specialize(
@@ -117,7 +117,7 @@ public class TestPolymorphicScalarFunction
         assertThat((boolean) specializedFunction.getChoices().get(1).getMethodHandle().invoke(block1, 0, block2, 0)).isFalse();
 
         BoundSignature longDecimalBoundSignature = new BoundSignature(
-                builtinFunctionName(mangleOperatorName(IS_DISTINCT_FROM)),
+                builtinFunctionName(mangleOperatorName(IDENTICAL)),
                 BOOLEAN,
                 ImmutableList.of(LONG_DECIMAL_BOUND_TYPE, LONG_DECIMAL_BOUND_TYPE));
         specializedFunction = (ChoicesSpecializedSqlScalarFunction) function.specialize(

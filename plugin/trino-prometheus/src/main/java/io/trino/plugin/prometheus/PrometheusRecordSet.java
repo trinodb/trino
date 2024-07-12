@@ -39,7 +39,7 @@ public class PrometheusRecordSet
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (PrometheusColumnHandle column : columnHandles) {
-            types.add(column.getColumnType());
+            types.add(column.columnType());
         }
         this.columnTypes = types.build();
 

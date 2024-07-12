@@ -14,7 +14,9 @@
 package io.trino.parquet.reader.decoders;
 
 import io.trino.parquet.reader.SimpleSliceInputStream;
-import io.trino.parquet.reader.flat.NullsDecoder;
+import io.trino.parquet.reader.flat.FlatDefinitionLevelDecoder;
+
+import static io.trino.parquet.reader.flat.NullsDecoders.createNullsDecoder;
 
 /**
  * Decoder for RLE encoded values of BOOLEAN primitive type
@@ -25,7 +27,12 @@ import io.trino.parquet.reader.flat.NullsDecoder;
 public final class RleBitPackingHybridBooleanDecoder
         implements ValueDecoder<byte[]>
 {
-    private final NullsDecoder decoder = new NullsDecoder();
+    private final FlatDefinitionLevelDecoder decoder;
+
+    public RleBitPackingHybridBooleanDecoder(boolean vectorizedDecodingEnabled)
+    {
+        this.decoder = createNullsDecoder(vectorizedDecodingEnabled);
+    }
 
     @Override
     public void init(SimpleSliceInputStream input)

@@ -197,18 +197,16 @@ public class PinotSqlFormatter
 
     private static String formatExpression(ExpressionContext expressionContext, Context context)
     {
-        switch (expressionContext.getType()) {
-            case LITERAL:
-                return singleQuoteValue(expressionContext.getLiteral().getValue().toString());
-            case IDENTIFIER:
+        return switch (expressionContext.getType()) {
+            case LITERAL -> singleQuoteValue(expressionContext.getLiteral().getValue().toString());
+            case IDENTIFIER -> {
                 if (context.getColumnHandles().isPresent()) {
-                    return quoteIdentifier(getColumnHandle(expressionContext.getIdentifier(), context.getSchemaTableName(), context.getColumnHandles().get()).getColumnName());
+                    yield quoteIdentifier(getColumnHandle(expressionContext.getIdentifier(), context.getSchemaTableName(), context.getColumnHandles().get()).getColumnName());
                 }
-                return quoteIdentifier(expressionContext.getIdentifier());
-            case FUNCTION:
-                return formatFunction(expressionContext.getFunction(), context);
-        }
-        throw new PinotException(PINOT_EXCEPTION, Optional.empty(), format("Unsupported expression type '%s'", expressionContext.getType()));
+                yield quoteIdentifier(expressionContext.getIdentifier());
+            }
+            case FUNCTION -> formatFunction(expressionContext.getFunction(), context);
+        };
     }
 
     private static String formatFunction(FunctionContext functionContext, Context context)
@@ -626,18 +624,13 @@ public class PinotSqlFormatter
                     .map(expressionContext -> formatExpression(expressionContext, context))
                     .collect(toImmutableList());
             checkState(arguments.size() >= 2, "Unexpected expression '%s'", object);
-            int whenStatements = arguments.size() / 2;
-            StringBuilder builder = new StringBuilder("CASE ");
-            builder.append("WHEN ")
-                    .append(arguments.get(0))
-                    .append(" THEN ")
-                    .append(arguments.get(whenStatements));
+            StringBuilder builder = new StringBuilder("CASE");
 
-            for (int index = 1; index < whenStatements; index++) {
+            for (int index = 0; index < arguments.size() / 2; index++) {
                 builder.append(" WHEN ")
-                        .append(arguments.get(index))
+                        .append(arguments.get(index * 2))
                         .append(" THEN ")
-                        .append(arguments.get(index + whenStatements));
+                        .append(arguments.get(index * 2 + 1));
             }
 
             if (arguments.size() % 2 != 0) {

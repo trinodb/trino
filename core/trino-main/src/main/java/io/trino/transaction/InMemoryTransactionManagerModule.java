@@ -14,6 +14,7 @@
 package io.trino.transaction;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
@@ -36,9 +37,8 @@ public class InMemoryTransactionManagerModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(TransactionManagerConfig.class);
-        closingBinder(binder)
-                .registerExecutor(ExecutorService.class, ForTransactionManager.class)
-                .registerExecutor(ScheduledExecutorService.class, ForTransactionManager.class);
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForTransactionManager.class));
+        closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForTransactionManager.class));
     }
 
     @Provides

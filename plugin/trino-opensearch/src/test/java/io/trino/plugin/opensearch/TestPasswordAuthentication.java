@@ -15,7 +15,6 @@ package io.trino.plugin.opensearch;
 
 import com.amazonaws.util.Base64;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.common.net.HostAndPort;
@@ -43,7 +42,6 @@ import java.util.Optional;
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
-import static io.trino.plugin.opensearch.OpenSearchQueryRunner.createOpenSearchQueryRunner;
 import static io.trino.plugin.opensearch.OpenSearchServer.OPENSEARCH_IMAGE;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -76,11 +74,8 @@ public class TestPasswordAuthentication
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort(), "https"))
                 .setHttpClientConfigCallback(this::setupSslContext));
 
-        QueryRunner runner = createOpenSearchQueryRunner(
-                opensearch.getAddress(),
-                ImmutableList.of(),
-                ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
+        QueryRunner runner = OpenSearchQueryRunner.builder(opensearch.getAddress())
+                .addConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("opensearch.security", "PASSWORD")
                         .put("opensearch.auth.user", USER)
                         .put("opensearch.auth.password", PASSWORD)
@@ -88,8 +83,8 @@ public class TestPasswordAuthentication
                         .put("opensearch.tls.verify-hostnames", "false")
                         .put("opensearch.tls.truststore-path", new File(getResource("truststore.jks").toURI()).getPath())
                         .put("opensearch.tls.truststore-password", "123456")
-                        .buildOrThrow(),
-                3);
+                        .buildOrThrow())
+                .build();
 
         assertions = new QueryAssertions(runner);
     }

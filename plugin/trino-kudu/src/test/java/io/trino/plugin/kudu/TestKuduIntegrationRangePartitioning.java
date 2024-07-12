@@ -18,7 +18,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
 import static java.lang.String.join;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -84,7 +83,7 @@ public class TestKuduIntegrationRangePartitioning
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createKuduQueryRunner(closeAfterClass(new TestingKuduServer()), "range_partitioning");
+        return KuduQueryRunnerFactory.builder(closeAfterClass(new TestingKuduServer())).build();
     }
 
     @Test

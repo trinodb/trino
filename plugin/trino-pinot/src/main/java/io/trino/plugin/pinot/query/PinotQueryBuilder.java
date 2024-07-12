@@ -57,6 +57,9 @@ public final class PinotQueryBuilder
     {
         requireNonNull(tableHandle, "tableHandle is null");
         StringBuilder pqlBuilder = new StringBuilder();
+        if (tableHandle.isEnableNullHandling()) {
+            pqlBuilder.append("SET enableNullHandling = true;\n");
+        }
         List<String> quotedColumnNames;
         if (columnHandles.isEmpty()) {
             // This occurs when the query is SELECT COUNT(*) FROM pinotTable ...
@@ -217,6 +220,9 @@ public final class PinotQueryBuilder
 
     private static String singleQuote(Object value)
     {
+        if (value instanceof String string) {
+            return format("'%s'", string.replace("'", "''"));
+        }
         return format("'%s'", value);
     }
 

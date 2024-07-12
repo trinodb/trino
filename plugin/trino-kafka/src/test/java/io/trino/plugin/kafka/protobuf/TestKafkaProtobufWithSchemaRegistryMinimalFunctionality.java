@@ -28,7 +28,7 @@ import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchemaProvider;
 import io.confluent.kafka.serializers.protobuf.KafkaProtobufSerializer;
 import io.confluent.kafka.serializers.subject.RecordNameStrategy;
 import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
-import io.trino.plugin.kafka.schema.confluent.KafkaWithConfluentSchemaRegistryQueryRunner;
+import io.trino.plugin.kafka.KafkaQueryRunner;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -47,8 +47,8 @@ import java.util.Map;
 import static com.google.common.io.Resources.getResource;
 import static com.google.protobuf.Descriptors.FieldDescriptor.JavaType.ENUM;
 import static com.google.protobuf.Descriptors.FieldDescriptor.JavaType.STRING;
-import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
-import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
+import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
+import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
 import static io.trino.decoder.protobuf.ProtobufRowDecoderFactory.DEFAULT_MESSAGE;
 import static io.trino.decoder.protobuf.ProtobufUtils.getFileDescriptor;
 import static io.trino.decoder.protobuf.ProtobufUtils.getProtoFile;
@@ -81,7 +81,9 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
             throws Exception
     {
         testingKafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
-        return KafkaWithConfluentSchemaRegistryQueryRunner.builder(testingKafka).build();
+        testingKafka.start();
+        return KafkaQueryRunner.builderForConfluentSchemaRegistry(testingKafka)
+                .build();
     }
 
     @Test

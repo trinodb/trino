@@ -41,7 +41,7 @@ public class TestSingleDistributionSplitAssigner
         tester.update(splitAssigner.finish());
 
         assertThat(tester.getTaskPartitionCount()).isEqualTo(1);
-        assertThat(tester.getNodeRequirements(0)).isEqualTo(new NodeRequirements(Optional.empty(), hostRequirement));
+        assertThat(tester.getNodeRequirements(0)).isEqualTo(new NodeRequirements(Optional.empty(), hostRequirement, false));
         assertThat(tester.isSealed(0)).isTrue();
         assertThat(tester.isNoMoreTaskPartitions()).isTrue();
     }
@@ -59,7 +59,7 @@ public class TestSingleDistributionSplitAssigner
         tester.update(splitAssigner.finish());
 
         assertThat(tester.getTaskPartitionCount()).isEqualTo(1);
-        assertThat(tester.getNodeRequirements(0)).isEqualTo(new NodeRequirements(Optional.empty(), hostRequirement));
+        assertThat(tester.getNodeRequirements(0)).isEqualTo(new NodeRequirements(Optional.empty(), hostRequirement, false));
         assertThat(tester.getSplitIds(0, PLAN_NODE_1)).isEmpty();
         assertThat(tester.isNoMoreSplits(0, PLAN_NODE_1)).isTrue();
         assertThat(tester.isSealed(0)).isTrue();

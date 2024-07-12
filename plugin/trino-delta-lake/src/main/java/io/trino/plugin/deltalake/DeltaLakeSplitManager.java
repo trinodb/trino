@@ -152,7 +152,7 @@ public class DeltaLakeSplitManager
             Constraint constraint)
     {
         TableSnapshot tableSnapshot = deltaLakeTransactionManager.get(transaction, session.getIdentity())
-                .getSnapshot(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), tableHandle.getReadVersion());
+                .getSnapshot(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), Optional.of(tableHandle.getReadVersion()));
         Stream<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(
                 session,
                 tableSnapshot,
@@ -170,7 +170,7 @@ public class DeltaLakeSplitManager
                 tableHandle.getWriteType().isEmpty() &&
                         // When only partitioning columns projected, there is no point splitting the files
                         mayAnyDataColumnProjected(tableHandle);
-        Optional<Instant> filesModifiedAfter = tableHandle.getAnalyzeHandle().flatMap(AnalyzeHandle::getFilesModifiedAfter);
+        Optional<Instant> filesModifiedAfter = tableHandle.getAnalyzeHandle().flatMap(AnalyzeHandle::filesModifiedAfter);
         Optional<Long> maxScannedFileSizeInBytes = maxScannedFileSize.map(DataSize::toBytes);
 
         MetadataEntry metadataEntry = tableHandle.getMetadataEntry();
@@ -188,12 +188,12 @@ public class DeltaLakeSplitManager
                 .collect(toImmutableSet());
         List<DeltaLakeColumnMetadata> schema = extractSchema(metadataEntry, tableHandle.getProtocolEntry(), typeManager);
         List<DeltaLakeColumnMetadata> predicatedColumns = schema.stream()
-                .filter(column -> predicatedColumnNames.contains(column.getName()))
+                .filter(column -> predicatedColumnNames.contains(column.name()))
                 .collect(toImmutableList());
         return validDataFiles
                 .flatMap(addAction -> {
                     if (tableHandle.getAnalyzeHandle().isPresent() &&
-                            !(tableHandle.getAnalyzeHandle().get().getAnalyzeMode() == FULL_REFRESH) && !addAction.isDataChange()) {
+                            !(tableHandle.getAnalyzeHandle().get().analyzeMode() == FULL_REFRESH) && !addAction.isDataChange()) {
                         // skip files which do not introduce data change on non FULL REFRESH
                         return Stream.empty();
                     }

@@ -59,14 +59,10 @@ public class InMemoryNodeManager
     @Override
     public Set<InternalNode> getNodes(NodeState state)
     {
-        switch (state) {
-            case ACTIVE:
-                return ImmutableSet.copyOf(allNodes);
-            case INACTIVE:
-            case SHUTTING_DOWN:
-                return ImmutableSet.of();
-        }
-        throw new IllegalArgumentException("Unknown node state " + state);
+        return switch (state) {
+            case ACTIVE -> ImmutableSet.copyOf(allNodes);
+            case INACTIVE, SHUTTING_DOWN -> ImmutableSet.of();
+        };
     }
 
     @Override

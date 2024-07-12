@@ -49,21 +49,19 @@ public final class JdbcJoinPushdownUtil
         }
 
         JoinPushdownStrategy joinPushdownStrategy = getJoinPushdownStrategy(session);
-        switch (joinPushdownStrategy) {
-            case EAGER:
-                return result;
-
-            case AUTOMATIC:
+        return switch (joinPushdownStrategy) {
+            case EAGER -> result;
+            case AUTOMATIC -> {
                 if (shouldPushDownJoinCostAware(session, joinType, leftSource, rightSource, statistics)) {
-                    return result;
+                    yield result;
                 }
-                return Optional.empty();
-        }
-        throw new IllegalArgumentException("Unsupported joinPushdownStrategy: " + joinPushdownStrategy);
+                yield Optional.empty();
+            }
+        };
     }
 
     /**
-     * Common implementation of AUTOMATIC join pushdown strategy to by used in SEP Jdbc connectors
+     * Common implementation of AUTOMATIC join pushdown strategy used in Jdbc connectors
      */
     public static boolean shouldPushDownJoinCostAware(
             ConnectorSession session,
@@ -108,9 +106,9 @@ public final class JdbcJoinPushdownUtil
 
         double joinDataSize = statistics.getJoinStatistics().get().getDataSize();
         if (joinDataSize < getJoinPushdownAutomaticJoinToTablesRatio(session) * (leftDataSize + rightDataSize)) {
-            // This is poor man's estimation if it makes more sense to perform join in source database or SEP.
-            // The assumption here is that cost of performing join in source database is less than or equal to cost of join in SEP.
-            // We resolve tie for pessimistic case (both join costs equal) on cost of sending the data from source database to SEP.
+            // This is poor man's estimation if it makes more sense to perform join in source database or Trino.
+            // The assumption here is that cost of performing join in source database is less than or equal to cost of join in Trino.
+            // We resolve tie for pessimistic case (both join costs equal) on cost of sending the data from source database to Trino.
             LOG.debug("triggering join pushdown for %s", joinSignature);
             return true;
         }
@@ -127,7 +125,7 @@ public final class JdbcJoinPushdownUtil
             PreparedQuery leftSource,
             PreparedQuery rightSource)
     {
-        return format("%s JOIN(%s; %s)", joinType, leftSource.getQuery(), rightSource.getQuery());
+        return format("%s JOIN(%s; %s)", joinType, leftSource.query(), rightSource.query());
     }
 
     private static void logNoPushdown(String joinSignature, String reason)

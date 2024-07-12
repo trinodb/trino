@@ -431,7 +431,7 @@ public final class FormatTestUtils
                         assertColumnValueEquals(valueType, value, expectedEntry.getValue());
                         iterator.remove();
                     }
-                    catch (AssertionError ignored) {
+                    catch (AssertionError _) {
                     }
                 }
             });

@@ -223,6 +223,12 @@ public final class ShortArrayBlock
         return "ShortArrayBlock{positionCount=" + getPositionCount() + '}';
     }
 
+    @Override
+    public Optional<ByteArrayBlock> getNulls()
+    {
+        return BlockUtil.getNulls(valueIsNull, arrayOffset, positionCount);
+    }
+
     int getRawValuesOffset()
     {
         return arrayOffset;

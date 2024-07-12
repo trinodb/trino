@@ -99,15 +99,15 @@ public class TableFunctionProcessorNode
         this.specification = requireNonNull(specification, "specification is null");
         this.prePartitioned = ImmutableSet.copyOf(prePartitioned);
         Set<Symbol> partitionBy = specification
-                .map(DataOrganizationSpecification::getPartitionBy)
+                .map(DataOrganizationSpecification::partitionBy)
                 .map(ImmutableSet::copyOf)
                 .orElse(ImmutableSet.of());
         checkArgument(partitionBy.containsAll(prePartitioned), "all pre-partitioned symbols must be contained in the partitioning list");
         this.preSorted = preSorted;
         checkArgument(
                 specification
-                        .flatMap(DataOrganizationSpecification::getOrderingScheme)
-                        .map(OrderingScheme::getOrderBy)
+                        .flatMap(DataOrganizationSpecification::orderingScheme)
+                        .map(OrderingScheme::orderBy)
                         .map(List::size)
                         .orElse(0) >= preSorted,
                 "the number of pre-sorted symbols cannot be greater than the number of all ordering symbols");

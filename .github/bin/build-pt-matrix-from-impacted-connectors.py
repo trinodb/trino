@@ -14,9 +14,7 @@ import unittest
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Filter test matrix modules using list of impacted features."
-    )
+    parser = argparse.ArgumentParser(description="Filter test matrix modules using list of impacted features.")
     parser.add_argument(
         "-m",
         "--matrix",
@@ -54,9 +52,7 @@ def main():
         help="test this script instead of executing it",
     )
     args = parser.parse_args()
-    logging.basicConfig(
-        level=args.loglevel, format="%(asctime)s %(levelname)s %(message)s"
-    )
+    logging.basicConfig(level=args.loglevel, format="%(asctime)s %(levelname)s %(message)s")
     if args.test:
         sys.argv = [sys.argv[0]]
         unittest.main()
@@ -99,9 +95,7 @@ def load_available_features_for_config(config, suites, ptl_binary_path):
         "JSON",
     ]
     logging.debug("executing: %s", " ".join(cmd))
-    process = subprocess.run(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
-    )
+    process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     logging.debug("ptl suite describe: %s", process)
     if process.returncode != 0:
         raise RuntimeError(f"ptl suite describe failed: {process}")
@@ -129,9 +123,7 @@ def load_available_features_for_config(config, suites, ptl_binary_path):
 def load_available_features(configToSuiteMap, ptl_binary_path):
     available_features = {}
     for config, suites in configToSuiteMap.items():
-        available_features.update(
-            load_available_features_for_config(config, suites, ptl_binary_path)
-        )
+        available_features.update(load_available_features_for_config(config, suites, ptl_binary_path))
     return available_features
 
 
@@ -148,9 +140,7 @@ def build(matrix_file, impacted_file, output_file, ptl_binary_path):
         output_file.write("\n")
         return
 
-    impacted_features = list(
-        filter(None, [line.rstrip() for line in impacted_file.readlines()])
-    )
+    impacted_features = list(filter(None, [line.rstrip() for line in impacted_file.readlines()]))
     logging.info("Read impacted_features: %s", impacted_features)
     result = copy.copy(matrix)
     items = expand_matrix(matrix)
@@ -163,16 +153,15 @@ def build(matrix_file, impacted_file, output_file, ptl_binary_path):
     if len(available_features) > 0:
         all_excluded = True
         for item in items:
-            features = tested_features(
-                available_features, item.get("config"), item.get("suite")
-            )
+            features = tested_features(available_features, item.get("config"), item.get("suite"))
             logging.debug("matrix item features: %s", features)
             if not any(feature in impacted_features for feature in features):
-                logging.info("Excluding matrix entry due to features: %s", item)
-                result.setdefault("exclude", []).append(item)
                 if "include" in result and item in result["include"]:
-                    logging.debug("Removing from include list: %s", item)
+                    logging.info("Removing from include list: %s", item)
                     result["include"].remove(item)
+                else:
+                    logging.info("Excluding matrix entry due to features: %s", item)
+                    result.setdefault("exclude", []).append(item)
             else:
                 all_excluded = False
         if all_excluded:
@@ -186,10 +175,10 @@ def build(matrix_file, impacted_file, output_file, ptl_binary_path):
 class TestBuild(unittest.TestCase):
     def test_build(self):
         self.maxDiff = None
-        # cases are tuples of: matrix, impacted, ptl_binary_path, expected
+        # cases are tuples of: name, matrix, impacted, ptl_binary_path, expected
         cases = [
-            # impacted features empty, all items are excluded and an empty matrix is returned
             (
+                "impacted features empty, all items are excluded and an empty matrix is returned",
                 {
                     "config": ["A", "B", "C"],
                     "suite": ["1", "2", "3"],
@@ -198,8 +187,8 @@ class TestBuild(unittest.TestCase):
                 ".github/bin/fake-ptl",
                 {},
             ),
-            # no impacted features, ptl is not called, no changes to matrix
             (
+                "no impacted features, ptl is not called, no changes to matrix",
                 {
                     "config": ["A", "B", "C"],
                     "suite": ["1", "2", "3"],
@@ -211,8 +200,8 @@ class TestBuild(unittest.TestCase):
                     "suite": ["1", "2", "3"],
                 },
             ),
-            # missing features get added to exclude list
             (
+                "missing features get added to exclude list",
                 {
                     "config": ["A", "B", "C"],
                     "suite": ["1", "2", "3"],
@@ -231,8 +220,8 @@ class TestBuild(unittest.TestCase):
                     ],
                 },
             ),
-            # missing features get removed from include list
             (
+                "missing features get removed from include list",
                 {
                     "config": ["A", "B", "C"],
                     "suite": ["1", "2", "3"],
@@ -253,16 +242,14 @@ class TestBuild(unittest.TestCase):
                         {"config": "B", "suite": "1"},
                         {"config": "B", "suite": "3"},
                         {"config": "C", "suite": "2"},
-                        {"config": "A", "suite": "4"},
-                        {"config": "D", "suite": "2"},
                     ],
                     "include": [
                         {"config": "D", "suite": "1"},
                     ],
                 },
             ),
-            # missing features get added to exclude list and removed from include
             (
+                "missing features get added to exclude list and removed from include",
                 {
                     "config": ["A", "B", "C"],
                     "suite": ["1", "2", "3"],
@@ -288,7 +275,6 @@ class TestBuild(unittest.TestCase):
                         {"config": "B", "suite": "1"},
                         {"config": "B", "suite": "3"},
                         {"config": "C", "suite": "2"},
-                        {"config": "D", "suite": "2"},
                     ],
                     "include": [
                         {"config": "A", "suite": "1", "jdk": "17"},
@@ -298,9 +284,9 @@ class TestBuild(unittest.TestCase):
             ),
             # integration test with real PTL
             (
-                # input matrix
+                "input matrix",
                 {
-                    "config": ["default", "hdp3"],
+                    "config": ["default"],
                     "suite": ["suite-1", "suite-2", "suite-3", "suite-5"],
                     "jdk": ["11"],
                     "ignore exclusion if": [False],
@@ -320,7 +306,7 @@ class TestBuild(unittest.TestCase):
                         },
                         {
                             "config": "default",
-                            "suite": "suite-8-non-generic",
+                            "suite": "suite-hive-transactional",
                             "jdk": "11",
                         },
                         {"config": "default", "suite": "suite-tpcds", "jdk": "11"},
@@ -332,12 +318,12 @@ class TestBuild(unittest.TestCase):
                             "jdk": "11",
                         },
                         {
-                            "config": "apache-hive3",
+                            "config": "default",
                             "suite": "suite-hms-only",
                             "jdk": "11",
                         },
-                        {"config": "hdp3", "suite": "suite-1", "jdk": "17"},
-                        {"config": "hdp3", "suite": "suite-2", "jdk": "17"},
+                        {"config": "default", "suite": "suite-1", "jdk": "17"},
+                        {"config": "default", "suite": "suite-2", "jdk": "17"},
                     ],
                 },
                 # impacted features
@@ -346,10 +332,9 @@ class TestBuild(unittest.TestCase):
                 "testing/bin/ptl",
                 # expected matrix
                 {
-                    "config": ["default", "hdp3"],
+                    "config": ["default"],
                     "exclude": [
                         {"config": "default", "ignore exclusion if": False},
-                        {"config": "default", "jdk": "11", "suite": "suite-oauth2"},
                     ],
                     "ignore exclusion if": [False],
                     "include": [
@@ -366,7 +351,7 @@ class TestBuild(unittest.TestCase):
                         {
                             "config": "default",
                             "jdk": "11",
-                            "suite": "suite-8-non-generic",
+                            "suite": "suite-hive-transactional",
                         },
                         {"config": "default", "jdk": "11", "suite": "suite-tpcds"},
                         {"config": "default", "jdk": "11", "suite": "suite-ldap"},
@@ -376,27 +361,23 @@ class TestBuild(unittest.TestCase):
                             "suite": "suite-compatibility",
                         },
                         {
-                            "config": "apache-hive3",
+                            "config": "default",
                             "jdk": "11",
                             "suite": "suite-hms-only",
                         },
-                        {"config": "hdp3", "jdk": "17", "suite": "suite-1"},
-                        {"config": "hdp3", "jdk": "17", "suite": "suite-2"},
+                        {"config": "default", "jdk": "17", "suite": "suite-1"},
+                        {"config": "default", "jdk": "17", "suite": "suite-2"},
                     ],
                     "jdk": ["11"],
                     "suite": ["suite-1", "suite-2", "suite-3", "suite-5"],
                 },
             ),
         ]
-        for matrix, impacted, ptl_binary_path, expected in cases:
-            with self.subTest():
-                with tempfile.TemporaryFile(
+        for name, matrix, impacted, ptl_binary_path, expected in cases:
+            with self.subTest(name):
+                with tempfile.TemporaryFile("w+") as matrix_file, tempfile.TemporaryFile(
                     "w+"
-                ) as matrix_file, tempfile.TemporaryFile(
-                    "w+"
-                ) as impacted_file, tempfile.TemporaryFile(
-                    "w+"
-                ) as output_file:
+                ) as impacted_file, tempfile.TemporaryFile("w+") as output_file:
                     # given
                     yaml.dump(matrix, matrix_file)
                     matrix_file.seek(0)
@@ -407,9 +388,7 @@ class TestBuild(unittest.TestCase):
                     else:
                         impacted_file_final = None
                     # when
-                    build(
-                        matrix_file, impacted_file_final, output_file, ptl_binary_path
-                    )
+                    build(matrix_file, impacted_file_final, output_file, ptl_binary_path)
                     output_file.seek(0)
                     output = json.load(output_file)
                     # then

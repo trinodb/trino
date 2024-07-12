@@ -100,7 +100,6 @@ different syntax from `IF` expressions. Specifically note the requirement
 for terminating each clause with a semicolon `;` and the usage of `END IF`.
 
 (coalesce-function)=
-
 ## COALESCE
 
 :::{function} coalesce(value1, value2[, ...])
@@ -109,7 +108,6 @@ Like a `CASE` expression, arguments are only evaluated if necessary.
 :::
 
 (nullif-function)=
-
 ## NULLIF
 
 :::{function} nullif(value1, value2)
@@ -117,7 +115,6 @@ Returns null if `value1` equals `value2`, otherwise returns `value1`.
 :::
 
 (try-function)=
-
 ## TRY
 
 :::{function} try(expression)

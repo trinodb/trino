@@ -32,10 +32,6 @@ This is known as **dynamic partition pruning**.
 After completing the collection of dynamic filters, the coordinator also distributes them
 to worker nodes over the network for partitioned joins. This allows push down of dynamic
 filters from partitioned joins into the table scans on the left side of that join.
-Distribution of dynamic filters from the coordinator to workers is enabled by default.
-It can be disabled by setting either the `enable-coordinator-dynamic-filters-distribution`
-configuration property, or the session property
-`enable_coordinator_dynamic_filters_distribution` to `false`.
 
 The results of dynamic filtering optimization can include the following benefits:
 

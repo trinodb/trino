@@ -63,7 +63,7 @@ public class PrunePattenRecognitionColumns
                 .filter(referencedOutputs::contains)
                 .forEach(referencedInputs::add);
         referencedInputs.addAll(patternRecognitionNode.getPartitionBy());
-        patternRecognitionNode.getOrderingScheme().ifPresent(orderingScheme -> referencedInputs.addAll(orderingScheme.getOrderBy()));
+        patternRecognitionNode.getOrderingScheme().ifPresent(orderingScheme -> referencedInputs.addAll(orderingScheme.orderBy()));
         patternRecognitionNode.getHashSymbol().ifPresent(referencedInputs::add);
         referencedFunctions.values().stream()
                 .map(SymbolsExtractor::extractUnique)

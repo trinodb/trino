@@ -25,7 +25,6 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.NewCookie;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
-import jakarta.ws.rs.core.UriInfo;
 
 import java.io.IOException;
 import java.net.URI;
@@ -103,7 +102,7 @@ public class LoginResource
     @ResourceSecurity(WEB_UI)
     @GET
     @Path(UI_LOGOUT)
-    public Response logout(@Context HttpHeaders httpHeaders, @Context UriInfo uriInfo, @Context SecurityContext securityContext)
+    public Response logout(@Context HttpHeaders httpHeaders, @Context SecurityContext securityContext)
     {
         URI redirectLocation;
         if (formWebUiAuthenticationManager.isAuthenticationEnabled(securityContext.isSecure())) {

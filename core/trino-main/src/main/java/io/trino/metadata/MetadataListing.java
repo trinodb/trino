@@ -66,7 +66,7 @@ public final class MetadataListing
         }
         else {
             catalogs = metadata.listCatalogs(session).stream()
-                    .map(CatalogInfo::getCatalogName)
+                    .map(CatalogInfo::catalogName)
                     .filter(stringFilter(catalogDomain))
                     .collect(toImmutableSet());
         }
@@ -77,11 +77,11 @@ public final class MetadataListing
     {
         List<CatalogInfo> catalogs = metadata.listCatalogs(session);
         Set<String> catalogNames = catalogs.stream()
-                .map(CatalogInfo::getCatalogName)
+                .map(CatalogInfo::catalogName)
                 .collect(toImmutableSet());
         Set<String> allowedCatalogs = accessControl.filterCatalogs(session.toSecurityContext(), catalogNames);
         return catalogs.stream()
-                .filter(catalogInfo -> allowedCatalogs.contains(catalogInfo.getCatalogName()))
+                .filter(catalogInfo -> allowedCatalogs.contains(catalogInfo.catalogName()))
                 .collect(toImmutableList());
     }
 
@@ -325,7 +325,7 @@ public final class MetadataListing
                         throw e;
                     }
 
-                    List<ColumnMetadata> columns = metadata.getTableMetadata(session, targetTableHandle).getColumns();
+                    List<ColumnMetadata> columns = metadata.getTableMetadata(session, targetTableHandle).columns();
 
                     Set<String> allowedColumns = accessControl.filterColumns(
                                     session.toSecurityContext(),

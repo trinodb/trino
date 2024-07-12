@@ -13,64 +13,25 @@
  */
 package io.trino.plugin.tpcds;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorTableHandle;
-
-import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class TpcdsTableHandle
+public record TpcdsTableHandle(
+        String tableName,
+        double scaleFactor)
         implements ConnectorTableHandle
 {
-    private final String tableName;
-    private final double scaleFactor;
-
-    @JsonCreator
-    public TpcdsTableHandle(@JsonProperty("tableName") String tableName, @JsonProperty("scaleFactor") double scaleFactor)
+    public TpcdsTableHandle
     {
-        this.tableName = requireNonNull(tableName, "tableName is null");
+        requireNonNull(tableName, "tableName is null");
         checkState(scaleFactor > 0, "scaleFactor is negative");
-        this.scaleFactor = scaleFactor;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    @JsonProperty
-    public double getScaleFactor()
-    {
-        return scaleFactor;
     }
 
     @Override
     public String toString()
     {
         return tableName + ":sf" + scaleFactor;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(tableName, scaleFactor);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        TpcdsTableHandle other = (TpcdsTableHandle) obj;
-        return Objects.equals(this.tableName, other.tableName) &&
-                Objects.equals(this.scaleFactor, other.scaleFactor);
     }
 }

@@ -190,9 +190,7 @@ public final class KuduTableProperties
         @SuppressWarnings("unchecked")
         List<String> rangeColumns = (List<String>) tableProperties.get(PARTITION_BY_RANGE_COLUMNS);
         if (!rangeColumns.isEmpty()) {
-            RangePartitionDefinition range = new RangePartitionDefinition();
-            range.setColumns(rangeColumns);
-            design.setRange(range);
+            design.setRange(new RangePartitionDefinition(rangeColumns));
         }
 
         return design;
@@ -234,10 +232,7 @@ public final class KuduTableProperties
         if (hashBuckets == null) {
             throw new TrinoException(GENERIC_USER_ERROR, "Missing table property " + bucketPropertyName);
         }
-        HashPartitionDefinition definition = new HashPartitionDefinition();
-        definition.setColumns(columns);
-        definition.setBuckets(hashBuckets);
-        return definition;
+        return new HashPartitionDefinition(columns, hashBuckets);
     }
 
     public static List<RangePartition> getRangePartitions(Map<String, Object> tableProperties)
@@ -285,17 +280,17 @@ public final class KuduTableProperties
             if (partitionDesign.getHash() != null) {
                 List<HashPartitionDefinition> list = partitionDesign.getHash();
                 if (!list.isEmpty()) {
-                    properties.put(PARTITION_BY_HASH_COLUMNS, list.get(0).getColumns());
-                    properties.put(PARTITION_BY_HASH_BUCKETS, list.get(0).getBuckets());
+                    properties.put(PARTITION_BY_HASH_COLUMNS, list.get(0).columns());
+                    properties.put(PARTITION_BY_HASH_BUCKETS, list.get(0).buckets());
                 }
                 if (list.size() >= 2) {
-                    properties.put(PARTITION_BY_HASH_COLUMNS_2, list.get(1).getColumns());
-                    properties.put(PARTITION_BY_HASH_BUCKETS_2, list.get(1).getBuckets());
+                    properties.put(PARTITION_BY_HASH_COLUMNS_2, list.get(1).columns());
+                    properties.put(PARTITION_BY_HASH_BUCKETS_2, list.get(1).buckets());
                 }
             }
 
             if (partitionDesign.getRange() != null) {
-                properties.put(PARTITION_BY_RANGE_COLUMNS, partitionDesign.getRange().getColumns());
+                properties.put(PARTITION_BY_RANGE_COLUMNS, partitionDesign.getRange().columns());
             }
 
             String partitionRangesValue = mapper.writeValueAsString(rangePartitionList);
@@ -400,22 +395,17 @@ public final class KuduTableProperties
 
         List<HashPartitionDefinition> hashPartitions = partitionSchema.getHashBucketSchemas().stream()
                 .map(hashBucketSchema -> {
-                    HashPartitionDefinition hash = new HashPartitionDefinition();
                     List<String> cols = hashBucketSchema.getColumnIds().stream()
                             .map(idx -> schema.getColumnByIndex(idx).getName()).collect(toImmutableList());
-                    hash.setColumns(cols);
-                    hash.setBuckets(hashBucketSchema.getNumBuckets());
-                    return hash;
+                    return new HashPartitionDefinition(cols, hashBucketSchema.getNumBuckets());
                 }).collect(toImmutableList());
         partitionDesign.setHash(hashPartitions);
 
         List<Integer> rangeColumns = partitionSchema.getRangeSchema().getColumnIds();
         if (!rangeColumns.isEmpty()) {
-            RangePartitionDefinition definition = new RangePartitionDefinition();
-            definition.setColumns(rangeColumns.stream()
+            partitionDesign.setRange(new RangePartitionDefinition(rangeColumns.stream()
                     .map(i -> schema.getColumns().get(i).getName())
-                    .collect(toImmutableList()));
-            partitionDesign.setRange(definition);
+                    .collect(toImmutableList())));
         }
 
         return partitionDesign;
@@ -426,7 +416,7 @@ public final class KuduTableProperties
     {
         PartialRow partialRow = new PartialRow(schema);
         if (boundValue != null) {
-            List<Integer> rangeColumns = definition.getColumns().stream()
+            List<Integer> rangeColumns = definition.columns().stream()
                     .map(schema::getColumnIndex).collect(toImmutableList());
 
             if (rangeColumns.size() != boundValue.getValues().size()) {
@@ -555,91 +545,53 @@ public final class KuduTableProperties
 
     public static ColumnSchema.CompressionAlgorithm lookupCompression(String compression)
     {
-        switch (compression.toLowerCase(Locale.ENGLISH)) {
-            case "default":
-            case "default_compression":
-                return ColumnSchema.CompressionAlgorithm.DEFAULT_COMPRESSION;
-            case "no":
-            case "no_compression":
-                return ColumnSchema.CompressionAlgorithm.NO_COMPRESSION;
-            case "lz4":
-                return ColumnSchema.CompressionAlgorithm.LZ4;
-            case "snappy":
-                return ColumnSchema.CompressionAlgorithm.SNAPPY;
-            case "zlib":
-                return ColumnSchema.CompressionAlgorithm.ZLIB;
-            default:
-                throw new IllegalArgumentException();
-        }
+        return switch (compression.toLowerCase(Locale.ENGLISH)) {
+            case "default", "default_compression" -> ColumnSchema.CompressionAlgorithm.DEFAULT_COMPRESSION;
+            case "no", "no_compression" -> ColumnSchema.CompressionAlgorithm.NO_COMPRESSION;
+            case "lz4" -> ColumnSchema.CompressionAlgorithm.LZ4;
+            case "snappy" -> ColumnSchema.CompressionAlgorithm.SNAPPY;
+            case "zlib" -> ColumnSchema.CompressionAlgorithm.ZLIB;
+            default -> throw new IllegalArgumentException();
+        };
     }
 
     public static String lookupCompressionString(ColumnSchema.CompressionAlgorithm algorithm)
     {
-        switch (algorithm) {
-            case DEFAULT_COMPRESSION:
-                return "default";
-            case NO_COMPRESSION:
-                return "no";
-            case LZ4:
-                return "lz4";
-            case SNAPPY:
-                return "snappy";
-            case ZLIB:
-                return "zlib";
-            default:
-                return "unknown";
-        }
+        return switch (algorithm) {
+            case DEFAULT_COMPRESSION -> "default";
+            case NO_COMPRESSION -> "no";
+            case LZ4 -> "lz4";
+            case SNAPPY -> "snappy";
+            case ZLIB -> "zlib";
+            default -> "unknown";
+        };
     }
 
     public static ColumnSchema.Encoding lookupEncoding(String encoding)
     {
-        switch (encoding.toLowerCase(Locale.ENGLISH)) {
-            case "auto":
-            case "auto_encoding":
-                return ColumnSchema.Encoding.AUTO_ENCODING;
-            case "bitshuffle":
-            case "bit_shuffle":
-                return ColumnSchema.Encoding.BIT_SHUFFLE;
-            case "dictionary":
-            case "dict_encoding":
-                return ColumnSchema.Encoding.DICT_ENCODING;
-            case "plain":
-            case "plain_encoding":
-                return ColumnSchema.Encoding.PLAIN_ENCODING;
-            case "prefix":
-            case "prefix_encoding":
-                return ColumnSchema.Encoding.PREFIX_ENCODING;
-            case "runlength":
-            case "run_length":
-            case "run length":
-            case "rle":
-                return ColumnSchema.Encoding.RLE;
-            case "group_varint":
-                return ColumnSchema.Encoding.GROUP_VARINT;
-            default:
-                throw new IllegalArgumentException();
-        }
+        return switch (encoding.toLowerCase(Locale.ENGLISH)) {
+            case "auto", "auto_encoding" -> ColumnSchema.Encoding.AUTO_ENCODING;
+            case "bitshuffle", "bit_shuffle" -> ColumnSchema.Encoding.BIT_SHUFFLE;
+            case "dictionary", "dict_encoding" -> ColumnSchema.Encoding.DICT_ENCODING;
+            case "plain", "plain_encoding" -> ColumnSchema.Encoding.PLAIN_ENCODING;
+            case "prefix", "prefix_encoding" -> ColumnSchema.Encoding.PREFIX_ENCODING;
+            case "runlength", "run_length", "run length", "rle" -> ColumnSchema.Encoding.RLE;
+            case "group_varint" -> ColumnSchema.Encoding.GROUP_VARINT;
+            default -> throw new IllegalArgumentException();
+        };
     }
 
     public static String lookupEncodingString(ColumnSchema.Encoding encoding)
     {
-        switch (encoding) {
-            case AUTO_ENCODING:
-                return "auto";
-            case BIT_SHUFFLE:
-                return "bitshuffle";
-            case DICT_ENCODING:
-                return "dictionary";
-            case PLAIN_ENCODING:
-                return "plain";
-            case PREFIX_ENCODING:
-                return "prefix";
-            case RLE:
-                return "runlength";
-            case GROUP_VARINT:
-                return "group_varint";
-            default:
-                return "unknown";
-        }
+        return switch (encoding) {
+            case AUTO_ENCODING -> "auto";
+            case BIT_SHUFFLE -> "bitshuffle";
+            case DICT_ENCODING -> "dictionary";
+            case PLAIN_ENCODING -> "plain";
+            case PREFIX_ENCODING -> "prefix";
+            case RLE -> "runlength";
+            case GROUP_VARINT -> "group_varint";
+            default -> "unknown";
+        };
     }
 }

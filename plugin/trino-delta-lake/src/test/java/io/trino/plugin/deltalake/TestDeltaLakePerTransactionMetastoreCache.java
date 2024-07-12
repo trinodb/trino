@@ -13,22 +13,21 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
-import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.plugin.hive.metastore.MetastoreInvocations.assertMetastoreInvocationsForQuery;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.REGION;
 
 public class TestDeltaLakePerTransactionMetastoreCache
 {
@@ -42,17 +41,10 @@ public class TestDeltaLakePerTransactionMetastoreCache
             deltaLakeProperties.put("delta.per-transaction-metastore-cache-maximum-size", "1");
         }
 
-        QueryRunner queryRunner = createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), deltaLakeProperties);
-        try {
-            queryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
-            queryRunner.execute("CREATE TABLE region AS SELECT * FROM tpch.tiny.region");
-        }
-        catch (Throwable e) {
-            Closables.closeAllSuppress(e, queryRunner);
-            throw e;
-        }
-
-        return queryRunner;
+        return DeltaLakeQueryRunner.builder()
+                .setDeltaProperties(deltaLakeProperties)
+                .setInitialTables(List.of(NATION, REGION))
+                .build();
     }
 
     @Test

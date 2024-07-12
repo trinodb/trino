@@ -23,6 +23,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
+import io.airlift.concurrent.MoreFutures;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
@@ -48,6 +49,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -65,6 +68,14 @@ import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.tests.QueryTemplate.parameter;
 import static io.trino.tests.QueryTemplate.queryTemplate;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.PART;
+import static io.trino.tpch.TpchTable.PART_SUPPLIER;
+import static io.trino.tpch.TpchTable.REGION;
+import static io.trino.tpch.TpchTable.SUPPLIER;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
@@ -114,6 +125,8 @@ public abstract class AbstractTestEngineOnlyQueries
                     "connector double property",
                     99.0,
                     false));
+
+    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = List.of(CUSTOMER, LINE_ITEM, NATION, ORDERS, PART, PART_SUPPLIER, REGION, SUPPLIER);
 
     @Test
     public void testDateLiterals()
@@ -565,6 +578,23 @@ public abstract class AbstractTestEngineOnlyQueries
                 "VALUES 1504375");
     }
 
+    /**
+     * Regression test for <a href="https://github.com/trinodb/trino/issues/21630">#21630</a>
+     */
+    @Test
+    public void testMultipleConcurrentQueries()
+            throws Exception
+    {
+        try (ExecutorService executor = Executors.newCachedThreadPool()) {
+            executor.invokeAll(nCopies(4,
+                            () -> {
+                                testAssignUniqueId();
+                                return null;
+                            }))
+                    .forEach(MoreFutures::getDone);
+        }
+    }
+
     @Test
     public void testAtTimeZone()
     {
@@ -863,7 +893,7 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testComplexCast()
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty(SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
+                .setSystemProperty(SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
                 .build();
         // This is optimized using CAST(null AS interval day to second) which may be problematic to deserialize on worker
         assertQuery(session, "WITH t(a, b) AS (VALUES (1, INTERVAL '1' SECOND)) " +
@@ -1608,8 +1638,8 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryFails("SELECT ARRAY[42]['x']", "\\Qline 1:8: Cannot use varchar(1) for subscript of array(integer)\\E");
         assertQueryFails("SELECT 'a' BETWEEN 3 AND 'z'", "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E");
         assertQueryFails("SELECT 'a' NOT BETWEEN 3 AND 'z'", "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E");
-        assertQueryFails("SELECT 8 IS DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is distinct from varchar(1)\\E");
-        assertQueryFails("SELECT 8 IS NOT DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is distinct from varchar(1)\\E");
+        assertQueryFails("SELECT 8 IS DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is identical to varchar(1)\\E");
+        assertQueryFails("SELECT 8 IS NOT DISTINCT FROM 'x'", "\\Qline 1:10: Cannot check if integer is identical to varchar(1)\\E");
     }
 
     @Test
@@ -6198,25 +6228,6 @@ public abstract class AbstractTestEngineOnlyQueries
                 .isFalse();
     }
 
-    @Test
-    public void testLargePivot()
-    {
-        int arrayConstructionLimit = 254;
-
-        MaterializedResult result = computeActual(pivotQuery(arrayConstructionLimit));
-        assertThat(result.getRowCount())
-                .as("row count")
-                .isEqualTo(arrayConstructionLimit);
-
-        MaterializedRow row = result.getMaterializedRows().get(0);
-        assertThat(row.getFieldCount())
-                .as("field count")
-                .isEqualTo(arrayConstructionLimit + 2);
-
-        // Verify that arrayConstructionLimit is the current limit so that the test stays relevant and prevents regression if we improve in the future.
-        assertQueryFails(pivotQuery(arrayConstructionLimit + 1), "Too many arguments for array constructor");
-    }
-
     private static String pivotQuery(int columnsCount)
     {
         String fields = IntStream.range(0, columnsCount)
@@ -6647,6 +6658,26 @@ public abstract class AbstractTestEngineOnlyQueries
                 """))
                 .matches("VALUES 256");
 
+        // invoke function on data from connector to prevent constant folding on the coordinator
+        assertThat(query("""
+                WITH
+                  FUNCTION my_pow(n int, p int)
+                  RETURNS int
+                  BEGIN
+                    DECLARE r int DEFAULT n;
+                    top: LOOP
+                      IF p <= 1 THEN
+                        LEAVE top;
+                      END IF;
+                      SET r = r * n;
+                      SET p = p - 1;
+                    END LOOP;
+                    RETURN r;
+                  END
+                SELECT my_pow(CAST(nationkey AS integer), CAST(regionkey AS integer)) FROM nation WHERE nationkey IN (1,2,3,5,8)
+                """))
+                .matches("VALUES 1, 2, 3, 5, 64");
+
         // function with dereference
         assertThat(query("""
                 WITH FUNCTION get(input row(varchar))
@@ -6665,6 +6696,10 @@ public abstract class AbstractTestEngineOnlyQueries
 
         assertQueryFails("WITH FUNCTION x() RETURNS bigint SECURITY DEFINER RETURN 42 SELECT x()",
                 "line 1:34: Security mode not supported for inline functions");
+
+        // error location reporting
+        assertQueryFails("WITH function x() RETURNS bigint DETERMINISTIC DETERMINISTIC RETURN 42 SELECT x()",
+                "line 1:48: Multiple deterministic clauses specified");
 
         // Verify the current restrictions on inline functions are enforced
 
@@ -6697,7 +6732,7 @@ public abstract class AbstractTestEngineOnlyQueries
                   FUNCTION b(x integer) RETURNS integer RETURN x * 2
                 SELECT a(10)
                 """))
-                .failure().hasMessage("line 3:8: Function 'b' not registered");
+                .failure().hasMessage("line 2:48: Function 'b' not registered");
 
         // inline function cannot be recursive
         // note: mutual recursion is not supported either, but it is not tested due to the forward declaration limitation above
@@ -6705,7 +6740,17 @@ public abstract class AbstractTestEngineOnlyQueries
                 WITH FUNCTION a(x integer) RETURNS integer RETURN a(x)
                 SELECT a(10)
                 """))
-                .failure().hasMessage("line 3:8: Recursive language functions are not supported: a(integer):integer");
+                .failure().hasMessage("line 1:6: Recursive language functions are not supported: a(integer):integer");
+    }
+
+    @Test
+    public void testCreateFunctionErrorReporting()
+    {
+        assertQueryFails("CREATE FUNCTION a.b.c() RETURNS integer DETERMINISTIC DETERMINISTIC RETURN 8",
+                "line 1:55: Multiple deterministic clauses specified");
+
+        assertQueryFails("CREATE FUNCTION a.b.c() RETURNS varchar RETURN 8",
+                "line 1:48: Value of RETURN must evaluate to varchar \\(actual: integer\\)");
     }
 
     private static ZonedDateTime zonedDateTime(String value)

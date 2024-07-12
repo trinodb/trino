@@ -495,8 +495,8 @@ public class FileHiveMetastore
         PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(originalStatistics, statisticsUpdate);
 
         TableMetadata updatedMetadata = tableMetadata
-                .withParameters(currentVersion, updateStatisticsParameters(tableMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
-                .withColumnStatistics(currentVersion, fromHiveColumnStats(updatedStatistics.getColumnStatistics()));
+                .withParameters(currentVersion, updateStatisticsParameters(tableMetadata.getParameters(), updatedStatistics.basicStatistics()))
+                .withColumnStatistics(currentVersion, fromHiveColumnStats(updatedStatistics.columnStatistics()));
 
         writeSchemaFile(TABLE, tableMetadataDirectory, tableCodec, updatedMetadata, true);
     }
@@ -513,8 +513,8 @@ public class FileHiveMetastore
             PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(originalStatistics, partitionUpdate);
 
             PartitionMetadata updatedMetadata = partitionMetadata
-                    .withParameters(updateStatisticsParameters(partitionMetadata.getParameters(), updatedStatistics.getBasicStatistics()))
-                    .withColumnStatistics(fromHiveColumnStats(updatedStatistics.getColumnStatistics()));
+                    .withParameters(updateStatisticsParameters(partitionMetadata.getParameters(), updatedStatistics.basicStatistics()))
+                    .withColumnStatistics(fromHiveColumnStats(updatedStatistics.columnStatistics()));
 
             writeSchemaFile(PARTITION, partitionDirectory, partitionCodec, updatedMetadata, true);
         });
@@ -532,8 +532,7 @@ public class FileHiveMetastore
         return listTablesCache.getUnchecked(databaseName);
     }
 
-    @GuardedBy("this")
-    private List<TableInfo> doListAllTables(String databaseName)
+    private synchronized List<TableInfo> doListAllTables(String databaseName)
     {
         requireNonNull(databaseName, "databaseName is null");
 
@@ -1430,7 +1429,7 @@ public class FileHiveMetastore
                 try {
                     output.createExclusive(json);
                 }
-                catch (UnsupportedOperationException ignored) {
+                catch (UnsupportedOperationException _) {
                     // fall back to non-exclusive creation, relying on synchronization and above exists check
                     try (OutputStream out = output.create()) {
                         out.write(json);

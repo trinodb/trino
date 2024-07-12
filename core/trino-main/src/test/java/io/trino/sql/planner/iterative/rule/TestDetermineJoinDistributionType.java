@@ -82,7 +82,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestDetermineJoinDistributionType
 {
     private static final TestingFunctionResolution FUNCTIONS = new TestingFunctionResolution();
-    private static final ResolvedFunction MULTIPLY_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(INTEGER, INTEGER));
+    private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
 
     private static final CostComparator COST_COMPARATOR = new CostComparator(1, 1, 1);
     private static final int NODES_COUNT = 4;
@@ -210,15 +210,15 @@ public class TestDetermineJoinDistributionType
                 .on(p ->
                         p.join(
                                 joinType,
-                                p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 10L)), ImmutableList.of(new Constant(INTEGER, 11L)))),
-                                p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 50L)), ImmutableList.of(new Constant(INTEGER, 11L)))),
+                                p.values(ImmutableList.of(p.symbol("A1", BIGINT)), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 10L)), ImmutableList.of(new Constant(BIGINT, 11L)))),
+                                p.values(ImmutableList.of(p.symbol("B1", BIGINT)), ImmutableList.of(ImmutableList.of(new Constant(BIGINT, 50L)), ImmutableList.of(new Constant(BIGINT, 11L)))),
                                 ImmutableList.of(),
                                 ImmutableList.of(p.symbol("A1", BIGINT)),
                                 ImmutableList.of(p.symbol("B1", BIGINT)),
-                                Optional.of(new Comparison(GREATER_THAN, new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "A1"), new Reference(INTEGER, "B1"))), new Constant(INTEGER, 100L)))))
+                                Optional.of(new Comparison(GREATER_THAN, new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "A1"), new Reference(BIGINT, "B1"))), new Constant(BIGINT, 100L)))))
                 .matches(
                         join(joinType, builder -> builder
-                                .filter(new Comparison(GREATER_THAN, new Call(MULTIPLY_INTEGER, ImmutableList.of(new Reference(INTEGER, "A1"), new Reference(INTEGER, "B1"))), new Constant(INTEGER, 100L)))
+                                .filter(new Comparison(GREATER_THAN, new Call(MULTIPLY_BIGINT, ImmutableList.of(new Reference(BIGINT, "A1"), new Reference(BIGINT, "B1"))), new Constant(BIGINT, 100L)))
                                 .distributionType(REPLICATED)
                                 .left(values(ImmutableMap.of("A1", 0)))
                                 .right(values(ImmutableMap.of("B1", 0)))));
@@ -623,11 +623,11 @@ public class TestDetermineJoinDistributionType
 
         probeSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(aRows)
-                .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
+                .addSymbolStatistics(ImmutableMap.of(new Symbol(symbolType, "A1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
         buildSideStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(bRows)
-                .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
+                .addSymbolStatistics(ImmutableMap.of(new Symbol(symbolType, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
 
         // B table exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit therefore it is partitioned
@@ -778,12 +778,12 @@ public class TestDetermineJoinDistributionType
         // output size exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit
         PlanNodeStatsEstimate aStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(aRows)
-                .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "A1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
+                .addSymbolStatistics(ImmutableMap.of(new Symbol(symbolType, "A1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
         // output size exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit
         PlanNodeStatsEstimate bStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(bRows)
-                .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
+                .addSymbolStatistics(ImmutableMap.of(new Symbol(symbolType, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
 
         // source tables size exceeds JOIN_MAX_BROADCAST_TABLE_SIZE limit but one side is significantly bigger than the other
@@ -876,7 +876,7 @@ public class TestDetermineJoinDistributionType
         // Don't flip sides when both are similar in size
         bStatsEstimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(aRows)
-                .addSymbolStatistics(ImmutableMap.of(new Symbol(UNKNOWN, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
+                .addSymbolStatistics(ImmutableMap.of(new Symbol(symbolType, "B1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
                 .build();
         assertDetermineJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())

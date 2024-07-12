@@ -22,10 +22,12 @@ import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
 import io.trino.plugin.accumulo.serializers.LexicoderRowSerializer;
+import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.apache.accumulo.core.client.AccumuloClient;
 import org.apache.hadoop.io.Text;
 import org.intellij.lang.annotations.Language;
 
@@ -53,37 +55,59 @@ public final class AccumuloQueryRunner
 
     private AccumuloQueryRunner() {}
 
-    public static synchronized QueryRunner createAccumuloQueryRunner(Map<String, String> extraProperties)
-            throws Exception
+    public static Builder builder()
     {
-        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
-                .build();
+        return new Builder();
+    }
 
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
-
-        TestingAccumuloServer server = TestingAccumuloServer.getInstance();
-        queryRunner.installPlugin(new AccumuloPlugin());
-        Map<String, String> accumuloProperties =
-                ImmutableMap.<String, String>builder()
-                        .put(AccumuloConfig.INSTANCE, server.getInstanceName())
-                        .put(AccumuloConfig.ZOOKEEPERS, server.getZooKeepers())
-                        .put(AccumuloConfig.USERNAME, server.getUser())
-                        .put(AccumuloConfig.PASSWORD, server.getPassword())
-                        .put(AccumuloConfig.ZOOKEEPER_METADATA_ROOT, "/trino-accumulo-test")
-                        .buildOrThrow();
-
-        queryRunner.createCatalog("accumulo", "accumulo", accumuloProperties);
-
-        if (!tpchLoaded) {
-            queryRunner.execute("CREATE SCHEMA accumulo.tpch");
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), TpchTable.getTables());
-            server.getClient().tableOperations().addSplits("tpch.orders", ImmutableSortedSet.of(new Text(new LexicoderRowSerializer().encode(BIGINT, 7500L))));
-            tpchLoaded = true;
+    public static class Builder
+            extends DistributedQueryRunner.Builder<Builder>
+    {
+        protected Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog("accumulo")
+                    .setSchema("tpch")
+                    .build());
         }
 
-        return queryRunner;
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                TestingAccumuloServer server = TestingAccumuloServer.getInstance();
+                queryRunner.installPlugin(new AccumuloPlugin());
+                Map<String, String> accumuloProperties =
+                        ImmutableMap.<String, String>builder()
+                                .put(AccumuloConfig.INSTANCE, server.getInstanceName())
+                                .put(AccumuloConfig.ZOOKEEPERS, server.getZooKeepers())
+                                .put(AccumuloConfig.USERNAME, server.getUser())
+                                .put(AccumuloConfig.PASSWORD, server.getPassword())
+                                .put(AccumuloConfig.ZOOKEEPER_METADATA_ROOT, "/trino-accumulo-test")
+                                .buildOrThrow();
+
+                queryRunner.createCatalog("accumulo", "accumulo", accumuloProperties);
+
+                if (!tpchLoaded) {
+                    queryRunner.execute("CREATE SCHEMA accumulo.tpch");
+                    copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), TpchTable.getTables());
+                    try (AccumuloClient client = server.createClient()) {
+                        client.tableOperations().addSplits("tpch.orders", ImmutableSortedSet.of(new Text(new LexicoderRowSerializer().encode(BIGINT, 7500L))));
+                    }
+                    tpchLoaded = true;
+                }
+            }
+            catch (Throwable e) {
+                Closables.closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+            return queryRunner;
+        }
     }
 
     private static void copyTpchTables(
@@ -151,8 +175,9 @@ public final class AccumuloQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        QueryRunner queryRunner = createAccumuloQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
-        Thread.sleep(10);
+        QueryRunner queryRunner = builder()
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .build();
         Logger log = Logger.get(AccumuloQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

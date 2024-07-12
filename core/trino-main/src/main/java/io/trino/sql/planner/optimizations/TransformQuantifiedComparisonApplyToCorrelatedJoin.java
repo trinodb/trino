@@ -56,7 +56,6 @@ import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
-import static io.trino.sql.ir.IrUtils.combineDisjuncts;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.ApplyNode.Quantifier.ALL;
@@ -114,7 +113,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             PlanNode subqueryPlan = context.rewrite(node.getSubquery());
 
             Symbol outputColumn = getOnlyElement(subqueryPlan.getOutputSymbols());
-            Type outputColumnType = outputColumn.getType();
+            Type outputColumnType = outputColumn.type();
             checkState(outputColumnType.isOrderable(), "Subquery result type must be orderable");
 
             Symbol minValue = symbolAllocator.newSymbol("min", outputColumnType);

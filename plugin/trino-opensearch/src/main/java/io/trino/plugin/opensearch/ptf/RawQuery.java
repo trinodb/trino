@@ -115,7 +115,7 @@ public class RawQuery
 
             Descriptor returnedType = new Descriptor(columns.stream()
                     .map(OpenSearchColumnHandle.class::cast)
-                    .map(column -> new Descriptor.Field(column.getName(), Optional.of(column.getType())))
+                    .map(column -> new Descriptor.Field(column.name(), Optional.of(column.type())))
                     .collect(toList()));
 
             RawQueryFunctionHandle handle = new RawQueryFunctionHandle(tableHandle);

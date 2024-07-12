@@ -94,13 +94,10 @@ public class OrcMetadataWriter
 
     private int getOrcWriterVersion()
     {
-        switch (writerIdentification) {
-            case LEGACY_HIVE_COMPATIBLE:
-                return HIVE_LEGACY_WRITER_VERSION;
-            case TRINO:
-                return TRINO_WRITER_VERSION;
-        }
-        throw new IllegalStateException("Unexpected value: " + writerIdentification);
+        return switch (writerIdentification) {
+            case LEGACY_HIVE_COMPATIBLE -> HIVE_LEGACY_WRITER_VERSION;
+            case TRINO -> TRINO_WRITER_VERSION;
+        };
     }
 
     @Override
@@ -198,47 +195,27 @@ public class OrcMetadataWriter
 
     private static OrcProto.Type.Kind toTypeKind(OrcTypeKind orcTypeKind)
     {
-        switch (orcTypeKind) {
-            case BOOLEAN:
-                return OrcProto.Type.Kind.BOOLEAN;
-            case BYTE:
-                return OrcProto.Type.Kind.BYTE;
-            case SHORT:
-                return OrcProto.Type.Kind.SHORT;
-            case INT:
-                return OrcProto.Type.Kind.INT;
-            case LONG:
-                return OrcProto.Type.Kind.LONG;
-            case DECIMAL:
-                return OrcProto.Type.Kind.DECIMAL;
-            case FLOAT:
-                return OrcProto.Type.Kind.FLOAT;
-            case DOUBLE:
-                return OrcProto.Type.Kind.DOUBLE;
-            case STRING:
-                return OrcProto.Type.Kind.STRING;
-            case VARCHAR:
-                return OrcProto.Type.Kind.VARCHAR;
-            case CHAR:
-                return OrcProto.Type.Kind.CHAR;
-            case BINARY:
-                return OrcProto.Type.Kind.BINARY;
-            case DATE:
-                return OrcProto.Type.Kind.DATE;
-            case TIMESTAMP:
-                return OrcProto.Type.Kind.TIMESTAMP;
-            case TIMESTAMP_INSTANT:
-                return OrcProto.Type.Kind.TIMESTAMP_INSTANT;
-            case LIST:
-                return OrcProto.Type.Kind.LIST;
-            case MAP:
-                return OrcProto.Type.Kind.MAP;
-            case STRUCT:
-                return OrcProto.Type.Kind.STRUCT;
-            case UNION:
-                return OrcProto.Type.Kind.UNION;
-        }
-        throw new IllegalArgumentException("Unsupported type: " + orcTypeKind);
+        return switch (orcTypeKind) {
+            case BOOLEAN -> Type.Kind.BOOLEAN;
+            case BYTE -> Type.Kind.BYTE;
+            case SHORT -> Type.Kind.SHORT;
+            case INT -> Type.Kind.INT;
+            case LONG -> Type.Kind.LONG;
+            case DECIMAL -> Type.Kind.DECIMAL;
+            case FLOAT -> Type.Kind.FLOAT;
+            case DOUBLE -> Type.Kind.DOUBLE;
+            case STRING -> Type.Kind.STRING;
+            case VARCHAR -> Type.Kind.VARCHAR;
+            case CHAR -> Type.Kind.CHAR;
+            case BINARY -> Type.Kind.BINARY;
+            case DATE -> Type.Kind.DATE;
+            case TIMESTAMP -> Type.Kind.TIMESTAMP;
+            case TIMESTAMP_INSTANT -> Type.Kind.TIMESTAMP_INSTANT;
+            case LIST -> Type.Kind.LIST;
+            case MAP -> Type.Kind.MAP;
+            case STRUCT -> Type.Kind.STRUCT;
+            case UNION -> Type.Kind.UNION;
+        };
     }
 
     private static List<OrcProto.StringPair> toStringPairList(Map<String, String> attributes)
@@ -394,17 +371,12 @@ public class OrcMetadataWriter
 
     private static OrcProto.ColumnEncoding.Kind toColumnEncoding(ColumnEncodingKind columnEncodingKind)
     {
-        switch (columnEncodingKind) {
-            case DIRECT:
-                return OrcProto.ColumnEncoding.Kind.DIRECT;
-            case DICTIONARY:
-                return OrcProto.ColumnEncoding.Kind.DICTIONARY;
-            case DIRECT_V2:
-                return OrcProto.ColumnEncoding.Kind.DIRECT_V2;
-            case DICTIONARY_V2:
-                return OrcProto.ColumnEncoding.Kind.DICTIONARY_V2;
-        }
-        throw new IllegalArgumentException("Unsupported column encoding kind: " + columnEncodingKind);
+        return switch (columnEncodingKind) {
+            case DIRECT -> OrcProto.ColumnEncoding.Kind.DIRECT;
+            case DICTIONARY -> OrcProto.ColumnEncoding.Kind.DICTIONARY;
+            case DIRECT_V2 -> OrcProto.ColumnEncoding.Kind.DIRECT_V2;
+            case DICTIONARY_V2 -> OrcProto.ColumnEncoding.Kind.DICTIONARY_V2;
+        };
     }
 
     @Override
@@ -451,19 +423,13 @@ public class OrcMetadataWriter
 
     private static OrcProto.CompressionKind toCompression(CompressionKind compressionKind)
     {
-        switch (compressionKind) {
-            case NONE:
-                return OrcProto.CompressionKind.NONE;
-            case ZLIB:
-                return OrcProto.CompressionKind.ZLIB;
-            case SNAPPY:
-                return OrcProto.CompressionKind.SNAPPY;
-            case LZ4:
-                return OrcProto.CompressionKind.LZ4;
-            case ZSTD:
-                return OrcProto.CompressionKind.ZSTD;
-        }
-        throw new IllegalArgumentException("Unsupported compression kind: " + compressionKind);
+        return switch (compressionKind) {
+            case NONE -> OrcProto.CompressionKind.NONE;
+            case ZLIB -> OrcProto.CompressionKind.ZLIB;
+            case SNAPPY -> OrcProto.CompressionKind.SNAPPY;
+            case LZ4 -> OrcProto.CompressionKind.LZ4;
+            case ZSTD -> OrcProto.CompressionKind.ZSTD;
+        };
     }
 
     private static int writeProtobufObject(OutputStream output, MessageLite object)

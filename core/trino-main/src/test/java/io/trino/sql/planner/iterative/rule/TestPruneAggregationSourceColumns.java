@@ -69,7 +69,7 @@ public class TestPruneAggregationSourceColumns
     public void testAllInputsReferenced()
     {
         tester().assertThat(new PruneAggregationSourceColumns())
-                .on(p -> buildAggregation(p, symbol -> !symbol.getName().equals("unused")))
+                .on(p -> buildAggregation(p, symbol -> !symbol.name().equals("unused")))
                 .doesNotFire();
     }
 

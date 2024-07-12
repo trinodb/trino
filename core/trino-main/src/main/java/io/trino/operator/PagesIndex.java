@@ -49,6 +49,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -423,7 +424,7 @@ public class PagesIndex
         createPagesIndexComparator(sortChannels, sortOrders).sort(this, startPosition, endPosition);
     }
 
-    public boolean positionNotDistinctFromPosition(PagesHashStrategy partitionHashStrategy, int leftPosition, int rightPosition)
+    public boolean positionIdenticalToPosition(PagesHashStrategy partitionHashStrategy, int leftPosition, int rightPosition)
     {
         long leftAddress = valueAddresses.getLong(leftPosition);
         int leftPageIndex = decodeSliceIndex(leftAddress);
@@ -433,16 +434,16 @@ public class PagesIndex
         int rightPageIndex = decodeSliceIndex(rightAddress);
         int rightPagePosition = decodePosition(rightAddress);
 
-        return partitionHashStrategy.positionNotDistinctFromPosition(leftPageIndex, leftPagePosition, rightPageIndex, rightPagePosition);
+        return partitionHashStrategy.positionIdenticalToPosition(leftPageIndex, leftPagePosition, rightPageIndex, rightPagePosition);
     }
 
-    public boolean positionNotDistinctFromRow(PagesHashStrategy pagesHashStrategy, int indexPosition, int rightPosition, Page rightPage)
+    public boolean positionIdenticalToRow(PagesHashStrategy pagesHashStrategy, int indexPosition, int rightPosition, Page rightPage)
     {
         long pageAddress = valueAddresses.getLong(indexPosition);
         int pageIndex = decodeSliceIndex(pageAddress);
         int pagePosition = decodePosition(pageAddress);
 
-        return pagesHashStrategy.positionNotDistinctFromRow(pageIndex, pagePosition, rightPosition, rightPage);
+        return pagesHashStrategy.positionIdenticalToRow(pageIndex, pagePosition, rightPosition, rightPage);
     }
 
     private PagesIndexOrdering createPagesIndexComparator(List<Integer> sortChannels, List<SortOrder> sortOrders)
@@ -505,6 +506,7 @@ public class PagesIndex
             Session session,
             int geometryChannel,
             Optional<Integer> radiusChannel,
+            OptionalDouble constantRadius,
             Optional<Integer> partitionChannel,
             SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
@@ -513,7 +515,7 @@ public class PagesIndex
     {
         // TODO probably shouldn't copy to reduce memory and for memory accounting's sake
         List<ObjectArrayList<Block>> channels = ImmutableList.copyOf(this.channels);
-        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions);
+        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, constantRadius, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(

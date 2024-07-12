@@ -1115,7 +1115,7 @@ public class TestDirectExchangeClient
 
     private static Slice getNextPage(DirectExchangeClient exchangeClient)
     {
-        ListenableFuture<Slice> futurePage = Futures.transform(exchangeClient.isBlocked(), ignored -> exchangeClient.isFinished() ? null : exchangeClient.pollPage(), directExecutor());
+        ListenableFuture<Slice> futurePage = Futures.transform(exchangeClient.isBlocked(), _ -> exchangeClient.isFinished() ? null : exchangeClient.pollPage(), directExecutor());
         return tryGetFutureValue(futurePage, 100, TimeUnit.SECONDS).orElse(null);
     }
 

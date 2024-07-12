@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
 import static io.trino.plugin.kudu.TestKuduConnectorTest.REGION_COLUMNS;
 import static io.trino.plugin.kudu.TestKuduConnectorTest.createKuduTableForWrites;
 import static io.trino.plugin.kudu.TestingKuduServer.EARLIEST_TAG;
@@ -40,9 +39,10 @@ public abstract class BaseKuduConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createKuduQueryRunnerTpch(
-                closeAfterClass(new TestingKuduServer(getKuduServerVersion())),
-                getKuduSchemaEmulationPrefix(), REQUIRED_TPCH_TABLES);
+        return KuduQueryRunnerFactory.builder(closeAfterClass(new TestingKuduServer(getKuduServerVersion())))
+                .setKuduSchemaEmulationPrefix(getKuduSchemaEmulationPrefix())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Override
@@ -50,16 +50,16 @@ public abstract class BaseKuduConnectorSmokeTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ARRAY,
-                    SUPPORTS_COMMENT_ON_COLUMN,
-                    SUPPORTS_COMMENT_ON_TABLE,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_NEGATIVE_DATE,
-                    SUPPORTS_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_ROW_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_TRUNCATE -> false;
+                 SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_NEGATIVE_DATE,
+                 SUPPORTS_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_ROW_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_TRUNCATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -77,9 +77,9 @@ public abstract class BaseKuduConnectorSmokeTest
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
                 .isEqualTo("CREATE TABLE kudu." + getSession().getSchema().orElseThrow() + ".region (\n" +
-                        "   regionkey bigint COMMENT '' WITH ( nullable = true ),\n" +
-                        "   name varchar COMMENT '' WITH ( nullable = true ),\n" +
-                        "   comment varchar COMMENT '' WITH ( nullable = true )\n" +
+                        "   regionkey bigint COMMENT '' WITH (nullable = true),\n" +
+                        "   name varchar COMMENT '' WITH (nullable = true),\n" +
+                        "   comment varchar COMMENT '' WITH (nullable = true)\n" +
                         ")\n" +
                         "WITH (\n" +
                         "   number_of_replicas = 1,\n" +

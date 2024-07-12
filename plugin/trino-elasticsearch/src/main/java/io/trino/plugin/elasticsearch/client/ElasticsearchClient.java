@@ -173,7 +173,7 @@ public class ElasticsearchClient
             Set<ElasticsearchNode> nodes = fetchNodes();
 
             HttpHost[] hosts = nodes.stream()
-                    .map(ElasticsearchNode::getAddress)
+                    .map(ElasticsearchNode::address)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
@@ -203,7 +203,7 @@ public class ElasticsearchClient
                         .map(httpHost -> new HttpHost(httpHost, config.getPort(), config.isTlsEnabled() ? "https" : "http"))
                         .toArray(HttpHost[]::new));
 
-        builder.setHttpClientConfigCallback(ignored -> {
+        builder.setHttpClientConfigCallback(_ -> {
             RequestConfig requestConfig = RequestConfig.custom()
                     .setConnectTimeout(toIntExact(config.getConnectTimeout().toMillis()))
                     .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis()))
@@ -314,7 +314,7 @@ public class ElasticsearchClient
     public List<Shard> getSearchShards(String index)
     {
         Map<String, ElasticsearchNode> nodeById = getNodes().stream()
-                .collect(toImmutableMap(ElasticsearchNode::getId, Function.identity()));
+                .collect(toImmutableMap(ElasticsearchNode::id, Function.identity()));
 
         SearchShardsResponse shardsResponse = doRequest(format("/%s/_search_shards", index), SEARCH_SHARDS_RESPONSE_CODEC::fromJson);
 
@@ -340,7 +340,7 @@ public class ElasticsearchClient
                 node = nodeById.get(chosen.getNode());
             }
 
-            shards.add(new Shard(chosen.getIndex(), chosen.getShard(), node.getAddress()));
+            shards.add(new Shard(chosen.getIndex(), chosen.getShard(), node.address()));
         }
 
         return shards.build();
@@ -391,7 +391,7 @@ public class ElasticsearchClient
                     if (docsCount == 0 && deletedDocsCount == 0) {
                         try {
                             // without documents, the index won't have any dynamic mappings, but maybe there are some explicit ones
-                            if (getIndexMetadata(index).getSchema().getFields().isEmpty()) {
+                            if (getIndexMetadata(index).schema().fields().isEmpty()) {
                                 continue;
                             }
                         }

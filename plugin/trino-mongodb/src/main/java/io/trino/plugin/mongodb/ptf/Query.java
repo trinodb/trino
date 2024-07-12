@@ -121,12 +121,12 @@ public class Query
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Only lowercase collection name is supported");
             }
             SchemaTableName schemaTableName = new SchemaTableName(database, collection);
-            MongoTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+            MongoTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
             if (tableHandle == null) {
                 throw new TableNotFoundException(schemaTableName);
             }
 
-            RemoteTableName remoteTableName = tableHandle.getRemoteTableName();
+            RemoteTableName remoteTableName = tableHandle.remoteTableName();
             // Don't store Document object to MongoTableHandle for avoiding serialization issue
             parseFilter(filter);
 
@@ -141,7 +141,7 @@ public class Query
 
             Descriptor returnedType = new Descriptor(columns.stream()
                     .map(MongoColumnHandle.class::cast)
-                    .map(column -> new Descriptor.Field(column.getBaseName(), Optional.of(column.getType())))
+                    .map(column -> new Descriptor.Field(column.baseName(), Optional.of(column.type())))
                     .collect(toImmutableList()));
 
             QueryFunctionHandle handle = new QueryFunctionHandle(tableHandle);

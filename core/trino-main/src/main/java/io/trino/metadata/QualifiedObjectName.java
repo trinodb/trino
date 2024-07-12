@@ -15,14 +15,12 @@ package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -31,8 +29,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.metadata.MetadataUtil.checkObjectName;
 import static java.util.Objects.requireNonNull;
 
-@Immutable
-public class QualifiedObjectName
+public record QualifiedObjectName(String catalogName, String schemaName, String objectName)
 {
     private static final Pattern UNQUOTED_COMPONENT = Pattern.compile("[a-zA-Z0-9_]+");
     private static final String COMPONENT = UNQUOTED_COMPONENT.pattern() + "|\"([^\"]|\"\")*\"";
@@ -47,31 +44,9 @@ public class QualifiedObjectName
         return new QualifiedObjectName(unquoteIfNeeded(matcher.group("catalog")), unquoteIfNeeded(matcher.group("schema")), unquoteIfNeeded(matcher.group("table")));
     }
 
-    private final String catalogName;
-    private final String schemaName;
-    private final String objectName;
-
-    public QualifiedObjectName(String catalogName, String schemaName, String objectName)
+    public QualifiedObjectName
     {
         checkObjectName(catalogName, schemaName, objectName);
-        this.catalogName = catalogName;
-        this.schemaName = schemaName;
-        this.objectName = objectName;
-    }
-
-    public String getCatalogName()
-    {
-        return catalogName;
-    }
-
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    public String getObjectName()
-    {
-        return objectName;
     }
 
     public SchemaTableName asSchemaTableName()
@@ -102,27 +77,6 @@ public class QualifiedObjectName
     public SchemaFunctionName asSchemaFunctionName()
     {
         return new SchemaFunctionName(schemaName, objectName);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (obj == this) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-        QualifiedObjectName o = (QualifiedObjectName) obj;
-        return Objects.equals(catalogName, o.catalogName) &&
-                Objects.equals(schemaName, o.schemaName) &&
-                Objects.equals(objectName, o.objectName);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(catalogName, schemaName, objectName);
     }
 
     @JsonValue

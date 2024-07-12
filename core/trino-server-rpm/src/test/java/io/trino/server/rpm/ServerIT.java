@@ -44,6 +44,7 @@ import java.util.function.Consumer;
 
 import static io.trino.server.rpm.ServerIT.PathInfoAssert.assertThatPaths;
 import static io.trino.testing.TestingProperties.getProjectVersion;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.containers.TestContainers.getDockerArchitectureInfo;
 import static java.lang.String.format;
@@ -53,10 +54,10 @@ import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 
-@Execution(SAME_THREAD)
+@Execution(CONCURRENT)
 public class ServerIT
 {
     private static final DockerImageName BASE_IMAGE = DockerImageName.parse("registry.access.redhat.com/ubi9/ubi-minimal:latest");
@@ -66,7 +67,7 @@ public class ServerIT
 
     public ServerIT()
     {
-        rpmHostPath = requireNonNull(System.getProperty("rpm"), "rpm is null");
+        rpmHostPath = requiredNonEmptySystemProperty("rpm");
     }
 
     @Test
@@ -74,11 +75,8 @@ public class ServerIT
             throws Exception
     {
         // Release names as in the https://api.adoptium.net/q/swagger-ui/#/Release%20Info/getReleaseNames
-        testInstall("jdk-21.0.2+13", "/usr/lib/jvm/temurin-21", "21");
-        testUninstall("jdk-21.0.2+13", "/usr/lib/jvm/temurin-21");
-
-        testInstall("jdk-22+36", "/usr/lib/jvm/temurin-22", "22");
-        testUninstall("jdk-22+36", "/usr/lib/jvm/temurin-22");
+        testInstall("jdk-22.0.1+8", "/usr/lib/jvm/temurin-22", "22");
+        testUninstall("jdk-22.0.1+8", "/usr/lib/jvm/temurin-22");
     }
 
     private void testInstall(String temurinReleaseName, String javaHome, String expectedJavaVersion)
@@ -119,7 +117,6 @@ public class ServerIT
                     () -> assertThat(queryRunner.execute("SELECT specversion FROM jmx.current.\"java.lang:type=runtime\"")).isEqualTo(ImmutableSet.of(asList(expectedJavaVersion))));
         }
     }
-
 
     private void testUninstall(String temurinReleaseName, String javaHome)
             throws Exception
@@ -210,6 +207,7 @@ public class ServerIT
 
             Map<String, String> rpmMetadata = getRpmMetadata(container, rpm);
             assertThat(rpmMetadata).extractingByKey("Name").isEqualTo("trino-server-rpm");
+            assertThat(rpmMetadata).extractingByKey("Build Host").isEqualTo("localhost");
             assertThat(rpmMetadata).extractingByKey("Epoch").isEqualTo("0");
             assertThat(rpmMetadata).extractingByKey("Release").isEqualTo("1");
             assertThat(rpmMetadata).extractingByKey("Version").isEqualTo(getProjectVersion());
@@ -316,19 +314,19 @@ public class ServerIT
         public Set<List<String>> execute(String sql)
         {
             try (Connection connection = getConnection(format("jdbc:trino://%s:%s", host, port), "test", null);
-                    Statement statement = connection.createStatement()) {
-                try (ResultSet resultSet = statement.executeQuery(sql)) {
-                    ImmutableSet.Builder<List<String>> rows = ImmutableSet.builder();
-                    int columnCount = resultSet.getMetaData().getColumnCount();
-                    while (resultSet.next()) {
-                        ImmutableList.Builder<String> row = ImmutableList.builder();
-                        for (int column = 1; column <= columnCount; column++) {
-                            row.add(resultSet.getString(column));
-                        }
-                        rows.add(row.build());
+                 Statement statement = connection.createStatement();
+                 ResultSet resultSet = statement.executeQuery(sql))
+            {
+                ImmutableSet.Builder<List<String>> rows = ImmutableSet.builder();
+                int columnCount = resultSet.getMetaData().getColumnCount();
+                while (resultSet.next()) {
+                    ImmutableList.Builder<String> row = ImmutableList.builder();
+                    for (int column = 1; column <= columnCount; column++) {
+                        row.add(resultSet.getString(column));
                     }
-                    return rows.build();
+                    rows.add(row.build());
                 }
+                return rows.build();
             }
             catch (SQLException e) {
                 throw new RuntimeException(e);
@@ -361,14 +359,6 @@ public class ServerIT
         {
             if (!actual.permissions.contains(OWNER_EXECUTE)) {
                 failWithMessage("Expected %s to be owner executable", actual.path);
-            }
-            return this;
-        }
-
-        public PathInfoAssert isNotOwnerExecutable()
-        {
-            if (actual.permissions.contains(OWNER_EXECUTE)) {
-                failWithMessage("Expected %s not to be executable", actual.path);
             }
             return this;
         }

@@ -34,12 +34,12 @@ class ExpressionAndValuePointersMatcher
             Assignment expectedAssignment = expected.getAssignments().get(i);
 
             boolean match = switch (actualAssignment.valuePointer()) {
-                case ScalarValuePointer actualPointer when expectedAssignment.valuePointer() instanceof ScalarValuePointer expectedPointer -> aliases.get(expectedPointer.getInputSymbol().getName()).name().equals(actualPointer.getInputSymbol().getName());
+                case ScalarValuePointer actualPointer when expectedAssignment.valuePointer() instanceof ScalarValuePointer expectedPointer -> aliases.get(expectedPointer.getInputSymbol().name()).name().equals(actualPointer.getInputSymbol().name());
                 case AggregationValuePointer actualPointer when expectedAssignment.valuePointer() instanceof AggregationValuePointer expectedPointer -> {
                     if (!expectedPointer.getFunction().equals(actualPointer.getFunction()) ||
                             !expectedPointer.getSetDescriptor().equals(actualPointer.getSetDescriptor()) ||
-                            !actualPointer.getMatchNumberSymbol().equals(expectedPointer.getMatchNumberSymbol().map(symbol -> aliases.getSymbol(symbol.getName()))) ||
-                            !actualPointer.getClassifierSymbol().equals(expectedPointer.getClassifierSymbol().map(symbol -> aliases.getSymbol(symbol.getName()))) ||
+                            !actualPointer.getMatchNumberSymbol().equals(expectedPointer.getMatchNumberSymbol().map(symbol -> aliases.getSymbol(symbol.name()))) ||
+                            !actualPointer.getClassifierSymbol().equals(expectedPointer.getClassifierSymbol().map(symbol -> aliases.getSymbol(symbol.name()))) ||
                             expectedPointer.getArguments().size() != actualPointer.getArguments().size()) {
                         yield false;
                     }
@@ -59,7 +59,7 @@ class ExpressionAndValuePointersMatcher
                 return false;
             }
 
-            newAliases.put(expectedAssignment.symbol().getName(), actualAssignment.symbol().toSymbolReference());
+            newAliases.put(expectedAssignment.symbol().name(), actualAssignment.symbol().toSymbolReference());
         }
 
         if (!actual.getExpression().equals(newAliases.build().rewrite(expected.getExpression()))) {

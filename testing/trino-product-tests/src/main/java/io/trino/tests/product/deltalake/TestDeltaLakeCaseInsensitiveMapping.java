@@ -39,7 +39,6 @@ import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeCaseInsensitiveMapping
         extends BaseTestDeltaLakeS3Storage
@@ -122,13 +121,13 @@ public class TestDeltaLakeCaseInsensitiveMapping
                 "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
 
         try {
-            assertEquals(getColumnCommentOnTrino("default", tableName, "upper_case"), "test column comment");
-            assertEquals(getColumnCommentOnDelta("default", tableName, "UPPER_CASE"), "test column comment");
+            assertThat(getColumnCommentOnTrino("default", tableName, "upper_case")).isEqualTo("test column comment");
+            assertThat(getColumnCommentOnDelta("default", tableName, "UPPER_CASE")).isEqualTo("test column comment");
 
             onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".upper_case IS 'test updated comment'");
 
-            assertEquals(getColumnCommentOnTrino("default", tableName, "upper_case"), "test updated comment");
-            assertEquals(getColumnCommentOnDelta("default", tableName, "UPPER_CASE"), "test updated comment");
+            assertThat(getColumnCommentOnTrino("default", tableName, "upper_case")).isEqualTo("test updated comment");
+            assertThat(getColumnCommentOnDelta("default", tableName, "UPPER_CASE")).isEqualTo("test updated comment");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);

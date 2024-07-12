@@ -101,7 +101,7 @@ public class Grant
         return Objects.equals(privileges, o.privileges) &&
                 Objects.equals(grantObject, o.grantObject) &&
                 Objects.equals(grantee, o.grantee) &&
-                Objects.equals(grantOption, o.grantOption);
+                grantOption == o.grantOption;
     }
 
     @Override

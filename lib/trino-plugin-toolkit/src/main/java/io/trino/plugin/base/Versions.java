@@ -29,7 +29,7 @@ public final class Versions
      * chooses not to maintain compatibility with older SPI versions, as happens for plugins maintained together with
      * the Trino project.
      *
-     * @implNote This method is designed only for plugins distributed with Trino
+     * Note: This method is designed only for plugins distributed with Trino
      */
     public static void checkStrictSpiVersionMatch(ConnectorContext context, ConnectorFactory connectorFactory)
     {

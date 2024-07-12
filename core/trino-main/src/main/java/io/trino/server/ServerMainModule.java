@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.google.inject.Binder;
 import com.google.inject.Inject;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -122,7 +123,7 @@ import io.trino.spiller.SpillerStats;
 import io.trino.split.PageSinkManager;
 import io.trino.split.PageSinkProvider;
 import io.trino.split.PageSourceManager;
-import io.trino.split.PageSourceProvider;
+import io.trino.split.PageSourceProviderFactory;
 import io.trino.split.SplitManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlEnvironmentConfig;
@@ -133,6 +134,7 @@ import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.LocalExecutionPlanner;
@@ -214,9 +216,6 @@ public class ServerMainModule
 
         QueryManagerConfig queryManagerConfig = buildConfigObject(QueryManagerConfig.class);
         RetryPolicy retryPolicy = queryManagerConfig.getRetryPolicy();
-        if (retryPolicy == TASK) {
-            configBinder(binder).bindConfigDefaults(QueryManagerConfig.class, QueryManagerConfig::applyFaultTolerantExecutionDefaults);
-        }
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
         if (retryPolicy == TASK) {
@@ -229,6 +228,7 @@ public class ServerMainModule
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
 
         jaxrsBinder(binder).bind(ThrowableMapper.class);
+        jaxrsBinder(binder).bind(DisableHttpCacheDynamicFeature.class);
 
         configBinder(binder).bindConfig(SqlEnvironmentConfig.class);
 
@@ -312,6 +312,8 @@ public class ServerMainModule
         newExporter(binder).export(ExpressionCompiler.class).withGeneratedName();
         binder.bind(PageFunctionCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(PageFunctionCompiler.class).withGeneratedName();
+        binder.bind(ColumnarFilterCompiler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ColumnarFilterCompiler.class).withGeneratedName();
         configBinder(binder).bindConfig(TaskManagerConfig.class);
 
         // TODO: use conditional module
@@ -375,7 +377,7 @@ public class ServerMainModule
 
         // data stream provider
         binder.bind(PageSourceManager.class).in(Scopes.SINGLETON);
-        binder.bind(PageSourceProvider.class).to(PageSourceManager.class).in(Scopes.SINGLETON);
+        binder.bind(PageSourceProviderFactory.class).to(PageSourceManager.class).in(Scopes.SINGLETON);
 
         // page sink provider
         binder.bind(PageSinkManager.class).in(Scopes.SINGLETON);
@@ -495,10 +497,9 @@ public class ServerMainModule
         newOptionalBinder(binder, RuleStatsRecorder.class);
 
         // cleanup
-        closingBinder(binder)
-                .registerExecutor(ScheduledExecutorService.class, ForExchange.class)
-                .registerExecutor(ExecutorService.class, ForAsyncHttp.class)
-                .registerExecutor(ScheduledExecutorService.class, ForAsyncHttp.class);
+        closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForExchange.class));
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForAsyncHttp.class));
+        closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForAsyncHttp.class));
     }
 
     private static class RegisterFunctionBundles

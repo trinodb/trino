@@ -14,7 +14,6 @@
 package io.trino.plugin.ignite;
 
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcClient;
@@ -24,6 +23,7 @@ import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.TimestampTimeZoneDomain;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableSchema;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -56,16 +57,19 @@ public class IgniteMetadata
     private static final String IGNITE_DUMMY_ID = "dummy_id";
     private final JdbcClient igniteClient;
 
-    @Inject
-    public IgniteMetadata(JdbcClient igniteClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public IgniteMetadata(JdbcClient igniteClient, TimestampTimeZoneDomain timestampTimeZoneDomain, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
-        super(igniteClient, false, jdbcQueryEventListeners);
+        super(igniteClient, timestampTimeZoneDomain, false, jdbcQueryEventListeners);
         this.igniteClient = requireNonNull(igniteClient, "igniteClient is null");
     }
 
     @Override
-    public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         return igniteClient.getTableHandle(session, schemaTableName)
                 .map(JdbcTableHandle::asPlainTable)
                 .map(JdbcNamedRelationHandle::getRemoteTableName)

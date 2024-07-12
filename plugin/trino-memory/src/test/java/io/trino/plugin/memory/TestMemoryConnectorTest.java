@@ -37,7 +37,6 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
-import static io.trino.plugin.memory.MemoryQueryRunner.createMemoryQueryRunner;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,9 +55,9 @@ public class TestMemoryConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createMemoryQueryRunner(
-                // Adjust DF limits to test edge cases
-                ImmutableMap.<String, String>builder()
+        return MemoryQueryRunner.builder()
+                .addExtraProperties(ImmutableMap.<String, String>builder()
+                        // Adjust DF limits to test edge cases
                         .put("dynamic-filtering.small.max-distinct-values-per-driver", "100")
                         .put("dynamic-filtering.small.range-row-limit-per-driver", "100")
                         .put("dynamic-filtering.large.max-distinct-values-per-driver", "100")
@@ -69,32 +68,39 @@ public class TestMemoryConnectorTest
                         .put("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
                         // disable semi join to inner join rewrite to test semi join operators explicitly
                         .put("optimizer.rewrite-filtering-semi-join-to-inner-join", "false")
-                        .buildOrThrow(),
-                ImmutableSet.<TpchTable<?>>builder()
-                        .addAll(REQUIRED_TPCH_TABLES)
-                        .add(TpchTable.PART)
-                        .add(TpchTable.LINE_ITEM)
-                        .build());
+                        // enable CREATE FUNCTION
+                        .put("sql.path", "memory.functions")
+                        .put("sql.default-function-catalog", "memory")
+                        .put("sql.default-function-schema", "functions")
+                        .buildOrThrow())
+                .setInitialTables(
+                        ImmutableSet.<TpchTable<?>>builder()
+                                .addAll(REQUIRED_TPCH_TABLES)
+                                .add(TpchTable.PART)
+                                .add(TpchTable.LINE_ITEM)
+                                .build())
+                .build();
     }
 
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
+            case SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_ADD_COLUMN,
-                    SUPPORTS_AGGREGATION_PUSHDOWN,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_DELETE,
-                    SUPPORTS_DEREFERENCE_PUSHDOWN,
-                    SUPPORTS_LIMIT_PUSHDOWN,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_PREDICATE_PUSHDOWN,
-                    SUPPORTS_RENAME_COLUMN,
-                    SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_UPDATE -> false;
+                 SUPPORTS_AGGREGATION_PUSHDOWN,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_DELETE,
+                 SUPPORTS_DEREFERENCE_PUSHDOWN,
+                 SUPPORTS_LIMIT_PUSHDOWN,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_PREDICATE_PUSHDOWN,
+                 SUPPORTS_RENAME_COLUMN,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_UPDATE -> false;
             case SUPPORTS_CREATE_FUNCTION -> true;
             default -> super.hasBehavior(connectorBehavior);
         };

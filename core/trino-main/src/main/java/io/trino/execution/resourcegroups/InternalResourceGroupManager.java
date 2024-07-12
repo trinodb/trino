@@ -118,7 +118,7 @@ public final class InternalResourceGroupManager<C>
     public SelectionContext<C> selectGroup(SelectionCriteria criteria)
     {
         return configurationManager.get().match(criteria)
-                .orElseThrow(() -> new TrinoException(QUERY_REJECTED, "Query did not match any selection rule"));
+                .orElseThrow(() -> new TrinoException(QUERY_REJECTED, "No matching resource group found with the configured selection rules"));
     }
 
     @Override
@@ -158,7 +158,7 @@ public final class InternalResourceGroupManager<C>
         checkState(factory != null, "Resource group configuration manager '%s' is not registered", name);
 
         ResourceGroupConfigurationManager<C> configurationManager;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             configurationManager = cast(factory.create(ImmutableMap.copyOf(properties), configurationManagerContext));
         }
 

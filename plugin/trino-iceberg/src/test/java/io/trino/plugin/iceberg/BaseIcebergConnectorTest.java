@@ -222,11 +222,10 @@ public abstract class BaseIcebergConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_CREATE_OR_REPLACE_TABLE,
-                    SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
+                 SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_TRUNCATE -> false;
+                 SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS,
+                 SUPPORTS_TOPN_PUSHDOWN -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -300,8 +299,23 @@ public abstract class BaseIcebergConnectorTest
     @Override
     public void testCharVarcharComparison()
     {
-        assertThatThrownBy(super::testCharVarcharComparison)
-                .hasMessage("Type not supported for Iceberg: char(3)");
+        // with char->varchar coercion on table creation, this is essentially varchar/varchar comparison
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_char_varchar",
+                "(k, v) AS VALUES" +
+                        "   (-1, CAST(NULL AS CHAR(3))), " +
+                        "   (3, CAST('   ' AS CHAR(3)))," +
+                        "   (6, CAST('x  ' AS CHAR(3)))")) {
+            // varchar of length shorter than column's length
+            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('  ' AS varchar(2))")).returnsEmptyResult();
+            // varchar of length longer than column's length
+            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('    ' AS varchar(4))")).returnsEmptyResult();
+            // value that's not all-spaces
+            assertThat(query("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('x ' AS varchar(2))")).returnsEmptyResult();
+            // exact match
+            assertQuery("SELECT k, v FROM " + table.getName() + " WHERE v = CAST('   ' AS varchar(3))", "VALUES (3, '   ')");
+        }
     }
 
     @Test
@@ -1037,17 +1051,194 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testCreatePartitionedTableWithNestedField()
+    public void testCreateTableWithUnsupportedNestedFieldPartitioning()
     {
         assertQueryFails(
-                "CREATE TABLE test_partitioned_table_nested_field(parent ROW(child VARCHAR)) WITH (partitioning = ARRAY['\"parent.child\"'])",
-                "\\QPartitioning by nested field is unsupported: parent.child");
-        assertQueryFails(
-                "CREATE TABLE test_partitioned_table_nested_field(grandparent ROW(parent ROW(child VARCHAR))) WITH (partitioning = ARRAY['\"grandparent.parent.child\"'])",
-                "\\QPartitioning by nested field is unsupported: grandparent.parent.child");
-        assertQueryFails(
-                "CREATE TABLE test_partitioned_table_nested_field(grandparent ROW(parent ROW(child VARCHAR))) WITH (partitioning = ARRAY['\"grandparent.parent\"'])",
+                "CREATE TABLE test_partitioned_table_nested_field_3 (grandparent ROW(parent ROW(child VARCHAR))) WITH (partitioning = ARRAY['\"grandparent.parent\"'])",
                 "\\QUnable to parse partitioning value: Cannot partition by non-primitive source field: struct<3: child: optional string>");
+        assertQueryFails(
+                "CREATE TABLE test_partitioned_table_nested_field_inside_array (parent ARRAY(ROW(child VARCHAR))) WITH (partitioning = ARRAY['\"parent.child\"'])",
+                "\\QPartitioning field [parent.child] cannot be contained in a array");
+        assertQueryFails(
+                "CREATE TABLE test_partitioned_table_nested_field_inside_map (parent MAP(ROW(child INTEGER), ARRAY(VARCHAR))) WITH (partitioning = ARRAY['\"parent.key.child\"'])",
+                "\\QPartitioning field [parent.key.child] cannot be contained in a map");
+        assertQueryFails(
+                "CREATE TABLE test_partitioned_table_nested_field_year_transform_in_string (parent ROW(child VARCHAR)) WITH (partitioning = ARRAY['year(\"parent.child\")'])",
+                "\\QUnable to parse partitioning value: Invalid source type string for transform: year");
+    }
+
+    @Test
+    public void testNestedFieldPartitionedTable()
+    {
+        String tableName = "test_nested_field_partitioned_table_" + randomNameSuffix();
+        assertQuerySucceeds("CREATE TABLE " + tableName + "(id INTEGER, name VARCHAR, parent ROW(child VARCHAR, child2 VARCHAR))" +
+                " WITH (partitioning = ARRAY['id', '\"parent.child\"', '\"parent.child2\"'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'presto', ROW('a', 'b'))", 1);
+
+        assertThat(query("SELECT id, name, parent.child, parent.child2 FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES (1, 'presto', 'a', 'b')");
+
+        assertUpdate("UPDATE " + tableName + " SET name = 'trino' WHERE parent.child = 'a'", 1);
+        assertQuerySucceeds("DELETE FROM " + tableName);
+        assertThat(query("SELECT * FROM " + tableName))
+                .returnsEmptyResult();
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'trino', ROW('a', 'b'))", 1);
+
+        assertThat(query("SELECT id, name, parent.child, parent.child2 FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES (1, 'trino', 'a', 'b')");
+
+        String newTableName = "test_nested_field_partitioned_table_" + randomNameSuffix();
+        assertQuerySucceeds("ALTER TABLE " + tableName + " RENAME TO " + newTableName);
+
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + newTableName + " EXECUTE OPTIMIZE");
+        assertQuerySucceeds(prepareCleanUpSession(), "ALTER TABLE " + newTableName + " EXECUTE expire_snapshots(retention_threshold => '0s')");
+
+        assertThat(query("SELECT id, name, parent.child, parent.child2 FROM " + newTableName))
+                .skippingTypesCheck()
+                .matches("VALUES (1, 'trino', 'a', 'b')");
+
+        assertUpdate("DROP TABLE " + newTableName);
+    }
+
+    @Test
+    public void testMultipleLevelNestedFieldPartitionedTable()
+    {
+        String tableName = "test_multiple_level_nested_field_partitioned_table_" + randomNameSuffix();
+        assertQuerySucceeds("CREATE TABLE " + tableName + "(id INTEGER, gradparent ROW(parent ROW(child VARCHAR)))" +
+                " WITH (partitioning = ARRAY['\"gradparent.parent.child\"'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(ROW('trino')))", 1);
+
+        assertThat(query("SELECT id, gradparent.parent.child FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES (1, 'trino')");
+
+        assertUpdate("UPDATE " + tableName + " SET id = 2 WHERE gradparent.parent.child = 'trino'", 1);
+        assertQuerySucceeds("DELETE FROM " + tableName);
+        assertThat(query("SELECT * FROM " + tableName))
+                .returnsEmptyResult();
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, ROW(ROW('trino')))", 1);
+
+        assertThat(query("SELECT id, gradparent.parent.child FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES (3, 'trino')");
+
+        String newTableName = "test_multiple_level_nested_field_partitioned_table_" + randomNameSuffix();
+        assertQuerySucceeds("ALTER TABLE " + tableName + " RENAME TO " + newTableName);
+
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + newTableName + " EXECUTE OPTIMIZE");
+        assertQuerySucceeds(prepareCleanUpSession(), "ALTER TABLE " + newTableName + " EXECUTE expire_snapshots(retention_threshold => '0s')");
+
+        assertThat(query("SELECT id, gradparent.parent.child FROM " + newTableName))
+                .skippingTypesCheck()
+                .matches("VALUES (3, 'trino')");
+
+        assertUpdate("DROP TABLE " + newTableName);
+    }
+
+    @Test
+    public void testNestedFieldPartitionedTableHavingSameChildName()
+    {
+        String tableName = "test_nested_field_partitioned_table_having_same_child_name_" + randomNameSuffix();
+        assertQuerySucceeds("CREATE TABLE " + tableName + "(id INTEGER, gradparent ROW(parent ROW(child VARCHAR)), parent ROW(child VARCHAR))" +
+                " WITH (partitioning = ARRAY['\"gradparent.parent.child\"'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(ROW('trino')), ROW('trinodb'))", 1);
+
+        assertThat(query("SELECT id, gradparent.parent.child, parent.child FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES (1, 'trino', 'trinodb')");
+
+        assertUpdate("UPDATE " + tableName + " SET id = 2 WHERE gradparent.parent.child = 'trino'", 1);
+        assertQuerySucceeds("DELETE FROM " + tableName);
+        assertThat(query("SELECT * FROM " + tableName))
+                .returnsEmptyResult();
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, ROW(ROW('trino')), ROW('trinodb'))", 1);
+
+        assertThat(query("SELECT id, gradparent.parent.child, parent.child FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES (3, 'trino', 'trinodb')");
+
+        String newTableName = "test_nested_field_partitioned_table_having_same_child_name_" + randomNameSuffix();
+        assertQuerySucceeds("ALTER TABLE " + tableName + " RENAME TO " + newTableName);
+
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + newTableName + " EXECUTE OPTIMIZE");
+        assertQuerySucceeds(prepareCleanUpSession(), "ALTER TABLE " + newTableName + " EXECUTE expire_snapshots(retention_threshold => '0s')");
+
+        assertThat(query("SELECT id, gradparent.parent.child, parent.child FROM " + newTableName))
+                .skippingTypesCheck()
+                .matches("VALUES (3, 'trino', 'trinodb')");
+
+        assertUpdate("DROP TABLE " + newTableName);
+    }
+
+    @Test
+    public void testMergeWithNestedFieldPartitionedTable()
+    {
+        String sourceTable = "test_merge_with_nested_field_partitioned_table_source_" + randomNameSuffix();
+        String targetTable = "test_merge_with_nested_field_partitioned_table_target_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + sourceTable + " (customer VARCHAR, purchases INT, address ROW (city VARCHAR))" +
+                " WITH (partitioning = ARRAY['\"address.city\"'])");
+        assertUpdate(
+                "INSERT INTO " + sourceTable + " (customer, purchases, address)" +
+                        " VALUES ('Aaron', 6, ROW('Arches')), ('Ed', 7, ROW('Etherville')), ('Carol', 9, ROW('Centreville')), ('Dave', 11, ROW('Darbyshire'))",
+                4);
+
+        assertUpdate("CREATE TABLE " + targetTable + " (customer VARCHAR, purchases INT, address ROW (city VARCHAR))" +
+                " WITH (partitioning = ARRAY['\"address.city\"'])");
+        assertUpdate(
+                "INSERT INTO " + targetTable + " (customer, purchases, address) " +
+                        " VALUES ('Aaron', 5, ROW('Antioch')), ('Bill', 7, ROW('Buena')), ('Carol', 3, ROW('Cambridge')), ('Dave', 11, ROW('Devon'))",
+                4);
+
+        String sql = "MERGE INTO " + targetTable + " t USING " + sourceTable + " s ON (t.customer = s.customer)" +
+                "    WHEN MATCHED AND s.address.city = 'Centreville' THEN DELETE" +
+                "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases" +
+                "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES (s.customer, s.purchases, s.address)";
+
+        assertUpdate(sql, 4);
+
+        assertQuery(
+                "SELECT customer, purchases, address.city FROM " + targetTable,
+                "VALUES ('Aaron', 11, 'Antioch'), ('Ed', 7, 'Etherville'), ('Bill', 7, 'Buena'), ('Dave', 22, 'Devon')");
+
+        assertUpdate("DROP TABLE " + sourceTable);
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test
+    public void testSchemaEvolutionWithNestedFieldPartitioning()
+    {
+        String tableName = "test_schema_evolution_with_nested_field_partitioning_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (c1 bigint, parent1 ROW(child VARCHAR), parent2 ROW(child VARCHAR)) WITH (partitioning = ARRAY['\"parent1.child\"'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW('BLR'), ROW('BLR'))", 1);
+        assertQuery("SELECT c1, parent1.child, parent2.child from " + tableName, "VALUES (1, 'BLR', 'BLR')");
+
+        // Drop end column
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN parent2");
+        assertQuery("SELECT c1, parent1.child FROM " + tableName, "VALUES (1, 'BLR')");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN parent3 ROW(child VARCHAR)");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN parent4 ROW(child VARCHAR)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, ROW('DEL'), ROW('DL'), ROW('IN'))", 1);
+        assertQuery("SELECT c1, parent1.child, parent3.child, parent4.child FROM " + tableName, "VALUES (1, 'BLR', NULL, NULL), (2, 'DEL', 'DL', 'IN')");
+
+        // Drop a column (parent3) from middle of table
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN parent3");
+        assertQuery("SELECT c1, parent1.child, parent4.child FROM " + tableName, "VALUES (1, 'BLR', NULL), (2, 'DEL', 'IN')");
+
+        // Rename nested column
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN parent4 TO renamed_parent");
+
+        // Rename nested partitioned column
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN parent1 TO renamed_partitioned_parent");
+
+        assertQuery("SHOW COLUMNS FROM " + tableName, "VALUES " +
+                "('c1', 'bigint', '', ''), " +
+                "('renamed_partitioned_parent', 'row(child varchar)', '', ''), " +
+                "('renamed_parent', 'row(child varchar)', '', '')");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -1282,8 +1473,7 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = "test_sort_with_transform_" + randomNameSuffix();
         assertThat(query(format("CREATE TABLE %s (%s TIMESTAMP(6)) WITH (sorted_by = ARRAY['%s'])", tableName, columnName, sortField)))
-                // TODO throw TrinoException indicating user error
-                .nonTrinoExceptionFailure().hasMessageContaining("Unable to parse sort field");
+                .failure().hasMessageContaining("Unable to parse sort field");
     }
 
     @Test
@@ -1362,17 +1552,15 @@ public abstract class BaseIcebergConnectorTest
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "test_sorted_update",
-                "WITH (sorted_by = ARRAY['comment']) AS TABLE tpch.tiny.lineitem WITH NO DATA")) {
+                "WITH (sorted_by = ARRAY['comment']) AS TABLE tpch.tiny.customer WITH NO DATA")) {
             assertUpdate(
                     withSmallRowGroups,
-                    "INSERT INTO " + table.getName() + " TABLE tpch.tiny.lineitem",
-                    "VALUES 60175");
-            assertUpdate(withSmallRowGroups, "UPDATE " + table.getName() + " SET comment = substring(comment, 2)", 60175);
+                    "INSERT INTO " + table.getName() + " TABLE tpch.tiny.customer",
+                    "VALUES 1500");
+            assertUpdate(withSmallRowGroups, "UPDATE " + table.getName() + " SET comment = substring(comment, 2)", 1500);
             assertQuery(
-                    "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, returnflag, linestatus, shipdate, " +
-                            "commitdate, receiptdate, shipinstruct, shipmode, comment FROM " + table.getName(),
-                    "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, returnflag, linestatus, shipdate, " +
-                            "commitdate, receiptdate, shipinstruct, shipmode, substring(comment, 2) FROM lineitem");
+                    "SELECT custkey, name, address, nationkey, phone, acctbal, mktsegment, comment FROM " + table.getName(),
+                    "SELECT custkey, name, address, nationkey, phone, acctbal, mktsegment, substring(comment, 2) FROM customer");
             for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
                 assertThat(isFileSorted((String) filePath, "comment")).isTrue();
             }
@@ -1387,12 +1575,10 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "test_sorting_on_nested_field" + randomNameSuffix();
         assertThat(query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
                 "WITH (sorted_by = ARRAY['row_t.comment'])"))
-                // TODO throw TrinoException indicating user error
-                .nonTrinoExceptionFailure().hasMessageContaining("Unable to parse sort field: [row_t.comment]");
+                .failure().hasMessageContaining("Unable to parse sort field: [row_t.comment]");
         assertThat(query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
                 "WITH (sorted_by = ARRAY['\"row_t\".\"comment\"'])"))
-                // TODO throw TrinoException indicating user error
-                .nonTrinoExceptionFailure().hasMessageContaining("Unable to parse sort field: [\"row_t\".\"comment\"]");
+                .failure().hasMessageContaining("Unable to parse sort field: [\"row_t\".\"comment\"]");
         assertThat(query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
                 "WITH (sorted_by = ARRAY['\"row_t.comment\"'])"))
                 .failure().hasMessageContaining("Column not found: row_t.comment");
@@ -1525,17 +1711,55 @@ public abstract class BaseIcebergConnectorTest
     {
         // Override because Iceberg doesn't allow duplicated field names in a row type
         assertThatThrownBy(super::testDropRowFieldWhenDuplicates)
-                .hasMessage("Invalid schema: multiple fields for name col.a: 2 and 3");
+                .hasMessage("Field name 'a' specified more than once");
+    }
+
+    @Test
+    @Override // Override because ambiguous field name is disallowed in the connector
+    public void testDropAmbiguousRowFieldCaseSensitivity()
+    {
+        assertThatThrownBy(super::testDropAmbiguousRowFieldCaseSensitivity)
+                .hasMessage("Field name 'some_field' specified more than once");
+    }
+
+    @Test
+    public void testDuplicatedFieldNames()
+    {
+        String tableName = "test_duplicated_field_names" + randomNameSuffix();
+
+        assertQueryFails("CREATE TABLE " + tableName + "(col row(x int, \"X\" int))", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS row(x int, \"X\" int)) col", "Field name 'x' specified more than once");
+
+        assertQueryFails("CREATE TABLE " + tableName + "(col array(row(x int, \"X\" int)))", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS array(row(x int, \"X\" int))) col", "Field name 'x' specified more than once");
+
+        assertQueryFails("CREATE TABLE " + tableName + "(col map(int, row(x int, \"X\" int)))", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS map(int, row(x int, \"X\" int))) col", "Field name 'x' specified more than once");
+
+        assertQueryFails("CREATE TABLE " + tableName + "(col row(a row(x int, \"X\" int)))", "Field name 'x' specified more than once");
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS row(a row(x int, \"X\" int))) col", "Field name 'x' specified more than once");
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_duplicated_field_names_", "(id int)")) {
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col row(x int, \"X\" int)", ".* Field name 'x' specified more than once");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col row(\"X\" int)");
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col.x int", "line 1:1: Field 'x' already exists");
+
+            assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE row(x int, \"X\" int)", "Field name 'x' specified more than once");
+        }
     }
 
     @Test
     public void testDropPartitionColumn()
     {
         String tableName = "test_drop_partition_column_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR, age INTEGER) WITH (partitioning = ARRAY['id', 'truncate(name, 5)', 'void(age)'])");
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR, age INTEGER, nested ROW(f1 integer, f2 integer)) " +
+                "WITH (partitioning = ARRAY['id', 'truncate(name, 5)', 'void(age)', '\"nested.f1\"'])");
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN id", "Cannot drop partition field: id");
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN name", "Cannot drop partition field: name");
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN age", "Cannot drop partition field: age");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN nested", "Failed to drop column.*");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN nested.f1", "Cannot drop partition field: nested.f1");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -1975,6 +2199,45 @@ public abstract class BaseIcebergConnectorTest
 
         // The old partition scheme is no longer used so pushdown using the hour transform is allowed
         assertUpdate("DELETE FROM " + tableName + " WHERE year(d) = 1969", 3);
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + initialValues, 3);
+        assertThat(query(selectQuery))
+                .containsAll("VALUES 1, 8, 9, 10")
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testPartitionPredicatePushdownWithNestedFieldPartitioning()
+    {
+        // Start with a bucket transform, which cannot be used for predicate pushdown
+        String tableName = "test_partition_predicate_pushdown_with_nested_field_partitioning";
+        assertUpdate("CREATE TABLE " + tableName + " (parent ROW(child1 TIMESTAMP(6), child2 INTEGER)) WITH (partitioning = ARRAY['bucket(\"parent.child2\", 3)'])");
+        String selectQuery = "SELECT parent.child2 FROM " + tableName + " WHERE CAST(parent.child1 AS date) < DATE '2015-01-02'";
+
+        String initialValues =
+                "ROW(ROW(TIMESTAMP '1969-12-31 22:22:22.222222', 8))," +
+                        "ROW(ROW(TIMESTAMP '1969-12-31 23:33:11.456789', 9))," +
+                        "ROW(ROW(TIMESTAMP '1969-12-31 23:44:55.567890', 10))";
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + initialValues, 3);
+        assertThat(query(selectQuery))
+                .containsAll("VALUES 8, 9, 10")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        String hourTransformValues =
+                "ROW(ROW(TIMESTAMP '2015-01-01 10:01:23.123456', 1))," +
+                        "ROW(ROW(TIMESTAMP '2015-01-02 10:10:02.987654', 2))," +
+                        "ROW(ROW(TIMESTAMP '2015-01-03 10:55:00.456789', 3))";
+        // While the bucket transform is still used, the hour transform cannot be used for pushdown
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['hour(\"parent.child1\")']");
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + hourTransformValues, 3);
+        assertThat(query(selectQuery))
+                .containsAll("VALUES 1, 8, 9, 10")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // The old partition scheme is no longer used so pushdown using the hour transform is allowed
+        assertUpdate("DELETE FROM " + tableName + " WHERE year(parent.child1) = 1969", 3);
         assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
         assertUpdate("INSERT INTO " + tableName + " VALUES " + initialValues, 3);
         assertThat(query(selectQuery))
@@ -3221,6 +3484,7 @@ public abstract class BaseIcebergConnectorTest
                 "CAST('206caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)",
                 "CAST('906caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)",
                 "CAST('406caec7-68b9-4778-81b2-a12ece70c8b1' AS UUID)");
+        testBucketTransformForType("VARBINARY", "x'04'", "x'21'", "x'02'");
     }
 
     protected void testBucketTransformForType(
@@ -3799,7 +4063,7 @@ public abstract class BaseIcebergConnectorTest
                 // Unenforced predicate is simplified during split generation, but not reflected here
                 ImmutableMap.of("col1", multipleValues(BIGINT, values)));
 
-        assertUpdate("DROP TABLE " + tableName.getObjectName());
+        assertUpdate("DROP TABLE " + tableName.objectName());
     }
 
     @Test
@@ -3932,7 +4196,7 @@ public abstract class BaseIcebergConnectorTest
             assertThat((expectedUnenforcedPredicate == null && expectedEnforcedPredicate == null)).isEqualTo(result.isEmpty());
 
             if (result.isPresent()) {
-                IcebergTableHandle newTable = (IcebergTableHandle) result.get().getHandle().getConnectorHandle();
+                IcebergTableHandle newTable = (IcebergTableHandle) result.get().getHandle().connectorHandle();
 
                 assertThat(newTable.getEnforcedPredicate()).isEqualTo(TupleDomain.withColumnDomains(expectedEnforcedPredicate.entrySet().stream()
                         .collect(toImmutableMap(entry -> columns.get(entry.getKey()), Map.Entry::getValue))));
@@ -4897,20 +5161,13 @@ public abstract class BaseIcebergConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("tinyint")
-                || typeName.equals("smallint")
-                || typeName.startsWith("char(")) {
+                || typeName.equals("smallint")) {
             // These types are not supported by Iceberg
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
-        return Optional.of(dataMappingTestSetup);
-    }
-
-    @Override
-    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
-    {
-        String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("char(1)")) {
-            return Optional.of(dataMappingTestSetup.asUnsupported());
+        if (typeName.equals("char(3)")) {
+            // Use explicitly padded literal in char mapping test due to whitespace padding on coercion to varchar
+            return Optional.of(new DataMappingTestSetup(typeName, "'ab '", dataMappingTestSetup.getHighValueLiteral()));
         }
         return Optional.of(dataMappingTestSetup);
     }
@@ -4944,7 +5201,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT a.b FROM " + tableName, "VALUES NULL");
         assertUpdate("DROP TABLE " + tableName);
 
-        // Very changing subfield ordering does not revive dropped data
+        // Verify changing subfield ordering does not revive dropped data
         assertUpdate("CREATE TABLE " + tableName + " (dummy BIGINT, a ROW(b BIGINT, c VARCHAR), d BIGINT) with (partitioning = ARRAY['d'])");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(2, 'abc'), 3)", 1);
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
@@ -5331,10 +5588,10 @@ public abstract class BaseIcebergConnectorTest
                 "\\Qline 1:7: Table 'iceberg.tpch.no_such_table_exists' does not exist");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE OPTIMIZE (file_size_threshold => '33')",
-                "\\QUnable to set catalog 'iceberg' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33']: size is not a valid data size string: 33");
+                "\\Qline 1:38: Unable to set catalog 'iceberg' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33']: size is not a valid data size string: 33");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE OPTIMIZE (file_size_threshold => '33s')",
-                "\\QUnable to set catalog 'iceberg' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33s']: Unknown unit: s");
+                "\\Qline 1:38: Unable to set catalog 'iceberg' table procedure 'OPTIMIZE' property 'file_size_threshold' to ['33s']: Unknown unit: s");
     }
 
     @Test
@@ -5512,6 +5769,208 @@ public abstract class BaseIcebergConnectorTest
         assertThat(updatedFiles)
                 .hasSize(2)
                 .doesNotContainAnyElementsOf(initialFiles);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCollectingStatisticsWithPathColumnPredicate()
+    {
+        assertQuerySucceeds("EXPLAIN SELECT * FROM region WHERE \"$path\" = ''");
+
+        Session collectingStatisticsSession = Session.builder(getSession())
+                .setSystemProperty("collect_plan_statistics_for_all_queries", "true")
+                .build();
+        String tableName = "test_collect_statistics_with_path_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(id integer, value integer)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 2)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, null)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 4)", 1);
+
+        // Make sure the whole table has stats
+        MaterializedResult tableStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (SELECT * FROM %s WHERE \"$path\" IS NOT NULL)".formatted(tableName));
+        MaterializedResult expectedTableStatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 4.0, 0.0, null, "1", "4")
+                        .row("value", null, 3.0, 0.25, null, "1", "4")
+                        .row(null, null, null, null, 4.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedTableStatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 4.0, 0.0, null, null, null)
+                            .row("value", null, 3.0, 0.1, null, null, null)
+                            .row(null, null, null, null, 4.0, null, null)
+                            .build();
+        }
+        assertThat(tableStatistics).containsExactlyElementsOf(expectedTableStatistics);
+
+        String firstPath = (String) computeScalar(collectingStatisticsSession, "SELECT \"$path\" FROM " + tableName + " WHERE id = 1");
+        String secondPath = (String) computeScalar(collectingStatisticsSession, "SELECT \"$path\" FROM " + tableName + " WHERE id = 2");
+        String thirdPath = (String) computeScalar(collectingStatisticsSession, "SELECT \"$path\" FROM " + tableName + " WHERE id = 3");
+        String fourthPath = (String) computeScalar(collectingStatisticsSession, "SELECT \"$path\" FROM " + tableName + " WHERE id = 4");
+
+        String pathPredicateSql = "SELECT * FROM " + tableName + " WHERE \"$path\" = '%s'";
+        // Check the predicate with path
+        assertQuery(collectingStatisticsSession, pathPredicateSql.formatted(firstPath), "VALUES (1, 1)");
+        assertQuery(collectingStatisticsSession, pathPredicateSql.formatted(secondPath), "VALUES (2, 2)");
+        assertQuery(collectingStatisticsSession, "SELECT COUNT(*) FROM %s WHERE \"$path\" = '%s' OR \"$path\" = '%s'".formatted(tableName, thirdPath, fourthPath), "VALUES 2");
+
+        MaterializedResult firstPathStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (" + pathPredicateSql.formatted(firstPath) + ")");
+        MaterializedResult expectedFirstPathStatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 1.0, 0.0, null, "1", "1")
+                        .row("value", null, 1.0, 0.0, null, "1", "1")
+                        .row(null, null, null, null, 1.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedFirstPathStatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 1.0, 0.0, null, null, null)
+                            .row("value", null, 1.0, 0.0, null, null, null)
+                            .row(null, null, null, null, 1.0, null, null)
+                            .build();
+        }
+        assertThat(firstPathStatistics).containsExactlyElementsOf(expectedFirstPathStatistics);
+
+        MaterializedResult secondThirdPathStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (SELECT * FROM %s WHERE \"$path\" IN ('%s', '%s'))".formatted(tableName, secondPath, thirdPath));
+        MaterializedResult expectedSecondThirdPathStatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 2.0, 0.0, null, "2", "3")
+                        .row("value", null, 1.0, 0.5, null, "2", "2")
+                        .row(null, null, null, null, 2.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedSecondThirdPathStatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 2.0, 0.0, null, null, null)
+                            .row("value", null, 2.0, 0.0, null, null, null)
+                            .row(null, null, null, null, 2.0, null, null)
+                            .build();
+        }
+        assertThat(secondThirdPathStatistics).containsExactlyElementsOf(expectedSecondThirdPathStatistics);
+
+        MaterializedResult fourthPathStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (" + pathPredicateSql.formatted(fourthPath) + ")");
+        MaterializedResult expectedFourthPathStatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 1.0, 0.0, null, "4", "4")
+                        .row("value", null, 1.0, 0.0, null, "4", "4")
+                        .row(null, null, null, null, 1.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedFourthPathStatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 1.0, 0.0, null, null, null)
+                            .row("value", null, 1.0, 0.0, null, null, null)
+                            .row(null, null, null, null, 1.0, null, null)
+                            .build();
+        }
+        assertThat(fourthPathStatistics).containsExactlyElementsOf(expectedFourthPathStatistics);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCollectingStatisticsWithFileModifiedTimeColumnPredicate()
+            throws InterruptedException
+    {
+        assertQuerySucceeds("EXPLAIN SELECT * FROM region WHERE \"$file_modified_time\" = TIMESTAMP '2001-08-22 03:04:05.321 UTC'");
+
+        Session collectingStatisticsSession = Session.builder(getSession())
+                .setSystemProperty("collect_plan_statistics_for_all_queries", "true")
+                .build();
+        String tableName = "test_collect_statistics_with_file_modified_time_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(id integer, value integer)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1)", 1);
+        storageTimePrecision.sleep(1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 2)", 1);
+        storageTimePrecision.sleep(1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, null)", 1);
+        storageTimePrecision.sleep(1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 4)", 1);
+
+        // Make sure the whole table has stats
+        MaterializedResult tableStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (SELECT * FROM %s WHERE \"$file_modified_time\" IS NOT NULL)".formatted(tableName));
+        MaterializedResult expectedTableStatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 4.0, 0.0, null, "1", "4")
+                        .row("value", null, 3.0, 0.25, null, "1", "4")
+                        .row(null, null, null, null, 4.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedTableStatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 4.0, 0.0, null, null, null)
+                            .row("value", null, 3.0, 0.1, null, null, null)
+                            .row(null, null, null, null, 4.0, null, null)
+                            .build();
+        }
+        assertThat(tableStatistics).containsExactlyElementsOf(expectedTableStatistics);
+
+        ZonedDateTime firstFileModifiedTime = (ZonedDateTime) computeScalar(collectingStatisticsSession, "SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 1");
+        ZonedDateTime secondFileModifiedTime = (ZonedDateTime) computeScalar(collectingStatisticsSession, "SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 2");
+        ZonedDateTime thirdFileModifiedTime = (ZonedDateTime) computeScalar(collectingStatisticsSession, "SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 3");
+        ZonedDateTime fourthFileModifiedTime = (ZonedDateTime) computeScalar(collectingStatisticsSession, "SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 4");
+
+        String fileModifiedTimePredicateSql = "SELECT * FROM " + tableName + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('%s')";
+        // Check the predicate with fileModifiedTime
+        assertQuery(collectingStatisticsSession, fileModifiedTimePredicateSql.formatted(firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME)), "SELECT 1, 1");
+        assertQuery(collectingStatisticsSession, fileModifiedTimePredicateSql.formatted(secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME)), "SELECT 2, 2");
+        assertQuery(collectingStatisticsSession, "SELECT COUNT(*) FROM %s WHERE \"$file_modified_time\" = from_iso8601_timestamp('%s') OR \"$file_modified_time\" = from_iso8601_timestamp('%s')".formatted(tableName, thirdFileModifiedTime.format(ISO_OFFSET_DATE_TIME), fourthFileModifiedTime.format(ISO_OFFSET_DATE_TIME)), "VALUES 2");
+
+        MaterializedResult firstFileModifiedTimeStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (" + fileModifiedTimePredicateSql.formatted(firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME)) + ")");
+        MaterializedResult expectedFirstFileModifiedTimeStatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 1.0, 0.0, null, "1", "1")
+                        .row("value", null, 1.0, 0.0, null, "1", "1")
+                        .row(null, null, null, null, 1.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedFirstFileModifiedTimeStatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 1.0, 0.0, null, null, null)
+                            .row("value", null, 1.0, 0.0, null, null, null)
+                            .row(null, null, null, null, 1.0, null, null)
+                            .build();
+        }
+        assertThat(firstFileModifiedTimeStatistics).containsExactlyElementsOf(expectedFirstFileModifiedTimeStatistics);
+
+        MaterializedResult secondThirdFileModifiedTimeStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (SELECT * FROM %s WHERE \"$file_modified_time\" IN (from_iso8601_timestamp('%s'), from_iso8601_timestamp('%s')))".formatted(tableName, secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME), thirdFileModifiedTime.format(ISO_OFFSET_DATE_TIME)));
+        MaterializedResult expectedSecondThirdFileModifiedTimetatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 2.0, 0.0, null, "2", "3")
+                        .row("value", null, 1.0, 0.5, null, "2", "2")
+                        .row(null, null, null, null, 2.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedSecondThirdFileModifiedTimetatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 2.0, 0.0, null, null, null)
+                            .row("value", null, 2.0, 0.0, null, null, null)
+                            .row(null, null, null, null, 2.0, null, null)
+                            .build();
+        }
+        assertThat(secondThirdFileModifiedTimeStatistics).containsExactlyElementsOf(expectedSecondThirdFileModifiedTimetatistics);
+
+        MaterializedResult fourthFileModifiedTimeStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (" + fileModifiedTimePredicateSql.formatted(fourthFileModifiedTime.format(ISO_OFFSET_DATE_TIME)) + ")");
+        MaterializedResult expectedFourthFileModifiedTimeStatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 1.0, 0.0, null, "4", "4")
+                        .row("value", null, 1.0, 0.0, null, "4", "4")
+                        .row(null, null, null, null, 1.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedFourthFileModifiedTimeStatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 1.0, 0.0, null, null, null)
+                            .row("value", null, 1.0, 0.0, null, null, null)
+                            .row(null, null, null, null, 1.0, null, null)
+                            .build();
+        }
+        assertThat(fourthFileModifiedTimeStatistics).containsExactlyElementsOf(expectedFourthFileModifiedTimeStatistics);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -5719,7 +6178,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
         assertExplain("EXPLAIN ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')",
-                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_expiring_snapshots.*\\{retentionThreshold=0\\.00s}.*");
+                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_expiring_snapshots.*\\[retentionThreshold=0\\.00s].*");
     }
 
     @Test
@@ -5730,10 +6189,10 @@ public abstract class BaseIcebergConnectorTest
                 "\\Qline 1:7: Table 'iceberg.tpch.no_such_table_exists' does not exist");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '33')",
-                "\\QUnable to set catalog 'iceberg' table procedure 'EXPIRE_SNAPSHOTS' property 'retention_threshold' to ['33']: duration is not a valid data duration string: 33");
+                "\\Qline 1:46: Unable to set catalog 'iceberg' table procedure 'EXPIRE_SNAPSHOTS' property 'retention_threshold' to ['33']: duration is not a valid data duration string: 33");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '33mb')",
-                "\\QUnable to set catalog 'iceberg' table procedure 'EXPIRE_SNAPSHOTS' property 'retention_threshold' to ['33mb']: Unknown time unit: mb");
+                "\\Qline 1:46: Unable to set catalog 'iceberg' table procedure 'EXPIRE_SNAPSHOTS' property 'retention_threshold' to ['33mb']: Unknown time unit: mb");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '33s')",
                 "\\QRetention specified (33.00s) is shorter than the minimum retention configured in the system (7.00d). Minimum retention can be changed with iceberg.expire_snapshots.min-retention configuration property or iceberg.expire_snapshots_min_retention session property");
@@ -5857,7 +6316,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
         assertExplain("EXPLAIN ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')",
-                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_remove_orphan_files.*\\{retentionThreshold=0\\.00s}.*");
+                "SimpleTableExecute\\[table = iceberg:schemaTableName:tpch.test_remove_orphan_files.*\\[retentionThreshold=0\\.00s].*");
     }
 
     @Test
@@ -5868,10 +6327,10 @@ public abstract class BaseIcebergConnectorTest
                 "\\Qline 1:7: Table 'iceberg.tpch.no_such_table_exists' does not exist");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '33')",
-                "\\QUnable to set catalog 'iceberg' table procedure 'REMOVE_ORPHAN_FILES' property 'retention_threshold' to ['33']: duration is not a valid data duration string: 33");
+                "\\Qline 1:49: Unable to set catalog 'iceberg' table procedure 'REMOVE_ORPHAN_FILES' property 'retention_threshold' to ['33']: duration is not a valid data duration string: 33");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '33mb')",
-                "\\QUnable to set catalog 'iceberg' table procedure 'REMOVE_ORPHAN_FILES' property 'retention_threshold' to ['33mb']: Unknown time unit: mb");
+                "\\Qline 1:49: Unable to set catalog 'iceberg' table procedure 'REMOVE_ORPHAN_FILES' property 'retention_threshold' to ['33mb']: Unknown time unit: mb");
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '33s')",
                 "\\QRetention specified (33.00s) is shorter than the minimum retention configured in the system (7.00d). Minimum retention can be changed with iceberg.remove_orphan_files.min-retention configuration property or iceberg.remove_orphan_files_min_retention session property");
@@ -5943,7 +6402,7 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "test_updating_invalid_table_property_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a INT, b INT)");
         assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES not_a_valid_table_property = 'a value'"))
-                .failure().hasMessage("Catalog 'iceberg' table property 'not_a_valid_table_property' does not exist");
+                .failure().hasMessage("line 1:76: Catalog 'iceberg' table property 'not_a_valid_table_property' does not exist");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -6017,6 +6476,15 @@ public abstract class BaseIcebergConnectorTest
                 .isEqualTo(updatedTableSnapshots);
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testEmptyFilesTruncate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_empty_files_truncate_", "AS SELECT 1 AS id")) {
+            assertUpdate("TRUNCATE TABLE " + table.getName());
+            assertQueryReturnsEmptyResult("SELECT * FROM \"" + table.getName() + "$files\"");
+        }
     }
 
     @Test
@@ -7082,7 +7550,7 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails("ALTER TABLE " + tableName + " EXECUTE vacuum", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("ALTER TABLE " + tableName + " RENAME TO bad_person_some_new_name", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN foo int", "Metadata not found in metadata location for table " + schemaTableName);
-        // TODO (https://github.com/trinodb/trino/issues/16248) ADD field
+        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN independence.month int", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN country", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN independence.month", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES format = 'PARQUET'", "Metadata not found in metadata location for table " + schemaTableName);
@@ -7090,7 +7558,7 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails("UPDATE " + tableName + " SET country = 'AUSTRIA'", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("DELETE FROM " + tableName, "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("MERGE INTO  " + tableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE", "Metadata not found in metadata location for table " + schemaTableName);
-        assertQueryFails("TRUNCATE TABLE " + tableName, "This connector does not support truncating tables");
+        assertQueryFails("TRUNCATE TABLE " + tableName, "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("COMMENT ON TABLE " + tableName + " IS NULL", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("COMMENT ON COLUMN " + tableName + ".foo IS NULL", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("CALL iceberg.system.rollback_to_snapshot(CURRENT_SCHEMA, '" + tableName + "', 8954597067493422955)", "Metadata not found in metadata location for table " + schemaTableName);
@@ -7224,29 +7692,47 @@ public abstract class BaseIcebergConnectorTest
 
             assertQuery(
                     "SELECT nationkey, name, _change_type, _change_version_id, _change_ordinal " +
-                            "FROM TABLE(system.table_changes('tpch', '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
+                            "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
                     "SELECT nationkey, name, 'insert', %s, 0 FROM nation WHERE nationkey < 5".formatted(snapshotAfterInsert));
 
             assertQuery(
                     "SELECT nationkey, _change_type, _change_version_id, _change_ordinal " +
-                            "FROM TABLE(system.table_changes('tpch', '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterDropColumn),
+                            "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterDropColumn),
                     "SELECT nationkey, 'insert', %s, 0 FROM nation WHERE nationkey < 5 UNION SELECT nationkey, 'insert', %s, 1 FROM nation WHERE nationkey >= 5 AND nationkey < 10 ".formatted(snapshotAfterInsert, snapshotAfterDropColumn));
 
             assertQuery(
                     "SELECT nationkey, comment, _change_type, _change_version_id, _change_ordinal " +
-                            "FROM TABLE(system.table_changes('tpch', '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterAddColumn),
+                            "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterAddColumn),
                     ("SELECT nationkey, NULL, 'insert', %s, 0 FROM nation WHERE nationkey < 5 " +
                             "UNION SELECT nationkey, NULL, 'insert', %s, 1 FROM nation WHERE nationkey >= 5 AND nationkey < 10 " +
                             "UNION SELECT nationkey, comment, 'insert', %s, 2 FROM nation WHERE nationkey >= 10 AND nationkey < 15").formatted(snapshotAfterInsert, snapshotAfterDropColumn, snapshotAfterAddColumn));
 
             assertQuery(
                     "SELECT nationkey, comment, name, _change_type, _change_version_id, _change_ordinal " +
-                            "FROM TABLE(system.table_changes('tpch', '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterReaddingNameColumn),
+                            "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterReaddingNameColumn),
                     ("SELECT nationkey, NULL, NULL, 'insert', %s, 0 FROM nation WHERE nationkey < 5 " +
                             "UNION SELECT nationkey, NULL, NULL, 'insert', %s, 1 FROM nation WHERE nationkey >= 5 AND nationkey < 10 " +
                             "UNION SELECT nationkey, comment, NULL, 'insert', %s, 2 FROM nation WHERE nationkey >= 10 AND nationkey < 15" +
                             "UNION SELECT nationkey, comment, name, 'insert', %s, 3 FROM nation WHERE nationkey >= 15").formatted(snapshotAfterInsert, snapshotAfterDropColumn, snapshotAfterAddColumn, snapshotAfterReaddingNameColumn));
         }
+    }
+
+    @Test
+    public void testTableChangesFunctionInvalidArguments()
+    {
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.table_changes(\"SCHEMA\" => CURRENT_SCHEMA, \"SCHEMA_NAME\" => CURRENT_SCHEMA, \"TABLE\" => 'region', START_SNAPSHOT_ID => 1, END_SNAPSHOT_ID => 2))",
+                "Cannot use both SCHEMA and SCHEMA_NAME arguments");
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.table_changes(\"SCHEMA\" => CURRENT_SCHEMA, \"TABLE\" => 'region', \"TABLE_NAME\" => 'region', START_SNAPSHOT_ID => 1, END_SNAPSHOT_ID => 2))",
+                "Cannot use both TABLE and TABLE_NAME arguments");
+
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.table_changes(start_snapshot_id => 1, end_snapshot_id => 2))",
+                "SCHEMA_NAME argument not found");
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.table_changes(schema_name => 'tpch', start_snapshot_id => 1, end_snapshot_id => 2))",
+                "TABLE_NAME argument not found");
     }
 
     @Test
@@ -7576,25 +8062,26 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testTimestampPrecisionOnCreateTableAsSelect()
+    public void testTypeCoercionOnCreateTableAsSelect()
     {
-        for (TimestampPrecisionTestSetup setup : timestampPrecisionOnCreateTableAsSelectProvider()) {
+        for (TypeCoercionTestSetup setup : typeCoercionOnCreateTableAsSelectProvider()) {
             try (TestTable testTable = new TestTable(
                     getQueryRunner()::execute,
                     "test_coercion_show_create_table",
                     format("AS SELECT %s a", setup.sourceValueLiteral))) {
                 assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(setup.newColumnType);
-                assertQuery(
-                        format("SELECT * FROM %s", testTable.getName()),
-                        format("VALUES (%s)", setup.newValueLiteral));
+                assertThat(query("SELECT * FROM " + testTable.getName()))
+                        .as("source value: %s, new type: %s, new value: %s", setup.sourceValueLiteral, setup.newColumnType, setup.newValueLiteral)
+                        .skippingTypesCheck()
+                        .matches("SELECT " + setup.newValueLiteral);
             }
         }
     }
 
     @Test
-    public void testTimestampPrecisionOnCreateTableAsSelectWithNoData()
+    public void testTypeCoercionOnCreateTableAsSelectWithNoData()
     {
-        for (TimestampPrecisionTestSetup setup : timestampPrecisionOnCreateTableAsSelectProvider()) {
+        for (TypeCoercionTestSetup setup : typeCoercionOnCreateTableAsSelectProvider()) {
             try (TestTable testTable = new TestTable(
                     getQueryRunner()::execute,
                     "test_coercion_show_create_table",
@@ -7604,145 +8091,98 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
-    private List<TimestampPrecisionTestSetup> timestampPrecisionOnCreateTableAsSelectProvider()
+    private List<TypeCoercionTestSetup> typeCoercionOnCreateTableAsSelectProvider()
     {
-        return timestampPrecisionOnCreateTableAsSelectData().stream()
-                .map(this::filterTimestampPrecisionOnCreateTableAsSelectProvider)
+        return typeCoercionOnCreateTableAsSelectData().stream()
+                .map(this::filterTypeCoercionOnCreateTableAsSelectProvider)
                 .flatMap(Optional::stream)
                 .collect(toList());
     }
 
-    protected Optional<TimestampPrecisionTestSetup> filterTimestampPrecisionOnCreateTableAsSelectProvider(TimestampPrecisionTestSetup setup)
+    protected Optional<TypeCoercionTestSetup> filterTypeCoercionOnCreateTableAsSelectProvider(TypeCoercionTestSetup setup)
     {
         return Optional.of(setup);
     }
 
-    private List<TimestampPrecisionTestSetup> timestampPrecisionOnCreateTableAsSelectData()
+    private List<TypeCoercionTestSetup> typeCoercionOnCreateTableAsSelectData()
     {
-        return ImmutableList.<TimestampPrecisionTestSetup>builder()
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.9'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.900000'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.56'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.560000'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123000'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.4896'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.489600'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.89356'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.893560'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123000'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123000'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.999'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.999000'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.1'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.100000'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.9'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.900000'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.123'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123000'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.123000'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123000'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.999'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.999000'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.123456'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123456'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.1234561'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456499'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.1234565'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123457'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.111222'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:01.000000'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 23:59:59.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-02 00:00:00.000000'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1969-12-31 23:59:59.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999999'"))
-                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1969-12-31 23:59:59.9999994'", "timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999999'"))
+        return ImmutableList.<TypeCoercionTestSetup>builder()
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.9'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.900000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.56'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.560000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.4896'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.489600'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.89356'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.893560'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123000'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.999'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.999000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '2020-09-27 12:34:56.1'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.100000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '2020-09-27 12:34:56.9'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.900000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '2020-09-27 12:34:56.123'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '2020-09-27 12:34:56.123000'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '2020-09-27 12:34:56.999'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.999000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '2020-09-27 12:34:56.123456'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123456'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.1234561'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456499'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.1234565'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123457'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.111222'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:01.000000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 23:59:59.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-02 00:00:00.000000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1969-12-31 23:59:59.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999999'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1969-12-31 23:59:59.9999994'", "timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999999'"))
+                .add(new TypeCoercionTestSetup("TIME '00:00:00'", "time(6)", "TIME '00:00:00.000000'"))
+                .add(new TypeCoercionTestSetup("TIME '00:00:00.9'", "time(6)", "TIME '00:00:00.900000'"))
+                .add(new TypeCoercionTestSetup("TIME '00:00:00.56'", "time(6)", "TIME '00:00:00.560000'"))
+                .add(new TypeCoercionTestSetup("TIME '00:00:00.123'", "time(6)", "TIME '00:00:00.123000'"))
+                .add(new TypeCoercionTestSetup("TIME '00:00:00.4896'", "time(6)", "TIME '00:00:00.489600'"))
+                .add(new TypeCoercionTestSetup("TIME '00:00:00.89356'", "time(6)", "TIME '00:00:00.893560'"))
+                .add(new TypeCoercionTestSetup("TIME '00:00:00.123000'", "time(6)", "TIME '00:00:00.123000'"))
+                .add(new TypeCoercionTestSetup("TIME '00:00:00.999'", "time(6)", "TIME '00:00:00.999000'"))
+                .add(new TypeCoercionTestSetup("TIME '00:00:00.123456'", "time(6)", "TIME '00:00:00.123456'"))
+                .add(new TypeCoercionTestSetup("TIME '12:34:56.1'", "time(6)", "TIME '12:34:56.100000'"))
+                .add(new TypeCoercionTestSetup("TIME '12:34:56.9'", "time(6)", "TIME '12:34:56.900000'"))
+                .add(new TypeCoercionTestSetup("TIME '12:34:56.123'", "time(6)", "TIME '12:34:56.123000'"))
+                .add(new TypeCoercionTestSetup("TIME '12:34:56.123000'", "time(6)", "TIME '12:34:56.123000'"))
+                .add(new TypeCoercionTestSetup("TIME '12:34:56.999'", "time(6)", "TIME '12:34:56.999000'"))
+                .add(new TypeCoercionTestSetup("TIME '12:34:56.123456'", "time(6)", "TIME '12:34:56.123456'"))
+                .add(new TypeCoercionTestSetup("TIME '00:00:00.1234561'", "time(6)", "TIME '00:00:00.123456'"))
+                .add(new TypeCoercionTestSetup("TIME '00:00:00.123456499'", "time(6)", "TIME '00:00:00.123456'"))
+                .add(new TypeCoercionTestSetup("TIME '00:00:00.123456499999'", "time(6)", "TIME '00:00:00.123456'"))
+                .add(new TypeCoercionTestSetup("TIME '00:00:00.1234565'", "time(6)", "TIME '00:00:00.123457'"))
+                .add(new TypeCoercionTestSetup("TIME '00:00:00.111222333444'", "time(6)", "TIME '00:00:00.111222'"))
+                .add(new TypeCoercionTestSetup("TIME '00:00:00.9999995'", "time(6)", "TIME '00:00:01.000000'"))
+                .add(new TypeCoercionTestSetup("TIME '23:59:59.9999995'", "time(6)", "TIME '00:00:00.000000'"))
+                .add(new TypeCoercionTestSetup("TIME '23:59:59.999999499999'", "time(6)", "TIME '23:59:59.999999'"))
+                .add(new TypeCoercionTestSetup("TIME '23:59:59.9999994'", "time(6)", "TIME '23:59:59.999999'"))
+                .add(new TypeCoercionTestSetup("CHAR 'A'", "varchar", "'A'"))
+                .add(new TypeCoercionTestSetup("CHAR 'é'", "varchar", "'é'"))
+                .add(new TypeCoercionTestSetup("CHAR 'A '", "varchar", "'A '"))
+                .add(new TypeCoercionTestSetup("CHAR ' A'", "varchar", "' A'"))
+                .add(new TypeCoercionTestSetup("CHAR 'ABc'", "varchar", "'ABc'"))
+                .add(new TypeCoercionTestSetup("ARRAY[CHAR 'A']", "array(varchar)", "ARRAY['A']"))
+                .add(new TypeCoercionTestSetup("ARRAY[ARRAY[CHAR 'nested']]", "array(array(varchar))", "ARRAY[ARRAY['nested']]"))
+                .add(new TypeCoercionTestSetup("MAP(ARRAY[CHAR 'key'], ARRAY[CHAR 'value'])", "map(varchar, varchar)", "MAP(ARRAY['key'], ARRAY['value'])"))
+                .add(new TypeCoercionTestSetup("MAP(ARRAY[CHAR 'key'], ARRAY[ARRAY[CHAR 'value']])", "map(varchar, array(varchar))", "MAP(ARRAY['key'], ARRAY[ARRAY['value']])"))
+                // TODO Add test case for MAP type with ARRAY keys once https://github.com/trinodb/trino/issues/1146 is resolved
+                .add(new TypeCoercionTestSetup("CAST(ROW('a') AS ROW(x CHAR))", "row(x varchar)", "CAST(ROW('a') AS ROW(x VARCHAR))"))
+                .add(new TypeCoercionTestSetup("CAST(ROW(ROW('a')) AS ROW(x ROW(y CHAR)))", "row(x row(y varchar))", "CAST(ROW(ROW('a')) AS ROW(x ROW(y VARCHAR)))"))
                 .build();
     }
 
-    public record TimestampPrecisionTestSetup(String sourceValueLiteral, String newColumnType, String newValueLiteral)
+    public record TypeCoercionTestSetup(@Language("SQL") String sourceValueLiteral, String newColumnType, @Language("SQL") String newValueLiteral)
     {
-        public TimestampPrecisionTestSetup
+        public TypeCoercionTestSetup
         {
             requireNonNull(sourceValueLiteral, "sourceValueLiteral is null");
             requireNonNull(newColumnType, "newColumnType is null");
             requireNonNull(newValueLiteral, "newValueLiteral is null");
         }
 
-        public TimestampPrecisionTestSetup withNewValueLiteral(String newValueLiteral)
+        public TypeCoercionTestSetup withNewValueLiteral(String newValueLiteral)
         {
-            return new TimestampPrecisionTestSetup(sourceValueLiteral, newColumnType, newValueLiteral);
-        }
-    }
-
-    @Test
-    public void testTimePrecisionOnCreateTableAsSelect()
-    {
-        testTimePrecisionOnCreateTableAsSelect("TIME '00:00:00'", "time(6)", "TIME '00:00:00.000000'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '00:00:00.9'", "time(6)", "TIME '00:00:00.900000'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '00:00:00.56'", "time(6)", "TIME '00:00:00.560000'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '00:00:00.123'", "time(6)", "TIME '00:00:00.123000'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '00:00:00.4896'", "time(6)", "TIME '00:00:00.489600'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '00:00:00.89356'", "time(6)", "TIME '00:00:00.893560'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '00:00:00.123000'", "time(6)", "TIME '00:00:00.123000'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '00:00:00.999'", "time(6)", "TIME '00:00:00.999000'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '00:00:00.123456'", "time(6)", "TIME '00:00:00.123456'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '12:34:56.1'", "time(6)", "TIME '12:34:56.100000'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '12:34:56.9'", "time(6)", "TIME '12:34:56.900000'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '12:34:56.123'", "time(6)", "TIME '12:34:56.123000'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '12:34:56.123000'", "time(6)", "TIME '12:34:56.123000'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '12:34:56.999'", "time(6)", "TIME '12:34:56.999000'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '12:34:56.123456'", "time(6)", "TIME '12:34:56.123456'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '00:00:00.1234561'", "time(6)", "TIME '00:00:00.123456'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '00:00:00.123456499'", "time(6)", "TIME '00:00:00.123456'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '00:00:00.123456499999'", "time(6)", "TIME '00:00:00.123456'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '00:00:00.1234565'", "time(6)", "TIME '00:00:00.123457'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '00:00:00.111222333444'", "time(6)", "TIME '00:00:00.111222'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '00:00:00.9999995'", "time(6)", "TIME '00:00:01.000000'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '23:59:59.9999995'", "time(6)", "TIME '00:00:00.000000'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '23:59:59.9999995'", "time(6)", "TIME '00:00:00.000000'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '23:59:59.999999499999'", "time(6)", "TIME '23:59:59.999999'");
-        testTimePrecisionOnCreateTableAsSelect("TIME '23:59:59.9999994'", "time(6)", "TIME '23:59:59.999999'");
-    }
-
-    private void testTimePrecisionOnCreateTableAsSelect(String inputType, String tableType, String tableValue)
-    {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
-                "test_coercion_show_create_table",
-                format("AS SELECT %s a", inputType))) {
-            assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(tableType);
-            assertQuery(
-                    format("SELECT * FROM %s", testTable.getName()),
-                    format("VALUES (%s)", tableValue));
-        }
-    }
-
-    @Test
-    public void testTimePrecisionOnCreateTableAsSelectWithNoData()
-    {
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '00:00:00'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '00:00:00.9'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '00:00:00.56'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '00:00:00.123'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '00:00:00.4896'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '00:00:00.89356'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '00:00:00.123000'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '00:00:00.999'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '00:00:00.123456'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '12:34:56.1'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '12:34:56.9'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '12:34:56.123'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '12:34:56.123000'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '12:34:56.999'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '12:34:56.123456'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '00:00:00.1234561'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '00:00:00.123456499'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '00:00:00.123456499999'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '00:00:00.1234565'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '00:00:00.111222333444'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '00:00:00.9999995'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '23:59:59.9999995'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '23:59:59.9999995'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '23:59:59.999999499999'", "time(6)");
-        testTimePrecisionOnCreateTableAsSelectWithNoData("TIME '23:59:59.9999994'", "time(6)");
-    }
-
-    private void testTimePrecisionOnCreateTableAsSelectWithNoData(String inputType, String tableType)
-    {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
-                "test_coercion_show_create_table",
-                format("AS SELECT %s a WITH NO DATA", inputType))) {
-            assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(tableType);
+            return new TypeCoercionTestSetup(sourceValueLiteral, newColumnType, newValueLiteral);
         }
     }
 

@@ -75,7 +75,6 @@ import static java.time.Duration.ofSeconds;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@SuppressWarnings("FieldNamingConvention")
 @TestInstance(PER_METHOD)
 class TestHttpEventListener
 {
@@ -192,6 +191,7 @@ class TestHttpEventListener
                 List.of(new StageOutputBufferUtilization(0, 10, 0.1, 0.5, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 0.0, 1.0, ofSeconds(1234))),
                 Collections.emptyList(),
                 Collections.emptyList(),
+                Collections.emptyList(),
                 Optional.empty());
 
         splitCompleteEvent = new SplitCompletedEvent(
@@ -241,7 +241,7 @@ class TestHttpEventListener
         try {
             server.close();
         }
-        catch (IOException ignored) {
+        catch (IOException _) {
             // MockWebServer.close() method sometimes throws 'Gave up waiting for executor to shut down'
         }
         server = null;

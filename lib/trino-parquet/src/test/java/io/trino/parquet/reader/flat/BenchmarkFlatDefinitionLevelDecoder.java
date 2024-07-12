@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.parquet.reader.TestData.generateMixedData;
+import static io.trino.parquet.reader.flat.NullsDecoders.createNullsDecoder;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -40,14 +41,14 @@ import static io.trino.parquet.reader.TestData.generateMixedData;
 @Fork(3)
 public class BenchmarkFlatDefinitionLevelDecoder
 {
-    public static final int BATCH_SIZE = 1024;
+    private static final int BATCH_SIZE = 1024;
 
     @Param({
             "1000",
             "10000",
             "100000",
     })
-    private int size;
+    public int size;
 
     @Param({
             "RANDOM",
@@ -56,21 +57,17 @@ public class BenchmarkFlatDefinitionLevelDecoder
             "MIXED_RANDOM_AND_SMALL_GROUPS",
             "MIXED_RANDOM_AND_BIG_GROUPS",
     })
-    private DataGenerator dataGenerator;
+    public DataGenerator dataGenerator;
+
+    @Param({
+            "false",
+            "true"
+    })
+    public boolean vectorizedDecodingEnabled;
 
     private byte[] data;
     // Dummy output array
     private boolean[] output;
-
-    public BenchmarkFlatDefinitionLevelDecoder()
-    {
-    }
-
-    public BenchmarkFlatDefinitionLevelDecoder(int size, DataGenerator dataGenerator)
-    {
-        this.size = size;
-        this.dataGenerator = dataGenerator;
-    }
 
     @Setup
     public void setup()
@@ -84,7 +81,7 @@ public class BenchmarkFlatDefinitionLevelDecoder
     public int read()
             throws IOException
     {
-        NullsDecoder decoder = new NullsDecoder();
+        FlatDefinitionLevelDecoder decoder = createNullsDecoder(vectorizedDecodingEnabled);
         decoder.init(Slices.wrappedBuffer(data));
         int nonNullCount = 0;
         for (int i = 0; i < size; i += BATCH_SIZE) {
@@ -170,7 +167,7 @@ public class BenchmarkFlatDefinitionLevelDecoder
             throws Exception
     {
         benchmark(BenchmarkFlatDefinitionLevelDecoder.class)
-                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g"))
+                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g", "--add-modules=jdk.incubator.vector"))
                 .run();
     }
 }

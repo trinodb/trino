@@ -5,17 +5,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>444</version>
+        <version>451</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-raptor-legacy</artifactId>
     <packaging>trino-plugin</packaging>
     <description>Trino - Raptor legacy connector</description>
-
-    <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-    </properties>
 
     <dependencies>
         <dependency>

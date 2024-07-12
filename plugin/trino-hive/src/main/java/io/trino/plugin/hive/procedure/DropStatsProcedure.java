@@ -38,6 +38,7 @@ import io.trino.spi.type.ArrayType;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
@@ -92,7 +93,7 @@ public class DropStatsProcedure
 
     public void dropStats(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<?> partitionValues)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doDropStats(session, accessControl, schema, table, partitionValues);
         }
     }
@@ -105,7 +106,7 @@ public class DropStatsProcedure
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.create(session.getIdentity(), true);
         hiveMetadata.beginQuery(session);
         try (UncheckedCloseable ignore = () -> hiveMetadata.cleanupQuery(session)) {
-            HiveTableHandle handle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schema, table));
+            HiveTableHandle handle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schema, table), Optional.empty(), Optional.empty());
             if (handle == null) {
                 throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schema, table)));
             }

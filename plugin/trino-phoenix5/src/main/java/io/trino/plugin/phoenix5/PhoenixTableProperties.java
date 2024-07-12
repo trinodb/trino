@@ -36,7 +36,6 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Class contains all table properties for the Phoenix connector. Used when creating a table:
- * <p>
  * <pre>CREATE TABLE foo (a VARCHAR with (primary_key = true), b INT) WITH (SALT_BUCKETS=10, VERSIONS=5, COMPRESSION='lz');</pre>
  */
 public final class PhoenixTableProperties

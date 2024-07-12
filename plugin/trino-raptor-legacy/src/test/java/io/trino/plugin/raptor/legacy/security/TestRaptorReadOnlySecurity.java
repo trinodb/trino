@@ -13,12 +13,10 @@
  */
 package io.trino.plugin.raptor.legacy.security;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.raptor.legacy.RaptorQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestRaptorReadOnlySecurity
@@ -27,7 +25,7 @@ public class TestRaptorReadOnlySecurity
     public void testCannotWrite()
             throws Exception
     {
-        try (QueryRunner queryRunner = createRaptorQueryRunner(ImmutableMap.of(), ImmutableList.of(), false, ImmutableMap.of("raptor.security", "read-only"))) {
+        try (QueryRunner queryRunner = RaptorQueryRunner.builder().addConnectorProperty("raptor.security", "read-only").build()) {
             assertThatThrownBy(() -> {
                 queryRunner.execute("CREATE TABLE test_create (a bigint, b double, c varchar)");
             })

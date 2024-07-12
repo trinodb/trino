@@ -72,7 +72,7 @@ public final class CreateFunction
     {
         return (obj instanceof CreateFunction other) &&
                 Objects.equals(specification, other.specification) &&
-                Objects.equals(replace, other.replace);
+                replace == other.replace;
     }
 
     @Override

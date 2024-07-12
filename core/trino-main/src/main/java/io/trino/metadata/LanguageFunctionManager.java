@@ -70,6 +70,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.sql.SqlFormatter.formatSql;
+import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.routine.SqlRoutineAnalyzer.extractFunctionMetadata;
 import static io.trino.sql.routine.SqlRoutineAnalyzer.isRunAsInvoker;
 import static java.util.Objects.requireNonNull;
@@ -184,14 +186,14 @@ public class LanguageFunctionManager
         return getQueryFunctions(session).serializeFunctionsForWorkers();
     }
 
-    public void verifyForCreate(Session session, String sql, FunctionManager functionManager, AccessControl accessControl)
+    public void verifyForCreate(Session session, FunctionSpecification function, FunctionManager functionManager, AccessControl accessControl)
     {
-        getQueryFunctions(session).verifyForCreate(sql, functionManager, accessControl);
+        getQueryFunctions(session).verifyForCreate(function, functionManager, accessControl);
     }
 
-    public void addInlineFunction(Session session, String sql, AccessControl accessControl)
+    public void addInlineFunction(Session session, FunctionSpecification function, AccessControl accessControl)
     {
-        getQueryFunctions(session).addInlineFunction(sql, accessControl);
+        getQueryFunctions(session).addInlineFunction(function, accessControl);
     }
 
     public interface LanguageFunctionLoader
@@ -245,14 +247,14 @@ public class LanguageFunctionManager
             this.session = session;
         }
 
-        public void verifyForCreate(String sql, FunctionManager functionManager, AccessControl accessControl)
+        public void verifyForCreate(FunctionSpecification function, FunctionManager functionManager, AccessControl accessControl)
         {
-            implementationWithoutSecurity(session.getQueryId(), sql).verifyForCreate(functionManager, accessControl);
+            implementationWithoutSecurity(session.getQueryId(), function).verifyForCreate(functionManager, accessControl);
         }
 
-        public void addInlineFunction(String sql, AccessControl accessControl)
+        public void addInlineFunction(FunctionSpecification function, AccessControl accessControl)
         {
-            LanguageFunctionImplementation implementation = implementationWithoutSecurity(session.getQueryId(), sql);
+            LanguageFunctionImplementation implementation = implementationWithoutSecurity(session.getQueryId(), function);
             FunctionMetadata metadata = implementation.getFunctionMetadata();
             implementationsById.put(metadata.getFunctionId(), implementation);
             SchemaFunctionName name = new SchemaFunctionName(QUERY_LOCAL_SCHEMA, metadata.getCanonicalName());
@@ -362,16 +364,28 @@ public class LanguageFunctionManager
             }
         }
 
-        private LanguageFunctionImplementation implementationWithoutSecurity(QueryId queryId, String sql)
+        private LanguageFunctionImplementation implementationWithoutSecurity(QueryId queryId, FunctionSpecification function)
         {
             // use the original path during function creation and for inline functions
-            return new LanguageFunctionImplementation(queryId, sql, session.getPath(), Optional.empty(), Optional.empty());
+            return new LanguageFunctionImplementation(
+                    queryId,
+                    formatSql(function),
+                    function,
+                    session.getPath(),
+                    Optional.empty(),
+                    Optional.empty());
         }
 
         private LanguageFunctionImplementation implementationWithSecurity(QueryId queryId, String sql, List<CatalogSchemaName> path, Optional<String> owner, RunAsIdentityLoader identityLoader)
         {
             // stored functions cannot see inline functions, so we need to rebuild the path
-            return new LanguageFunctionImplementation(queryId, sql, session.getPath().forView(path), owner, Optional.of(identityLoader));
+            return new LanguageFunctionImplementation(
+                    queryId,
+                    sql,
+                    parser.createFunctionSpecification(sql),
+                    session.getPath().forView(path),
+                    owner,
+                    Optional.of(identityLoader));
         }
 
         private class LanguageFunctionImplementation
@@ -385,9 +399,9 @@ public class LanguageFunctionManager
             private FunctionId resolvedFunctionId;
             private boolean analyzing;
 
-            private LanguageFunctionImplementation(QueryId queryId, String sql, SqlPath path, Optional<String> owner, Optional<RunAsIdentityLoader> identityLoader)
+            private LanguageFunctionImplementation(QueryId queryId, String sql, FunctionSpecification function, SqlPath path, Optional<String> owner, Optional<RunAsIdentityLoader> identityLoader)
             {
-                this.functionSpecification = parser.createFunctionSpecification(sql);
+                this.functionSpecification = requireNonNull(function, "function is null");
                 this.functionMetadata = extractFunctionMetadata(createSqlLanguageFunctionId(queryId, sql), functionSpecification);
                 this.path = requireNonNull(path, "path is null");
                 this.owner = requireNonNull(owner, "owner is null");
@@ -412,13 +426,16 @@ public class LanguageFunctionManager
                     return;
                 }
                 if (analyzing) {
-                    throw new TrinoException(NOT_SUPPORTED, "Recursive language functions are not supported: %s%s".formatted(functionMetadata.getCanonicalName(), functionMetadata.getSignature()));
+                    String error = "Recursive language functions are not supported: " + nameSignature();
+                    if (originalAst()) {
+                        throw new TrinoException(NOT_SUPPORTED, extractLocation(functionSpecification), error, null);
+                    }
+                    throw new LanguageFunctionAnalysisException(NOT_SUPPORTED, error);
                 }
 
                 analyzing = true;
 
-                FunctionContext context = functionContext(accessControl);
-                SqlRoutineAnalysis analysis = analyzer.analyze(context.session(), context.accessControl(), functionSpecification);
+                SqlRoutineAnalysis analysis = analyze(functionContext(accessControl));
                 routine = planner.planSqlFunction(session, functionSpecification, analysis);
 
                 Hasher hasher = Hashing.sha256().newHasher();
@@ -426,6 +443,24 @@ public class LanguageFunctionManager
                 resolvedFunctionId = new FunctionId(SQL_FUNCTION_PREFIX + hasher.hash());
 
                 analyzing = false;
+            }
+
+            private SqlRoutineAnalysis analyze(FunctionContext context)
+            {
+                try {
+                    return analyzer.analyze(context.session(), context.accessControl(), functionSpecification);
+                }
+                catch (TrinoException e) {
+                    if (originalAst() || (e instanceof LanguageFunctionAnalysisException)) {
+                        throw e;
+                    }
+                    throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Error analyzing stored function: " + nameSignature(), e);
+                }
+            }
+
+            private String nameSignature()
+            {
+                return functionMetadata.getCanonicalName() + functionMetadata.getSignature();
             }
 
             public synchronized IrRoutine getRoutine()
@@ -465,6 +500,13 @@ public class LanguageFunctionManager
             private Session createFunctionSession(Identity identity)
             {
                 return session.createViewSession(Optional.empty(), Optional.empty(), identity, path);
+            }
+
+            private boolean originalAst()
+            {
+                // The identity loader is empty for inline functions or function creation,
+                // which means that we have the original AST.
+                return identityLoader.isEmpty();
             }
 
             private record FunctionContext(Session session, AccessControl accessControl) {}

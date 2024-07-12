@@ -54,7 +54,7 @@ public class CassandraRecordSetProvider
                 .map(column -> (CassandraColumnHandle) column)
                 .collect(toList());
 
-        if (cassandraTable.getRelationHandle() instanceof CassandraQueryRelationHandle queryRelationHandle) {
+        if (cassandraTable.relationHandle() instanceof CassandraQueryRelationHandle queryRelationHandle) {
             return new CassandraRecordSet(cassandraSession, cassandraTypeManager, queryRelationHandle.getQuery(), cassandraColumns);
         }
 

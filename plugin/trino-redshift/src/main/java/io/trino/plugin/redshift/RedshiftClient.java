@@ -71,7 +71,6 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Chars;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
@@ -116,12 +115,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charReadFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingSqlDate;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingSqlDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
@@ -133,11 +127,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMappingUsingSqlTime;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestampWithRounding;
-import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -160,7 +150,6 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
@@ -235,7 +224,6 @@ public class RedshiftClient
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
     private final RedshiftTableStatisticsReader statisticsReader;
-    private final boolean legacyTypeMapping;
 
     @Inject
     public RedshiftClient(
@@ -244,11 +232,9 @@ public class RedshiftClient
             JdbcStatisticsConfig statisticsConfig,
             QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping,
-            RemoteQueryModifier queryModifier,
-            RedshiftConfig redshiftConfig)
+            RemoteQueryModifier queryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
-        this.legacyTypeMapping = redshiftConfig.isLegacyTypeMapping();
         ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .build();
@@ -305,6 +291,18 @@ public class RedshiftClient
             throw e;
         }
         return connection;
+    }
+
+    @Override
+    protected ResultSet getAllTableColumns(Connection connection, Optional<String> remoteSchemaName)
+            throws SQLException
+    {
+        DatabaseMetaData metadata = connection.getMetaData();
+        return metadata.getColumns(
+                metadata.getConnection().getCatalog(),
+                escapeObjectNameForMetadataQuery(remoteSchemaName, metadata.getSearchStringEscape()).orElse(null),
+                null,
+                null);
     }
 
     @Override
@@ -381,9 +379,9 @@ public class RedshiftClient
         return Optional.of((query, sortItems, limit) -> {
             String orderBy = sortItems.stream()
                     .map(sortItem -> {
-                        String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
-                        String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
-                        return format("%s %s %s", quoted(sortItem.getColumn().getColumnName()), ordering, nullsHandling);
+                        String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
+                        String nullsHandling = sortItem.sortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
+                        return format("%s %s %s", quoted(sortItem.column().getColumnName()), ordering, nullsHandling);
                     })
                     .collect(joining(", "));
 
@@ -400,7 +398,7 @@ public class RedshiftClient
     @Override
     protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
-        return joinCondition.getOperator() != JoinCondition.Operator.IS_DISTINCT_FROM;
+        return joinCondition.getOperator() != JoinCondition.Operator.IDENTICAL;
     }
 
     @Override
@@ -581,24 +579,19 @@ public class RedshiftClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle type)
     {
-        // todo remove this when legacy type mapping is no longer supported
-        if (legacyTypeMapping) {
-            return legacyToColumnMapping(session, type);
-        }
-
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(type);
         if (mapping.isPresent()) {
             return mapping;
         }
 
-        if ("time".equals(type.getJdbcTypeName().orElse(""))) {
+        if ("time".equals(type.jdbcTypeName().orElse(""))) {
             return Optional.of(ColumnMapping.longMapping(
                     TIME_MICROS,
                     RedshiftClient::readTime,
                     RedshiftClient::writeTime));
         }
 
-        switch (type.getJdbcType()) {
+        switch (type.jdbcType()) {
             case Types.BIT: // Redshift uses this for booleans
                 return Optional.of(booleanColumnMapping());
 
@@ -616,8 +609,8 @@ public class RedshiftClient
                 return Optional.of(doubleColumnMapping());
 
             case Types.NUMERIC: {
-                int precision = type.getRequiredColumnSize();
-                int scale = type.getRequiredDecimalDigits();
+                int precision = type.requiredColumnSize();
+                int scale = type.requiredDecimalDigits();
                 DecimalType decimalType = createDecimalType(precision, scale);
                 if (precision == REDSHIFT_DECIMAL_CUTOFF_PRECISION) {
                     return Optional.of(ColumnMapping.objectMapping(
@@ -629,17 +622,17 @@ public class RedshiftClient
             }
 
             case Types.CHAR:
-                CharType charType = createCharType(type.getRequiredColumnSize());
+                CharType charType = createCharType(type.requiredColumnSize());
                 return Optional.of(ColumnMapping.sliceMapping(
                         charType,
                         charReadFunction(charType),
                         RedshiftClient::writeChar));
 
             case Types.VARCHAR: {
-                if (type.getColumnSize().isEmpty()) {
+                if (type.columnSize().isEmpty()) {
                     throw new TrinoException(REDSHIFT_INVALID_TYPE, "column size not present");
                 }
-                int length = type.getRequiredColumnSize();
+                int length = type.requiredColumnSize();
                 return Optional.of(varcharColumnMapping(
                         length < VarcharType.MAX_LENGTH
                                 ? createVarcharType(length)
@@ -678,30 +671,9 @@ public class RedshiftClient
         return Optional.empty();
     }
 
-    private Optional<ColumnMapping> legacyToColumnMapping(ConnectorSession session, JdbcTypeHandle typeHandle)
-    {
-        Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
-        if (mapping.isPresent()) {
-            return mapping;
-        }
-        Optional<ColumnMapping> connectorMapping = legacyDefaultColumnMapping(typeHandle);
-        if (connectorMapping.isPresent()) {
-            return connectorMapping;
-        }
-        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-            return mapToUnboundedVarchar(typeHandle);
-        }
-        return Optional.empty();
-    }
-
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        // todo remove this when legacy type mapping is no longer supported
-        if (legacyTypeMapping) {
-            return legacyToWriteMapping(type);
-        }
-
         if (BOOLEAN.equals(type)) {
             return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
         }
@@ -997,123 +969,5 @@ public class RedshiftClient
     private static SliceWriteFunction varbinaryWriteFunction()
     {
         return (statement, index, value) -> statement.unwrap(RedshiftPreparedStatement.class).setVarbyte(index, value.getBytes());
-    }
-
-    private static Optional<ColumnMapping> legacyDefaultColumnMapping(JdbcTypeHandle typeHandle)
-    {
-        // This method is copied from deprecated StandardColumnMappings.legacyDefaultColumnMapping()
-        switch (typeHandle.getJdbcType()) {
-            case Types.BIT:
-            case Types.BOOLEAN:
-                return Optional.of(booleanColumnMapping());
-
-            case Types.TINYINT:
-                return Optional.of(tinyintColumnMapping());
-
-            case Types.SMALLINT:
-                return Optional.of(smallintColumnMapping());
-
-            case Types.INTEGER:
-                return Optional.of(integerColumnMapping());
-
-            case Types.BIGINT:
-                return Optional.of(bigintColumnMapping());
-
-            case Types.REAL:
-                return Optional.of(realColumnMapping());
-
-            case Types.FLOAT:
-            case Types.DOUBLE:
-                return Optional.of(doubleColumnMapping());
-
-            case Types.NUMERIC:
-            case Types.DECIMAL:
-                int decimalDigits = typeHandle.getRequiredDecimalDigits();
-                int precision = typeHandle.getRequiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
-                if (precision > Decimals.MAX_PRECISION) {
-                    return Optional.empty();
-                }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
-
-            case Types.CHAR:
-            case Types.NCHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), false));
-
-            case Types.VARCHAR:
-            case Types.NVARCHAR:
-            case Types.LONGVARCHAR:
-            case Types.LONGNVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
-
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-                return Optional.of(varbinaryColumnMapping());
-
-            case Types.DATE:
-                return Optional.of(dateColumnMappingUsingSqlDate());
-
-            case Types.TIME:
-                // TODO default to `timeColumnMapping`
-                return Optional.of(timeColumnMappingUsingSqlTime());
-
-            case Types.TIMESTAMP:
-                // TODO default to `timestampColumnMapping`
-                return Optional.of(timestampColumnMappingUsingSqlTimestampWithRounding(TIMESTAMP_MILLIS));
-        }
-        return Optional.empty();
-    }
-
-    private static WriteMapping legacyToWriteMapping(Type type)
-    {
-        // This method is copied from deprecated BaseJdbcClient.legacyToWriteMapping()
-        if (type == BOOLEAN) {
-            return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
-        }
-        if (type == TINYINT) {
-            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
-        }
-        if (type == SMALLINT) {
-            return WriteMapping.longMapping("smallint", smallintWriteFunction());
-        }
-        if (type == INTEGER) {
-            return WriteMapping.longMapping("integer", integerWriteFunction());
-        }
-        if (type == BIGINT) {
-            return WriteMapping.longMapping("bigint", bigintWriteFunction());
-        }
-        if (type == REAL) {
-            return WriteMapping.longMapping("real", realWriteFunction());
-        }
-        if (type == DOUBLE) {
-            return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
-        }
-        if (type instanceof DecimalType decimalType) {
-            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
-            if (decimalType.isShort()) {
-                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
-            }
-            return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
-        }
-        if (type instanceof CharType charType) {
-            return WriteMapping.sliceMapping("char(" + charType.getLength() + ")", charWriteFunction());
-        }
-        if (type instanceof VarcharType varcharType) {
-            String dataType;
-            if (varcharType.isUnbounded()) {
-                dataType = "varchar";
-            }
-            else {
-                dataType = "varchar(" + varcharType.getBoundedLength() + ")";
-            }
-            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
-        }
-        if (type == VARBINARY) {
-            return WriteMapping.sliceMapping("varbinary", varbinaryWriteFunction());
-        }
-        if (type == DATE) {
-            return WriteMapping.longMapping("date", dateWriteFunctionUsingSqlDate());
-        }
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 }

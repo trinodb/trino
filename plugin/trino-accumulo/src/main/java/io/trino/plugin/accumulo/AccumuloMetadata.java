@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -190,7 +191,7 @@ public class AccumuloMetadata
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.ofNullable(metadataManager.getView(viewName))
-                .map(view -> VIEW_CODEC.fromJson(view.getData()));
+                .map(view -> VIEW_CODEC.fromJson(view.data()));
     }
 
     @Override
@@ -261,8 +262,12 @@ public class AccumuloMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         if (!listSchemaNames(session).contains(tableName.getSchemaName().toLowerCase(Locale.ENGLISH))) {
             return null;
         }
@@ -310,7 +315,7 @@ public class AccumuloMetadata
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (AccumuloColumnHandle column : table.getColumns()) {
-            columnHandles.put(column.getName(), column);
+            columnHandles.put(column.name(), column);
         }
         return columnHandles.buildOrThrow();
     }
@@ -318,7 +323,7 @@ public class AccumuloMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        return ((AccumuloColumnHandle) columnHandle).getColumnMetadata();
+        return ((AccumuloColumnHandle) columnHandle).columnMetadata();
     }
 
     @Override
@@ -331,7 +336,7 @@ public class AccumuloMetadata
             throw new TableNotFoundException(new SchemaTableName(handle.getSchema(), handle.getTable()));
         }
 
-        metadataManager.renameColumn(table, columnHandle.getName(), target);
+        metadataManager.renameColumn(table, columnHandle.name(), target);
     }
 
     @Override
@@ -446,7 +451,7 @@ public class AccumuloMetadata
 
         // Make sure requested table exists, returning the single table of it does
         SchemaTableName table = prefix.toSchemaTableName();
-        if (getTableHandle(session, table) != null) {
+        if (getTableHandle(session, table, Optional.empty(), Optional.empty()) != null) {
             return ImmutableList.of(table);
         }
 

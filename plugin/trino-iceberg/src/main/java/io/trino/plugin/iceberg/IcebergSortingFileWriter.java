@@ -23,7 +23,6 @@ import io.trino.spi.PageSorter;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import org.apache.iceberg.Metrics;
 
 import java.io.Closeable;
 import java.util.List;
@@ -64,9 +63,9 @@ public final class IcebergSortingFileWriter
     }
 
     @Override
-    public Metrics getMetrics()
+    public FileMetrics getFileMetrics()
     {
-        return outputWriter.getMetrics();
+        return outputWriter.getFileMetrics();
     }
 
     @Override

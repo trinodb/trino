@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.pinot;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -22,8 +21,6 @@ import io.trino.testing.kafka.TestingKafka;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.pinot.PinotQueryRunner.createPinotQueryRunner;
-import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,15 +34,14 @@ public class TestPinotConnectorTest
     {
         TestingKafka kafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
         kafka.start();
-        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), false, PINOT_LATEST_IMAGE_NAME));
+        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), false));
         pinot.start();
 
-        return createPinotQueryRunner(
-                kafka,
-                pinot,
-                ImmutableMap.of(),
-                ImmutableMap.of("pinot.grpc.enabled", "true"),
-                REQUIRED_TPCH_TABLES);
+        return PinotQueryRunner.builder()
+                .setKafka(kafka)
+                .setPinot(pinot)
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Override
@@ -53,22 +49,22 @@ public class TestPinotConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN,
-                    SUPPORTS_ARRAY,
-                    SUPPORTS_COMMENT_ON_COLUMN,
-                    SUPPORTS_COMMENT_ON_TABLE,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_SCHEMA,
-                    SUPPORTS_CREATE_TABLE,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_DELETE,
-                    SUPPORTS_INSERT,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_RENAME_COLUMN,
-                    SUPPORTS_RENAME_TABLE,
-                    SUPPORTS_ROW_TYPE,
-                    SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_UPDATE -> false;
+                 SUPPORTS_ARRAY,
+                 SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_SCHEMA,
+                 SUPPORTS_CREATE_TABLE,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_DELETE,
+                 SUPPORTS_INSERT,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_RENAME_COLUMN,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_ROW_TYPE,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -153,15 +149,15 @@ public class TestPinotConnectorTest
                 .isEqualTo("""
                         CREATE TABLE pinot.default.orders (
                            clerk varchar,
-                           orderkey bigint,
-                           orderstatus varchar,
-                           updated_at_seconds bigint,
-                           custkey bigint,
-                           totalprice double,
                            comment varchar,
+                           custkey bigint,
                            orderdate date,
+                           orderkey bigint,
                            orderpriority varchar,
-                           shippriority integer
+                           orderstatus varchar,
+                           shippriority integer,
+                           totalprice double,
+                           updated_at_seconds bigint
                         )""");
     }
 

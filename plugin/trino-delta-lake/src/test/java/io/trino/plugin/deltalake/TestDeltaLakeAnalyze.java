@@ -13,14 +13,15 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
+import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
@@ -40,9 +41,7 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.TPCH_SCHEMA;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.EXTENDED_STATISTICS_COLLECT_ON_WRITE;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
@@ -66,12 +65,20 @@ public class TestDeltaLakeAnalyze
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                ImmutableMap.of(),
-                ImmutableMap.of(
-                        "delta.enable-non-concurrent-writes", "true",
-                        "delta.register-table-procedure.enabled", "true"));
+        DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .addDeltaProperty("delta.register-table-procedure.enabled", "true")
+                .build();
+        try {
+            queryRunner.installPlugin(new TpcdsPlugin());
+            queryRunner.createCatalog("tpcds", "tpcds");
+
+            return queryRunner;
+        }
+        catch (Exception e) {
+            closeAllSuppress(e, queryRunner);
+            throw e;
+        }
     }
 
     @Test
@@ -410,7 +417,7 @@ public class TestDeltaLakeAnalyze
         assertQuery("SHOW STATS FOR " + tableName, expectedFullStats);
 
         // drop stats
-        assertUpdate(format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, TPCH_SCHEMA, tableName));
+        assertUpdate(format("CALL system.drop_extended_stats(CURRENT_SCHEMA, '%s')", tableName));
         // now we should be able to analyze all columns
         assertUpdate(format("ANALYZE %s", tableName), 50);
         assertQuery("SHOW STATS FOR " + tableName, expectedFullStats);
@@ -465,7 +472,7 @@ public class TestDeltaLakeAnalyze
             assertQuery(query, extendedStats);
 
             // Dropping extended stats clears distinct count and leaves other stats alone
-            assertUpdate(format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, TPCH_SCHEMA, table.getName()));
+            assertUpdate(format("CALL system.drop_extended_stats(CURRENT_SCHEMA, '%s')", table.getName()));
             assertQuery(query, baseStats);
 
             // Re-analyzing should work
@@ -482,7 +489,7 @@ public class TestDeltaLakeAnalyze
                 "test_drop_missing_stats",
                 "AS SELECT * FROM tpch.sf1.nation")) {
             // When there are no extended stats, the procedure should have no effect
-            assertUpdate(format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, TPCH_SCHEMA, table.getName()));
+            assertUpdate(format("CALL system.drop_extended_stats(CURRENT_SCHEMA, '%s')", table.getName()));
             assertQuery(
                     "SHOW STATS FOR " + table.getName(),
                     "VALUES"
@@ -503,7 +510,7 @@ public class TestDeltaLakeAnalyze
                 "test_deny_drop_stats",
                 "AS SELECT * FROM tpch.sf1.nation")) {
             assertAccessDenied(
-                    format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, TPCH_SCHEMA, table.getName()),
+                    format("CALL system.drop_extended_stats(CURRENT_SCHEMA, '%s')", table.getName()),
                     "Cannot insert into table .*",
                     privilege(table.getName(), INSERT_TABLE));
         }
@@ -1024,7 +1031,7 @@ public class TestDeltaLakeAnalyze
         assertQuery("SELECT * FROM " + tableName, " VALUES (42, 'foo'), (12, 'ab'), (null, null), (15, 'cd'), (15, 'bar'), (1, 'a'), (12, 'b')");
 
         // Simulate initial analysis
-        assertUpdate(format("CALL system.drop_extended_stats('%s', '%s')", TPCH_SCHEMA, tableName));
+        assertUpdate(format("CALL system.drop_extended_stats(CURRENT_SCHEMA, '%s')", tableName));
 
         assertUpdate("ANALYZE " + tableName, 7);
         assertQuery(
@@ -1135,7 +1142,7 @@ public class TestDeltaLakeAnalyze
         String tableName = resourceTable + randomNameSuffix();
         URI resourcesLocation = getClass().getClassLoader().getResource(resourcePath).toURI();
         copyDirectoryContents(Path.of(resourcesLocation), tableLocation);
-        assertUpdate(format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertUpdate(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableLocation.toUri()));
         return tableName;
     }
 

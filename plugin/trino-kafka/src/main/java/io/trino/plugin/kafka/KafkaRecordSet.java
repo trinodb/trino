@@ -122,7 +122,7 @@ public class KafkaRecordSet
             topicPartition = new TopicPartition(split.getTopicName(), split.getPartitionId());
             kafkaConsumer = consumerFactory.create(connectorSession);
             kafkaConsumer.assign(ImmutableList.of(topicPartition));
-            kafkaConsumer.seek(topicPartition, split.getMessagesRange().getBegin());
+            kafkaConsumer.seek(topicPartition, split.getMessagesRange().begin());
         }
 
         @Override
@@ -150,7 +150,7 @@ public class KafkaRecordSet
             if (records.hasNext()) {
                 return nextRow(records.next());
             }
-            if (kafkaConsumer.position(topicPartition) >= split.getMessagesRange().getEnd()) {
+            if (kafkaConsumer.position(topicPartition) >= split.getMessagesRange().end()) {
                 return false;
             }
             records = kafkaConsumer.poll(Duration.ofMillis(CONSUMER_POLL_TIMEOUT)).iterator();
@@ -161,7 +161,7 @@ public class KafkaRecordSet
         {
             requireNonNull(message, "message is null");
 
-            if (message.offset() >= split.getMessagesRange().getEnd()) {
+            if (message.offset() >= split.getMessagesRange().end()) {
                 return false;
             }
 

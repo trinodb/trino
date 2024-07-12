@@ -84,7 +84,7 @@ public class CounterBasedAnonymizer
     @Override
     public String anonymize(Symbol symbol)
     {
-        return anonymize(symbol.getName(), ObjectType.SYMBOL);
+        return anonymize(symbol.name(), ObjectType.SYMBOL);
     }
 
     @Override
@@ -129,7 +129,7 @@ public class CounterBasedAnonymizer
     @Override
     public String anonymize(QualifiedObjectName objectName)
     {
-        return anonymize(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName());
+        return anonymize(objectName.catalogName(), objectName.schemaName(), objectName.objectName());
     }
 
     @Override
@@ -145,8 +145,8 @@ public class CounterBasedAnonymizer
     public String anonymize(IndexHandle indexHandle)
     {
         return formatMap(ImmutableMap.of(
-                "catalog", anonymize(indexHandle.getCatalogHandle().getCatalogName().toString(), ObjectType.CATALOG),
-                "connectorHandleType", indexHandle.getConnectorHandle().getClass().getSimpleName()));
+                "catalog", anonymize(indexHandle.catalogHandle().getCatalogName().toString(), ObjectType.CATALOG),
+                "connectorHandleType", indexHandle.connectorHandle().getClass().getSimpleName()));
     }
 
     @Override
@@ -200,7 +200,7 @@ public class CounterBasedAnonymizer
     {
         if (target instanceof WriteStatisticsHandle) {
             return anonymize(
-                    ((WriteStatisticsHandle) target).getHandle().getCatalogHandle().getCatalogName().toString(),
+                    ((WriteStatisticsHandle) target).getHandle().catalogHandle().getCatalogName().toString(),
                     ObjectType.CATALOG);
         }
         throw new UnsupportedOperationException("Anonymization is not supported for WriterTarget type: " + target.getClass().getSimpleName());
@@ -209,19 +209,19 @@ public class CounterBasedAnonymizer
     @Override
     public String anonymize(TableHandle tableHandle)
     {
-        return anonymize(tableHandle.getCatalogHandle().getCatalogName().toString(), ObjectType.CATALOG);
+        return anonymize(tableHandle.catalogHandle().getCatalogName().toString(), ObjectType.CATALOG);
     }
 
     @Override
     public String anonymize(TableExecuteHandle tableHandle)
     {
-        return anonymize(tableHandle.getCatalogHandle().getCatalogName().toString(), ObjectType.CATALOG);
+        return anonymize(tableHandle.catalogHandle().getCatalogName().toString(), ObjectType.CATALOG);
     }
 
     private String anonymize(CreateTarget target)
     {
         return anonymize(
-                target.getHandle().getCatalogHandle().getCatalogName().toString(),
+                target.getHandle().catalogHandle().getCatalogName().toString(),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }
@@ -229,7 +229,7 @@ public class CounterBasedAnonymizer
     private String anonymize(InsertTarget target)
     {
         return anonymize(
-                target.getHandle().getCatalogHandle().getCatalogName().toString(),
+                target.getHandle().catalogHandle().getCatalogName().toString(),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }
@@ -237,7 +237,7 @@ public class CounterBasedAnonymizer
     private String anonymize(MergeTarget target)
     {
         return anonymize(
-                target.getHandle().getCatalogHandle().getCatalogName().toString(),
+                target.getHandle().catalogHandle().getCatalogName().toString(),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }
@@ -245,7 +245,7 @@ public class CounterBasedAnonymizer
     private String anonymize(RefreshMaterializedViewTarget target)
     {
         return anonymize(
-                target.getInsertHandle().getCatalogHandle().getCatalogName().toString(),
+                target.getInsertHandle().catalogHandle().getCatalogName().toString(),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }
@@ -253,7 +253,7 @@ public class CounterBasedAnonymizer
     private String anonymize(TableExecuteTarget target)
     {
         return anonymize(
-                target.getExecuteHandle().getCatalogHandle().getCatalogName().toString(),
+                target.getExecuteHandle().catalogHandle().getCatalogName().toString(),
                 target.getSchemaTableName().getSchemaName(),
                 target.getSchemaTableName().getTableName());
     }
@@ -269,7 +269,7 @@ public class CounterBasedAnonymizer
 
     private <T> String anonymize(T object, ObjectType objectType)
     {
-        return anonymizedMap.computeIfAbsent(objectType.name() + object, ignored -> {
+        return anonymizedMap.computeIfAbsent(objectType.name() + object, _ -> {
             Integer counter = counterMap.computeIfPresent(objectType, (k, v) -> v + 1);
             return objectType.name().toLowerCase(ENGLISH) + "_" + counter;
         });

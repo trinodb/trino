@@ -126,7 +126,7 @@ public class SqlRoutineAnalyzer
                 .filter(not(String::isBlank))
                 .ifPresentOrElse(builder::description, builder::noDescription);
 
-        if (!getDeterministic(function).orElse(true)) {
+        if (!isDeterministic(function)) {
             builder.nondeterministic();
         }
 
@@ -157,9 +157,9 @@ public class SqlRoutineAnalyzer
 
         Analysis analysis = visitor.getAnalysis();
 
-        boolean actuallyDeterministic = analysis.getResolvedFunctions().stream().allMatch(ResolvedFunction::isDeterministic);
+        boolean actuallyDeterministic = analysis.getResolvedFunctions().stream().allMatch(ResolvedFunction::deterministic);
 
-        boolean declaredDeterministic = getDeterministic(function).orElse(true);
+        boolean declaredDeterministic = isDeterministic(function);
         if (!declaredDeterministic && actuallyDeterministic) {
             throw semanticException(INVALID_ARGUMENTS, function, "Deterministic function declared NOT DETERMINISTIC");
         }
@@ -223,7 +223,7 @@ public class SqlRoutineAnalyzer
         }
     }
 
-    private static Optional<String> getLanguage(FunctionSpecification function)
+    private static Optional<Identifier> getLanguage(FunctionSpecification function)
     {
         List<LanguageCharacteristic> language = function.getRoutineCharacteristics().stream()
                 .filter(LanguageCharacteristic.class::isInstance)
@@ -231,24 +231,24 @@ public class SqlRoutineAnalyzer
                 .collect(toImmutableList());
 
         if (language.size() > 1) {
-            throw semanticException(SYNTAX_ERROR, function, "Multiple language clauses specified");
+            throw semanticException(SYNTAX_ERROR, language.get(1), "Multiple language clauses specified");
         }
 
         return language.stream()
                 .map(LanguageCharacteristic::getLanguage)
-                .map(Identifier::getValue)
                 .findAny();
     }
 
     private static void validateLanguage(FunctionSpecification function)
     {
-        Optional<String> language = getLanguage(function);
-        if (language.isPresent() && !language.get().equalsIgnoreCase("sql")) {
-            throw semanticException(NOT_SUPPORTED, function, "Unsupported language: %s", language.get());
-        }
+        getLanguage(function).ifPresent(language -> {
+            if (!language.getValue().equalsIgnoreCase("sql")) {
+                throw semanticException(NOT_SUPPORTED, language, "Unsupported function language: %s", language.getCanonicalValue());
+            }
+        });
     }
 
-    private static Optional<Boolean> getDeterministic(FunctionSpecification function)
+    private static boolean isDeterministic(FunctionSpecification function)
     {
         List<DeterministicCharacteristic> deterministic = function.getRoutineCharacteristics().stream()
                 .filter(DeterministicCharacteristic.class::isInstance)
@@ -256,12 +256,13 @@ public class SqlRoutineAnalyzer
                 .collect(toImmutableList());
 
         if (deterministic.size() > 1) {
-            throw semanticException(SYNTAX_ERROR, function, "Multiple deterministic clauses specified");
+            throw semanticException(SYNTAX_ERROR, deterministic.get(1), "Multiple deterministic clauses specified");
         }
 
         return deterministic.stream()
                 .map(DeterministicCharacteristic::isDeterministic)
-                .findAny();
+                .findAny()
+                .orElse(true);
     }
 
     private static boolean isCalledOnNull(FunctionSpecification function)
@@ -272,7 +273,7 @@ public class SqlRoutineAnalyzer
                 .collect(toImmutableList());
 
         if (nullInput.size() > 1) {
-            throw semanticException(SYNTAX_ERROR, function, "Multiple null-call clauses specified");
+            throw semanticException(SYNTAX_ERROR, nullInput.get(1), "Multiple null-call clauses specified");
         }
 
         return nullInput.stream()
@@ -289,7 +290,7 @@ public class SqlRoutineAnalyzer
                 .collect(toImmutableList());
 
         if (security.size() > 1) {
-            throw semanticException(SYNTAX_ERROR, function, "Multiple security clauses specified");
+            throw semanticException(SYNTAX_ERROR, security.get(1), "Multiple security clauses specified");
         }
 
         return security.stream()
@@ -312,7 +313,7 @@ public class SqlRoutineAnalyzer
                 .collect(toImmutableList());
 
         if (comment.size() > 1) {
-            throw semanticException(SYNTAX_ERROR, function, "Multiple comment clauses specified");
+            throw semanticException(SYNTAX_ERROR, comment.get(1), "Multiple comment clauses specified");
         }
 
         return comment.stream()

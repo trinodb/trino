@@ -49,12 +49,12 @@ public class TpchRecordSetProvider
         TpchTableHandle tpchTable = (TpchTableHandle) table;
 
         return getRecordSet(
-                TpchTable.getTable(tpchTable.getTableName()),
+                TpchTable.getTable(tpchTable.tableName()),
                 columns,
-                tpchTable.getScaleFactor(),
+                tpchTable.scaleFactor(),
                 tpchSplit.getPartNumber(),
                 tpchSplit.getTotalParts(),
-                tpchTable.getConstraint());
+                tpchTable.constraint());
     }
 
     public <E extends TpchEntity> RecordSet getRecordSet(
@@ -67,7 +67,7 @@ public class TpchRecordSetProvider
     {
         ImmutableList.Builder<TpchColumn<E>> builder = ImmutableList.builder();
         for (ColumnHandle column : columns) {
-            String columnName = ((TpchColumnHandle) column).getColumnName();
+            String columnName = ((TpchColumnHandle) column).columnName();
             if (columnName.equalsIgnoreCase(TpchMetadata.ROW_NUMBER_COLUMN_NAME)) {
                 builder.add(new RowNumberTpchColumn<>());
             }

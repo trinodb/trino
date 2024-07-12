@@ -1100,6 +1100,71 @@ public class TestTrinoDatabaseMetaData
                     list(),
                     ImmutableMultiset.of());
         }
+
+        try (Connection connection = createConnectionWithNullCatalogMeansCurrent()) {
+            // should list all schemas as the catalog is not set
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getSchemas(null, null),
+                            list("TABLE_CATALOG", "TABLE_SCHEM")),
+                    list(
+                            list("blackhole", "information_schema"),
+                            list("blackhole", "default"),
+                            list("blackhole", "blackhole"),
+                            list("hive", "information_schema"),
+                            list("hive", "default"),
+                            list(COUNTING_CATALOG, "information_schema"),
+                            list(COUNTING_CATALOG, "test_schema1"),
+                            list(COUNTING_CATALOG, "test_schema2"),
+                            list(COUNTING_CATALOG, "test_schema3_empty"),
+                            list(COUNTING_CATALOG, "test_schema4_empty"),
+                            list("system", "information_schema"),
+                            list("system", "jdbc"),
+                            list("system", "metadata"),
+                            list("system", "runtime"),
+                            list(TEST_CATALOG, "information_schema"),
+                            list(TEST_CATALOG, "sf1"),
+                            list(TEST_CATALOG, "sf100"),
+                            list(TEST_CATALOG, "sf1000"),
+                            list(TEST_CATALOG, "sf10000"),
+                            list(TEST_CATALOG, "sf100000"),
+                            list(TEST_CATALOG, "sf300"),
+                            list(TEST_CATALOG, "sf3000"),
+                            list(TEST_CATALOG, "sf30000"),
+                            list(TEST_CATALOG, "tiny")),
+                    ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
+
+            // set a different catalog to check if current catalog is used
+            connection.setCatalog(COUNTING_CATALOG);
+
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getSchemas(null, null),
+                            list("TABLE_CATALOG", "TABLE_SCHEM")),
+                    list(
+                            list(COUNTING_CATALOG, "information_schema"),
+                            list(COUNTING_CATALOG, "test_schema1"),
+                            list(COUNTING_CATALOG, "test_schema2"),
+                            list(COUNTING_CATALOG, "test_schema3_empty"),
+                            list(COUNTING_CATALOG, "test_schema4_empty")),
+                    ImmutableMultiset.of("ConnectorMetadata.listSchemaNames"));
+
+            // change the catalog back using a statement on the connection
+            connection.createStatement().execute(String.format("USE %s.%s", "blackhole", "blackhole"));
+
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getSchemas(null, null),
+                            list("TABLE_CATALOG", "TABLE_SCHEM")),
+                    list(
+                            list("blackhole", "information_schema"),
+                            list("blackhole", "default"),
+                            list("blackhole", "blackhole")),
+                    ImmutableMultiset.of());
+        }
     }
 
     @Test
@@ -1192,7 +1257,7 @@ public class TestTrinoDatabaseMetaData
                     list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE")),
                     ImmutableMultiset.<String>builder()
                             .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
-                            .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
+                            .add("ConnectorMetadata.isView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
@@ -1250,6 +1315,38 @@ public class TestTrinoDatabaseMetaData
                     connection,
                     readMetaData(
                             databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, null, null, new String[0]),
+                            list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
+                    list(),
+                    ImmutableMultiset.of());
+        }
+
+        try (Connection connection = createConnectionWithNullCatalogMeansCurrent()) {
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getTables(null, null, null, new String[0]),
+                            list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
+                    list(),
+                    ImmutableMultiset.of());
+
+            // set a different catalog to check if current catalog is used
+            connection.setCatalog(COUNTING_CATALOG);
+
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getTables(null, null, null, new String[0]),
+                            list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
+                    list(),
+                    ImmutableMultiset.of());
+
+            // change the catalog back using a statement on the connection
+            connection.createStatement().execute(String.format("USE %s.%s", "blackhole", "blackhole"));
+
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getTables(null, null, null, new String[0]),
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                     list(),
                     ImmutableMultiset.of());
@@ -1394,12 +1491,14 @@ public class TestTrinoDatabaseMetaData
                             .add("ConnectorMetadata.listTables(schema=test_schema4_empty)")
                             .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 20)
                             .addCopies("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)", 5)
-                            .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 5)
+                            .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 1)
+                            .addCopies("ConnectorMetadata.isView(schema=test_schema1, table=test_table1)", 4)
                             .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 5)
                             .addCopies("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)", 5)
                             .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table1)", 20)
                             .addCopies("ConnectorMetadata.getMaterializedView(schema=test_schema2, table=test_table1)", 5)
-                            .addCopies("ConnectorMetadata.getView(schema=test_schema2, table=test_table1)", 5)
+                            .addCopies("ConnectorMetadata.getView(schema=test_schema2, table=test_table1)", 1)
+                            .addCopies("ConnectorMetadata.isView(schema=test_schema2, table=test_table1)", 4)
                             .addCopies("ConnectorMetadata.redirectTable(schema=test_schema2, table=test_table1)", 5)
                             .addCopies("ConnectorMetadata.getTableHandle(schema=test_schema2, table=test_table1)", 5)
                             .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
@@ -1493,6 +1592,38 @@ public class TestTrinoDatabaseMetaData
                     list(),
                     ImmutableMultiset.of("ConnectorMetadata.streamRelationColumns"));
         }
+
+        try (Connection connection = createConnectionWithNullCatalogMeansCurrent()) {
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getColumns(null, null, null, ""),
+                            list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
+                    list(),
+                    ImmutableMultiset.of("ConnectorMetadata.streamRelationColumns"));
+
+            // set a different catalog to check if current catalog is used
+            connection.setCatalog(COUNTING_CATALOG);
+
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getColumns(null, null, null, ""),
+                            list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
+                    list(),
+                    ImmutableMultiset.of("ConnectorMetadata.streamRelationColumns"));
+
+            // change the catalog back using a statement on the connection
+            connection.createStatement().execute(String.format("USE %s.%s", "blackhole", "blackhole"));
+
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getColumns(null, null, null, ""),
+                            list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
+                    list(),
+                    ImmutableMultiset.of());
+        }
     }
 
     @Test
@@ -1535,7 +1666,7 @@ public class TestTrinoDatabaseMetaData
                     list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE")),
                     ImmutableMultiset.<String>builder()
                             .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
-                            .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
+                            .add("ConnectorMetadata.isView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
@@ -1818,6 +1949,13 @@ public class TestTrinoDatabaseMetaData
             throws SQLException
     {
         String url = format("jdbc:trino://%s/%s/%s", server.getAddress(), catalog, schema);
+        return DriverManager.getConnection(url, "admin", null);
+    }
+
+    private Connection createConnectionWithNullCatalogMeansCurrent()
+            throws SQLException
+    {
+        String url = format("jdbc:trino://%s?assumeNullCatalogMeansCurrentCatalog=true", server.getAddress());
         return DriverManager.getConnection(url, "admin", null);
     }
 

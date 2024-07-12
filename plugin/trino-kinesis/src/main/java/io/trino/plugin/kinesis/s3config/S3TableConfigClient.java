@@ -32,6 +32,7 @@ import io.trino.plugin.kinesis.KinesisConfig;
 import io.trino.plugin.kinesis.KinesisStreamDescription;
 import io.trino.spi.connector.SchemaTableName;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -43,13 +44,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 /**
  * Utility class to retrieve table definitions from a common place on Amazon S3.
@@ -72,6 +74,8 @@ public class S3TableConfigClient
     private volatile ScheduledFuture<?> updateTaskHandle;
 
     private final Map<String, KinesisStreamDescription> descriptors = Collections.synchronizedMap(new HashMap<>());
+
+    private ScheduledExecutorService scheduler;
 
     @Inject
     public S3TableConfigClient(
@@ -96,8 +100,16 @@ public class S3TableConfigClient
     protected void startS3Updates()
     {
         if (this.bucketUrl.isPresent()) {
-            ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+            scheduler = newSingleThreadScheduledExecutor(daemonThreadsNamed("s3-table-config-client-%s"));
             this.updateTaskHandle = scheduler.scheduleAtFixedRate(this::updateTablesFromS3, 5_000, tableDescriptionRefreshInterval.toMillis(), TimeUnit.MILLISECONDS);
+        }
+    }
+
+    @PreDestroy
+    public void destroy()
+    {
+        if (scheduler != null) {
+            scheduler.shutdownNow();
         }
     }
 
@@ -121,7 +133,7 @@ public class S3TableConfigClient
         Collection<KinesisStreamDescription> streamValues = this.descriptors.values();
         ImmutableMap.Builder<SchemaTableName, KinesisStreamDescription> builder = ImmutableMap.builder();
         for (KinesisStreamDescription stream : streamValues) {
-            builder.put(new SchemaTableName(stream.getSchemaName(), stream.getTableName()), stream);
+            builder.put(new SchemaTableName(stream.schemaName(), stream.tableName()), stream);
         }
         return builder.buildOrThrow();
     }

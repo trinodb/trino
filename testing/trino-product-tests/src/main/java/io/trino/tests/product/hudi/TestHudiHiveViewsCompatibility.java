@@ -14,7 +14,6 @@
 package io.trino.tests.product.hudi;
 
 import io.trino.tempto.ProductTest;
-import io.trino.tests.product.deltalake.TestHiveAndDeltaLakeCompatibility;
 import io.trino.tests.product.iceberg.TestIcebergHiveViewsCompatibility;
 import org.testng.annotations.Test;
 
@@ -28,7 +27,6 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
  * Tests interactions between Hudi and Hive connectors, when one tries to read a view created by the other.
  *
  * @see TestIcebergHiveViewsCompatibility
- * @see TestHiveAndDeltaLakeCompatibility
  */
 public class TestHudiHiveViewsCompatibility
         extends ProductTest

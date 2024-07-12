@@ -24,7 +24,7 @@ public class TestOpenSearch2ConnectorTest
 {
     public TestOpenSearch2ConnectorTest()
     {
-        super("opensearchproject/opensearch:2.2.0", "opensearch");
+        super("opensearchproject/opensearch:2.2.0");
     }
 
     @Override

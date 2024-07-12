@@ -146,7 +146,7 @@ public class FunctionCall
                 Objects.equals(window, o.window) &&
                 Objects.equals(filter, o.filter) &&
                 Objects.equals(orderBy, o.orderBy) &&
-                Objects.equals(distinct, o.distinct) &&
+                distinct == o.distinct &&
                 Objects.equals(nullTreatment, o.nullTreatment) &&
                 Objects.equals(processingMode, o.processingMode) &&
                 Objects.equals(arguments, o.arguments);

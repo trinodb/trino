@@ -1,7 +1,6 @@
 # Array functions and operators
 
 (subscript-operator)=
-
 ## Subscript operator: \[\]
 
 The `[]` operator is used to access an element of an array and is indexed starting from one:
@@ -11,7 +10,6 @@ SELECT my_array[1] AS first_element
 ```
 
 (concatenation-operator)=
-
 ## Concatenation operator: ||
 
 The `||` operator is used to concatenate an array with an array or an element of the same type:

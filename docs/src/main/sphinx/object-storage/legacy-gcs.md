@@ -12,7 +12,6 @@ To use Google Cloud Storage with non-anonymous access objects, you need:
 - The key for the service account in JSON format
 
 (hive-google-cloud-storage-configuration)=
-
 ## Configuration
 
 The use of Google Cloud Storage as a storage location for an object storage

@@ -26,6 +26,7 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.PartitionFunction;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
@@ -50,10 +51,15 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.execution.TaskManagerConfig.MAX_WRITER_COUNT;
+import static io.trino.operator.exchange.LocalExchange.SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.util.Failures.checkCondition;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
 public class NodePartitioningManager
@@ -245,8 +251,41 @@ public class NodePartitioningManager
         }
 
         List<InternalNode> nodes = getAllNodes(session, requiredCatalogHandle(partitioningHandle));
-        int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(nodes::size);
+        int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(() -> getDefaultBucketCount(session, partitioningHandle));
         return new BucketNodeMap(splitToBucket, createArbitraryBucketToNode(nodes, bucketCount));
+    }
+
+    /**
+     * Query plans typically divide data into buckets to help split the work among Trino nodes.  How many buckets?  That is dictated by the connector, via
+     * {@link #getConnectorBucketNodeMap}.  But when that returns empty, this method should be used to determine how many buckets to create.
+     *
+     * @return The default bucket count to use when the connector doesn't provide a number.
+     */
+    private int getDefaultBucketCount(Session session, PartitioningHandle partitioningHandle)
+    {
+        // The default bucket count is used by both remote and local exchanges to assign buckets to nodes and drivers. The goal is to have enough
+        // buckets to evenly distribute them across tasks or drivers. If number of buckets is too low, then some tasks or drivers will be idle.
+        // Excessive number of buckets would make bucket lists or arrays too large.
+
+        // For remote exchanges bucket count can be assumed to be equal to node count multiplied by some constant.
+        // Multiplying by a constant allows to better distribute skewed buckets which would otherwise be assigned
+        // to a single node.
+        int remoteBucketCount;
+        if (getRetryPolicy(session) != RetryPolicy.TASK) {
+            // Pipeline schedulers typically create as many tasks as there are nodes.
+            remoteBucketCount = getNodeCount(session, partitioningHandle) * 3;
+        }
+        else {
+            // The FTE scheduler usually creates as many tasks as there are partitions.
+            // TODO: get the actual number of partitions if PartitioningHandle ever offers it or if we get the partitioning scheme here as a parameter.
+            remoteBucketCount = getFaultTolerantExecutionMaxPartitionCount(session) * 3;
+        }
+
+        // For local exchanges we need to multiply MAX_WRITER_COUNT by SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER to account
+        // for local exchanges that are used to distributed data between table writer drivers.
+        int localBucketCount = MAX_WRITER_COUNT * SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER;
+
+        return max(remoteBucketCount, localBucketCount);
     }
 
     public int getNodeCount(Session session, PartitioningHandle partitioningHandle)

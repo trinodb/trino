@@ -36,7 +36,7 @@ public class TestCloseIdleWriters
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setNodeCount(1)
+                .setWorkerCount(0)
                 // Set the target max file size to 100GB so that we don't close writers due to file size in append
                 // page.
                 .setHiveProperties(ImmutableMap.of(

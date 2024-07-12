@@ -21,7 +21,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.ir.Comparison;
 
 import static io.trino.spi.function.OperatorType.EQUAL;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static java.util.Objects.requireNonNull;
@@ -37,23 +37,13 @@ public final class StandardFunctionResolution
 
     public ResolvedFunction comparisonFunction(Comparison.Operator operator, Type leftType, Type rightType)
     {
-        OperatorType operatorType;
-        switch (operator) {
-            case EQUAL:
-                operatorType = EQUAL;
-                break;
-            case LESS_THAN:
-                operatorType = LESS_THAN;
-                break;
-            case LESS_THAN_OR_EQUAL:
-                operatorType = LESS_THAN_OR_EQUAL;
-                break;
-            case IS_DISTINCT_FROM:
-                operatorType = IS_DISTINCT_FROM;
-                break;
-            default:
-                throw new IllegalStateException("Unsupported comparison operator type: " + operator);
-        }
+        OperatorType operatorType = switch (operator) {
+            case EQUAL -> EQUAL;
+            case LESS_THAN -> LESS_THAN;
+            case LESS_THAN_OR_EQUAL -> LESS_THAN_OR_EQUAL;
+            case IDENTICAL -> IDENTICAL;
+            default -> throw new IllegalStateException("Unsupported comparison operator type: " + operator);
+        };
 
         return metadata.resolveOperator(operatorType, ImmutableList.of(leftType, rightType));
     }

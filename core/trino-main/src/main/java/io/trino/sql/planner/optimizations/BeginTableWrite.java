@@ -211,7 +211,8 @@ public class BeginTableWrite
                         tableHandle.get(),
                         mergeTarget.getMergeHandle(),
                         mergeTarget.getSchemaTableName(),
-                        mergeTarget.getMergeParadigmAndTypes());
+                        mergeTarget.getMergeParadigmAndTypes(),
+                        findSourceTableHandles(node));
             }
 
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
@@ -248,15 +249,16 @@ public class BeginTableWrite
             if (target instanceof MergeTarget merge) {
                 MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle());
                 return new MergeTarget(
-                        mergeHandle.getTableHandle(),
+                        mergeHandle.tableHandle(),
                         Optional.of(mergeHandle),
                         merge.getSchemaTableName(),
-                        merge.getMergeParadigmAndTypes());
+                        merge.getMergeParadigmAndTypes(),
+                        findSourceTableHandles(planNode));
             }
             if (target instanceof TableWriterNode.RefreshMaterializedViewReference refreshMV) {
                 return new TableWriterNode.RefreshMaterializedViewTarget(
                         refreshMV.getStorageTableHandle(),
-                        metadata.beginRefreshMaterializedView(session, refreshMV.getStorageTableHandle(), refreshMV.getSourceTableHandles()),
+                        metadata.beginRefreshMaterializedView(session, refreshMV.getStorageTableHandle(), refreshMV.getSourceTableHandles(), refreshMV.getRefreshType()),
                         metadata.getTableName(session, refreshMV.getStorageTableHandle()).getSchemaTableName(),
                         refreshMV.getSourceTableHandles(),
                         refreshMV.getSourceTableFunctions(),
@@ -272,7 +274,7 @@ public class BeginTableWrite
         private static List<TableHandle> findSourceTableHandles(PlanNode startNode)
         {
             return PlanNodeSearcher.searchFrom(startNode)
-                    .where(node -> node instanceof TableScanNode tableScanNode && !tableScanNode.isUpdateTarget())
+                    .where(TableScanNode.class::isInstance)
                     .findAll()
                     .stream()
                     .map(TableScanNode.class::cast)

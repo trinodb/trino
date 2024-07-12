@@ -108,6 +108,15 @@ class AzureLocation
         return location.path();
     }
 
+    public String directoryPath()
+    {
+        String path = location.path();
+        if (!path.isEmpty() && !path.endsWith("/")) {
+            path += "/";
+        }
+        return path;
+    }
+
     @Override
     public String toString()
     {

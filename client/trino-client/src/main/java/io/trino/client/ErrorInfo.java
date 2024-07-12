@@ -75,7 +75,7 @@ public class ErrorInfo
         }
 
         ErrorInfo that = (ErrorInfo) obj;
-        return Objects.equals(this.code, that.code);
+        return this.code == that.code;
     }
 
     @Override

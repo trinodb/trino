@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.execution.QueryStats;
 import io.trino.operator.OperatorStats;
@@ -32,8 +31,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -61,7 +58,9 @@ public class TestSplitPruning
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), ImmutableMap.of("delta.register-table-procedure.enabled", "true"));
+        return DeltaLakeQueryRunner.builder()
+                .addDeltaProperty("delta.register-table-procedure.enabled", "true")
+                .build();
     }
 
     @BeforeAll
@@ -70,7 +69,7 @@ public class TestSplitPruning
         for (String table : TABLES) {
             String dataPath = Resources.getResource("databricks73/pruning/" + table).toExternalForm();
             getQueryRunner().execute(
-                    format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), table, dataPath));
+                    format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", table, dataPath));
         }
     }
 
@@ -276,7 +275,7 @@ public class TestSplitPruning
         // log entry with invalid stats (low > high)
         String dataPath = Resources.getResource("databricks73/pruning/invalid_log").toExternalForm();
         getQueryRunner().execute(
-                format("CALL system.register_table('%s', 'person', '%s')", getSession().getSchema().orElseThrow(), dataPath));
+                format("CALL system.register_table(CURRENT_SCHEMA, 'person', '%s')", dataPath));
         assertQueryFails("SELECT name FROM person WHERE income < 1000", "Failed to generate splits for tpch.person");
     }
 

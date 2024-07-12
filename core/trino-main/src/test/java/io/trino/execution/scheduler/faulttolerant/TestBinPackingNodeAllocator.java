@@ -74,10 +74,10 @@ public class TestBinPackingNodeAllocator
 
     private static final CatalogHandle CATALOG_1 = createTestCatalogHandle("catalog1");
 
-    private static final NodeRequirements REQ_NONE = new NodeRequirements(Optional.empty(), Set.of());
-    private static final NodeRequirements REQ_NODE_1 = new NodeRequirements(Optional.empty(), Set.of(NODE_1_ADDRESS));
-    private static final NodeRequirements REQ_NODE_2 = new NodeRequirements(Optional.empty(), Set.of(NODE_2_ADDRESS));
-    private static final NodeRequirements REQ_CATALOG_1 = new NodeRequirements(Optional.of(CATALOG_1), Set.of());
+    private static final NodeRequirements REQ_NONE = new NodeRequirements(Optional.empty(), Set.of(), true);
+    private static final NodeRequirements REQ_NODE_1 = new NodeRequirements(Optional.empty(), Set.of(NODE_1_ADDRESS), true);
+    private static final NodeRequirements REQ_NODE_2 = new NodeRequirements(Optional.empty(), Set.of(NODE_2_ADDRESS), true);
+    private static final NodeRequirements REQ_CATALOG_1 = new NodeRequirements(Optional.of(CATALOG_1), Set.of(), true);
 
     // none of the tests should require periodic execution of routine which processes pending acquisitions
     private static final long TEST_TIMEOUT = BinPackingNodeAllocatorService.PROCESS_PENDING_ACQUIRES_DELAY_SECONDS * 1000 / 2;
@@ -107,6 +107,7 @@ public class TestBinPackingNodeAllocator
                 () -> workerMemoryInfos,
                 false,
                 Duration.of(1, MINUTES),
+                true,
                 taskRuntimeMemoryEstimationOverhead,
                 DataSize.of(10, GIGABYTE), // allow overcommit of 10GB for EAGER_SPECULATIVE tasks
                 ticker);
@@ -828,6 +829,43 @@ public class TestBinPackingNodeAllocator
             assertNotAcquired(acquire4); //  still not enough
             acquire3.setMemoryRequirement(DataSize.of(10, GIGABYTE));
             assertAcquired(acquire4, NODE_1); // we are good
+        }
+    }
+
+    @Test
+    @Timeout(value = TEST_TIMEOUT + 3000, unit = MILLISECONDS)
+    public void testFailover()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        setupNodeAllocatorService(nodeManager);
+        NodeRequirements node2Flexible = new NodeRequirements(Optional.empty(), Set.of(NODE_2_ADDRESS), true);
+        NodeRequirements node2Rigid = new NodeRequirements(Optional.empty(), Set.of(NODE_2_ADDRESS), false);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
+            final DataSize oneGig = DataSize.of(1, GIGABYTE);
+
+            // When both nodes are alive, acquire works normally and yields node 2.
+            NodeAllocator.NodeLease acquireMyNode = nodeAllocator.acquire(node2Flexible, oneGig, STANDARD);
+            assertAcquired(acquireMyNode, NODE_2);
+            acquireMyNode.release();
+
+            // When node 2 is dead, the flexible acquire should succeed on node 1, but the rigid acquire should fail.
+            nodeManager.removeNode(NODE_2);
+            NodeAllocator.NodeLease acquireAnyNode = nodeAllocator.acquire(node2Flexible, oneGig, STANDARD);
+            assertAcquired(acquireAnyNode, NODE_1);
+            acquireAnyNode.release();
+            acquireAnyNode = nodeAllocator.acquire(node2Rigid, oneGig, STANDARD);
+            nodeAllocatorService.processPendingAcquires();
+            assertNotAcquired(acquireAnyNode);
+
+            nodeManager.removeNode(NODE_1);
+            // Only the coordinator node remains, but allocator was created with scheduleOnCoordinator==false.
+            NodeAllocator.NodeLease acquireNoNodes = nodeAllocator.acquire(node2Flexible, oneGig, STANDARD);
+            nodeAllocatorService.processPendingAcquires();
+            assertNotAcquired(acquireNoNodes);
+            ticker.increment(61, TimeUnit.SECONDS);
+            assertEventually(() -> assertThatThrownBy(() -> getFutureValue(acquireNoNodes.getNode()))
+                    .hasMessage("No nodes available to run query"));
         }
     }
 

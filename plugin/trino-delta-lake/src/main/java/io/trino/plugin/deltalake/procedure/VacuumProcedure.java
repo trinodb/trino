@@ -53,6 +53,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -130,7 +131,7 @@ public class VacuumProcedure
             String table,
             String retention)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doVacuum(session, accessControl, schema, table, retention);
         }
         catch (TrinoException e) {
@@ -174,14 +175,14 @@ public class VacuumProcedure
         metadata.beginQuery(session);
         try (UncheckedCloseable ignore = () -> metadata.cleanupQuery(session)) {
             SchemaTableName tableName = new SchemaTableName(schema, table);
-            ConnectorTableHandle connectorTableHandle = metadata.getTableHandle(session, tableName);
+            ConnectorTableHandle connectorTableHandle = metadata.getTableHandle(session, tableName, Optional.empty(), Optional.empty());
             checkProcedureArgument(connectorTableHandle != null, "Table '%s' does not exist", tableName);
             DeltaLakeTableHandle handle = checkValidTableHandle(connectorTableHandle);
 
             accessControl.checkCanInsertIntoTable(null, tableName);
             accessControl.checkCanDeleteFromTable(null, tableName);
 
-            TableSnapshot tableSnapshot = metadata.getSnapshot(session, tableName, handle.getLocation(), handle.getReadVersion());
+            TableSnapshot tableSnapshot = metadata.getSnapshot(session, tableName, handle.getLocation(), Optional.of(handle.getReadVersion()));
             ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
             if (protocolEntry.minWriterVersion() > MAX_WRITER_VERSION) {
                 throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %d writer version".formatted(protocolEntry.minWriterVersion()));

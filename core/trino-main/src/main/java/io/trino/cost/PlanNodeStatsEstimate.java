@@ -82,7 +82,7 @@ public class PlanNodeStatsEstimate
         requireNonNull(outputSymbols, "outputSymbols is null");
 
         return outputSymbols.stream()
-                .mapToDouble(symbol -> getOutputSizeForSymbol(getSymbolStatistics(symbol), symbol.getType()))
+                .mapToDouble(symbol -> getOutputSizeForSymbol(getSymbolStatistics(symbol), symbol.type()))
                 .sum();
     }
 

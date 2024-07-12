@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -43,7 +42,6 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
 import static io.trino.server.DynamicFilterService.getOutboundDynamicFilters;
 import static java.util.Objects.requireNonNull;
 
@@ -131,12 +129,7 @@ public final class SqlStage
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
 
-        if (isEnableCoordinatorDynamicFiltersDistribution(session)) {
-            this.outboundDynamicFilterIds = getOutboundDynamicFilters(stateMachine.getFragment());
-        }
-        else {
-            this.outboundDynamicFilterIds = ImmutableSet.of();
-        }
+        this.outboundDynamicFilterIds = getOutboundDynamicFilters(stateMachine.getFragment());
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -217,7 +210,7 @@ public final class SqlStage
     public Duration getTotalCpuTime()
     {
         long millis = tasks.values().stream()
-                .mapToLong(task -> task.getTaskInfo().getStats().getTotalCpuTime().toMillis())
+                .mapToLong(task -> task.getTaskInfo().stats().getTotalCpuTime().toMillis())
                 .sum();
         return new Duration(millis, TimeUnit.MILLISECONDS);
     }
@@ -316,7 +309,7 @@ public final class SqlStage
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
     {
-        tasksWithFinalInfo.add(finalTaskInfo.getTaskStatus().getTaskId());
+        tasksWithFinalInfo.add(finalTaskInfo.taskStatus().getTaskId());
         checkAllTaskFinal();
     }
 

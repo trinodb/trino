@@ -30,12 +30,13 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
-import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
@@ -48,6 +49,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -68,6 +70,7 @@ import static io.trino.plugin.hudi.HudiTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.hudi.HudiTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hudi.HudiUtil.hudiMetadataExists;
 import static io.trino.plugin.hudi.model.HudiTableType.COPY_ON_WRITE;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
@@ -99,8 +102,12 @@ public class HudiMetadata
     }
 
     @Override
-    public HudiTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public HudiTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         if (isHiveSystemSchema(tableName.getSchemaName())) {
             return null;
         }
@@ -239,14 +246,23 @@ public class HudiMetadata
     }
 
     @Override
-    public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> schemaName,
+            UnaryOperator<Set<SchemaTableName>> relationFilter)
     {
+        SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new)
+                .orElseGet(SchemaTablePrefix::new);
         List<SchemaTableName> tables = prefix.getTable()
-                .map(ignored -> singletonList(prefix.toSchemaTableName()))
+                .map(_ -> singletonList(prefix.toSchemaTableName()))
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
-        return tables.stream()
+
+        Map<SchemaTableName, RelationColumnsMetadata> relationColumns = tables.stream()
                 .map(table -> getTableColumnMetadata(session, table))
                 .flatMap(Optional::stream)
+                .collect(toImmutableMap(RelationColumnsMetadata::name, Function.identity()));
+        return relationFilter.apply(relationColumns.keySet()).stream()
+                .map(relationColumns::get)
                 .iterator();
     }
 
@@ -276,13 +292,13 @@ public class HudiMetadata
         return metastore;
     }
 
-    private Optional<TableColumnsMetadata> getTableColumnMetadata(ConnectorSession session, SchemaTableName table)
+    private Optional<RelationColumnsMetadata> getTableColumnMetadata(ConnectorSession session, SchemaTableName table)
     {
         try {
             List<ColumnMetadata> columns = getTableMetadata(table, getColumnsToHide(session)).getColumns();
-            return Optional.of(TableColumnsMetadata.forTable(table, columns));
+            return Optional.of(RelationColumnsMetadata.forTable(table, columns));
         }
-        catch (TableNotFoundException ignored) {
+        catch (TableNotFoundException _) {
             return Optional.empty();
         }
     }

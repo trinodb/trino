@@ -99,7 +99,7 @@ public class BenchmarkEqualsConjunctsOperator
 
     private static RowExpression createConjunction(RowExpression left, RowExpression right)
     {
-        return new SpecialForm(Form.OR, BOOLEAN, left, right);
+        return new SpecialForm(Form.OR, BOOLEAN, ImmutableList.of(left, right), ImmutableList.of());
     }
 
     private RowExpression createComparison(int leftField, int rightField)

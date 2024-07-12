@@ -32,7 +32,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.fail;
 
 public class TestHiveConnectorKerberosSmokeTest
 {

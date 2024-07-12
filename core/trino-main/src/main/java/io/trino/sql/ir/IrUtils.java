@@ -109,13 +109,10 @@ public final class IrUtils
         requireNonNull(expressions, "expressions is null");
 
         if (expressions.isEmpty()) {
-            switch (operator) {
-                case AND:
-                    return TRUE;
-                case OR:
-                    return FALSE;
-            }
-            throw new IllegalArgumentException("Unsupported LogicalExpression operator");
+            return switch (operator) {
+                case AND -> TRUE;
+                case OR -> FALSE;
+            };
         }
 
         if (expressions.size() == 1) {

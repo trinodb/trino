@@ -16,7 +16,7 @@ package io.trino.tests;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestAggregations;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 
 public class TestAdaptivePartialAggregation
         extends AbstractTestAggregations
@@ -25,7 +25,7 @@ public class TestAdaptivePartialAggregation
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpchQueryRunnerBuilder.builder()
+        return TpchQueryRunner.builder()
                 .setExtraProperties(ImmutableMap.of(
                         "task.max-partial-aggregation-memory", "0B"))
                 .build();

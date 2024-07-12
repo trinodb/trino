@@ -13,7 +13,6 @@
  */
 package io.trino.tests.tpch;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.statistics.StatisticsAssertion;
@@ -23,6 +22,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+
+import java.util.Map;
 
 import static io.trino.SystemSessionProperties.COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
@@ -46,15 +47,12 @@ public class TestTpchDistributedStats
     public void setup()
             throws Exception
     {
-        QueryRunner runner = TpchQueryRunnerBuilder.builder()
+        QueryRunner runner = TpchQueryRunner.builder()
+                .withConnectorProperties(Map.of(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name()))
                 .amendSession(builder -> builder
                         // Stats for non-EXPLAIN queries are not collected by default
                         .setSystemProperty(COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES, "true"))
-                .buildWithoutCatalogs();
-        runner.createCatalog(
-                "tpch",
-                "tpch",
-                ImmutableMap.of(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name()));
+                .build();
         statisticsAssertion = new StatisticsAssertion(runner);
     }
 

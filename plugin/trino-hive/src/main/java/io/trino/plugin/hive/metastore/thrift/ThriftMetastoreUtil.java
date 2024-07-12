@@ -331,7 +331,7 @@ public final class ThriftMetastoreUtil
     public static io.trino.hive.thrift.metastore.Partition toMetastoreApiPartition(PartitionWithStatistics partitionWithStatistics)
     {
         io.trino.hive.thrift.metastore.Partition partition = toMetastoreApiPartition(partitionWithStatistics.getPartition());
-        partition.setParameters(updateStatisticsParameters(partition.getParameters(), partitionWithStatistics.getStatistics().getBasicStatistics()));
+        partition.setParameters(updateStatisticsParameters(partition.getParameters(), partitionWithStatistics.getStatistics().basicStatistics()));
         return partition;
     }
 
@@ -435,6 +435,11 @@ public final class ThriftMetastoreUtil
         return CSV.getSerde().equals(getSerdeInfo(table).getSerializationLib());
     }
 
+    public static boolean isCsvPartition(io.trino.hive.thrift.metastore.Partition partition)
+    {
+        return CSV.getSerde().equals(getSerdeInfo(partition).getSerializationLib());
+    }
+
     public static List<FieldSchema> csvSchemaFields(List<FieldSchema> schemas)
     {
         return schemas.stream()
@@ -451,6 +456,20 @@ public final class ThriftMetastoreUtil
         SerDeInfo serdeInfo = storageDescriptor.getSerdeInfo();
         if (serdeInfo == null) {
             throw new TrinoException(HIVE_INVALID_METADATA, "Table storage descriptor is missing SerDe info");
+        }
+
+        return serdeInfo;
+    }
+
+    private static SerDeInfo getSerdeInfo(io.trino.hive.thrift.metastore.Partition partition)
+    {
+        StorageDescriptor storageDescriptor = partition.getSd();
+        if (storageDescriptor == null) {
+            throw new TrinoException(HIVE_INVALID_METADATA, "Partition does not contain a storage descriptor: " + partition);
+        }
+        SerDeInfo serdeInfo = storageDescriptor.getSerdeInfo();
+        if (serdeInfo == null) {
+            throw new TrinoException(HIVE_INVALID_METADATA, "Partition storage descriptor is missing SerDe info");
         }
 
         return serdeInfo;
@@ -676,10 +695,10 @@ public final class ThriftMetastoreUtil
 
         Optional<HiveBucketProperty> bucketProperty = storage.getBucketProperty();
         if (bucketProperty.isPresent()) {
-            sd.setNumBuckets(bucketProperty.get().getBucketCount());
-            sd.setBucketCols(bucketProperty.get().getBucketedBy());
-            if (!bucketProperty.get().getSortedBy().isEmpty()) {
-                sd.setSortCols(bucketProperty.get().getSortedBy().stream()
+            sd.setNumBuckets(bucketProperty.get().bucketCount());
+            sd.setBucketCols(bucketProperty.get().bucketedBy());
+            if (!bucketProperty.get().sortedBy().isEmpty()) {
+                sd.setSortCols(bucketProperty.get().sortedBy().stream()
                         .map(column -> new Order(column.getColumnName(), column.getOrder().getHiveOrder()))
                         .collect(toImmutableList()));
             }

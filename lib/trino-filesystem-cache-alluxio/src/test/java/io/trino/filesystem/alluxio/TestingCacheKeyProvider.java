@@ -26,9 +26,9 @@ public class TestingCacheKeyProvider
     private final AtomicInteger cacheVersion = new AtomicInteger(0);
 
     @Override
-    public Optional<String> getCacheKey(TrinoInputFile delegate)
+    public Optional<String> getCacheKey(TrinoInputFile inputFile)
     {
-        return Optional.of(testingCacheKeyForLocation(delegate.location(), cacheVersion.get()));
+        return Optional.of(testingCacheKeyForLocation(inputFile.location(), cacheVersion.get()));
     }
 
     public static String testingCacheKeyForLocation(Location location, int generation)

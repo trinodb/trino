@@ -126,7 +126,7 @@ public class IndexLookupSourceFactory
     {
         return Futures.transformAsync(
                 whenTaskContextSet,
-                ignored -> transform(
+                _ -> transform(
                         this.createLookupSourceProvider(),
                         lookupSourceProvider -> {
                             // Close the lookupSourceProvider we just created.

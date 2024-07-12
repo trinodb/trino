@@ -32,6 +32,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionProfiler;
 import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.gen.columnar.PageFilterEvaluator;
 import io.trino.sql.relational.CallExpression;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -107,7 +108,7 @@ public class TestPageProcessor
     @Test
     public void testFilterNoColumns()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new TestingPageFilter(positionsRange(0, 50))), ImmutableList.of());
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new TestingPageFilter(positionsRange(0, 50)))), ImmutableList.of());
 
         Page inputPage = new Page(createLongSequenceBlock(0, 100));
 
@@ -126,7 +127,7 @@ public class TestPageProcessor
     public void testPartialFilter()
     {
         PageProcessor pageProcessor = new PageProcessor(
-                Optional.of(new TestingPageFilter(positionsRange(25, 50))),
+                Optional.of(new PageFilterEvaluator(new TestingPageFilter(positionsRange(25, 50)))),
                 ImmutableList.of(new InputPageProjection(0, BIGINT)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 
@@ -142,7 +143,7 @@ public class TestPageProcessor
     @Test
     public void testSelectAllFilter()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new InputPageProjection(0, BIGINT)), OptionalInt.of(MAX_BATCH_SIZE));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectAllFilter())), ImmutableList.of(new InputPageProjection(0, BIGINT)), OptionalInt.of(MAX_BATCH_SIZE));
 
         Page inputPage = new Page(createLongSequenceBlock(0, 100));
 
@@ -156,7 +157,7 @@ public class TestPageProcessor
     @Test
     public void testSelectNoneFilter()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectNoneFilter()), ImmutableList.of(new InputPageProjection(0, BIGINT)));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectNoneFilter())), ImmutableList.of(new InputPageProjection(0, BIGINT)));
 
         Page inputPage = new Page(createLongSequenceBlock(0, 100));
 
@@ -171,7 +172,7 @@ public class TestPageProcessor
     @Test
     public void testProjectEmptyPage()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new InputPageProjection(0, BIGINT)));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectAllFilter())), ImmutableList.of(new InputPageProjection(0, BIGINT)));
 
         Page inputPage = new Page(createLongSequenceBlock(0, 0));
 
@@ -187,7 +188,7 @@ public class TestPageProcessor
     @Test
     public void testSelectNoneFilterLazyLoad()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectNoneFilter()), ImmutableList.of(new InputPageProjection(1, BIGINT)));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectNoneFilter())), ImmutableList.of(new InputPageProjection(1, BIGINT)));
 
         // if channel 1 is loaded, test will fail
         Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, () -> {
@@ -204,7 +205,7 @@ public class TestPageProcessor
     @Test
     public void testProjectLazyLoad()
     {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new LazyPagePageProjection()), OptionalInt.of(MAX_BATCH_SIZE));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new PageFilterEvaluator(new SelectAllFilter())), ImmutableList.of(new LazyPagePageProjection()), OptionalInt.of(MAX_BATCH_SIZE));
 
         // if channel 1 is loaded, test will fail
         Page inputPage = new Page(createLongSequenceBlock(0, 100), new LazyBlock(100, () -> {
@@ -323,7 +324,7 @@ public class TestPageProcessor
     public void testRetainedSize()
     {
         PageProcessor pageProcessor = new PageProcessor(
-                Optional.of(new SelectAllFilter()),
+                Optional.of(new PageFilterEvaluator(new SelectAllFilter())),
                 ImmutableList.of(new InputPageProjection(0, VARCHAR), new InputPageProjection(1, VARCHAR)),
                 OptionalInt.of(MAX_BATCH_SIZE));
 

@@ -123,7 +123,6 @@ SELECT * FROM example.example_keyspace.users;
 ```
 
 (cassandra-type-mapping)=
-
 ## Type mapping
 
 Because Trino and Cassandra each support types that the other does not, this
@@ -300,7 +299,6 @@ Partition keys can only be of the following types:
 - Range (`<` or `>` and `BETWEEN`) filters can be applied only to the partition keys.
 
 (cassandra-sql-support)=
-
 ## SQL support
 
 The connector provides read and write access to data and metadata in
@@ -359,7 +357,6 @@ cassandra.allow-drop-table=true
 ```
 
 (sql-delete-limitation)=
-
 ### SQL delete limitation
 
 `DELETE` is only supported if the `WHERE` clause matches entire partitions.

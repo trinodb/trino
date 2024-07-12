@@ -108,6 +108,7 @@ public class SqlTask
     private final AtomicReference<Span> taskSpan = new AtomicReference<>(Span.getInvalid());
     private final AtomicReference<String> traceToken = new AtomicReference<>();
     private final AtomicReference<Set<CatalogHandle>> catalogs = new AtomicReference<>();
+    private final AtomicBoolean catalogsLoaded = new AtomicBoolean(false);
 
     public static SqlTask createSqlTask(
             TaskId taskId,
@@ -268,14 +269,14 @@ public class SqlTask
 
     public TaskInfo getTaskInfo()
     {
-        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName _ = new SetThreadName("Task-%s", taskId)) {
             return createTaskInfo(taskHolderReference.get());
         }
     }
 
     public TaskStatus getTaskStatus()
     {
-        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
+        try (SetThreadName _ = new SetThreadName("Task-%s", taskId)) {
             return createTaskStatus(taskHolderReference.get());
         }
     }
@@ -289,6 +290,16 @@ public class SqlTask
     {
         requireNonNull(catalogs, "catalogs is null");
         return this.catalogs.compareAndSet(null, requireNonNull(catalogs, "catalogs is null"));
+    }
+
+    public boolean catalogsLoaded()
+    {
+        return catalogsLoaded.get();
+    }
+
+    public boolean setCatalogsLoaded()
+    {
+        return catalogsLoaded.compareAndSet(false, true);
     }
 
     public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersDynamicFiltersVersion)
@@ -331,7 +342,7 @@ public class SqlTask
         long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
-            TaskStats taskStats = taskInfo.getStats();
+            TaskStats taskStats = taskInfo.stats();
             queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
             queuedPartitionedSplitsWeight = taskStats.getQueuedPartitionedSplitsWeight();
             runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
@@ -408,7 +419,7 @@ public class SqlTask
     {
         TaskInfo finalTaskInfo = taskHolder.getFinalTaskInfo();
         if (finalTaskInfo != null) {
-            return finalTaskInfo.getStats();
+            return finalTaskInfo.stats();
         }
         SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
         if (taskExecution != null) {
@@ -423,7 +434,7 @@ public class SqlTask
     {
         TaskInfo finalTaskInfo = taskHolder.getFinalTaskInfo();
         if (finalTaskInfo != null) {
-            return finalTaskInfo.getNoMoreSplits();
+            return finalTaskInfo.noMoreSplits();
         }
         SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
         if (taskExecution != null) {

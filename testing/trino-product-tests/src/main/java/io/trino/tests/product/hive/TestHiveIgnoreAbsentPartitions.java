@@ -31,8 +31,6 @@ import static io.trino.tests.product.hive.util.TableLocationUtils.getTablePath;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestHiveIgnoreAbsentPartitions
         extends ProductTest
@@ -59,12 +57,16 @@ public class TestHiveIgnoreAbsentPartitions
 
         assertThat(onTrino().executeQuery("SELECT count(*) FROM " + tableNameInDatabase)).containsOnly(row(15));
 
-        assertFalse(hdfsClient.exist(partitionPath), format("Expected partition %s to not exist", tableNameInDatabase));
+        assertThat(hdfsClient.exist(partitionPath))
+                .as(format("Expected partition %s to not exist", tableNameInDatabase))
+                .isFalse();
         onTrino().executeQuery(format("CALL hive.system.create_empty_partition('default', '%s', array['p_regionkey'], array['9999'])", tableNameInDatabase));
 
         onTrino().executeQuery("SET SESSION hive.ignore_absent_partitions = false");
         hdfsClient.delete(partitionPath);
-        assertFalse(hdfsClient.exist(partitionPath), format("Expected partition %s to not exist", partitionPath));
+        assertThat(hdfsClient.exist(partitionPath))
+                .as(format("Expected partition %s to not exist", partitionPath))
+                .isFalse();
         assertQueryFailure(() -> onTrino().executeQuery("SELECT count(*) FROM " + tableNameInDatabase)).hasMessageContaining("Partition location does not exist");
 
         onTrino().executeQuery("SET SESSION hive.ignore_absent_partitions = true");
@@ -82,7 +84,7 @@ public class TestHiveIgnoreAbsentPartitions
         assertThat(onTrino().executeQuery("SELECT count(*) FROM " + tableName)).containsOnly(row(3));
 
         String tablePath = getTablePath(tableName, 0);
-        assertTrue(hdfsClient.exist(tablePath));
+        assertThat(hdfsClient.exist(tablePath)).isTrue();
         hdfsClient.delete(tablePath);
 
         onTrino().executeQuery("SET SESSION hive.ignore_absent_partitions = false");

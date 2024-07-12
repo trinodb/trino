@@ -15,18 +15,21 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.units.Duration;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
 
 import java.util.List;
 
+import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 
 public final class MongoSessionProperties
         implements SessionPropertiesProvider
 {
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
+    public static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -38,6 +41,11 @@ public final class MongoSessionProperties
                         PROJECTION_PUSHDOWN_ENABLED,
                         "Read only required fields from a row type",
                         mongoConfig.isProjectionPushdownEnabled(),
+                        false))
+                .add(durationProperty(
+                        DYNAMIC_FILTERING_WAIT_TIMEOUT,
+                        "Duration to wait for completion of dynamic filters",
+                        mongoConfig.getDynamicFilteringWaitTimeout(),
                         false))
                 .build();
     }
@@ -51,5 +59,10 @@ public final class MongoSessionProperties
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static Duration getDynamicFilteringWaitTimeout(ConnectorSession session)
+    {
+        return session.getProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, Duration.class);
     }
 }

@@ -13,14 +13,12 @@
  */
 package io.trino.plugin.redis;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.redis.util.RedisServer;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRedisDistributedHash
@@ -31,7 +29,10 @@ public class TestRedisDistributedHash
             throws Exception
     {
         RedisServer redisServer = closeAfterClass(new RedisServer());
-        return createRedisQueryRunner(redisServer, ImmutableMap.of(), ImmutableMap.of(), "hash", REQUIRED_TPCH_TABLES);
+        return RedisQueryRunner.builder(redisServer)
+                .setDataFormat("hash")
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Test

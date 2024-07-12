@@ -410,7 +410,7 @@ public class TestTableRedirection
                             .where(TableFinishNode.class::isInstance)
                             .findOnlyElement();
                     TableWriterNode.InsertTarget insertTarget = ((TableWriterNode.InsertTarget) finishNode.getTarget());
-                    assertThat(((MockConnectorInsertTableHandle) insertTarget.getHandle().getConnectorHandle()).getTableName()).isEqualTo(schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                    assertThat(((MockConnectorInsertTableHandle) insertTarget.getHandle().connectorHandle()).getTableName()).isEqualTo(schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
                     assertThat(insertTarget.getSchemaTableName()).isEqualTo(schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
                 });
     }
@@ -428,7 +428,7 @@ public class TestTableRedirection
                             .where(TableFinishNode.class::isInstance)
                             .findOnlyElement();
                     TableWriterNode.MergeTarget mergeTarget = (TableWriterNode.MergeTarget) finishNode.getTarget();
-                    assertThat(((MockConnectorTableHandle) mergeTarget.getHandle().getConnectorHandle()).getTableName()).isEqualTo(schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                    assertThat(((MockConnectorTableHandle) mergeTarget.getHandle().connectorHandle()).getTableName()).isEqualTo(schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
                     assertThat(mergeTarget.getSchemaTableName()).isEqualTo(schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
                 });
     }
@@ -446,7 +446,7 @@ public class TestTableRedirection
                             .where(TableFinishNode.class::isInstance)
                             .findOnlyElement();
                     TableWriterNode.MergeTarget mergeTarget = (TableWriterNode.MergeTarget) finishNode.getTarget();
-                    assertThat(((MockConnectorTableHandle) mergeTarget.getHandle().getConnectorHandle()).getTableName()).isEqualTo(schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
+                    assertThat(((MockConnectorTableHandle) mergeTarget.getHandle().connectorHandle()).getTableName()).isEqualTo(schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
                     assertThat(mergeTarget.getSchemaTableName()).isEqualTo(schemaTableName(SCHEMA_TWO, VALID_REDIRECTION_TARGET));
                 });
     }
@@ -466,7 +466,7 @@ public class TestTableRedirection
             TableScanNode tableScan = (TableScanNode) searchFrom(plan.getRoot())
                     .where(TableScanNode.class::isInstance)
                     .findOnlyElement();
-            SchemaTableName actual = ((MockConnectorTableHandle) tableScan.getTable().getConnectorHandle()).getTableName();
+            SchemaTableName actual = ((MockConnectorTableHandle) tableScan.getTable().connectorHandle()).getTableName();
             assertThat(actual).isEqualTo(schemaTableName(schemaName, tableName));
         };
     }

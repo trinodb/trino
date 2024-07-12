@@ -14,7 +14,6 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.mongodb.client.MongoClients;
 import io.trino.Session;
 import io.trino.spi.type.ArrayType;
@@ -32,7 +31,6 @@ import org.junit.jupiter.api.Test;
 
 import java.time.ZoneId;
 
-import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -62,7 +60,8 @@ public class TestMongoTypeMapping
             throws Exception
     {
         server = closeAfterClass(new MongoServer());
-        return createMongoQueryRunner(server, ImmutableMap.of(), ImmutableList.of());
+        return MongoQueryRunner.builder(server)
+                .build();
     }
 
     @Test

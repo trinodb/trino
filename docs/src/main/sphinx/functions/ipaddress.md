@@ -1,7 +1,6 @@
 # IP Address Functions
 
 (ip-address-contains)=
-
 :::{function} contains(network, address) -> boolean
 :noindex: true
 

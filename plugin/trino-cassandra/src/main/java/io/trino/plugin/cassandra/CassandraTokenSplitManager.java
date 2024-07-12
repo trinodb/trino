@@ -128,7 +128,7 @@ public class CassandraTokenSplitManager
         }
         List<SizeEstimate> estimates = session.getSizeEstimates(keyspace, table);
         return estimates.stream()
-                .mapToLong(SizeEstimate::getPartitionsCount)
+                .mapToLong(SizeEstimate::partitionsCount)
                 .sum();
     }
 

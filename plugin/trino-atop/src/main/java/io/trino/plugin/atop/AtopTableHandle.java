@@ -13,88 +13,31 @@
  */
 package io.trino.plugin.atop;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.Domain;
-
-import java.util.Objects;
 
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.util.Objects.requireNonNull;
 
-public class AtopTableHandle
+public record AtopTableHandle(
+        String schema,
+        AtopTable table,
+        Domain startTimeConstraint,
+        Domain endTimeConstraint)
         implements ConnectorTableHandle
 {
-    private final String schema;
-    private final AtopTable table;
-    private final Domain startTimeConstraint;
-    private final Domain endTimeConstraint;
-
     public AtopTableHandle(String schema, AtopTable table)
     {
         this(schema, table, Domain.all(TIMESTAMP_TZ_MILLIS), Domain.all(TIMESTAMP_TZ_MILLIS));
     }
 
-    @JsonCreator
-    public AtopTableHandle(
-            @JsonProperty("schema") String schema,
-            @JsonProperty("table") AtopTable table,
-            @JsonProperty("startTimeConstraint") Domain startTimeConstraint,
-            @JsonProperty("endTimeConstraint") Domain endTimeConstraint)
+    public AtopTableHandle
     {
-        this.schema = requireNonNull(schema, "schema is null");
-        this.table = requireNonNull(table, "table is null");
-        this.startTimeConstraint = requireNonNull(startTimeConstraint, "startTimeConstraint is null");
-        this.endTimeConstraint = requireNonNull(endTimeConstraint, "endTimeConstraint is null");
+        requireNonNull(schema, "schema is null");
+        requireNonNull(table, "table is null");
+        requireNonNull(startTimeConstraint, "startTimeConstraint is null");
+        requireNonNull(endTimeConstraint, "endTimeConstraint is null");
     }
-
-    @JsonProperty
-    public String getSchema()
-    {
-        return schema;
-    }
-
-    @JsonProperty
-    public AtopTable getTable()
-    {
-        return table;
-    }
-
-    @JsonProperty
-    public Domain getStartTimeConstraint()
-    {
-        return startTimeConstraint;
-    }
-
-    @JsonProperty
-    public Domain getEndTimeConstraint()
-    {
-        return endTimeConstraint;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(schema, table, startTimeConstraint, endTimeConstraint);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        AtopTableHandle other = (AtopTableHandle) obj;
-        return Objects.equals(this.schema, other.schema) &&
-                this.table == other.table &&
-                Objects.equals(startTimeConstraint, other.startTimeConstraint) &&
-                Objects.equals(endTimeConstraint, other.endTimeConstraint);
-    }
-
     @Override
     public String toString()
     {

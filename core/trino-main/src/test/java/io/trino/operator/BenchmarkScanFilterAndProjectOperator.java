@@ -34,6 +34,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
@@ -86,14 +87,12 @@ import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSplit.createLocalSplit;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.stream.Collectors.toList;
 import static org.openjdk.jmh.annotations.Scope.Thread;
 
-@SuppressWarnings({"PackageVisibleField", "FieldCanBeLocal"})
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Fork(5)
@@ -151,19 +150,20 @@ public class BenchmarkScanFilterAndProjectOperator
             Type type = TYPE_MAP.get(this.type);
 
             for (int i = 0; i < columnCount; i++) {
-                Symbol symbol = new Symbol(UNKNOWN, type.getDisplayName().toLowerCase(ENGLISH) + i);
+                Symbol symbol = new Symbol(type, type.getDisplayName().toLowerCase(ENGLISH) + i);
                 sourceLayout.put(symbol, i);
             }
 
             List<RowExpression> projections = getProjections(type);
-            List<Type> types = projections.stream().map(RowExpression::getType).collect(toList());
+            List<Type> types = projections.stream().map(RowExpression::type).collect(toList());
             List<ColumnHandle> columnHandles = IntStream.range(0, columnCount)
                     .mapToObj(i -> new TestingColumnHandle(Integer.toString(i)))
                     .collect(toImmutableList());
 
             PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
-            PageProcessor pageProcessor = new ExpressionCompiler(PLANNER_CONTEXT.getFunctionManager(), pageFunctionCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
-            CursorProcessor cursorProcessor = new ExpressionCompiler(PLANNER_CONTEXT.getFunctionManager(), pageFunctionCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
+            ColumnarFilterCompiler compiler = new ColumnarFilterCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
+            PageProcessor pageProcessor = new ExpressionCompiler(PLANNER_CONTEXT.getFunctionManager(), pageFunctionCompiler, compiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
+            CursorProcessor cursorProcessor = new ExpressionCompiler(PLANNER_CONTEXT.getFunctionManager(), pageFunctionCompiler, compiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
 
             createTaskContext();
             createScanFilterAndProjectOperatorFactories(createInputPages(types), pageProcessor, cursorProcessor, columnHandles, types);
@@ -182,7 +182,7 @@ public class BenchmarkScanFilterAndProjectOperator
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("test_source"),
-                    (session, split, table, columns, dynamicFilter) -> new FixedPageSource(inputPages),
+                    (catalog) -> (session, split, table, columns, dynamicFilter) -> new FixedPageSource(inputPages),
                     () -> cursorProcessor,
                     () -> pageProcessor,
                     TEST_TABLE_HANDLE,
@@ -247,10 +247,7 @@ public class BenchmarkScanFilterAndProjectOperator
                     expression,
                     sourceLayout,
                     PLANNER_CONTEXT.getMetadata(),
-                    PLANNER_CONTEXT.getFunctionManager(),
-                    PLANNER_CONTEXT.getTypeManager(),
-                    TEST_SESSION,
-                    true);
+                    PLANNER_CONTEXT.getTypeManager());
         }
 
         private static Page createPage(List<? extends Type> types, int positions, boolean dictionary)

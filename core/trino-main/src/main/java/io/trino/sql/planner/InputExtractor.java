@@ -69,7 +69,7 @@ public class InputExtractor
         Optional<Object> inputMetadata = metadata.getInfo(session, table);
         return new Input(
                 tableName.getCatalogName(),
-                table.getCatalogHandle().getVersion(),
+                table.catalogHandle().getVersion(),
                 schemaTable.getSchemaName(),
                 schemaTable.getTableName(),
                 inputMetadata,

@@ -15,7 +15,6 @@ package io.trino.operator.window.pattern;
 
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
-import io.trino.operator.aggregation.WindowAccumulator;
 import io.trino.operator.window.AggregationWindowFunctionSupplier;
 import io.trino.operator.window.MappedWindowIndex;
 import io.trino.operator.window.matcher.ArrayView;
@@ -24,6 +23,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.WindowAccumulator;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -139,7 +139,7 @@ public class MatchAggregation
         }
 
         BlockBuilder blockBuilder = boundSignature.getReturnType().createBlockBuilder(null, 1);
-        accumulator.evaluateFinal(blockBuilder);
+        accumulator.output(blockBuilder);
         return blockBuilder.build();
     }
 
@@ -157,7 +157,7 @@ public class MatchAggregation
             return resultOnEmpty;
         }
         BlockBuilder blockBuilder = boundSignature.getReturnType().createBlockBuilder(null, 1);
-        accumulatorFactory.get().evaluateFinal(blockBuilder);
+        accumulatorFactory.get().output(blockBuilder);
         resultOnEmpty = blockBuilder.build();
         return resultOnEmpty;
     }

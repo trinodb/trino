@@ -12,7 +12,6 @@ SET SESSION catalog.name = expression
 Set a session property value or a catalog session property.
 
 (session-properties-definition)=
-
 ## Session properties
 
 A session property is a {doc}`configuration property </admin/properties>` that

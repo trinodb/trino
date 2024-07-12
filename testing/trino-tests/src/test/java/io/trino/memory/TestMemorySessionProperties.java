@@ -16,7 +16,7 @@ package io.trino.memory;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -32,7 +32,9 @@ public class TestMemorySessionProperties
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpchQueryRunnerBuilder.builder().setNodeCount(2).build();
+        return TpchQueryRunner.builder()
+                .setWorkerCount(1)
+                .build();
     }
 
     @Test

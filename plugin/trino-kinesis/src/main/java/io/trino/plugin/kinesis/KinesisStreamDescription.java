@@ -13,10 +13,6 @@
  */
 package io.trino.plugin.kinesis;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
@@ -24,59 +20,15 @@ import static java.util.Objects.requireNonNull;
 /**
  * This Class maintains all the details of Kinesis stream like name, fields of data, Trino table stream is mapping to, tables's schema name
  */
-public class KinesisStreamDescription
+public record KinesisStreamDescription(
+        String tableName,
+        String schemaName,
+        String streamName,
+        KinesisStreamFieldGroup message)
 {
-    private final String tableName;
-    private final String streamName;
-    private final String schemaName;
-    private final KinesisStreamFieldGroup message;
-
-    @JsonCreator
-    public KinesisStreamDescription(
-            @JsonProperty("tableName") String tableName,
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("streamName") String streamName,
-            @JsonProperty("message") KinesisStreamFieldGroup message)
+    public KinesisStreamDescription
     {
         checkArgument(!isNullOrEmpty(tableName), "tableName is null or is empty");
-        this.tableName = tableName;
-        this.streamName = requireNonNull(streamName, "streamName is null");
-        this.schemaName = schemaName;
-        this.message = message;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    @JsonProperty
-    public String getStreamName()
-    {
-        return streamName;
-    }
-
-    @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public KinesisStreamFieldGroup getMessage()
-    {
-        return message;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("tableName", tableName)
-                .add("streamName", streamName)
-                .add("schemaName", schemaName)
-                .add("message", message)
-                .toString();
+        requireNonNull(streamName, "streamName is null");
     }
 }

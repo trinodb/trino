@@ -174,7 +174,7 @@ public final class PrioritizedSplitRunner
                 .setParent(Context.current().with(splitSpan))
                 .startSpan();
 
-        try (var ignored = scopedSpan(span)) {
+        try (var _ = scopedSpan(span)) {
             long startNanos = ticker.read();
             start.compareAndSet(0, startNanos);
             lastReady.compareAndSet(0, startNanos);
@@ -215,6 +215,11 @@ public final class PrioritizedSplitRunner
             finishedFuture.setException(e);
             throw e;
         }
+    }
+
+    public void markFailed(Throwable cause)
+    {
+        finishedFuture.setException(cause);
     }
 
     public void setReady()

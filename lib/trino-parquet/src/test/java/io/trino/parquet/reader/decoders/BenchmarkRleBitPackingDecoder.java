@@ -34,11 +34,9 @@ import org.openjdk.jmh.runner.options.WarmupMode;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Random;
 
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.parquet.reader.TestData.generateMixedData;
-import static io.trino.parquet.reader.TestData.randomUnsignedInt;
+import static io.trino.parquet.reader.TestData.UnsignedIntsGenerator;
 import static java.lang.Math.min;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -57,57 +55,15 @@ public class BenchmarkRleBitPackingDecoder
     private int[] output;
 
     @Param
-    public DataSet dataSet;
+    public UnsignedIntsGenerator dataSet;
 
     @Param({
             // This encoding is not meant to store big numbers so 2^20 is enough
             "1", "2", "3", "4", "5", "6", "7", "8",
-            "9", "10", "13", "16", "17", "18", "20",
+            "9", "10", "11", "12", "13", "14", "15",
+            "16", "17", "18", "19", "20"
     })
     public int bitWidth;
-
-    public enum DataSet
-    {
-        RANDOM {
-            @Override
-            int[] getData(int size, int bitWidth)
-            {
-                Random random = new Random((long) size * bitWidth);
-                int[] values = new int[size];
-                for (int i = 0; i < size; i++) {
-                    values[i] = randomUnsignedInt(random, bitWidth);
-                }
-                return values;
-            }
-        },
-        MIXED_AND_GROUPS_SMALL {
-            @Override
-            int[] getData(int size, int bitWidth)
-            {
-                Random random = new Random((long) size * bitWidth);
-                return generateMixedData(random, size, 23, bitWidth);
-            }
-        },
-        MIXED_AND_GROUPS_LARGE {
-            @Override
-            int[] getData(int size, int bitWidth)
-            {
-                Random random = new Random((long) size * bitWidth);
-                return generateMixedData(random, size, 127, bitWidth);
-            }
-        },
-        MIXED_AND_GROUPS_HUGE {
-            @Override
-            int[] getData(int size, int bitWidth)
-            {
-                Random random = new Random((long) size * bitWidth);
-                return generateMixedData(random, size, 2111, bitWidth);
-            }
-        },
-        /**/;
-
-        abstract int[] getData(int size, int bitWidth);
-    }
 
     @Setup
     public void setup()
@@ -124,7 +80,17 @@ public class BenchmarkRleBitPackingDecoder
     @Benchmark
     public void rleBitPackingHybridDecoder()
     {
-        ValueDecoder<int[]> decoder = new RleBitPackingHybridDecoder(bitWidth);
+        ValueDecoder<int[]> decoder = new RleBitPackingHybridDecoder(bitWidth, false);
+        decoder.init(new SimpleSliceInputStream(inputSlice));
+        for (int i = 0; i < MAX_VALUES; i += READ_BATCH_SIZE) {
+            decoder.read(output, 0, min(READ_BATCH_SIZE, MAX_VALUES - i));
+        }
+    }
+
+    @Benchmark
+    public void vectorRleBitPackingHybridDecoder()
+    {
+        ValueDecoder<int[]> decoder = new RleBitPackingHybridDecoder(bitWidth, true);
         decoder.init(new SimpleSliceInputStream(inputSlice));
         for (int i = 0; i < MAX_VALUES; i += READ_BATCH_SIZE) {
             decoder.read(output, 0, min(READ_BATCH_SIZE, MAX_VALUES - i));
@@ -167,7 +133,7 @@ public class BenchmarkRleBitPackingDecoder
             throws Exception
     {
         benchmark(BenchmarkRleBitPackingDecoder.class, WarmupMode.BULK)
-                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g"))
+                .withOptions(optionsBuilder -> optionsBuilder.jvmArgsAppend("-Xmx4g", "-Xms4g", "--add-modules=jdk.incubator.vector"))
                 .run();
     }
 }

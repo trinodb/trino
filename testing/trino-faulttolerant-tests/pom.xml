@@ -5,16 +5,13 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>444</version>
+        <version>451</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-faulttolerant-tests</artifactId>
     <description>Trino - Fault-tolerant execution tests</description>
 
-    <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-    </properties>
     <dependencies>
         <dependency>
             <groupId>org.jetbrains</groupId>
@@ -91,12 +88,6 @@
         <dependency>
             <groupId>jakarta.ws.rs</groupId>
             <artifactId>jakarta.ws.rs-api</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -435,6 +426,7 @@
                     <ignoredResourcePatterns>
                         <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
+                        <ignoredResourcePattern>mime.types</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                 </configuration>
             </plugin>

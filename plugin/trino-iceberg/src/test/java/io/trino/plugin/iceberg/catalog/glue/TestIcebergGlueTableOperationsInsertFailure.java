@@ -91,7 +91,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
         queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory, Optional.of(new TestingIcebergGlueCatalogModule(awsGlueAsyncAdapterProvider))));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of());
 
-        glueHiveMetastore = createTestingGlueHiveMetastore(dataDirectory);
+        glueHiveMetastore = createTestingGlueHiveMetastore(dataDirectory, this::closeAfterClass);
 
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
@@ -111,6 +111,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
             if (glueHiveMetastore != null) {
                 // Data is on the local disk and will be deleted by the deleteOnExit hook
                 glueHiveMetastore.dropDatabase(schemaName, false);
+                glueHiveMetastore.shutdown();
             }
         }
         catch (Exception e) {

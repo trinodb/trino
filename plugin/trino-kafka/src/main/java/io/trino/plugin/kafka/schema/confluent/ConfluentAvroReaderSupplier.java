@@ -53,6 +53,7 @@ public class ConfluentAvroReaderSupplier<T>
     private GenericDatumReader<T> lookupReader(int id)
     {
         try {
+            @SuppressWarnings("deprecation")
             Schema sourceSchema = requireNonNull(schemaRegistryClient.getById(id), "Schema is null");
             return new GenericDatumReader<>(sourceSchema, targetSchema);
         }

@@ -20,7 +20,6 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.Region;
@@ -28,6 +27,7 @@ import io.trino.testing.minio.MinioClient;
 
 import static io.trino.testing.minio.MinioClient.DEFAULT_MINIO_ACCESS_KEY;
 import static io.trino.testing.minio.MinioClient.DEFAULT_MINIO_SECRET_KEY;
+import static java.util.Objects.requireNonNull;
 
 final class S3ClientFactory
 {
@@ -36,19 +36,17 @@ final class S3ClientFactory
 
     public AmazonS3 createS3Client(String serverType)
     {
-        switch (serverType) {
-            case AWS_S3_SERVER_TYPE:
-                return createAwsS3Client();
-            case MINIO_S3_SERVER_TYPE:
-                return createMinioS3Client();
-            default:
-                throw new IllegalArgumentException("Invalid value '" + serverType + "' for the s3 server type");
-        }
+        return switch (serverType) {
+            case AWS_S3_SERVER_TYPE -> createAwsS3Client();
+            case MINIO_S3_SERVER_TYPE -> createMinioS3Client();
+            default -> throw new IllegalArgumentException("Invalid value '" + serverType + "' for the s3 server type");
+        };
     }
 
     private AmazonS3 createAwsS3Client()
     {
-        return AmazonS3Client.builder().withRegion(Regions.US_EAST_2.getName()).build();
+        String region = requireNonNull(System.getenv("AWS_REGION"), "AWS_REGION is null");
+        return AmazonS3Client.builder().withRegion(region).build();
     }
 
     private AmazonS3 createMinioS3Client()

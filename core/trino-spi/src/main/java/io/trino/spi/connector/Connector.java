@@ -76,6 +76,16 @@ public interface Connector
     }
 
     /**
+     * Provide a pageSourceProviderFactory to create stateful instances of PageSourceProvider per query.
+     * If not implemented a singleton instance returned by getPageSourceProvider will be used for all queries.
+     */
+    default ConnectorPageSourceProviderFactory getPageSourceProviderFactory()
+    {
+        ConnectorPageSourceProvider pageSourceProvider = getPageSourceProvider();
+        return () -> pageSourceProvider;
+    }
+
+    /**
      * @throws UnsupportedOperationException if this connector does not support reading tables record at a time
      */
     default ConnectorRecordSetProvider getRecordSetProvider()
@@ -138,6 +148,18 @@ public interface Connector
     }
 
     /**
+     * Retrieves the initial memory requirement for the connector.
+     * <p>
+     * The memory allocation is per catalog and is freed when the catalog is shut down.
+     *
+     * @return the initial memory requirement in bytes.
+     */
+    default long getInitialMemoryRequirement()
+    {
+        return 0;
+    }
+
+    /**
      * @return the set of table functions provided by this connector
      */
     default Set<ConnectorTableFunction> getTableFunctions()
@@ -173,6 +195,14 @@ public interface Connector
      * @return the table properties for this connector
      */
     default List<PropertyMetadata<?>> getTableProperties()
+    {
+        return emptyList();
+    }
+
+    /**
+     * @return the view properties for this connector
+     */
+    default List<PropertyMetadata<?>> getViewProperties()
     {
         return emptyList();
     }

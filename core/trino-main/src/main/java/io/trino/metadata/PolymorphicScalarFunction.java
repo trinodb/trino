@@ -72,11 +72,11 @@ class PolymorphicScalarFunction
         Optional<MethodAndNativeContainerTypes> matchingMethod = Optional.empty();
 
         Optional<MethodsGroup> matchingMethodsGroup = Optional.empty();
-        for (MethodsGroup candidateMethodsGroup : choice.getMethodsGroups()) {
+        for (MethodsGroup candidateMethodsGroup : choice.methodsGroups()) {
             for (MethodAndNativeContainerTypes candidateMethod : candidateMethodsGroup.getMethods()) {
-                if (matchesParameterAndReturnTypes(candidateMethod, functionBinding.getBoundSignature(), choice.getArgumentConventions(), choice.getReturnConvention())) {
+                if (matchesParameterAndReturnTypes(candidateMethod, functionBinding.getBoundSignature(), choice.argumentConventions(), choice.returnConvention())) {
                     if (matchingMethod.isPresent()) {
-                        throw new IllegalStateException("two matching methods (" + matchingMethod.get().getMethod().getName() + " and " + candidateMethod.getMethod().getName() + ") for parameter types " + functionBinding.getBoundSignature().getArgumentTypes());
+                        throw new IllegalStateException("two matching methods (" + matchingMethod.get().method().getName() + " and " + candidateMethod.method().getName() + ") for parameter types " + functionBinding.getBoundSignature().getArgumentTypes());
                     }
 
                     matchingMethod = Optional.of(candidateMethod);
@@ -87,10 +87,10 @@ class PolymorphicScalarFunction
         checkState(matchingMethod.isPresent(), "no matching method for parameter types %s", functionBinding.getBoundSignature());
 
         List<Object> extraParameters = computeExtraParameters(matchingMethodsGroup.get(), context);
-        MethodHandle methodHandle = applyExtraParameters(matchingMethod.get().getMethod(), extraParameters, choice.getArgumentConventions());
+        MethodHandle methodHandle = applyExtraParameters(matchingMethod.get().method(), extraParameters, choice.argumentConventions());
         return new ScalarImplementationChoice(
-                choice.getReturnConvention(),
-                choice.getArgumentConventions(),
+                choice.returnConvention(),
+                choice.argumentConventions(),
                 ImmutableList.of(),
                 methodHandle,
                 Optional.empty());
@@ -102,7 +102,7 @@ class PolymorphicScalarFunction
             List<InvocationArgumentConvention> argumentConventions,
             InvocationReturnConvention returnConvention)
     {
-        Method method = methodAndNativeContainerTypes.getMethod();
+        Method method = methodAndNativeContainerTypes.method();
         checkState(method.getParameterCount() >= boundSignature.getArity(),
                 "method %s has not enough arguments: %s (should have at least %s)", method.getName(), method.getParameterCount(), boundSignature.getArity());
 
@@ -125,7 +125,7 @@ class PolymorphicScalarFunction
                     actualType = Primitives.wrap(resolvedType.getJavaType());
                     break;
                 case BLOCK_POSITION:
-                    Optional<Class<?>> explicitNativeContainerTypes = methodAndNativeContainerTypes.getExplicitNativeContainerTypes().get(i);
+                    Optional<Class<?>> explicitNativeContainerTypes = methodAndNativeContainerTypes.explicitNativeContainerTypes().get(i);
                     if (explicitNativeContainerTypes.isPresent()) {
                         expectedType = explicitNativeContainerTypes.get();
                     }
@@ -181,35 +181,16 @@ class PolymorphicScalarFunction
         };
     }
 
-    static final class PolymorphicScalarFunctionChoice
+    record PolymorphicScalarFunctionChoice(
+            InvocationReturnConvention returnConvention,
+            List<InvocationArgumentConvention> argumentConventions,
+            List<MethodsGroup> methodsGroups)
     {
-        private final InvocationReturnConvention returnConvention;
-        private final List<InvocationArgumentConvention> argumentConventions;
-        private final List<MethodsGroup> methodsGroups;
-
-        PolymorphicScalarFunctionChoice(
-                InvocationReturnConvention returnConvention,
-                List<InvocationArgumentConvention> argumentConventions,
-                List<MethodsGroup> methodsGroups)
+        PolymorphicScalarFunctionChoice
         {
-            this.returnConvention = requireNonNull(returnConvention, "returnConvention is null");
-            this.argumentConventions = ImmutableList.copyOf(requireNonNull(argumentConventions, "argumentConventions is null"));
-            this.methodsGroups = ImmutableList.copyOf(requireNonNull(methodsGroups, "methodsGroups is null"));
-        }
-
-        InvocationReturnConvention getReturnConvention()
-        {
-            return returnConvention;
-        }
-
-        List<MethodsGroup> getMethodsGroups()
-        {
-            return methodsGroups;
-        }
-
-        List<InvocationArgumentConvention> getArgumentConventions()
-        {
-            return argumentConventions;
+            requireNonNull(returnConvention, "returnConvention is null");
+            argumentConventions = ImmutableList.copyOf(requireNonNull(argumentConventions, "argumentConventions is null"));
+            methodsGroups = ImmutableList.copyOf(requireNonNull(methodsGroups, "methodsGroups is null"));
         }
     }
 }

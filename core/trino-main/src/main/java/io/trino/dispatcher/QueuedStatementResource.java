@@ -31,6 +31,7 @@ import io.trino.client.StatementStats;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryState;
+import io.trino.server.DisconnectionAwareAsyncResponse;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionContext;
@@ -46,6 +47,7 @@ import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -54,7 +56,6 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
@@ -81,9 +82,9 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.QUEUED;
+import static io.trino.server.DisconnectionAwareAsyncResponse.bindDisconnectionAwareAsyncResponse;
 import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
 import static io.trino.server.ServletSecurityUtils.clearAuthenticatedIdentity;
 import static io.trino.server.protocol.QueryInfoUrlFactory.getQueryInfoUri;
@@ -202,12 +203,12 @@ public class QueuedStatementResource
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
             @Context UriInfo uriInfo,
-            @Suspended AsyncResponse asyncResponse)
+            @Suspended @BeanParam DisconnectionAwareAsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
 
         ListenableFuture<Response> future = getStatus(query, token, maxWait, uriInfo);
-        bindAsyncResponse(asyncResponse, future, responseExecutor);
+        bindDisconnectionAwareAsyncResponse(asyncResponse, future, responseExecutor);
     }
 
     private ListenableFuture<Response> getStatus(Query query, long token, Duration maxWait, UriInfo uriInfo)
@@ -217,9 +218,9 @@ public class QueuedStatementResource
         return FluentFuture.from(query.waitForDispatched())
                 // wait for query to be dispatched, up to the wait timeout
                 .withTimeout(waitMillis, MILLISECONDS, timeoutExecutor)
-                .catching(TimeoutException.class, ignored -> null, directExecutor())
+                .catching(TimeoutException.class, _ -> null, directExecutor())
                 // when state changes, fetch the next result
-                .transform(ignored -> query.getQueryResults(token, uriInfo), responseExecutor)
+                .transform(_ -> query.getQueryResults(token, uriInfo), responseExecutor)
                 .transform(this::createQueryResultsResponse, directExecutor());
     }
 

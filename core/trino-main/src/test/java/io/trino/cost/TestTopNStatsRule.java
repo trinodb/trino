@@ -20,7 +20,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.TopNNode;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 
 public class TestTopNStatsRule
         extends BaseStatsCalculatorTest
@@ -30,16 +30,16 @@ public class TestTopNStatsRule
     {
         // Test case with more rows in data than in topN SINGLE step
         tester().assertStatsFor(pb -> pb
-                .topN(10, ImmutableList.of(pb.symbol("i1")), pb.values(pb.symbol("i1"), pb.symbol("i2"))))
+                .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i1"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(DOUBLE, "i1"), SymbolStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(10)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0)
                                 .build())
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i2"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(DOUBLE, "i2"), SymbolStatsEstimate.builder()
                                 .setLowValue(0)
                                 .setHighValue(3)
                                 .setDistinctValuesCount(4)
@@ -64,13 +64,13 @@ public class TestTopNStatsRule
         // Test case with more rows in data than in topN PARTIAL step
         PlanNodeStatsEstimate sourceStats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(100)
-                .addSymbolStatistics(new Symbol(UNKNOWN, "i1"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(DOUBLE, "i1"), SymbolStatsEstimate.builder()
                         .setLowValue(1)
                         .setHighValue(10)
                         .setDistinctValuesCount(5)
                         .setNullsFraction(0)
                         .build())
-                .addSymbolStatistics(new Symbol(UNKNOWN, "i2"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(DOUBLE, "i2"), SymbolStatsEstimate.builder()
                         .setLowValue(0)
                         .setHighValue(3)
                         .setDistinctValuesCount(4)
@@ -79,21 +79,21 @@ public class TestTopNStatsRule
                 .build();
 
         tester().assertStatsFor(pb -> pb
-                .topN(10, ImmutableList.of(pb.symbol("i1")), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1"), pb.symbol("i2"))))
+                .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, sourceStats)
                 .check(check -> check.equalTo(sourceStats.mapOutputRowCount(ignore -> 10.0)));
 
         tester().assertStatsFor(pb -> pb
-                        .topN(10, ImmutableList.of(pb.symbol("i1")), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1"), pb.symbol("i2"))))
+                        .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, sourceStats.mapOutputRowCount(ignore -> 5000000.0))
                 .check(check -> check.equalTo(sourceStats.mapOutputRowCount(ignore -> 50.0)));
 
         tester().assertStatsFor(pb -> pb
                         .topN(
                                 10,
-                                ImmutableList.of(pb.symbol("i1")),
+                                ImmutableList.of(pb.symbol("i1", DOUBLE)),
                                 TopNNode.Step.FINAL,
-                                pb.topN(10, ImmutableList.of(pb.symbol("i1")), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1"), pb.symbol("i2")))))
+                                pb.topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE)))))
                 .withSourceStats(0, sourceStats)
                 .check(check -> check.equalTo(sourceStats.mapOutputRowCount(ignore -> 10.0)));
     }
@@ -104,13 +104,13 @@ public class TestTopNStatsRule
         // Test case with less rows in data than in topN
         PlanNodeStatsEstimate sourceStats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(100)
-                .addSymbolStatistics(new Symbol(UNKNOWN, "i1"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(DOUBLE, "i1"), SymbolStatsEstimate.builder()
                         .setLowValue(1)
                         .setHighValue(10)
                         .setDistinctValuesCount(5)
                         .setNullsFraction(0)
                         .build())
-                .addSymbolStatistics(new Symbol(UNKNOWN, "i2"), SymbolStatsEstimate.builder()
+                .addSymbolStatistics(new Symbol(DOUBLE, "i2"), SymbolStatsEstimate.builder()
                         .setLowValue(0)
                         .setHighValue(3)
                         .setDistinctValuesCount(4)
@@ -119,7 +119,7 @@ public class TestTopNStatsRule
                 .build();
 
         tester().assertStatsFor(pb -> pb
-                        .topN(1000, ImmutableList.of(pb.symbol("i1")), pb.values(pb.symbol("i1"), pb.symbol("i2"))))
+                        .topN(1000, ImmutableList.of(pb.symbol("i1", DOUBLE)), pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, sourceStats)
                 .check(check -> check
                         .outputRowsCount(100) //Expect TopN not to limit
@@ -137,7 +137,7 @@ public class TestTopNStatsRule
                                 .nullsFraction(0)));
 
         tester().assertStatsFor(pb -> pb
-                        .topN(1000, ImmutableList.of(pb.symbol("i1")), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1"), pb.symbol("i2"))))
+                        .topN(1000, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.PARTIAL, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, sourceStats)
                 .check(check -> check.equalTo(sourceStats));
     }
@@ -147,16 +147,16 @@ public class TestTopNStatsRule
     {
         // Test no nulls case
         tester().assertStatsFor(pb -> pb
-                .topN(10, ImmutableList.of(pb.symbol("i1")), TopNNode.Step.SINGLE, SortOrder.ASC_NULLS_LAST, pb.values(pb.symbol("i1"), pb.symbol("i2"))))
+                .topN(10, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.SINGLE, SortOrder.ASC_NULLS_LAST, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i1"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(DOUBLE, "i1"), SymbolStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(10)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0.3)
                                 .build())
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i2"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(DOUBLE, "i2"), SymbolStatsEstimate.builder()
                                 .setLowValue(0)
                                 .setHighValue(3)
                                 .setDistinctValuesCount(4)
@@ -180,16 +180,16 @@ public class TestTopNStatsRule
 
         // test Reducing the nullFraction
         tester().assertStatsFor(pb -> pb
-                .topN(50, ImmutableList.of(pb.symbol("i1")), TopNNode.Step.SINGLE, SortOrder.ASC_NULLS_LAST, pb.values(pb.symbol("i1"), pb.symbol("i2"))))
+                .topN(50, ImmutableList.of(pb.symbol("i1", DOUBLE)), TopNNode.Step.SINGLE, SortOrder.ASC_NULLS_LAST, pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i1"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(DOUBLE, "i1"), SymbolStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(10)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0.6)
                                 .build())
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i2"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(DOUBLE, "i2"), SymbolStatsEstimate.builder()
                                 .setLowValue(0)
                                 .setHighValue(3)
                                 .setDistinctValuesCount(4)
@@ -213,16 +213,16 @@ public class TestTopNStatsRule
 
         // test nulls first
         tester().assertStatsFor(pb -> pb
-                .topN(50, ImmutableList.of(pb.symbol("i1")), pb.values(pb.symbol("i1"), pb.symbol("i2"))))
+                .topN(50, ImmutableList.of(pb.symbol("i1", DOUBLE)), pb.values(pb.symbol("i1", DOUBLE), pb.symbol("i2", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(100)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i1"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(DOUBLE, "i1"), SymbolStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(10)
                                 .setDistinctValuesCount(5)
                                 .setNullsFraction(0.6)
                                 .build())
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "i2"), SymbolStatsEstimate.builder()
+                        .addSymbolStatistics(new Symbol(DOUBLE, "i2"), SymbolStatsEstimate.builder()
                                 .setLowValue(0)
                                 .setHighValue(3)
                                 .setDistinctValuesCount(4)

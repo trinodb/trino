@@ -14,14 +14,14 @@
 package io.trino.parquet.writer.repdef;
 
 import com.google.common.collect.Iterables;
-import org.apache.parquet.column.values.ValuesWriter;
+import io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter;
 
 import java.util.List;
 import java.util.Optional;
 
 public interface RepLevelWriterProvider
 {
-    RepetitionLevelWriter getRepetitionLevelWriter(Optional<RepetitionLevelWriter> nestedWriter, ValuesWriter encoder);
+    RepetitionLevelWriter getRepetitionLevelWriter(Optional<RepetitionLevelWriter> nestedWriter, ColumnDescriptorValuesWriter encoder);
 
     /**
      * Parent repetition level marks at which level either:
@@ -36,7 +36,7 @@ public interface RepLevelWriterProvider
         void writeRepetitionLevels(int parentLevel);
     }
 
-    static RepetitionLevelWriter getRootRepetitionLevelWriter(List<RepLevelWriterProvider> repLevelWriterProviders, ValuesWriter encoder)
+    static RepetitionLevelWriter getRootRepetitionLevelWriter(List<RepLevelWriterProvider> repLevelWriterProviders, ColumnDescriptorValuesWriter encoder)
     {
         // Constructs hierarchy of RepetitionLevelWriter from leaf to root
         RepetitionLevelWriter rootRepetitionLevelWriter = Iterables.getLast(repLevelWriterProviders)

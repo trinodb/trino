@@ -13,35 +13,15 @@
  */
 package io.trino.metadata;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 
 import static java.util.Objects.requireNonNull;
 
-public final class MergeHandle
+public record MergeHandle(TableHandle tableHandle, ConnectorMergeTableHandle connectorMergeHandle)
 {
-    private final TableHandle tableHandle;
-    private final ConnectorMergeTableHandle connectorMergeHandle;
-
-    @JsonCreator
-    public MergeHandle(
-            @JsonProperty("tableHandle") TableHandle tableHandle,
-            @JsonProperty("connectorMergeHandle") ConnectorMergeTableHandle connectorMergeHandle)
+    public MergeHandle
     {
-        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        this.connectorMergeHandle = requireNonNull(connectorMergeHandle, "connectorMergeHandle is null");
-    }
-
-    @JsonProperty
-    public TableHandle getTableHandle()
-    {
-        return tableHandle;
-    }
-
-    @JsonProperty
-    public ConnectorMergeTableHandle getConnectorMergeHandle()
-    {
-        return connectorMergeHandle;
+        requireNonNull(tableHandle, "tableHandle is null");
+        requireNonNull(connectorMergeHandle, "connectorMergeHandle is null");
     }
 }

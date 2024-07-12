@@ -13,12 +13,8 @@
  */
 package io.trino.plugin.mongodb;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.BaseComplexTypesPredicatePushDownTest;
 import io.trino.testing.QueryRunner;
-
-import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 
 public class TestMongoComplexTypePredicatePushDown
         extends BaseComplexTypesPredicatePushDownTest
@@ -28,6 +24,7 @@ public class TestMongoComplexTypePredicatePushDown
             throws Exception
     {
         MongoServer server = closeAfterClass(new MongoServer());
-        return createMongoQueryRunner(server, ImmutableMap.of(), ImmutableList.of());
+        return MongoQueryRunner.builder(server)
+                .build();
     }
 }

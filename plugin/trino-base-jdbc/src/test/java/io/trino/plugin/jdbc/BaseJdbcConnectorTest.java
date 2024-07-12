@@ -25,6 +25,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
@@ -36,6 +37,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
@@ -45,15 +47,16 @@ import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -61,7 +64,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
+import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_ENABLED;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.COMPLEX_JOIN_PUSHDOWN_ENABLED;
@@ -77,6 +80,7 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAS
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
@@ -87,6 +91,8 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUS
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CANCELLATION;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DYNAMIC_FILTER_PUSHDOWN;
@@ -119,10 +125,9 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@TestInstance(PER_CLASS)
 public abstract class BaseJdbcConnectorTest
         extends BaseConnectorTest
 {
@@ -144,10 +149,10 @@ public abstract class BaseJdbcConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_UPDATE -> true;
             case SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
-                    SUPPORTS_ROW_LEVEL_UPDATE -> false;
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_ROW_LEVEL_UPDATE -> false;
             // Dynamic filters can be pushed down only if predicate push down is supported.
             // It is possible for a connector to have predicate push down support but not push down dynamic filters.
             // TODO default SUPPORTS_DYNAMIC_FILTER_PUSHDOWN to SUPPORTS_PREDICATE_PUSHDOWN
@@ -254,7 +259,7 @@ public abstract class BaseJdbcConnectorTest
                 getSession(),
                 "SELECT custkey, sum(totalprice) FROM (SELECT custkey, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) GROUP BY custkey",
                 hasBehavior(SUPPORTS_TOPN_PUSHDOWN),
-                node(TopNNode.class, anyTree(node(TableScanNode.class))));
+                project(node(TopNNode.class, anyTree(node(TableScanNode.class)))));
         // GROUP BY with JOIN
         assertConditionallyPushedDown(
                 joinPushdownEnabled(getSession()),
@@ -396,34 +401,74 @@ public abstract class BaseJdbcConnectorTest
                     .skippingTypesCheck()
                     .matches("VALUES BIGINT '4'");
 
-            assertConditionallyPushedDown(getSession(),
-                    "SELECT count(DISTINCT a_string), count(DISTINCT a_bigint) FROM " + table.getName(),
-                    supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
-                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
-                    .skippingTypesCheck()
-                    .matches("VALUES (BIGINT '4', BIGINT '3')");
-
-            assertConditionallyPushedDown(getSession(),
-                    "SELECT count(DISTINCT a_char), count(DISTINCT a_bigint) FROM " + table.getName(),
-                    supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
-                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
-                    .skippingTypesCheck()
-                    .matches("VALUES (BIGINT '4', BIGINT '3')");
-
-            assertConditionallyPushedDown(getSession(),
-                    "SELECT count(DISTINCT a_string), sum(DISTINCT a_bigint) FROM " + table.getName(),
-                    supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
-                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
-                    .skippingTypesCheck()
-                    .matches(sumDistinctAggregationPushdownExpectedResult());
-
-            assertConditionallyPushedDown(getSession(),
-                    "SELECT count(DISTINCT a_char), sum(DISTINCT a_bigint) FROM " + table.getName(),
-                    supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
-                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
-                    .skippingTypesCheck()
-                    .matches(sumDistinctAggregationPushdownExpectedResult());
+            Session withMarkDistinct = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
+                    .build();
+            Session withSingleStep = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
+                    .build();
+            Session withPreAggregate = Session.builder(getSession())
+                    .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
+                    .build();
+            verifyMultipleDistinctPushdown(
+                    withMarkDistinct,
+                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))),
+                    supportsPushdownWithVarcharInequality,
+                    supportsCountDistinctPushdown,
+                    supportsSumDistinctPushdown,
+                    table);
+            verifyMultipleDistinctPushdown(
+                    withSingleStep,
+                    node(AggregationNode.class, anyTree(node(TableScanNode.class))),
+                    supportsPushdownWithVarcharInequality,
+                    supportsCountDistinctPushdown,
+                    supportsSumDistinctPushdown,
+                    table);
+            verifyMultipleDistinctPushdown(
+                    withPreAggregate,
+                    node(AggregationNode.class, project(node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class)))))),
+                    supportsPushdownWithVarcharInequality,
+                    supportsCountDistinctPushdown,
+                    supportsSumDistinctPushdown,
+                    table);
         }
+    }
+
+    private void verifyMultipleDistinctPushdown(
+            Session session,
+            PlanMatchPattern otherwiseExpected,
+            boolean supportsPushdownWithVarcharInequality,
+            boolean supportsCountDistinctPushdown,
+            boolean supportsSumDistinctPushdown,
+            TestTable table)
+    {
+        assertConditionallyPushedDown(session,
+                "SELECT count(DISTINCT a_string), count(DISTINCT a_bigint) FROM " + table.getName(),
+                supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
+                otherwiseExpected)
+                .skippingTypesCheck()
+                .matches("VALUES (BIGINT '4', BIGINT '3')");
+
+        assertConditionallyPushedDown(session,
+                "SELECT count(DISTINCT a_char), count(DISTINCT a_bigint) FROM " + table.getName(),
+                supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
+                otherwiseExpected)
+                .skippingTypesCheck()
+                .matches("VALUES (BIGINT '4', BIGINT '3')");
+
+        assertConditionallyPushedDown(session,
+                "SELECT count(DISTINCT a_string), sum(DISTINCT a_bigint) FROM " + table.getName(),
+                supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
+                otherwiseExpected)
+                .skippingTypesCheck()
+                .matches(sumDistinctAggregationPushdownExpectedResult());
+
+        assertConditionallyPushedDown(session,
+                "SELECT count(DISTINCT a_char), sum(DISTINCT a_bigint) FROM " + table.getName(),
+                supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
+                otherwiseExpected)
+                .skippingTypesCheck()
+                .matches(sumDistinctAggregationPushdownExpectedResult());
     }
 
     protected String sumDistinctAggregationPushdownExpectedResult()
@@ -467,7 +512,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         Session withMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(MARK_DISTINCT_STRATEGY, "always")
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
                 .build();
         // distinct aggregation
         assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
@@ -502,42 +547,59 @@ public abstract class BaseJdbcConnectorTest
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
                 node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
 
-        Session withoutMarkDistinct = Session.builder(getSession())
-                .setSystemProperty(MARK_DISTINCT_STRATEGY, "none")
+        Session withSingleStep = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
                 .build();
+        Session withPreAggregate = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
+                .build();
+
+        verifyDistinctAggregationPushdown(
+                withMarkDistinct,
+                node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+        verifyDistinctAggregationPushdown(
+                withSingleStep,
+                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+        verifyDistinctAggregationPushdown(
+                withPreAggregate,
+                node(AggregationNode.class, project(node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class)))))));
+    }
+
+    private void verifyDistinctAggregationPushdown(Session session, PlanMatchPattern multiDistinctOtherwiseExpected)
+    {
         // distinct aggregation
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
+        assertThat(query(session, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
         // distinct aggregation with GROUP BY
-        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query(session, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
         // distinct aggregation with varchar
         assertConditionallyPushedDown(
-                withoutMarkDistinct,
+                session,
                 "SELECT count(DISTINCT comment) FROM nation",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY),
                 node(AggregationNode.class, node(TableScanNode.class)));
         // two distinct aggregations
         assertConditionallyPushedDown(
-                withoutMarkDistinct,
+                session,
                 "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
-                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+                multiDistinctOtherwiseExpected);
         assertConditionallyPushedDown(
-                withoutMarkDistinct,
+                session,
                 "SELECT sum(DISTINCT regionkey), sum(DISTINCT nationkey) FROM nation",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
-                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+                multiDistinctOtherwiseExpected);
 
         // distinct aggregation and a non-distinct aggregation
         assertConditionallyPushedDown(
-                withoutMarkDistinct,
+                session,
                 "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
-                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+                multiDistinctOtherwiseExpected);
         assertConditionallyPushedDown(
-                withoutMarkDistinct,
+                session,
                 "SELECT sum(DISTINCT regionkey), sum(nationkey) FROM nation",
                 hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
-                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+                multiDistinctOtherwiseExpected);
     }
 
     @Test
@@ -594,6 +656,16 @@ public abstract class BaseJdbcConnectorTest
                 .map(value -> format("'%1$s', '%1$s'", value))
                 .collect(toImmutableList());
 
+        Session withMarkDistinct = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
+                .build();
+        Session withSingleStep = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "single_step")
+                .build();
+        Session withPreAggregate = Session.builder(getSession())
+                .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "pre_aggregate")
+                .build();
+
         try (TestTable testTable = new TestTable(getQueryRunner()::execute, "distinct_strings", "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
             if (!(hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN) && hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY))) {
                 // disabling hash generation to prevent extra projections in the plan which make it hard to write matchers for isNotFullyPushedDown
@@ -614,7 +686,7 @@ public abstract class BaseJdbcConnectorTest
                         .matches("VALUES BIGINT '7'")
                         .isNotFullyPushedDown(AggregationNode.class);
 
-                assertThat(query("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                assertThat(query(withMarkDistinct, "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
                         .matches("VALUES (BIGINT '7', BIGINT '7')")
                         .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class);
             }
@@ -630,10 +702,20 @@ public abstract class BaseJdbcConnectorTest
                         .isFullyPushedDown();
 
                 assertConditionallyPushedDown(
-                        getSession(),
+                        withMarkDistinct,
                         "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(),
                         hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
                         node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+                assertConditionallyPushedDown(
+                        withSingleStep,
+                        "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(),
+                        hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
+                        node(AggregationNode.class, anyTree(node(TableScanNode.class))));
+                assertConditionallyPushedDown(
+                        withPreAggregate,
+                        "SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(),
+                        hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
+                        node(AggregationNode.class, project(node(AggregationNode.class, anyTree(node(GroupIdNode.class, node(TableScanNode.class)))))));
             }
         }
     }
@@ -911,7 +993,7 @@ public abstract class BaseJdbcConnectorTest
         }
 
         // with TopN over numeric column
-        PlanMatchPattern topnOverTableScan = node(TopNNode.class, anyTree(node(TableScanNode.class)));
+        PlanMatchPattern topnOverTableScan = project(node(TopNNode.class, anyTree(node(TableScanNode.class))));
         assertConditionallyPushedDown(
                 getSession(),
                 "SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5",
@@ -1102,7 +1184,7 @@ public abstract class BaseJdbcConnectorTest
 
         // topN over varchar/char columns should only be pushed down if the remote systems's sort order matches Trino
         boolean expectTopNPushdown = hasBehavior(SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR);
-        PlanMatchPattern topNOverTableScan = node(TopNNode.class, anyTree(node(TableScanNode.class)));
+        PlanMatchPattern topNOverTableScan = project(node(TopNNode.class, anyTree(node(TableScanNode.class))));
 
         try (TestTable testTable = new TestTable(
                 getQueryRunner()::execute,
@@ -1215,12 +1297,11 @@ public abstract class BaseJdbcConnectorTest
                         .setSystemProperty("enable_dynamic_filtering", "false")
                         .build();
 
-                String notDistinctOperator = "IS NOT DISTINCT FROM";
                 List<String> nonEqualities = Stream.concat(
                                 Stream.of(JoinCondition.Operator.values())
-                                        .filter(operator -> operator != JoinCondition.Operator.EQUAL)
+                                        .filter(operator -> operator != JoinCondition.Operator.EQUAL && operator != JoinCondition.Operator.IDENTICAL)
                                         .map(JoinCondition.Operator::getValue),
-                                Stream.of(notDistinctOperator))
+                                Stream.of("IS DISTINCT FROM", "IS NOT DISTINCT FROM"))
                         .collect(toImmutableList());
 
                 // basic case
@@ -1412,12 +1493,12 @@ public abstract class BaseJdbcConnectorTest
 
     protected boolean expectJoinPushdown(String operator)
     {
-        if ("IS NOT DISTINCT FROM".equals(operator)) {
+        if ("IS DISTINCT FROM".equals(operator)) {
             return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM);
         }
         return switch (toJoinConditionOperator(operator)) {
             case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> true;
-            case IS_DISTINCT_FROM -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM);
+            case IDENTICAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM);
         };
     }
 
@@ -1429,18 +1510,21 @@ public abstract class BaseJdbcConnectorTest
 
     private boolean expectVarcharJoinPushdown(String operator)
     {
-        if ("IS NOT DISTINCT FROM".equals(operator)) {
+        if ("IS DISTINCT FROM".equals(operator)) {
             return hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM) && hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
         }
         return switch (toJoinConditionOperator(operator)) {
             case EQUAL, NOT_EQUAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
             case LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
-            case IS_DISTINCT_FROM -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM) && hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
+            case IDENTICAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM) && hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY);
         };
     }
 
     private JoinCondition.Operator toJoinConditionOperator(String operator)
     {
+        if (operator.equals("IS NOT DISTINCT FROM")) {
+            return JoinCondition.Operator.IDENTICAL;
+        }
         return Stream.of(JoinCondition.Operator.values())
                 .filter(joinOperator -> joinOperator.getValue().equals(operator))
                 .collect(toOptional())
@@ -1454,6 +1538,130 @@ public abstract class BaseJdbcConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_enabled", "true")
                 .build();
+    }
+
+    @Test
+    public void testBulkColumnListingOptions()
+    {
+        if (hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
+            String schemaName = "test_columns_listing_" + randomNameSuffix();
+            assertUpdate("CREATE SCHEMA " + schemaName);
+            try {
+                try (TestTable newNation = new TestTable(
+                        getQueryRunner()::execute,
+                        schemaName + ".nation",
+                        "(name varchar(25), nationkey bigint)");
+                        TestTable newRegion = new TestTable(
+                                getQueryRunner()::execute,
+                                schemaName + ".region",
+                                "(name varchar(25), regionkey bigint)")) {
+                    if (hasBehavior(SUPPORTS_COMMENT_ON_TABLE)) {
+                        assertUpdate("COMMENT ON TABLE " + newNation.getName() + " IS 'tmp nation copy comment'");
+                    }
+                    String newNationName = newNation.getName().replaceFirst("^" + Pattern.quote(schemaName) + ".", "");
+                    String newRegionName = newRegion.getName().replaceFirst("^" + Pattern.quote(schemaName) + ".", "");
+                    testBulkColumnListingOptions(Optional.of(schemaName), Optional.of(newNationName), Optional.of(newRegionName));
+                }
+            }
+            finally {
+                assertUpdate("DROP SCHEMA " + schemaName);
+            }
+            return;
+        }
+
+        testBulkColumnListingOptions(Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    private void testBulkColumnListingOptions(Optional<String> temporarySchema, Optional<String> temporaryNationTable, Optional<String> temporaryRegionTable)
+    {
+        for (boolean bulkListColumns : List.of(false, true)) {
+            try {
+                testBulkColumnListingOptions(temporarySchema, temporaryNationTable, temporaryRegionTable, bulkListColumns);
+            }
+            catch (RuntimeException | AssertionError e) {
+                fail("Failure for bulkListColumns " + bulkListColumns, e);
+            }
+        }
+    }
+
+    private void testBulkColumnListingOptions(Optional<String> temporarySchema, Optional<String> temporaryNationTable, Optional<String> temporaryRegionTable, boolean bulkListColumns)
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalogName, JdbcMetadataSessionProperties.BULK_LIST_COLUMNS, Boolean.toString(bulkListColumns))
+                .build();
+
+        try {
+            computeActual(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA");
+        }
+        catch (QueryFailedException maybeExpected) {
+            // Perhaps given mode is not supported
+            assertThat(maybeExpected)
+                    .hasMessage("Error listing table columns for catalog %s: The requested column listing mode is not supported".formatted(catalogName));
+            return;
+        }
+
+        if (temporarySchema.isPresent()) {
+            // Hack for Druid, where numeric columns are NOT NULL by default
+            String numericNullable = (String) computeScalar("""
+                    SELECT is_nullable FROM information_schema.columns
+                    WHERE table_schema = CURRENT_SCHEMA AND table_name = 'nation' AND column_name = 'nationkey'
+                    """);
+
+            // information_schema.columns for single, isolated schema
+            assertThat(query(session, """
+                            SELECT table_name, column_name, is_nullable FROM information_schema.columns
+                            WHERE table_schema = '%s'
+                    """.formatted(temporarySchema.get())))
+                    .skippingTypesCheck()
+                    .matches("""
+                            VALUES
+                                ('%1$s', 'nationkey', '%3$s')
+                              , ('%1$s', 'name', 'YES')
+                              , ('%2$s', 'regionkey', '%3$s')
+                              , ('%2$s', 'name', 'YES')
+                            """.formatted(temporaryNationTable.orElseThrow(), temporaryRegionTable.orElseThrow(), numericNullable));
+
+            // system.jdbc.columns for single, isolated schema
+            assertThat(query(session, """
+                            SELECT table_name, column_name, is_nullable FROM system.jdbc.columns
+                            WHERE table_cat = CURRENT_CATALOG AND table_schem = '%s'
+                    """.formatted(temporarySchema.get())))
+                    .skippingTypesCheck()
+                    .matches("""
+                            VALUES
+                                ('%1$s', 'nationkey', '%3$s')
+                              , ('%1$s', 'name', 'YES')
+                              , ('%2$s', 'regionkey', '%3$s')
+                              , ('%2$s', 'name', 'YES')
+                            """.formatted(temporaryNationTable.orElseThrow(), temporaryRegionTable.orElseThrow(), numericNullable));
+        }
+
+        // information_schema.columns for single schema with more tables
+        assertThat(query(session, """
+                        SELECT table_name, column_name, is_nullable FROM information_schema.columns
+                        WHERE table_schema = CURRENT_SCHEMA
+                        AND ((column_name LIKE 'n_me' AND table_name IN ('customer', 'nation')) OR rand() = 42) -- not pushed down into connector
+                """))
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES
+                            ('customer', 'name', 'YES')
+                          , ('nation', 'name', 'YES')
+                        """);
+
+        // system.jdbc.columns for single schema with more tables
+        assertThat(query(session, """
+                        SELECT table_name, column_name, is_nullable FROM system.jdbc.columns
+                        WHERE table_cat = CURRENT_CATALOG AND table_schem = CURRENT_SCHEMA
+                        AND ((column_name LIKE 'n_me' AND table_name IN ('customer', 'nation')) OR rand() = 42) -- not pushed down into connector
+                """))
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES
+                            ('customer', 'name', 'YES')
+                          , ('nation', 'name', 'YES')
+                        """);
     }
 
     @Test

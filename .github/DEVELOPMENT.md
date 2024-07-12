@@ -183,6 +183,7 @@ Disable the following inspections:
 
 - ``Java | Performance | Call to 'Arrays.asList()' with too few arguments``,
 - ``Java | Abstraction issues | 'Optional' used as field or parameter type``,
+- ``Java | Code style issues | Local variable or parameter can be 'final'``,
 - ``Java | Data flow | Boolean method is always inverted``.
 
 Update the following inspections:

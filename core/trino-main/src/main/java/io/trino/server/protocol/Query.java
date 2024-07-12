@@ -296,7 +296,7 @@ class Query
             futureStateChange = addTimeout(futureStateChange, () -> null, wait, timeoutExecutor);
         }
         // when state changes, fetch the next result
-        return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
+        return Futures.transform(futureStateChange, _ -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
     }
 
     public void markResultsConsumedIfReady()
@@ -631,7 +631,7 @@ class Query
         return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
     }
 
-    private synchronized URI createNextResultsUri(UriInfo uriInfo, long nextToken)
+    private URI createNextResultsUri(UriInfo uriInfo, long nextToken)
     {
         return uriInfo.getBaseUriBuilder()
                 .replacePath("/v1/statement/executing")

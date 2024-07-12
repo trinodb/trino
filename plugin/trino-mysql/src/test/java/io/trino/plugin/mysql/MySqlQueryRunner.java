@@ -14,22 +14,22 @@
 package io.trino.plugin.mysql;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
-import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
 
 public final class MySqlQueryRunner
 {
@@ -37,75 +37,73 @@ public final class MySqlQueryRunner
 
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static QueryRunner createMySqlQueryRunner(TestingMySqlServer server, TpchTable<?>... tables)
-            throws Exception
+    public static Builder builder(TestingMySqlServer server)
     {
-        return createMySqlQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.copyOf(tables));
+        return new Builder()
+                .addConnectorProperties(Map.of(
+                        "connection-url", server.getJdbcUrl(),
+                        "connection-user", server.getUsername(),
+                        "connection-password", server.getPassword()));
     }
 
-    public static QueryRunner createMySqlQueryRunner(
-            TestingMySqlServer server,
-            Map<String, String> extraProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        return createMySqlQueryRunner(server, extraProperties, ImmutableMap.of(), connectorProperties, tables, runner -> {});
-    }
+        private final Map<String, String> connectorProperties = new HashMap<>();
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-    public static QueryRunner createMySqlQueryRunner(
-            TestingMySqlServer server,
-            Map<String, String> extraProperties,
-            Map<String, String> coordinatorProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables,
-            Consumer<QueryRunner> moreSetup)
-            throws Exception
-    {
-        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
-                .setCoordinatorProperties(coordinatorProperties)
-                .setAdditionalSetup(moreSetup)
-                .build();
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            // note: additional copy via ImmutableList so that if fails on nulls
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
-            connectorProperties.putIfAbsent("connection-user", server.getUsername());
-            connectorProperties.putIfAbsent("connection-password", server.getPassword());
-
-            queryRunner.installPlugin(new MySqlPlugin());
-            queryRunner.createCatalog("mysql", "mysql", connectorProperties);
-
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-
-            return queryRunner;
+        private Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog("mysql")
+                    .setSchema(TPCH_SCHEMA)
+                    .build());
         }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
-    }
 
-    private static Session createSession()
-    {
-        return testSessionBuilder()
-                .setCatalog("mysql")
-                .setSchema(TPCH_SCHEMA)
-                .build();
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperties(Map<String, String> connectorProperties)
+        {
+            this.connectorProperties.putAll(connectorProperties);
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                queryRunner.installPlugin(new MySqlPlugin());
+                queryRunner.createCatalog("mysql", "mysql", connectorProperties);
+
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
+
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
     }
 
     public static void main(String[] args)
             throws Exception
     {
-        QueryRunner queryRunner = createMySqlQueryRunner(
-                new TestingMySqlServer(),
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
-                TpchTable.getTables());
+        QueryRunner queryRunner = builder(new TestingMySqlServer())
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .setInitialTables(TpchTable.getTables())
+                .build();
 
         Logger log = Logger.get(MySqlQueryRunner.class);
         log.info("======== SERVER STARTED ========");

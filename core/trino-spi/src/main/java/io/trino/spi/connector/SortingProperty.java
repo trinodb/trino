@@ -86,25 +86,24 @@ public final class SortingProperty<E>
     public String toString()
     {
         String ordering = "";
-        String nullOrdering = "";
-        switch (order) {
-            case ASC_NULLS_FIRST:
+        String nullOrdering = switch (order) {
+            case ASC_NULLS_FIRST -> {
                 ordering = "\u2191";
-                nullOrdering = "\u2190";
-                break;
-            case ASC_NULLS_LAST:
+                yield "\u2190";
+            }
+            case ASC_NULLS_LAST -> {
                 ordering = "\u2191";
-                nullOrdering = "\u2192";
-                break;
-            case DESC_NULLS_FIRST:
+                yield "\u2192";
+            }
+            case DESC_NULLS_FIRST -> {
                 ordering = "\u2193";
-                nullOrdering = "\u2190";
-                break;
-            case DESC_NULLS_LAST:
+                yield "\u2190";
+            }
+            case DESC_NULLS_LAST -> {
                 ordering = "\u2193";
-                nullOrdering = "\u2192";
-                break;
-        }
+                yield "\u2192";
+            }
+        };
 
         return "S" + ordering + nullOrdering + "(" + column + ")";
     }

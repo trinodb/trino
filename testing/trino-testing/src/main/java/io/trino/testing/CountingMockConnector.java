@@ -19,13 +19,13 @@ import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.tracing.TracingConnectorMetadata;
-import io.trino.util.AutoCloseableCloser;
 
 import java.util.Optional;
 import java.util.Set;

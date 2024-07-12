@@ -380,7 +380,7 @@ public class SemiTransactionalHiveMetastore
         // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
         // used to ingest data into partitioned hive tables.
         long tableRowCount = partitionStatistics.values().stream()
-                .mapToLong(statistics -> statistics.getBasicStatistics().getRowCount().orElse(0))
+                .mapToLong(statistics -> statistics.basicStatistics().getRowCount().orElse(0))
                 .sum();
         if (tableRowCount != 0) {
             return partitionStatistics;
@@ -388,7 +388,7 @@ public class SemiTransactionalHiveMetastore
         return partitionStatistics.entrySet().stream()
                 .map(entry -> new AbstractMap.SimpleEntry<>(
                         entry.getKey(),
-                        entry.getValue().withBasicStatistics(entry.getValue().getBasicStatistics().withEmptyRowCount())))
+                        entry.getValue().withBasicStatistics(entry.getValue().basicStatistics().withEmptyRowCount())))
                 .collect(toImmutableMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
     }
 
@@ -1862,7 +1862,7 @@ public class SemiTransactionalHiveMetastore
 
             PartitionAdder partitionAdder = partitionAdders.computeIfAbsent(
                     partition.getSchemaTableName(),
-                    ignored -> new PartitionAdder(partition.getDatabaseName(), partition.getTableName(), delegate, PARTITION_COMMIT_BATCH_SIZE));
+                    _ -> new PartitionAdder(partition.getDatabaseName(), partition.getTableName(), delegate, PARTITION_COMMIT_BATCH_SIZE));
 
             fileSystemOperationFutures.add(CompletableFuture.runAsync(() -> {
                 if (fileSystemOperationsCancelled.get()) {
@@ -2917,7 +2917,7 @@ public class SemiTransactionalHiveMetastore
                         }
                     }
                 }
-                catch (RuntimeException ignored) {
+                catch (RuntimeException _) {
                     // When table could not be fetched from metastore, it is not known whether the table was added.
                     // Deleting the table when aborting commit has the risk of deleting a table not added in this transaction.
                     // Not deleting the table may leave garbage behind. The former is much more dangerous than the latter.
@@ -3162,7 +3162,7 @@ public class SemiTransactionalHiveMetastore
                                 batchCompletelyAdded = false;
                             }
                         }
-                        catch (Throwable ignored) {
+                        catch (Throwable _) {
                             // When partition could not be fetched from metastore, it is not known whether the partition was added.
                             // Deleting the partition when aborting commit has the risk of deleting partition not added in this transaction.
                             // Not deleting the partition may leave garbage behind. The former is much more dangerous than the latter.

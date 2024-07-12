@@ -283,7 +283,7 @@ public final class Decimals
     }
 
     /**
-     * Converts {@link BigDecimal} to {@link long} representing it for short {@link DecimalType}.
+     * Converts {@link BigDecimal} to {@code long} representing it for short {@link DecimalType}.
      * It is caller responsibility to ensure that {@code value.scale()} equals to {@link DecimalType#getScale()}.
      */
     public static long valueOfShort(BigDecimal value)
@@ -309,14 +309,6 @@ public final class Decimals
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
         }
         return result;
-    }
-
-    @Deprecated(forRemoval = true)
-    public static void throwIfOverflows(long high, long low)
-    {
-        if (overflows(high, low)) {
-            throw new ArithmeticException("Decimal overflow");
-        }
     }
 
     public static boolean overflows(Int128 value)

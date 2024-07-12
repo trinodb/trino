@@ -13,11 +13,8 @@
  */
 package io.trino.plugin.mariadb;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
-
-import static io.trino.plugin.mariadb.MariaDbQueryRunner.createMariaDbQueryRunner;
 
 public class TestMariaDbConnectorTest
         extends BaseMariaDbConnectorTest
@@ -27,7 +24,9 @@ public class TestMariaDbConnectorTest
             throws Exception
     {
         server = closeAfterClass(new TestingMariaDbServer());
-        return createMariaDbQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return MariaDbQueryRunner.builder(server)
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Override

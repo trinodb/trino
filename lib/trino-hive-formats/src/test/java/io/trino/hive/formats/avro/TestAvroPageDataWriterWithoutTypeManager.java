@@ -75,11 +75,11 @@ public class TestAvroPageDataWriterWithoutTypeManager
                 AvroCompressionKind.NULL,
                 ImmutableMap.of(),
                 ALL_TYPES_RECORD_SCHEMA.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                AvroTypeUtils.typeFromAvro(ALL_TYPES_RECORD_SCHEMA, NoOpAvroTypeManager.INSTANCE).getTypeParameters(), false)) {
+                new BaseAvroTypeBlockHandler().typeFor(ALL_TYPES_RECORD_SCHEMA).getTypeParameters(), false)) {
             fileWriter.write(ALL_TYPES_PAGE);
         }
 
-        try (AvroFileReader fileReader = new AvroFileReader(trinoLocalFilesystem.newInputFile(tempTestLocation), ALL_TYPES_RECORD_SCHEMA, NoOpAvroTypeManager.INSTANCE)) {
+        try (AvroFileReader fileReader = new AvroFileReader(trinoLocalFilesystem.newInputFile(tempTestLocation), ALL_TYPES_RECORD_SCHEMA, new BaseAvroTypeBlockHandler())) {
             assertThat(fileReader.hasNext()).isTrue();
             assertIsAllTypesPage(fileReader.next());
             assertThat(fileReader.hasNext()).isFalse();
@@ -140,14 +140,14 @@ public class TestAvroPageDataWriterWithoutTypeManager
                 AvroCompressionKind.NULL,
                 ImmutableMap.of(),
                 testBlocksSchema.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                AvroTypeUtils.typeFromAvro(testBlocksSchema, NoOpAvroTypeManager.INSTANCE).getTypeParameters(), false)) {
+                new BaseAvroTypeBlockHandler().typeFor(testBlocksSchema).getTypeParameters(), false)) {
             avroFileWriter.write(toWrite);
         }
 
         try (AvroFileReader avroFileReader = new AvroFileReader(
                 trinoLocalFilesystem.newInputFile(testLocation),
                 testBlocksSchema,
-                NoOpAvroTypeManager.INSTANCE)) {
+                new BaseAvroTypeBlockHandler())) {
             assertThat(avroFileReader.hasNext()).isTrue();
             Page readPage = avroFileReader.next();
             assertThat(INTEGER.getInt(readPage.getBlock(0), 0)).isEqualTo(2);
@@ -211,7 +211,7 @@ public class TestAvroPageDataWriterWithoutTypeManager
         try (AvroFileReader avroFileReader = new AvroFileReader(
                 trinoLocalFilesystem.newInputFile(testLocation),
                 testCastingSchema,
-                NoOpAvroTypeManager.INSTANCE)) {
+                new BaseAvroTypeBlockHandler())) {
             assertThat(avroFileReader.hasNext()).isTrue();
             Page readPage = avroFileReader.next();
             assertThat(INTEGER.getInt(readPage.getBlock(0), 0)).isEqualTo(1);

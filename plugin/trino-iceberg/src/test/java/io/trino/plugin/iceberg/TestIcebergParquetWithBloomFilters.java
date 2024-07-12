@@ -13,19 +13,21 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.TestingHivePlugin;
+import com.google.common.base.Joiner;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.BaseTestParquetWithBloomFilters;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
 import java.util.List;
 
-import static io.trino.plugin.hive.parquet.TestHiveParquetWithBloomFilters.writeParquetFileWithBloomFilter;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergParquetWithBloomFilters
         extends BaseTestParquetWithBloomFilters
@@ -34,16 +36,7 @@ public class TestIcebergParquetWithBloomFilters
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = IcebergQueryRunner.builder().build();
-        dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
-
-        // create hive catalog
-        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
-        queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
-                .put("hive.security", "allow-all")
-                .buildOrThrow());
-
-        return queryRunner;
+        return IcebergQueryRunner.builder().build();
     }
 
     @Override
@@ -51,18 +44,29 @@ public class TestIcebergParquetWithBloomFilters
     {
         // create the managed table
         String tableName = "parquet_with_bloom_filters_" + randomNameSuffix();
-        CatalogSchemaTableName hiveCatalogSchemaTableName = new CatalogSchemaTableName("hive", new SchemaTableName("tpch", tableName));
-        CatalogSchemaTableName icebergCatalogSchemaTableName = new CatalogSchemaTableName("iceberg", new SchemaTableName("tpch", tableName));
-        assertUpdate(format("CREATE TABLE %s (%s INT) WITH (format = 'PARQUET')", hiveCatalogSchemaTableName, columnName));
+        CatalogSchemaTableName catalogSchemaTableName = new CatalogSchemaTableName("iceberg", new SchemaTableName("tpch", tableName));
+        assertUpdate(format("CREATE TABLE %s WITH (format = 'PARQUET', parquet_bloom_filter_columns = ARRAY['%s']) AS SELECT * FROM (VALUES %s) t(%s)", catalogSchemaTableName, columnName, Joiner.on(", ").join(testValues), columnName), testValues.size());
 
-        // directly write data to the managed table
-        Path tableLocation = Path.of("%s/tpch/%s".formatted(dataDirectory, tableName));
-        Path fileLocation = tableLocation.resolve("bloomFilterFile.parquet");
-        writeParquetFileWithBloomFilter(fileLocation.toFile(), columnName, testValues);
+        return catalogSchemaTableName;
+    }
 
-        // migrate the hive table to the iceberg table
-        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "', 'false')");
+    @Test
+    public void testBloomFilterPropertiesArePersistedDuringCreate()
+    {
+        String tableName = "test_metadata_write_properties_" + randomNameSuffix();
+        assertQuerySucceeds("CREATE TABLE " + tableName + " (A bigint, b bigint, c bigint) WITH (" +
+                "format = 'parquet'," +
+                "parquet_bloom_filter_columns = array['a','B'])");
 
-        return icebergCatalogSchemaTableName;
+        MaterializedResult actualProperties = computeActual("SELECT * FROM \"" + tableName + "$properties\"");
+        assertThat(actualProperties).isNotNull();
+        MaterializedResult expectedProperties = resultBuilder(getSession())
+                .row("write.parquet.bloom-filter-enabled.column.a", "true")
+                .row("write.parquet.bloom-filter-enabled.column.b", "true")
+                .build();
+        assertContains(actualProperties, expectedProperties);
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("parquet_bloom_filter_columns");
     }
 }

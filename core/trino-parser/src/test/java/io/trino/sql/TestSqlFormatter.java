@@ -28,6 +28,7 @@ import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.ShowCatalogs;
@@ -46,6 +47,7 @@ import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.SqlFormatter.formatSql;
+import static io.trino.sql.tree.CreateView.Security.DEFINER;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -270,6 +272,26 @@ public class TestSqlFormatter
                 .isEqualTo("CREATE TABLE test (\n" +
                         "   col VARCHAR COMMENT '攻殻機動隊'\n" +
                         ")");
+
+        // Create a table with column properties
+        assertThat(formatSql(
+                new CreateTable(
+                        QualifiedName.of(ImmutableList.of(new Identifier("test", false))),
+                        ImmutableList.of(new ColumnDefinition(
+                                QualifiedName.of("col"),
+                                new GenericDataType(Optional.empty(), new Identifier("VARCHAR"), ImmutableList.of()),
+                                false,
+                                ImmutableList.of(
+                                        new Property(new Identifier("abc"), new StringLiteral("test")),
+                                        new Property(new Identifier("xyz"))),
+                                Optional.empty())),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty())))
+                .isEqualTo("""
+                        CREATE TABLE test (
+                           col VARCHAR NOT NULL WITH (abc = 'test', xyz = DEFAULT)
+                        )""");
     }
 
     @Test
@@ -318,7 +340,8 @@ public class TestSqlFormatter
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                         false,
                         Optional.empty(),
-                        Optional.empty())))
+                        Optional.empty(),
+                        ImmutableList.of())))
                 .isEqualTo("CREATE VIEW test AS\n" +
                         "SELECT *\n" +
                         "FROM\n" +
@@ -330,11 +353,55 @@ public class TestSqlFormatter
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                         false,
                         Optional.of("攻殻機動隊"),
-                        Optional.empty())))
+                        Optional.empty(),
+                        ImmutableList.of())))
                 .isEqualTo("CREATE VIEW test COMMENT '攻殻機動隊' AS\n" +
                         "SELECT *\n" +
                         "FROM\n" +
                         "  t\n");
+
+        // CREATE VIEW WITH PROPERTIES
+        assertThat(formatSql(
+                new CreateView(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                new Property(new Identifier("property_1"), new StringLiteral("property_value")),
+                                new Property(new Identifier("property_2"), new StringLiteral("another_value"))))))
+                .isEqualTo("""
+                        CREATE VIEW test
+                        WITH (
+                           property_1 = 'property_value',
+                           property_2 = 'another_value'
+                        ) AS
+                        SELECT *
+                        FROM
+                          t
+                        """);
+
+        // CREATE VIEW WITH ALL PARAMETERS
+        assertThat(formatSql(
+                new CreateView(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("test"),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
+                        false,
+                        Optional.of("攻殻機動隊"),
+                        Optional.of(DEFINER),
+                        ImmutableList.of(new Property(new Identifier("property"), new StringLiteral("property_value"))))))
+                .isEqualTo("""
+                        CREATE VIEW test COMMENT '攻殻機動隊' SECURITY DEFINER
+                        WITH (
+                           property = 'property_value'
+                        ) AS
+                        SELECT *
+                        FROM
+                          t
+                        """);
     }
 
     @Test

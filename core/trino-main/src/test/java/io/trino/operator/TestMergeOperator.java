@@ -397,7 +397,7 @@ public class TestMergeOperator
         operator.close();
         operator.getOperatorContext().destroy();
 
-        assertThat(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes()).isEqualTo(0);
+        assertThat(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes()).isEqualTo(0);
 
         return outputPages;
     }

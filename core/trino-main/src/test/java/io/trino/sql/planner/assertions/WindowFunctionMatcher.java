@@ -68,7 +68,7 @@ public class WindowFunctionMatcher
 
     private boolean windowFunctionMatches(Function windowFunction, WindowFunction expectedCall, SymbolAliases aliases)
     {
-        return expectedCall.name().equals(windowFunction.getResolvedFunction().getSignature().getName().getFunctionName()) &&
+        return expectedCall.name().equals(windowFunction.getResolvedFunction().signature().getName().getFunctionName()) &&
                 WindowFrameMatcher.matches(expectedCall.frame(), windowFunction.getFrame(), aliases) &&
                 expectedCall.arguments().equals(windowFunction.getArguments());
     }

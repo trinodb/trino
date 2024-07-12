@@ -26,7 +26,7 @@ import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
@@ -55,7 +55,7 @@ public class TestQueryManager
     public void testFailQuery()
             throws Exception
     {
-        try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
+        try (QueryRunner queryRunner = TpchQueryRunner.builder().build()) {
             DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
             QueryId queryId = dispatchManager.createQueryId();
             dispatchManager.createQuery(
@@ -94,7 +94,7 @@ public class TestQueryManager
     public void testQueryCpuLimit()
             throws Exception
     {
-        try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().addExtraProperty("query.max-cpu-time", "1ms").build()) {
+        try (QueryRunner queryRunner = TpchQueryRunner.builder().addExtraProperty("query.max-cpu-time", "1ms").build()) {
             QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT COUNT(*) FROM lineitem");
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
@@ -109,7 +109,7 @@ public class TestQueryManager
     public void testQueryScanExceeded()
             throws Exception
     {
-        try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().addExtraProperty("query.max-scan-physical-bytes", "0B").build()) {
+        try (QueryRunner queryRunner = TpchQueryRunner.builder().addExtraProperty("query.max-scan-physical-bytes", "0B").build()) {
             QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT * FROM system.runtime.nodes");
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
@@ -124,7 +124,7 @@ public class TestQueryManager
     public void testQueryScanExceededSession()
             throws Exception
     {
-        try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
+        try (QueryRunner queryRunner = TpchQueryRunner.builder().build()) {
             Session session = testSessionBuilder()
                     .setCatalog("tpch")
                     .setSchema(TINY_SCHEMA_NAME)

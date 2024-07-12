@@ -15,7 +15,6 @@ package io.trino.plugin.pinot.client;
 
 import io.trino.plugin.pinot.PinotException;
 import io.trino.plugin.pinot.PinotSplit;
-import io.trino.spi.connector.ConnectorSession;
 import org.apache.pinot.common.datatable.DataTable;
 
 import java.util.List;
@@ -76,7 +75,7 @@ public interface PinotDataFetcher
 
     interface Factory
     {
-        PinotDataFetcher create(ConnectorSession session, String query, PinotSplit split);
+        PinotDataFetcher create(String query, PinotSplit split);
 
         int getRowLimit();
     }

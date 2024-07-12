@@ -18,6 +18,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.inject.Inject;
+import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.http.client.BodyGenerator;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -28,26 +29,28 @@ import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.SplitCompletedEvent;
+import jakarta.annotation.PreDestroy;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 /**
  * Implement an EventListener that send events, serialized as JSON, to a ingest server.
- *
+ * <p>
  * For configuration see {@link io.airlift.http.client.HttpClientConfig}, prefixed with "http-event-listener"
  */
 public class HttpEventListener
@@ -55,7 +58,7 @@ public class HttpEventListener
 {
     private final Logger log = Logger.get(HttpEventListener.class);
 
-    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    private final LifeCycleManager lifecycleManager;
 
     private final JsonCodec<QueryCompletedEvent> queryCompletedEventJsonCodec;
     private final JsonCodec<QueryCreatedEvent> queryCreatedEventJsonCodec;
@@ -71,17 +74,19 @@ public class HttpEventListener
     private final Duration maxDelay;
     private final double backoffBase;
     private final Map<String, String> httpHeaders;
-
     private final URI ingestUri;
+    private final ScheduledExecutorService executor;
 
     @Inject
     public HttpEventListener(
+            LifeCycleManager lifecycleManager,
             JsonCodec<QueryCompletedEvent> queryCompletedEventJsonCodec,
             JsonCodec<QueryCreatedEvent> queryCreatedEventJsonCodec,
             JsonCodec<SplitCompletedEvent> splitCompletedEventJsonCodec,
             HttpEventListenerConfig config,
             @ForHttpEventListener HttpClient httpClient)
     {
+        this.lifecycleManager = requireNonNull(lifecycleManager, "lifecycleManager is null");
         requireNonNull(config, "http event listener config is null");
         this.client = requireNonNull(httpClient, "http event listener http client is null");
 
@@ -103,6 +108,14 @@ public class HttpEventListener
         catch (URISyntaxException e) {
             throw new IllegalStateException(String.format("Ingest URI %s for HTTP event listener is not valid", config.getIngestUri()), e);
         }
+
+        this.executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("http-event-listener-%s"));
+    }
+
+    @PreDestroy
+    public void destroy()
+    {
+        executor.shutdownNow();
     }
 
     @Override
@@ -145,7 +158,8 @@ public class HttpEventListener
     {
         this.executor.schedule(
                 () -> Futures.addCallback(client.executeAsync(request, createStatusResponseHandler()),
-                        new FutureCallback<>() {
+                        new FutureCallback<>()
+                        {
                             @Override
                             public void onSuccess(StatusResponse result)
                             {
@@ -231,5 +245,11 @@ public class HttpEventListener
             return maxDelay;
         }
         return newDuration;
+    }
+
+    @Override
+    public void shutdown()
+    {
+        lifecycleManager.stop();
     }
 }

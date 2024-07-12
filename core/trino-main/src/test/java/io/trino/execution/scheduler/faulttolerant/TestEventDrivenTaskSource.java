@@ -324,9 +324,10 @@ public class TestEventDrivenTaskSource
                 partitioningScheme,
                 getSplitDuration -> getSplitInvocations.incrementAndGet())) {
             while (tester.getTaskDescriptors().isEmpty()) {
-                AssignmentResult result = taskSource.process().get(10, SECONDS);
+                AssignmentResult result = taskSource.process().orElseThrow().get(10, SECONDS);
                 tester.update(result);
             }
+            assertThat(taskSource.process()).as("Expected taskSource to be finished").isEmpty();
             taskDescriptors = tester.getTaskDescriptors().get();
         }
 
@@ -670,7 +671,7 @@ public class TestEventDrivenTaskSource
             AssignmentResult.Builder result = AssignmentResult.builder();
             Multimaps.asMap(splitsMap).forEach((partition, splits) -> {
                 if (partitions.add(partition)) {
-                    result.addPartition(new Partition(partition, new NodeRequirements(Optional.empty(), ImmutableSet.of())));
+                    result.addPartition(new Partition(partition, new NodeRequirements(Optional.empty(), ImmutableSet.of(), true)));
                     for (PlanNodeId finishedSource : finishedSources) {
                         result.updatePartition(new PartitionUpdate(partition, finishedSource, false, ImmutableListMultimap.of(), true));
                     }
@@ -705,7 +706,7 @@ public class TestEventDrivenTaskSource
             if (partitions.isEmpty()) {
                 partitions.add(0);
                 result
-                        .addPartition(new Partition(0, new NodeRequirements(Optional.empty(), ImmutableSet.of())))
+                        .addPartition(new Partition(0, new NodeRequirements(Optional.empty(), ImmutableSet.of(), true)))
                         .sealPartition(0);
             }
             return result.setNoMorePartitions()

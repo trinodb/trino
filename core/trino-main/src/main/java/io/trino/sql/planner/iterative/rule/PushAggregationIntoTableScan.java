@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
@@ -33,7 +34,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
-import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -55,6 +55,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
 import static io.trino.sql.planner.plan.Patterns.Aggregation.step;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
@@ -135,7 +136,7 @@ public class PushAggregationIntoTableScan
 
         Map<String, ColumnHandle> assignments = tableScan.getAssignments()
                 .entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getName(), Entry::getValue));
+                .collect(toImmutableMap(entry -> entry.getKey().name(), Entry::getValue));
 
         List<Entry<Symbol, AggregationNode.Aggregation>> aggregationsList = ImmutableList.copyOf(aggregations.entrySet());
 
@@ -149,7 +150,7 @@ public class PushAggregationIntoTableScan
                 .collect(toImmutableList());
 
         List<ColumnHandle> groupByColumns = groupingKeys.stream()
-                .map(groupByColumn -> assignments.get(groupByColumn.getName()))
+                .map(groupByColumn -> assignments.get(groupByColumn.name()))
                 .collect(toImmutableList());
 
         Optional<AggregationApplicationResult<TableHandle>> aggregationPushdownResult = plannerContext.getMetadata().applyAggregation(
@@ -187,7 +188,7 @@ public class PushAggregationIntoTableScan
                     Expression translated = ConnectorExpressionTranslator.translate(session, expression, plannerContext, variableMappings);
                     // ConnectorExpressionTranslator may or may not preserve optimized form of expressions during round-trip. Avoid potential optimizer loop
                     // by ensuring expression is optimized.
-                    return new IrExpressionInterpreter(translated, plannerContext, session).optimize();
+                    return newOptimizer(plannerContext).process(translated, session, ImmutableMap.of()).orElse(translated);
                 })
                 .collect(toImmutableList());
 
@@ -204,7 +205,7 @@ public class PushAggregationIntoTableScan
                 .forEach(groupBySymbol -> {
                     // if the connector returned a new mapping from oldColumnHandle to newColumnHandle, groupBy needs to point to
                     // new columnHandle's symbol reference, otherwise it will continue pointing at oldColumnHandle.
-                    ColumnHandle originalColumnHandle = assignments.get(groupBySymbol.getName());
+                    ColumnHandle originalColumnHandle = assignments.get(groupBySymbol.name());
                     ColumnHandle groupByColumnHandle = result.getGroupingColumnMapping().getOrDefault(originalColumnHandle, originalColumnHandle);
                     assignmentBuilder.put(groupBySymbol, columnHandleToSymbol.get(groupByColumnHandle).toSymbolReference());
                 });
@@ -227,7 +228,7 @@ public class PushAggregationIntoTableScan
 
     private static AggregateFunction toAggregateFunction(AggregationNode.Aggregation aggregation)
     {
-        BoundSignature signature = aggregation.getResolvedFunction().getSignature();
+        BoundSignature signature = aggregation.getResolvedFunction().signature();
 
         ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();
         for (int i = 0; i < aggregation.getArguments().size(); i++) {
@@ -239,7 +240,7 @@ public class PushAggregationIntoTableScan
         Optional<List<SortItem>> sortBy = orderingScheme.map(OrderingScheme::toSortItems);
 
         Optional<ConnectorExpression> filter = aggregation.getFilter()
-                .map(symbol -> new Variable(symbol.getName(), symbol.getType()));
+                .map(symbol -> new Variable(symbol.name(), symbol.type()));
 
         return new AggregateFunction(
                 signature.getName().getFunctionName(),

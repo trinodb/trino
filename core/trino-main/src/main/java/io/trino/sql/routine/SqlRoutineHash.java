@@ -196,9 +196,9 @@ public final class SqlRoutineHash
         public Void visitCall(CallExpression call, Void context)
         {
             hashClassName(call.getClass());
-            hashResolvedFunction(call.getResolvedFunction());
-            hasher.putInt(call.getArguments().size());
-            call.getArguments().forEach(this::visitRowExpression);
+            hashResolvedFunction(call.resolvedFunction());
+            hasher.putInt(call.arguments().size());
+            call.arguments().forEach(this::visitRowExpression);
             return null;
         }
 
@@ -206,8 +206,8 @@ public final class SqlRoutineHash
         public Void visitInputReference(InputReferenceExpression reference, Void context)
         {
             hashClassName(reference.getClass());
-            hasher.putInt(reference.getField());
-            hashType(reference.getType());
+            hasher.putInt(reference.field());
+            hashType(reference.type());
             return null;
         }
 
@@ -215,9 +215,9 @@ public final class SqlRoutineHash
         public Void visitConstant(ConstantExpression literal, Void context)
         {
             hashClassName(literal.getClass());
-            hashType(literal.getType());
+            hashType(literal.type());
 
-            Object value = literal.getValue();
+            Object value = literal.value();
             hasher.putBoolean(value == null);
 
             switch (value) {
@@ -248,13 +248,13 @@ public final class SqlRoutineHash
         {
             hashClassName(lambda.getClass());
 
-            hasher.putInt(lambda.getArguments().size());
-            lambda.getArguments().forEach(symbol -> {
-                hashString(symbol.getName());
-                hashType(symbol.getType());
+            hasher.putInt(lambda.arguments().size());
+            lambda.arguments().forEach(symbol -> {
+                hashString(symbol.name());
+                hashType(symbol.type());
             });
 
-            visitRowExpression(lambda.getBody());
+            visitRowExpression(lambda.body());
             return null;
         }
 
@@ -262,8 +262,8 @@ public final class SqlRoutineHash
         public Void visitVariableReference(VariableReferenceExpression reference, Void context)
         {
             hashClassName(reference.getClass());
-            hashString(reference.getName());
-            hashType(reference.getType());
+            hashString(reference.name());
+            hashType(reference.type());
             return null;
         }
 
@@ -272,14 +272,14 @@ public final class SqlRoutineHash
         {
             hashClassName(specialForm.getClass());
 
-            hashType(specialForm.getType());
-            hasher.putInt(specialForm.getForm().ordinal());
+            hashType(specialForm.type());
+            hasher.putInt(specialForm.form().ordinal());
 
-            hasher.putInt(specialForm.getArguments().size());
-            specialForm.getArguments().forEach(this::visitRowExpression);
+            hasher.putInt(specialForm.arguments().size());
+            specialForm.arguments().forEach(this::visitRowExpression);
 
-            hasher.putInt(specialForm.getFunctionDependencies().size());
-            specialForm.getFunctionDependencies().forEach(this::hashResolvedFunction);
+            hasher.putInt(specialForm.functionDependencies().size());
+            specialForm.functionDependencies().forEach(this::hashResolvedFunction);
 
             return null;
         }
@@ -301,23 +301,23 @@ public final class SqlRoutineHash
 
         private void hashResolvedFunction(ResolvedFunction function)
         {
-            BoundSignature signature = function.getSignature();
+            BoundSignature signature = function.signature();
             hashString(signature.getName().toString());
             hashType(signature.getReturnType());
             hasher.putInt(signature.getArgumentTypes().size());
             signature.getArgumentTypes().forEach(this::hashType);
 
-            hashString(function.getCatalogHandle().getId());
-            hashString(function.getFunctionId().toString());
+            hashString(function.catalogHandle().getId());
+            hashString(function.functionId().toString());
 
-            hasher.putInt(function.getTypeDependencies().size());
-            function.getTypeDependencies().forEach((typeSignature, type) -> {
+            hasher.putInt(function.typeDependencies().size());
+            function.typeDependencies().forEach((typeSignature, type) -> {
                 hashString(typeSignature.toString());
                 hashType(type);
             });
 
-            hasher.putInt(function.getFunctionDependencies().size());
-            function.getFunctionDependencies().forEach(this::hashResolvedFunction);
+            hasher.putInt(function.functionDependencies().size());
+            function.functionDependencies().forEach(this::hashResolvedFunction);
         }
 
         private void hashString(String string)

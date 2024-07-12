@@ -25,7 +25,6 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.tpch.TpchTable;
 import org.apache.http.HttpHost;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
@@ -41,7 +40,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.opensearch.OpenSearchQueryRunner.createOpenSearchQueryRunner;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -57,14 +55,12 @@ public abstract class BaseOpenSearchConnectorTest
         extends BaseConnectorTest
 {
     private final String image;
-    private final String catalogName;
     private OpenSearchServer opensearch;
     protected RestHighLevelClient client;
 
-    BaseOpenSearchConnectorTest(String image, String catalogName)
+    BaseOpenSearchConnectorTest(String image)
     {
         this.image = image;
-        this.catalogName = catalogName;
     }
 
     @Override
@@ -75,13 +71,9 @@ public abstract class BaseOpenSearchConnectorTest
         HostAndPort address = opensearch.getAddress();
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
 
-        return createOpenSearchQueryRunner(
-                opensearch.getAddress(),
-                TpchTable.getTables(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                3,
-                catalogName);
+        return OpenSearchQueryRunner.builder(opensearch.getAddress())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @AfterAll
@@ -99,22 +91,22 @@ public abstract class BaseOpenSearchConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN,
-                    SUPPORTS_COMMENT_ON_COLUMN,
-                    SUPPORTS_COMMENT_ON_TABLE,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_SCHEMA,
-                    SUPPORTS_CREATE_TABLE,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_DELETE,
-                    SUPPORTS_INSERT,
-                    SUPPORTS_LIMIT_PUSHDOWN,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_RENAME_COLUMN,
-                    SUPPORTS_RENAME_TABLE,
-                    SUPPORTS_ROW_TYPE,
-                    SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_UPDATE -> false;
+                 SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_SCHEMA,
+                 SUPPORTS_CREATE_TABLE,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_DELETE,
+                 SUPPORTS_INSERT,
+                 SUPPORTS_LIMIT_PUSHDOWN,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_RENAME_COLUMN,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_ROW_TYPE,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -139,6 +131,7 @@ public abstract class BaseOpenSearchConnectorTest
     @Test
     public void testWithoutBackpressure()
     {
+        String catalogName = getSession().getCatalog().orElseThrow();
         assertQuerySucceeds("SELECT * FROM orders");
         // Check that JMX stats show no sign of backpressure
         assertQueryReturnsEmptyResult(format("SELECT 1 FROM jmx.current.\"trino.plugin.opensearch.client:*name=%s*\" WHERE \"backpressurestats.alltime.count\" > 0", catalogName));
@@ -198,6 +191,7 @@ public abstract class BaseOpenSearchConnectorTest
     @Override
     public void testShowCreateTable()
     {
+        String catalogName = getSession().getCatalog().orElseThrow();
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo(format("CREATE TABLE %s.tpch.orders (\n", catalogName) +
                         "   clerk varchar,\n" +
@@ -1822,6 +1816,8 @@ public abstract class BaseOpenSearchConnectorTest
     @Test
     public void testQueryTableFunction()
     {
+        String catalogName = getSession().getCatalog().orElseThrow();
+
         // select single record
         assertQuery("SELECT json_query(result, 'lax $[0][0].hits.hits._source') " +
                         format("FROM TABLE(%s.system.raw_query(", catalogName) +
@@ -1889,6 +1885,7 @@ public abstract class BaseOpenSearchConnectorTest
 
     protected void assertTableDoesNotExist(String name)
     {
+        String catalogName = getSession().getCatalog().orElseThrow();
         assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(name)).isFalse();
         assertQueryFails("SELECT * FROM " + name, ".*Table '" + catalogName + ".tpch." + name + "' does not exist");

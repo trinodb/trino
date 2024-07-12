@@ -6,7 +6,12 @@ cd "${BASH_SOURCE%/*}"
 
 test -t 1 && OPTS='-it' || OPTS=''
 
-SPHINX_IMAGE=${SPHINX_IMAGE:-ghcr.io/trinodb/build/sphinx:7}
+SPHINX_IMAGE=${SPHINX_IMAGE:-ghcr.io/trinodb/build/sphinx:8}
 
 docker run --security-opt label:disable --rm $OPTS -e TRINO_VERSION -u $(id -u):$(id -g) -v "$PWD":/docs $SPHINX_IMAGE \
-  sphinx-build -q -j auto -b html -W -d target/doctrees src/main/sphinx target/html
+  sphinx-build -q -j auto -b html -W --keep-going -d target/doctrees src/main/sphinx target/html
+
+# Sort sitemap for reproducible builds
+sorted_sitemap="sitemap_${RANDOM}.xml"
+docker run -v "$PWD":/docs $SPHINX_IMAGE xsltproc -o /docs/target/html/"${sorted_sitemap}" /docs/sitemap.xslt /docs/target/html/sitemap.xml
+mv target/html/"${sorted_sitemap}" target/html/sitemap.xml

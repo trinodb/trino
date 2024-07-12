@@ -25,7 +25,6 @@ import java.util.Map;
 
 import static io.trino.plugin.jdbc.JdbcJoinPushdownSessionProperties.JOIN_PUSHDOWN_STRATEGY;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.JOIN_PUSHDOWN_ENABLED;
-import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -44,11 +43,9 @@ public class TestJoinReorderingWithJoinPushdown
             throws Exception
     {
         TestingPostgreSqlServer postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
-        QueryRunner queryRunner = createPostgreSqlQueryRunner(
-                postgreSqlServer,
-                Map.of(),
-                Map.of(),
-                List.of(CUSTOMER, NATION));
+        QueryRunner queryRunner = PostgreSqlQueryRunner.builder(postgreSqlServer)
+                .setInitialTables(List.of(CUSTOMER, NATION))
+                .build();
 
         postgreSqlServer.execute("ANALYZE " + CUSTOMER.getTableName());
         postgreSqlServer.execute("ANALYZE " + NATION.getTableName());

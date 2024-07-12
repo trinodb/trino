@@ -29,7 +29,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static java.lang.String.format;
 
 class TableStatisticsRecorder
 {
@@ -78,17 +77,9 @@ class TableStatisticsRecorder
 
         Column column = columns.get(columnId);
         ColumnType.Base baseType = column.getType().getBase();
-        switch (baseType) {
-            case IDENTIFIER:
-            case INTEGER:
-            case DATE:
-            case TIME:
-            case DECIMAL:
-                return recordCursor.getLong(columnId);
-            case VARCHAR:
-            case CHAR:
-                return recordCursor.getSlice(columnId).toStringAscii();
-        }
-        throw new UnsupportedOperationException(format("Unsupported TPCDS base type [%s]", baseType));
+        return switch (baseType) {
+            case IDENTIFIER, INTEGER, DATE, TIME, DECIMAL -> recordCursor.getLong(columnId);
+            case VARCHAR, CHAR -> recordCursor.getSlice(columnId).toStringAscii();
+        };
     }
 }

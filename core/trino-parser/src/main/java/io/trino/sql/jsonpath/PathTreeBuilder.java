@@ -283,14 +283,11 @@ public class PathTreeBuilder
 
     private static Sign getSign(String operator)
     {
-        switch (operator) {
-            case "+":
-                return Sign.PLUS;
-            case "-":
-                return Sign.MINUS;
-            default:
-                throw new UnsupportedOperationException("unexpected unary operator: " + operator);
-        }
+        return switch (operator) {
+            case "+" -> Sign.PLUS;
+            case "-" -> Sign.MINUS;
+            default -> throw new UnsupportedOperationException("unexpected unary operator: " + operator);
+        };
     }
 
     @Override
@@ -303,20 +300,14 @@ public class PathTreeBuilder
 
     private static Operator getOperator(String operator)
     {
-        switch (operator) {
-            case "+":
-                return Operator.ADD;
-            case "-":
-                return Operator.SUBTRACT;
-            case "*":
-                return Operator.MULTIPLY;
-            case "/":
-                return Operator.DIVIDE;
-            case "%":
-                return Operator.MODULUS;
-            default:
-                throw new UnsupportedOperationException("unexpected binary operator: " + operator);
-        }
+        return switch (operator) {
+            case "+" -> Operator.ADD;
+            case "-" -> Operator.SUBTRACT;
+            case "*" -> Operator.MULTIPLY;
+            case "/" -> Operator.DIVIDE;
+            case "%" -> Operator.MODULUS;
+            default -> throw new UnsupportedOperationException("unexpected binary operator: " + operator);
+        };
     }
 
     // predicate
@@ -331,23 +322,15 @@ public class PathTreeBuilder
 
     private static ComparisonPredicate.Operator getComparisonOperator(String operator)
     {
-        switch (operator) {
-            case "==":
-                return ComparisonPredicate.Operator.EQUAL;
-            case "<>":
-            case "!=":
-                return ComparisonPredicate.Operator.NOT_EQUAL;
-            case "<":
-                return ComparisonPredicate.Operator.LESS_THAN;
-            case ">":
-                return ComparisonPredicate.Operator.GREATER_THAN;
-            case "<=":
-                return ComparisonPredicate.Operator.LESS_THAN_OR_EQUAL;
-            case ">=":
-                return ComparisonPredicate.Operator.GREATER_THAN_OR_EQUAL;
-            default:
-                throw new UnsupportedOperationException("unexpected comparison operator: " + operator);
-        }
+        return switch (operator) {
+            case "==" -> ComparisonPredicate.Operator.EQUAL;
+            case "<>", "!=" -> ComparisonPredicate.Operator.NOT_EQUAL;
+            case "<" -> ComparisonPredicate.Operator.LESS_THAN;
+            case ">" -> ComparisonPredicate.Operator.GREATER_THAN;
+            case "<=" -> ComparisonPredicate.Operator.LESS_THAN_OR_EQUAL;
+            case ">=" -> ComparisonPredicate.Operator.GREATER_THAN_OR_EQUAL;
+            default -> throw new UnsupportedOperationException("unexpected comparison operator: " + operator);
+        };
     }
 
     @Override

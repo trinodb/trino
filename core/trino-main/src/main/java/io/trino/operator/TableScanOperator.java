@@ -28,12 +28,14 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
+import io.trino.split.PageSourceProviderFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -60,7 +62,7 @@ public class TableScanOperator
                 int operatorId,
                 PlanNodeId planNodeId,
                 PlanNodeId sourceId,
-                PageSourceProvider pageSourceProvider,
+                PageSourceProviderFactory pageSourceProvider,
                 TableHandle table,
                 Iterable<ColumnHandle> columns,
                 DynamicFilter dynamicFilter)
@@ -68,10 +70,10 @@ public class TableScanOperator
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
-            this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+            this.pageSourceProvider = pageSourceProvider.createPageSourceProvider(table.catalogHandle());
         }
 
         @Override
@@ -162,8 +164,8 @@ public class TableScanOperator
 
         this.split = split;
 
-        Object splitInfo = split.getInfo();
-        if (splitInfo != null) {
+        Map<String, String> splitInfo = split.getInfo();
+        if (!splitInfo.isEmpty()) {
             operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogHandle(), splitInfo)));
         }
 

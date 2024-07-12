@@ -70,7 +70,7 @@ jobs:
       JAVA_TOOL_OPTIONS: " -Xmx8g"
       DOCKER_BUILDKIT: 1
     container:
-      image: uchimera.azurecr.io/cccs/dev/projector-intellij-ce:trino_20240417110737_b9788
+      image: uchimera.azurecr.io/cccs/dev/projector-intellij-ce:trino_20240712195530_b10498
       options: --entrypoint="" --user=0
       endpoint: uchimera
       volumes:
@@ -80,7 +80,7 @@ jobs:
         name: cccs_stratus_m2_settings
         displayName: "Download settings.xml"
         inputs:
-          secureFile: "cccs-stratus-m2-settings.xml"
+          secureFile: "settings.xml"
       - task: Bash@3
         name: move_settings_to_m2
         displayName: "Move settings to .m2"
@@ -89,9 +89,6 @@ jobs:
           script: |
             mkdir -p "${HOME}/.m2"
             cp "$(cccs_stratus_m2_settings.secureFilePath)" "${HOME}/.m2/settings.xml"
-      - task: MavenAuthenticate@0
-        inputs:
-          artifactsFeeds: cccs-stratus
       - task: Bash@3
         name: setBranchName
         inputs:

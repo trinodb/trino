@@ -16,44 +16,14 @@ package io.trino.metadata;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorName;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class CatalogInfo
+public record CatalogInfo(String catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
 {
-    private final String catalogName;
-    private final CatalogHandle catalogHandle;
-    private final ConnectorName connectorName;
-
-    public CatalogInfo(String catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
+    public CatalogInfo
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
-        this.connectorName = requireNonNull(connectorName, "connectorName is null");
-    }
-
-    public String getCatalogName()
-    {
-        return catalogName;
-    }
-
-    public CatalogHandle getCatalogHandle()
-    {
-        return catalogHandle;
-    }
-
-    public ConnectorName getConnectorName()
-    {
-        return connectorName;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("catalogName", catalogName)
-                .add("catalogHandle", catalogHandle)
-                .add("connectorName", connectorName)
-                .toString();
+        requireNonNull(catalogName, "catalogName is null");
+        requireNonNull(catalogHandle, "catalogHandle is null");
+        requireNonNull(connectorName, "connectorName is null");
     }
 }

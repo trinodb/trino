@@ -29,9 +29,9 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.In;
+import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Lambda;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Switch;
@@ -53,8 +53,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.IrUtils.and;
-import static io.trino.sql.planner.EqualityInference.isInferenceCandidate;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEqualityInference
@@ -309,14 +307,14 @@ public class TestEqualityInference
     public void testExpressionsThatMayReturnNullOnNonNullInput()
     {
         List<Expression> candidates = ImmutableList.of(
-                new Cast(new Reference(BIGINT, "b"), BIGINT, true), // try_cast
+                new Cast(new Reference(BIGINT, "b"), BIGINT),
                 functionResolution
                         .functionCallBuilder(TryFunction.NAME)
                         .addArgument(new FunctionType(ImmutableList.of(), BIGINT), new Lambda(ImmutableList.of(), new Reference(BIGINT, "b")))
                         .build(),
                 new NullIf(new Reference(BIGINT, "b"), number(1)),
                 new In(new Reference(BIGINT, "b"), ImmutableList.of(new Constant(BIGINT, null))),
-                new Case(ImmutableList.of(new WhenClause(new Not(new IsNull(new Reference(BIGINT, "b"))), new Constant(UnknownType.UNKNOWN, null))), new Constant(UnknownType.UNKNOWN, null)),
+                new Case(ImmutableList.of(new WhenClause(IrExpressions.not(functionResolution.getMetadata(), new IsNull(new Reference(BIGINT, "b"))), new Constant(UnknownType.UNKNOWN, null))), new Constant(UnknownType.UNKNOWN, null)),
                 new Switch(new Reference(INTEGER, "b"), ImmutableList.of(new WhenClause(number(1), new Constant(INTEGER, null))), new Constant(INTEGER, null)));
 
         for (Expression candidate : candidates) {
@@ -390,7 +388,7 @@ public class TestEqualityInference
     private static Set<Symbol> symbols(String... symbols)
     {
         return Arrays.stream(symbols)
-                .map(name -> new Symbol(UNKNOWN, name))
+                .map(name -> new Symbol(BIGINT, name))
                 .collect(toImmutableSet());
     }
 
@@ -402,7 +400,7 @@ public class TestEqualityInference
     private static Predicate<Symbol> matchesSymbols(Collection<String> symbols)
     {
         Set<Symbol> symbolSet = symbols.stream()
-                .map(name -> new Symbol(UNKNOWN, name))
+                .map(name -> new Symbol(BIGINT, name))
                 .collect(toImmutableSet());
 
         return Predicates.in(symbolSet);
@@ -417,7 +415,7 @@ public class TestEqualityInference
     {
         return symbol -> {
             for (String prefix : prefixes) {
-                if (symbol.getName().startsWith(prefix)) {
+                if (symbol.name().startsWith(prefix)) {
                     return true;
                 }
             }

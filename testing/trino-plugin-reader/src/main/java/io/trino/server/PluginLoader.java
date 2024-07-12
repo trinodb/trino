@@ -78,7 +78,7 @@ public class PluginLoader
     private static void loadPlugin(Supplier<PluginClassLoader> createClassLoader, ImmutableList.Builder<Plugin> plugins)
     {
         PluginClassLoader pluginClassLoader = createClassLoader.get();
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(pluginClassLoader)) {
             loadServicePlugin(pluginClassLoader, plugins);
         }
     }

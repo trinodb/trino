@@ -42,6 +42,7 @@ import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.RETRY_POLICY;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.operator.RetryPolicy.TASK;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -49,7 +50,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.remoteSource;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
-import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestAdaptivePartitioning
         extends BasePlanTest
@@ -110,8 +110,8 @@ public class TestAdaptivePartitioning
                                         join(LEFT, builder -> builder
                                                 .equiCriteria(ImmutableList.of(aliases ->
                                                         new JoinNode.EquiJoinClause(
-                                                                new Symbol(UNKNOWN, "suppkey"),
-                                                                new Symbol(UNKNOWN, "nationkey"))))
+                                                                new Symbol(BIGINT, "suppkey"),
+                                                                new Symbol(BIGINT, "nationkey"))))
                                                 .left(node(AdaptivePlanNode.class,
                                                         remoteSource(ImmutableList.of(new PlanFragmentId("4")))))
                                                 // validate no partitionCount in local exchange

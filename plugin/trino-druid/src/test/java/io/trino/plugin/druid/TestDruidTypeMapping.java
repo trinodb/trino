@@ -14,7 +14,6 @@
 package io.trino.plugin.druid;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.druid.ingestion.IndexTaskBuilder;
 import io.trino.plugin.druid.ingestion.TimestampSpec;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -31,7 +30,6 @@ import java.io.FileWriter;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.plugin.druid.DruidQueryRunner.createDruidQueryRunnerTpch;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -57,7 +55,7 @@ public class TestDruidTypeMapping
             throws Exception
     {
         this.druidServer = new TestingDruidServer(DRUID_DOCKER_IMAGE);
-        return createDruidQueryRunnerTpch(druidServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+        return DruidQueryRunner.builder(druidServer).build();
     }
 
     @AfterAll

@@ -29,6 +29,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -119,13 +120,13 @@ public class TestS3TableConfigClient
 
         KinesisMetadata metadata = (KinesisMetadata) kinesisConnector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
         SchemaTableName tblName = new SchemaTableName("default", "test123");
-        KinesisTableHandle tableHandle = metadata.getTableHandle(SESSION, tblName);
+        KinesisTableHandle tableHandle = metadata.getTableHandle(SESSION, tblName, Optional.empty(), Optional.empty());
         assertThat(metadata).isNotNull();
-        SchemaTableName tableSchemaName = tableHandle.toSchemaTableName();
+        SchemaTableName tableSchemaName = tableHandle.schemaTableName();
         assertThat(tableSchemaName.getSchemaName()).isEqualTo("default");
         assertThat(tableSchemaName.getTableName()).isEqualTo("test123");
-        assertThat(tableHandle.getStreamName()).isEqualTo("test123");
-        assertThat(tableHandle.getMessageDataFormat()).isEqualTo("json");
+        assertThat(tableHandle.streamName()).isEqualTo("test123");
+        assertThat(tableHandle.messageDataFormat()).isEqualTo("json");
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(SESSION, tableHandle);
         assertThat(columnHandles.size()).isEqualTo(12);
     }

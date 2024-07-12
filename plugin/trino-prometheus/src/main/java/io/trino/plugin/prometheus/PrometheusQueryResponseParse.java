@@ -34,9 +34,6 @@ import static java.util.Collections.singletonList;
 public class PrometheusQueryResponseParse
 {
     private boolean status;
-
-    private String error;
-    private String errorType;
     private String resultType;
     private String result;
     private List<PrometheusMetricResult> results;
@@ -50,18 +47,18 @@ public class PrometheusQueryResponseParse
         while (!parser.isClosed()) {
             JsonToken jsonToken = parser.nextToken();
             if (JsonToken.FIELD_NAME.equals(jsonToken)) {
-                if (parser.getCurrentName().equals("status")) {
+                if (parser.currentName().equals("status")) {
                     parser.nextToken();
                     if (parser.getValueAsString().equals("success")) {
                         this.status = true;
                         while (!parser.isClosed()) {
                             parser.nextToken();
                             if (JsonToken.FIELD_NAME.equals(jsonToken)) {
-                                if (parser.getCurrentName().equals("resultType")) {
+                                if (parser.currentName().equals("resultType")) {
                                     parser.nextToken();
                                     resultType = parser.getValueAsString();
                                 }
-                                if (parser.getCurrentName().equals("result")) {
+                                if (parser.currentName().equals("result")) {
                                     parser.nextToken();
                                     ArrayNode node = mapper.readTree(parser);
                                     result = node.toString();
@@ -75,10 +72,10 @@ public class PrometheusQueryResponseParse
                         String parsedStatus = parser.getValueAsString();
                         parser.nextToken();
                         parser.nextToken();
-                        this.errorType = parser.getValueAsString();
+                        String errorType = parser.getValueAsString();
                         parser.nextToken();
                         parser.nextToken();
-                        error = parser.getValueAsString();
+                        String error = parser.getValueAsString();
                         throw new TrinoException(PROMETHEUS_PARSE_ERROR, "Unable to parse Prometheus response: " + parsedStatus + " " + errorType + " " + error);
                     }
                 }
@@ -102,16 +99,6 @@ public class PrometheusQueryResponseParse
                     results = singletonList(new PrometheusMetricResult(madeUpMetricHeader, timeSeriesValues));
             }
         }
-    }
-
-    public String getError()
-    {
-        return error;
-    }
-
-    public String getErrorType()
-    {
-        return errorType;
     }
 
     public List<PrometheusMetricResult> getResults()

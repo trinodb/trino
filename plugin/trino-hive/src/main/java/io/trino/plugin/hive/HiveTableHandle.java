@@ -53,8 +53,8 @@ public class HiveTableHandle
     private final Optional<HiveBucketHandle> bucketHandle;
     private final Optional<HiveBucketFilter> bucketFilter;
     private final Optional<List<List<String>>> analyzePartitionValues;
-    private final Set<ColumnHandle> constraintColumns;
-    private final Set<ColumnHandle> projectedColumns;
+    private final Set<HiveColumnHandle> constraintColumns;
+    private final Set<HiveColumnHandle> projectedColumns;
     private final AcidTransaction transaction;
     private final boolean recordScannedFiles;
     private final Optional<Long> maxScannedFileSize;
@@ -131,7 +131,7 @@ public class HiveTableHandle
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucketFilter> bucketFilter,
             Optional<List<List<String>>> analyzePartitionValues,
-            Set<ColumnHandle> constraintColumns,
+            Set<HiveColumnHandle> constraintColumns,
             AcidTransaction transaction,
             boolean recordScannedFiles,
             Optional<Long> maxSplitFileSize)
@@ -150,7 +150,7 @@ public class HiveTableHandle
                 bucketFilter,
                 analyzePartitionValues,
                 constraintColumns,
-                ImmutableSet.<ColumnHandle>builder().addAll(partitionColumns).addAll(dataColumns).build(),
+                ImmutableSet.<HiveColumnHandle>builder().addAll(partitionColumns).addAll(dataColumns).build(),
                 transaction,
                 recordScannedFiles,
                 maxSplitFileSize);
@@ -169,8 +169,8 @@ public class HiveTableHandle
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucketFilter> bucketFilter,
             Optional<List<List<String>>> analyzePartitionValues,
-            Set<ColumnHandle> constraintColumns,
-            Set<ColumnHandle> projectedColumns,
+            Set<HiveColumnHandle> constraintColumns,
+            Set<HiveColumnHandle> projectedColumns,
             AcidTransaction transaction,
             boolean recordScannedFiles,
             Optional<Long> maxSplitFileSize)
@@ -239,7 +239,7 @@ public class HiveTableHandle
                 maxScannedFileSize);
     }
 
-    public HiveTableHandle withProjectedColumns(Set<ColumnHandle> projectedColumns)
+    public HiveTableHandle withProjectedColumns(Set<HiveColumnHandle> projectedColumns)
     {
         return new HiveTableHandle(
                 schemaName,
@@ -397,14 +397,14 @@ public class HiveTableHandle
 
     // do not serialize constraint columns as they are not needed on workers
     @JsonIgnore
-    public Set<ColumnHandle> getConstraintColumns()
+    public Set<HiveColumnHandle> getConstraintColumns()
     {
         return constraintColumns;
     }
 
     // do not serialize projected columns as they are not needed on workers
     @JsonIgnore
-    public Set<ColumnHandle> getProjectedColumns()
+    public Set<HiveColumnHandle> getProjectedColumns()
     {
         return projectedColumns;
     }
@@ -446,6 +446,7 @@ public class HiveTableHandle
                 Objects.equals(tableName, that.tableName) &&
                 Objects.equals(tableParameters, that.tableParameters) &&
                 Objects.equals(partitionColumns, that.partitionColumns) &&
+                Objects.equals(dataColumns, that.dataColumns) &&
                 Objects.equals(partitionNames, that.partitionNames) &&
                 Objects.equals(partitions, that.partitions) &&
                 Objects.equals(compactEffectivePredicate, that.compactEffectivePredicate) &&
@@ -453,8 +454,11 @@ public class HiveTableHandle
                 Objects.equals(bucketHandle, that.bucketHandle) &&
                 Objects.equals(bucketFilter, that.bucketFilter) &&
                 Objects.equals(analyzePartitionValues, that.analyzePartitionValues) &&
+                Objects.equals(constraintColumns, that.constraintColumns) &&
                 Objects.equals(transaction, that.transaction) &&
-                Objects.equals(projectedColumns, that.projectedColumns);
+                Objects.equals(projectedColumns, that.projectedColumns) &&
+                recordScannedFiles == that.recordScannedFiles &&
+                Objects.equals(maxScannedFileSize, that.maxScannedFileSize);
     }
 
     @Override
@@ -465,6 +469,7 @@ public class HiveTableHandle
                 tableName,
                 tableParameters,
                 partitionColumns,
+                dataColumns,
                 partitionNames,
                 partitions,
                 compactEffectivePredicate,
@@ -472,8 +477,11 @@ public class HiveTableHandle
                 bucketHandle,
                 bucketFilter,
                 analyzePartitionValues,
+                constraintColumns,
                 transaction,
-                projectedColumns);
+                projectedColumns,
+                recordScannedFiles,
+                maxScannedFileSize);
     }
 
     @Override
@@ -481,11 +489,17 @@ public class HiveTableHandle
     {
         StringBuilder builder = new StringBuilder();
         builder.append(schemaName).append(":").append(tableName);
+        if (!constraintColumns.isEmpty()) {
+            builder.append(" constraint on ");
+            builder.append(constraintColumns.stream()
+                    .map(HiveColumnHandle::getName)
+                    .collect(joining(", ", "[", "]")));
+        }
         bucketHandle.ifPresent(bucket -> {
-            builder.append(" buckets=").append(bucket.getReadBucketCount());
-            if (!bucket.getSortedBy().isEmpty()) {
+            builder.append(" buckets=").append(bucket.readBucketCount());
+            if (!bucket.sortedBy().isEmpty()) {
                 builder.append(" sorted_by=")
-                        .append(bucket.getSortedBy().stream()
+                        .append(bucket.sortedBy().stream()
                                 .map(HiveUtil::sortingColumnToString)
                                 .collect(joining(", ", "[", "]")));
             }

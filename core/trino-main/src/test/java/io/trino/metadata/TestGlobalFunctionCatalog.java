@@ -64,7 +64,7 @@ public class TestGlobalFunctionCatalog
     @Test
     public void testIdentityCast()
     {
-        BoundSignature exactOperator = new TestingFunctionResolution().getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG).getSignature();
+        BoundSignature exactOperator = new TestingFunctionResolution().getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG).signature();
         assertThat(exactOperator).isEqualTo(new BoundSignature(builtinFunctionName(CAST), HYPER_LOG_LOG, ImmutableList.of(HYPER_LOG_LOG)));
     }
 
@@ -87,7 +87,7 @@ public class TestGlobalFunctionCatalog
             List<Type> argumentTypes = function.getSignature().getArgumentTypes().stream()
                     .map(functionResolution.getPlannerContext().getTypeManager()::getType)
                     .collect(toImmutableList());
-            BoundSignature exactOperator = functionResolution.resolveOperator(operatorType, argumentTypes).getSignature();
+            BoundSignature exactOperator = functionResolution.resolveOperator(operatorType, argumentTypes).signature();
             assertThat(exactOperator.toSignature()).isEqualTo(function.getSignature());
             foundOperator = true;
         }
@@ -346,7 +346,7 @@ public class TestGlobalFunctionCatalog
         {
             return new TestingFunctionResolution(createFunctionsFromSignatures())
                     .resolveFunction(TEST_FUNCTION_NAME, fromTypeSignatures(parameterTypes))
-                    .getSignature();
+                    .signature();
         }
 
         private InternalFunctionBundle createFunctionsFromSignatures()

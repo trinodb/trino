@@ -444,7 +444,7 @@ public class DynamicFilterService
                         },
                         descriptor -> {
                             Symbol symbol = Symbol.from(descriptor.getInput());
-                            Type targetType = symbol.getType();
+                            Type targetType = symbol.type();
                             Domain updatedSummary = descriptor.applyComparison(summary);
                             if (!updatedSummary.getType().equals(targetType)) {
                                 return applySaturatedCasts(metadata, functionManager, typeOperators, session, updatedSummary, targetType);
@@ -688,7 +688,7 @@ public class DynamicFilterService
 
         private final long start = System.nanoTime();
         private final AtomicReference<Duration> collectionDuration = new AtomicReference<>();
-        @GuardedBy("this")
+        // modifications @GuardedBy("this")
         private volatile boolean collected;
         private final SettableFuture<Domain> collectedDomainsFuture = SettableFuture.create();
 

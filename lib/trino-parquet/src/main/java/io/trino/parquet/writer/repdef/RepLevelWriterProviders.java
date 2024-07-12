@@ -13,13 +13,13 @@
  */
 package io.trino.parquet.writer.repdef;
 
+import io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.RowBlock;
-import org.apache.parquet.column.values.ValuesWriter;
 
 import java.util.Optional;
 
@@ -63,7 +63,7 @@ public class RepLevelWriterProviders
         }
 
         @Override
-        public RepetitionLevelWriter getRepetitionLevelWriter(Optional<RepetitionLevelWriter> nestedWriter, ValuesWriter encoder)
+        public RepetitionLevelWriter getRepetitionLevelWriter(Optional<RepetitionLevelWriter> nestedWriter, ColumnDescriptorValuesWriter encoder)
         {
             checkArgument(nestedWriter.isEmpty(), "nestedWriter should be empty for primitive repetition level writer");
             return new RepetitionLevelWriter()
@@ -80,9 +80,7 @@ public class RepLevelWriterProviders
                 public void writeRepetitionLevels(int parentLevel, int positionsCount)
                 {
                     checkValidPosition(offset, positionsCount, block.getPositionCount());
-                    for (int i = 0; i < positionsCount; i++) {
-                        encoder.writeInteger(parentLevel);
-                    }
+                    encoder.writeRepeatInteger(parentLevel, positionsCount);
                     offset += positionsCount;
                 }
             };
@@ -101,7 +99,7 @@ public class RepLevelWriterProviders
         }
 
         @Override
-        public RepetitionLevelWriter getRepetitionLevelWriter(Optional<RepetitionLevelWriter> nestedWriterOptional, ValuesWriter encoder)
+        public RepetitionLevelWriter getRepetitionLevelWriter(Optional<RepetitionLevelWriter> nestedWriterOptional, ColumnDescriptorValuesWriter encoder)
         {
             checkArgument(nestedWriterOptional.isPresent(), "nestedWriter should be present for column row repetition level writer");
             return new RepetitionLevelWriter()
@@ -160,7 +158,7 @@ public class RepLevelWriterProviders
         }
 
         @Override
-        public RepetitionLevelWriter getRepetitionLevelWriter(Optional<RepetitionLevelWriter> nestedWriterOptional, ValuesWriter encoder)
+        public RepetitionLevelWriter getRepetitionLevelWriter(Optional<RepetitionLevelWriter> nestedWriterOptional, ColumnDescriptorValuesWriter encoder)
         {
             checkArgument(nestedWriterOptional.isPresent(), "nestedWriter should be present for column map repetition level writer");
             return new RepetitionLevelWriter()
@@ -224,7 +222,7 @@ public class RepLevelWriterProviders
         }
 
         @Override
-        public RepetitionLevelWriter getRepetitionLevelWriter(Optional<RepetitionLevelWriter> nestedWriterOptional, ValuesWriter encoder)
+        public RepetitionLevelWriter getRepetitionLevelWriter(Optional<RepetitionLevelWriter> nestedWriterOptional, ColumnDescriptorValuesWriter encoder)
         {
             checkArgument(nestedWriterOptional.isPresent(), "nestedWriter should be present for column map repetition level writer");
             return new RepetitionLevelWriter()

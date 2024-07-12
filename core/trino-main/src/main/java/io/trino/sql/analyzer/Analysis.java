@@ -285,7 +285,7 @@ public class Analysis
     {
         return target.map(target -> {
             QualifiedObjectName name = target.getName();
-            return new Output(name.getCatalogName(), target.getCatalogVersion(), name.getSchemaName(), name.getObjectName(), target.getColumns());
+            return new Output(name.catalogName(), target.getCatalogVersion(), name.schemaName(), name.objectName(), target.getColumns());
         });
     }
 
@@ -881,10 +881,10 @@ public class Analysis
         tablesForView.push(requireNonNull(tableReference, "tableReference is null"));
         BaseViewReferenceInfo referenceInfo;
         if (isMaterializedView) {
-            referenceInfo = new MaterializedViewReferenceInfo(name.getCatalogName(), name.getSchemaName(), name.getObjectName());
+            referenceInfo = new MaterializedViewReferenceInfo(name.catalogName(), name.schemaName(), name.objectName());
         }
         else {
-            referenceInfo = new ViewReferenceInfo(name.getCatalogName(), name.getSchemaName(), name.getObjectName());
+            referenceInfo = new ViewReferenceInfo(name.catalogName(), name.schemaName(), name.objectName());
         }
         referenceChain.push(referenceInfo);
     }
@@ -1112,7 +1112,7 @@ public class Analysis
     public void registerTableForRowFiltering(QualifiedObjectName table, String identity, String filterExpression)
     {
         rowFilterScopes.add(new RowFilterScopeEntry(table, identity));
-        referenceChain.push(new RowFilterReferenceInfo(filterExpression, table.getCatalogName(), table.getSchemaName(), table.getObjectName()));
+        referenceChain.push(new RowFilterReferenceInfo(filterExpression, table.catalogName(), table.schemaName(), table.objectName()));
     }
 
     public void unregisterTableForRowFiltering(QualifiedObjectName table, String identity)
@@ -1151,7 +1151,7 @@ public class Analysis
     public void registerTableForColumnMasking(QualifiedObjectName table, String column, String identity, String maskExpression)
     {
         columnMaskScopes.add(new ColumnMaskScopeEntry(table, column, identity));
-        referenceChain.push(new ColumnMaskReferenceInfo(maskExpression, table.getCatalogName(), table.getSchemaName(), table.getObjectName(), column));
+        referenceChain.push(new ColumnMaskReferenceInfo(maskExpression, table.catalogName(), table.schemaName(), table.objectName(), column));
     }
 
     public void unregisterTableForColumnMasking(QualifiedObjectName table, String column, String identity)
@@ -1194,9 +1194,9 @@ public class Analysis
 
                     TableEntry info = entry.getValue();
                     return new TableInfo(
-                            info.getName().getCatalogName(),
-                            info.getName().getSchemaName(),
-                            info.getName().getObjectName(),
+                            info.getName().catalogName(),
+                            info.getName().schemaName(),
+                            info.getName().objectName(),
                             info.getAuthorization(),
                             rowFilters.getOrDefault(table, ImmutableList.of()).stream()
                                     .map(Expression::toString)
@@ -1212,7 +1212,7 @@ public class Analysis
     public List<RoutineInfo> getRoutines()
     {
         return resolvedFunctions.values().stream()
-                .map(value -> new RoutineInfo(value.function.getSignature().getName().getFunctionName(), value.getAuthorization()))
+                .map(value -> new RoutineInfo(value.function.signature().getName().getFunctionName(), value.getAuthorization()))
                 .collect(toImmutableList());
     }
 
@@ -2152,7 +2152,7 @@ public class Analysis
 
         public ColumnDetail getColumnDetail()
         {
-            return new ColumnDetail(tableName.getCatalogName(), tableName.getSchemaName(), tableName.getObjectName(), columnName);
+            return new ColumnDetail(tableName.catalogName(), tableName.schemaName(), tableName.objectName(), columnName);
         }
 
         @Override

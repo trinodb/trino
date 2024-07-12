@@ -90,14 +90,10 @@ public class SetRoleTask
 
     private static SelectedRole.Type toSelectedRoleType(SetRole.Type statementRoleType)
     {
-        switch (statementRoleType) {
-            case ROLE:
-                return SelectedRole.Type.ROLE;
-            case ALL:
-                return SelectedRole.Type.ALL;
-            case NONE:
-                return SelectedRole.Type.NONE;
-        }
-        throw new IllegalArgumentException("Unsupported type: " + statementRoleType);
+        return switch (statementRoleType) {
+            case ROLE -> SelectedRole.Type.ROLE;
+            case ALL -> SelectedRole.Type.ALL;
+            case NONE -> SelectedRole.Type.NONE;
+        };
     }
 }

@@ -42,13 +42,10 @@ public class SpatialJoinStatsRule
         PlanNodeStatsEstimate rightStats = context.statsProvider().getStats(node.getRight());
         PlanNodeStatsEstimate crossJoinStats = crossJoinStats(node, leftStats, rightStats);
 
-        switch (node.getType()) {
-            case INNER:
-                return Optional.of(statsCalculator.filterStats(crossJoinStats, node.getFilter(), context.session()));
-            case LEFT:
-                return Optional.of(PlanNodeStatsEstimate.unknown());
-        }
-        throw new IllegalArgumentException("Unknown spatial join type: " + node.getType());
+        return switch (node.getType()) {
+            case INNER -> Optional.of(statsCalculator.filterStats(crossJoinStats, node.getFilter(), context.session()));
+            case LEFT -> Optional.of(PlanNodeStatsEstimate.unknown());
+        };
     }
 
     private PlanNodeStatsEstimate crossJoinStats(SpatialJoinNode node, PlanNodeStatsEstimate leftStats, PlanNodeStatsEstimate rightStats)

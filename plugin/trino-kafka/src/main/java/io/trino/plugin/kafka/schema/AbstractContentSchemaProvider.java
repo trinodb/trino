@@ -23,13 +23,13 @@ public abstract class AbstractContentSchemaProvider
     @Override
     public final Optional<String> getKey(KafkaTableHandle tableHandle)
     {
-        return readSchema(tableHandle.getKeyDataSchemaLocation(), tableHandle.getKeySubject());
+        return readSchema(tableHandle.keyDataSchemaLocation(), tableHandle.keySubject());
     }
 
     @Override
     public final Optional<String> getMessage(KafkaTableHandle tableHandle)
     {
-        return readSchema(tableHandle.getMessageDataSchemaLocation(), tableHandle.getMessageSubject());
+        return readSchema(tableHandle.messageDataSchemaLocation(), tableHandle.messageSubject());
     }
 
     protected abstract Optional<String> readSchema(Optional<String> dataSchemaLocation, Optional<String> subject);

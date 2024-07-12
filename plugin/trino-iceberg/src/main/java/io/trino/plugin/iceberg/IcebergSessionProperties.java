@@ -79,6 +79,7 @@ public final class IcebergSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
     private static final String PARQUET_SMALL_FILE_THRESHOLD = "parquet_small_file_threshold";
     private static final String PARQUET_IGNORE_STATISTICS = "parquet_ignore_statistics";
+    private static final String PARQUET_VECTORIZED_DECODING_ENABLED = "parquet_vectorized_decoding_enabled";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_WRITER_PAGE_VALUE_COUNT = "parquet_writer_page_value_count";
@@ -97,6 +98,7 @@ public final class IcebergSessionProperties
     private static final String MERGE_MANIFESTS_ON_WRITE = "merge_manifests_on_write";
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
+    private static final String INCREMENTAL_REFRESH_ENABLED = "incremental_refresh_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -244,6 +246,11 @@ public final class IcebergSessionProperties
                         "Ignore statistics from Parquet to allow querying files with corrupted or incorrect statistics",
                         parquetReaderConfig.isIgnoreStatistics(),
                         false))
+                .add(booleanProperty(
+                        PARQUET_VECTORIZED_DECODING_ENABLED,
+                        "Enable using Java Vector API for faster decoding of parquet files",
+                        parquetReaderConfig.isVectorizedDecodingEnabled(),
+                        false))
                 .add(dataSizeProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
                         "Parquet: Writer block size",
@@ -347,6 +354,11 @@ public final class IcebergSessionProperties
                         QUERY_PARTITION_FILTER_REQUIRED,
                         "Require filter on partition column",
                         icebergConfig.isQueryPartitionFilterRequired(),
+                        false))
+                .add(booleanProperty(
+                        INCREMENTAL_REFRESH_ENABLED,
+                        "Enable Incremental refresh for MVs backed by Iceberg tables, when possible.",
+                        icebergConfig.isIncrementalRefreshEnabled(),
                         false))
                 .build();
     }
@@ -474,6 +486,11 @@ public final class IcebergSessionProperties
         return session.getProperty(PARQUET_IGNORE_STATISTICS, Boolean.class);
     }
 
+    public static boolean isParquetVectorizedDecodingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_VECTORIZED_DECODING_ENABLED, Boolean.class);
+    }
+
     public static DataSize getParquetWriterPageSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
@@ -567,5 +584,10 @@ public final class IcebergSessionProperties
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
     {
         return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
+    }
+
+    public static boolean isIncrementalRefreshEnabled(ConnectorSession session)
+    {
+        return session.getProperty(INCREMENTAL_REFRESH_ENABLED, Boolean.class);
     }
 }

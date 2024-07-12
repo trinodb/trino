@@ -13,7 +13,6 @@ There are two types of file-based access control:
   authorization.
 
 (system-file-based-access-control)=
-
 ## System-level access control files
 
 The access control plugin allows you to specify authorization rules for the
@@ -119,7 +118,7 @@ The following table summarizes the permissions required for each SQL command:
 | ALTER TABLE ... ADD COLUMN         | all       |         | owner                |                                                                   |
 | ALTER TABLE ... DROP COLUMN        | all       |         | owner                |                                                                   |
 | ALTER TABLE ... RENAME COLUMN      | all       |         | owner                |                                                                   |
-| SHOW COLUMNS                       | all       |         | any                  |                                                                   |
+| SHOW COLUMNS                       | read-only |         | any                  |                                                                   |
 | SELECT FROM table                  | read-only |         | select               |                                                                   |
 | SELECT FROM view                   | read-only |         | select, grant_select |                                                                   |
 | INSERT INTO                        | all       |         | insert               |                                                                   |
@@ -151,7 +150,6 @@ Permissions required for executing functions:
 :::
 
 (system-file-auth-visibility)=
-
 #### Visibility
 
 For a catalog, schema, or table to be visible in a `SHOW` command, the user
@@ -370,7 +368,6 @@ The example below defines the following table access policy:
 ```
 
 (system-file-function-rules)=
-
 #### Function rules
 
 These rules control the ability of a user to create, drop, and execute functions.
@@ -401,7 +398,7 @@ Each function rule is composed of the following fields:
   Defaults to `.*`.
 - `privileges` (required): zero or more of `EXECUTE`, `GRANT_EXECUTE`, `OWNERSHIP`.
 
-Care should be taken when granting permission to the `system` schema of a 
+Care should be taken when granting permission to the `system` schema of a
 catalog, as this is the schema Trino uses for table function such as `query`.
 These table functions can be used to access or modify the underlying data of
 the catalog.
@@ -494,7 +491,6 @@ connector](/connector/delta-lake). It allows all users to execute the
 ```
 
 (verify-rules)=
-
 #### Verify configuration
 
 To verify the system-access control file is configured properly, set the
@@ -522,7 +518,6 @@ Query 20200824_183358_00000_c62aw failed: Access Denied: Cannot access catalog s
 Remove these rules and restart the Trino cluster.
 
 (system-file-auth-session-property)=
-
 ### Session property rules
 
 These rules control the ability of a user to set system and catalog session
@@ -556,7 +551,6 @@ The example below defines the following table access policy:
 ```
 
 (query-rules)=
-
 ### Query rules
 
 These rules control the ability of a user to execute, view, or kill a query. The
@@ -591,7 +585,6 @@ rules:
 ```
 
 (system-file-auth-impersonation-rules)=
-
 ### Impersonation rules
 
 These rules control the ability of a user to impersonate another user. In
@@ -635,7 +628,6 @@ allows a user in the form `team_backend` to impersonate the
 ```
 
 (system-file-auth-principal-rules)=
-
 ### Principal rules
 
 :::{warning}
@@ -707,7 +699,6 @@ as `group@example.net`, you can use the following rules.
 ```
 
 (system-file-auth-system-information)=
-
 ### System information rules
 
 These rules specify which users can access the system information management
@@ -757,7 +748,6 @@ user over HTTPS, set the `management.user.https-enabled` configuration
 property.
 
 (system-file-auth-authorization)=
-
 ### Authorization rules
 
 These rules control the ability of how owner of schema, table or view can
@@ -798,10 +788,7 @@ to any user, except to\`\`bob\`\`.
 :language: json
 ```
 
-(system-file-auth-system-information-1)=
-
 (catalog-file-based-access-control)=
-
 ## Catalog-level access control files
 
 You can create JSON files for individual catalogs that define authorization
@@ -901,7 +888,7 @@ denied. If function rules are not present, access is not allowed.
   Defaults to `.*`.
 - `privileges` (required): zero or more of `EXECUTE`, `GRANT_EXECUTE`, `OWNERSHIP`.
 
-Care should be taken when granting permission to the `system` schema of a 
+Care should be taken when granting permission to the `system` schema of a
 catalog, as this is the schema Trino uses for table function such as `query`.
 These table functions can be used to access or modify the underlying data of
 the catalog.

@@ -339,7 +339,6 @@ expressions must be either aggregate functions or columns present in
 the `GROUP BY` clause.
 
 (complex-grouping-operations)=
-
 ### Complex grouping operations
 
 Trino also supports complex aggregations using the `GROUPING SETS`, `CUBE`
@@ -689,7 +688,6 @@ ORDER BY totalbal DESC;
 ```
 
 (window-clause)=
-
 ## WINDOW clause
 
 The `WINDOW` clause is used to define named window specifications. The defined named
@@ -869,7 +867,6 @@ SELECT 13;
 ```
 
 (order-by-clause)=
-
 ## ORDER BY clause
 
 The `ORDER BY` clause is used to sort a result set by one or more
@@ -916,7 +913,6 @@ More background information and details can be found in
 [a blog post about this optimization](https://trino.io/blog/2019/06/03/redundant-order-by.html).
 
 (offset-clause)=
-
 ## OFFSET clause
 
 The `OFFSET` clause is used to discard a number of leading rows
@@ -948,7 +944,6 @@ If the count specified in the `OFFSET` clause equals or exceeds the size
 of the result set, the final result is empty.
 
 (limit-clause)=
-
 ## LIMIT or FETCH FIRST clause
 
 The `LIMIT` or `FETCH FIRST` clause restricts the number of rows
@@ -1097,7 +1092,6 @@ JOIN lineitem i TABLESAMPLE BERNOULLI (40)
 ```
 
 (unnest)=
-
 ## UNNEST
 
 `UNNEST` can be used to expand an {ref}`array-type` or {ref}`map-type` into a relation.
@@ -1253,7 +1247,7 @@ CROSS JOIN UNNEST(numbers, animals) AS t (n, a);
 (6 rows)
 ```
 
-`LEFT JOIN` is preferable in order to avoid losing the the row containing the array/map field in question
+`LEFT JOIN` is preferable in order to avoid losing the row containing the array/map field in question
 when referenced columns from relations on the left side of the join can be empty or have `NULL` values:
 
 ```

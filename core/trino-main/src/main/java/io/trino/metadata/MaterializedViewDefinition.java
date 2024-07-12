@@ -45,8 +45,8 @@ public class MaterializedViewDefinition
             Optional<CatalogSchemaTableName> storageTable)
     {
         super(originalSql, catalog, schema, columns, comment, Optional.of(owner), path);
+        this.gracePeriod = requireNonNull(gracePeriod, "gracePeriod is null");
         checkArgument(gracePeriod.isEmpty() || !gracePeriod.get().isNegative(), "gracePeriod cannot be negative: %s", gracePeriod);
-        this.gracePeriod = gracePeriod;
         this.storageTable = requireNonNull(storageTable, "storageTable is null");
     }
 
@@ -68,7 +68,7 @@ public class MaterializedViewDefinition
                 getCatalog(),
                 getSchema(),
                 getColumns().stream()
-                        .map(column -> new ConnectorMaterializedViewDefinition.Column(column.getName(), column.getType(), column.getComment()))
+                        .map(column -> new ConnectorMaterializedViewDefinition.Column(column.name(), column.type(), column.comment()))
                         .collect(toImmutableList()),
                 getGracePeriod(),
                 getComment(),

@@ -86,10 +86,10 @@ public class NodesSystemTable
         for (OpenSearchNode node : nodes) {
             VARCHAR.writeString(nodeId, currentNode.getNodeIdentifier());
             VARCHAR.writeString(trinoAddress, currentNode.getHostAndPort().toString());
-            VARCHAR.writeString(opensearchNodeId, node.getId());
+            VARCHAR.writeString(opensearchNodeId, node.id());
 
-            if (node.getAddress().isPresent()) {
-                VARCHAR.writeString(opensearchAddress, node.getAddress().get());
+            if (node.address().isPresent()) {
+                VARCHAR.writeString(opensearchAddress, node.address().get());
             }
             else {
                 opensearchAddress.appendNull();

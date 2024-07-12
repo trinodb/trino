@@ -249,6 +249,12 @@ public final class Fixed12Block
         return "Fixed12Block{positionCount=" + getPositionCount() + '}';
     }
 
+    @Override
+    public Optional<ByteArrayBlock> getNulls()
+    {
+        return BlockUtil.getNulls(valueIsNull, positionOffset, positionCount);
+    }
+
     /**
      * At position * 3 in the values, write a little endian long followed by a little endian int.
      */

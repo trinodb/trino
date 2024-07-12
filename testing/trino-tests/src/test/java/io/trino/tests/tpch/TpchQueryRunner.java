@@ -14,26 +14,74 @@
 package io.trino.tests.tpch;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+
+import java.util.Map;
+
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class TpchQueryRunner
 {
     private TpchQueryRunner() {}
 
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
+    {
+        private Map<String, String> connectorProperties = ImmutableMap.of();
+
+        private Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog("tpch")
+                    .setSchema("tiny")
+                    .build());
+        }
+
+        @CanIgnoreReturnValue
+        public Builder withConnectorProperties(Map<String, String> connectorProperties)
+        {
+            this.connectorProperties = ImmutableMap.copyOf(connectorProperties);
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch", connectorProperties);
+                return queryRunner;
+            }
+            catch (Exception e) {
+                queryRunner.close();
+                throw e;
+            }
+        }
+    }
+
     public static void main(String[] args)
             throws Exception
     {
         Logging.initialize();
-        QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+        QueryRunner queryRunner = builder()
+                .addCoordinatorProperty("http-server.http.port", "8080")
                 .setExtraProperties(ImmutableMap.<String, String>builder()
-                        .put("http-server.http.port", "8080")
                         .put("sql.default-catalog", "tpch")
                         .put("sql.default-schema", "tiny")
                         .buildOrThrow())
                 .build();
-        Thread.sleep(10);
         Logger log = Logger.get(TpchQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

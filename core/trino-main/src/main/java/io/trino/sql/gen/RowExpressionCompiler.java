@@ -88,59 +88,28 @@ public class RowExpressionCompiler
                     cachedInstanceBinder,
                     functionManager);
 
-            return generatorContext.generateFullCall(call.getResolvedFunction(), call.getArguments());
+            return generatorContext.generateFullCall(call.resolvedFunction(), call.arguments());
         }
 
         @Override
         public BytecodeNode visitSpecialForm(SpecialForm specialForm, Context context)
         {
-            BytecodeGenerator generator;
-            // special-cased in function registry
-            switch (specialForm.getForm()) {
-                // lazy evaluation
-                case IF:
-                    generator = new IfCodeGenerator(specialForm);
-                    break;
-                case NULL_IF:
-                    generator = new NullIfCodeGenerator(specialForm);
-                    break;
-                case SWITCH:
-                    // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)
-                    generator = new SwitchCodeGenerator(specialForm);
-                    break;
-                case BETWEEN:
-                    generator = new BetweenCodeGenerator(specialForm);
-                    break;
-                // functions that take null as input
-                case IS_NULL:
-                    generator = new IsNullCodeGenerator(specialForm);
-                    break;
-                case COALESCE:
-                    generator = new CoalesceCodeGenerator(specialForm);
-                    break;
-                // functions that require varargs and/or complex types (e.g., lists)
-                case IN:
-                    generator = new InCodeGenerator(specialForm);
-                    break;
-                // optimized implementations (shortcircuiting behavior)
-                case AND:
-                    generator = new AndCodeGenerator(specialForm);
-                    break;
-                case OR:
-                    generator = new OrCodeGenerator(specialForm);
-                    break;
-                case DEREFERENCE:
-                    generator = new DereferenceCodeGenerator(specialForm);
-                    break;
-                case ROW_CONSTRUCTOR:
-                    generator = new RowConstructorCodeGenerator(specialForm);
-                    break;
-                case BIND:
-                    generator = new BindCodeGenerator(specialForm, compiledLambdaMap, context.getLambdaInterface().get());
-                    break;
-                default:
-                    throw new IllegalStateException("Cannot compile special form: " + specialForm.getForm());
-            }
+            BytecodeGenerator generator = switch (specialForm.form()) {
+                case IF -> new IfCodeGenerator(specialForm);
+                case NULL_IF -> new NullIfCodeGenerator(specialForm);
+                case SWITCH -> new SwitchCodeGenerator(specialForm);
+                case BETWEEN -> new BetweenCodeGenerator(specialForm);
+                case IS_NULL -> new IsNullCodeGenerator(specialForm);
+                case COALESCE -> new CoalesceCodeGenerator(specialForm);
+                case IN -> new InCodeGenerator(specialForm);
+                case AND -> new AndCodeGenerator(specialForm);
+                case OR -> new OrCodeGenerator(specialForm);
+                case DEREFERENCE -> new DereferenceCodeGenerator(specialForm);
+                case ROW_CONSTRUCTOR -> new RowConstructorCodeGenerator(specialForm);
+                case ARRAY_CONSTRUCTOR -> new ArrayConstructorCodeGenerator(specialForm);
+                case BIND -> new BindCodeGenerator(specialForm, compiledLambdaMap, context.getLambdaInterface().get());
+                default -> throw new IllegalStateException("Cannot compile special form: " + specialForm.form());
+            };
 
             BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
                     RowExpressionCompiler.this,
@@ -155,8 +124,8 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitConstant(ConstantExpression constant, Context context)
         {
-            Object value = constant.getValue();
-            Class<?> javaType = constant.getType().getJavaType();
+            Object value = constant.value();
+            Class<?> javaType = constant.type().getJavaType();
 
             BytecodeBlock block = new BytecodeBlock();
             if (value == null) {
@@ -166,7 +135,7 @@ public class RowExpressionCompiler
             }
 
             // use LDC for primitives (boolean, short, int, long, float, double)
-            block.comment("constant " + constant.getType().getTypeSignature());
+            block.comment("constant " + constant.type().getTypeSignature());
             if (javaType == boolean.class) {
                 return block.append(loadBoolean((Boolean) value));
             }
@@ -181,10 +150,10 @@ public class RowExpressionCompiler
             }
 
             // bind constant object directly into the call-site using invoke dynamic
-            Binding binding = callSiteBinder.bind(value, constant.getType().getJavaType());
+            Binding binding = callSiteBinder.bind(value, constant.type().getJavaType());
 
             return new BytecodeBlock()
-                    .setDescription("constant " + constant.getType())
+                    .setDescription("constant " + constant.type())
                     .comment(constant.toString())
                     .append(loadConstant(binding));
         }
@@ -221,8 +190,8 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Context context)
         {
-            if (reference.getName().startsWith(TEMP_PREFIX)) {
-                return context.getScope().getTempVariable(reference.getName().substring(TEMP_PREFIX.length()));
+            if (reference.name().startsWith(TEMP_PREFIX)) {
+                return context.getScope().getTempVariable(reference.name().substring(TEMP_PREFIX.length()));
             }
             return fieldReferenceCompiler.visitVariableReference(reference, context.getScope());
         }

@@ -22,6 +22,7 @@ import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.hive.formats.line.LineSerializer;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.RowType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.serde2.Deserializer;
@@ -269,6 +270,9 @@ public class TestCsvFormat
                 .isInstanceOf(SerDeException.class)
                 .hasMessage("java.lang.UnsupportedOperationException: The separator, quote, and escape characters must be different!");
         assertThatThrownBy(() -> new CsvDeserializerFactory().create(createReadColumns(3), createCsvProperties(separatorChar, quoteChar, escapeChar)))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageMatching("CSV not supported")
+                .cause()
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageMatching("(Quote|Separator) character cannot be '\\\\' when escape character is '\"'");
     }

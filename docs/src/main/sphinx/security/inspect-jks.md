@@ -9,14 +9,13 @@ The JKS system supports both PKCS #12 `.p12` files as well as legacy
 keystore `.jks` files.
 
 The keystore file itself is always password-protected. The keystore file can
-have more than one key in the the same file, each addressed by its **alias**
+have more than one key in the same file, each addressed by its **alias**
 name.
 
 If you receive a keystore file from your site's network admin group, verify that
 it shows the correct information for your Trino cluster, as described next.
 
 (troubleshooting-keystore)=
-
 ## Inspect and validate keystore
 
 Inspect the keystore file to make sure it contains the correct information for
@@ -65,7 +64,6 @@ The rest of this page describes additional steps that may apply in certain
 circumstances.
 
 (import-to-keystore)=
-
 ## Extra: add PEM to keystore
 
 Your site may have standardized on using JKS semantics for all servers. If a
@@ -94,7 +92,6 @@ you are adding. A keystore can contain multiple keys and certs, so `keytool`
 uses the alias to address individual entries.
 
 (cli-java-truststore)=
-
 ## Extra: Java truststores
 
 :::{note}

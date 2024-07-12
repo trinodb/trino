@@ -128,6 +128,8 @@ public class TestMysqlEventListener
             // not stored
             Collections.emptyList(),
             // not stored
+            Collections.emptyList(),
+            // not stored
             List.of("{operator: \"operator1\"}", "{operator: \"operator2\"}"),
             // not stored
             Collections.emptyList(),
@@ -284,6 +286,8 @@ public class TestMysqlEventListener
             Collections.emptyList(),
             // not stored
             Collections.emptyList(),
+            // not stored
+            Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
             // not stored
@@ -337,7 +341,7 @@ public class TestMysqlEventListener
     @BeforeAll
     public void setup()
     {
-        mysqlContainer = new MySQLContainer<>("mysql:8.0.12");
+        mysqlContainer = new MySQLContainer<>("mysql:8.0.36");
         mysqlContainer.start();
         mysqlContainerUrl = getJdbcUrl(mysqlContainer);
         eventListener = new MysqlEventListenerFactory()

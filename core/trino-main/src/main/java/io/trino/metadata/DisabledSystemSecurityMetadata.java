@@ -120,19 +120,19 @@ public class DisabledSystemSecurityMetadata
     @Override
     public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
-        throw notSupportedException(tableName.getCatalogName());
+        throw notSupportedException(tableName.catalogName());
     }
 
     @Override
     public void denyTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee)
     {
-        throw notSupportedException(tableName.getCatalogName());
+        throw notSupportedException(tableName.catalogName());
     }
 
     @Override
     public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
-        throw notSupportedException(tableName.getCatalogName());
+        throw notSupportedException(tableName.catalogName());
     }
 
     @Override

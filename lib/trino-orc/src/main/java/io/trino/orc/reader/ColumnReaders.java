@@ -19,6 +19,7 @@ import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReader.FieldMapperFactory;
+import io.trino.orc.metadata.OrcType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.UuidType;
@@ -46,15 +47,16 @@ public final class ColumnReaders
             FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
+        OrcType.OrcTypeKind orcTypeKind = column.getColumnType().getOrcTypeKind();
         if (type instanceof TimeType) {
-            if (!type.equals(TIME_MICROS) || column.getColumnType() != LONG ||
+            if (!type.equals(TIME_MICROS) || orcTypeKind != LONG ||
                     !"TIME".equals(column.getAttributes().get(ICEBERG_LONG_TYPE))) {
                 throw invalidStreamType(column, type);
             }
             return new TimeColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
         }
         if (type instanceof UuidType) {
-            checkArgument(column.getColumnType() == BINARY, "UUID type can only be read from BINARY column but got %s", column);
+            checkArgument(orcTypeKind == BINARY, "UUID type can only be read from BINARY column but got %s", column);
             checkArgument(
                     "UUID".equals(column.getAttributes().get(ICEBERG_BINARY_TYPE)),
                     "Expected ORC column for UUID data to be annotated with %s=UUID: %s",
@@ -62,42 +64,24 @@ public final class ColumnReaders
             return new UuidColumnReader(column);
         }
 
-        switch (column.getColumnType()) {
-            case BOOLEAN:
-                return new BooleanColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
-            case BYTE:
+        return switch (orcTypeKind) {
+            case BOOLEAN -> new BooleanColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
+            case BYTE -> {
                 if (type == INTEGER && !column.getAttributes().containsKey("iceberg.id")) {
                     throw invalidStreamType(column, type);
                 }
-                return new ByteColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
-            case SHORT:
-            case INT:
-            case LONG:
-            case DATE:
-                return new LongColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
-            case FLOAT:
-                return new FloatColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
-            case DOUBLE:
-                return new DoubleColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
-            case BINARY:
-            case STRING:
-            case VARCHAR:
-            case CHAR:
-                return new SliceColumnReader(type, column, memoryContext);
-            case TIMESTAMP:
-            case TIMESTAMP_INSTANT:
-                return new TimestampColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
-            case LIST:
-                return new ListColumnReader(type, column, memoryContext, blockFactory, fieldMapperFactory);
-            case STRUCT:
-                return new StructColumnReader(type, column, projectedLayout, memoryContext, blockFactory, fieldMapperFactory);
-            case MAP:
-                return new MapColumnReader(type, column, memoryContext, blockFactory, fieldMapperFactory);
-            case DECIMAL:
-                return new DecimalColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
-            case UNION:
-                return new UnionColumnReader(type, column, memoryContext, blockFactory, fieldMapperFactory);
-        }
-        throw new IllegalArgumentException("Unsupported type: " + column.getColumnType());
+                yield new ByteColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
+            }
+            case SHORT, INT, LONG, DATE -> new LongColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
+            case FLOAT -> new FloatColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
+            case DOUBLE -> new DoubleColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
+            case BINARY, STRING, VARCHAR, CHAR -> new SliceColumnReader(type, column, memoryContext);
+            case TIMESTAMP, TIMESTAMP_INSTANT -> new TimestampColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
+            case LIST -> new ListColumnReader(type, column, memoryContext, blockFactory, fieldMapperFactory);
+            case STRUCT -> new StructColumnReader(type, column, projectedLayout, memoryContext, blockFactory, fieldMapperFactory);
+            case MAP -> new MapColumnReader(type, column, memoryContext, blockFactory, fieldMapperFactory);
+            case DECIMAL -> new DecimalColumnReader(type, column, memoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
+            case UNION -> new UnionColumnReader(type, column, memoryContext, blockFactory, fieldMapperFactory);
+        };
     }
 }

@@ -103,20 +103,20 @@ public class TestMemoryMetadata
         metadata.createTable(SESSION, new ConnectorTableMetadata(firstTableName, ImmutableList.of(), ImmutableMap.of()), false);
 
         MemoryTableHandle firstTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, firstTableName, Optional.empty(), Optional.empty());
-        long firstTableId = firstTableHandle.getId();
+        long firstTableId = firstTableHandle.id();
 
-        assertThat(metadata.beginInsert(SESSION, firstTableHandle, ImmutableList.of(), NO_RETRIES).getActiveTableIds()).contains(firstTableId);
+        assertThat(metadata.beginInsert(SESSION, firstTableHandle, ImmutableList.of(), NO_RETRIES).activeTableIds()).contains(firstTableId);
 
         SchemaTableName secondTableName = new SchemaTableName("default", "second_table");
         metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, ImmutableList.of(), ImmutableMap.of()), false);
 
         MemoryTableHandle secondTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, secondTableName, Optional.empty(), Optional.empty());
-        long secondTableId = secondTableHandle.getId();
+        long secondTableId = secondTableHandle.id();
 
         assertThat(firstTableId)
                 .isNotEqualTo(secondTableId);
-        assertThat(metadata.beginInsert(SESSION, secondTableHandle, ImmutableList.of(), NO_RETRIES).getActiveTableIds()).contains(firstTableId);
-        assertThat(metadata.beginInsert(SESSION, secondTableHandle, ImmutableList.of(), NO_RETRIES).getActiveTableIds()).contains(secondTableId);
+        assertThat(metadata.beginInsert(SESSION, secondTableHandle, ImmutableList.of(), NO_RETRIES).activeTableIds()).contains(firstTableId);
+        assertThat(metadata.beginInsert(SESSION, secondTableHandle, ImmutableList.of(), NO_RETRIES).activeTableIds()).contains(secondTableId);
     }
 
     @Test

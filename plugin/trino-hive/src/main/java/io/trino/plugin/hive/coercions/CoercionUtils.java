@@ -74,6 +74,8 @@ import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToVarc
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDoubleToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createIntegerNumberToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
+import static io.trino.plugin.hive.coercions.DoubleToVarcharCoercers.createDoubleToVarcharCoercer;
+import static io.trino.plugin.hive.coercions.FloatToVarcharCoercers.createFloatToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.VarcharToIntegralNumericCoercers.createVarcharToIntegerNumberCoercer;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
@@ -143,6 +145,12 @@ public final class CoercionUtils
         if (fromType instanceof CharType fromCharType && toType instanceof CharType toCharType) {
             if (narrowerThan(toCharType, fromCharType)) {
                 return Optional.of(new CharCoercer(fromCharType, toCharType));
+            }
+            return Optional.empty();
+        }
+        if (fromType instanceof CharType fromCharType && toType instanceof VarcharType toVarcharType) {
+            if (!toVarcharType.isUnbounded() && toVarcharType.getBoundedLength() < fromCharType.getLength()) {
+                return Optional.of(new CharToVarcharCoercer(fromCharType, toVarcharType));
             }
             return Optional.empty();
         }
@@ -230,8 +238,11 @@ public final class CoercionUtils
         if (fromType instanceof DateType && toType instanceof VarcharType toVarcharType) {
             return Optional.of(new DateToVarcharCoercer(toVarcharType));
         }
+        if (fromType == REAL && toType instanceof VarcharType toVarcharType) {
+            return Optional.of(createFloatToVarcharCoercer(toVarcharType, coercionContext.isOrcFile));
+        }
         if (fromType == DOUBLE && toType instanceof VarcharType toVarcharType) {
-            return Optional.of(new DoubleToVarcharCoercer(toVarcharType, coercionContext.isOrcFile()));
+            return Optional.of(createDoubleToVarcharCoercer(toVarcharType, coercionContext.isOrcFile));
         }
         if ((fromType instanceof ArrayType) && (toType instanceof ArrayType)) {
             return createCoercerForList(

@@ -25,8 +25,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.Map;
+
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
-import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,13 +52,9 @@ public class TestMongoCaseInsensitiveMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createMongoQueryRunner(
-                server,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of("mongodb.case-insensitive-name-matching", "true"),
-                ImmutableList.of(),
-                runner -> {});
+        return MongoQueryRunner.builder(server)
+                .addConnectorProperties(Map.of("mongodb.case-insensitive-name-matching", "true"))
+                .build();
     }
 
     @AfterAll

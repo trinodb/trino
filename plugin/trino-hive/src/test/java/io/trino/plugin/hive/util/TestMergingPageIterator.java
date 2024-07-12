@@ -47,7 +47,7 @@ public class TestMergingPageIterator
 
         for (int i = 0; i < 10; i++) {
             Iterator<Integer> values = IntStream.range(0, 1000)
-                    .map(ignored -> ThreadLocalRandom.current().nextInt(100_000))
+                    .map(_ -> ThreadLocalRandom.current().nextInt(100_000))
                     .mapToObj(n -> ((n % 100) == 0) ? null : n)
                     .sorted(nullsFirst(naturalOrder()))
                     .iterator();

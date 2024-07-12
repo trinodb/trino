@@ -25,11 +25,11 @@ public abstract class BaseBigQueryConnectorSmokeTest
         return switch (connectorBehavior) {
             case SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_RENAME_TABLE,
-                    SUPPORTS_UPDATE -> false;
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }

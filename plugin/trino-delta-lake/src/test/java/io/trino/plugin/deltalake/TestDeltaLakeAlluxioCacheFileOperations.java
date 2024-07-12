@@ -17,8 +17,8 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import com.google.common.io.Resources;
 import io.opentelemetry.api.common.Attributes;
-import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -26,22 +26,23 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 
+import java.io.File;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_POSITION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_SIZE;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_POSITION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_SIZE;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
@@ -55,34 +56,19 @@ public class TestDeltaLakeAlluxioCacheFileOperations
             throws Exception
     {
         Path cacheDirectory = Files.createTempDirectory("cache");
-        cacheDirectory.toFile().deleteOnExit();
-        Path metastoreDirectory = Files.createTempDirectory(DELTA_CATALOG);
-        metastoreDirectory.toFile().deleteOnExit();
+        closeAfterClass(() -> deleteRecursively(cacheDirectory, ALLOW_INSECURE));
 
-        Session session = testSessionBuilder()
-                .setCatalog(DELTA_CATALOG)
-                .setSchema("default")
-                .build();
-
-        Map<String, String> deltaLakeProperties = ImmutableMap.<String, String>builder()
-                .put("fs.cache.enabled", "true")
-                .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
-                .put("fs.cache.max-sizes", "100MB")
-                .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", metastoreDirectory.toUri().toString())
-                .put("delta.enable-non-concurrent-writes", "true")
-                .put("delta.register-table-procedure.enabled", "true")
-                .buildOrThrow();
-
-        DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.builder(session)
+        return DeltaLakeQueryRunner.builder()
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
-                .setDeltaProperties(deltaLakeProperties)
-                .setCatalogName(DELTA_CATALOG)
-                .setNodeCount(2)
+                .setDeltaProperties(ImmutableMap.<String, String>builder()
+                        .put("fs.cache.enabled", "true")
+                        .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
+                        .put("fs.cache.max-sizes", "100MB")
+                        .put("delta.enable-non-concurrent-writes", "true")
+                        .put("delta.register-table-procedure.enabled", "true")
+                        .buildOrThrow())
+                .setWorkerCount(1)
                 .build();
-
-        queryRunner.execute("CREATE SCHEMA " + session.getSchema().orElseThrow());
-        return queryRunner;
     }
 
     private URL getResourceLocation(String resourcePath)
@@ -93,7 +79,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
     private void registerTable(String name, String resourcePath)
     {
         String dataPath = getResourceLocation(resourcePath).toExternalForm();
-        getQueryRunner().execute(format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), name, dataPath));
+        getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", name, dataPath));
     }
 
     @Test
@@ -112,12 +98,12 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.json", 0, 636))
                         .add(new CacheOperation("Alluxio.readExternal", "00000000000000000002.json", 0, 636))
                         .add(new CacheOperation("Alluxio.writeCache", "00000000000000000002.json", 0, 636))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p1/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p2/", 0, 218))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p1/", 0, 218))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p2/", 0, 218))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p1/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p2/", 0, 220))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p1/", 0, 220))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p2/", 0, 220))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
@@ -125,8 +111,8 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 757))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 636))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.json", 0, 636))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 218))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 220))
                         .build());
         assertUpdate("INSERT INTO test_cache_file_operations VALUES ('p3', '3-xyz')", 1);
         assertUpdate("INSERT INTO test_cache_file_operations VALUES ('p4', '4-xyz')", 1);
@@ -142,17 +128,17 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000005.json", 0, 636))
                         .add(new CacheOperation("Alluxio.readExternal", "00000000000000000005.json", 0, 636))
                         .add(new CacheOperation("Alluxio.writeCache", "00000000000000000005.json", 0, 636))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p3/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p4/", 0, 218))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p5/", 0, 218))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p3/", 0, 218))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p4/", 0, 218))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p5/", 0, 218))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p3/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p4/", 0, 220))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p5/", 0, 220))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p3/", 0, 220))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p4/", 0, 220))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p5/", 0, 220))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
@@ -163,11 +149,11 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000003.json", 0, 636))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000004.json", 0, 636))
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000005.json", 0, 636))
-                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 218), 1)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 218), 1)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 218), 1)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 218), 1)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 218), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 220), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 220), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 220), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 220), 1)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 220), 1)
                         .build());
     }
 
@@ -218,6 +204,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.writeCache", "data", 0, 796))
                         .add(new CacheOperation("Alluxio.readCached", "deletion_vector", 5, 34))
                         .add(new CacheOperation("Alluxio.readCached", "deletion_vector", 1, 4))
+                        .add(new CacheOperation("Alluxio.readCached", "deletion_vector", 39, 4))
                         .add(new CacheOperation("Alluxio.readExternal", "deletion_vector", 38, 1))
                         .add(new CacheOperation("Alluxio.readExternal", "deletion_vector", 1, 4))
                         .addCopies(new CacheOperation("Alluxio.writeCache", "deletion_vector", 0, 43), 2)
@@ -231,6 +218,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.readCached", "data", 0, 796))
                         .add(new CacheOperation("Alluxio.readCached", "deletion_vector", 5, 34))
                         .add(new CacheOperation("Alluxio.readCached", "deletion_vector", 1, 4))
+                        .add(new CacheOperation("Alluxio.readCached", "deletion_vector", 39, 4))
                         .build());
     }
 
@@ -240,7 +228,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
         registerTable("cdc_table", "trino/cdc_table");
         assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'cdc_table')");
         assertFileSystemAccesses(
-                "SELECT * FROM TABLE(system.table_changes(schema_name=>'default', table_name=>'cdc_table', since_version=>0))",
+                "SELECT * FROM TABLE(system.table_changes(schema_name=>CURRENT_SCHEMA, table_name=>'cdc_table', since_version=>0))",
                 ImmutableMultiset.<CacheOperation>builder()
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1117))
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 1100), 2)
@@ -255,7 +243,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.writeCache", "change_data/key=2/", 0, 394))
                         .build());
         assertFileSystemAccesses(
-                "EXPLAIN ANALYZE SELECT * FROM TABLE(system.table_changes(schema_name=>'default', table_name=>'cdc_table', since_version=>0))",
+                "EXPLAIN ANALYZE SELECT * FROM TABLE(system.table_changes(schema_name=>CURRENT_SCHEMA, table_name=>'cdc_table', since_version=>0))",
                 ImmutableMultiset.<CacheOperation>builder()
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1117))
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 1100), 2)
@@ -264,6 +252,93 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.readCached", "change_data/key=2/", 0, 394))
                         .add(new CacheOperation("Alluxio.readCached", "change_data/key=2/", 4, 75))
                         .build());
+    }
+
+    @Test
+    public void testTimeTravelWithLastCheckpoint()
+    {
+        // Version 2 has a checkpoint file
+        registerTable("time_travel_with_last_checkpoint", "trino440/time_travel");
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'time_travel_with_last_checkpoint')");
+
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_with_last_checkpoint FOR VERSION AS OF 1",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readExternal", "00000000000000000000.json", 0, 1015))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000000.json", 0, 1015))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1015))
+                        .add(new CacheOperation("Alluxio.readExternal", "00000000000000000001.json", 0, 613))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000001.json", 0, 613))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 613))
+                        .addCopies(new CacheOperation("Alluxio.readExternal", "data", 0, 199), 2)
+                        .addCopies(new CacheOperation("Alluxio.writeCache", "data", 0, 199), 2)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 2)
+                        .build());
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_with_last_checkpoint FOR VERSION AS OF 2",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 4, 561))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 643, 767))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
+                        .add(new CacheOperation("Alluxio.readExternal", "data", 0, 199))
+                        .add(new CacheOperation("Alluxio.writeCache", "data", 0, 199))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 3)
+                        .build());
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_with_last_checkpoint FOR VERSION AS OF 2",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 4, 561))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 643, 767))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 3)
+                        .build());
+
+        assertUpdate("DROP TABLE time_travel_with_last_checkpoint");
+    }
+
+    @Test
+    public void testTimeTravelWithoutLastCheckpoint()
+            throws Exception
+    {
+        // Version 2 has a checkpoint file
+        Path tableLocation = Files.createTempFile("time_travel", null);
+        copyDirectoryContents(new File(Resources.getResource("trino440/time_travel").toURI()).toPath(), tableLocation);
+        Files.delete(tableLocation.resolve("_delta_log/_last_checkpoint"));
+
+        getQueryRunner().execute("CALL system.register_table(CURRENT_SCHEMA, 'time_travel_without_last_checkpoint', '" + tableLocation.toUri() + "')");
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'time_travel_without_last_checkpoint')");
+
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_without_last_checkpoint FOR VERSION AS OF 1",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1015))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 613))
+                        .addCopies(new CacheOperation("Alluxio.readExternal", "data", 0, 199), 2)
+                        .addCopies(new CacheOperation("Alluxio.writeCache", "data", 0, 199), 2)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 2)
+                        .build());
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_without_last_checkpoint FOR VERSION AS OF 2",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readExternal", "00000000000000000002.checkpoint.parquet", 0, 5884))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000002.checkpoint.parquet", 0, 5884))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 4, 561))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 643, 767))
+                        .add(new CacheOperation("Alluxio.readExternal", "data", 0, 199))
+                        .add(new CacheOperation("Alluxio.writeCache", "data", 0, 199))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 3)
+                        .build());
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_without_last_checkpoint FOR VERSION AS OF 2",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 4, 561))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 643, 767))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 3)
+                        .build());
+
+        assertUpdate("DROP TABLE time_travel_without_last_checkpoint");
     }
 
     @Test
@@ -332,6 +407,37 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .build());
     }
 
+    @Test
+    public void testCreateOrReplaceTable()
+    {
+        assertFileSystemAccesses("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)", ImmutableMultiset.of());
+
+        assertFileSystemAccesses("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 762))
+                        .add(new CacheOperation("Alluxio.readExternal", "00000000000000000000.json", 0, 762))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000000.json", 0, 762))
+                        .build());
+        assertUpdate("DROP TABLE test_create_or_replace");
+    }
+
+    @Test
+    public void testCreateOrReplaceTableAsSelect()
+    {
+        assertFileSystemAccesses(
+                "CREATE OR REPLACE TABLE test_create_or_replace_as_select AS SELECT 1 col_name", ImmutableMultiset.of());
+
+        assertFileSystemAccesses(
+                "CREATE OR REPLACE TABLE test_create_or_replace_as_select AS SELECT 1 col_name",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1004))
+                        .add(new CacheOperation("Alluxio.readExternal", "00000000000000000000.json", 0, 1004))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000000.json", 0, 1004))
+                        .build());
+
+        assertUpdate("DROP TABLE test_create_or_replace_as_select");
+    }
+
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<CacheOperation> expectedCacheAccesses)
     {
         assertUpdate("CALL system.flush_metadata_cache()");
@@ -376,6 +482,9 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                 Matcher matcher = dataFilePattern.matcher(path);
                 if (matcher.matches()) {
                     String changeData = path.contains("/_change_data/") ? "change_data/" : "";
+                    if (!path.contains("=")) {
+                        return new CacheOperation(operationName, "data", position, length);
+                    }
                     return new CacheOperation(operationName, changeData + matcher.group("partition"), position, length);
                 }
                 if (path.contains("/part-00000-")) {

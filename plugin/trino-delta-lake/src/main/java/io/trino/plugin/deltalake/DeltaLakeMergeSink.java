@@ -210,7 +210,7 @@ public class DeltaLakeMergeSink
 
             List<String> partitionValues = PARTITIONS_CODEC.fromJson(partitions.toStringUtf8());
 
-            FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, ignored -> new FileDeletion(partitionValues));
+            FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, _ -> new FileDeletion(partitionValues));
 
             if (cdfOperation.equals(UPDATE_PREIMAGE_CDF_LABEL)) {
                 deletion.rowsDeletedByUpdate().addLong(rowPosition);
@@ -303,7 +303,7 @@ public class DeltaLakeMergeSink
         insertPageSink.finish().join().stream()
                 .map(Slice::getBytes)
                 .map(dataFileInfoCodec::fromJson)
-                .map(info -> new DeltaLakeMergeResult(info.getPartitionValues(), Optional.empty(), Optional.of(info)))
+                .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.of(info)))
                 .map(mergeResultJsonCodec::toJsonBytes)
                 .map(Slices::wrappedBuffer)
                 .forEach(fragments::add);
@@ -315,7 +315,7 @@ public class DeltaLakeMergeSink
             MoreFutures.getDone(cdfPageSink.finish()).stream()
                     .map(Slice::getBytes)
                     .map(dataFileInfoCodec::fromJson)
-                    .map(info -> new DeltaLakeMergeResult(info.getPartitionValues(), Optional.empty(), Optional.of(info)))
+                    .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.of(info)))
                     .map(mergeResultJsonCodec::toJsonBytes)
                     .map(Slices::wrappedBuffer)
                     .forEach(fragments::add);

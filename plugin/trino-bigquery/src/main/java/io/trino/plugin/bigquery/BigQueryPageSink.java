@@ -76,7 +76,7 @@ public class BigQueryPageSink
         checkArgument(temporaryTableName.isPresent() == pageSinkIdColumnName.isPresent(),
                 "temporaryTableName.isPresent is not equal to pageSinkIdColumn.isPresent");
         TableName tableName = temporaryTableName
-                .map(table -> TableName.of(remoteTableName.getProjectId(), remoteTableName.getDatasetName(), table))
+                .map(table -> TableName.of(remoteTableName.projectId(), remoteTableName.datasetName(), table))
                 .orElseGet(remoteTableName::toTableName);
         // TODO: Consider using PENDING mode
         WriteStream stream = WriteStream.newBuilder().setType(COMMITTED).build();

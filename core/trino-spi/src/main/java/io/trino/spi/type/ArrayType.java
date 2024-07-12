@@ -66,7 +66,7 @@ public class ArrayType
     private static final InvocationConvention WRITE_FLAT_CONVENTION = simpleConvention(FLAT_RETURN, NEVER_NULL);
     private static final InvocationConvention EQUAL_CONVENTION = simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL);
     private static final InvocationConvention HASH_CODE_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL);
-    private static final InvocationConvention DISTINCT_FROM_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE);
+    private static final InvocationConvention IDENTICAL_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE);
     private static final InvocationConvention INDETERMINATE_CONVENTION = simpleConvention(FAIL_ON_NULL, NULL_FLAG);
     private static final InvocationConvention COMPARISON_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
 
@@ -75,7 +75,7 @@ public class ArrayType
     private static final MethodHandle WRITE_FLAT;
     private static final MethodHandle EQUAL;
     private static final MethodHandle HASH_CODE;
-    private static final MethodHandle DISTINCT_FROM;
+    private static final MethodHandle IDENTICAL;
     private static final MethodHandle INDETERMINATE;
     private static final MethodHandle COMPARISON;
 
@@ -87,7 +87,7 @@ public class ArrayType
             WRITE_FLAT = lookup.findStatic(ArrayType.class, "writeFlat", MethodType.methodType(void.class, Type.class, MethodHandle.class, int.class, boolean.class, Block.class, byte[].class, int.class, byte[].class, int.class));
             EQUAL = lookup.findStatic(ArrayType.class, "equalOperator", MethodType.methodType(Boolean.class, MethodHandle.class, Block.class, Block.class));
             HASH_CODE = lookup.findStatic(ArrayType.class, "hashOperator", MethodType.methodType(long.class, MethodHandle.class, Block.class));
-            DISTINCT_FROM = lookup.findStatic(ArrayType.class, "distinctFromOperator", MethodType.methodType(boolean.class, MethodHandle.class, Block.class, Block.class));
+            IDENTICAL = lookup.findStatic(ArrayType.class, "identicalOperator", MethodType.methodType(boolean.class, MethodHandle.class, Block.class, Block.class));
             INDETERMINATE = lookup.findStatic(ArrayType.class, "indeterminateOperator", MethodType.methodType(boolean.class, MethodHandle.class, Block.class, boolean.class));
             COMPARISON = lookup.findStatic(ArrayType.class, "comparisonOperator", MethodType.methodType(long.class, MethodHandle.class, Block.class, Block.class));
         }
@@ -129,7 +129,7 @@ public class ArrayType
                 .addEqualOperators(getEqualOperatorMethodHandles(typeOperators, elementType))
                 .addHashCodeOperators(getHashCodeOperatorMethodHandles(typeOperators, elementType))
                 .addXxHash64Operators(getXxHash64OperatorMethodHandles(typeOperators, elementType))
-                .addDistinctFromOperators(getDistinctFromOperatorInvokers(typeOperators, elementType))
+                .addIdenticalOperators(getIdenticalOperatorInvokers(typeOperators, elementType))
                 .addIndeterminateOperators(getIndeterminateOperatorInvokers(typeOperators, elementType))
                 .addComparisonUnorderedLastOperators(getComparisonOperatorInvokers(typeOperators::getComparisonUnorderedLastOperator, elementType))
                 .addComparisonUnorderedFirstOperators(getComparisonOperatorInvokers(typeOperators::getComparisonUnorderedFirstOperator, elementType))
@@ -177,13 +177,13 @@ public class ArrayType
         return singletonList(new OperatorMethodHandle(HASH_CODE_CONVENTION, HASH_CODE.bindTo(elementHashCodeOperator)));
     }
 
-    private static List<OperatorMethodHandle> getDistinctFromOperatorInvokers(TypeOperators typeOperators, Type elementType)
+    private static List<OperatorMethodHandle> getIdenticalOperatorInvokers(TypeOperators typeOperators, Type elementType)
     {
         if (!elementType.isComparable()) {
             return emptyList();
         }
-        MethodHandle elementDistinctFromOperator = typeOperators.getDistinctFromOperator(elementType, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
-        return singletonList(new OperatorMethodHandle(DISTINCT_FROM_CONVENTION, DISTINCT_FROM.bindTo(elementDistinctFromOperator)));
+        MethodHandle elementIdenticalOperator = typeOperators.getIdenticalOperator(elementType, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
+        return singletonList(new OperatorMethodHandle(IDENTICAL_CONVENTION, IDENTICAL.bindTo(elementIdenticalOperator)));
     }
 
     private static List<OperatorMethodHandle> getIndeterminateOperatorInvokers(TypeOperators typeOperators, Type elementType)
@@ -493,7 +493,7 @@ public class ArrayType
                     offset += 1 + elementFixedSize;
                 }
             }
-            case LazyBlock ignored -> throw new IllegalStateException("Did not expect LazyBlock after loading " + array.getClass().getSimpleName());
+            case LazyBlock _ -> throw new IllegalStateException("Did not expect LazyBlock after loading " + array.getClass().getSimpleName());
         }
     }
 
@@ -595,17 +595,17 @@ public class ArrayType
         throw new IllegalArgumentException("Unsupported block type: " + array.getClass().getName());
     }
 
-    private static boolean distinctFromOperator(MethodHandle distinctFromOperator, Block leftArray, Block rightArray)
+    private static boolean identicalOperator(MethodHandle identicalOperator, Block leftArray, Block rightArray)
             throws Throwable
     {
         boolean leftIsNull = leftArray == null;
         boolean rightIsNull = rightArray == null;
         if (leftIsNull || rightIsNull) {
-            return leftIsNull != rightIsNull;
+            return leftIsNull == rightIsNull;
         }
 
         if (leftArray.getPositionCount() != rightArray.getPositionCount()) {
-            return true;
+            return false;
         }
 
         leftArray = leftArray.getLoadedBlock();
@@ -621,19 +621,19 @@ public class ArrayType
             boolean leftValueIsNull = leftValues.isNull(leftIndex);
             boolean rightValueIsNull = rightValues.isNull(rightIndex);
             if (leftValueIsNull != rightValueIsNull) {
-                return true;
+                return false;
             }
             if (leftValueIsNull) {
                 continue;
             }
 
-            boolean result = (boolean) distinctFromOperator.invokeExact(leftValues, leftIndex, rightValues, rightIndex);
-            if (result) {
-                return true;
+            boolean result = (boolean) identicalOperator.invokeExact(leftValues, leftIndex, rightValues, rightIndex);
+            if (!result) {
+                return false;
             }
         }
 
-        return false;
+        return true;
     }
 
     private static boolean indeterminateOperator(MethodHandle elementIndeterminateFunction, Block array, boolean isNull)
@@ -670,7 +670,7 @@ public class ArrayType
 
         if (array instanceof DictionaryBlock dictionaryBlock) {
             ValueBlock valuesBlock = dictionaryBlock.getDictionary();
-            for (int position = 0; position < valuesBlock.getPositionCount(); position++) {
+            for (int position = 0; position < dictionaryBlock.getPositionCount(); position++) {
                 int index = dictionaryBlock.getId(position);
                 if (valuesBlock.isNull(index)) {
                     return true;

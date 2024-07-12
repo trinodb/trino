@@ -28,7 +28,8 @@ import io.trino.spi.security.Identity;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Response;
 
-import java.security.Key;
+import javax.crypto.SecretKey;
+
 import java.time.ZonedDateTime;
 import java.util.Date;
 
@@ -49,7 +50,7 @@ public class InternalAuthenticationManager
 
     private static final String TRINO_INTERNAL_BEARER = "X-Trino-Internal-Bearer";
 
-    private final Key hmac;
+    private final SecretKey hmac;
     private final String nodeId;
     private final JwtParser jwtParser;
 
@@ -82,7 +83,7 @@ public class InternalAuthenticationManager
         requireNonNull(nodeId, "nodeId is null");
         this.hmac = hmacShaKeyFor(Hashing.sha256().hashString(sharedSecret, UTF_8).asBytes());
         this.nodeId = nodeId;
-        this.jwtParser = newJwtParserBuilder().setSigningKey(hmac).build();
+        this.jwtParser = newJwtParserBuilder().verifyWith(hmac).build();
     }
 
     public static boolean isInternalRequest(ContainerRequestContext request)
@@ -125,16 +126,16 @@ public class InternalAuthenticationManager
     {
         return newJwtBuilder()
                 .signWith(hmac)
-                .setSubject(nodeId)
-                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                .subject(nodeId)
+                .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                 .compact();
     }
 
     private String parseJwt(String jwt)
     {
         return jwtParser
-                .parseClaimsJws(jwt)
-                .getBody()
+                .parseSignedClaims(jwt)
+                .getPayload()
                 .getSubject();
     }
 }

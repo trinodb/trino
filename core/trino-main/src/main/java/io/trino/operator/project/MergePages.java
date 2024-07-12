@@ -51,7 +51,7 @@ import static java.util.Objects.requireNonNull;
  * vary a lot based on the particular input page.
  * <p>
  * Considering the CPU time required to process(filter, project) a full (~1MB) page returned by a
- * connector, the CPU cost of memory copying (< 50kb, < 1024 rows) is supposed to be negligible.
+ * connector, the CPU cost of memory copying (&lt; 50kb, &lt; 1024 rows) is supposed to be negligible.
  */
 public final class MergePages
 {

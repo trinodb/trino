@@ -111,7 +111,7 @@ public class IcebergMergeSink
                 long rowPosition = BIGINT.getLong(rowPositionBlock, position);
 
                 int index = position;
-                FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, ignored -> {
+                FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, _ -> {
                     int partitionSpecId = INTEGER.getInt(partitionSpecIdBlock, index);
                     String partitionData = VarcharType.VARCHAR.getSlice(partitionDataBlock, index).toStringUtf8();
                     return new FileDeletion(partitionSpecId, partitionData);

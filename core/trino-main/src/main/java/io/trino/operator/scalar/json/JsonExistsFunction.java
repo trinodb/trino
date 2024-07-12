@@ -144,16 +144,11 @@ public class JsonExistsFunction
 
     private static Boolean handleError(long errorBehavior, Supplier<TrinoException> error)
     {
-        switch (ErrorBehavior.values()[(int) errorBehavior]) {
-            case FALSE:
-                return false;
-            case TRUE:
-                return true;
-            case UNKNOWN:
-                return null;
-            case ERROR:
-                throw error.get();
-        }
-        throw new IllegalStateException("unexpected error behavior");
+        return switch (ErrorBehavior.values()[(int) errorBehavior]) {
+            case FALSE -> false;
+            case TRUE -> true;
+            case UNKNOWN -> null;
+            case ERROR -> throw error.get();
+        };
     }
 }

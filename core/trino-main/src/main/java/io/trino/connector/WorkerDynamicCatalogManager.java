@@ -13,7 +13,6 @@
  */
 package io.trino.connector;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -22,6 +21,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogHandle;
@@ -39,15 +39,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 @ThreadSafe
 public class WorkerDynamicCatalogManager
@@ -61,9 +62,9 @@ public class WorkerDynamicCatalogManager
     private final Lock catalogLoadingLock = catalogsLock.readLock();
     private final Lock catalogRemovingLock = catalogsLock.writeLock();
     private final ConcurrentMap<CatalogHandle, CatalogConnector> catalogs = new ConcurrentHashMap<>();
-    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("worker-dynamic-catalog-manager-%s"));
 
-    @GuardedBy("catalogsUpdateLock")
+    @GuardedBy("catalogsLock")
     private boolean stopped;
 
     @Inject
@@ -74,25 +75,24 @@ public class WorkerDynamicCatalogManager
 
     @PreDestroy
     public void stop()
+            throws Exception
     {
-        List<CatalogConnector> catalogs;
+        try (AutoCloseableCloser closer = AutoCloseableCloser.create()) {
+            catalogRemovingLock.lock();
+            try {
+                if (stopped) {
+                    return;
+                }
+                stopped = true;
 
-        catalogRemovingLock.lock();
-        try {
-            if (stopped) {
-                return;
+                catalogs.values().forEach(catalog -> closer.register(catalog::shutdown));
+                catalogs.clear();
             }
-            stopped = true;
+            finally {
+                catalogRemovingLock.unlock();
+            }
 
-            catalogs = ImmutableList.copyOf(this.catalogs.values());
-            this.catalogs.clear();
-        }
-        finally {
-            catalogRemovingLock.unlock();
-        }
-
-        for (CatalogConnector connector : catalogs) {
-            connector.shutdown();
+            closer.register(executor::shutdownNow);
         }
     }
 

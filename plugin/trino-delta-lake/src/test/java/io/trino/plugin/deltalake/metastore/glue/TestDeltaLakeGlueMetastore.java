@@ -34,9 +34,9 @@ import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
@@ -137,7 +137,7 @@ public class TestDeltaLakeGlueMetastore
                 .initialize();
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
-        metastoreClient = injector.getInstance(GlueHiveMetastore.class);
+        metastoreClient = injector.getInstance(HiveMetastoreFactory.class).createMetastore(Optional.empty());
         metadataFactory = injector.getInstance(DeltaLakeMetadataFactory.class);
 
         session = TestingConnectorSession.builder()
@@ -202,10 +202,10 @@ public class TestDeltaLakeGlueMetastore
         DeltaLakeMetadata metadata = metadataFactory.create(SESSION.getIdentity());
 
         // Verify the tables were created as non Delta Lake tables
-        assertThatThrownBy(() -> metadata.getTableHandle(session, nonDeltaLakeTable1))
+        assertThatThrownBy(() -> metadata.getTableHandle(session, nonDeltaLakeTable1, Optional.empty(), Optional.empty()))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage(format("%s is not a Delta Lake table", nonDeltaLakeTable1));
-        assertThatThrownBy(() -> metadata.getTableHandle(session, nonDeltaLakeTable2))
+        assertThatThrownBy(() -> metadata.getTableHandle(session, nonDeltaLakeTable2, Optional.empty(), Optional.empty()))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage(format("%s is not a Delta Lake table", nonDeltaLakeTable2));
 

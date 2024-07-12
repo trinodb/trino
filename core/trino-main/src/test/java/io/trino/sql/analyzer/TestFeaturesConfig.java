@@ -13,6 +13,7 @@
  */
 package io.trino.sql.analyzer;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.FeaturesConfig;
@@ -47,7 +48,7 @@ public class TestFeaturesConfig
                 .setRe2JDfaRetries(5)
                 .setSpillEnabled(false)
                 .setAggregationOperatorUnspillMemoryLimit(DataSize.valueOf("4MB"))
-                .setSpillerSpillPaths("")
+                .setSpillerSpillPaths(ImmutableList.of())
                 .setSpillerThreads(4)
                 .setSpillMaxUsedSpaceThreshold(0.9)
                 .setMemoryRevokingThreshold(0.9)
@@ -62,9 +63,9 @@ public class TestFeaturesConfig
                 .setOmitDateTimeTypePrecision(false)
                 .setLegacyCatalogRoles(false)
                 .setIncrementalHashArrayLoadFactorEnabled(true)
-                .setLegacyMaterializedViewGracePeriod(false)
                 .setHideInaccessibleColumns(false)
                 .setForceSpillingJoin(false)
+                .setColumnarFilterEvaluationEnabled(true)
                 .setFaultTolerantExecutionExchangeEncryptionEnabled(true));
     }
 
@@ -96,9 +97,9 @@ public class TestFeaturesConfig
                 .put("deprecated.omit-datetime-type-precision", "true")
                 .put("deprecated.legacy-catalog-roles", "true")
                 .put("incremental-hash-array-load-factor.enabled", "false")
-                .put("legacy.materialized-view-grace-period", "true")
                 .put("hide-inaccessible-columns", "true")
                 .put("force-spilling-join-operator", "true")
+                .put("experimental.columnar-filter-evaluation.enabled", "false")
                 .put("fault-tolerant-execution.exchange-encryption-enabled", "false")
                 .buildOrThrow();
 
@@ -112,7 +113,7 @@ public class TestFeaturesConfig
                 .setRe2JDfaRetries(42)
                 .setSpillEnabled(true)
                 .setAggregationOperatorUnspillMemoryLimit(DataSize.valueOf("100MB"))
-                .setSpillerSpillPaths("/tmp/custom/spill/path1,/tmp/custom/spill/path2")
+                .setSpillerSpillPaths(ImmutableList.of("/tmp/custom/spill/path1", "/tmp/custom/spill/path2"))
                 .setSpillerThreads(42)
                 .setSpillMaxUsedSpaceThreshold(0.8)
                 .setMemoryRevokingThreshold(0.2)
@@ -127,9 +128,9 @@ public class TestFeaturesConfig
                 .setOmitDateTimeTypePrecision(true)
                 .setLegacyCatalogRoles(true)
                 .setIncrementalHashArrayLoadFactorEnabled(false)
-                .setLegacyMaterializedViewGracePeriod(true)
                 .setHideInaccessibleColumns(true)
                 .setForceSpillingJoin(true)
+                .setColumnarFilterEvaluationEnabled(false)
                 .setFaultTolerantExecutionExchangeEncryptionEnabled(false);
         assertFullMapping(properties, expected);
     }

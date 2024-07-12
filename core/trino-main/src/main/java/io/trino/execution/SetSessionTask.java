@@ -79,7 +79,7 @@ public class SetSessionTask
         // validate the property name
         PropertyMetadata<?> propertyMetadata;
         if (parts.size() == 1) {
-            accessControl.checkCanSetSystemSessionProperty(session.getIdentity(), parts.get(0));
+            accessControl.checkCanSetSystemSessionProperty(session.getIdentity(), session.getQueryId(), parts.get(0));
             propertyMetadata = sessionPropertyManager.getSystemSessionPropertyMetadata(parts.get(0))
                     .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, statement, "Session property '%s' does not exist", statement.getName()));
         }

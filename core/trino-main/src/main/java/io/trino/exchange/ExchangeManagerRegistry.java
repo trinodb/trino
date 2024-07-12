@@ -91,7 +91,7 @@ public class ExchangeManagerRegistry
         checkArgument(factory != null, "Exchange manager factory '%s' is not registered. Available factories: %s", name, exchangeManagerFactories.keySet());
 
         ExchangeManager exchangeManager;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             exchangeManager = factory.create(properties, new ExchangeManagerContextInstance(openTelemetry, tracer));
         }
 

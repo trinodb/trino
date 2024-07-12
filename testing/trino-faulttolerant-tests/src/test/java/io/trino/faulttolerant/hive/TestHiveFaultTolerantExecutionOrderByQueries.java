@@ -13,23 +13,31 @@
  */
 package io.trino.faulttolerant.hive;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestFaultTolerantExecutionOrderByQueries;
 import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tpch.TpchTable.getTables;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
 
 public class TestHiveFaultTolerantExecutionOrderByQueries
         extends AbstractTestFaultTolerantExecutionOrderByQueries
 {
+    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableSet.<TpchTable<?>>builder()
+            .addAll(AbstractTestFaultTolerantExecutionOrderByQueries.REQUIRED_TPCH_TABLES)
+            .add(LINE_ITEM)
+            .build().asList();
+
     private MinioStorage minioStorage;
 
     @Override
@@ -45,7 +53,7 @@ public class TestHiveFaultTolerantExecutionOrderByQueries
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 })
-                .setInitialTables(getTables())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 

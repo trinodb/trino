@@ -42,7 +42,6 @@ import io.trino.sql.ir.FieldReference;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.testing.TestingSession;
@@ -58,6 +57,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
@@ -91,6 +91,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TransactionBuilder.transaction;
@@ -112,6 +113,7 @@ public class TestConnectorExpressionTranslator
     private static final ResolvedFunction NEGATION_DOUBLE = FUNCTIONS.resolveOperator(OperatorType.NEGATION, ImmutableList.of(DOUBLE));
 
     private static final Map<Symbol, Type> symbols = ImmutableMap.<Symbol, Type>builder()
+            .put(new Symbol(BIGINT, "bigint_symbol"), BIGINT)
             .put(new Symbol(DOUBLE, "double_symbol_1"), DOUBLE)
             .put(new Symbol(DOUBLE, "double_symbol_2"), DOUBLE)
             .put(new Symbol(ROW_TYPE, "row_symbol_1"), ROW_TYPE)
@@ -120,7 +122,7 @@ public class TestConnectorExpressionTranslator
             .buildOrThrow();
 
     private static final Map<String, Symbol> variableMappings = symbols.entrySet().stream()
-            .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getKey));
+            .collect(toImmutableMap(entry -> entry.getKey().name(), Map.Entry::getKey));
 
     @Test
     public void testTranslateConstant()
@@ -282,7 +284,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateNotExpression()
     {
         assertTranslationRoundTrips(
-                new Not(new Reference(BOOLEAN, "boolean_symbol_1")),
+                not(PLANNER_CONTEXT.getMetadata(), new Reference(BOOLEAN, "boolean_symbol_1")),
                 new io.trino.spi.expression.Call(
                         BOOLEAN,
                         NOT_FUNCTION_NAME,
@@ -293,7 +295,7 @@ public class TestConnectorExpressionTranslator
     public void testTranslateIsNotNull()
     {
         assertTranslationRoundTrips(
-                new Not(new IsNull(new Reference(VARCHAR, "varchar_symbol_1"))),
+                not(PLANNER_CONTEXT.getMetadata(), new IsNull(new Reference(VARCHAR, "varchar_symbol_1"))),
                 new io.trino.spi.expression.Call(
                         BOOLEAN,
                         NOT_FUNCTION_NAME,
@@ -309,15 +311,6 @@ public class TestConnectorExpressionTranslator
                         VARCHAR_TYPE,
                         CAST_FUNCTION_NAME,
                         List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE))));
-
-        // TRY_CAST is not translated
-        assertTranslationToConnectorExpression(
-                TEST_SESSION,
-                new Cast(
-                        new Reference(VARCHAR, "varchar_symbol_1"),
-                        BIGINT,
-                        true),
-                Optional.empty());
     }
 
     @Test
@@ -397,6 +390,26 @@ public class TestConnectorExpressionTranslator
                         NULLIF_FUNCTION_NAME,
                         List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
                                 new Variable("varchar_symbol_1", VARCHAR_TYPE))));
+    }
+
+    @Test
+    public void testTranslateTryCast()
+    {
+        TransactionManager transactionManager = new TestingTransactionManager();
+        Metadata metadata = MetadataManager.testMetadataManagerBuilder().withTransactionManager(transactionManager).build();
+        transaction(transactionManager, metadata, new AllowAllAccessControl())
+                .readOnly()
+                .execute(TEST_SESSION, transactionSession -> {
+                    assertTranslationRoundTrips(
+                            transactionSession,
+                            new Call(
+                                PLANNER_CONTEXT.getMetadata().getCoercion(builtinFunctionName("$try_cast"), BIGINT, VARCHAR_TYPE),
+                                ImmutableList.of(new Reference(BIGINT, "bigint_symbol"))),
+                            new io.trino.spi.expression.Call(
+                                    VARCHAR_TYPE,
+                                    new FunctionName("$try_cast"),
+                                    List.of(new Variable("bigint_symbol", BIGINT))));
+                });
     }
 
     @Test

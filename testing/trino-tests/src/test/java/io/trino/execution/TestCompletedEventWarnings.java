@@ -60,7 +60,7 @@ public class TestCompletedEventWarnings
         closer = Closer.create();
         QueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION)
                 .setExtraProperties(ImmutableMap.of("testing-warning-collector.preloaded-warnings", String.valueOf(TEST_WARNINGS)))
-                .setNodeCount(1)
+                .setWorkerCount(0)
                 .build();
         closer.register(queryRunner);
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));

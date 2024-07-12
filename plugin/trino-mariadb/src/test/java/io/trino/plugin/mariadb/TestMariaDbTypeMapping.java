@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.mariadb;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.TimeZoneKey;
@@ -46,7 +44,6 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_MAPPI
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_ROUNDING_MODE;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
-import static io.trino.plugin.mariadb.MariaDbQueryRunner.createMariaDbQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
@@ -100,7 +97,7 @@ public class TestMariaDbTypeMapping
             throws Exception
     {
         server = closeAfterClass(new TestingMariaDbServer());
-        return createMariaDbQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+        return MariaDbQueryRunner.builder(server).build();
     }
 
     @Test

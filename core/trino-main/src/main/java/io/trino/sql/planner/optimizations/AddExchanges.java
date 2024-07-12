@@ -442,12 +442,12 @@ public class AddExchanges
                 return rebaseAndDeriveProperties(node, child);
             }
 
-            List<Symbol> partitionBy = node.getSpecification().orElseThrow().getPartitionBy();
+            List<Symbol> partitionBy = node.getSpecification().orElseThrow().partitionBy();
             List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
             if (!partitionBy.isEmpty()) {
                 desiredProperties.add(new GroupingProperty<>(partitionBy));
             }
-            node.getSpecification().orElseThrow().getOrderingScheme().ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
+            node.getSpecification().orElseThrow().orderingScheme().ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
 
             PlanWithProperties child = planChild(node, partitionedWithLocal(ImmutableSet.copyOf(partitionBy), desiredProperties));
 
@@ -577,7 +577,7 @@ public class AddExchanges
                                         node.getCount(),
                                         Optional.empty(),
                                         true,
-                                        node.getOrderingScheme().getOrderBy()),
+                                        node.getOrderingScheme().orderBy()),
                                 child.getProperties());
                     }
                     yield rebaseAndDeriveProperties(node, child);
@@ -1315,7 +1315,7 @@ public class AddExchanges
                     // NOTE: new symbols for ExchangeNode output are required in order to keep plan logically correct with new local union below
 
                     List<Symbol> exchangeOutputLayout = node.getOutputSymbols().stream()
-                            .map(outputSymbol -> symbolAllocator.newSymbol(outputSymbol.getName(), outputSymbol.getType()))
+                            .map(outputSymbol -> symbolAllocator.newSymbol(outputSymbol.name(), outputSymbol.type()))
                             .collect(toImmutableList());
 
                     result = new ExchangeNode(
@@ -1531,7 +1531,7 @@ public class AddExchanges
                 .findAll()
                 .stream()
                 .map(TableScanNode.class::cast)
-                .map(node -> node.getTable().getCatalogHandle());
+                .map(node -> node.getTable().catalogHandle());
     }
 
     private static boolean isNotRemoteExchange(PlanNode node)

@@ -75,6 +75,7 @@ public class TestingKuduServer
         toxiProxy.start();
 
         String instanceName = "kudu-tserver";
+        @SuppressWarnings("deprecation")
         ToxiproxyContainer.ContainerProxy proxy = toxiProxy.getProxy(instanceName, KUDU_TSERVER_PORT);
         tabletServer = new GenericContainer<>(format("%s:%s", KUDU_IMAGE, kuduVersion))
                 .withExposedPorts(KUDU_TSERVER_PORT)

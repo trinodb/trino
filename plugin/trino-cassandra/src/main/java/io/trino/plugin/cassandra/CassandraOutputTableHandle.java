@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.type.Type;
@@ -24,53 +22,22 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class CassandraOutputTableHandle
+public record CassandraOutputTableHandle(
+        String schemaName,
+        String tableName,
+        List<String> columnNames,
+        List<Type> columnTypes)
         implements ConnectorOutputTableHandle
 {
-    private final String schemaName;
-    private final String tableName;
-    private final List<String> columnNames;
-    private final List<Type> columnTypes;
-
-    @JsonCreator
-    public CassandraOutputTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
-            @JsonProperty("columnNames") List<String> columnNames,
-            @JsonProperty("columnTypes") List<Type> columnTypes)
+    public CassandraOutputTableHandle
     {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(tableName, "tableName is null");
         requireNonNull(columnNames, "columnNames is null");
         requireNonNull(columnTypes, "columnTypes is null");
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
-        this.columnNames = ImmutableList.copyOf(columnNames);
-        this.columnTypes = ImmutableList.copyOf(columnTypes);
-    }
-
-    @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    @JsonProperty
-    public List<String> getColumnNames()
-    {
-        return columnNames;
-    }
-
-    @JsonProperty
-    public List<Type> getColumnTypes()
-    {
-        return columnTypes;
+        columnNames = ImmutableList.copyOf(columnNames);
+        columnTypes = ImmutableList.copyOf(columnTypes);
     }
 
     @Override

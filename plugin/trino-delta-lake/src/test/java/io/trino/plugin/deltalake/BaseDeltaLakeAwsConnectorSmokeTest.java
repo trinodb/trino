@@ -52,8 +52,7 @@ public abstract class BaseDeltaLakeAwsConnectorSmokeTest
     {
         hiveMinioDataLake.copyResources(resourcePath, table);
         queryRunner.execute(format(
-                "CALL system.register_table('%s', '%s', '%s')",
-                SCHEMA,
+                "CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')",
                 table,
                 getLocationForTable(bucketName, table)));
     }

@@ -24,6 +24,7 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -32,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOperatorStats
 {
-    private static final SplitOperatorInfo NON_MERGEABLE_INFO = new SplitOperatorInfo(TEST_CATALOG_HANDLE, "some_info");
+    private static final SplitOperatorInfo NON_MERGEABLE_INFO = new SplitOperatorInfo(TEST_CATALOG_HANDLE, Map.of("some_info", "some_value"));
     private static final PartitionedOutputInfo MERGEABLE_INFO = new PartitionedOutputInfo(1024);
 
     public static final OperatorStats EXPECTED = new OperatorStats(

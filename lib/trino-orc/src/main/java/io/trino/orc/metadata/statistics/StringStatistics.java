@@ -88,7 +88,7 @@ public class StringStatistics
         StringStatistics that = (StringStatistics) o;
         return Objects.equals(minimum, that.minimum) &&
                 Objects.equals(maximum, that.maximum) &&
-                Objects.equals(sum, that.sum);
+                sum == that.sum;
     }
 
     @Override

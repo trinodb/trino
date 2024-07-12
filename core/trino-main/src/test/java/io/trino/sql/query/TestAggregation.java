@@ -140,4 +140,11 @@ public class TestAggregation
                             (3, DECIMAL '130303030303030303029.6666666633', DECIMAL '21717171717171717171.6111111106')) t(i, s, v)
                         """);
     }
+
+    @Test
+    void testCountDistinctOverConstant()
+    {
+        assertThat(assertions.query("SELECT count(DISTINCT 'x'), count(*) FROM (VALUES 1, 2, 3)"))
+                .matches("VALUES (BIGINT '1', BIGINT '3')");
+    }
 }

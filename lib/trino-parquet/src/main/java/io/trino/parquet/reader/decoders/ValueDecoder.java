@@ -49,11 +49,11 @@ public interface ValueDecoder<T>
         ValueDecoder<int[]> create(int maxLevel);
     }
 
-    static ValueDecoder<int[]> createLevelsDecoder(int maxLevel)
+    static ValueDecoder<int[]> createLevelsDecoder(int maxLevel, boolean vectorizedDecodingEnabled)
     {
         if (maxLevel == 0) {
             return new ValueDecoder.EmptyValueDecoder<>();
         }
-        return new RleBitPackingHybridDecoder(getWidthFromMaxInt(maxLevel));
+        return new RleBitPackingHybridDecoder(getWidthFromMaxInt(maxLevel), vectorizedDecodingEnabled);
     }
 }

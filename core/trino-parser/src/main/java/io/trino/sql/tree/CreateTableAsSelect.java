@@ -123,9 +123,9 @@ public class CreateTableAsSelect
         CreateTableAsSelect o = (CreateTableAsSelect) obj;
         return Objects.equals(name, o.name)
                 && Objects.equals(query, o.query)
-                && Objects.equals(saveMode, o.saveMode)
+                && saveMode == o.saveMode
                 && Objects.equals(properties, o.properties)
-                && Objects.equals(withData, o.withData)
+                && withData == o.withData
                 && Objects.equals(columnAliases, o.columnAliases)
                 && Objects.equals(comment, o.comment);
     }

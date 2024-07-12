@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.plugin.redshift.RedshiftQueryRunner.createRedshiftQueryRunner;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 
@@ -44,16 +43,16 @@ public abstract class BaseRedshiftFailureRecoveryTest
             Map<String, String> coordinatorProperties)
             throws Exception
     {
-        return createRedshiftQueryRunner(
-                configProperties,
-                coordinatorProperties,
-                Map.of(),
-                requiredTpchTables,
-                runner -> {
+        return RedshiftQueryRunner.builder()
+                .setExtraProperties(configProperties)
+                .setCoordinatorProperties(coordinatorProperties)
+                .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", ImmutableMap.of(
                             "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
-                });
+                })
+                .setInitialTables(requiredTpchTables)
+                .build();
     }
 
     @Test

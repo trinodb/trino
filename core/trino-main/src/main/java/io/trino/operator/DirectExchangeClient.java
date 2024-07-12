@@ -35,8 +35,8 @@ import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
 import java.net.URI;
-import java.util.Deque;
-import java.util.LinkedList;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -73,7 +73,7 @@ public class DirectExchangeClient
     private final Map<URI, HttpPageBufferClient> allClients = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
-    private final Deque<HttpPageBufferClient> queuedClients = new LinkedList<>();
+    private final Set<HttpPageBufferClient> queuedClients = new LinkedHashSet<>();
 
     private final Set<HttpPageBufferClient> completedClients = newConcurrentHashSet();
     private final DirectExchangeBuffer buffer;
@@ -284,17 +284,22 @@ public class DirectExchangeClient
         long projectedBytesToBeRequested = 0;
         int clientCount = 0;
 
-        for (HttpPageBufferClient client : queuedClients) {
+        Iterator<HttpPageBufferClient> clientIterator = queuedClients.iterator();
+        while (clientIterator.hasNext()) {
+            HttpPageBufferClient client = clientIterator.next();
             if (projectedBytesToBeRequested >= neededBytes * concurrentRequestMultiplier - reservedBytesForScheduledClients) {
                 break;
             }
             projectedBytesToBeRequested += client.getAverageRequestSizeInBytes();
+
+            client.scheduleRequest();
+
+            // Remove the client from the queuedClient's set.
+            clientIterator.remove();
+
             clientCount++;
         }
-        for (int i = 0; i < clientCount; i++) {
-            HttpPageBufferClient client = queuedClients.poll();
-            client.scheduleRequest();
-        }
+
         return clientCount;
     }
 
@@ -304,7 +309,7 @@ public class DirectExchangeClient
     }
 
     @VisibleForTesting
-    Deque<HttpPageBufferClient> getQueuedClients()
+    Set<HttpPageBufferClient> getQueuedClients()
     {
         return queuedClients;
     }

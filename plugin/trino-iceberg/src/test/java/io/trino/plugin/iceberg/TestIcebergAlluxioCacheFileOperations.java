@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.opentelemetry.api.common.Attributes;
-import io.trino.plugin.iceberg.TestIcebergFileOperations.FileType;
+import io.trino.plugin.iceberg.util.FileOperationUtils;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -30,12 +30,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.DATA;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.MANIFEST;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.METADATA_JSON;
-import static io.trino.plugin.iceberg.TestIcebergFileOperations.FileType.SNAPSHOT;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DATA;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.MANIFEST;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.SNAPSHOT;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
@@ -46,15 +48,16 @@ public class TestIcebergAlluxioCacheFileOperations
         extends AbstractTestQueryFramework
 {
     public static final String TEST_SCHEMA = "test_alluxio_schema";
+    private Path cacheDirectory;
 
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        Path cacheDirectory = Files.createTempDirectory("cache");
-        cacheDirectory.toFile().deleteOnExit();
+        cacheDirectory = Files.createTempDirectory("cache");
+        closeAfterClass(() -> deleteRecursively(cacheDirectory, ALLOW_INSECURE));
         Path metastoreDirectory = Files.createTempDirectory(ICEBERG_CATALOG);
-        metastoreDirectory.toFile().deleteOnExit();
+        closeAfterClass(() -> deleteRecursively(metastoreDirectory, ALLOW_INSECURE));
 
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("fs.cache.enabled", "true")
@@ -68,7 +71,7 @@ public class TestIcebergAlluxioCacheFileOperations
                         .withSchemaName(TEST_SCHEMA)
                         .build())
                 .setIcebergProperties(icebergProperties)
-                .setNodeCount(1)
+                .setWorkerCount(0)
                 .build();
         queryRunner.execute("CREATE SCHEMA IF NOT EXISTS " + TEST_SCHEMA);
         return queryRunner;
@@ -149,12 +152,12 @@ public class TestIcebergAlluxioCacheFileOperations
                 .collect(toCollection(HashMultiset::create));
     }
 
-    private record CacheOperation(String operationName, FileType fileType)
+    private record CacheOperation(String operationName, FileOperationUtils.FileType fileType)
     {
         public static CacheOperation create(String operationName, Attributes attributes)
         {
             String path = requireNonNull(attributes.get(CACHE_FILE_LOCATION));
-            return new CacheOperation(operationName, FileType.fromFilePath(path));
+            return new CacheOperation(operationName, FileOperationUtils.FileType.fromFilePath(path));
         }
     }
 

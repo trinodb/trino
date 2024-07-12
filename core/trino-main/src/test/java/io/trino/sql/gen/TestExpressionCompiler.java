@@ -632,6 +632,7 @@ public class TestExpressionCompiler
     }
 
     @Test
+    @SuppressWarnings("BigDecimalEquals") // it is intentional to compare BigDecimals with equals
     public void testBinaryOperatorsDecimalBigint()
     {
         for (BigDecimal left : decimalLefts) {
@@ -687,6 +688,7 @@ public class TestExpressionCompiler
     }
 
     @Test
+    @SuppressWarnings("BigDecimalEquals") // it is intentional to compare BigDecimals with equals
     public void testBinaryOperatorsBigintDecimal()
     {
         for (Long left : longLefts) {
@@ -743,6 +745,7 @@ public class TestExpressionCompiler
     }
 
     @Test
+    @SuppressWarnings("BigDecimalEquals") // it is intentional to compare BigDecimals with equals
     public void testBinaryOperatorsDecimalInteger()
     {
         for (BigDecimal left : decimalLefts) {
@@ -798,6 +801,7 @@ public class TestExpressionCompiler
     }
 
     @Test
+    @SuppressWarnings("BigDecimalEquals") // it is intentional to compare BigDecimals with equals
     public void testBinaryOperatorsIntegerDecimal()
     {
         for (Integer left : intLefts) {
@@ -1681,6 +1685,7 @@ public class TestExpressionCompiler
     }
 
     @Test
+    @SuppressWarnings("BigDecimalEquals") // it is intentional to compare BigDecimals with equals
     public void testSimpleCase()
     {
         for (Double value : doubleLefts) {

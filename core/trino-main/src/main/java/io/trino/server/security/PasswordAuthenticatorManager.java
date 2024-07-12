@@ -103,7 +103,7 @@ public class PasswordAuthenticatorManager
         checkState(factory != null, "Password authenticator '%s' is not registered", name);
 
         PasswordAuthenticator authenticator;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             authenticator = factory.create(ImmutableMap.copyOf(properties));
         }
 

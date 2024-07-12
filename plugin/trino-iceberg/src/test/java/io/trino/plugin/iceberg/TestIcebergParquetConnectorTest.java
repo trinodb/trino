@@ -32,7 +32,6 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergParquetConnectorTest
         extends BaseIcebergConnectorTest
@@ -85,15 +84,6 @@ public class TestIcebergParquetConnectorTest
                 return Optional.of(setup.withNewValueLiteral("NULL"));
         }
         return super.filterSetColumnTypesDataProvider(setup);
-    }
-
-    @Test
-    @Override
-    public void testDropAmbiguousRowFieldCaseSensitivity()
-    {
-        // TODO https://github.com/trinodb/trino/issues/16273 The connector can't read row types having ambiguous field names in Parquet files. e.g. row(X int, x int)
-        assertThatThrownBy(super::testDropAmbiguousRowFieldCaseSensitivity)
-                .hasMessage("Invalid schema: multiple fields for name col.some_field: 2 and 3");
     }
 
     @Test

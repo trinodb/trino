@@ -183,12 +183,12 @@ public class PageFunctionCompiler
         requireNonNull(projection, "projection is null");
 
         if (projection instanceof InputReferenceExpression input) {
-            InputPageProjection projectionFunction = new InputPageProjection(input.getField(), input.getType());
+            InputPageProjection projectionFunction = new InputPageProjection(input.field(), input.type());
             return () -> projectionFunction;
         }
 
         if (projection instanceof ConstantExpression constant) {
-            ConstantPageProjection projectionFunction = new ConstantPageProjection(constant.getValue(), constant.getType());
+            ConstantPageProjection projectionFunction = new ConstantPageProjection(constant.value(), constant.type());
             return () -> projectionFunction;
         }
 
@@ -366,7 +366,7 @@ public class PageFunctionCompiler
 
         body.append(thisVariable.getField(blockBuilder))
                 .append(compiler.compile(projection, scope))
-                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
+                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.type()))
                 .ret();
         return method;
     }
@@ -614,7 +614,7 @@ public class PageFunctionCompiler
         TreeSet<Integer> channels = new TreeSet<>();
         for (RowExpression expression : Expressions.subExpressions(expressions)) {
             if (expression instanceof InputReferenceExpression) {
-                channels.add(((InputReferenceExpression) expression).getField());
+                channels.add(((InputReferenceExpression) expression).field());
             }
         }
         return ImmutableList.copyOf(channels);

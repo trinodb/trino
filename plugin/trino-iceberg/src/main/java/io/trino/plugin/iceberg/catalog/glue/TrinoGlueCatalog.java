@@ -123,11 +123,11 @@ import static io.trino.plugin.hive.TrinoViewUtil.createViewProperties;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
-import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
-import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getColumnParameters;
-import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
-import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableType;
-import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableTypeNullable;
+import static io.trino.plugin.hive.metastore.glue.v1.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getColumnParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
+import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -395,7 +395,7 @@ public class TrinoGlueCatalog
                     Map<String, String> tableParameters = getTableParameters(table);
                     if (isTrinoMaterializedView(tableType, tableParameters)) {
                         IcebergMaterializedViewDefinition definition = decodeMaterializedViewData(table.getViewOriginalText());
-                        unfilteredResult.add(RelationColumnsMetadata.forMaterializedView(name, toSpiMaterializedViewColumns(definition.getColumns())));
+                        unfilteredResult.add(RelationColumnsMetadata.forMaterializedView(name, toSpiMaterializedViewColumns(definition.columns())));
                     }
                     else if (isTrinoView(tableType, tableParameters)) {
                         ConnectorViewDefinition definition = ViewReaderUtil.PrestoViewReader.decodeViewData(table.getViewOriginalText());
@@ -486,7 +486,7 @@ public class TrinoGlueCatalog
                     String tableType = getTableType(table);
                     Map<String, String> tableParameters = getTableParameters(table);
                     if (isTrinoMaterializedView(tableType, tableParameters)) {
-                        Optional<String> comment = decodeMaterializedViewData(table.getViewOriginalText()).getComment();
+                        Optional<String> comment = decodeMaterializedViewData(table.getViewOriginalText()).comment();
                         unfilteredResult.add(RelationCommentMetadata.forRelation(name, comment));
                     }
                     else if (isTrinoView(tableType, tableParameters)) {
@@ -1471,6 +1471,9 @@ public class TrinoGlueCatalog
                 }
                 catch (EntityNotFoundException e) {
                     throw new TableNotFoundException(tableName, e);
+                }
+                catch (AmazonServiceException e) {
+                    throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
                 }
             });
         }

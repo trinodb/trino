@@ -27,7 +27,7 @@ public abstract class BaseSqlServerConnectorSmokeTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS -> false;
+                 SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }

@@ -13,13 +13,14 @@
  */
 package io.trino.tests.product.hive;
 
+import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.AZURE;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
@@ -32,7 +33,9 @@ import static org.apache.parquet.Strings.isNullOrEmpty;
 public class TestAbfsSyncPartitionMetadata
         extends BaseTestSyncPartitionMetadata
 {
-    private final String schema = "test_" + randomNameSuffix();
+    @Inject
+    @Named("databases.presto.abfs_schema")
+    private String schema;
 
     @BeforeMethodWithContext
     public void setUp()

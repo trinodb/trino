@@ -13,14 +13,13 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.util.Objects.requireNonNull;
+import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
@@ -35,12 +34,12 @@ public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.alternateProjectId = requireNonNull(System.getProperty("testing.alternate-bq-project-id"), "testing.alternate-bq-project-id system property not set");
+        this.alternateProjectId = requiredNonEmptySystemProperty("testing.alternate-bq-project-id");
 
-        QueryRunner queryRunner = BigQueryQueryRunner.createQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of("bigquery.project-id", alternateProjectId),
-                REQUIRED_TPCH_TABLES);
+        QueryRunner queryRunner = BigQueryQueryRunner.builder()
+                .setConnectorProperties(Map.of("bigquery.project-id", alternateProjectId))
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
         queryRunner.createCatalog(SERVICE_ACCOUNT_CATALOG, "bigquery", Map.of());
         return queryRunner;
     }

@@ -60,10 +60,12 @@ public class ApplyTableScanRedirection
             .matching(node -> !node.isUpdateTarget());
 
     private final PlannerContext plannerContext;
+    private final DomainTranslator domainTranslator;
 
     public ApplyTableScanRedirection(PlannerContext plannerContext)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
+        this.domainTranslator = new DomainTranslator(plannerContext.getMetadata());
     }
 
     @Override
@@ -114,7 +116,7 @@ public class ApplyTableScanRedirection
             }
 
             // insert ts if redirected types don't match source types
-            Type sourceType = assignment.getKey().getType();
+            Type sourceType = assignment.getKey().type();
             Type redirectedType = plannerContext.getMetadata().getColumnMetadata(context.getSession(), destinationTableHandle, destinationColumnHandle).getType();
             if (!sourceType.equals(redirectedType)) {
                 Symbol redirectedSymbol = context.getSymbolAllocator().newSymbol(destinationColumn, redirectedType);
@@ -214,7 +216,7 @@ public class ApplyTableScanRedirection
                         newAssignments.keySet(),
                         casts.buildOrThrow(),
                         newScanNode),
-                DomainTranslator.toPredicate(transformedConstraint));
+                domainTranslator.toPredicate(transformedConstraint));
 
         return Result.ofPlanNode(applyProjection(
                 context.getIdAllocator(),
@@ -266,9 +268,6 @@ public class ApplyTableScanRedirection
                     sourceType));
         }
 
-        return new Cast(
-                destinationSymbol.toSymbolReference(),
-                sourceType,
-                false);
+        return new Cast(destinationSymbol.toSymbolReference(), sourceType);
     }
 }

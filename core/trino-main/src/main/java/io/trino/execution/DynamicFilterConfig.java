@@ -14,7 +14,6 @@
 package io.trino.execution;
 
 import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
@@ -27,17 +26,18 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 @DefunctConfig({
         "dynamic-filtering-max-per-driver-row-count",
-        "experimental.dynamic-filtering-max-per-driver-row-count",
         "dynamic-filtering-max-per-driver-size",
-        "experimental.dynamic-filtering-max-per-driver-size",
         "dynamic-filtering-range-row-limit-per-driver",
+        "dynamic-filtering.service-thread-count",
+        "experimental.dynamic-filtering-max-per-driver-row-count",
+        "experimental.dynamic-filtering-max-per-driver-size",
         "experimental.dynamic-filtering-refresh-interval",
-        "dynamic-filtering.service-thread-count"
+        "experimental.enable-dynamic-filtering",
+        "enable-coordinator-dynamic-filters-distribution",
 })
 public class DynamicFilterConfig
 {
     private boolean enableDynamicFiltering = true;
-    private boolean enableCoordinatorDynamicFiltersDistribution = true;
     private boolean enableLargeDynamicFilters;
 
     /*
@@ -78,23 +78,9 @@ public class DynamicFilterConfig
     }
 
     @Config("enable-dynamic-filtering")
-    @LegacyConfig("experimental.enable-dynamic-filtering")
     public DynamicFilterConfig setEnableDynamicFiltering(boolean enableDynamicFiltering)
     {
         this.enableDynamicFiltering = enableDynamicFiltering;
-        return this;
-    }
-
-    public boolean isEnableCoordinatorDynamicFiltersDistribution()
-    {
-        return enableCoordinatorDynamicFiltersDistribution;
-    }
-
-    @Config("enable-coordinator-dynamic-filters-distribution")
-    @ConfigDescription("Enable distribution of dynamic filters from coordinator to all workers")
-    public DynamicFilterConfig setEnableCoordinatorDynamicFiltersDistribution(boolean enableCoordinatorDynamicFiltersDistribution)
-    {
-        this.enableCoordinatorDynamicFiltersDistribution = enableCoordinatorDynamicFiltersDistribution;
         return this;
     }
 

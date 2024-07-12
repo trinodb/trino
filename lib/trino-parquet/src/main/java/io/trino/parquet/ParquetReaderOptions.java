@@ -35,6 +35,7 @@ public class ParquetReaderOptions
     private final boolean useColumnIndex;
     private final boolean useBloomFilter;
     private final DataSize smallFileThreshold;
+    private final boolean vectorizedDecodingEnabled;
 
     public ParquetReaderOptions()
     {
@@ -46,6 +47,7 @@ public class ParquetReaderOptions
         useColumnIndex = true;
         useBloomFilter = true;
         smallFileThreshold = DEFAULT_SMALL_FILE_THRESHOLD;
+        vectorizedDecodingEnabled = true;
     }
 
     private ParquetReaderOptions(
@@ -56,7 +58,8 @@ public class ParquetReaderOptions
             DataSize maxBufferSize,
             boolean useColumnIndex,
             boolean useBloomFilter,
-            DataSize smallFileThreshold)
+            DataSize smallFileThreshold,
+            boolean vectorizedDecodingEnabled)
     {
         this.ignoreStatistics = ignoreStatistics;
         this.maxReadBlockSize = requireNonNull(maxReadBlockSize, "maxReadBlockSize is null");
@@ -67,6 +70,7 @@ public class ParquetReaderOptions
         this.useColumnIndex = useColumnIndex;
         this.useBloomFilter = useBloomFilter;
         this.smallFileThreshold = requireNonNull(smallFileThreshold, "smallFileThreshold is null");
+        this.vectorizedDecodingEnabled = vectorizedDecodingEnabled;
     }
 
     public boolean isIgnoreStatistics()
@@ -94,6 +98,11 @@ public class ParquetReaderOptions
         return useBloomFilter;
     }
 
+    public boolean isVectorizedDecodingEnabled()
+    {
+        return vectorizedDecodingEnabled;
+    }
+
     public DataSize getMaxBufferSize()
     {
         return maxBufferSize;
@@ -119,7 +128,8 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
-                smallFileThreshold);
+                smallFileThreshold,
+                vectorizedDecodingEnabled);
     }
 
     public ParquetReaderOptions withMaxReadBlockSize(DataSize maxReadBlockSize)
@@ -132,7 +142,8 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
-                smallFileThreshold);
+                smallFileThreshold,
+                vectorizedDecodingEnabled);
     }
 
     public ParquetReaderOptions withMaxReadBlockRowCount(int maxReadBlockRowCount)
@@ -145,7 +156,8 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
-                smallFileThreshold);
+                smallFileThreshold,
+                vectorizedDecodingEnabled);
     }
 
     public ParquetReaderOptions withMaxMergeDistance(DataSize maxMergeDistance)
@@ -158,7 +170,8 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
-                smallFileThreshold);
+                smallFileThreshold,
+                vectorizedDecodingEnabled);
     }
 
     public ParquetReaderOptions withMaxBufferSize(DataSize maxBufferSize)
@@ -171,7 +184,8 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
-                smallFileThreshold);
+                smallFileThreshold,
+                vectorizedDecodingEnabled);
     }
 
     public ParquetReaderOptions withUseColumnIndex(boolean useColumnIndex)
@@ -184,7 +198,8 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
-                smallFileThreshold);
+                smallFileThreshold,
+                vectorizedDecodingEnabled);
     }
 
     public ParquetReaderOptions withBloomFilter(boolean useBloomFilter)
@@ -197,7 +212,8 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
-                smallFileThreshold);
+                smallFileThreshold,
+                vectorizedDecodingEnabled);
     }
 
     public ParquetReaderOptions withSmallFileThreshold(DataSize smallFileThreshold)
@@ -210,6 +226,21 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
-                smallFileThreshold);
+                smallFileThreshold,
+                vectorizedDecodingEnabled);
+    }
+
+    public ParquetReaderOptions withVectorizedDecodingEnabled(boolean vectorizedDecodingEnabled)
+    {
+        return new ParquetReaderOptions(
+                ignoreStatistics,
+                maxReadBlockSize,
+                maxReadBlockRowCount,
+                maxMergeDistance,
+                maxBufferSize,
+                useColumnIndex,
+                useBloomFilter,
+                smallFileThreshold,
+                vectorizedDecodingEnabled);
     }
 }

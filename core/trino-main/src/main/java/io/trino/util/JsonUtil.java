@@ -63,6 +63,7 @@ import io.trino.type.VarcharOperators;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.StringReader;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -105,6 +106,9 @@ import static java.time.ZoneOffset.UTC;
 
 public final class JsonUtil
 {
+    // StringReader outperforms InputStreamReader for small inputs. Limit based on Jackson benchmarks {@link https://github.com/FasterXML/jackson-benchmarks/pull/9}
+    private static final int STRING_READER_LENGTH_LIMIT = 8192;
+
     private JsonUtil() {}
 
     // This object mapper is constructed without .configure(ORDER_MAP_ENTRIES_BY_KEYS, true) because
@@ -124,7 +128,12 @@ public final class JsonUtil
             throws IOException
     {
         // Jackson tries to detect the character encoding automatically when using InputStream
-        // so we pass an InputStreamReader instead.
+        // so we pass StringReader or an InputStreamReader instead.
+        if (json.length() < STRING_READER_LENGTH_LIMIT) {
+            // StringReader is more performant than InputStreamReader for small inputs
+            return factory.createParser(new StringReader(new String(json.getBytes(), UTF_8)));
+        }
+
         return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
     }
 
@@ -667,184 +676,120 @@ public final class JsonUtil
     public static Slice currentTokenAsVarchar(JsonParser parser)
             throws IOException
     {
-        switch (parser.currentToken()) {
-            case VALUE_NULL:
-                return null;
-            case VALUE_STRING:
-            case FIELD_NAME:
-                return Slices.utf8Slice(parser.getText());
-            case VALUE_NUMBER_FLOAT:
-                // Avoidance of loss of precision does not seem to be possible here because of Jackson implementation.
-                return DoubleOperators.castToVarchar(UNBOUNDED_LENGTH, parser.getDoubleValue());
-            case VALUE_NUMBER_INT:
-                // An alternative is calling getLongValue and then BigintOperators.castToVarchar.
-                // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
-                return Slices.utf8Slice(parser.getText());
-            case VALUE_TRUE:
-                return BooleanOperators.castToVarchar(true);
-            case VALUE_FALSE:
-                return BooleanOperators.castToVarchar(false);
-            default:
-                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.VARCHAR, parser.getText()));
-        }
+        return switch (parser.currentToken()) {
+            case VALUE_NULL -> null;
+            case VALUE_STRING, FIELD_NAME -> Slices.utf8Slice(parser.getText());
+            // Avoidance of loss of precision does not seem to be possible here because of Jackson implementation.
+            case VALUE_NUMBER_FLOAT -> DoubleOperators.castToVarchar(UNBOUNDED_LENGTH, parser.getDoubleValue());
+            // An alternative is calling getLongValue and then BigintOperators.castToVarchar.
+            // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
+            case VALUE_NUMBER_INT -> Slices.utf8Slice(parser.getText());
+            case VALUE_TRUE -> BooleanOperators.castToVarchar(true);
+            case VALUE_FALSE -> BooleanOperators.castToVarchar(false);
+            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.VARCHAR, parser.getText()));
+        };
     }
 
     public static Long currentTokenAsBigint(JsonParser parser)
             throws IOException
     {
-        switch (parser.currentToken()) {
-            case VALUE_NULL:
-                return null;
-            case VALUE_STRING:
-            case FIELD_NAME:
-                return VarcharOperators.castToBigint(Slices.utf8Slice(parser.getText()));
-            case VALUE_NUMBER_FLOAT:
-                return DoubleOperators.castToLong(parser.getDoubleValue());
-            case VALUE_NUMBER_INT:
-                return parser.getLongValue();
-            case VALUE_TRUE:
-                return BooleanOperators.castToBigint(true);
-            case VALUE_FALSE:
-                return BooleanOperators.castToBigint(false);
-            default:
-                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.BIGINT, parser.getText()));
-        }
+        return switch (parser.currentToken()) {
+            case VALUE_NULL -> null;
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToBigint(Slices.utf8Slice(parser.getText()));
+            case VALUE_NUMBER_FLOAT -> DoubleOperators.castToLong(parser.getDoubleValue());
+            case VALUE_NUMBER_INT -> parser.getLongValue();
+            case VALUE_TRUE -> BooleanOperators.castToBigint(true);
+            case VALUE_FALSE -> BooleanOperators.castToBigint(false);
+            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.BIGINT, parser.getText()));
+        };
     }
 
     public static Long currentTokenAsInteger(JsonParser parser)
             throws IOException
     {
-        switch (parser.currentToken()) {
-            case VALUE_NULL:
-                return null;
-            case VALUE_STRING:
-            case FIELD_NAME:
-                return VarcharOperators.castToInteger(Slices.utf8Slice(parser.getText()));
-            case VALUE_NUMBER_FLOAT:
-                return DoubleOperators.castToInteger(parser.getDoubleValue());
-            case VALUE_NUMBER_INT:
-                return (long) toIntExact(parser.getLongValue());
-            case VALUE_TRUE:
-                return BooleanOperators.castToInteger(true);
-            case VALUE_FALSE:
-                return BooleanOperators.castToInteger(false);
-            default:
-                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.INTEGER, parser.getText()));
-        }
+        return switch (parser.currentToken()) {
+            case VALUE_NULL -> null;
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToInteger(Slices.utf8Slice(parser.getText()));
+            case VALUE_NUMBER_FLOAT -> DoubleOperators.castToInteger(parser.getDoubleValue());
+            case VALUE_NUMBER_INT -> (long) toIntExact(parser.getLongValue());
+            case VALUE_TRUE -> BooleanOperators.castToInteger(true);
+            case VALUE_FALSE -> BooleanOperators.castToInteger(false);
+            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.INTEGER, parser.getText()));
+        };
     }
 
     public static Long currentTokenAsSmallint(JsonParser parser)
             throws IOException
     {
-        switch (parser.currentToken()) {
-            case VALUE_NULL:
-                return null;
-            case VALUE_STRING:
-            case FIELD_NAME:
-                return VarcharOperators.castToSmallint(Slices.utf8Slice(parser.getText()));
-            case VALUE_NUMBER_FLOAT:
-                return DoubleOperators.castToSmallint(parser.getDoubleValue());
-            case VALUE_NUMBER_INT:
-                return (long) Shorts.checkedCast(parser.getLongValue());
-            case VALUE_TRUE:
-                return BooleanOperators.castToSmallint(true);
-            case VALUE_FALSE:
-                return BooleanOperators.castToSmallint(false);
-            default:
-                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.SMALLINT, parser.getText()));
-        }
+        return switch (parser.currentToken()) {
+            case VALUE_NULL -> null;
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToSmallint(Slices.utf8Slice(parser.getText()));
+            case VALUE_NUMBER_FLOAT -> DoubleOperators.castToSmallint(parser.getDoubleValue());
+            case VALUE_NUMBER_INT -> (long) Shorts.checkedCast(parser.getLongValue());
+            case VALUE_TRUE -> BooleanOperators.castToSmallint(true);
+            case VALUE_FALSE -> BooleanOperators.castToSmallint(false);
+            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.SMALLINT, parser.getText()));
+        };
     }
 
     public static Long currentTokenAsTinyint(JsonParser parser)
             throws IOException
     {
-        switch (parser.currentToken()) {
-            case VALUE_NULL:
-                return null;
-            case VALUE_STRING:
-            case FIELD_NAME:
-                return VarcharOperators.castToTinyint(Slices.utf8Slice(parser.getText()));
-            case VALUE_NUMBER_FLOAT:
-                return DoubleOperators.castToTinyint(parser.getDoubleValue());
-            case VALUE_NUMBER_INT:
-                return (long) SignedBytes.checkedCast(parser.getLongValue());
-            case VALUE_TRUE:
-                return BooleanOperators.castToTinyint(true);
-            case VALUE_FALSE:
-                return BooleanOperators.castToTinyint(false);
-            default:
-                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.TINYINT, parser.getText()));
-        }
+        return switch (parser.currentToken()) {
+            case VALUE_NULL -> null;
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToTinyint(Slices.utf8Slice(parser.getText()));
+            case VALUE_NUMBER_FLOAT -> DoubleOperators.castToTinyint(parser.getDoubleValue());
+            case VALUE_NUMBER_INT -> (long) SignedBytes.checkedCast(parser.getLongValue());
+            case VALUE_TRUE -> BooleanOperators.castToTinyint(true);
+            case VALUE_FALSE -> BooleanOperators.castToTinyint(false);
+            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.TINYINT, parser.getText()));
+        };
     }
 
     public static Double currentTokenAsDouble(JsonParser parser)
             throws IOException
     {
-        switch (parser.currentToken()) {
-            case VALUE_NULL:
-                return null;
-            case VALUE_STRING:
-            case FIELD_NAME:
-                return VarcharOperators.castToDouble(Slices.utf8Slice(parser.getText()));
-            case VALUE_NUMBER_FLOAT:
-                return parser.getDoubleValue();
-            case VALUE_NUMBER_INT:
-                // An alternative is calling getLongValue and then BigintOperators.castToDouble.
-                // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
-                return parser.getDoubleValue();
-            case VALUE_TRUE:
-                return BooleanOperators.castToDouble(true);
-            case VALUE_FALSE:
-                return BooleanOperators.castToDouble(false);
-            default:
-                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.DOUBLE, parser.getText()));
-        }
+        return switch (parser.currentToken()) {
+            case VALUE_NULL -> null;
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToDouble(Slices.utf8Slice(parser.getText()));
+            case VALUE_NUMBER_FLOAT -> parser.getDoubleValue();
+            // An alternative is calling getLongValue and then BigintOperators.castToDouble.
+            // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
+            case VALUE_NUMBER_INT -> parser.getDoubleValue();
+            case VALUE_TRUE -> BooleanOperators.castToDouble(true);
+            case VALUE_FALSE -> BooleanOperators.castToDouble(false);
+            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.DOUBLE, parser.getText()));
+        };
     }
 
     public static Long currentTokenAsReal(JsonParser parser)
             throws IOException
     {
-        switch (parser.currentToken()) {
-            case VALUE_NULL:
-                return null;
-            case VALUE_STRING:
-            case FIELD_NAME:
-                return VarcharOperators.castToFloat(Slices.utf8Slice(parser.getText()));
-            case VALUE_NUMBER_FLOAT:
-                return (long) floatToRawIntBits(parser.getFloatValue());
-            case VALUE_NUMBER_INT:
-                // An alternative is calling getLongValue and then BigintOperators.castToReal.
-                // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
-                return (long) floatToRawIntBits(parser.getFloatValue());
-            case VALUE_TRUE:
-                return BooleanOperators.castToReal(true);
-            case VALUE_FALSE:
-                return BooleanOperators.castToReal(false);
-            default:
-                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.REAL, parser.getText()));
-        }
+        return switch (parser.currentToken()) {
+            case VALUE_NULL -> null;
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToFloat(Slices.utf8Slice(parser.getText()));
+            case VALUE_NUMBER_FLOAT -> (long) floatToRawIntBits(parser.getFloatValue());
+            // An alternative is calling getLongValue and then BigintOperators.castToReal.
+            // It doesn't work as well because it can result in overflow and underflow exceptions for large integral numbers.
+            case VALUE_NUMBER_INT -> (long) floatToRawIntBits(parser.getFloatValue());
+            case VALUE_TRUE -> BooleanOperators.castToReal(true);
+            case VALUE_FALSE -> BooleanOperators.castToReal(false);
+            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.REAL, parser.getText()));
+        };
     }
 
     public static Boolean currentTokenAsBoolean(JsonParser parser)
             throws IOException
     {
-        switch (parser.currentToken()) {
-            case VALUE_NULL:
-                return null;
-            case VALUE_STRING:
-            case FIELD_NAME:
-                return VarcharOperators.castToBoolean(Slices.utf8Slice(parser.getText()));
-            case VALUE_NUMBER_FLOAT:
-                return DoubleOperators.castToBoolean(parser.getDoubleValue());
-            case VALUE_NUMBER_INT:
-                return BigintOperators.castToBoolean(parser.getLongValue());
-            case VALUE_TRUE:
-                return true;
-            case VALUE_FALSE:
-                return false;
-            default:
-                throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.BOOLEAN, parser.getText()));
-        }
+        return switch (parser.currentToken()) {
+            case VALUE_NULL -> null;
+            case VALUE_STRING, FIELD_NAME -> VarcharOperators.castToBoolean(Slices.utf8Slice(parser.getText()));
+            case VALUE_NUMBER_FLOAT -> DoubleOperators.castToBoolean(parser.getDoubleValue());
+            case VALUE_NUMBER_INT -> BigintOperators.castToBoolean(parser.getLongValue());
+            case VALUE_TRUE -> true;
+            case VALUE_FALSE -> false;
+            default -> throw new JsonCastException(format("Unexpected token when cast to %s: %s", StandardTypes.BOOLEAN, parser.getText()));
+        };
     }
 
     public static Long currentTokenAsShortDecimal(JsonParser parser, int precision, int scale)

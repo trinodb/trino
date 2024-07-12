@@ -20,7 +20,6 @@ These functions and operators operate on {ref}`date and time data types <date-ti
 | `-`      | `interval '3' year - interval '5' month`            | `2-7`                     |
 
 (at-time-zone-operator)=
-
 ## Time zone conversion
 
 The `AT TIME ZONE` operator sets the time zone of a timestamp:
@@ -272,7 +271,6 @@ SELECT date_trunc('year', TIMESTAMP '2022-10-20 05:10:00');
 :::
 
 (datetime-interval-functions)=
-
 ## Interval functions
 
 The functions in this section support the following interval units:

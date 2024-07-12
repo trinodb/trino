@@ -48,6 +48,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
@@ -92,6 +93,7 @@ import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -151,8 +153,12 @@ public class ElasticsearchMetadata
     }
 
     @Override
-    public ElasticsearchTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public ElasticsearchTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         requireNonNull(tableName, "tableName is null");
 
         if (tableName.getSchemaName().equals(schemaName)) {
@@ -163,7 +169,7 @@ public class ElasticsearchMetadata
                 query = Optional.of(parts[1]);
             }
 
-            if (client.indexExists(table) && !client.getIndexMetadata(table).getSchema().getFields().isEmpty()) {
+            if (client.indexExists(table) && !client.getIndexMetadata(table).schema().fields().isEmpty()) {
                 return new ElasticsearchTableHandle(SCAN, schemaName, table, query);
             }
         }
@@ -178,22 +184,22 @@ public class ElasticsearchMetadata
 
         if (isPassthroughQuery(handle)) {
             return new ConnectorTableMetadata(
-                    new SchemaTableName(handle.getSchema(), handle.getIndex()),
+                    new SchemaTableName(handle.schema(), handle.index()),
                     ImmutableList.of(PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA));
         }
-        return getTableMetadata(handle.getSchema(), handle.getIndex());
+        return getTableMetadata(handle.schema(), handle.index());
     }
 
     private ConnectorTableMetadata getTableMetadata(String schemaName, String tableName)
     {
         InternalTableMetadata internalTableMetadata = makeInternalTableMetadata(schemaName, tableName);
-        return new ConnectorTableMetadata(new SchemaTableName(schemaName, tableName), internalTableMetadata.getColumnMetadata());
+        return new ConnectorTableMetadata(new SchemaTableName(schemaName, tableName), internalTableMetadata.columnMetadata());
     }
 
     private InternalTableMetadata makeInternalTableMetadata(ConnectorTableHandle table)
     {
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
-        return makeInternalTableMetadata(handle.getSchema(), handle.getIndex());
+        return makeInternalTableMetadata(handle.schema(), handle.index());
     }
 
     private InternalTableMetadata makeInternalTableMetadata(String schema, String tableName)
@@ -205,12 +211,12 @@ public class ElasticsearchMetadata
 
     private List<IndexMetadata.Field> getColumnFields(IndexMetadata metadata)
     {
-        Map<String, Long> counts = metadata.getSchema()
-                .getFields().stream()
-                .collect(Collectors.groupingBy(f -> f.getName().toLowerCase(ENGLISH), Collectors.counting()));
+        Map<String, Long> counts = metadata.schema()
+                .fields().stream()
+                .collect(Collectors.groupingBy(f -> f.name().toLowerCase(ENGLISH), Collectors.counting()));
 
-        return metadata.getSchema().getFields().stream()
-                .filter(field -> toTrino(field) != null && counts.get(field.getName().toLowerCase(ENGLISH)) <= 1)
+        return metadata.schema().fields().stream()
+                .filter(field -> toTrino(field) != null && counts.get(field.name().toLowerCase(ENGLISH)) <= 1)
                 .collect(toImmutableList());
     }
 
@@ -224,8 +230,8 @@ public class ElasticsearchMetadata
 
         for (IndexMetadata.Field field : fields) {
             result.add(ColumnMetadata.builder()
-                    .setName(field.getName())
-                    .setType(toTrino(field).getType())
+                    .setName(field.name())
+                    .setType(toTrino(field).type())
                     .build());
         }
         return result.build();
@@ -241,11 +247,11 @@ public class ElasticsearchMetadata
 
         for (IndexMetadata.Field field : fields) {
             TypeAndDecoder converted = toTrino(field);
-            result.put(field.getName(), new ElasticsearchColumnHandle(
-                    field.getName(),
-                    converted.getType(),
-                    converted.getDecoderDescriptor(),
-                    supportsPredicates(field.getType())));
+            result.put(field.name(), new ElasticsearchColumnHandle(
+                    field.name(),
+                    converted.type(),
+                    converted.decoderDescriptor(),
+                    supportsPredicates(field.type())));
         }
 
         return result.buildOrThrow();
@@ -258,7 +264,7 @@ public class ElasticsearchMetadata
         }
 
         if (type instanceof PrimitiveType) {
-            switch (((PrimitiveType) type).getName().toLowerCase(ENGLISH)) {
+            switch (((PrimitiveType) type).name().toLowerCase(ENGLISH)) {
                 case "boolean":
                 case "byte":
                 case "short":
@@ -281,7 +287,7 @@ public class ElasticsearchMetadata
 
     private TypeAndDecoder toTrino(String prefix, IndexMetadata.Field field)
     {
-        String path = appendPath(prefix, field.getName());
+        String path = appendPath(prefix, field.name());
 
         checkArgument(!field.asRawJson() || !field.isArray(), format("A column, (%s) cannot be declared as a Trino array and also be rendered as json.", path));
 
@@ -291,12 +297,12 @@ public class ElasticsearchMetadata
 
         if (field.isArray()) {
             TypeAndDecoder element = toTrino(path, elementField(field));
-            return new TypeAndDecoder(new ArrayType(element.getType()), new ArrayDecoder.Descriptor(element.getDecoderDescriptor()));
+            return new TypeAndDecoder(new ArrayType(element.type()), new ArrayDecoder.Descriptor(element.decoderDescriptor()));
         }
 
-        IndexMetadata.Type type = field.getType();
+        IndexMetadata.Type type = field.type();
         if (type instanceof PrimitiveType primitiveType) {
-            switch (primitiveType.getName()) {
+            switch (primitiveType.name()) {
                 case "float":
                     return new TypeAndDecoder(REAL, new RealDecoder.Descriptor(path));
                 case "double":
@@ -324,7 +330,7 @@ public class ElasticsearchMetadata
             return new TypeAndDecoder(DOUBLE, new DoubleDecoder.Descriptor(path));
         }
         else if (type instanceof DateTimeType dateTimeType) {
-            if (dateTimeType.getFormats().isEmpty()) {
+            if (dateTimeType.formats().isEmpty()) {
                 return new TypeAndDecoder(TIMESTAMP_MILLIS, new TimestampDecoder.Descriptor(path));
             }
             // otherwise, skip -- we don't support custom formats, yet
@@ -332,13 +338,13 @@ public class ElasticsearchMetadata
         else if (type instanceof ObjectType objectType) {
             ImmutableList.Builder<RowType.Field> rowFieldsBuilder = ImmutableList.builder();
             ImmutableList.Builder<RowDecoder.NameAndDescriptor> decoderFields = ImmutableList.builder();
-            for (IndexMetadata.Field rowField : objectType.getFields()) {
-                String name = rowField.getName();
+            for (IndexMetadata.Field rowField : objectType.fields()) {
+                String name = rowField.name();
                 TypeAndDecoder child = toTrino(path, rowField);
 
                 if (child != null) {
-                    decoderFields.add(new RowDecoder.NameAndDescriptor(name, child.getDecoderDescriptor()));
-                    rowFieldsBuilder.add(RowType.field(name, child.getType()));
+                    decoderFields.add(new RowDecoder.NameAndDescriptor(name, child.decoderDescriptor()));
+                    rowFieldsBuilder.add(RowType.field(name, child.type()));
                 }
             }
 
@@ -365,7 +371,7 @@ public class ElasticsearchMetadata
     public static IndexMetadata.Field elementField(IndexMetadata.Field field)
     {
         checkArgument(field.isArray(), "Cannot get element field from a non-array field");
-        return new IndexMetadata.Field(field.asRawJson(), false, field.getName(), field.getType());
+        return new IndexMetadata.Field(field.asRawJson(), false, field.name(), field.type());
     }
 
     @Override
@@ -402,7 +408,7 @@ public class ElasticsearchMetadata
         }
 
         InternalTableMetadata tableMetadata = makeInternalTableMetadata(tableHandle);
-        return tableMetadata.getColumnHandles();
+        return tableMetadata.columnHandles();
     }
 
     @Override
@@ -412,18 +418,18 @@ public class ElasticsearchMetadata
         ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) columnHandle;
 
         if (isPassthroughQuery(table)) {
-            if (column.getName().equals(PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA.getName())) {
+            if (column.name().equals(PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA.getName())) {
                 return PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA;
             }
 
-            throw new IllegalArgumentException(format("Unexpected column for table '%s$query': %s", table.getIndex(), column.getName()));
+            throw new IllegalArgumentException(format("Unexpected column for table '%s$query': %s", table.index(), column.name()));
         }
 
-        return BuiltinColumns.of(column.getName())
+        return BuiltinColumns.of(column.name())
                 .map(BuiltinColumns::getMetadata)
                 .orElse(ColumnMetadata.builder()
-                        .setName(column.getName())
-                        .setType(column.getType())
+                        .setName(column.name())
+                        .setType(column.type())
                         .build());
     }
 
@@ -468,7 +474,7 @@ public class ElasticsearchMetadata
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
 
         return new ConnectorTableProperties(
-                handle.getConstraint(),
+                handle.constraint(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableList.of());
@@ -484,17 +490,17 @@ public class ElasticsearchMetadata
             return Optional.empty();
         }
 
-        if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
+        if (handle.limit().isPresent() && handle.limit().getAsLong() <= limit) {
             return Optional.empty();
         }
 
         handle = new ElasticsearchTableHandle(
-                handle.getType(),
-                handle.getSchema(),
-                handle.getIndex(),
-                handle.getConstraint(),
-                handle.getRegexes(),
-                handle.getQuery(),
+                handle.type(),
+                handle.schema(),
+                handle.index(),
+                handle.constraint(),
+                handle.regexes(),
+                handle.query(),
                 OptionalLong.of(limit));
 
         return Optional.of(new LimitApplicationResult<>(handle, false, false));
@@ -516,7 +522,7 @@ public class ElasticsearchMetadata
         for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
             ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) entry.getKey();
 
-            if (column.isSupportsPredicates()) {
+            if (column.supportsPredicates()) {
                 supported.put(column, entry.getValue());
             }
             else {
@@ -524,11 +530,11 @@ public class ElasticsearchMetadata
             }
         }
 
-        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> oldDomain = handle.constraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(TupleDomain.withColumnDomains(supported));
 
         ConnectorExpression oldExpression = constraint.getExpression();
-        Map<String, String> newRegexes = new HashMap<>(handle.getRegexes());
+        Map<String, String> newRegexes = new HashMap<>(handle.regexes());
         List<ConnectorExpression> expressions = ConnectorExpressions.extractConjuncts(constraint.getExpression());
         List<ConnectorExpression> notHandledExpressions = new ArrayList<>();
         for (ConnectorExpression expression : expressions) {
@@ -538,7 +544,7 @@ public class ElasticsearchMetadata
                     String variableName = ((Variable) arguments.get(0)).getName();
                     ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) constraint.getAssignments().get(variableName);
                     verifyNotNull(column, "No assignment for %s", variableName);
-                    String columnName = column.getName();
+                    String columnName = column.name();
                     Object pattern = ((Constant) arguments.get(1)).getValue();
                     Optional<Slice> escape = Optional.empty();
                     if (arguments.size() == 3) {
@@ -546,10 +552,10 @@ public class ElasticsearchMetadata
                     }
 
                     if (!newRegexes.containsKey(columnName) && pattern instanceof Slice) {
-                        IndexMetadata metadata = client.getIndexMetadata(handle.getIndex());
-                        if (metadata.getSchema()
-                                    .getFields().stream()
-                                    .anyMatch(field -> columnName.equals(field.getName()) && field.getType() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.getType()).getName()))) {
+                        IndexMetadata metadata = client.getIndexMetadata(handle.index());
+                        if (metadata.schema()
+                                    .fields().stream()
+                                    .anyMatch(field -> columnName.equals(field.name()) && field.type() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.type()).name()))) {
                             newRegexes.put(columnName, likeToRegexp((Slice) pattern, escape));
                             continue;
                         }
@@ -565,13 +571,13 @@ public class ElasticsearchMetadata
         }
 
         handle = new ElasticsearchTableHandle(
-                handle.getType(),
-                handle.getSchema(),
-                handle.getIndex(),
+                handle.type(),
+                handle.schema(),
+                handle.index(),
                 newDomain,
                 newRegexes,
-                handle.getQuery(),
-                handle.getLimit());
+                handle.query(),
+                handle.limit());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), newExpression, false));
     }
@@ -658,7 +664,7 @@ public class ElasticsearchMetadata
 
     private static boolean isPassthroughQuery(ElasticsearchTableHandle table)
     {
-        return table.getType().equals(QUERY);
+        return table.type().equals(QUERY);
     }
 
     @Override
@@ -673,57 +679,7 @@ public class ElasticsearchMetadata
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
 
-    private static class InternalTableMetadata
-    {
-        private final SchemaTableName tableName;
-        private final List<ColumnMetadata> columnMetadata;
-        private final Map<String, ColumnHandle> columnHandles;
+    private record InternalTableMetadata(SchemaTableName tableName, List<ColumnMetadata> columnMetadata, Map<String, ColumnHandle> columnHandles) {}
 
-        public InternalTableMetadata(
-                SchemaTableName tableName,
-                List<ColumnMetadata> columnMetadata,
-                Map<String, ColumnHandle> columnHandles)
-        {
-            this.tableName = tableName;
-            this.columnMetadata = columnMetadata;
-            this.columnHandles = columnHandles;
-        }
-
-        public SchemaTableName getTableName()
-        {
-            return tableName;
-        }
-
-        public List<ColumnMetadata> getColumnMetadata()
-        {
-            return columnMetadata;
-        }
-
-        public Map<String, ColumnHandle> getColumnHandles()
-        {
-            return columnHandles;
-        }
-    }
-
-    private static class TypeAndDecoder
-    {
-        private final Type type;
-        private final DecoderDescriptor decoderDescriptor;
-
-        public TypeAndDecoder(Type type, DecoderDescriptor decoderDescriptor)
-        {
-            this.type = type;
-            this.decoderDescriptor = decoderDescriptor;
-        }
-
-        public Type getType()
-        {
-            return type;
-        }
-
-        public DecoderDescriptor getDecoderDescriptor()
-        {
-            return decoderDescriptor;
-        }
-    }
+    private record TypeAndDecoder(Type type, DecoderDescriptor decoderDescriptor) {}
 }

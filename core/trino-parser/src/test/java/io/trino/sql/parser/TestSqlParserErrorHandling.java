@@ -22,9 +22,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.stream.Stream;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestSqlParserErrorHandling
 {
@@ -239,10 +238,10 @@ public class TestSqlParserErrorHandling
     {
         assertThatThrownBy(() -> SQL_PARSER.createStatement("select *\nfrom x\nwhere from"))
                 .isInstanceOfSatisfying(ParsingException.class, e -> {
-                    assertTrue(e.getMessage().startsWith("line 3:7: mismatched input 'from'"));
-                    assertTrue(e.getErrorMessage().startsWith("mismatched input 'from'"));
-                    assertEquals(3, e.getLineNumber());
-                    assertEquals(7, e.getColumnNumber());
+                    assertThat(e.getMessage().startsWith("line 3:7: mismatched input 'from'")).isTrue();
+                    assertThat(e.getErrorMessage().startsWith("mismatched input 'from'")).isTrue();
+                    assertThat(e.getLineNumber()).isEqualTo(3);
+                    assertThat(e.getColumnNumber()).isEqualTo(7);
                 });
     }
 

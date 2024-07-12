@@ -31,9 +31,9 @@ public class PageProcessorMetrics
     private long projectionTimeNanos;
     private boolean hasProjection;
 
-    public void recordFilterTimeSince(long startNanos)
+    public void recordFilterTime(long filterTimeNanos)
     {
-        filterTimeNanos += System.nanoTime() - startNanos;
+        this.filterTimeNanos += filterTimeNanos;
         hasFilter = true;
     }
 

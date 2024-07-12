@@ -27,6 +27,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveStorageFormat;
@@ -46,6 +47,7 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.plugin.iceberg.util.OrcMetrics;
+import io.trino.plugin.iceberg.util.ParquetUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorSession;
@@ -68,10 +70,8 @@ import org.apache.iceberg.Transaction;
 import org.apache.iceberg.avro.Avro;
 import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.mapping.NameMapping;
-import org.apache.iceberg.parquet.ParquetUtil;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
-import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -187,7 +187,7 @@ public class MigrateProcedure
         // this line guarantees that classLoader that we stored in the field will be used inside try/catch
         // as we captured reference to PluginClassLoader during initialization of this class
         // we can use it now to correctly execute the procedure
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doMigrate(session, schemaName, tableName, recursiveDirectory);
         }
     }

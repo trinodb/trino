@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.opensearch;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -29,6 +31,8 @@ import org.apache.http.HttpHost;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestHighLevelClient;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -38,102 +42,98 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class OpenSearchQueryRunner
 {
+    private OpenSearchQueryRunner() {}
+
     static {
         Logging logging = Logging.initialize();
         logging.setLevel("org.opensearch.client.RestClient", Level.OFF);
     }
 
-    private OpenSearchQueryRunner() {}
-
     private static final Logger LOG = Logger.get(OpenSearchQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static QueryRunner createOpenSearchQueryRunner(
-            HostAndPort address,
-            Iterable<TpchTable<?>> tables,
-            Map<String, String> extraProperties,
-            Map<String, String> extraConnectorProperties,
-            int nodeCount)
-            throws Exception
+    public static Builder builder(HostAndPort address)
     {
-        return createOpenSearchQueryRunner(address, tables, extraProperties, extraConnectorProperties, nodeCount, "opensearch");
+        return new Builder(address);
     }
 
-    public static QueryRunner createOpenSearchQueryRunner(
-            HostAndPort address,
-            Iterable<TpchTable<?>> tables,
-            Map<String, String> extraProperties,
-            Map<String, String> extraConnectorProperties,
-            int nodeCount,
-            String catalogName)
-            throws Exception
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        RestHighLevelClient client = null;
-        DistributedQueryRunner queryRunner = null;
-        try {
-            queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
-                            .setCatalog(catalogName)
-                            .setSchema(TPCH_SCHEMA)
-                            .build())
-                    .setExtraProperties(extraProperties)
-                    .setNodeCount(nodeCount)
-                    .build();
+        private final HostAndPort address;
+        private final Map<String, String> connectorProperties = new HashMap<>();
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-            queryRunner.installPlugin(new JmxPlugin());
-            queryRunner.createCatalog("jmx", "jmx");
+        private Builder(HostAndPort address)
+        {
+            super(testSessionBuilder()
+                    .setCatalog("opensearch")
+                    .setSchema(TPCH_SCHEMA)
+                    .build());
 
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
+            connectorProperties.put("opensearch.host", address.getHost());
+            connectorProperties.put("opensearch.port", Integer.toString(address.getPort()));
+            // Node discovery relies on the publish_address exposed via the OpenSearch API
+            // This doesn't work well within a docker environment that maps OpenSearch port to a random public port
+            connectorProperties.put("opensearch.ignore-publish-address", "true");
+            connectorProperties.put("opensearch.default-schema-name", TPCH_SCHEMA);
+            connectorProperties.put("opensearch.scroll-size", "1000");
+            connectorProperties.put("opensearch.scroll-timeout", "1m");
+            connectorProperties.put("opensearch.request-timeout", "2m");
 
-            OpenSearchConnectorFactory testFactory = new OpenSearchConnectorFactory();
+            this.address = requireNonNull(address, "address is null");
+        }
 
-            installOpenSearchPlugin(address, queryRunner, catalogName, testFactory, extraConnectorProperties);
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperties(Map<String, String> connectorProperties)
+        {
+            this.connectorProperties.putAll(requireNonNull(connectorProperties, "connectorProperties is null"));
+            return this;
+        }
 
-            TestingTrinoClient trinoClient = queryRunner.getClient();
+        @CanIgnoreReturnValue
+        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
+            return this;
+        }
 
-            LOG.info("Loading data...");
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new JmxPlugin());
+                queryRunner.createCatalog("jmx", "jmx");
 
-            client = new RestHighLevelClient(RestClient.builder(HttpHost.create(address.toString())));
-            long startTime = System.nanoTime();
-            for (TpchTable<?> table : tables) {
-                loadTpchTopic(client, trinoClient, table);
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                queryRunner.installPlugin(new OpenSearchPlugin(new OpenSearchConnectorFactory()));
+                queryRunner.createCatalog("opensearch", "opensearch", connectorProperties);
+
+                LOG.info("Loading data...");
+                long startTime = System.nanoTime();
+                try (RestHighLevelClient client = new RestHighLevelClient(RestClient.builder(HttpHost.create(address.toString())))) {
+                    for (TpchTable<?> table : initialTables) {
+                        loadTpchTopic(client, queryRunner.getClient(), table);
+                    }
+                }
+                LOG.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
+
+                return queryRunner;
             }
-            LOG.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
-
-            return queryRunner;
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
         }
-        catch (Exception e) {
-            closeAllSuppress(e, queryRunner, client);
-            throw e;
-        }
-    }
-
-    private static void installOpenSearchPlugin(
-            HostAndPort address,
-            QueryRunner queryRunner,
-            String catalogName,
-            OpenSearchConnectorFactory factory,
-            Map<String, String> extraConnectorProperties)
-    {
-        queryRunner.installPlugin(new OpenSearchPlugin(factory));
-        Map<String, String> config = ImmutableMap.<String, String>builder()
-                .put("opensearch.host", address.getHost())
-                .put("opensearch.port", Integer.toString(address.getPort()))
-                // Node discovery relies on the publish_address exposed via the OpenSearch API
-                // This doesn't work well within a docker environment that maps OpenSearch port to a random public port
-                .put("opensearch.ignore-publish-address", "true")
-                .put("opensearch.default-schema-name", TPCH_SCHEMA)
-                .put("opensearch.scroll-size", "1000")
-                .put("opensearch.scroll-timeout", "1m")
-                .put("opensearch.request-timeout", "2m")
-                .putAll(extraConnectorProperties)
-                .buildOrThrow();
-
-        queryRunner.createCatalog(catalogName, "opensearch", config);
     }
 
     private static void loadTpchTopic(RestHighLevelClient client, TestingTrinoClient trinoClient, TpchTable<?> table)
@@ -148,12 +148,10 @@ public final class OpenSearchQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        QueryRunner queryRunner = createOpenSearchQueryRunner(
-                new OpenSearchServer(OPENSEARCH_IMAGE, false, ImmutableMap.of()).getAddress(),
-                TpchTable.getTables(),
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
-                3);
+        QueryRunner queryRunner = builder(new OpenSearchServer(OPENSEARCH_IMAGE, false, ImmutableMap.of()).getAddress())
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .setInitialTables(TpchTable.getTables())
+                .build();
 
         Logger log = Logger.get(OpenSearchQueryRunner.class);
         log.info("======== SERVER STARTED ========");

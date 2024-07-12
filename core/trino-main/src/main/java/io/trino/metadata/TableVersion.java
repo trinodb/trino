@@ -16,31 +16,12 @@ package io.trino.metadata;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.type.Type;
 
-public class TableVersion
+import static java.util.Objects.requireNonNull;
+
+public record TableVersion(PointerType pointerType, Type objectType, Object pointer)
 {
-    private final PointerType pointerType;
-    private final Type objectType;
-    private final Object pointer;
-
-    public TableVersion(PointerType pointerType, Type objectType, Object pointer)
+    public TableVersion
     {
-        this.pointerType = pointerType;
-        this.objectType = objectType;
-        this.pointer = pointer;
-    }
-
-    public PointerType getPointerType()
-    {
-        return pointerType;
-    }
-
-    public Type getObjectType()
-    {
-        return objectType;
-    }
-
-    public Object getPointer()
-    {
-        return pointer;
+        requireNonNull(objectType, "objectType is null");
     }
 }

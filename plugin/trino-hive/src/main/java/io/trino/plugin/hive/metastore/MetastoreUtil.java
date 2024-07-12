@@ -154,8 +154,8 @@ public final class MetastoreUtil
         schema.put(META_TABLE_LOCATION, sd.getLocation());
 
         if (sd.getBucketProperty().isPresent()) {
-            schema.put(BUCKET_FIELD_NAME, Joiner.on(",").join(sd.getBucketProperty().get().getBucketedBy()));
-            schema.put(BUCKET_COUNT, Integer.toString(sd.getBucketProperty().get().getBucketCount()));
+            schema.put(BUCKET_FIELD_NAME, Joiner.on(",").join(sd.getBucketProperty().get().bucketedBy()));
+            schema.put(BUCKET_COUNT, Integer.toString(sd.getBucketProperty().get().bucketCount()));
         }
         else {
             schema.put(BUCKET_COUNT, "0");

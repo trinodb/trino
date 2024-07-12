@@ -21,33 +21,17 @@ import org.apache.kafka.common.TopicPartition;
 import java.util.List;
 import java.util.Map;
 
-public class KafkaFilteringResult
+import static java.util.Objects.requireNonNull;
+
+public record KafkaFilteringResult(
+        List<PartitionInfo> partitionInfos,
+        Map<TopicPartition, Long> partitionBeginOffsets,
+        Map<TopicPartition, Long> partitionEndOffsets)
 {
-    private final List<PartitionInfo> partitionInfos;
-    private final Map<TopicPartition, Long> partitionBeginOffsets;
-    private final Map<TopicPartition, Long> partitionEndOffsets;
-
-    public KafkaFilteringResult(List<PartitionInfo> partitionInfos,
-            Map<TopicPartition, Long> partitionBeginOffsets,
-            Map<TopicPartition, Long> partitionEndOffsets)
+    public KafkaFilteringResult
     {
-        this.partitionInfos = ImmutableList.copyOf(partitionInfos);
-        this.partitionBeginOffsets = ImmutableMap.copyOf(partitionBeginOffsets);
-        this.partitionEndOffsets = ImmutableMap.copyOf(partitionEndOffsets);
-    }
-
-    public List<PartitionInfo> getPartitionInfos()
-    {
-        return partitionInfos;
-    }
-
-    public Map<TopicPartition, Long> getPartitionBeginOffsets()
-    {
-        return partitionBeginOffsets;
-    }
-
-    public Map<TopicPartition, Long> getPartitionEndOffsets()
-    {
-        return partitionEndOffsets;
+        partitionInfos = ImmutableList.copyOf(requireNonNull(partitionInfos, "partitionInfos is null"));
+        partitionBeginOffsets = ImmutableMap.copyOf(requireNonNull(partitionBeginOffsets, "partitionBeginOffsets is null"));
+        partitionEndOffsets = ImmutableMap.copyOf(requireNonNull(partitionEndOffsets, "partitionEndOffsets is null"));
     }
 }

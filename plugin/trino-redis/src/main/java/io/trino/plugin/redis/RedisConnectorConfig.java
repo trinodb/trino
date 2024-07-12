@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.redis;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -27,10 +26,10 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.io.File;
+import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Streams.stream;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -90,9 +89,9 @@ public class RedisConnectorConfig
 
     @Config("redis.table-names")
     @ConfigDescription("Set of tables known to this connector. For each table, a description file may be present in the catalog folder which describes columns for the given table")
-    public RedisConnectorConfig setTableNames(String tableNames)
+    public RedisConnectorConfig setTableNames(Set<String> tableNames)
     {
-        this.tableNames = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(tableNames));
+        this.tableNames = ImmutableSet.copyOf(tableNames);
         return this;
     }
 
@@ -118,9 +117,11 @@ public class RedisConnectorConfig
 
     @Config("redis.nodes")
     @ConfigDescription("Seed nodes for Redis cluster. At least one must exist")
-    public RedisConnectorConfig setNodes(String nodes)
+    public RedisConnectorConfig setNodes(List<String> nodes)
     {
-        this.nodes = (nodes == null) ? null : parseNodes(nodes);
+        this.nodes = nodes.stream()
+                .map(RedisConnectorConfig::toHostAddress)
+                .collect(toImmutableSet());
         return this;
     }
 
@@ -243,15 +244,6 @@ public class RedisConnectorConfig
     {
         this.keyPrefixSchemaTable = keyPrefixSchemaTable;
         return this;
-    }
-
-    public static ImmutableSet<HostAddress> parseNodes(String nodes)
-    {
-        Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
-
-        return stream(splitter.split(nodes))
-                .map(RedisConnectorConfig::toHostAddress)
-                .collect(toImmutableSet());
     }
 
     private static HostAddress toHostAddress(String value)

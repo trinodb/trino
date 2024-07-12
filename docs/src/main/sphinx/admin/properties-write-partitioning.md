@@ -1,7 +1,6 @@
 # Write partitioning properties
 
 (preferred-write-partitioning)=
-
 ## `use-preferred-write-partitioning`
 
 - **Type:** {ref}`prop-type-boolean`

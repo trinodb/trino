@@ -69,7 +69,7 @@ public final class OrcFileWriter
     private static final int INSTANCE_SIZE = instanceSize(OrcFileWriter.class);
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
-    protected final OrcWriter orcWriter;
+    private final OrcWriter orcWriter;
     private final WriterKind writerKind;
     private final AcidTransaction transaction;
     private final boolean useAcidSchema;
@@ -190,9 +190,9 @@ public final class OrcFileWriter
             try {
                 rollbackAction.close();
             }
-            catch (Exception ignored) {
+            catch (Exception ex) {
                 // ignore
-                log.error(ignored, "Exception when committing file");
+                log.error(ex, "Exception when committing file");
             }
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
@@ -282,12 +282,10 @@ public final class OrcFileWriter
 
     private int getOrcOperation(AcidTransaction transaction)
     {
-        switch (transaction.getOperation()) {
-            case INSERT:
-                return 0;
-            default:
-                throw new VerifyException("In getOrcOperation, the transaction operation is not allowed, transaction " + transaction);
-        }
+        return switch (transaction.getOperation()) {
+            case INSERT -> 0;
+            default -> throw new VerifyException("In getOrcOperation, the transaction operation is not allowed, transaction " + transaction);
+        };
     }
 
     private Block buildAcidRowIdsColumn(int positionCount)

@@ -68,7 +68,7 @@ public class KafkaPageSinkProvider
 
         ImmutableList.Builder<EncoderColumnHandle> keyColumns = ImmutableList.builder();
         ImmutableList.Builder<EncoderColumnHandle> messageColumns = ImmutableList.builder();
-        handle.getColumns().forEach(col -> {
+        handle.columns().forEach(col -> {
             if (col.isInternal()) {
                 throw new IllegalArgumentException(format("unexpected internal column '%s'", col.getName()));
             }
@@ -89,8 +89,8 @@ public class KafkaPageSinkProvider
                 toRowEncoderSpec(handle, messageColumns.build(), MESSAGE));
 
         return new KafkaPageSink(
-                handle.getTopicName(),
-                handle.getColumns(),
+                handle.topicName(),
+                handle.columns(),
                 keyEncoder,
                 messageEncoder,
                 producerFactory,
@@ -100,8 +100,8 @@ public class KafkaPageSinkProvider
     private static RowEncoderSpec toRowEncoderSpec(KafkaTableHandle handle, List<EncoderColumnHandle> columns, KafkaFieldType kafkaFieldType)
     {
         return switch (kafkaFieldType) {
-            case KEY -> new RowEncoderSpec(handle.getKeyDataFormat(), getDataSchema(handle.getKeyDataSchemaLocation()), columns, handle.getTopicName(), kafkaFieldType);
-            case MESSAGE -> new RowEncoderSpec(handle.getMessageDataFormat(), getDataSchema(handle.getMessageDataSchemaLocation()), columns, handle.getTopicName(), kafkaFieldType);
+            case KEY -> new RowEncoderSpec(handle.keyDataFormat(), getDataSchema(handle.keyDataSchemaLocation()), columns, handle.topicName(), kafkaFieldType);
+            case MESSAGE -> new RowEncoderSpec(handle.messageDataFormat(), getDataSchema(handle.messageDataSchemaLocation()), columns, handle.topicName(), kafkaFieldType);
         };
     }
 

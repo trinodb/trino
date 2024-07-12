@@ -174,6 +174,12 @@ public class Storage
             return this;
         }
 
+        public Builder setBucketProperty(HiveBucketProperty bucketProperty)
+        {
+            this.bucketProperty = Optional.of(bucketProperty);
+            return this;
+        }
+
         public Builder setBucketProperty(Optional<HiveBucketProperty> bucketProperty)
         {
             this.bucketProperty = bucketProperty;

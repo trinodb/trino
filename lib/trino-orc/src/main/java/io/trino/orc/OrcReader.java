@@ -158,7 +158,7 @@ public class OrcReader
                     throw new OrcCorruptionException(orcDataSource.getId(), "Not an ORC file");
                 }
             }
-            catch (IOException ignored) {
+            catch (IOException _) {
                 // throw original exception
             }
 
@@ -367,7 +367,7 @@ public class OrcReader
                             orcDataSourceId))
                     .collect(toImmutableList());
         }
-        return new OrcColumn(path, columnId, fieldName, orcType.getOrcTypeKind(), orcDataSourceId, nestedColumns, orcType.getAttributes());
+        return new OrcColumn(path, columnId, fieldName, orcType, orcDataSourceId, nestedColumns, orcType.getAttributes());
     }
 
     /**

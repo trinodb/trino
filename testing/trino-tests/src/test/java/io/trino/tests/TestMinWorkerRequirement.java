@@ -23,7 +23,7 @@ import io.trino.execution.QueryManager;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -49,12 +49,12 @@ public class TestMinWorkerRequirement
     public void testInsufficientWorkerNodes()
     {
         assertThatThrownBy(() -> {
-            try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+            try (QueryRunner queryRunner = TpchQueryRunner.builder()
                     .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                             .put("query-manager.required-workers", "5")
                             .put("query-manager.required-workers-max-wait", "1ns")
                             .buildOrThrow())
-                    .setNodeCount(4)
+                    .setWorkerCount(3)
                     .build()) {
                 queryRunner.execute("SELECT COUNT(*) from lineitem");
                 fail("Expected exception due to insufficient active worker nodes");
@@ -68,13 +68,13 @@ public class TestMinWorkerRequirement
     public void testInsufficientWorkerNodesWithCoordinatorExcluded()
     {
         assertThatThrownBy(() -> {
-            try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+            try (QueryRunner queryRunner = TpchQueryRunner.builder()
                     .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                             .put("node-scheduler.include-coordinator", "false")
                             .put("query-manager.required-workers", "4")
                             .put("query-manager.required-workers-max-wait", "1ns")
                             .buildOrThrow())
-                    .setNodeCount(4)
+                    .setWorkerCount(3)
                     .build()) {
                 queryRunner.execute("SELECT COUNT(*) from lineitem");
                 fail("Expected exception due to insufficient active worker nodes");
@@ -88,12 +88,12 @@ public class TestMinWorkerRequirement
     public void testInsufficientWorkerNodesInternalSystemQuery()
             throws Exception
     {
-        try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+        try (QueryRunner queryRunner = TpchQueryRunner.builder()
                 .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                         .put("query-manager.required-workers", "5")
                         .put("query-manager.required-workers-max-wait", "1ns")
                         .buildOrThrow())
-                .setNodeCount(4)
+                .setWorkerCount(3)
                 .build()) {
             queryRunner.execute("SELECT 1");
             queryRunner.execute("DESCRIBE lineitem");
@@ -110,12 +110,12 @@ public class TestMinWorkerRequirement
     public void testInsufficientWorkerNodesAfterDrop()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+        try (DistributedQueryRunner queryRunner = TpchQueryRunner.builder()
                 .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                         .put("query-manager.required-workers", "4")
                         .put("query-manager.required-workers-max-wait", "1ns")
                         .buildOrThrow())
-                .setNodeCount(4)
+                .setWorkerCount(3)
                 .build()) {
             queryRunner.execute("SELECT COUNT(*) from lineitem");
             assertThat(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size()).isEqualTo(4);
@@ -132,12 +132,12 @@ public class TestMinWorkerRequirement
     public void testRequiredNodesMaxWaitSessionOverride()
     {
         assertThatThrownBy(() -> {
-            try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+            try (QueryRunner queryRunner = TpchQueryRunner.builder()
                     .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                             .put("query-manager.required-workers", "3")
                             .put("query-manager.required-workers-max-wait", "1ns")
                             .buildOrThrow())
-                    .setNodeCount(2)
+                    .setWorkerCount(1)
                     .build()) {
                 Session session = testSessionBuilder()
                         .setSystemProperty(REQUIRED_WORKERS_COUNT, "3")
@@ -157,12 +157,12 @@ public class TestMinWorkerRequirement
     public void testRequiredWorkerNodesSessionOverride()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+        try (DistributedQueryRunner queryRunner = TpchQueryRunner.builder()
                 .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                         .put("query-manager.required-workers", "5")
                         .put("query-manager.required-workers-max-wait", "1ns")
                         .buildOrThrow())
-                .setNodeCount(4)
+                .setWorkerCount(3)
                 .build()) {
             // Query should be allowed to run if session override allows it
             Session session = testSessionBuilder()
@@ -192,11 +192,9 @@ public class TestMinWorkerRequirement
             throws Exception
     {
         ListeningExecutorService service = MoreExecutors.listeningDecorator(newFixedThreadPool(3));
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().setNodeCount(1).build()) {
-            Session session1 = testSessionBuilder()
+        try (DistributedQueryRunner queryRunner = TpchQueryRunner.builder().setWorkerCount(0).build()) {
+            Session session1 = Session.builder(queryRunner.getDefaultSession())
                     .setSystemProperty(REQUIRED_WORKERS_COUNT, "2")
-                    .setCatalog("tpch")
-                    .setSchema("tiny")
                     .build();
             ListenableFuture<MaterializedResultWithPlan> queryFuture1 = service.submit(() -> queryRunner.executeWithPlan(session1, "SELECT COUNT(*) from lineitem"));
 

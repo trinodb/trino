@@ -72,15 +72,15 @@ public final class PageFieldsToInputParametersRewriter
         public RowExpression visitInputReference(InputReferenceExpression reference, Boolean unconditionallyEvaluated)
         {
             if (unconditionallyEvaluated) {
-                eagerlyLoadedChannels.add(reference.getField());
+                eagerlyLoadedChannels.add(reference.field());
             }
             int parameter = getParameterForField(reference);
-            return field(parameter, reference.getType());
+            return field(parameter, reference.type());
         }
 
         private Integer getParameterForField(InputReferenceExpression reference)
         {
-            return fieldToParameter.computeIfAbsent(reference.getField(), field -> {
+            return fieldToParameter.computeIfAbsent(reference.field(), field -> {
                 inputChannels.add(field);
                 return nextParameter++;
             });
@@ -89,10 +89,10 @@ public final class PageFieldsToInputParametersRewriter
         @Override
         public RowExpression visitCall(CallExpression call, Boolean unconditionallyEvaluated)
         {
-            boolean containsLambdaExpression = call.getArguments().stream().anyMatch(LambdaDefinitionExpression.class::isInstance);
+            boolean containsLambdaExpression = call.arguments().stream().anyMatch(LambdaDefinitionExpression.class::isInstance);
             return new CallExpression(
-                    call.getResolvedFunction(),
-                    call.getArguments().stream()
+                    call.resolvedFunction(),
+                    call.arguments().stream()
                             // Lambda expressions may use only some of their input references, e.g. transform(elements, x -> 1)
                             // TODO: Currently we fallback to assuming that all the arguments are conditionally evaluated when
                             //   a lambda expression is encountered for the sake of simplicity.
@@ -103,38 +103,26 @@ public final class PageFieldsToInputParametersRewriter
         @Override
         public RowExpression visitSpecialForm(SpecialForm specialForm, Boolean unconditionallyEvaluated)
         {
-            switch (specialForm.getForm()) {
-                case IF:
-                case SWITCH:
-                case BETWEEN:
-                case AND:
-                case OR:
-                case COALESCE:
-                    List<RowExpression> arguments = specialForm.getArguments();
-                    return new SpecialForm(
-                            specialForm.getForm(),
-                            specialForm.getType(),
+            return switch (specialForm.form()) {
+                case IF, SWITCH, BETWEEN, AND, OR, COALESCE -> {
+                    List<RowExpression> arguments = specialForm.arguments();
+                    yield new SpecialForm(
+                            specialForm.form(),
+                            specialForm.type(),
                             IntStream.range(0, arguments.size()).boxed()
                                     // All the arguments after the first one are assumed to be conditionally evaluated
                                     .map(index -> arguments.get(index).accept(this, index == 0 && unconditionallyEvaluated))
                                     .collect(toImmutableList()),
-                            specialForm.getFunctionDependencies());
-                case BIND:
-                case IN:
-                case WHEN:
-                case IS_NULL:
-                case NULL_IF:
-                case DEREFERENCE:
-                case ROW_CONSTRUCTOR:
-                    return new SpecialForm(
-                            specialForm.getForm(),
-                            specialForm.getType(),
-                            specialForm.getArguments().stream()
-                                    .map(expression -> expression.accept(this, unconditionallyEvaluated))
-                                    .collect(toImmutableList()),
-                            specialForm.getFunctionDependencies());
-            }
-            throw new IllegalArgumentException("Unsupported special form " + specialForm.getForm());
+                            specialForm.functionDependencies());
+                }
+                case BIND, IN, WHEN, IS_NULL, NULL_IF, DEREFERENCE, ROW_CONSTRUCTOR, ARRAY_CONSTRUCTOR -> new SpecialForm(
+                        specialForm.form(),
+                        specialForm.type(),
+                        specialForm.arguments().stream()
+                                .map(expression -> expression.accept(this, unconditionallyEvaluated))
+                                .collect(toImmutableList()),
+                        specialForm.functionDependencies());
+            };
         }
 
         @Override
@@ -147,8 +135,8 @@ public final class PageFieldsToInputParametersRewriter
         public RowExpression visitLambda(LambdaDefinitionExpression lambda, Boolean unconditionallyEvaluated)
         {
             return new LambdaDefinitionExpression(
-                    lambda.getArguments(),
-                    lambda.getBody().accept(this, unconditionallyEvaluated));
+                    lambda.arguments(),
+                    lambda.body().accept(this, unconditionallyEvaluated));
         }
 
         @Override

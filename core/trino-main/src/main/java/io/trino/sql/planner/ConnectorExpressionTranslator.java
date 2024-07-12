@@ -47,7 +47,6 @@ import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.NullIf;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.tree.QualifiedName;
@@ -78,8 +77,8 @@ import static io.trino.spi.expression.StandardFunctions.DIVIDE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.IDENTICAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IN_PREDICATE_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
@@ -91,6 +90,7 @@ import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.TRY_CAST_FUNCTION_NAME;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.MODULUS;
@@ -102,6 +102,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.extractConjuncts;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
@@ -160,7 +161,7 @@ public final class ConnectorExpressionTranslator
             case LESS_THAN_OR_EQUAL -> LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
             case GREATER_THAN -> GREATER_THAN_OPERATOR_FUNCTION_NAME;
             case GREATER_THAN_OR_EQUAL -> GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
-            case IS_DISTINCT_FROM -> IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME;
+            case IDENTICAL -> IDENTICAL_OPERATOR_FUNCTION_NAME;
         };
     }
 
@@ -252,6 +253,10 @@ public final class ConnectorExpressionTranslator
                 return translateCast(call.getType(), call.getArguments().get(0));
             }
 
+            if (TRY_CAST_FUNCTION_NAME.equals(call.getFunctionName()) && call.getArguments().size() == 1) {
+                return translateTryCast(call.getType(), call.getArguments().get(0));
+            }
+
             // comparisons
             if (call.getArguments().size() == 2) {
                 Optional<Comparison.Operator> operator = comparisonOperatorForFunctionName(call.getFunctionName());
@@ -294,12 +299,27 @@ public final class ConnectorExpressionTranslator
             return translateCall(call.getFunctionName().getName(), resolved, call.getArguments());
         }
 
+        private Optional<Expression> translateTryCast(Type type, ConnectorExpression argument)
+        {
+            Optional<Expression> translatedArgument = translate(argument);
+            if (translatedArgument.isEmpty()) {
+                return Optional.empty();
+            }
+
+            return Optional.of(new Call(
+                    plannerContext.getMetadata().getCoercion(
+                            builtinFunctionName("$try_cast"),
+                            argument.getType(),
+                            type),
+                    ImmutableList.of(translatedArgument.get())));
+        }
+
         private Optional<Expression> translateCall(String functionName, ResolvedFunction resolved, List<ConnectorExpression> arguments)
         {
             ResolvedFunctionCallBuilder builder = ResolvedFunctionCallBuilder.builder(resolved);
             for (int i = 0; i < arguments.size(); i++) {
                 ConnectorExpression argument = arguments.get(i);
-                Type formalType = resolved.getSignature().getArgumentTypes().get(i);
+                Type formalType = resolved.signature().getArgumentTypes().get(i);
                 Type argumentType = argument.getType();
                 Optional<Expression> translated = translate(argument);
                 if (translated.isEmpty()) {
@@ -324,7 +344,7 @@ public final class ConnectorExpressionTranslator
         {
             Optional<Expression> translatedArgument = translate(argument);
             if (translatedArgument.isPresent()) {
-                return Optional.of(new Not(new IsNull(translatedArgument.get())));
+                return Optional.of(not(plannerContext.getMetadata(), new IsNull(translatedArgument.get())));
             }
 
             return Optional.empty();
@@ -344,7 +364,7 @@ public final class ConnectorExpressionTranslator
         {
             Optional<Expression> translatedArgument = translate(argument);
             if (argument.getType().equals(BOOLEAN) && translatedArgument.isPresent()) {
-                return Optional.of(new Not(translatedArgument.get()));
+                return Optional.of(not(plannerContext.getMetadata(), translatedArgument.get()));
             }
             return Optional.empty();
         }
@@ -404,8 +424,8 @@ public final class ConnectorExpressionTranslator
             if (GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
                 return Optional.of(Comparison.Operator.GREATER_THAN_OR_EQUAL);
             }
-            if (IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME.equals(functionName)) {
-                return Optional.of(Comparison.Operator.IS_DISTINCT_FROM);
+            if (IDENTICAL_OPERATOR_FUNCTION_NAME.equals(functionName)) {
+                return Optional.of(Comparison.Operator.IDENTICAL);
             }
             return Optional.empty();
         }
@@ -613,11 +633,6 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            if (node.safe()) {
-                // try_cast would need to be modeled separately
-                return Optional.empty();
-            }
-
             if (!isComplexExpressionPushdown(session)) {
                 return Optional.empty();
             }
@@ -637,7 +652,7 @@ public final class ConnectorExpressionTranslator
                 return Optional.empty();
             }
 
-            CatalogSchemaFunctionName functionName = node.function().getName();
+            CatalogSchemaFunctionName functionName = node.function().name();
             checkArgument(!isDynamicFilterFunction(functionName), "Dynamic filter has no meaning for a connector, it should not be translated into ConnectorExpression");
 
             if (functionName.equals(builtinFunctionName(LIKE_FUNCTION_NAME))) {
@@ -711,7 +726,7 @@ public final class ConnectorExpressionTranslator
                     arguments.add(new io.trino.spi.expression.Constant(Slices.utf8Slice(matcher.getEscape().get().toString()), createVarcharType(1)));
                 }
             }
-            else if (patternArgument instanceof Call call && call.function().getName().equals(builtinFunctionName(LIKE_PATTERN_FUNCTION_NAME))) {
+            else if (patternArgument instanceof Call call && call.function().name().equals(builtinFunctionName(LIKE_PATTERN_FUNCTION_NAME))) {
                 Optional<ConnectorExpression> translatedPattern = process(call.arguments().get(0));
                 if (translatedPattern.isEmpty()) {
                     return Optional.empty();
@@ -739,16 +754,6 @@ public final class ConnectorExpressionTranslator
             Optional<ConnectorExpression> translatedValue = process(node.value());
             if (translatedValue.isPresent()) {
                 return Optional.of(new io.trino.spi.expression.Call(BOOLEAN, IS_NULL_FUNCTION_NAME, ImmutableList.of(translatedValue.get())));
-            }
-            return Optional.empty();
-        }
-
-        @Override
-        protected Optional<ConnectorExpression> visitNot(Not node, Void context)
-        {
-            Optional<ConnectorExpression> translatedValue = process(node.value());
-            if (translatedValue.isPresent()) {
-                return Optional.of(new io.trino.spi.expression.Call(BOOLEAN, NOT_FUNCTION_NAME, List.of(translatedValue.get())));
             }
             return Optional.empty();
         }

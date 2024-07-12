@@ -25,6 +25,7 @@ import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTSessionCatalog;
@@ -41,11 +42,13 @@ public class TrinoIcebergRestCatalogFactory
     private final CatalogName catalogName;
     private final String trinoVersion;
     private final URI serverUri;
+    private final Optional<String> prefix;
     private final Optional<String> warehouse;
     private final SessionType sessionType;
     private final boolean vendedCredentialsEnabled;
     private final SecurityProperties securityProperties;
     private final boolean uniqueTableLocation;
+    private final TypeManager typeManager;
 
     @GuardedBy("this")
     private RESTSessionCatalog icebergCatalog;
@@ -57,6 +60,7 @@ public class TrinoIcebergRestCatalogFactory
             IcebergRestCatalogConfig restConfig,
             SecurityProperties securityProperties,
             IcebergConfig icebergConfig,
+            TypeManager typeManager,
             NodeVersion nodeVersion)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -64,12 +68,14 @@ public class TrinoIcebergRestCatalogFactory
         this.trinoVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         requireNonNull(restConfig, "restConfig is null");
         this.serverUri = restConfig.getBaseUri();
+        this.prefix = restConfig.getPrefix();
         this.warehouse = restConfig.getWarehouse();
         this.sessionType = restConfig.getSessionType();
         this.vendedCredentialsEnabled = restConfig.isVendedCredentialsEnabled();
         this.securityProperties = requireNonNull(securityProperties, "securityProperties is null");
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.uniqueTableLocation = icebergConfig.isUniqueTableLocation();
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -81,6 +87,7 @@ public class TrinoIcebergRestCatalogFactory
             ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
             properties.put(CatalogProperties.URI, serverUri.toString());
             warehouse.ifPresent(location -> properties.put(CatalogProperties.WAREHOUSE_LOCATION, location));
+            prefix.ifPresent(prefix -> properties.put("prefix", prefix));
             properties.put("trino-version", trinoVersion);
             properties.putAll(securityProperties.get());
 
@@ -101,6 +108,6 @@ public class TrinoIcebergRestCatalogFactory
             icebergCatalog = icebergCatalogInstance;
         }
 
-        return new TrinoRestCatalog(icebergCatalog, catalogName, sessionType, trinoVersion, uniqueTableLocation);
+        return new TrinoRestCatalog(icebergCatalog, catalogName, sessionType, trinoVersion, typeManager, uniqueTableLocation);
     }
 }

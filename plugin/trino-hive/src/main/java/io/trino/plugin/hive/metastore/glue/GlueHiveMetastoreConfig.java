@@ -17,22 +17,25 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
-import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
-
-@DefunctConfig("hive.metastore.glue.use-instance-credentials")
+@DefunctConfig({
+        "hive.metastore.glue.use-instance-credentials",
+        "hive.metastore.glue.get-partition-threads",
+        "hive.metastore.glue.read-statistics-threads",
+        "hive.metastore.glue.write-statistics-threads",
+        "hive.metastore.glue.proxy-api-id",
+        "hive.metastore.glue.aws-credentials-provider",
+})
 public class GlueHiveMetastoreConfig
 {
     private Optional<String> glueRegion = Optional.empty();
     private Optional<String> glueEndpointUrl = Optional.empty();
     private Optional<String> glueStsRegion = Optional.empty();
     private Optional<String> glueStsEndpointUrl = Optional.empty();
-    private Optional<String> glueProxyApiId = Optional.empty();
     private boolean pinGlueClientToCurrentRegion;
     private int maxGlueErrorRetries = 10;
     private int maxGlueConnections = 30;
@@ -41,12 +44,9 @@ public class GlueHiveMetastoreConfig
     private Optional<String> externalId = Optional.empty();
     private Optional<String> awsAccessKey = Optional.empty();
     private Optional<String> awsSecretKey = Optional.empty();
-    private Optional<String> awsCredentialsProvider = Optional.empty();
     private Optional<String> catalogId = Optional.empty();
     private int partitionSegments = 5;
-    private int getPartitionThreads = 20;
-    private int readStatisticsThreads = 5;
-    private int writeStatisticsThreads = 20;
+    private int threads = 40;
     private boolean assumeCanonicalPartitionKeys;
 
     public Optional<String> getGlueRegion()
@@ -98,19 +98,6 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setGlueStsEndpointUrl(String glueStsEndpointUrl)
     {
         this.glueStsEndpointUrl = Optional.ofNullable(glueStsEndpointUrl);
-        return this;
-    }
-
-    public Optional<String> getGlueProxyApiId()
-    {
-        return glueProxyApiId;
-    }
-
-    @Config("hive.metastore.glue.proxy-api-id")
-    @ConfigDescription("ID of Glue Proxy API")
-    public GlueHiveMetastoreConfig setGlueProxyApiId(String glueProxyApiId)
-    {
-        this.glueProxyApiId = Optional.ofNullable(glueProxyApiId);
         return this;
     }
 
@@ -234,19 +221,6 @@ public class GlueHiveMetastoreConfig
         return this;
     }
 
-    public Optional<String> getAwsCredentialsProvider()
-    {
-        return awsCredentialsProvider;
-    }
-
-    @Config("hive.metastore.glue.aws-credentials-provider")
-    @ConfigDescription("Fully qualified name of the Java class to use for obtaining AWS credentials")
-    public GlueHiveMetastoreConfig setAwsCredentialsProvider(String awsCredentialsProvider)
-    {
-        this.awsCredentialsProvider = Optional.ofNullable(awsCredentialsProvider);
-        return this;
-    }
-
     @Min(1)
     @Max(10)
     public int getPartitionSegments()
@@ -263,16 +237,16 @@ public class GlueHiveMetastoreConfig
     }
 
     @Min(1)
-    public int getGetPartitionThreads()
+    public int getThreads()
     {
-        return getPartitionThreads;
+        return threads;
     }
 
-    @Config("hive.metastore.glue.get-partition-threads")
-    @ConfigDescription("Number of threads for parallel partition fetches from Glue")
-    public GlueHiveMetastoreConfig setGetPartitionThreads(int getPartitionThreads)
+    @Config("hive.metastore.glue.threads")
+    @ConfigDescription("Number of threads for parallel operations")
+    public GlueHiveMetastoreConfig setThreads(int threads)
     {
-        this.getPartitionThreads = getPartitionThreads;
+        this.threads = threads;
         return this;
     }
 
@@ -287,42 +261,5 @@ public class GlueHiveMetastoreConfig
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         return this;
-    }
-
-    @Min(1)
-    public int getReadStatisticsThreads()
-    {
-        return readStatisticsThreads;
-    }
-
-    @Config("hive.metastore.glue.read-statistics-threads")
-    @ConfigDescription("Number of threads for parallel statistics reads from Glue")
-    public GlueHiveMetastoreConfig setReadStatisticsThreads(int getReadStatisticsThreads)
-    {
-        this.readStatisticsThreads = getReadStatisticsThreads;
-        return this;
-    }
-
-    @Min(1)
-    public int getWriteStatisticsThreads()
-    {
-        return writeStatisticsThreads;
-    }
-
-    @Config("hive.metastore.glue.write-statistics-threads")
-    @ConfigDescription("Number of threads for parallel statistics writes to Glue")
-    public GlueHiveMetastoreConfig setWriteStatisticsThreads(int writeStatisticsThreads)
-    {
-        this.writeStatisticsThreads = writeStatisticsThreads;
-        return this;
-    }
-
-    @PostConstruct
-    public void validate()
-    {
-        if (getGlueProxyApiId().isPresent()) {
-            checkState(getGlueRegion().isPresent() && getGlueEndpointUrl().isPresent(),
-                    "Both Glue region and Glue endpoint URL must be provided when Glue proxy API ID is present");
-        }
     }
 }

@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.TimestampTimeZoneDomain;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -39,6 +40,7 @@ import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
@@ -82,17 +84,26 @@ public class PhoenixMetadata
     private final PhoenixClient phoenixClient;
     private final IdentifierMapping identifierMapping;
 
+    // TODO (https://github.com/trinodb/trino/issues/21251) PhoenixMetadata must not be a singleton
     @Inject
-    public PhoenixMetadata(PhoenixClient phoenixClient, IdentifierMapping identifierMapping, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public PhoenixMetadata(
+            PhoenixClient phoenixClient,
+            TimestampTimeZoneDomain timestampTimeZoneDomain,
+            IdentifierMapping identifierMapping,
+            Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
-        super(phoenixClient, false, jdbcQueryEventListeners);
+        super(phoenixClient, timestampTimeZoneDomain, false, jdbcQueryEventListeners);
         this.phoenixClient = requireNonNull(phoenixClient, "phoenixClient is null");
         this.identifierMapping = requireNonNull(identifierMapping, "identifierMapping is null");
     }
 
     @Override
-    public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
+    public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         return phoenixClient.getTableHandle(session, schemaTableName)
                 .map(JdbcTableHandle::asPlainTable)
                 .map(JdbcNamedRelationHandle::getRemoteTableName)
@@ -111,8 +122,8 @@ public class PhoenixMetadata
                 .map(properties -> properties
                         .stream()
                         .map(item -> (LocalProperty<ColumnHandle>) new SortingProperty<ColumnHandle>(
-                                item.getColumn(),
-                                item.getSortOrder()))
+                                item.column(),
+                                item.sortOrder()))
                         .collect(toImmutableList()))
                 .orElse(ImmutableList.of());
 
@@ -326,7 +337,12 @@ public class PhoenixMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public void finishMerge(
+            ConnectorSession session,
+            ConnectorMergeTableHandle mergeTableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
     {
     }
 

@@ -27,15 +27,15 @@ public abstract class BaseHudiConnectorSmokeTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_INSERT,
-                    SUPPORTS_DELETE,
-                    SUPPORTS_UPDATE,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_CREATE_SCHEMA,
-                    SUPPORTS_CREATE_TABLE,
-                    SUPPORTS_RENAME_TABLE,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_COMMENT_ON_COLUMN -> false;
+                 SUPPORTS_DELETE,
+                 SUPPORTS_UPDATE,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_CREATE_SCHEMA,
+                 SUPPORTS_CREATE_TABLE,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_COMMENT_ON_COLUMN -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }

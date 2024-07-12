@@ -44,6 +44,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.hive.formats.FormatTestUtils.COMPRESSION;
 import static io.trino.hive.formats.FormatTestUtils.configureCompressionCodecs;
+import static io.trino.hive.formats.compression.CompressionKind.ZSTD;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_CODEC;
@@ -57,6 +58,10 @@ public class TestTextLineReaderWriter
             throws Exception
     {
         for (Optional<CompressionKind> compressionKind : COMPRESSION) {
+            if (compressionKind.equals(Optional.of(ZSTD))) {
+                continue;
+            }
+
             // write old, read new and ol
             try (TempFileWithExtension tempFile = new TempFileWithExtension(compressionKind.map(CompressionKind::getFileExtension).orElse(""))) {
                 writeOld(tempFile.file(), compressionKind, values);

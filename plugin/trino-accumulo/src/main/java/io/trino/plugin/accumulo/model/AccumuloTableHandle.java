@@ -159,7 +159,7 @@ public final class AccumuloTableHandle
         return Objects.equals(this.schema, other.schema)
                 && Objects.equals(this.table, other.table)
                 && Objects.equals(this.rowId, other.rowId)
-                && Objects.equals(this.external, other.external)
+                && this.external == other.external
                 && Objects.equals(this.serializerClassName, other.serializerClassName)
                 && Objects.equals(this.scanAuthorizations, other.scanAuthorizations);
     }

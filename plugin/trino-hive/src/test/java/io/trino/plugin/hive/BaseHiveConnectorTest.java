@@ -136,6 +136,10 @@ import static io.trino.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PARTITION_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_CREATED_BY;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.HiveQueryRunner.createBucketedSession;
@@ -149,6 +153,7 @@ import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
+import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.spi.security.Identity.ofUser;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
@@ -245,16 +250,16 @@ public abstract class BaseHiveConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_MULTI_STATEMENT_WRITES,
-                    SUPPORTS_REPORTING_WRITTEN_BYTES -> true; // FIXME: Fails because only allowed with transactional tables
+                 SUPPORTS_REPORTING_WRITTEN_BYTES -> true; // FIXME: Fails because only allowed with transactional tables
             case SUPPORTS_ADD_FIELD,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_DROP_FIELD,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_RENAME_FIELD,
-                    SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_TRUNCATE -> false;
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_DROP_FIELD,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_RENAME_FIELD,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_TRUNCATE -> false;
             case SUPPORTS_CREATE_FUNCTION -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
@@ -1539,19 +1544,21 @@ public abstract class BaseHiveConnectorTest
             index++;
             Type type = entry.getValue().type;
             EstimatedStatsAndCost estimate = entry.getValue().estimate;
+            String tableName = "test_types_table_" + randomNameSuffix();
             @Language("SQL") String query = format(
-                    "CREATE TABLE test_types_table  WITH (partitioned_by = ARRAY['my_col']) AS " +
+                    "CREATE TABLE %s WITH (partitioned_by = ARRAY['my_col']) AS " +
                             "SELECT 'foo' my_non_partition_col, CAST('%s' AS %s) my_col",
+                    tableName,
                     entry.getKey(),
                     type.getDisplayName());
 
             assertUpdate(query, 1);
 
-            assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM test_types_table").getOnlyColumnAsSet())))
+            assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM " + tableName).getOnlyColumnAsSet())))
                     .describedAs(format("%d) Type %s ", index, type))
                     .isEqualTo(new IoPlan(
                             ImmutableSet.of(new TableColumnInfo(
-                                    new CatalogSchemaTableName(catalog, "tpch", "test_types_table"),
+                                    new CatalogSchemaTableName(catalog, "tpch", tableName),
                                     new IoPlanPrinter.Constraint(
                                             false,
                                             ImmutableSet.of(
@@ -1568,7 +1575,7 @@ public abstract class BaseHiveConnectorTest
                             Optional.empty(),
                             estimate));
 
-            assertUpdate("DROP TABLE test_types_table");
+            assertUpdate("DROP TABLE " + tableName);
         }
     }
 
@@ -1588,8 +1595,9 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void createTableWithEveryType()
     {
+        String tableName = "test_types_table_" + randomNameSuffix();
         @Language("SQL") String query = "" +
-                "CREATE TABLE test_types_table AS " +
+                "CREATE TABLE " + tableName + " AS " +
                 "SELECT" +
                 " 'foo' _varchar" +
                 ", cast('bar' as varbinary) _varbinary" +
@@ -1605,7 +1613,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(query, 1);
 
-        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_types_table").toTestTypes();
+        MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM " + tableName).toTestTypes();
         assertThat(results.getRowCount()).isEqualTo(1);
         MaterializedRow row = results.getMaterializedRows().get(0);
         assertThat(row.getField(0)).isEqualTo("foo");
@@ -1619,9 +1627,9 @@ public abstract class BaseHiveConnectorTest
         assertThat(row.getField(8)).isEqualTo(new BigDecimal("3.14"));
         assertThat(row.getField(9)).isEqualTo(new BigDecimal("12345678901234567890.0123456789"));
         assertThat(row.getField(10)).isEqualTo("bar       ");
-        assertUpdate("DROP TABLE test_types_table");
+        assertUpdate("DROP TABLE " + tableName);
 
-        assertThat(getQueryRunner().tableExists(getSession(), "test_types_table")).isFalse();
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Test
@@ -1672,7 +1680,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_partitioned_table");
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
 
         List<String> partitionedBy = ImmutableList.of(
                 "_partition_string",
@@ -1687,8 +1695,8 @@ public abstract class BaseHiveConnectorTest
                 "_partition_decimal_long",
                 "_partition_date",
                 "_partition_timestamp");
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, partitionedBy);
-        for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, partitionedBy);
+        for (ColumnMetadata columnMetadata : tableMetadata.columns()) {
             boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
             assertThat(columnMetadata.getExtraInfo()).isEqualTo(columnExtraInfo(partitionKey));
         }
@@ -1798,7 +1806,7 @@ public abstract class BaseHiveConnectorTest
 
         // Verify the partition keys are correctly created
         List<String> partitionedBy = ImmutableList.of("partition_bigint", "partition_decimal_long");
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, partitionedBy);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, partitionedBy);
 
         // Verify the column types
         assertColumnType(tableMetadata, "string_col", createUnboundedVarcharType());
@@ -1899,7 +1907,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTableAs, 1);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_format_table");
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
 
         assertColumnType(tableMetadata, "_varchar", createVarcharType(3));
         assertColumnType(tableMetadata, "_char", createCharType(10));
@@ -1935,8 +1943,8 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTable, "SELECT count(*) FROM orders");
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_create_partitioned_table_as");
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("ship_priority", "order_status"));
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("ship_priority", "order_status"));
 
         List<?> partitions = getPartitions("test_create_partitioned_table_as");
         assertThat(partitions.size()).isEqualTo(3);
@@ -2159,7 +2167,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testEmptyBucketedTable(Session baseSession, HiveStorageFormat storageFormat, boolean createEmpty)
     {
-        String tableName = "test_empty_bucketed_table";
+        String tableName = "test_empty_bucketed_table" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -2173,11 +2181,11 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
 
-        assertThat(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isNull();
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(BUCKETED_BY_PROPERTY, ImmutableList.of("bucket_key"));
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 11);
+        assertThat(tableMetadata.metadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isNull();
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(BUCKETED_BY_PROPERTY, ImmutableList.of("bucket_key"));
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 11);
 
         assertThat(computeActual("SELECT * from " + tableName).getRowCount()).isEqualTo(0);
 
@@ -2210,7 +2218,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testBucketedTable(Session session, HiveStorageFormat storageFormat, boolean createEmpty)
     {
-        String tableName = "test_bucketed_table";
+        String tableName = "test_bucketed_table" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -2235,11 +2243,11 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(parallelWriter, createTable, 3);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
 
-        assertThat(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isNull();
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(BUCKETED_BY_PROPERTY, ImmutableList.of("bucket_key"));
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 11);
+        assertThat(tableMetadata.metadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isNull();
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(BUCKETED_BY_PROPERTY, ImmutableList.of("bucket_key"));
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 11);
 
         assertQuery("SELECT * from " + tableName, "VALUES ('a', 'b', 'c'), ('aa', 'bb', 'cc'), ('aaa', 'bbb', 'ccc')");
 
@@ -2447,7 +2455,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testCreatePartitionedBucketedTableAsFewRows(Session session, HiveStorageFormat storageFormat, boolean createEmpty)
     {
-        String tableName = "test_create_partitioned_bucketed_table_as_few_rows";
+        String tableName = "test_create_partitioned_bucketed_table_as_few_rows" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -2488,7 +2496,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testCreatePartitionedBucketedTableAs(HiveStorageFormat storageFormat)
     {
-        String tableName = "test_create_partitioned_bucketed_table_as";
+        String tableName = "test_create_partitioned_bucketed_table_as" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -2522,7 +2530,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testCreatePartitionedBucketedTableWithNullsAs(HiveStorageFormat storageFormat)
     {
-        String tableName = "test_create_partitioned_bucketed_table_with_nulls_as";
+        String tableName = "test_create_partitioned_bucketed_table_with_nulls_as" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -2571,7 +2579,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testUnpartitionedInsertWithMultipleFiles()
     {
-        String tableName = "test_unpartitioned_insert_with_multiple_files";
+        String tableName = "test_unpartitioned_insert_with_multiple_files" + randomNameSuffix();
         try {
             @Language("SQL") String createTargetTable = "" +
                     "CREATE TABLE " + tableName + " " +
@@ -2658,7 +2666,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat storageFormat)
     {
-        String tableName = "test_create_partitioned_bucketed_table_as_with_union_all";
+        String tableName = "test_create_partitioned_bucketed_table_as_with_union_all" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -2692,11 +2700,11 @@ public abstract class BaseHiveConnectorTest
     private void verifyPartitionedBucketedTable(HiveStorageFormat storageFormat, String tableName)
     {
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
 
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("orderstatus"));
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(BUCKETED_BY_PROPERTY, ImmutableList.of("custkey", "custkey2"));
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 11);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("orderstatus"));
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(BUCKETED_BY_PROPERTY, ImmutableList.of("custkey", "custkey2"));
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 11);
 
         List<?> partitions = getPartitions(tableName);
         assertThat(partitions.size()).isEqualTo(3);
@@ -2727,7 +2735,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testCreateInvalidBucketedTable(HiveStorageFormat storageFormat)
     {
-        String tableName = "test_create_invalid_bucketed_table";
+        String tableName = "test_create_invalid_bucketed_table" + randomNameSuffix();
 
         assertThatThrownBy(() -> computeActual("" +
                 "CREATE TABLE " + tableName + " (" +
@@ -2828,7 +2836,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testInsertPartitionedBucketedTableFewRows(Session session, HiveStorageFormat storageFormat)
     {
-        String tableName = "test_insert_partitioned_bucketed_table_few_rows";
+        String tableName = "test_insert_partitioned_bucketed_table_few_rows" + randomNameSuffix();
 
         assertUpdate(session, "" +
                 "CREATE TABLE " + tableName + " (" +
@@ -2853,18 +2861,18 @@ public abstract class BaseHiveConnectorTest
 
         verifyPartitionedBucketedTableAsFewRows(storageFormat, tableName);
 
-        assertUpdate(session, "DROP TABLE test_insert_partitioned_bucketed_table_few_rows");
+        assertUpdate(session, "DROP TABLE " + tableName);
         assertThat(getQueryRunner().tableExists(session, tableName)).isFalse();
     }
 
     private void verifyPartitionedBucketedTableAsFewRows(HiveStorageFormat storageFormat, String tableName)
     {
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
 
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("partition_key"));
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(BUCKETED_BY_PROPERTY, ImmutableList.of("bucket_key"));
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 11);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("partition_key"));
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(BUCKETED_BY_PROPERTY, ImmutableList.of("bucket_key"));
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 11);
 
         List<?> partitions = getPartitions(tableName);
         assertThat(partitions.size()).isEqualTo(3);
@@ -2881,7 +2889,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCastNullToColumnTypes()
     {
-        String tableName = "test_cast_null_to_column_types";
+        String tableName = "test_cast_null_to_column_types" + randomNameSuffix();
 
         assertUpdate("" +
                 "CREATE TABLE " + tableName + " (" +
@@ -2901,7 +2909,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCreateEmptyNonBucketedPartition()
     {
-        String tableName = "test_insert_empty_partitioned_unbucketed_table";
+        String tableName = "test_insert_empty_partitioned_unbucketed_table" + randomNameSuffix();
         assertUpdate("" +
                 "CREATE TABLE " + tableName + " (" +
                 "  dummy_col bigint," +
@@ -2926,7 +2934,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testUnregisterRegisterPartition()
     {
-        String tableName = "test_register_partition_for_table";
+        String tableName = "test_register_partition_for_table" + randomNameSuffix();
         assertUpdate("" +
                 "CREATE TABLE " + tableName + " (" +
                 "  dummy_col bigint," +
@@ -2993,7 +3001,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testCreateEmptyBucketedPartition(Session session, HiveStorageFormat storageFormat)
     {
-        String tableName = "test_insert_empty_partitioned_bucketed_table";
+        String tableName = "test_insert_empty_partitioned_bucketed_table" + randomNameSuffix();
         createPartitionedBucketedTable(session, tableName, storageFormat);
 
         List<String> orderStatusList = ImmutableList.of("F", "O", "P");
@@ -3037,7 +3045,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testInsertPartitionedBucketedTable(HiveStorageFormat storageFormat)
     {
-        String tableName = "test_insert_partitioned_bucketed_table";
+        String tableName = "test_insert_partitioned_bucketed_table" + randomNameSuffix();
         createPartitionedBucketedTable(getSession(), tableName, storageFormat);
 
         List<String> orderStatusList = ImmutableList.of("F", "O", "P");
@@ -3085,7 +3093,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testInsertPartitionedBucketedTableWithUnionAll(HiveStorageFormat storageFormat)
     {
-        String tableName = "test_insert_partitioned_bucketed_table_with_union_all";
+        String tableName = "test_insert_partitioned_bucketed_table_with_union_all" + randomNameSuffix();
 
         assertUpdate("" +
                 "CREATE TABLE " + tableName + " (" +
@@ -3127,7 +3135,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testInsertTwiceToSamePartitionedBucket()
     {
-        String tableName = "test_insert_twice_to_same_partitioned_bucket";
+        String tableName = "test_insert_twice_to_same_partitioned_bucket" + randomNameSuffix();
         createPartitionedBucketedTable(getSession(), tableName, HiveStorageFormat.RCBINARY);
 
         String insert = "INSERT INTO " + tableName +
@@ -3180,7 +3188,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_insert_format_table");
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
 
         assertColumnType(tableMetadata, "_string", createUnboundedVarcharType());
         assertColumnType(tableMetadata, "_varchar", createVarcharType(65535));
@@ -3251,8 +3259,8 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_insert_partitioned_table");
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("ship_priority", "order_status"));
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("ship_priority", "order_status"));
 
         String partitionsTable = "\"test_insert_partitioned_table$partitions\"";
 
@@ -3307,7 +3315,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testInsertPartitionedTableExistingPartition(Session session, HiveStorageFormat storageFormat)
     {
-        String tableName = "test_insert_partitioned_table_existing_partition";
+        String tableName = "test_insert_partitioned_table_existing_partition" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -3324,8 +3332,8 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("order_status"));
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("order_status"));
 
         for (int i = 0; i < 3; i++) {
             assertUpdate(
@@ -3365,7 +3373,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testInsertPartitionedTableOverwriteExistingPartition(Session session, HiveStorageFormat storageFormat)
     {
-        String tableName = "test_insert_partitioned_table_overwrite_existing_partition";
+        String tableName = "test_insert_partitioned_table_overwrite_existing_partition" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -3382,8 +3390,8 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("order_status"));
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("order_status"));
 
         for (int i = 0; i < 3; i++) {
             assertUpdate(
@@ -3481,7 +3489,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testPartitionPerScanLimit()
     {
-        String tableName = "test_partition_per_scan_limit";
+        String tableName = "test_partition_per_scan_limit" + randomNameSuffix();
         String partitionsTable = "\"" + tableName + "$partitions\"";
 
         @Language("SQL") String createTable = "" +
@@ -3497,7 +3505,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("part"));
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("part"));
 
         // insert 1200 partitions
         for (int i = 0; i < 12; i++) {
@@ -3553,7 +3561,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testPartitionPerScanLimitWithMultiplePartitionColumns()
     {
-        String tableName = "test_multi_partition_per_scan_limit";
+        String tableName = "test_multi_partition_per_scan_limit" + randomNameSuffix();
         String partitionsTable = "\"" + tableName + "$partitions\"";
 
         assertUpdate("" +
@@ -3612,7 +3620,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testShowColumnsFromPartitions()
     {
-        String tableName = "test_show_columns_from_partitions";
+        String tableName = "test_show_columns_from_partitions" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -3683,7 +3691,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testInsertUnpartitionedTable(Session session, HiveStorageFormat storageFormat)
     {
-        String tableName = "test_insert_unpartitioned_table";
+        String tableName = "test_insert_unpartitioned_table" + randomNameSuffix();
 
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + " " +
@@ -3699,7 +3707,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
 
         for (int i = 0; i < 3; i++) {
             assertUpdate(
@@ -3809,7 +3817,7 @@ public abstract class BaseHiveConnectorTest
                     table = metadata.applyFilter(transactionSession, table, Constraint.alwaysTrue())
                             .orElseThrow(() -> new AssertionError("applyFilter did not return a result"))
                             .getHandle();
-                    return propertyGetter.apply((HiveTableHandle) table.getConnectorHandle());
+                    return propertyGetter.apply((HiveTableHandle) table.connectorHandle());
                 });
     }
 
@@ -3820,7 +3828,7 @@ public abstract class BaseHiveConnectorTest
 
     private int getBucketCount(String tableName)
     {
-        return (int) getHiveTableProperty(tableName, table -> table.getBucketHandle().get().getTableBucketCount());
+        return (int) getHiveTableProperty(tableName, table -> table.getBucketHandle().get().tableBucketCount());
     }
 
     @Test
@@ -3977,7 +3985,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testRows(Session session, HiveStorageFormat format)
     {
-        String tableName = "test_dereferences";
+        String tableName = "test_dereferences" + randomNameSuffix();
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName +
                 " WITH (" +
@@ -4005,7 +4013,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testRowsWithNulls(Session session, HiveStorageFormat format)
     {
-        String tableName = "test_dereferences_with_nulls";
+        String tableName = "test_dereferences_with_nulls" + randomNameSuffix();
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE " + tableName + "\n" +
                 "(col0 BIGINT, col1 row(f0 BIGINT, f1 BIGINT), col2 row(f0 BIGINT, f1 ROW(f0 BIGINT, f1 BIGINT)))\n" +
@@ -4059,12 +4067,12 @@ public abstract class BaseHiveConnectorTest
         String bucketedSchema = bucketedSession.getSchema().get();
 
         TableMetadata ordersTableMetadata = getTableMetadata(bucketedCatalog, bucketedSchema, "orders");
-        assertThat(ordersTableMetadata.getMetadata().getProperties()).containsEntry(BUCKETED_BY_PROPERTY, ImmutableList.of("custkey"));
-        assertThat(ordersTableMetadata.getMetadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 11);
+        assertThat(ordersTableMetadata.metadata().getProperties()).containsEntry(BUCKETED_BY_PROPERTY, ImmutableList.of("custkey"));
+        assertThat(ordersTableMetadata.metadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 11);
 
         TableMetadata customerTableMetadata = getTableMetadata(bucketedCatalog, bucketedSchema, "customer");
-        assertThat(customerTableMetadata.getMetadata().getProperties()).containsEntry(BUCKETED_BY_PROPERTY, ImmutableList.of("custkey"));
-        assertThat(customerTableMetadata.getMetadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 11);
+        assertThat(customerTableMetadata.metadata().getProperties()).containsEntry(BUCKETED_BY_PROPERTY, ImmutableList.of("custkey"));
+        assertThat(customerTableMetadata.metadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 11);
     }
 
     @Test
@@ -4365,7 +4373,7 @@ public abstract class BaseHiveConnectorTest
             String result = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
             assertThat(result).isEqualTo("CREATE TABLE hive.tpch." + table.getName() + " (\n" +
                     "   a integer,\n" +
-                    "   b integer WITH ( partition_projection_range = ARRAY['0','10'], partition_projection_type = 'INTEGER' )\n" +
+                    "   b integer WITH (partition_projection_range = ARRAY['0','10'], partition_projection_type = 'INTEGER')\n" +
                     ")\n" +
                     "WITH (\n" +
                     "   format = 'ORC',\n" +
@@ -4703,10 +4711,10 @@ public abstract class BaseHiveConnectorTest
         assertThat(getQueryRunner().tableExists(getSession(), "test_path")).isTrue();
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_path");
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(STORAGE_FORMAT_PROPERTY, storageFormat);
 
         List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
-        List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
+        List<ColumnMetadata> columnMetadatas = tableMetadata.columns();
         assertThat(columnMetadatas.size()).isEqualTo(columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
@@ -4760,11 +4768,11 @@ public abstract class BaseHiveConnectorTest
         assertThat(getQueryRunner().tableExists(getSession(), "test_bucket_hidden_column")).isTrue();
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_bucket_hidden_column");
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(BUCKETED_BY_PROPERTY, ImmutableList.of("col0"));
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 2);
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(BUCKETED_BY_PROPERTY, ImmutableList.of("col0"));
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(BUCKET_COUNT_PROPERTY, 2);
 
         List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, BUCKET_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
-        List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
+        List<ColumnMetadata> columnMetadatas = tableMetadata.columns();
         assertThat(columnMetadatas.size()).isEqualTo(columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
@@ -4814,7 +4822,7 @@ public abstract class BaseHiveConnectorTest
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_file_size");
 
         List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
-        List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
+        List<ColumnMetadata> columnMetadatas = tableMetadata.columns();
         assertThat(columnMetadatas.size()).isEqualTo(columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
@@ -4874,7 +4882,7 @@ public abstract class BaseHiveConnectorTest
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_file_modified_time");
 
         List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
-        List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
+        List<ColumnMetadata> columnMetadatas = tableMetadata.columns();
         assertThat(columnMetadatas.size()).isEqualTo(columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
@@ -4926,10 +4934,10 @@ public abstract class BaseHiveConnectorTest
         assertThat(getQueryRunner().tableExists(getSession(), "test_partition_hidden_column")).isTrue();
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_partition_hidden_column");
-        assertThat(tableMetadata.getMetadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("col1", "col2"));
+        assertThat(tableMetadata.metadata().getProperties()).containsEntry(PARTITIONED_BY_PROPERTY, ImmutableList.of("col1", "col2"));
 
         List<String> columnNames = ImmutableList.of("col0", "col1", "col2", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
-        List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
+        List<ColumnMetadata> columnMetadatas = tableMetadata.columns();
         assertThat(columnMetadatas.size()).isEqualTo(columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
@@ -5739,7 +5747,7 @@ public abstract class BaseHiveConnectorTest
                 .setCatalogSessionProperty(catalog, "parquet_use_column_names", "true")
                 .build();
 
-        String tableName = "test_parquet_by_column_index";
+        String tableName = "test_parquet_by_column_index" + randomNameSuffix();
 
         assertUpdate(sessionUsingColumnIndex, format(
                 "CREATE TABLE %s(" +
@@ -5897,7 +5905,7 @@ public abstract class BaseHiveConnectorTest
                     .setCatalogSessionProperty(catalog, "parquet_ignore_statistics", String.valueOf(ignoreStatistics))
                     .build();
 
-            String tableName = "test_parquet_ignore_statistics";
+            String tableName = "test_parquet_ignore_statistics" + randomNameSuffix();
 
             assertUpdate(session, format(
                     "CREATE TABLE %s(" +
@@ -5929,7 +5937,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testNestedColumnWithDuplicateName()
     {
-        String tableName = "test_nested_column_with_duplicate_name";
+        String tableName = "test_nested_column_with_duplicate_name" + randomNameSuffix();
 
         assertUpdate(format(
                 "CREATE TABLE %s(" +
@@ -5955,7 +5963,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testParquetNaNStatistics()
     {
-        String tableName = "test_parquet_nan_statistics";
+        String tableName = "test_parquet_nan_statistics" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (c_double DOUBLE, c_real REAL, c_string VARCHAR) WITH (format = 'PARQUET')");
         assertUpdate("INSERT INTO " + tableName + " VALUES (nan(), cast(nan() as REAL), 'all nan')", 1);
@@ -6333,7 +6341,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testShowColumnMetadata()
     {
-        String tableName = "test_show_column_table";
+        String tableName = "test_show_column_table" + randomNameSuffix();
 
         @Language("SQL") String createTable = "CREATE TABLE " + tableName + " (a bigint, b varchar, c double)";
 
@@ -6496,7 +6504,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCollectColumnStatisticsOnCreateTable()
     {
-        String tableName = "test_collect_column_statistics_on_create_table";
+        String tableName = "test_collect_column_statistics_on_create_table" + randomNameSuffix();
         assertUpdate(format("" +
                 "CREATE TABLE %s " +
                 "WITH ( " +
@@ -6557,7 +6565,7 @@ public abstract class BaseHiveConnectorTest
     {
         Session nanosecondsTimestamp = withTimestampPrecision(getSession(), HiveTimestampPrecision.NANOSECONDS);
 
-        String tableName = "test_stats_on_create_timestamp_with_precision";
+        String tableName = "test_stats_on_create_timestamp_with_precision" + randomNameSuffix();
 
         try {
             assertUpdate(nanosecondsTimestamp,
@@ -6589,7 +6597,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCollectColumnStatisticsOnInsert()
     {
-        String tableName = "test_collect_column_statistics_on_insert";
+        String tableName = "test_collect_column_statistics_on_insert" + randomNameSuffix();
         assertUpdate(format("" +
                 "CREATE TABLE %s ( " +
                 "   c_boolean BOOLEAN, " +
@@ -6658,7 +6666,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCollectColumnStatisticsOnInsertToEmptyTable()
     {
-        String tableName = "test_collect_column_statistics_empty_table";
+        String tableName = "test_collect_column_statistics_empty_table" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (col INT)", tableName));
 
@@ -6680,7 +6688,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testCollectColumnStatisticsOnInsertToPartiallyAnalyzedTable()
     {
-        String tableName = "test_collect_column_statistics_partially_analyzed_table";
+        String tableName = "test_collect_column_statistics_partially_analyzed_table" + randomNameSuffix();
 
         assertUpdate(format("CREATE TABLE %s (col INT, col2 INT)", tableName));
 
@@ -6722,7 +6730,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testAnalyzeEmptyTable()
     {
-        String tableName = "test_analyze_empty_table";
+        String tableName = "test_analyze_empty_table" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (c_bigint BIGINT, c_varchar VARCHAR(2))", tableName));
         assertUpdate("ANALYZE " + tableName, 0);
     }
@@ -6730,7 +6738,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testInvalidAnalyzePartitionedTable()
     {
-        String tableName = "test_invalid_analyze_partitioned_table";
+        String tableName = "test_invalid_analyze_partitioned_table" + randomNameSuffix();
 
         // Test table does not exist
         assertQueryFails("ANALYZE " + tableName, format(".*Table 'hive.tpch.%s' does not exist.*", tableName));
@@ -6738,9 +6746,9 @@ public abstract class BaseHiveConnectorTest
         createPartitionedTableForAnalyzeTest(tableName);
 
         // Test invalid property
-        assertQueryFails(format("ANALYZE %s WITH (error = 1)", tableName), ".*'hive' analyze property 'error' does not exist.*");
-        assertQueryFails(format("ANALYZE %s WITH (partitions = 1)", tableName), "\\QInvalid value for catalog 'hive' analyze property 'partitions': Cannot convert [1] to array(array(varchar))\\E");
-        assertQueryFails(format("ANALYZE %s WITH (partitions = NULL)", tableName), "\\QInvalid null value for catalog 'hive' analyze property 'partitions' from [null]\\E");
+        assertQueryFails(format("ANALYZE %s WITH (error = 1)", tableName), "line 1:64: Catalog 'hive' analyze property 'error' does not exist");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = 1)", tableName), "\\Qline 1:64: Invalid value for catalog 'hive' analyze property 'partitions': Cannot convert [1] to array(array(varchar))\\E");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = NULL)", tableName), "\\Qline 1:64: Invalid null value for catalog 'hive' analyze property 'partitions' from [null]\\E");
         assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[NULL])", tableName), ".*Invalid null value in analyze partitions property.*");
 
         // Test non-existed partition
@@ -6757,7 +6765,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testInvalidAnalyzeUnpartitionedTable()
     {
-        String tableName = "test_invalid_analyze_unpartitioned_table";
+        String tableName = "test_invalid_analyze_unpartitioned_table" + randomNameSuffix();
 
         // Test table does not exist
         assertQueryFails("ANALYZE " + tableName, ".*Table.*does not exist.*");
@@ -6775,7 +6783,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testAnalyzePartitionedTable()
     {
-        String tableName = "test_analyze_partitioned_table";
+        String tableName = "test_analyze_partitioned_table" + randomNameSuffix();
         createPartitionedTableForAnalyzeTest(tableName);
 
         // No column stats before ANALYZE
@@ -6984,7 +6992,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testAnalyzePartitionedTableWithColumnSubset()
     {
-        String tableName = "test_analyze_columns_partitioned_table";
+        String tableName = "test_analyze_columns_partitioned_table" + randomNameSuffix();
         createPartitionedTableForAnalyzeTest(tableName);
 
         // No column stats before ANALYZE
@@ -7192,7 +7200,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testAnalyzeUnpartitionedTable()
     {
-        String tableName = "test_analyze_unpartitioned_table";
+        String tableName = "test_analyze_unpartitioned_table" + randomNameSuffix();
         createUnpartitionedTableForAnalyzeTest(tableName);
 
         // No column stats before ANALYZE
@@ -7242,7 +7250,7 @@ public abstract class BaseHiveConnectorTest
         Session microsecondsTimestamp = withTimestampPrecision(getSession(), HiveTimestampPrecision.MICROSECONDS);
         Session millisecondsTimestamp = withTimestampPrecision(getSession(), HiveTimestampPrecision.MILLISECONDS);
 
-        String tableName = "test_analyze_timestamp_with_precision";
+        String tableName = "test_analyze_timestamp_with_precision" + randomNameSuffix();
 
         try {
             assertUpdate(
@@ -7296,7 +7304,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testInvalidColumnsAnalyzeTable()
     {
-        String tableName = "test_invalid_analyze_table";
+        String tableName = "test_invalid_analyze_table" + randomNameSuffix();
         createUnpartitionedTableForAnalyzeTest(tableName);
 
         // Specifying a null column name is not cool
@@ -7312,7 +7320,7 @@ public abstract class BaseHiveConnectorTest
         // Column names must be strings
         assertQueryFails(
                 "ANALYZE " + tableName + " WITH (columns = ARRAY[42])",
-                "\\QInvalid value for catalog 'hive' analyze property 'columns': Cannot convert [ARRAY[42]] to array(varchar)\\E");
+                "\\Qline 1:52: Invalid value for catalog 'hive' analyze property 'columns': Cannot convert [ARRAY[42]] to array(varchar)\\E");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -7320,7 +7328,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testAnalyzeUnpartitionedTableWithColumnSubset()
     {
-        String tableName = "test_analyze_columns_unpartitioned_table";
+        String tableName = "test_analyze_columns_unpartitioned_table" + randomNameSuffix();
         createUnpartitionedTableForAnalyzeTest(tableName);
 
         // No column stats before ANALYZE
@@ -7359,7 +7367,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testAnalyzeUnpartitionedTableWithEmptyColumnSubset()
     {
-        String tableName = "test_analyze_columns_unpartitioned_table_with_empty_column_subset";
+        String tableName = "test_analyze_columns_unpartitioned_table_with_empty_column_subset" + randomNameSuffix();
         createUnpartitionedTableForAnalyzeTest(tableName);
 
         // Clear table stats
@@ -7401,7 +7409,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testDropStatsPartitionedTable()
     {
-        String tableName = "test_drop_stats_partitioned_table";
+        String tableName = "test_drop_stats_partitioned_table" + randomNameSuffix();
         createPartitionedTableForAnalyzeTest(tableName);
 
         // Run analyze on the entire table
@@ -7689,7 +7697,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testDropStatsUnpartitionedTable()
     {
-        String tableName = "test_drop_all_stats_unpartitioned_table";
+        String tableName = "test_drop_all_stats_unpartitioned_table" + randomNameSuffix();
         createUnpartitionedTableForAnalyzeTest(tableName);
 
         // Run analyze on the whole table
@@ -7824,7 +7832,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testInsertMultipleColumnsFromSameChannel()
     {
-        String tableName = "test_insert_multiple_columns_same_channel";
+        String tableName = "test_insert_multiple_columns_same_channel" + randomNameSuffix();
         assertUpdate(format("" +
                 "CREATE TABLE %s ( " +
                 "   c_bigint_1 BIGINT, " +
@@ -7869,7 +7877,7 @@ public abstract class BaseHiveConnectorTest
     public void testCreateAvroTableWithSchemaUrl()
             throws Exception
     {
-        String tableName = "test_create_avro_table_with_schema_url";
+        String tableName = "test_create_avro_table_with_schema_url" + randomNameSuffix();
         TrinoFileSystem fileSystem = getTrinoFileSystem();
         Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
         fileSystem.createDirectory(tempDir);
@@ -8016,7 +8024,7 @@ public abstract class BaseHiveConnectorTest
     protected void testAlterAvroTableWithSchemaUrl(boolean renameColumn, boolean addColumn, boolean dropColumn)
             throws Exception
     {
-        String tableName = "test_alter_avro_table_with_schema_url";
+        String tableName = "test_alter_avro_table_with_schema_url" + randomNameSuffix();
         TrinoFileSystem fileSystem = getTrinoFileSystem();
         Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
         fileSystem.createDirectory(tempDir);
@@ -8129,7 +8137,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testUseSortedProperties()
     {
-        String tableName = "test_propagate_table_scan_sorting_properties";
+        String tableName = "test_propagate_table_scan_sorting_properties" + randomNameSuffix();
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE %s " +
                         "WITH (" +
@@ -8166,7 +8174,7 @@ public abstract class BaseHiveConnectorTest
         Session session = Session.builder(baseSession)
                 .setCatalogSessionProperty(baseSession.getCatalog().orElseThrow(), "compression_codec", compressionCodec.name())
                 .build();
-        String tableName = "test_table_with_compression_" + compressionCodec;
+        String tableName = "test_table_with_compression_" + compressionCodec + randomNameSuffix();
         String createTableSql = format("CREATE TABLE %s WITH (format = '%s') AS TABLE tpch.tiny.nation", tableName, storageFormat);
         // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
         boolean unsupported = (storageFormat == HiveStorageFormat.PARQUET || storageFormat == HiveStorageFormat.AVRO) && compressionCodec == HiveCompressionCodec.LZ4;
@@ -8196,7 +8204,7 @@ public abstract class BaseHiveConnectorTest
         Session session = Session.builder(baseSession)
                 .setCatalogSessionProperty(baseSession.getCatalog().orElseThrow(), "compression_codec", compressionCodec.name())
                 .build();
-        String tableName = "test_table_with_compression_" + compressionCodec;
+        String tableName = "test_table_bucket_with_compression_" + compressionCodec + randomNameSuffix();
         String createTableSql = format("CREATE TABLE %s WITH (format = '%s', bucketed_by = ARRAY['regionkey'], bucket_count = 7) AS TABLE tpch.tiny.nation", tableName, storageFormat);
         // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
         boolean unsupported = (storageFormat == HiveStorageFormat.PARQUET || storageFormat == HiveStorageFormat.AVRO) && compressionCodec == HiveCompressionCodec.LZ4;
@@ -8218,7 +8226,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testSelectWithNoColumns(Session session, HiveStorageFormat storageFormat)
     {
-        String tableName = "test_select_with_no_columns";
+        String tableName = "test_select_with_no_columns" + randomNameSuffix();
         @Language("SQL") String createTable = format(
                 "CREATE TABLE %s (col0) WITH (format = '%s') AS VALUES 5, 6, 7",
                 tableName,
@@ -8926,7 +8934,7 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testAutoPurgeProperty()
     {
-        String tableName = "test_auto_purge_property";
+        String tableName = "test_auto_purge_property" + randomNameSuffix();
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE %s " +
                         "AS " +
@@ -8935,7 +8943,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTableSql, 1500L);
 
         TableMetadata tableMetadataDefaults = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertThat(tableMetadataDefaults.getMetadata().getProperties()).doesNotContainKey(AUTO_PURGE);
+        assertThat(tableMetadataDefaults.metadata().getProperties()).doesNotContainKey(AUTO_PURGE);
 
         assertUpdate("DROP TABLE " + tableName);
 
@@ -8949,7 +8957,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTableSqlWithAutoPurge, 1500L);
 
         TableMetadata tableMetadataWithPurge = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertThat(tableMetadataWithPurge.getMetadata().getProperties()).containsEntry(AUTO_PURGE, true);
+        assertThat(tableMetadataWithPurge.metadata().getProperties()).containsEntry(AUTO_PURGE, true);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -9059,10 +9067,10 @@ public abstract class BaseHiveConnectorTest
     {
         assertQueryFails(
                 "CREATE TABLE create_table_with_duplicate_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false']))",
-                "Invalid value for catalog 'hive' table property 'extra_properties': Cannot convert.*");
+                "line 1:78: Invalid value for catalog 'hive' table property 'extra_properties': Cannot convert.*");
         assertQueryFails(
                 "CREATE TABLE create_table_select_as_with_duplicate_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false']))",
-                "Invalid value for catalog 'hive' table property 'extra_properties': Cannot convert.*");
+                "line 1:88: Invalid value for catalog 'hive' table property 'extra_properties': Cannot convert.*");
     }
 
     @Test
@@ -9099,6 +9107,81 @@ public abstract class BaseHiveConnectorTest
                 .nonTrinoExceptionFailure().hasMessageContaining("Multiple entries with same key: one=one and one=one");
 
         assertUpdate("DROP TABLE %s".formatted(tableName));
+    }
+
+    @Test
+    public void testExtraPropertiesOnView()
+    {
+        String tableName = "create_view_with_multiple_extra_properties_" + randomNameSuffix();
+        assertUpdate("CREATE VIEW %s WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two'])) AS SELECT 1 as colA".formatted(tableName));
+
+        assertQuery(
+                "SELECT \"extra.property.one\", \"extra.property.two\" FROM \"%s$properties\"".formatted(tableName),
+                "SELECT 'one', 'two'");
+        assertThat(computeActual("SHOW CREATE VIEW %s".formatted(tableName)).getOnlyValue())
+                .isEqualTo("""
+                        CREATE VIEW hive.tpch.%s SECURITY DEFINER AS
+                        SELECT 1 colA""".formatted(tableName));
+        assertUpdate("DROP VIEW %s".formatted(tableName));
+    }
+
+    @Test
+    public void testDuplicateExtraPropertiesOnView()
+    {
+        assertQueryFails(
+                "CREATE VIEW create_view_with_duplicate_extra_properties WITH (extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false'])) AS SELECT 1 as colA",
+                "line 1:63: Invalid value for catalog 'hive' view property 'extra_properties': Cannot convert.*");
+    }
+
+    @Test
+    public void testNullExtraPropertyOnView()
+    {
+        assertQueryFails(
+                "CREATE VIEW create_view_with_duplicate_extra_properties WITH (extra_properties = MAP(ARRAY['null.property'], ARRAY[null])) AS SELECT 1 as c1",
+                ".*Extra view property value cannot be null '\\{null.property=null}'.*");
+    }
+
+    @Test
+    public void testCollidingMixedCasePropertyOnView()
+    {
+        String tableName = "create_view_with_mixed_case_extra_properties" + randomNameSuffix();
+
+        assertUpdate("CREATE VIEW %s WITH (extra_properties = MAP(ARRAY['one', 'ONE'], ARRAY['one', 'ONE'])) AS SELECT 1 as colA".formatted(tableName));
+        // TODO: (https://github.com/trinodb/trino/issues/17) This should run successfully
+        assertThat(query("SELECT * FROM \"%s$properties\"".formatted(tableName)))
+                .nonTrinoExceptionFailure().hasMessageContaining("Multiple entries with same key: one=one and one=one");
+
+        assertUpdate("DROP VIEW %s".formatted(tableName));
+    }
+
+    @Test
+    public void testCreateViewWithTableProperties()
+    {
+        assertQueryFails(
+                "CREATE VIEW create_view_with_table_properties WITH (format = 'ORC', extra_properties = MAP(ARRAY['extra.property'], ARRAY['true'])) AS SELECT 1 as colA",
+                "line 1:53: Catalog 'hive' view property 'format' does not exist");
+    }
+
+    @Test
+    public void testCreateViewWithPreDefinedPropertiesAsExtraProperties()
+    {
+        assertQueryFails(
+                "CREATE VIEW create_view_with_predefined_view_properties WITH (extra_properties = MAP(ARRAY['%s'], ARRAY['true'])) AS SELECT 1 as colA".formatted(TABLE_COMMENT),
+                "Illegal keys in extra_properties: \\[comment]");
+
+        assertQueryFails(
+                "CREATE VIEW create_view_with_predefined_view_properties WITH (extra_properties = MAP(ARRAY['%s'], ARRAY['true'])) AS SELECT 1 as colA".formatted(PRESTO_VIEW_FLAG),
+                "Illegal keys in extra_properties: \\[presto_view]");
+
+        assertQueryFails("CREATE VIEW create_view_with_predefined_view_properties WITH (extra_properties = MAP(ARRAY['%s'], ARRAY['true'])) AS SELECT 1 as colA".formatted(TRINO_CREATED_BY),
+                "Illegal keys in extra_properties: \\[trino_created_by]");
+
+        assertQueryFails("CREATE VIEW create_view_with_predefined_view_properties WITH (extra_properties = MAP(ARRAY['%s'], ARRAY['true'])) AS SELECT 1 as colA".formatted(TRINO_VERSION_NAME),
+                "Illegal keys in extra_properties: \\[trino_version]");
+
+        assertQueryFails(
+                "CREATE VIEW create_view_with_predefined_view_properties WITH (extra_properties = MAP(ARRAY['%s'], ARRAY['true'])) AS SELECT 1 as colA".formatted(TRINO_QUERY_ID_NAME),
+                "Illegal keys in extra_properties: \\[trino_query_id]");
     }
 
     @Test
@@ -9167,8 +9250,14 @@ public abstract class BaseHiveConnectorTest
                     .failure()
                     .hasMessageMatching(".*Failed to read ORC file: .*")
                     .hasStackTraceContaining("Unknown time-zone ID: EST");
-
         }
+    }
+
+    @Test
+    public void testFlushMetadataDisabled()
+    {
+        // Flushing metadata cache does not fail even if cache is disabled
+        assertQuerySucceeds("CALL system.flush_metadata_cache()");
     }
 
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
@@ -9202,7 +9291,7 @@ public abstract class BaseHiveConnectorTest
 
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)
     {
-        assertThat(tableMetadata.getColumn(columnName).getType()).isEqualTo(canonicalizeType(expectedType));
+        assertThat(tableMetadata.column(columnName).getType()).isEqualTo(canonicalizeType(expectedType));
     }
 
     private void assertConstraints(@Language("SQL") String query, Set<ColumnConstraint> expected)
@@ -9219,10 +9308,10 @@ public abstract class BaseHiveConnectorTest
 
     private void verifyPartition(boolean hasPartition, TableMetadata tableMetadata, List<String> partitionKeys)
     {
-        Object partitionByProperty = tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY);
+        Object partitionByProperty = tableMetadata.metadata().getProperties().get(PARTITIONED_BY_PROPERTY);
         if (hasPartition) {
             assertThat(partitionByProperty).isEqualTo(partitionKeys);
-            for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
+            for (ColumnMetadata columnMetadata : tableMetadata.columns()) {
                 boolean partitionKey = partitionKeys.contains(columnMetadata.getName());
                 assertThat(columnMetadata.getExtraInfo()).isEqualTo(columnExtraInfo(partitionKey));
             }

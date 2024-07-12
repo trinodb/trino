@@ -74,7 +74,7 @@ public class SetPropertiesTask
         Session session = stateMachine.getSession();
         QualifiedObjectName objectName = createQualifiedObjectName(session, statement, statement.getName());
 
-        String catalogName = objectName.getCatalogName();
+        String catalogName = objectName.catalogName();
         if (statement.getType() == TABLE) {
             Map<String, Optional<Object>> properties = tablePropertyManager.getNullableProperties(
                     catalogName,

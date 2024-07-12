@@ -29,6 +29,8 @@ import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jakarta.ws.rs.core.UriBuilder;
 import jakarta.ws.rs.core.UriInfo;
 
+import javax.crypto.SecretKey;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.Key;
@@ -87,10 +89,10 @@ public class FormWebUiAuthenticationFilter
             hmacBytes = new byte[32];
             new SecureRandom().nextBytes(hmacBytes);
         }
-        Key hmac = hmacShaKeyFor(hmacBytes);
+        SecretKey hmac = hmacShaKeyFor(hmacBytes);
 
         this.jwtParser = newJwtParserBuilder()
-                .setSigningKey(hmac)
+                .verifyWith(hmac)
                 .requireAudience(TRINO_UI_AUDIENCE)
                 .build();
 
@@ -173,7 +175,7 @@ public class FormWebUiAuthenticationFilter
         try {
             builder.uri(new URI(null, null, null, path, null));
         }
-        catch (URISyntaxException ignored) {
+        catch (URISyntaxException _) {
         }
 
         return builder.build();
@@ -221,7 +223,7 @@ public class FormWebUiAuthenticationFilter
             try {
                 redirectLocation = new URI(redirectPath);
             }
-            catch (URISyntaxException ignored) {
+            catch (URISyntaxException _) {
             }
         }
 
@@ -271,17 +273,17 @@ public class FormWebUiAuthenticationFilter
     {
         return newJwtBuilder()
                 .signWith(hmac)
-                .setSubject(username)
-                .setExpiration(Date.from(ZonedDateTime.now().plusNanos(sessionTimeoutNanos).toInstant()))
-                .setAudience(TRINO_UI_AUDIENCE)
+                .subject(username)
+                .expiration(Date.from(ZonedDateTime.now().plusNanos(sessionTimeoutNanos).toInstant()))
+                .audience().add(TRINO_UI_AUDIENCE).and()
                 .compact();
     }
 
     private String parseJwt(String jwt)
     {
         return jwtParser
-                .parseClaimsJws(jwt)
-                .getBody()
+                .parseSignedClaims(jwt)
+                .getPayload()
                 .getSubject();
     }
 

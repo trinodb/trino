@@ -37,6 +37,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.util.StructLikeWrapper;
@@ -65,7 +66,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
-import static java.util.stream.Collectors.toUnmodifiableSet;
 
 public class PartitionTable
         implements SystemTable
@@ -142,10 +142,7 @@ public class PartitionTable
 
     private static List<PartitionField> getAllPartitionFields(Table icebergTable)
     {
-        Set<Integer> existingColumnsIds = icebergTable.schema()
-                .columns().stream()
-                .map(NestedField::fieldId)
-                .collect(toUnmodifiableSet());
+        Set<Integer> existingColumnsIds = TypeUtil.indexById(icebergTable.schema().asStruct()).keySet();
 
         List<PartitionField> visiblePartitionFields = icebergTable.specs()
                 .values().stream()
@@ -229,7 +226,7 @@ public class PartitionTable
 
                 partitions.computeIfAbsent(
                         structLikeWrapperWithFieldIdToIndex,
-                        ignored -> new IcebergStatistics.Builder(icebergTable.schema().columns(), typeManager))
+                        _ -> new IcebergStatistics.Builder(icebergTable.schema().columns(), typeManager))
                         .acceptDataFile(dataFile, fileScanTask.spec());
             }
 
@@ -276,9 +273,9 @@ public class PartitionTable
             });
 
             // add the top level metrics.
-            row.add(icebergStatistics.getRecordCount());
-            row.add(icebergStatistics.getFileCount());
-            row.add(icebergStatistics.getSize());
+            row.add(icebergStatistics.recordCount());
+            row.add(icebergStatistics.fileCount());
+            row.add(icebergStatistics.size());
 
             // add column level metrics
             dataColumnType.ifPresent(dataColumnType -> {
@@ -286,10 +283,10 @@ public class PartitionTable
                     row.add(buildRowValue(dataColumnType, fields -> {
                         for (int i = 0; i < columnMetricTypes.size(); i++) {
                             Integer fieldId = nonPartitionPrimitiveColumns.get(i).fieldId();
-                            Object min = icebergStatistics.getMinValues().get(fieldId);
-                            Object max = icebergStatistics.getMaxValues().get(fieldId);
-                            Long nullCount = icebergStatistics.getNullCounts().get(fieldId);
-                            Long nanCount = icebergStatistics.getNanCounts().get(fieldId);
+                            Object min = icebergStatistics.minValues().get(fieldId);
+                            Object max = icebergStatistics.maxValues().get(fieldId);
+                            Long nullCount = icebergStatistics.nullCounts().get(fieldId);
+                            Long nanCount = icebergStatistics.nanCounts().get(fieldId);
                             if (min == null && max == null && nullCount == null) {
                                 throw new MissingColumnMetricsException();
                             }
@@ -299,7 +296,7 @@ public class PartitionTable
                         }
                     }));
                 }
-                catch (MissingColumnMetricsException ignored) {
+                catch (MissingColumnMetricsException _) {
                     row.add(null);
                 }
             });
@@ -373,34 +370,5 @@ public class PartitionTable
         }
     }
 
-    private static class IcebergPartitionColumn
-    {
-        private final RowType rowType;
-        private final List<Integer> fieldIds;
-
-        public IcebergPartitionColumn(RowType rowType, List<Integer> fieldIds)
-        {
-            this.rowType = rowType;
-            this.fieldIds = fieldIds;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            IcebergPartitionColumn that = (IcebergPartitionColumn) o;
-            return Objects.equals(rowType, that.rowType) && Objects.equals(fieldIds, that.fieldIds);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(rowType, fieldIds);
-        }
-    }
+    private record IcebergPartitionColumn(RowType rowType, List<Integer> fieldIds) {}
 }

@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore.glue;
 
 import com.amazonaws.metrics.RequestMetricCollector;
+import io.trino.plugin.hive.metastore.glue.v1.AwsSdkClientCoreStats;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -33,7 +34,6 @@ public class GlueMetastoreStats
     private final AwsApiCallStats getPartitionNames = new AwsApiCallStats();
     private final AwsApiCallStats getPartitions = new AwsApiCallStats();
     private final AwsApiCallStats getPartition = new AwsApiCallStats();
-    private final AwsApiCallStats getPartitionByName = new AwsApiCallStats();
     private final AwsApiCallStats createPartitions = new AwsApiCallStats();
     private final AwsApiCallStats deletePartition = new AwsApiCallStats();
     private final AwsApiCallStats updatePartition = new AwsApiCallStats();
@@ -142,13 +142,6 @@ public class GlueMetastoreStats
     public AwsApiCallStats getGetPartition()
     {
         return getPartition;
-    }
-
-    @Managed
-    @Nested
-    public AwsApiCallStats getGetPartitionByName()
-    {
-        return getPartitionByName;
     }
 
     @Managed

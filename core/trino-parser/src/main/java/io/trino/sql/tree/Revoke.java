@@ -98,7 +98,7 @@ public class Revoke
             return false;
         }
         Revoke o = (Revoke) obj;
-        return Objects.equals(grantOptionFor, o.grantOptionFor) &&
+        return grantOptionFor == o.grantOptionFor &&
                 Objects.equals(privileges, o.privileges) &&
                 Objects.equals(grantObject, o.grantObject) &&
                 Objects.equals(grantee, o.grantee);

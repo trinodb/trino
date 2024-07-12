@@ -34,8 +34,8 @@ import io.trino.sql.ir.Coalesce;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.DomainTranslator;
-import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.optimizations.ActualProperties.Global;
@@ -99,6 +99,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.coordinatorSinglePartition;
@@ -162,11 +163,13 @@ public final class PropertyDerivations
             extends PlanVisitor<ActualProperties, List<ActualProperties>>
     {
         private final PlannerContext plannerContext;
+        private final IrExpressionOptimizer optimizer;
         private final Session session;
 
         public Visitor(PlannerContext plannerContext, Session session)
         {
             this.plannerContext = plannerContext;
+            this.optimizer = newOptimizer(plannerContext);
             this.session = session;
         }
 
@@ -247,7 +250,7 @@ public final class PropertyDerivations
             // If the input is completely pre-partitioned and sorted, then the original input properties will be respected
             Optional<OrderingScheme> orderingScheme = node.getOrderingScheme();
             if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs())
-                    && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().getOrderBy().size())) {
+                    && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().orderBy().size())) {
                 return properties;
             }
 
@@ -289,7 +292,7 @@ public final class PropertyDerivations
             // Otherwise, partitioning and sorting will be respected.
             Optional<OrderingScheme> orderingScheme = node.getOrderingScheme();
             if (ImmutableSet.copyOf(node.getPartitionBy()).equals(node.getPrePartitionedInputs())
-                    && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().getOrderBy().size())) {
+                    && (orderingScheme.isEmpty() || node.getPreSortedOrderPrefix() == orderingScheme.get().orderBy().size())) {
                 if (node.getRowsPerMatch() == WINDOW ||
                         node.getRowsPerMatch() == ONE ||
                         node.getSkipToPosition() == PAST_LAST) {
@@ -360,7 +363,7 @@ public final class PropertyDerivations
             }
 
             List<Symbol> partitionBy = node.getSpecification()
-                    .map(DataOrganizationSpecification::getPartitionBy)
+                    .map(DataOrganizationSpecification::partitionBy)
                     .orElse(ImmutableList.of());
             if (!partitionBy.isEmpty()) {
                 localProperties.add(new GroupingProperty<>(partitionBy));
@@ -773,7 +776,7 @@ public final class PropertyDerivations
                 // to take advantage of constant-folding for complex expressions
                 // However, that currently causes errors when those expressions operate on arrays or row types
                 // ("ROW comparison not supported for fields with null elements", etc)
-                Expression value = new IrExpressionInterpreter(expression, plannerContext, session).optimize();
+                Expression value = optimizer.process(expression, session, ImmutableMap.of()).orElse(expression);
 
                 if (value instanceof Reference) {
                     Symbol symbol = Symbol.from(value);
@@ -894,12 +897,12 @@ public final class PropertyDerivations
         {
             if (layout.getTablePartitioning().isPresent() && node.isUseConnectorNodePartitioning()) {
                 TablePartitioning tablePartitioning = layout.getTablePartitioning().get();
-                if (assignments.keySet().containsAll(tablePartitioning.getPartitioningColumns())) {
-                    List<Symbol> arguments = tablePartitioning.getPartitioningColumns().stream()
+                if (assignments.keySet().containsAll(tablePartitioning.partitioningColumns())) {
+                    List<Symbol> arguments = tablePartitioning.partitioningColumns().stream()
                             .map(assignments::get)
                             .collect(toImmutableList());
 
-                    return partitionedOn(tablePartitioning.getPartitioningHandle(), arguments);
+                    return partitionedOn(tablePartitioning.partitioningHandle(), arguments);
                 }
             }
             return arbitraryPartition();

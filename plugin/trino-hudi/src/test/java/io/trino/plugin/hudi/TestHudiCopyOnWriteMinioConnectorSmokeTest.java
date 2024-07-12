@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hudi;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
 import io.trino.testing.QueryRunner;
@@ -34,10 +33,9 @@ public class TestHudiCopyOnWriteMinioConnectorSmokeTest
         hiveMinioDataLake.start();
         hiveMinioDataLake.getMinioClient().ensureBucketExists(bucketName);
 
-        return S3HudiQueryRunner.create(
-                ImmutableMap.of(),
-                ImmutableMap.of("hudi.columns-to-hide", COLUMNS_TO_HIDE),
-                new TpchHudiTablesInitializer(REQUIRED_TPCH_TABLES),
-                hiveMinioDataLake);
+        return HudiQueryRunner.builder(hiveMinioDataLake)
+                .addConnectorProperty("hudi.columns-to-hide", COLUMNS_TO_HIDE)
+                .setDataLoader(new TpchHudiTablesInitializer(REQUIRED_TPCH_TABLES))
+                .build();
     }
 }

@@ -45,7 +45,7 @@ public class TestPruneIndexSourceColumns
     public void testNotAllOutputsReferenced()
     {
         tester().assertThat(new PruneIndexSourceColumns())
-                .on(p -> buildProjectedIndexSource(p, symbol -> symbol.getName().equals("orderkey")))
+                .on(p -> buildProjectedIndexSource(p, symbol -> symbol.name().equals("orderkey")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("x", expression(new Reference(BIGINT, "orderkey"))),
@@ -67,9 +67,9 @@ public class TestPruneIndexSourceColumns
         Symbol orderkey = p.symbol("orderkey", INTEGER);
         Symbol custkey = p.symbol("custkey", INTEGER);
         Symbol totalprice = p.symbol("totalprice", DOUBLE);
-        ColumnHandle orderkeyHandle = new TpchColumnHandle(orderkey.getName(), INTEGER);
-        ColumnHandle custkeyHandle = new TpchColumnHandle(custkey.getName(), INTEGER);
-        ColumnHandle totalpriceHandle = new TpchColumnHandle(totalprice.getName(), DOUBLE);
+        ColumnHandle orderkeyHandle = new TpchColumnHandle(orderkey.name(), INTEGER);
+        ColumnHandle custkeyHandle = new TpchColumnHandle(custkey.name(), INTEGER);
+        ColumnHandle totalpriceHandle = new TpchColumnHandle(totalprice.name(), DOUBLE);
 
         return p.project(
                 Assignments.identity(

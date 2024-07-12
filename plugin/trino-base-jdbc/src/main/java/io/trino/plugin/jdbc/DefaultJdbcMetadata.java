@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.trino.plugin.base.filter.UtcConstraintExtractor;
+import io.trino.plugin.base.filter.UtcConstraintExtractor.ExtractionResult;
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
@@ -37,6 +39,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableSchema;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.JoinApplicationResult;
@@ -45,6 +48,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -93,10 +97,12 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.base.expression.ConnectorExpressions.and;
 import static io.trino.plugin.base.expression.ConnectorExpressions.extractConjuncts;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isAggregationPushdownEnabled;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isBulkListColumns;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isComplexExpressionPushdown;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isComplexJoinPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isJoinPushdownEnabled;
@@ -117,14 +123,20 @@ public class DefaultJdbcMetadata
     private static final String MERGE_ROW_ID = "$merge_row_id";
 
     private final JdbcClient jdbcClient;
+    private final TimestampTimeZoneDomain timestampTimeZoneDomain;
     private final boolean precalculateStatisticsForPushdown;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    public DefaultJdbcMetadata(JdbcClient jdbcClient, boolean precalculateStatisticsForPushdown, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public DefaultJdbcMetadata(
+            JdbcClient jdbcClient,
+            TimestampTimeZoneDomain timestampTimeZoneDomain,
+            boolean precalculateStatisticsForPushdown,
+            Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.timestampTimeZoneDomain = requireNonNull(timestampTimeZoneDomain, "timestampTimeZoneDomain is null");
         this.precalculateStatisticsForPushdown = precalculateStatisticsForPushdown;
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
     }
@@ -142,8 +154,12 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         return jdbcClient.getTableHandle(session, tableName)
                 .orElse(null);
     }
@@ -173,16 +189,30 @@ public class DefaultJdbcMetadata
             return Optional.empty();
         }
 
+        TupleDomain<ColumnHandle> filterDomain;
+        ConnectorExpression remainingExpression;
+        switch (timestampTimeZoneDomain) {
+            case ANY -> {
+                filterDomain = constraint.getSummary();
+                remainingExpression = constraint.getExpression();
+            }
+            case UTC_ONLY -> {
+                ExtractionResult extractionResult = UtcConstraintExtractor.extractTupleDomain(constraint);
+                filterDomain = extractionResult.tupleDomain();
+                remainingExpression = extractionResult.remainingExpression();
+            }
+            default -> throw new UnsupportedOperationException("Unsupported timestamp time zone domain: " + timestampTimeZoneDomain);
+        }
+
         JdbcTableHandle handle = (JdbcTableHandle) table;
         if (handle.getSortOrder().isPresent() && handle.getLimit().isPresent()) {
             handle = flushAttributesAsQuery(session, handle);
         }
 
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
-        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(filterDomain);
         List<ParameterizedExpression> newConstraintExpressions;
         TupleDomain<ColumnHandle> remainingFilter;
-        ConnectorExpression remainingExpression;
         if (newDomain.isNone()) {
             newConstraintExpressions = ImmutableList.of();
             remainingFilter = TupleDomain.all();
@@ -215,7 +245,7 @@ public class DefaultJdbcMetadata
             if (isComplexExpressionPushdown(session)) {
                 List<ParameterizedExpression> newExpressions = new ArrayList<>();
                 List<ConnectorExpression> remainingExpressions = new ArrayList<>();
-                for (ConnectorExpression expression : extractConjuncts(constraint.getExpression())) {
+                for (ConnectorExpression expression : extractConjuncts(remainingExpression)) {
                     Optional<ParameterizedExpression> converted = jdbcClient.convertPredicate(session, expression, constraint.getAssignments());
                     if (converted.isPresent()) {
                         newExpressions.add(converted.get());
@@ -232,7 +262,6 @@ public class DefaultJdbcMetadata
             }
             else {
                 newConstraintExpressions = ImmutableList.of();
-                remainingExpression = constraint.getExpression();
             }
         }
 
@@ -830,6 +859,10 @@ public class DefaultJdbcMetadata
         }
 
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        if (!tableHandle.getConstraintExpressions().isEmpty()) {
+            // constraintExpressions is not currently supported by the TableScanRedirectApplicationResult
+            return Optional.empty();
+        }
         return jdbcClient.getTableScanRedirection(session, tableHandle);
     }
 
@@ -912,6 +945,19 @@ public class DefaultJdbcMetadata
             }
         }
         return columns.buildOrThrow();
+    }
+
+    @Override
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        if (!isBulkListColumns(session)) {
+            return JdbcMetadata.super.streamRelationColumns(session, schemaName, relationFilter);
+        }
+        Map<SchemaTableName, RelationColumnsMetadata> resultsByName = stream(jdbcClient.getAllTableColumns(session, schemaName))
+                .collect(toImmutableMap(RelationColumnsMetadata::name, identity()));
+        return relationFilter.apply(resultsByName.keySet()).stream()
+                .map(resultsByName::get)
+                .iterator();
     }
 
     @Override

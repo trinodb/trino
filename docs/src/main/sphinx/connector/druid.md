@@ -72,7 +72,6 @@ properties files.
 ```
 
 (druid-type-mapping)=
-
 ## Type mapping
 
 Because Trino and Druid each support types that the other does not, this
@@ -118,7 +117,6 @@ be an empty string `''`, and so forth.
 ```
 
 (druid-sql-support)=
-
 ## SQL support
 
 The connector provides {ref}`globally available <sql-globally-available>` and
@@ -131,7 +129,6 @@ The connector provides specific {doc}`table functions </functions/table>` to
 access Druid.
 
 (druid-query-function)=
-
 ### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It

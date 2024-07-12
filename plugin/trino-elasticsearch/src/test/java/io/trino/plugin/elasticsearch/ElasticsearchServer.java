@@ -29,19 +29,23 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import javax.net.ssl.SSLContext;
+
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.io.Resources.getResource;
+import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.PASSWORD;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.USER;
-import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.getSSLContext;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
@@ -124,6 +128,20 @@ public class ElasticsearchServer
     {
         return clientBuilder.setSSLContext(getSSLContext())
                 .setDefaultHeaders(ImmutableList.of(new BasicHeader("Authorization", format("Basic %s", Base64.encodeAsString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8))))));
+    }
+
+    private static SSLContext getSSLContext()
+    {
+        try {
+            return createSSLContext(
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.of(new File(getResource("truststore.jks").toURI())),
+                    Optional.of("123456"));
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static String loadResource(String file)

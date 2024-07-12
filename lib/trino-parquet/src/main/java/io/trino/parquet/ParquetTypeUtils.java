@@ -34,13 +34,12 @@ import org.apache.parquet.schema.MessageType;
 
 import java.math.BigInteger;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
@@ -106,50 +105,15 @@ public final class ParquetTypeUtils
 
     public static Map<List<String>, ColumnDescriptor> getDescriptors(MessageType fileSchema, MessageType requestedSchema)
     {
-        Map<List<String>, ColumnDescriptor> descriptorsByPath = new HashMap<>();
-        List<PrimitiveColumnIO> columns = getColumns(fileSchema, requestedSchema);
-        for (String[] paths : fileSchema.getPaths()) {
-            List<String> columnPath = Arrays.asList(paths);
-            getDescriptor(columns, columnPath)
-                    .ifPresent(columnDescriptor -> descriptorsByPath.put(columnPath, columnDescriptor));
-        }
-        return descriptorsByPath;
-    }
-
-    public static Optional<ColumnDescriptor> getDescriptor(List<PrimitiveColumnIO> columns, List<String> path)
-    {
-        checkArgument(path.size() >= 1, "Parquet nested path should have at least one component");
-        int index = getPathIndex(columns, path);
-        if (index == -1) {
-            return Optional.empty();
-        }
-        PrimitiveColumnIO columnIO = columns.get(index);
-        return Optional.of(columnIO.getColumnDescriptor());
-    }
-
-    private static int getPathIndex(List<PrimitiveColumnIO> columns, List<String> path)
-    {
-        int maxLevel = path.size();
-        int index = -1;
-        for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
-            ColumnIO[] fields = columns.get(columnIndex).getPath();
-            if (fields.length <= maxLevel) {
-                continue;
-            }
-            if (fields[maxLevel].getName().equalsIgnoreCase(path.get(maxLevel - 1))) {
-                boolean match = true;
-                for (int level = 0; level < maxLevel - 1; level++) {
-                    if (!fields[level + 1].getName().equalsIgnoreCase(path.get(level))) {
-                        match = false;
-                    }
-                }
-
-                if (match) {
-                    index = columnIndex;
-                }
-            }
-        }
-        return index;
+        // io.trino.parquet.reader.MetadataReader.readFooter performs lower casing of all column names in fileSchema.
+        // requestedSchema also contains lower cased columns because of being derived from fileSchema.
+        // io.trino.parquet.ParquetTypeUtils.getParquetTypeByName takes care of case-insensitive matching if needed.
+        // Therefore, we don't need to repeat case-insensitive matching here.
+        return getColumns(fileSchema, requestedSchema)
+                .stream()
+                .collect(toImmutableMap(
+                        columnIO -> Arrays.asList(columnIO.getFieldPath()),
+                        PrimitiveColumnIO::getColumnDescriptor));
     }
 
     @SuppressWarnings("deprecation")
@@ -227,9 +191,11 @@ public final class ParquetTypeUtils
 
     /**
      * For optional fields:
-     * definitionLevel == maxDefinitionLevel     => Value is defined
-     * definitionLevel == maxDefinitionLevel - 1 => Value is null
-     * definitionLevel < maxDefinitionLevel - 1  => Value does not exist, because one of its optional parent fields is null
+     * <ul>
+     * <li>definitionLevel == maxDefinitionLevel     =&gt; Value is defined</li>
+     * <li>definitionLevel == maxDefinitionLevel - 1 =&gt; Value is null</li>
+     * <li>definitionLevel &lt; maxDefinitionLevel - 1  =&gt; Value does not exist, because one of its optional parent fields is null</li>
+     * </ul>
      */
     public static boolean isValueNull(boolean required, int definitionLevel, int maxDefinitionLevel)
     {

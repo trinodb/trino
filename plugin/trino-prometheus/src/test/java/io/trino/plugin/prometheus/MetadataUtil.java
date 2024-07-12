@@ -39,7 +39,6 @@ public final class MetadataUtil
 {
     private MetadataUtil() {}
 
-    public static final JsonCodec<PrometheusTable> TABLE_CODEC;
     public static final JsonCodec<PrometheusColumnHandle> COLUMN_CODEC;
     public static final JsonCodec<Map<String, Object>> METRIC_CODEC;
 
@@ -49,7 +48,6 @@ public final class MetadataUtil
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
         objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TestingTypeDeserializer()));
         JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
-        TABLE_CODEC = codecFactory.jsonCodec(PrometheusTable.class);
         COLUMN_CODEC = codecFactory.jsonCodec(PrometheusColumnHandle.class);
         METRIC_CODEC = codecFactory.mapJsonCodec(String.class, Object.class);
     }

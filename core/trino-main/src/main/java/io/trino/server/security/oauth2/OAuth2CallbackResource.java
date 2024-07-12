@@ -26,11 +26,14 @@ import jakarta.ws.rs.core.Cookie;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 
+import java.net.URLEncoder;
+
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.oauth2.NonceCookie.NONCE_COOKIE;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static jakarta.ws.rs.core.MediaType.TEXT_HTML;
 import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 @Path(CALLBACK_ENDPOINT)
@@ -61,7 +64,7 @@ public class OAuth2CallbackResource
             @Context UriInfo uriInfo)
     {
         if (error != null) {
-            return service.handleOAuth2Error(state, error, errorDescription, errorUri);
+            return service.handleOAuth2Error(state, URLEncoder.encode(error, UTF_8), errorDescription, errorUri);
         }
 
         try {

@@ -16,8 +16,8 @@ package io.trino.plugin.hive.avro;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.avro.AvroFileReader;
+import io.trino.hive.formats.avro.AvroTypeBlockHandler;
 import io.trino.hive.formats.avro.AvroTypeException;
-import io.trino.hive.formats.avro.AvroTypeManager;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -41,7 +41,7 @@ public class AvroPageSource
     public AvroPageSource(
             TrinoInputFile inputFile,
             Schema schema,
-            AvroTypeManager avroTypeManager,
+            AvroTypeBlockHandler avroTypeManager,
             long offset,
             long length)
             throws IOException, AvroTypeException

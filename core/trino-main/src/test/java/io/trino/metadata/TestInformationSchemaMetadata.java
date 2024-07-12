@@ -128,7 +128,7 @@ public class TestInformationSchemaMetadata
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
-                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"));
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"), Optional.empty(), Optional.empty());
         tableHandle = metadata.applyFilter(session, tableHandle, constraint)
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
@@ -145,7 +145,7 @@ public class TestInformationSchemaMetadata
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
-                metadata.getTableHandle(session, new SchemaTableName("information_schema", "columns"));
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "columns"), Optional.empty(), Optional.empty());
         tableHandle = metadata.applyFilter(session, tableHandle, constraint)
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
@@ -167,7 +167,7 @@ public class TestInformationSchemaMetadata
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
-                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"));
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"), Optional.empty(), Optional.empty());
         tableHandle = metadata.applyFilter(session, tableHandle, constraint)
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
@@ -191,7 +191,7 @@ public class TestInformationSchemaMetadata
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
-                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"));
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"), Optional.empty(), Optional.empty());
         tableHandle = metadata.applyFilter(session, tableHandle, constraint)
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
@@ -209,7 +209,7 @@ public class TestInformationSchemaMetadata
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
-                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"));
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"), Optional.empty(), Optional.empty());
         tableHandle = metadata.applyFilter(session, tableHandle, constraint)
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
@@ -229,7 +229,7 @@ public class TestInformationSchemaMetadata
         ConnectorSession session = createNewSession(transactionId);
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
-                metadata.getTableHandle(session, new SchemaTableName("information_schema", "schemata"));
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "schemata"), Optional.empty(), Optional.empty());
         Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = metadata.applyFilter(session, tableHandle, constraint);
         assertThat(result.isPresent()).isFalse();
     }
@@ -242,7 +242,7 @@ public class TestInformationSchemaMetadata
         ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata, MAX_PREFIXES_COUNT);
         InformationSchemaColumnHandle tableSchemaColumn = new InformationSchemaColumnHandle("table_schema");
         InformationSchemaColumnHandle tableNameColumn = new InformationSchemaColumnHandle("table_name");
-        ConnectorTableHandle tableHandle = metadata.getTableHandle(session, new SchemaTableName("information_schema", "tables"));
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(session, new SchemaTableName("information_schema", "tables"), Optional.empty(), Optional.empty());
 
         // Empty schema name
         InformationSchemaTableHandle filtered = metadata.applyFilter(session, tableHandle, new Constraint(TupleDomain.withColumnDomains(

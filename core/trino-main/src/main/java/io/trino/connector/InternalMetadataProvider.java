@@ -65,7 +65,7 @@ public class InternalMetadataProvider
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, qualifiedName);
         if (tableHandle.isPresent()) {
-            return Optional.of(metadata.getTableSchema(session, tableHandle.get()).getTableSchema());
+            return Optional.of(metadata.getTableSchema(session, tableHandle.get()).tableSchema());
         }
 
         return Optional.empty();
@@ -76,8 +76,8 @@ public class InternalMetadataProvider
         return viewColumns.stream()
                 .map(viewColumn ->
                         ColumnSchema.builder()
-                                .setName(viewColumn.getName())
-                                .setType(typeManager.getType(viewColumn.getType()))
+                                .setName(viewColumn.name())
+                                .setType(typeManager.getType(viewColumn.type()))
                                 .build())
                 .collect(toImmutableList());
     }

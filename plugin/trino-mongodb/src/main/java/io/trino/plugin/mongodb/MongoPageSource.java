@@ -60,6 +60,7 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
+import static io.trino.plugin.mongodb.MongoErrorCode.MONGODB_INVALID_TYPE;
 import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME;
 import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME;
 import static io.trino.plugin.mongodb.MongoSession.ID;
@@ -108,7 +109,7 @@ public class MongoPageSource
             List<MongoColumnHandle> columns)
     {
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        this.columnTypes = columns.stream().map(MongoColumnHandle::getType).collect(toList());
+        this.columnTypes = columns.stream().map(MongoColumnHandle::type).collect(toList());
         this.cursor = mongoSession.execute(tableHandle, columns);
         currentDoc = null;
 
@@ -340,7 +341,9 @@ public class MongoPageSource
                 return;
             }
             if (value instanceof DBRef dbRefValue) {
-                checkState(fields.size() == 3, "DBRef should have 3 fields : %s", type);
+                if (fields.size() != 3) {
+                    throw new TrinoException(MONGODB_INVALID_TYPE, "DBRef should have 3 fields : " + type);
+                }
                 ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
                     for (int i = 0; i < fields.size(); i++) {
                         Field field = fields.get(i);
@@ -381,7 +384,7 @@ public class MongoPageSource
 
     private static Object getColumnValue(Document document, MongoColumnHandle mongoColumnHandle)
     {
-        Object value = document.get(mongoColumnHandle.getBaseName());
+        Object value = document.get(mongoColumnHandle.baseName());
         if (mongoColumnHandle.isBaseColumn()) {
             return value;
         }
@@ -389,7 +392,7 @@ public class MongoPageSource
             return getDbRefValue(dbRefValue, mongoColumnHandle);
         }
         Document documentValue = (Document) value;
-        for (String dereferenceName : mongoColumnHandle.getDereferenceNames()) {
+        for (String dereferenceName : mongoColumnHandle.dereferenceNames()) {
             // When parent field itself is null
             if (documentValue == null) {
                 return null;
@@ -408,11 +411,11 @@ public class MongoPageSource
 
     private static Object getDbRefValue(DBRef dbRefValue, MongoColumnHandle columnHandle)
     {
-        if (columnHandle.getType() instanceof RowType) {
+        if (columnHandle.type() instanceof RowType) {
             return dbRefValue;
         }
-        checkArgument(columnHandle.isDbRefField(), "columnHandle is not a dbRef field: %s", columnHandle);
-        List<String> dereferenceNames = columnHandle.getDereferenceNames();
+        checkArgument(columnHandle.dbRefField(), "columnHandle is not a dbRef field: %s", columnHandle);
+        List<String> dereferenceNames = columnHandle.dereferenceNames();
         checkState(!dereferenceNames.isEmpty(), "dereferenceNames is empty");
         String leafColumnName = dereferenceNames.getLast();
         return switch (leafColumnName) {

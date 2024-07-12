@@ -26,7 +26,6 @@ needs.
 See the {doc}`kafka-tutorial`.
 
 (kafka-requirements)=
-
 ## Requirements
 
 To connect to Kafka, you need:
@@ -249,7 +248,6 @@ For tables without a table definition file, the `_key_corrupt` and
 `_message_corrupt` columns will always be `false`.
 
 (kafka-table-schema-registry)=
-
 ## Table schema and schema registry usage
 
 The table schema for the messages can be supplied to the connector with a
@@ -384,7 +382,6 @@ Each field definition is a JSON object:
 There is no limit on field descriptions for either key or message.
 
 (confluent-table-description-supplier)=
-
 ### Confluent table description supplier
 
 The Confluent table description supplier uses the [Confluent Schema Registry](https://docs.confluent.io/1.0/schema-registry/docs/intro.html) to discover
@@ -502,7 +499,6 @@ then the corresponding Trino row includes a column named
 `test_oneof_column` with the value `JSON '{"string_column": "Trino"}'`.
 
 (kafka-sql-inserts)=
-
 ## Kafka inserts
 
 The Kafka connector supports the use of {doc}`/sql/insert` statements to write
@@ -531,7 +527,6 @@ use a hash algorithm to choose the target partition for the message. The same
 key will always be assigned the same partition.
 
 (kafka-type-mapping)=
-
 ## Type mapping
 
 Because Trino and Kafka each support types that the other does not, this
@@ -541,7 +536,6 @@ connector {ref}`maps some types <type-mapping-overview>` when reading
 JSON, CSV).
 
 (kafka-row-encoding)=
-
 ### Row encoding
 
 Encoding is required to allow writing data; it defines how table columns in
@@ -982,7 +976,6 @@ The following is an example insert query for the preceding table definition:
 > : VALUES (123456789, 'example text', FALSE);
 
 (kafka-protobuf-encoding)=
-
 #### Protobuf encoder
 
 The Protobuf encoder serializes rows to Protobuf DynamicMessages as defined by
@@ -1087,7 +1080,6 @@ INSERT INTO example_protobuf_table (field1, field2, field3)
 ```
 
 (kafka-row-decoding)=
-
 ### Row decoding
 
 For key and message, a decoder is used to map message and key data onto table columns.
@@ -1319,7 +1311,6 @@ The schema evolution behavior is as follows:
   error is thrown for incompatible types.
 
 (kafka-protobuf-decoding)=
-
 #### Protobuf decoder
 
 The Protobuf decoder converts the bytes representing a message or key in
@@ -1434,7 +1425,6 @@ The schema evolution behavior is as follows:
   decoding/encoding at microsecond precision.
 
 (kafka-sql-support)=
-
 ## SQL support
 
 The connector provides read and write access to data and metadata in Trino

@@ -51,7 +51,7 @@ public final class LambdaExpressionExtractor
         @Override
         public Void visitCall(CallExpression call, Context context)
         {
-            for (RowExpression rowExpression : call.getArguments()) {
+            for (RowExpression rowExpression : call.arguments()) {
                 rowExpression.accept(this, context);
             }
 
@@ -61,7 +61,7 @@ public final class LambdaExpressionExtractor
         @Override
         public Void visitSpecialForm(SpecialForm specialForm, Context context)
         {
-            for (RowExpression rowExpression : specialForm.getArguments()) {
+            for (RowExpression rowExpression : specialForm.arguments()) {
                 rowExpression.accept(this, context);
             }
 
@@ -77,7 +77,7 @@ public final class LambdaExpressionExtractor
         @Override
         public Void visitLambda(LambdaDefinitionExpression lambda, Context context)
         {
-            lambda.getBody().accept(this, new Context(true));
+            lambda.body().accept(this, new Context(true));
             lambdaExpressions.add(lambda);
             return null;
         }

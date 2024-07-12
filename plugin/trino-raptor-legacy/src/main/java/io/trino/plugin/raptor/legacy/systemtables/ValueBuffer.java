@@ -135,7 +135,7 @@ public class ValueBuffer
             return false;
         }
         ValueBuffer that = (ValueBuffer) o;
-        return Objects.equals(columnIndex, that.columnIndex) &&
+        return columnIndex == that.columnIndex &&
                 Objects.equals(type, that.type) &&
                 Objects.equals(value, that.value);
     }

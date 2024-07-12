@@ -14,6 +14,7 @@
 package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 
 import java.util.List;
@@ -21,9 +22,11 @@ import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.stream.Collectors.joining;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCassandraTable
         implements AutoCloseable
@@ -41,8 +44,8 @@ public class TestCassandraTable
     // `48 - RANDOM_SUFFIX_LENGTH` for the exact value.
 
     public TestCassandraTable(
+            QueryRunner queryRunner,
             SqlExecutor sqlExecutor,
-            CassandraServer server,
             String keyspace,
             String namePrefix,
             List<ColumnDefinition> columnDefinitions,
@@ -61,8 +64,9 @@ public class TestCassandraTable
                 sqlExecutor.execute(format("INSERT INTO %s.%s (%s) VALUES (%s)", keyspace, tableName, columns, row));
             }
 
-            // Ensure that the currently created table is visible to other sessions (e.g. the session used in DistributedQueryRunner)
-            server.refreshSizeEstimates(keyspace, tableName);
+            // Ensure that the currently created table is visible to Trino
+            assertEventually(() -> assertThat(queryRunner.execute("SELECT * FROM %s.%s".formatted(keyspace, tableName)).getRowCount())
+                    .isEqualTo(rowsToInsert.size()));
         }
         catch (Exception e) {
             try (TestCassandraTable ignored = this) {

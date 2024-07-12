@@ -128,7 +128,7 @@ public class JoinBridgeManager<T extends JoinBridge>
     public ListenableFuture<OuterPositionIterator> getOuterPositionsFuture()
     {
         initializeIfNecessary();
-        return transform(joinLifecycle.whenBuildAndProbeFinishes(), ignored -> joinBridge.getOuterPositionIterator(), directExecutor());
+        return transform(joinLifecycle.whenBuildAndProbeFinishes(), _ -> joinBridge.getOuterPositionIterator(), directExecutor());
     }
 
     private static class JoinLifecycle

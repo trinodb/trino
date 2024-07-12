@@ -27,7 +27,6 @@ import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Logical;
-import io.trino.sql.ir.Not;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
@@ -61,7 +60,7 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
-import static io.trino.sql.ir.Comparison.Operator.IS_DISTINCT_FROM;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
@@ -93,13 +92,13 @@ import static java.util.function.Function.identity;
  * <p>
  * Example transformation for two sources, both with set semantics
  * and KEEP WHEN EMPTY property:
- * <pre>
+ * <pre>{@code
  * - TableFunction foo
  *      - source T1(a1, b1) PARTITION BY a1 ORDER BY b1
  *      - source T2(a2, b2) PARTITION BY a2
- * </pre>
+ * }</pre>
  * Is transformed into:
- * <pre>
+ * <pre>{@code
  * - TableFunctionProcessor foo
  *      PARTITION BY (a1, a2), ORDER BY combined_row_number
  *      - Project
@@ -120,7 +119,7 @@ import static java.util.function.Function.identity;
  *                      table2_row_number <= row_number()
  *                      table2_partition_size <= count()
  *                          - source T2(a2, b2)
- * </pre>
+ * }</pre>
  */
 public class ImplementTableFunctionSource
         implements Rule<TableFunctionNode>
@@ -181,11 +180,11 @@ public class ImplementTableFunctionSource
                     node.getName(),
                     node.getProperOutputs(),
                     Optional.of(getOnlyElement(node.getSources())),
-                    sourceProperties.isPruneWhenEmpty(),
-                    ImmutableList.of(sourceProperties.getPassThroughSpecification()),
-                    ImmutableList.of(sourceProperties.getRequiredColumns()),
+                    sourceProperties.pruneWhenEmpty(),
+                    ImmutableList.of(sourceProperties.passThroughSpecification()),
+                    ImmutableList.of(sourceProperties.requiredColumns()),
                     Optional.empty(),
-                    sourceProperties.getSpecification(),
+                    sourceProperties.specification(),
                     ImmutableSet.of(),
                     0,
                     Optional.empty(),
@@ -259,16 +258,16 @@ public class ImplementTableFunctionSource
         Optional<OrderingScheme> finalOrderBy = Optional.of(new OrderingScheme(ImmutableList.of(finalRowNumberSymbol), ImmutableMap.of(finalRowNumberSymbol, ASC_NULLS_LAST)));
 
         // derive the prune when empty property
-        boolean pruneWhenEmpty = node.getTableArgumentProperties().stream().anyMatch(TableArgumentProperties::isPruneWhenEmpty);
+        boolean pruneWhenEmpty = node.getTableArgumentProperties().stream().anyMatch(TableArgumentProperties::pruneWhenEmpty);
 
         // Combine the pass through specifications from all sources
         List<PassThroughSpecification> passThroughSpecifications = node.getTableArgumentProperties().stream()
-                .map(TableArgumentProperties::getPassThroughSpecification)
+                .map(TableArgumentProperties::passThroughSpecification)
                 .collect(toImmutableList());
 
         // Combine the required symbols from all sources
         List<List<Symbol>> requiredSymbols = node.getTableArgumentProperties().stream()
-                .map(TableArgumentProperties::getRequiredColumns)
+                .map(TableArgumentProperties::requiredColumns)
                 .collect(toImmutableList());
 
         return Result.ofPlanNode(new TableFunctionProcessorNode(
@@ -290,7 +289,7 @@ public class ImplementTableFunctionSource
     private static Map<String, SourceWithProperties> mapSourcesByName(List<PlanNode> sources, List<TableArgumentProperties> properties)
     {
         return Streams.zip(sources.stream(), properties.stream(), SourceWithProperties::new)
-                .collect(toImmutableMap(entry -> entry.properties().getArgumentName(), identity()));
+                .collect(toImmutableMap(entry -> entry.properties().argumentName(), identity()));
     }
 
     private static NodeWithSymbols planWindowFunctionsForSource(
@@ -300,7 +299,7 @@ public class ImplementTableFunctionSource
             ResolvedFunction countFunction,
             Context context)
     {
-        String argumentName = argumentProperties.getArgumentName();
+        String argumentName = argumentProperties.argumentName();
 
         Symbol rowNumber = context.getSymbolAllocator().newSymbol(argumentName + "_row_number", BIGINT);
         Map<Symbol, Symbol> rowNumberSymbolMapping = source.getOutputSymbols().stream()
@@ -311,7 +310,7 @@ public class ImplementTableFunctionSource
         // If the source has set semantics, its specification is present, even if there is no partitioning or ordering specified.
         // If the source has row semantics, its specification is empty. Currently, such source is processed
         // as if it was a single partition. Alternatively, it could be split into smaller partitions of arbitrary size.
-        DataOrganizationSpecification specification = argumentProperties.getSpecification().orElse(UNORDERED_SINGLE_PARTITION);
+        DataOrganizationSpecification specification = argumentProperties.specification().orElse(UNORDERED_SINGLE_PARTITION);
 
         PlanNode window = new WindowNode(
                 context.getIdAllocator().getNextId(),
@@ -324,7 +323,7 @@ public class ImplementTableFunctionSource
                 ImmutableSet.of(),
                 0);
 
-        return new NodeWithSymbols(window, rowNumber, partitionSize, specification.getPartitionBy(), argumentProperties.isPruneWhenEmpty(), rowNumberSymbolMapping);
+        return new NodeWithSymbols(window, rowNumber, partitionSize, specification.partitionBy(), argumentProperties.pruneWhenEmpty(), rowNumberSymbolMapping);
     }
 
     private static NodeWithSymbols copartition(
@@ -338,7 +337,7 @@ public class ImplementTableFunctionSource
         // Reorder the co-partitioned sources to process the sources with prune when empty property first.
         // It allows to use inner or side joins instead of outer joins.
         sourceList = sourceList.stream()
-                .sorted(Comparator.comparingInt(source -> source.properties().isPruneWhenEmpty() ? -1 : 1))
+                .sorted(Comparator.comparingInt(source -> source.properties().pruneWhenEmpty() ? -1 : 1))
                 .collect(toImmutableList());
 
         NodeWithSymbols first = planWindowFunctionsForSource(sourceList.get(0).source(), sourceList.get(0).properties(), rowNumberFunction, countFunction, context);
@@ -376,7 +375,7 @@ public class ImplementTableFunctionSource
         List<Expression> copartitionConjuncts = Streams.zip(
                         leftPartitionBy.stream(),
                         rightPartitionBy.stream(),
-                        (leftColumn, rightColumn) -> new Not(new Comparison(IS_DISTINCT_FROM, leftColumn, rightColumn)))
+                        (leftColumn, rightColumn) -> new Comparison(IDENTICAL, leftColumn, rightColumn))
                 .collect(toImmutableList());
 
         // Align matching partitions (co-partitions) from left and right source, according to row number.
@@ -523,7 +522,7 @@ public class ImplementTableFunctionSource
         for (int i = 0; i < copartitionedNodes.leftPartitionBy().size(); i++) {
             Symbol leftColumn = copartitionedNodes.leftPartitionBy().get(i);
             Symbol rightColumn = copartitionedNodes.rightPartitionBy().get(i);
-            Type type = leftColumn.getType();
+            Type type = leftColumn.type();
 
             Symbol joinedColumn = context.getSymbolAllocator().newSymbol("combined_partition_column", type);
             joinedPartitionByAssignments.put(joinedColumn, new Coalesce(leftColumn.toSymbolReference(), rightColumn.toSymbolReference()));

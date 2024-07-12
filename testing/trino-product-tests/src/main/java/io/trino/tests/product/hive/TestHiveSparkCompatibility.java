@@ -303,6 +303,44 @@ public class TestHiveSparkCompatibility
         }
     }
 
+    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoSparkParquetBloomFilterCompatibility()
+    {
+        String trinoTableNameWithBloomFilter = "test_trino_spark_parquet_bloom_filter_compatibility_enabled_" + randomNameSuffix();
+        String trioTableNameNoBloomFilter = "test_trino_spark_parquet_bloom_filter_compatibility_disabled_" + randomNameSuffix();
+
+        onTrino().executeQuery(
+                String.format("CREATE TABLE %s.default.%s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) ", TRINO_CATALOG, trinoTableNameWithBloomFilter) +
+                        "WITH (" +
+                        "format = 'PARQUET'," +
+                        "parquet_bloom_filter_columns = ARRAY['testInteger', 'testLong', 'testString', 'testDouble', 'testFloat']" +
+                        ")");
+        onTrino().executeQuery(
+                String.format("CREATE TABLE %s.default.%s (testInteger INTEGER, testLong BIGINT, testString VARCHAR, testDouble DOUBLE, testFloat REAL) WITH (FORMAT = 'PARQUET')", TRINO_CATALOG, trioTableNameNoBloomFilter));
+        String[] sparkTables = new String[] {trinoTableNameWithBloomFilter, trioTableNameNoBloomFilter};
+        String[] trinoTables = new String[] {
+                format("%s.default.%s", TRINO_CATALOG, trinoTableNameWithBloomFilter),
+                format("%s.default.%s", TRINO_CATALOG, trioTableNameNoBloomFilter)};
+
+        for (String trinoTable : trinoTables) {
+            onTrino().executeQuery(format(
+                    "INSERT INTO %s " +
+                            "SELECT testInteger, testLong, testString, testDouble, testFloat FROM (VALUES " +
+                            "  (-999999, -999999, 'aaaaaaaaaaa', DOUBLE '-9999999999.99', REAL '-9999999.9999')" +
+                            ", (3, 30, 'fdsvxxbv33cb', DOUBLE '97662.2', REAL '98862.2')" +
+                            ", (5324, 2466, 'refgfdfrexx', DOUBLE '8796.1', REAL '-65496.1')" +
+                            ", (999999, 9999999999999, 'zzzzzzzzzzz', DOUBLE '9999999999.99', REAL '-9999999.9999')" +
+                            ", (9444, 4132455, 'ff34322vxff', DOUBLE '32137758.7892', REAL '9978.129887')) AS DATA(testInteger, testLong, testString, testDouble, testFloat)",
+                    trinoTable));
+        }
+
+        assertSparkBloomFilterTableSelectResult(sparkTables);
+
+        for (String trinoTable : trinoTables) {
+            onTrino().executeQuery("DROP TABLE " + trinoTable);
+        }
+    }
+
     private static void assertTrinoBloomFilterTableSelectResult(String[] trinoTables)
     {
         for (String trinoTable : trinoTables) {
@@ -311,6 +349,17 @@ public class TestHiveSparkCompatibility
             assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM " + trinoTable + " WHERE testString IN ('fdsvxxbv33cb', 'cxxx322', 'cxxx323')")).containsOnly(List.of(row(1)));
             assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM " + trinoTable + " WHERE testDouble IN (DOUBLE '97662.2', DOUBLE '-97221.2', DOUBLE '-88777.22233')")).containsOnly(List.of(row(1)));
             assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM " + trinoTable + " WHERE testFloat IN (REAL '-65496.1', REAL '98211862.2', REAL '6761111555.1222')")).containsOnly(List.of(row(1)));
+        }
+    }
+
+    private static void assertSparkBloomFilterTableSelectResult(String[] sparkTables)
+    {
+        for (String sparkTable : sparkTables) {
+            assertThat(onSpark().executeQuery("SELECT COUNT(*) FROM " + sparkTable + " WHERE testInteger IN (9444, -88777, 6711111)")).containsOnly(List.of(row(1)));
+            assertThat(onSpark().executeQuery("SELECT COUNT(*) FROM " + sparkTable + " WHERE testLong IN (4132455, 321324, 312321321322)")).containsOnly(List.of(row(1)));
+            assertThat(onSpark().executeQuery("SELECT COUNT(*) FROM " + sparkTable + " WHERE testString IN ('fdsvxxbv33cb', 'cxxx322', 'cxxx323')")).containsOnly(List.of(row(1)));
+            assertThat(onSpark().executeQuery("SELECT COUNT(*) FROM " + sparkTable + " WHERE testDouble IN (97662.2D, -97221.2D, -88777.22233D)")).containsOnly(List.of(row(1)));
+            assertThat(onSpark().executeQuery("SELECT COUNT(*) FROM " + sparkTable + " WHERE testFloat IN (-65496.1F, 98211862.2F, 6761111555.1222F)")).containsOnly(List.of(row(1)));
         }
     }
 

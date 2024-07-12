@@ -77,7 +77,7 @@ public class LocalFileSystem
         try {
             Files.delete(filePath);
         }
-        catch (NoSuchFileException ignored) {
+        catch (NoSuchFileException _) {
         }
         catch (IOException e) {
             throw handleException(location, e);

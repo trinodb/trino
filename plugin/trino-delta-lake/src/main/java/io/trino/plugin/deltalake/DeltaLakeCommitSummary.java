@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.canonicalizePartitionValues;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeCommitSummary
@@ -32,7 +33,8 @@ public class DeltaLakeCommitSummary
     private final long version;
     private final List<MetadataEntry> metadataUpdates;
     private final Optional<ProtocolEntry> protocol;
-    private final boolean containingRemovedFiles;
+    private final boolean containsRemoveFileWithoutPartitionValues;
+    private final Set<Map<String, Optional<String>>> removedFilesCanonicalPartitionValues;
     private final Set<Map<String, Optional<String>>> addedFilesCanonicalPartitionValues;
     private final Optional<Boolean> isBlindAppend;
 
@@ -43,8 +45,9 @@ public class DeltaLakeCommitSummary
         Optional<ProtocolEntry> optionalProtocol = Optional.empty();
         Optional<CommitInfoEntry> optionalCommitInfo = Optional.empty();
         ImmutableSet.Builder<Map<String, Optional<String>>> addedFilesCanonicalPartitionValuesBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<Map<String, Optional<String>>> removedFilesCanonicalPartitionValuesBuilder = ImmutableSet.builder();
+        boolean containsRemoveFileWithoutPartitionValues = false;
 
-        boolean removedFilesFound = false;
         for (DeltaLakeTransactionLogEntry transactionLogEntry : transactionLogEntries) {
             if (transactionLogEntry.getMetaData() != null) {
                 metadataUpdatesBuilder.add(transactionLogEntry.getMetaData());
@@ -59,7 +62,13 @@ public class DeltaLakeCommitSummary
                 addedFilesCanonicalPartitionValuesBuilder.add(transactionLogEntry.getAdd().getCanonicalPartitionValues());
             }
             else if (transactionLogEntry.getRemove() != null) {
-                removedFilesFound = true;
+                Map<String, String> partitionValues = transactionLogEntry.getRemove().partitionValues();
+                if (partitionValues == null) {
+                    containsRemoveFileWithoutPartitionValues = true;
+                }
+                else {
+                    removedFilesCanonicalPartitionValuesBuilder.add(canonicalizePartitionValues(partitionValues));
+                }
             }
         }
 
@@ -67,7 +76,8 @@ public class DeltaLakeCommitSummary
         metadataUpdates = metadataUpdatesBuilder.build();
         protocol = optionalProtocol;
         addedFilesCanonicalPartitionValues = addedFilesCanonicalPartitionValuesBuilder.build();
-        containingRemovedFiles = removedFilesFound;
+        removedFilesCanonicalPartitionValues = removedFilesCanonicalPartitionValuesBuilder.build();
+        this.containsRemoveFileWithoutPartitionValues = containsRemoveFileWithoutPartitionValues;
         isBlindAppend = optionalCommitInfo.flatMap(CommitInfoEntry::isBlindAppend);
     }
 
@@ -86,9 +96,14 @@ public class DeltaLakeCommitSummary
         return protocol;
     }
 
-    public boolean isContainingRemovedFiles()
+    public boolean isContainsRemoveFileWithoutPartitionValues()
     {
-        return containingRemovedFiles;
+        return containsRemoveFileWithoutPartitionValues;
+    }
+
+    public Set<Map<String, Optional<String>>> getRemovedFilesCanonicalPartitionValues()
+    {
+        return removedFilesCanonicalPartitionValues;
     }
 
     public Set<Map<String, Optional<String>>> getAddedFilesCanonicalPartitionValues()
