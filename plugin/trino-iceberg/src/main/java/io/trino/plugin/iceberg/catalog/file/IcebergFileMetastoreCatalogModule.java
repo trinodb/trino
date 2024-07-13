@@ -27,6 +27,7 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.MetastoreValidator;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalogFactory;
+import io.trino.plugin.iceberg.procedure.AddFilesProcedure;
 import io.trino.plugin.iceberg.procedure.MigrateProcedure;
 import io.trino.spi.procedure.Procedure;
 
@@ -55,5 +56,6 @@ public class IcebergFileMetastoreCatalogModule
         });
         Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
         procedures.addBinding().toProvider(MigrateProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(AddFilesProcedure.class).in(Scopes.SINGLETON);
     }
 }
