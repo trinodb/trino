@@ -168,6 +168,9 @@ implementation is used:
 * - `iceberg.register-table-procedure.enabled`
   - Enable to allow user to call [`register_table` procedure](iceberg-register-table).
   - `false`
+* - `iceberg.add_files-procedure.enabled`
+  - Enable to allow user to call `add_files` procedure.
+  - `false`
 * - `iceberg.query-partition-filter-required`
   - Set to `true` to force a query to use a partition filter for schemas
     specified with `iceberg.query-partition-filter-required-schemas`. Equivalent
@@ -561,6 +564,65 @@ CALL example.system.migrate(
 The default value is `fail`, which causes the migrate procedure to throw an
 exception if subdirectories are found. Set the value to `true` to migrate
 nested directories, or `false` to ignore them.
+
+(iceberg-add-files)=
+#### Add files
+
+The connector can add files from tables or locations if
+`iceberg.add_files-procedure.enabled` is set to `true` for the catalog.
+
+Use the procedure `system.add_files_from_table` to add existing files from the Hive 
+table or `system.add_files` to add existing files from specified locations. 
+The data files must be the Parquet, ORC, or Avro file format.
+
+:::{warning}
+The procedure does not check if files are already present in the target table.
+:::
+
+The procedure must be called for a specific catalog `example` with the
+relevant schema and table names supplied with the required parameters
+`schema_name` and `table_name`:
+
+```sql
+ALTER TABLE testdb.iceberg_customer_orders EXECUTE add_files_from_table(
+    schema_name => 'testdb',
+    table_name => 'hive_customer_orders')
+```
+
+You need to provide a `partition_filter` argument to add files from specified partitions.
+The following example adds files from a partition where the `region` is `ASIA` and
+`country` is `JAPAN`:
+
+```sql
+ALTER TABLE testdb.iceberg_customer_orders EXECUTE add_files_from_table(
+    schema_name => 'testdb',
+    table_name => 'hive_customer_orders',
+    partition_filter => map(ARRAY['region', 'country'], ARRAY['ASIA', 'JAPAN']))
+```
+
+In addition, you can provide a `recursive_directory` argument to migrate a
+Hive table that contains subdirectories:
+
+```sql
+ALTER TABLE testdb.iceberg_customer_orders EXECUTE add_files_from_table(
+    schema_name => 'testdb',
+    table_name => 'hive_customer_orders',
+    recursive_directory => 'true')
+```
+
+The default value of `recursive_directory` is `fail`, which causes the procedure 
+to throw an exception if subdirectories are found. Set the value to `true` to add 
+files from nested directories, or `false` to ignore them.
+
+`add_files` procedure supports adding files from a specified location.
+The procedure does not validate file schemas for compatibility with
+the target Iceberg table. The `location` property is supported for partitioned tables.
+
+```sql
+ALTER TABLE testdb.iceberg_customer_orders EXECUTE add_files(
+    location => 's3://my-bucket/a/path',
+    format => 'ORC')
+```
 
 (iceberg-data-management)=
 ### Data management

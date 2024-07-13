@@ -13,12 +13,18 @@
  */
 package io.trino.plugin.iceberg.procedure;
 
-public enum IcebergTableProcedureId
+import io.trino.plugin.hive.HiveStorageFormat;
+import io.trino.plugin.iceberg.procedure.MigrationUtils.RecursiveDirectory;
+
+import static java.util.Objects.requireNonNull;
+
+public record IcebergAddFilesHandle(String location, HiveStorageFormat format, RecursiveDirectory recursiveDirectory)
+        implements IcebergProcedureHandle
 {
-    OPTIMIZE,
-    DROP_EXTENDED_STATS,
-    EXPIRE_SNAPSHOTS,
-    REMOVE_ORPHAN_FILES,
-    ADD_FILES,
-    ADD_FILES_FROM_TABLE,
+    public IcebergAddFilesHandle
+    {
+        requireNonNull(location, "location is null");
+        requireNonNull(format, "format is null");
+        requireNonNull(recursiveDirectory, "recursiveDirectory is null");
+    }
 }

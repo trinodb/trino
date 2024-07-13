@@ -15,10 +15,14 @@ package io.trino.plugin.iceberg;
 
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,6 +34,8 @@ public class IcebergMetadataFactory
     private final TrinoCatalogFactory catalogFactory;
     private final IcebergFileSystemFactory fileSystemFactory;
     private final TableStatisticsWriter tableStatisticsWriter;
+    private final Optional<HiveMetastoreFactory> metastoreFactory;
+    private final boolean addFilesProcedureEnabled;
 
     @Inject
     public IcebergMetadataFactory(
@@ -38,7 +44,9 @@ public class IcebergMetadataFactory
             JsonCodec<CommitTaskData> commitTaskCodec,
             TrinoCatalogFactory catalogFactory,
             IcebergFileSystemFactory fileSystemFactory,
-            TableStatisticsWriter tableStatisticsWriter)
+            TableStatisticsWriter tableStatisticsWriter,
+            @RawHiveMetastoreFactory Optional<HiveMetastoreFactory> metastoreFactory,
+            IcebergConfig config)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoCatalogHandle = requireNonNull(trinoCatalogHandle, "trinoCatalogHandle is null");
@@ -46,6 +54,8 @@ public class IcebergMetadataFactory
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
+        this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
+        this.addFilesProcedureEnabled = config.isAddFilesProcedureEnabled();
     }
 
     public IcebergMetadata create(ConnectorIdentity identity)
@@ -56,6 +66,8 @@ public class IcebergMetadataFactory
                 commitTaskCodec,
                 catalogFactory.create(identity),
                 fileSystemFactory,
-                tableStatisticsWriter);
+                tableStatisticsWriter,
+                metastoreFactory,
+                addFilesProcedureEnabled);
     }
 }

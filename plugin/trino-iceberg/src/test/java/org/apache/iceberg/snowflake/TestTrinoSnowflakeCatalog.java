@@ -216,7 +216,9 @@ public class TestTrinoSnowflakeCatalog
                 (connectorIdentity, fileIOProperties) -> {
                     throw new UnsupportedOperationException();
                 },
-                new TableStatisticsWriter(new NodeVersion("test-version")));
+                new TableStatisticsWriter(new NodeVersion("test-version")),
+                Optional.empty(),
+                false);
         assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                 .isTrue();
         assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")

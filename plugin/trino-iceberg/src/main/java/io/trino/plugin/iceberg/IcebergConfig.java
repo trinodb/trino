@@ -67,6 +67,7 @@ public class IcebergConfig
     private boolean collectExtendedStatisticsOnWrite = true;
     private boolean projectionPushdownEnabled = true;
     private boolean registerTableProcedureEnabled;
+    private boolean addFilesProcedureEnabled;
     private Optional<String> hiveCatalogName = Optional.empty();
     private int formatVersion = FORMAT_VERSION_SUPPORT_MAX;
     private Duration expireSnapshotsMinRetention = new Duration(7, DAYS);
@@ -252,6 +253,19 @@ public class IcebergConfig
     public IcebergConfig setRegisterTableProcedureEnabled(boolean registerTableProcedureEnabled)
     {
         this.registerTableProcedureEnabled = registerTableProcedureEnabled;
+        return this;
+    }
+
+    public boolean isAddFilesProcedureEnabled()
+    {
+        return addFilesProcedureEnabled;
+    }
+
+    @Config("iceberg.add_files-procedure.enabled")
+    @ConfigDescription("Allow users to call the add_files procedure")
+    public IcebergConfig setAddFilesProcedureEnabled(boolean addFilesProcedureEnabled)
+    {
+        this.addFilesProcedureEnabled = addFilesProcedureEnabled;
         return this;
     }
 
