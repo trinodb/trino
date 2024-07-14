@@ -424,6 +424,19 @@ public class TestPreAggregateCaseAggregations
                         "GROUP BY col_varchar");
     }
 
+    @Test
+    public void testInfiniteOptimizeLoop()
+    {
+        assertFires("""
+                         SELECT
+                             SUM(IF(col_varchar != 'V', col_bigint + col_decimal)),
+                             SUM(IF(col_varchar != 'V', col_decimal + col_tinyint)),
+                             SUM(IF(col_varchar != 'V', col_tinyint + col_double)),
+                             SUM(IF(col_varchar != 'V', col_double + col_bigint))
+                         FROM t
+                         """);
+    }
+
     private void assertFires(@Language("SQL") String query)
     {
         assertThat(countOfMatchingNodes(plan(query), AggregationNode.class::isInstance)).isEqualTo(2);

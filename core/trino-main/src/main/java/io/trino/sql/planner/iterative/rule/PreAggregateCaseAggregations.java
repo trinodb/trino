@@ -167,13 +167,18 @@ public class PreAggregateCaseAggregations
         aggregationNode.getGroupingKeys().forEach(symbol -> preGroupingExpressionsBuilder.put(symbol, projectNode.getAssignments().get(symbol)));
         Assignments preGroupingExpressions = preGroupingExpressionsBuilder.build();
 
-        ProjectNode preProjection = createPreProjection(
+        Optional<ProjectNode> preProjection = createPreProjection(
                 projectNode.getSource(),
+                projectNode.getAssignments(),
                 preGroupingExpressions,
                 preAggregations,
                 context);
+        if (preProjection.isEmpty()) {
+            return Result.empty();
+        }
+
         AggregationNode preAggregation = createPreAggregation(
-                preProjection,
+                preProjection.get(),
                 preGroupingExpressions.getOutputs(),
                 preAggregations,
                 context);
@@ -267,8 +272,9 @@ public class PreAggregateCaseAggregations
                 Optional.empty());
     }
 
-    private ProjectNode createPreProjection(
+    private Optional<ProjectNode> createPreProjection(
             PlanNode source,
+            Assignments projectAssignments,
             Assignments groupingExpressions,
             Map<PreAggregationKey, PreAggregation> preAggregations,
             Context context)
@@ -276,7 +282,12 @@ public class PreAggregateCaseAggregations
         Assignments.Builder assignments = Assignments.builder();
         assignments.putAll(groupingExpressions);
         preAggregations.values().forEach(aggregation -> assignments.put(aggregation.getProjectionSymbol(), aggregation.getProjection()));
-        return new ProjectNode(context.getIdAllocator().getNextId(), source, assignments.build());
+        Assignments newAssignments = assignments.build();
+        if (newAssignments.getMap().values().equals(projectAssignments.getMap().values())) {
+            // no change. return empty to avoid infinite optimize loop
+            return Optional.empty();
+        }
+        return Optional.of(new ProjectNode(context.getIdAllocator().getNextId(), source, newAssignments));
     }
 
     private Map<PreAggregationKey, PreAggregation> getPreAggregations(List<CaseAggregation> aggregations, Context context)
@@ -405,6 +416,14 @@ public class PreAggregateCaseAggregations
             }
         }
 
+        Expression cumulativeAggregationDefaultValue;
+        if (caseExpression.defaultValue().type().equals(aggregationType)) {
+            cumulativeAggregationDefaultValue = caseExpression.defaultValue();
+        }
+        else {
+            cumulativeAggregationDefaultValue = new Cast(caseExpression.defaultValue(), aggregationType);
+        }
+
         return Optional.of(new CaseAggregation(
                 aggregationSymbol,
                 resolvedFunction,
@@ -412,7 +431,7 @@ public class PreAggregateCaseAggregations
                 name,
                 caseExpression.whenClauses().get(0).getOperand(),
                 caseExpression.whenClauses().get(0).getResult(),
-                new Cast(caseExpression.defaultValue(), aggregationType)));
+                cumulativeAggregationDefaultValue));
     }
 
     private Type getType(Expression expression)
