@@ -29,6 +29,7 @@ public class PostgreSqlConfig
     private boolean includeSystemTables;
     private boolean enableStringPushdownWithCollate;
     private Integer fetchSize;
+    private String jdbcOptions;
 
     public enum ArrayMapping
     {
@@ -85,6 +86,18 @@ public class PostgreSqlConfig
     public PostgreSqlConfig setFetchSize(Integer fetchSize)
     {
         this.fetchSize = fetchSize;
+        return this;
+    }
+
+    public String getJdbcOptions()
+    {
+        return this.jdbcOptions;
+    }
+
+    @Config("postgresql.jdbc.options")
+    public PostgreSqlConfig setJdbcOptions(String jdbcOptions)
+    {
+        this.jdbcOptions = jdbcOptions;
         return this;
     }
 }

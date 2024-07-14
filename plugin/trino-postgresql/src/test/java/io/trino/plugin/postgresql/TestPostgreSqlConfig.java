@@ -31,7 +31,8 @@ public class TestPostgreSqlConfig
                 .setArrayMapping(PostgreSqlConfig.ArrayMapping.DISABLED)
                 .setIncludeSystemTables(false)
                 .setEnableStringPushdownWithCollate(false)
-                .setFetchSize(null));
+                .setFetchSize(null)
+                .setJdbcOptions(null));
     }
 
     @Test
@@ -42,13 +43,15 @@ public class TestPostgreSqlConfig
                 .put("postgresql.include-system-tables", "true")
                 .put("postgresql.experimental.enable-string-pushdown-with-collate", "true")
                 .put("postgresql.fetch-size", "2000")
+                .put("postgresql.jdbc.options", "-c statement_timeout=5min")
                 .buildOrThrow();
 
         PostgreSqlConfig expected = new PostgreSqlConfig()
                 .setArrayMapping(PostgreSqlConfig.ArrayMapping.AS_ARRAY)
                 .setIncludeSystemTables(true)
                 .setEnableStringPushdownWithCollate(true)
-                .setFetchSize(2000);
+                .setFetchSize(2000)
+                .setJdbcOptions("-c statement_timeout=5min");
 
         assertFullMapping(properties, expected);
     }

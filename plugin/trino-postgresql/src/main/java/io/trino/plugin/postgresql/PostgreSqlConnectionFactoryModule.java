@@ -38,13 +38,22 @@ public class PostgreSqlConnectionFactoryModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
+    public static ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, PostgreSqlConfig postgreSqlConfig, OpenTelemetry openTelemetry)
     {
-        Properties connectionProperties = new Properties();
+        Properties connectionProperties = getConnectionProperties(postgreSqlConfig);
         connectionProperties.put(REWRITE_BATCHED_INSERTS.getName(), "true");
         return DriverConnectionFactory.builder(new Driver(), config.getConnectionUrl(), credentialProvider)
                 .setConnectionProperties(connectionProperties)
                 .setOpenTelemetry(openTelemetry)
                 .build();
+    }
+
+    public static Properties getConnectionProperties(PostgreSqlConfig postgreSqlConfig)
+    {
+        Properties connectionProperties = new Properties();
+        if (postgreSqlConfig.getJdbcOptions() != null) {
+            connectionProperties.setProperty("options", postgreSqlConfig.getJdbcOptions());
+        }
+        return connectionProperties;
     }
 }
