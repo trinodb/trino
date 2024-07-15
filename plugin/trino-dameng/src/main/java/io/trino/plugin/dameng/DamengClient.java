@@ -436,7 +436,7 @@ public class DamengClient
 
     private static int getTimestampPrecision(int timestampColumnSize)
     {
-        if (timestampColumnSize == ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE) {
+        if (timestampColumnSize <= ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE) {
             return 0;
         }
         int timestampPrecision = timestampColumnSize - ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE - 1;
