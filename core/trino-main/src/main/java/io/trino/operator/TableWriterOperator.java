@@ -235,6 +235,7 @@ public class TableWriterOperator
             finishFuture = pageSink.finish();
             blockedOnFinish = toListenableFuture(finishFuture);
             updateWrittenBytes();
+            operatorContext.setLatestMetrics(pageSink.getMetrics());
         }
         this.blocked = asVoid(allAsList(currentlyBlocked, blockedOnAggregation, blockedOnFinish));
     }

@@ -54,6 +54,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.trino.operator.output.SkewedPartitionRebalancer.ScaleWriterStats;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -87,6 +88,9 @@ public class TaskContext
     private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> terminatingStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
+
+    private final AtomicReference<Optional<ScaleWriterStats>> scaleWriterRemoteExchangeStats = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<Optional<ScaleWriterStats>> scaleWriterLocalExchangeStats = new AtomicReference<>(Optional.empty());
 
     private final List<PipelineContext> pipelineContexts = new CopyOnWriteArrayList<>();
 
@@ -304,6 +308,16 @@ public class TaskContext
     public AggregatedMemoryContext newAggregateMemoryContext()
     {
         return taskMemoryContext.newAggregateUserMemoryContext();
+    }
+
+    public void setScaleWriterRemoteExchangeStats(ScaleWriterStats stats)
+    {
+        scaleWriterRemoteExchangeStats.set(Optional.of(stats));
+    }
+
+    public void setScaleWriterLocalExchangeStats(ScaleWriterStats stats)
+    {
+        scaleWriterLocalExchangeStats.set(Optional.of(stats));
     }
 
     public boolean isPerOperatorCpuTimerEnabled()
@@ -621,6 +635,8 @@ public class TaskContext
                 succinctBytes(getWriterInputDataSize()),
                 succinctBytes(physicalWrittenDataSize),
                 getMaxWriterCount(),
+                scaleWriterRemoteExchangeStats.get(),
+                scaleWriterLocalExchangeStats.get(),
                 fullGcCount,
                 fullGcTime,
                 pipelineStats);

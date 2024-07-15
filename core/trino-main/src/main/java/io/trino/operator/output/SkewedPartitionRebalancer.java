@@ -13,14 +13,17 @@
  */
 package io.trino.operator.output;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
+import io.airlift.stats.TDigest;
 import io.trino.Session;
 import io.trino.execution.resourcegroups.IndexedPriorityQueue;
 import io.trino.operator.PartitionFunction;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.NodePartitioningManager;
@@ -34,8 +37,10 @@ import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
+import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getMaxMemoryPerPartitionWriter;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
@@ -44,6 +49,7 @@ import static java.lang.Double.isNaN;
 import static java.lang.Math.ceil;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Helps in distributing big or skewed partitions across available tasks to improve the performance of
@@ -101,6 +107,12 @@ public class SkewedPartitionRebalancer
 
     @GuardedBy("this")
     private final long[] estimatedTaskBucketDataSizeSinceLastRebalance;
+
+    @GuardedBy("this")
+    private final boolean[] activePartitions;
+
+    @GuardedBy("this")
+    private final Consumer<ScaleWriterStats> scaleWriterStatsConsumer;
 
     private final List<List<TaskBucket>> partitionAssignments;
 
@@ -170,7 +182,8 @@ public class SkewedPartitionRebalancer
             int taskCount,
             int taskBucketCount,
             long minPartitionDataProcessedRebalanceThreshold,
-            long maxDataProcessedRebalanceThreshold)
+            long maxDataProcessedRebalanceThreshold,
+            Consumer<ScaleWriterStats> scaleWriterStatsConsumer)
     {
         this.partitionCount = partitionCount;
         this.taskCount = taskCount;
@@ -186,6 +199,9 @@ public class SkewedPartitionRebalancer
         this.partitionDataSizeAtLastRebalance = new long[partitionCount];
         this.partitionDataSizeSinceLastRebalancePerTask = new long[partitionCount];
         this.estimatedTaskBucketDataSizeSinceLastRebalance = new long[taskCount * taskBucketCount];
+
+        this.activePartitions = new boolean[partitionCount];
+        this.scaleWriterStatsConsumer = requireNonNull(scaleWriterStatsConsumer, "scaleWriterStatsConsumer is null");
 
         int[] taskBucketIds = new int[taskCount];
         ImmutableList.Builder<List<TaskBucket>> partitionAssignments = ImmutableList.builder();
@@ -260,6 +276,7 @@ public class SkewedPartitionRebalancer
             partitionDataSizeSinceLastRebalancePerTask[partition] =
                     (dataSize - partitionDataSizeAtLastRebalance[partition]) / totalAssignedTasks;
             partitionDataSizeAtLastRebalance[partition] = dataSize;
+            activePartitions[partition] |= dataSize >= 0;
         }
 
         // Initialize taskBucketMaxPartitions
@@ -293,6 +310,7 @@ public class SkewedPartitionRebalancer
 
         rebalanceBasedOnTaskBucketSkewness(maxTaskBuckets, minTaskBuckets, taskBucketMaxPartitions);
         dataProcessedAtLastRebalance.set(dataProcessed);
+        setScaleWriterStats();
     }
 
     private void calculatePartitionDataSize(long dataProcessed)
@@ -430,6 +448,41 @@ public class SkewedPartitionRebalancer
         return true;
     }
 
+    private void setScaleWriterStats()
+    {
+        double uniquePartitionScaled = 0;
+        double totalPartitions = 0;
+        long totalScaled = 0;
+        long[] partitionsPerTask = new long[taskCount];
+
+        for (int partition = 0; partition < partitionCount; partition++) {
+            if (!activePartitions[partition]) {
+                continue;
+            }
+
+            List<TaskBucket> taskAssignments = partitionAssignments.get(partition);
+
+            totalPartitions++;
+            totalScaled += taskAssignments.size() - 1;
+            if (taskAssignments.size() > 1) {
+                uniquePartitionScaled++;
+            }
+            for (TaskBucket taskBucket : taskAssignments) {
+                partitionsPerTask[taskBucket.taskId]++;
+            }
+        }
+
+        TDigest partitionDistribution = new TDigest();
+        for (int taskId = 0; taskId < taskCount; taskId++) {
+            partitionDistribution.add(partitionsPerTask[taskId]);
+        }
+
+        scaleWriterStatsConsumer.accept(new ScaleWriterStats(
+                Distribution.create(new TDigestHistogram(partitionDistribution)),
+                totalScaled,
+                uniquePartitionScaled / totalPartitions));
+    }
+
     private final class TaskBucket
     {
         private final int taskId;
@@ -459,6 +512,44 @@ public class SkewedPartitionRebalancer
             }
             TaskBucket that = (TaskBucket) o;
             return that.id == id;
+        }
+    }
+
+    // This takes less space than TDigestHistogram since it doesn't include the digest and it's enough for analysis.
+    @JsonInclude(NON_NULL)
+    public record Distribution(long total, double min, double max, double p01, double p05, double p10, double p25, double p50, double p75, double p90, double p95, double p99)
+    {
+        public static Distribution create(TDigestHistogram histogram)
+        {
+            return new Distribution(
+                    histogram.getTotal(),
+                    histogram.getMin(),
+                    histogram.getMax(),
+                    histogram.getP01(),
+                    histogram.getP05(),
+                    histogram.getP10(),
+                    histogram.getP25(),
+                    histogram.getP50(),
+                    histogram.getP75(),
+                    histogram.getP90(),
+                    histogram.getP95(),
+                    histogram.getP99());
+        }
+    }
+
+    /**
+     * Stats for scale writers
+     *
+     * @param partitionsAssigned distribution of partitions assigned to writers or tasks
+     * @param scalingCount number of times scaling happened
+     * @param scaledPartitionPercentage percentage of partitions scaled
+     */
+    @JsonInclude(NON_NULL)
+    public record ScaleWriterStats(Distribution partitionsAssigned, long scalingCount, double scaledPartitionPercentage)
+    {
+        public ScaleWriterStats
+        {
+            requireNonNull(partitionsAssigned, "partitionsAssigned is null");
         }
     }
 }

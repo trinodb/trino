@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
@@ -22,6 +23,9 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.airlift.stats.TDigest;
+import io.trino.plugin.base.metrics.LongCount;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.plugin.hive.HiveWritableTableHandle.BucketInfo;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.util.HiveBucketing;
@@ -34,6 +38,7 @@ import io.trino.spi.block.IntArrayBlockBuilder;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
@@ -100,6 +105,8 @@ public class HivePageSink
     private long memoryUsage;
     private long validationCpuNanos;
     private long currentOpenWriters;
+    private final TDigest fileSizeHistogram = new TDigest();
+    private long numberOfIdleWritersClosed;
 
     public HivePageSink(
             HiveWriterFactory writerFactory,
@@ -342,6 +349,7 @@ public class HivePageSink
 
         long currentWritten = writer.getWrittenBytes();
         long currentMemory = writer.getMemoryUsage();
+        fileSizeHistogram.add(currentWritten);
 
         closedWriterRollbackActions.add(writer.commit());
 
@@ -373,6 +381,7 @@ public class HivePageSink
             }
             LOG.debug("Closing writer %s with %s bytes written", writerIndex, writer.getWrittenBytes());
             closeWriter(writerIndex);
+            numberOfIdleWritersClosed++;
         }
     }
 
@@ -466,6 +475,14 @@ public class HivePageSink
     {
         checkArgument(isMergeSink, "isMergeSink is false");
         appendPage(page);
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return new Metrics(ImmutableMap.of(
+                "fileSizeHistogram", new TDigestHistogram(fileSizeHistogram),
+                "numberOfIdleWritersClosed", new LongCount(numberOfIdleWritersClosed)));
     }
 
     private static class HiveWriterPagePartitioner

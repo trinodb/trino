@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.operator.output.SkewedPartitionRebalancer.ScaleWriterStats;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -87,6 +88,10 @@ public class TaskStats
     private final DataSize physicalWrittenDataSize;
     private final Optional<Integer> maxWriterCount;
 
+    // scale writers metrics
+    private final Optional<ScaleWriterStats> scaleWriterRemoteExchangeStats;
+    private final Optional<ScaleWriterStats> scaleWriterLocalExchangeStats;
+
     private final int fullGcCount;
     private final Duration fullGcTime;
 
@@ -135,6 +140,8 @@ public class TaskStats
                 new Duration(0, MILLISECONDS),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty(),
                 0,
                 new Duration(0, MILLISECONDS),
@@ -196,6 +203,10 @@ public class TaskStats
             @JsonProperty("writerInputDataSize") DataSize writerInputDataSize,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
             @JsonProperty("writerCount") Optional<Integer> writerCount,
+
+            // scale writer stats
+            @JsonProperty("scaleWriterRemoteExchangeStats") Optional<ScaleWriterStats> scaleWriterRemoteExchangeStats,
+            @JsonProperty("scaleWriterLocalExchangeStats") Optional<ScaleWriterStats> scaleWriterLocalExchangeStats,
 
             @JsonProperty("fullGcCount") int fullGcCount,
             @JsonProperty("fullGcTime") Duration fullGcTime,
@@ -272,6 +283,9 @@ public class TaskStats
         this.writerInputDataSize = requireNonNull(writerInputDataSize, "writerInputDataSize is null");
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
         this.maxWriterCount = requireNonNull(writerCount, "writerCount is null");
+
+        this.scaleWriterRemoteExchangeStats = requireNonNull(scaleWriterRemoteExchangeStats, "scaleWriterRemoteExchangeStats is null");
+        this.scaleWriterLocalExchangeStats = requireNonNull(scaleWriterLocalExchangeStats, "scaleWriterLocalExchangeStats is null");
 
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
         this.fullGcCount = fullGcCount;
@@ -514,6 +528,18 @@ public class TaskStats
     }
 
     @JsonProperty
+    public Optional<ScaleWriterStats> getScaleWriterRemoteExchangeStats()
+    {
+        return scaleWriterRemoteExchangeStats;
+    }
+
+    @JsonProperty
+    public Optional<ScaleWriterStats> getScaleWriterLocalExchangeStats()
+    {
+        return scaleWriterLocalExchangeStats;
+    }
+
+    @JsonProperty
     public List<PipelineStats> getPipelines()
     {
         return pipelines;
@@ -600,6 +626,8 @@ public class TaskStats
                 writerInputDataSize,
                 physicalWrittenDataSize,
                 maxWriterCount,
+                scaleWriterRemoteExchangeStats,
+                scaleWriterLocalExchangeStats,
                 fullGcCount,
                 fullGcTime,
                 ImmutableList.of());
@@ -650,6 +678,8 @@ public class TaskStats
                 writerInputDataSize,
                 physicalWrittenDataSize,
                 maxWriterCount,
+                scaleWriterRemoteExchangeStats,
+                scaleWriterLocalExchangeStats,
                 fullGcCount,
                 fullGcTime,
                 summarizePipelineStats(pipelines));
