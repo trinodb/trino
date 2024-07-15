@@ -282,6 +282,7 @@ public class PostgreSqlClient
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final ProjectFunctionRewriter<JdbcExpression, ParameterizedExpression> projectFunctionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
+    private final Optional<Integer> fetchSize;
 
     @Inject
     public PostgreSqlClient(
@@ -368,6 +369,7 @@ public class PostgreSqlClient
                         .add(new ImplementRegrIntercept())
                         .add(new ImplementRegrSlope())
                         .build());
+        this.fetchSize = postgreSqlConfig.getFetchSize();
     }
 
     @Override
@@ -432,8 +434,11 @@ public class PostgreSqlClient
         PreparedStatement statement = connection.prepareStatement(sql);
         // This is a heuristic, not exact science. A better formula can perhaps be found with measurements.
         // Column count is not known for non-SELECT queries. Not setting fetch size for these.
-        if (columnCount.isPresent()) {
-            statement.setFetchSize(max(100_000 / columnCount.get(), 1_000));
+        Optional<Integer> fetchSize = Optional.ofNullable(this.fetchSize.orElseGet(() ->
+                columnCount.map(count -> max(100_000 / count, 1_000))
+                        .orElse(null)));
+        if (fetchSize.isPresent()) {
+            statement.setFetchSize(fetchSize.get());
         }
         return statement;
     }
