@@ -125,7 +125,7 @@ public class DamengClient
     // require 19 + precision + 1 characters with the additional character
     // required for the decimal separator.
 //    private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 19;
-    private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 39;
+    private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 32;
     // driver returns width of time types instead of precision, same as the above timestamp type.
     private static final int ZERO_PRECISION_TIME_COLUMN_SIZE = 8;
     private static final int VARCHAR2_MAX_BYTES = 4000;
@@ -436,7 +436,7 @@ public class DamengClient
 
     private static int getTimestampPrecision(int timestampColumnSize)
     {
-        if (timestampColumnSize <= ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE) {
+        if (timestampColumnSize == ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE) {
             return 0;
         }
         int timestampPrecision = timestampColumnSize - ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE - 1;
