@@ -24,6 +24,7 @@ import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.security.PrincipalType;
@@ -47,7 +48,13 @@ class TestInMemoryGlueCache
 {
     private static GlueCache createGlueCache()
     {
-        return new InMemoryGlueCache(new Duration(1, TimeUnit.DAYS), new Duration(1, TimeUnit.DAYS), Long.MAX_VALUE);
+        return new InMemoryGlueCache(
+                new CatalogName("testing"),
+                new Duration(1, TimeUnit.DAYS),
+                new Duration(1, TimeUnit.DAYS),
+                Optional.of(new Duration(12, TimeUnit.HOURS)),
+                1,
+                Long.MAX_VALUE);
     }
 
     @Test

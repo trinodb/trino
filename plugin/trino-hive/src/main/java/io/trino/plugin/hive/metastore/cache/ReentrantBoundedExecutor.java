@@ -30,7 +30,7 @@ public class ReentrantBoundedExecutor
     private final Executor boundedExecutor;
     private final Executor coreExecutor;
 
-    ReentrantBoundedExecutor(Executor coreExecutor, int maxThreads)
+    public ReentrantBoundedExecutor(Executor coreExecutor, int maxThreads)
     {
         this.boundedExecutor = new BoundedExecutor(requireNonNull(coreExecutor, "coreExecutor is null"), maxThreads);
         this.coreExecutor = coreExecutor;
