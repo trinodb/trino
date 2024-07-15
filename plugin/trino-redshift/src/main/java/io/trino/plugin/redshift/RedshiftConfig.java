@@ -13,7 +13,12 @@
  */
 package io.trino.plugin.redshift;
 
+import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import jakarta.validation.constraints.Min;
+
+import java.util.Optional;
 
 @DefunctConfig({
         "redshift.disable-automatic-fetch-size",
@@ -21,4 +26,18 @@ import io.airlift.configuration.DefunctConfig;
 })
 public class RedshiftConfig
 {
+    private Integer fetchSize;
+
+    public Optional<@Min(0) Integer> getFetchSize()
+    {
+        return Optional.ofNullable(fetchSize);
+    }
+
+    @Config("redshift.fetch-size")
+    @ConfigDescription("Redshift fetch size, trino specific heuristic is applied if empty")
+    public RedshiftConfig setFetchSize(Integer fetchSize)
+    {
+        this.fetchSize = fetchSize;
+        return this;
+    }
 }
