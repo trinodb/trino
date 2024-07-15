@@ -22,5 +22,6 @@ public enum CatalogType
     JDBC,
     HADOOP,
     NESSIE,
+    SNOWFLAKE,
     /**/;
 }

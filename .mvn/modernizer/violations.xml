@@ -44,6 +44,22 @@
     </violation>
 
     <violation>
+        <name>java/lang/Thread$Builder.factory:()Ljava/util/concurrent/ThreadFactory;</name>
+        <version>1.1</version>
+        <comment>Use io.airlift.concurrent.Threads's thread factories, as the set thread context class loader</comment>
+    </violation>
+    <violation>
+        <name>java/lang/Thread$Builder$OfPlatform.factory:()Ljava/util/concurrent/ThreadFactory;</name>
+        <version>1.1</version>
+        <comment>Use io.airlift.concurrent.Threads's thread factories, as the set thread context class loader</comment>
+    </violation>
+    <violation>
+        <name>java/lang/Thread$Builder$OfVirtual.factory:()Ljava/util/concurrent/ThreadFactory;</name>
+        <version>1.1</version>
+        <comment>Use io.airlift.concurrent.Threads's thread factories, as the set thread context class loader</comment>
+    </violation>
+
+    <violation>
         <name>com/google/common/primitives/Ints.checkedCast:(J)I</name>
         <version>1.8</version>
         <comment>Prefer Math.toIntExact(long)</comment>

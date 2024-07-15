@@ -45,6 +45,8 @@ public class ViewMaterializationCache
 {
     private static final Logger log = Logger.get(ViewMaterializationCache.class);
 
+    public static final String TEMP_TABLE_PREFIX = "_pbc_";
+
     private final NonEvictableCache<String, TableInfo> destinationTableCache;
     private final Optional<String> viewMaterializationProject;
     private final Optional<String> viewMaterializationDataset;
@@ -62,19 +64,19 @@ public class ViewMaterializationCache
 
     public TableInfo getCachedTable(BigQueryClient client, String query, Duration viewExpiration, TableInfo remoteTableId)
     {
-        return uncheckedCacheGet(destinationTableCache, query, new DestinationTableBuilder(client, viewExpiration, query, createDestinationTable(remoteTableId.getTableId())));
+        return uncheckedCacheGet(destinationTableCache, query, new DestinationTableBuilder(client, viewExpiration, query, buildDestinationTable(remoteTableId.getTableId())));
     }
 
-    private TableId createDestinationTable(TableId remoteTableId)
+    private TableId buildDestinationTable(TableId remoteTableId)
     {
         String project = viewMaterializationProject.orElseGet(remoteTableId::getProject);
         String dataset = viewMaterializationDataset.orElseGet(remoteTableId::getDataset);
 
-        String name = format("_pbc_%s", randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
+        String name = format("%s%s", TEMP_TABLE_PREFIX, randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
         return TableId.of(project, dataset, name);
     }
 
-    private static class DestinationTableBuilder
+    public static class DestinationTableBuilder
             implements Supplier<TableInfo>
     {
         private final BigQueryClient bigQueryClient;

@@ -13,19 +13,14 @@
  */
 package io.trino.plugin.kudu;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 
-import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class KuduColumnHandle
+public record KuduColumnHandle(String name, int ordinalPosition, Type type)
         implements ColumnHandle
 {
     public static final String ROW_ID = "row_uuid";
@@ -33,40 +28,13 @@ public class KuduColumnHandle
 
     public static final KuduColumnHandle ROW_ID_HANDLE = new KuduColumnHandle(ROW_ID, ROW_ID_POSITION, VarbinaryType.VARBINARY);
 
-    private final String name;
-    private final int ordinalPosition;
-    private final Type type;
-
-    @JsonCreator
-    public KuduColumnHandle(
-            @JsonProperty("name") String name,
-            @JsonProperty("ordinalPosition") int ordinalPosition,
-            @JsonProperty("type") Type type)
+    public KuduColumnHandle
     {
-        this.name = requireNonNull(name, "name is null");
-        this.ordinalPosition = ordinalPosition;
-        this.type = requireNonNull(type, "type is null");
+        requireNonNull(name, "name is null");
+        requireNonNull(type, "type is null");
     }
 
-    @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
-
-    @JsonProperty
-    public int getOrdinalPosition()
-    {
-        return ordinalPosition;
-    }
-
-    @JsonProperty
-    public Type getType()
-    {
-        return type;
-    }
-
-    public ColumnMetadata getColumnMetadata()
+    public ColumnMetadata columnMetadata()
     {
         return new ColumnMetadata(name, type);
     }
@@ -74,39 +42,5 @@ public class KuduColumnHandle
     public boolean isVirtualRowId()
     {
         return name.equals(ROW_ID);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(
-                name,
-                ordinalPosition,
-                type);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        KuduColumnHandle other = (KuduColumnHandle) obj;
-        return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
-                Objects.equals(this.type, other.type);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("name", name)
-                .add("ordinalPosition", ordinalPosition)
-                .add("type", type)
-                .toString();
     }
 }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>444</version>
+        <version>452</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -14,8 +14,7 @@
     <description>Trino - Elasticsearch connector</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.elasticsearch.version>7.17.19</dep.elasticsearch.version>
+        <dep.elasticsearch.version>7.17.22</dep.elasticsearch.version>
     </properties>
 
     <dependencies>
@@ -149,7 +148,7 @@
             <exclusions>
                 <exclusion>
                     <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>log4j-core</artifactId>
+                    <artifactId>*</artifactId>
                 </exclusion>
                 <!-- trino-main brings in 9.7.0 (vs 8.11.1) -->
                 <exclusion>
@@ -188,12 +187,6 @@
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>elasticsearch-rest-high-level-client</artifactId>
             <version>${dep.elasticsearch.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>log4j-api</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -235,6 +228,12 @@
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>

@@ -27,6 +27,8 @@ import io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
 import io.trino.connector.MockConnectorFactory.ApplyTopN;
 import io.trino.connector.MockConnectorFactory.ListRoleGrants;
 import io.trino.spi.Page;
+import io.trino.spi.RefreshType;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -58,6 +60,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
@@ -125,6 +128,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.MockConnector.MockConnectorSplit.MOCK_CONNECTOR_SPLIT;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
@@ -146,6 +150,7 @@ public class MockConnector
     private final Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns;
     private final Optional<MockConnectorFactory.StreamRelationColumns> streamRelationColumns;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
+    private final Supplier<List<PropertyMetadata<?>>> getViewProperties;
     private final Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews;
     private final BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector;
@@ -199,6 +204,7 @@ public class MockConnector
             Optional<BiFunction<ConnectorSession, SchemaTablePrefix, Iterator<TableColumnsMetadata>>> streamTableColumns,
             Optional<MockConnectorFactory.StreamRelationColumns> streamRelationColumns,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
+            Supplier<List<PropertyMetadata<?>>> getViewProperties,
             Supplier<List<PropertyMetadata<?>>> getMaterializedViewProperties,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews,
             BiFunction<ConnectorSession, SchemaTableName, Boolean> delegateMaterializedViewRefreshToConnector,
@@ -250,6 +256,7 @@ public class MockConnector
         this.streamTableColumns = requireNonNull(streamTableColumns, "streamTableColumns is null");
         this.streamRelationColumns = requireNonNull(streamRelationColumns, "streamRelationColumns is null");
         this.getViews = requireNonNull(getViews, "getViews is null");
+        this.getViewProperties = requireNonNull(getViewProperties, "getViewProperties is null");
         this.getMaterializedViewProperties = requireNonNull(getMaterializedViewProperties, "getMaterializedViewProperties is null");
         this.getMaterializedViews = requireNonNull(getMaterializedViews, "getMaterializedViews is null");
         this.delegateMaterializedViewRefreshToConnector = requireNonNull(delegateMaterializedViewRefreshToConnector, "delegateMaterializedViewRefreshToConnector is null");
@@ -411,6 +418,12 @@ public class MockConnector
     }
 
     @Override
+    public List<PropertyMetadata<?>> getViewProperties()
+    {
+        return getViewProperties.get();
+    }
+
+    @Override
     public List<PropertyMetadata<?>> getMaterializedViewProperties()
     {
         return getMaterializedViewProperties.get();
@@ -526,8 +539,12 @@ public class MockConnector
         public void dropSchema(ConnectorSession session, String schemaName, boolean cascade) {}
 
         @Override
-        public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+        public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
         {
+            if (startVersion.isPresent() || endVersion.isPresent()) {
+                throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+            }
+
             return getTableHandle.apply(session, tableName);
         }
 
@@ -732,7 +749,7 @@ public class MockConnector
         }
 
         @Override
-        public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode)
+        public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode, RefreshType refreshType)
         {
             return new MockConnectorInsertTableHandle(((MockConnectorTableHandle) tableHandle).getTableName());
         }
@@ -766,6 +783,13 @@ public class MockConnector
         public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
         {
             return Optional.ofNullable(getViews.apply(session, viewName.toSchemaTablePrefix()).get(viewName));
+        }
+
+        @Override
+        public Map<String, Object> getViewProperties(ConnectorSession session, SchemaTableName viewName)
+        {
+            return getViewProperties.get().stream()
+                    .collect(toImmutableMap(PropertyMetadata::getName, PropertyMetadata::getDefaultValue));
         }
 
         @Override
@@ -1076,9 +1100,9 @@ public class MockConnector
         MOCK_CONNECTOR_SPLIT;
 
         @Override
-        public Object getInfo()
+        public Map<String, String> getSplitInfo()
         {
-            return "mock connector split";
+            return ImmutableMap.of("info", "mock connector split");
         }
 
         @Override

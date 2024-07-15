@@ -19,6 +19,8 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -27,18 +29,21 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 @DefunctConfig({
         "dynamic-filtering-max-per-driver-row-count",
-        "experimental.dynamic-filtering-max-per-driver-row-count",
         "dynamic-filtering-max-per-driver-size",
-        "experimental.dynamic-filtering-max-per-driver-size",
         "dynamic-filtering-range-row-limit-per-driver",
+        "dynamic-filtering.service-thread-count",
+        "experimental.dynamic-filtering-max-per-driver-row-count",
+        "experimental.dynamic-filtering-max-per-driver-size",
         "experimental.dynamic-filtering-refresh-interval",
-        "dynamic-filtering.service-thread-count"
+        "experimental.enable-dynamic-filtering",
+        "enable-coordinator-dynamic-filters-distribution",
 })
 public class DynamicFilterConfig
 {
     private boolean enableDynamicFiltering = true;
-    private boolean enableCoordinatorDynamicFiltersDistribution = true;
     private boolean enableLargeDynamicFilters;
+    private boolean enableDynamicRowFiltering = true;
+    private double dynamicRowFilterSelectivityThreshold = 0.7;
 
     /*
      * dynamic-filtering.small.* and dynamic-filtering.large.* limits are applied when
@@ -78,23 +83,9 @@ public class DynamicFilterConfig
     }
 
     @Config("enable-dynamic-filtering")
-    @LegacyConfig("experimental.enable-dynamic-filtering")
     public DynamicFilterConfig setEnableDynamicFiltering(boolean enableDynamicFiltering)
     {
         this.enableDynamicFiltering = enableDynamicFiltering;
-        return this;
-    }
-
-    public boolean isEnableCoordinatorDynamicFiltersDistribution()
-    {
-        return enableCoordinatorDynamicFiltersDistribution;
-    }
-
-    @Config("enable-coordinator-dynamic-filters-distribution")
-    @ConfigDescription("Enable distribution of dynamic filters from coordinator to all workers")
-    public DynamicFilterConfig setEnableCoordinatorDynamicFiltersDistribution(boolean enableCoordinatorDynamicFiltersDistribution)
-    {
-        this.enableCoordinatorDynamicFiltersDistribution = enableCoordinatorDynamicFiltersDistribution;
         return this;
     }
 
@@ -107,6 +98,34 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setEnableLargeDynamicFilters(boolean enableLargeDynamicFilters)
     {
         this.enableLargeDynamicFilters = enableLargeDynamicFilters;
+        return this;
+    }
+
+    public boolean isEnableDynamicRowFiltering()
+    {
+        return enableDynamicRowFiltering;
+    }
+
+    @Config("enable-dynamic-row-filtering")
+    @ConfigDescription("Enable fine-grained filtering of rows in the scan operator using dynamic filters")
+    public DynamicFilterConfig setEnableDynamicRowFiltering(boolean enableDynamicRowFiltering)
+    {
+        this.enableDynamicRowFiltering = enableDynamicRowFiltering;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getDynamicRowFilterSelectivityThreshold()
+    {
+        return dynamicRowFilterSelectivityThreshold;
+    }
+
+    @Config("dynamic-row-filtering.selectivity-threshold")
+    @ConfigDescription("Avoid using dynamic row filters when fraction of rows selected is above threshold")
+    public DynamicFilterConfig setDynamicRowFilterSelectivityThreshold(double dynamicRowFilterSelectivityThreshold)
+    {
+        this.dynamicRowFilterSelectivityThreshold = dynamicRowFilterSelectivityThreshold;
         return this;
     }
 

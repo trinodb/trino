@@ -28,7 +28,6 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static jakarta.ws.rs.core.NewCookie.DEFAULT_MAX_AGE;
 import static java.util.Objects.requireNonNull;
 
 public class MultipartUiCookie
@@ -56,9 +55,6 @@ public class MultipartUiCookie
             cookiesToSet.add(new NewCookie.Builder(cookieName(index++))
                     .value(part)
                     .path(location)
-                    .domain(null)
-                    .comment(null)
-                    .maxAge(DEFAULT_MAX_AGE)
                     .expiry(expiration)
                     .secure(isSecure)
                     .httpOnly(true)
@@ -132,9 +128,7 @@ public class MultipartUiCookie
         return new NewCookie.Builder(name)
                 .value("delete")
                 .path(location)
-                .domain(null)
                 .maxAge(0)
-                .expiry(null)
                 .secure(isSecured)
                 .httpOnly(true)
                 .build();

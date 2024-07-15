@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.alluxio;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -27,8 +28,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.trino.filesystem.alluxio.AlluxioConfigurationFactory.totalSpace;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class TestAlluxioFileSystemCacheConfig
 {
@@ -38,23 +39,23 @@ class TestAlluxioFileSystemCacheConfig
         assertThatThrownBy(() ->
                 AlluxioConfigurationFactory.create(
                         new AlluxioFileSystemCacheConfig()
-                                .setCacheDirectories("/cache1,/cache2")
-                                .setMaxCacheDiskUsagePercentages("0")
-                                .setMaxCacheSizes("1B")))
+                                .setCacheDirectories(ImmutableList.of("/cache1", "/cache2"))
+                                .setMaxCacheDiskUsagePercentages(ImmutableList.of(0))
+                                .setMaxCacheSizes(ImmutableList.of(DataSize.valueOf("1B")))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Either fs.cache.max-sizes or fs.cache.max-disk-usage-percentages must be specified");
         assertThatThrownBy(() ->
                 AlluxioConfigurationFactory.create(
                         new AlluxioFileSystemCacheConfig()
-                                .setCacheDirectories("/cache1,/cache2")
-                                .setMaxCacheSizes("1B")))
+                                .setCacheDirectories(ImmutableList.of("/cache1", "/cache2"))
+                                .setMaxCacheSizes(ImmutableList.of(DataSize.valueOf("1B")))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("fs.cache.directories and fs.cache.max-sizes must have the same size");
         assertThatThrownBy(() ->
                 AlluxioConfigurationFactory.create(
                         new AlluxioFileSystemCacheConfig()
-                                .setCacheDirectories("/cache1,/cache2")
-                                .setMaxCacheDiskUsagePercentages("0")))
+                                .setCacheDirectories(ImmutableList.of("/cache1", "/cache2"))
+                                .setMaxCacheDiskUsagePercentages(ImmutableList.of(0))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("fs.cache.directories and fs.cache.max-disk-usage-percentages must have the same size");
     }
@@ -63,10 +64,10 @@ class TestAlluxioFileSystemCacheConfig
     void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(AlluxioFileSystemCacheConfig.class)
-                .setCacheDirectories(null)
+                .setCacheDirectories(ImmutableList.of())
                 .setCachePageSize(DataSize.valueOf("1MB"))
-                .setMaxCacheSizes(null)
-                .setMaxCacheDiskUsagePercentages(null)
+                .setMaxCacheSizes(ImmutableList.of())
+                .setMaxCacheDiskUsagePercentages(ImmutableList.of())
                 .setCacheTTL(Duration.valueOf("7d")));
     }
 
@@ -85,10 +86,10 @@ class TestAlluxioFileSystemCacheConfig
                 .buildOrThrow();
 
         AlluxioFileSystemCacheConfig expected = new AlluxioFileSystemCacheConfig()
-                .setCacheDirectories(cacheDirectory.toString())
+                .setCacheDirectories(ImmutableList.of(cacheDirectory.toString()))
                 .setCachePageSize(DataSize.valueOf("7MB"))
-                .setMaxCacheSizes("1GB")
-                .setMaxCacheDiskUsagePercentages("50")
+                .setMaxCacheSizes(ImmutableList.of(DataSize.valueOf("1GB")))
+                .setMaxCacheDiskUsagePercentages(ImmutableList.of(50))
                 .setCacheTTL(Duration.valueOf("1d"));
 
         assertFullMapping(properties, expected);
@@ -100,7 +101,7 @@ class TestAlluxioFileSystemCacheConfig
     {
         Path cacheDirectory = Files.createTempFile(null, null);
 
-        assertEquals(cacheDirectory.toFile().getTotalSpace(), totalSpace(cacheDirectory));
-        assertEquals(cacheDirectory.toFile().getTotalSpace(), totalSpace(cacheDirectory.resolve(Path.of("does-not-exist"))));
+        assertThat(totalSpace(cacheDirectory)).isEqualTo(cacheDirectory.toFile().getTotalSpace());
+        assertThat(totalSpace(cacheDirectory.resolve(Path.of("does-not-exist")))).isEqualTo(cacheDirectory.toFile().getTotalSpace());
     }
 }

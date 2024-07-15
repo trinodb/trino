@@ -47,12 +47,12 @@ public class SymbolAllocator
     public SymbolAllocator(Collection<Symbol> initial)
     {
         symbols = new HashMap<>(initial.stream()
-                .collect(toMap(Symbol::getName, e -> e)));
+                .collect(toMap(Symbol::name, e -> e)));
     }
 
     public Symbol newSymbol(Symbol symbolHint)
     {
-        return newSymbol(symbolHint.getName(), symbolHint.getType());
+        return newSymbol(symbolHint.name(), symbolHint.type());
     }
 
     public Symbol newSymbol(String nameHint, Type type)
@@ -73,8 +73,11 @@ public class SymbolAllocator
             }
         }
 
+        if (nameHint.isEmpty()) {
+            nameHint = "col";
+        }
         Symbol symbol = new Symbol(type, nameHint);
-        while (symbols.putIfAbsent(symbol.getName(), symbol) != null) {
+        while (symbols.putIfAbsent(symbol.name(), symbol) != null) {
             symbol = new Symbol(type, nameHint + "_" + nextId());
         }
 
@@ -84,7 +87,7 @@ public class SymbolAllocator
     public Symbol newSymbol(Expression expression)
     {
         String nameHint = switch (expression) {
-            case Call call -> call.function().getName().getFunctionName();
+            case Call call -> call.function().name().getFunctionName();
             case Reference reference -> reference.name();
             default -> "expr";
         };

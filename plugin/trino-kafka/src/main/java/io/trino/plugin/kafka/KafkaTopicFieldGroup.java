@@ -13,95 +13,27 @@
  */
 package io.trino.plugin.kafka;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Groups the field descriptions for message or key.
  */
-public class KafkaTopicFieldGroup
+public record KafkaTopicFieldGroup(
+        String dataFormat,
+        Optional<String> dataSchema,
+        Optional<String> subject,
+        List<KafkaTopicFieldDescription> fields)
 {
-    private final String dataFormat;
-    private final Optional<String> dataSchema;
-    private final Optional<String> subject;
-    private final List<KafkaTopicFieldDescription> fields;
-
-    @JsonCreator
-    public KafkaTopicFieldGroup(
-            @JsonProperty("dataFormat") String dataFormat,
-            @JsonProperty("dataSchema") Optional<String> dataSchema,
-            @JsonProperty("subject") Optional<String> subject,
-            @JsonProperty("fields") List<KafkaTopicFieldDescription> fields)
+    public KafkaTopicFieldGroup
     {
-        this.dataFormat = requireNonNull(dataFormat, "dataFormat is null");
-        this.dataSchema = requireNonNull(dataSchema, "dataSchema is null");
-        this.subject = requireNonNull(subject, "subject is null");
-        this.fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
-    }
-
-    @JsonProperty
-    public String getDataFormat()
-    {
-        return dataFormat;
-    }
-
-    @JsonProperty
-    public List<KafkaTopicFieldDescription> getFields()
-    {
-        return fields;
-    }
-
-    @JsonProperty
-    public Optional<String> getDataSchema()
-    {
-        return dataSchema;
-    }
-
-    @JsonProperty
-    public Optional<String> getSubject()
-    {
-        return subject;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(dataFormat, dataSchema, subject, fields);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-
-        KafkaTopicFieldGroup other = (KafkaTopicFieldGroup) obj;
-        return Objects.equals(this.dataFormat, other.dataFormat) &&
-                Objects.equals(this.dataSchema, other.dataSchema) &&
-                Objects.equals(this.subject, other.subject) &&
-                Objects.equals(this.fields, other.fields);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("dataFormat", dataFormat)
-                .add("dataSchema", dataSchema)
-                .add("subject", subject)
-                .add("fields", fields)
-                .toString();
+        requireNonNull(dataFormat, "dataFormat is null");
+        requireNonNull(dataSchema, "dataSchema is null");
+        requireNonNull(subject, "subject is null");
+        fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
     }
 }

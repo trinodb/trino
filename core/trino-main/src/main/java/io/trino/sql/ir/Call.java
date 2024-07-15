@@ -33,16 +33,16 @@ public record Call(ResolvedFunction function, List<Expression> arguments)
     {
         arguments = ImmutableList.copyOf(arguments);
 
-        checkArgument(function.getSignature().getArgumentTypes().size() == arguments.size(), "Expected %s arguments, found: %s", function.getSignature().getArgumentTypes().size(), arguments.size());
+        checkArgument(function.signature().getArgumentTypes().size() == arguments.size(), "Expected %s arguments, found: %s", function.signature().getArgumentTypes().size(), arguments.size());
         for (int i = 0; i < arguments.size(); i++) {
-            validateType(function.getSignature().getArgumentType(i), arguments.get(i));
+            validateType(function.signature().getArgumentType(i), arguments.get(i));
         }
     }
 
     @Override
     public Type type()
     {
-        return function.getSignature().getReturnType();
+        return function.signature().getReturnType();
     }
 
     @Override
@@ -61,7 +61,7 @@ public record Call(ResolvedFunction function, List<Expression> arguments)
     public String toString()
     {
         return "%s(%s)".formatted(
-                isBuiltinFunctionName(function.getName()) ? function.getName().getFunctionName() : function.getName(),
+                isBuiltinFunctionName(function.name()) ? function.name().getFunctionName() : function.name(),
                 arguments.stream()
                         .map(Expression::toString)
                         .collect(Collectors.joining(", ")));

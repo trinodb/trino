@@ -52,7 +52,6 @@ import java.util.Set;
 import static com.mongodb.client.model.CollationCaseFirst.LOWER;
 import static com.mongodb.client.model.CollationStrength.PRIMARY;
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
-import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -76,7 +75,9 @@ public class TestMongoConnectorTest
     {
         server = new MongoServer();
         client = createMongoClient(server);
-        return createMongoQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return MongoQueryRunner.builder(server)
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @BeforeAll
@@ -99,16 +100,16 @@ public class TestMongoConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_FIELD,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_DROP_FIELD,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_RENAME_FIELD,
-                    SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_SET_FIELD_TYPE,
-                    SUPPORTS_TRUNCATE,
-                    SUPPORTS_UPDATE -> false;
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_DROP_FIELD,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_RENAME_FIELD,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_SET_FIELD_TYPE,
+                 SUPPORTS_TRUNCATE,
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -128,7 +129,8 @@ public class TestMongoConnectorTest
                 assertThatThrownBy(() -> testColumnName(columnName, requiresDelimiting(columnName)))
                         .isInstanceOf(RuntimeException.class)
                         .hasMessage("Column name must not contain '$' or '.' for INSERT: " + columnName);
-                abort("Insert would fail");
+                // TODO: Insert would fail. The exception should be TrinoException.
+                continue;
             }
 
             testColumnName(columnName, requiresDelimiting(columnName));
@@ -691,9 +693,8 @@ public class TestMongoConnectorTest
                 .append("x", new DBRef("test_db", "test_collection", 1));
         client.getDatabase("test").getCollection(tableName).insertOne(document);
 
-        // TODO Fix MongoPageSource to throw TrinoException
         assertThat(query("SELECT * FROM test." + tableName))
-                .nonTrinoExceptionFailure().hasMessageContaining("DBRef should have 3 fields : row(databaseName varchar, collectionName varchar)");
+                .failure().hasMessageContaining("DBRef should have 3 fields : row(databaseName varchar, collectionName varchar)");
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1346,7 +1347,7 @@ public class TestMongoConnectorTest
     private void testFiltersOnDereferenceColumnReadsLessData(String expectedValue, String expectedType)
     {
         if (!isPushdownSupportedType(getQueryRunner().getPlannerContext().getTypeManager().fromSqlType(expectedType))) {
-            abort("Type doesn't support filter pushdown");
+            return;
         }
 
         Session sessionWithoutPushdown = Session.builder(getSession())

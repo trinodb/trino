@@ -26,7 +26,6 @@ import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.QueryPlanner.PlanAndMappings;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -59,6 +58,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static java.lang.String.format;
@@ -381,7 +381,7 @@ class SubqueryPlanner
                         subPlan.getRoot(),
                         Assignments.builder()
                                 .putIdentities(subPlan.getRoot().getOutputSymbols())
-                                .put(output, new Not(input.toSymbolReference()))
+                                .put(output, not(plannerContext.getMetadata(), input.toSymbolReference()))
                                 .build()));
     }
 
@@ -495,10 +495,7 @@ class SubqueryPlanner
 
             Assignments assignments = Assignments.builder()
                     .putIdentities(subPlan.getRoot().getOutputSymbols())
-                    .put(coerced, new Cast(
-                            symbol.toSymbolReference(),
-                            coercion.get(),
-                            false))
+                    .put(coerced, new Cast(symbol.toSymbolReference(), coercion.get()))
                     .build();
 
             subPlan = subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments));

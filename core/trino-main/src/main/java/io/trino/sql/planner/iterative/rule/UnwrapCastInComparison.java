@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.metadata.OperatorNotFoundException;
@@ -41,8 +42,7 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Not;
-import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.type.TypeCoercion;
 
 import java.lang.invoke.MethodHandle;
@@ -68,15 +68,17 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
-import static io.trino.sql.ir.Booleans.TRUE;
+import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.or;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -143,12 +145,14 @@ public class UnwrapCastInComparison
         private final PlannerContext plannerContext;
         private final Session session;
         private final InterpretedFunctionInvoker functionInvoker;
+        private final IrExpressionOptimizer optimizer;
 
         public Visitor(PlannerContext plannerContext, Session session)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.session = requireNonNull(session, "session is null");
             this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
+            this.optimizer = newOptimizer(plannerContext);
         }
 
         @Override
@@ -165,14 +169,14 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Expression right = new IrExpressionInterpreter(expression.right(), plannerContext, session).optimize();
+            Expression right = optimizer.process(expression.right(), session, ImmutableMap.of()).orElse(expression.right());
 
             Comparison.Operator operator = expression.operator();
 
             if (right instanceof Constant constant && constant.value() == null) {
                 return switch (operator) {
                     case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Constant(BOOLEAN, null);
-                    case IS_DISTINCT_FROM -> new Not(new IsNull(cast));
+                    case IDENTICAL -> new IsNull(cast);
                 };
             }
 
@@ -208,9 +212,9 @@ public class UnwrapCastInComparison
                         return falseIfNotNull(cast.expression());
                     case NOT_EQUAL:
                         return trueIfNotNull(cast.expression());
-                    case IS_DISTINCT_FROM:
+                    case IDENTICAL:
                         if (!typeHasNaN(sourceType)) {
-                            return TRUE;
+                            return FALSE;
                         }
                         // NaN on the right of comparison will be cast to source type later
                         break;
@@ -240,7 +244,7 @@ public class UnwrapCastInComparison
                         return switch (operator) {
                             case EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> falseIfNotNull(cast.expression());
                             case NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
-                            case IS_DISTINCT_FROM -> TRUE;
+                            case IDENTICAL -> FALSE;
                         };
                     }
 
@@ -251,7 +255,7 @@ public class UnwrapCastInComparison
                             case GREATER_THAN_OR_EQUAL -> new Comparison(EQUAL, cast.expression(), new Constant(sourceType, max));
                             case LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
                             case LESS_THAN -> new Comparison(NOT_EQUAL, cast.expression(), new Constant(sourceType, max));
-                            case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM ->
+                            case EQUAL, NOT_EQUAL, IDENTICAL ->
                                     new Comparison(operator, cast.expression(), new Constant(sourceType, max));
                         };
                     }
@@ -265,7 +269,7 @@ public class UnwrapCastInComparison
                         return switch (operator) {
                             case NOT_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
                             case EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL -> falseIfNotNull(cast.expression());
-                            case IS_DISTINCT_FROM -> TRUE;
+                            case IDENTICAL -> FALSE;
                         };
                     }
 
@@ -276,7 +280,7 @@ public class UnwrapCastInComparison
                             case LESS_THAN_OR_EQUAL -> new Comparison(EQUAL, cast.expression(), new Constant(sourceType, min));
                             case GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.expression());
                             case GREATER_THAN -> new Comparison(NOT_EQUAL, cast.expression(), new Constant(sourceType, min));
-                            case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM ->
+                            case EQUAL, NOT_EQUAL, IDENTICAL ->
                                     new Comparison(operator, cast.expression(), new Constant(sourceType, min));
                         };
                     }
@@ -316,7 +320,7 @@ public class UnwrapCastInComparison
                     return switch (operator) {
                         case EQUAL -> falseIfNotNull(cast.expression());
                         case NOT_EQUAL -> trueIfNotNull(cast.expression());
-                        case IS_DISTINCT_FROM -> TRUE;
+                        case IDENTICAL -> FALSE;
                         case LESS_THAN, LESS_THAN_OR_EQUAL -> {
                             if (sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMin(), literalInSourceType) == 0) {
                                 yield new Comparison(EQUAL, cast.expression(), new Constant(sourceType, literalInSourceType));
@@ -335,7 +339,7 @@ public class UnwrapCastInComparison
                     return switch (operator) {
                         case EQUAL -> falseIfNotNull(cast.expression());
                         case NOT_EQUAL -> trueIfNotNull(cast.expression());
-                        case IS_DISTINCT_FROM -> TRUE;
+                        case IDENTICAL -> FALSE;
                         case LESS_THAN, LESS_THAN_OR_EQUAL ->
                             // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
                             // smaller than the next value in the source type
@@ -376,11 +380,11 @@ public class UnwrapCastInComparison
                 case LESS_THAN_OR_EQUAL -> Optional.of(new Comparison(LESS_THAN, timestampExpression, nextDateTimestamp));
                 case GREATER_THAN -> Optional.of(new Comparison(GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp));
                 case GREATER_THAN_OR_EQUAL -> Optional.of(new Comparison(GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp));
-                case IS_DISTINCT_FROM -> Optional.of(
-                        or(
-                                new IsNull(timestampExpression),
-                                new Comparison(LESS_THAN, timestampExpression, dateTimestamp),
-                                new Comparison(GREATER_THAN_OR_EQUAL, timestampExpression, nextDateTimestamp)));
+                case IDENTICAL -> Optional.of(
+                        and(
+                                not(plannerContext.getMetadata(), new IsNull(timestampExpression)),
+                                new Comparison(GREATER_THAN_OR_EQUAL, timestampExpression, dateTimestamp),
+                                new Comparison(LESS_THAN, timestampExpression, nextDateTimestamp)));
             };
         }
 
@@ -503,6 +507,11 @@ public class UnwrapCastInComparison
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, throwable);
             }
         }
+
+        public Expression trueIfNotNull(Expression argument)
+        {
+            return or(not(plannerContext.getMetadata(), new IsNull(argument)), new Constant(BOOLEAN, null));
+        }
     }
 
     /**
@@ -552,10 +561,5 @@ public class UnwrapCastInComparison
     public static Expression falseIfNotNull(Expression argument)
     {
         return and(new IsNull(argument), new Constant(BOOLEAN, null));
-    }
-
-    public static Expression trueIfNotNull(Expression argument)
-    {
-        return or(new Not(new IsNull(argument)), new Constant(BOOLEAN, null));
     }
 }

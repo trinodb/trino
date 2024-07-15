@@ -98,7 +98,7 @@ public class HeaderAuthenticatorManager
         checkState(factory != null, "Header authenticator '%s' is not registered", name);
 
         HeaderAuthenticator authenticator;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             authenticator = factory.create(ImmutableMap.copyOf(properties));
         }
 

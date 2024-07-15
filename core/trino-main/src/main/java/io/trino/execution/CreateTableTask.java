@@ -150,7 +150,7 @@ public class CreateTableTask
             return immediateVoidFuture();
         }
 
-        String catalogName = tableName.getCatalogName();
+        String catalogName = tableName.catalogName();
         CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName);
 
         Map<String, Object> properties = tablePropertyManager.getProperties(
@@ -208,8 +208,8 @@ public class CreateTableTask
             }
             else if (element instanceof LikeClause likeClause) {
                 QualifiedObjectName originalLikeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
-                if (plannerContext.getMetadata().getCatalogHandle(session, originalLikeTableName.getCatalogName()).isEmpty()) {
-                    throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' not found", originalLikeTableName.getCatalogName());
+                if (plannerContext.getMetadata().getCatalogHandle(session, originalLikeTableName.catalogName()).isEmpty()) {
+                    throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' not found", originalLikeTableName.catalogName());
                 }
 
                 RedirectionAwareTableHandle redirection = plannerContext.getMetadata().getRedirectionAwareTableHandle(session, originalLikeTableName);
@@ -218,7 +218,7 @@ public class CreateTableTask
 
                 LikeClause.PropertiesOption propertiesOption = likeClause.getPropertiesOption().orElse(EXCLUDING);
                 QualifiedObjectName likeTableName = redirection.redirectedTableName().orElse(originalLikeTableName);
-                if (propertiesOption == INCLUDING && !catalogName.equals(likeTableName.getCatalogName())) {
+                if (propertiesOption == INCLUDING && !catalogName.equals(likeTableName.catalogName())) {
                     if (!originalLikeTableName.equals(likeTableName)) {
                         throw semanticException(
                                 NOT_SUPPORTED,
@@ -240,14 +240,14 @@ public class CreateTableTask
                         throw semanticException(NOT_SUPPORTED, statement, "Only one LIKE clause can specify INCLUDING PROPERTIES");
                     }
                     includingProperties = true;
-                    inheritedProperties = likeTableMetadata.getMetadata().getProperties();
+                    inheritedProperties = likeTableMetadata.metadata().getProperties();
                 }
 
                 try {
                     accessControl.checkCanSelectFromColumns(
                             session.toSecurityContext(),
                             likeTableName,
-                            likeTableMetadata.getColumns().stream()
+                            likeTableMetadata.columns().stream()
                                     .map(ColumnMetadata::getName)
                                     .collect(toImmutableSet()));
                 }
@@ -263,7 +263,7 @@ public class CreateTableTask
                     }
                 }
 
-                likeTableMetadata.getColumns().stream()
+                likeTableMetadata.columns().stream()
                         .filter(column -> !column.isHidden())
                         .forEach(column -> {
                             if (columns.containsKey(column.getName().toLowerCase(Locale.ENGLISH))) {
@@ -305,8 +305,8 @@ public class CreateTableTask
         outputConsumer.accept(new Output(
                 catalogName,
                 catalogHandle.getVersion(),
-                tableName.getSchemaName(),
-                tableName.getObjectName(),
+                tableName.schemaName(),
+                tableName.objectName(),
                 Optional.of(tableMetadata.getColumns().stream()
                         .map(column -> new OutputColumn(new Column(column.getName(), column.getType().toString()), ImmutableSet.of()))
                         .collect(toImmutableList()))));

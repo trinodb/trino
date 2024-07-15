@@ -26,6 +26,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "experimental.cluster-memory-manager-enabled",
@@ -47,7 +48,7 @@ public class MemoryManagerConfig
     private LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy = LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy = LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     // default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
-    private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
+    private Duration killOnOutOfMemoryDelay = new Duration(30, SECONDS);
 
     @NotNull
     public DataSize getMaxQueryMemory()
@@ -226,16 +227,12 @@ public class MemoryManagerConfig
 
         public static LowMemoryQueryKillerPolicy fromString(String value)
         {
-            switch (value.toLowerCase(ENGLISH)) {
-                case "none":
-                    return NONE;
-                case "total-reservation":
-                    return TOTAL_RESERVATION;
-                case "total-reservation-on-blocked-nodes":
-                    return TOTAL_RESERVATION_ON_BLOCKED_NODES;
-            }
-
-            throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));
+            return switch (value.toLowerCase(ENGLISH)) {
+                case "none" -> NONE;
+                case "total-reservation" -> TOTAL_RESERVATION;
+                case "total-reservation-on-blocked-nodes" -> TOTAL_RESERVATION_ON_BLOCKED_NODES;
+                default -> throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));
+            };
         }
     }
 
@@ -248,16 +245,12 @@ public class MemoryManagerConfig
 
         public static LowMemoryTaskKillerPolicy fromString(String value)
         {
-            switch (value.toLowerCase(ENGLISH)) {
-                case "none":
-                    return NONE;
-                case "total-reservation-on-blocked-nodes":
-                    return TOTAL_RESERVATION_ON_BLOCKED_NODES;
-                case "least-waste":
-                    return LEAST_WASTE;
-            }
-
-            throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));
+            return switch (value.toLowerCase(ENGLISH)) {
+                case "none" -> NONE;
+                case "total-reservation-on-blocked-nodes" -> TOTAL_RESERVATION_ON_BLOCKED_NODES;
+                case "least-waste" -> LEAST_WASTE;
+                default -> throw new IllegalArgumentException(format("Unrecognized value: '%s'", value));
+            };
         }
     }
 }

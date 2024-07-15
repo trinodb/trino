@@ -58,25 +58,16 @@ public final class JtsGeometrySerde
 
     private static Geometry readGeometry(BasicSliceInput input, GeometrySerializationType type)
     {
-        switch (type) {
-            case POINT:
-                return readPoint(input);
-            case MULTI_POINT:
-                return readMultiPoint(input);
-            case LINE_STRING:
-                return readPolyline(input, false);
-            case MULTI_LINE_STRING:
-                return readPolyline(input, true);
-            case POLYGON:
-                return readPolygon(input, false);
-            case MULTI_POLYGON:
-                return readPolygon(input, true);
-            case GEOMETRY_COLLECTION:
-                return readGeometryCollection(input);
-            case ENVELOPE:
-                return readEnvelope(input);
-        }
-        throw new UnsupportedOperationException("Unexpected type: " + type);
+        return switch (type) {
+            case POINT -> readPoint(input);
+            case MULTI_POINT -> readMultiPoint(input);
+            case LINE_STRING -> readPolyline(input, false);
+            case MULTI_LINE_STRING -> readPolyline(input, true);
+            case POLYGON -> readPolygon(input, false);
+            case MULTI_POLYGON -> readPolygon(input, true);
+            case GEOMETRY_COLLECTION -> readGeometryCollection(input);
+            case ENVELOPE -> readEnvelope(input);
+        };
     }
 
     private static Point readPoint(SliceInput input)

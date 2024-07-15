@@ -29,6 +29,7 @@ public final class BigQuerySessionProperties
         implements SessionPropertiesProvider
 {
     private static final String SKIP_VIEW_MATERIALIZATION = "skip_view_materialization";
+    private static final String VIEW_MATERIALIZATION_WITH_FILTER = "view_materialization_with_filter";
     private static final String QUERY_RESULTS_CACHE_ENABLED = "query_results_cache_enabled";
     private static final String CREATE_DISPOSITION_TYPE = "create_disposition_type";
 
@@ -42,6 +43,11 @@ public final class BigQuerySessionProperties
                         SKIP_VIEW_MATERIALIZATION,
                         "Skip materializing views",
                         config.isSkipViewMaterialization(),
+                        false))
+                .add(booleanProperty(
+                        VIEW_MATERIALIZATION_WITH_FILTER,
+                        "Materialize views with filters",
+                        config.isViewMaterializationWithFilter(),
                         false))
                 .add(booleanProperty(
                         QUERY_RESULTS_CACHE_ENABLED,
@@ -66,6 +72,11 @@ public final class BigQuerySessionProperties
     public static boolean isSkipViewMaterialization(ConnectorSession session)
     {
         return session.getProperty(SKIP_VIEW_MATERIALIZATION, Boolean.class);
+    }
+
+    public static boolean isViewMaterializationWithFilter(ConnectorSession session)
+    {
+        return session.getProperty(VIEW_MATERIALIZATION_WITH_FILTER, Boolean.class);
     }
 
     public static boolean isQueryResultsCacheEnabled(ConnectorSession session)

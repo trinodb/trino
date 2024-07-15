@@ -191,12 +191,12 @@ public final class OutputBufferInfo
         }
         OutputBufferInfo that = (OutputBufferInfo) o;
         return Objects.equals(type, that.type) &&
-                Objects.equals(canAddBuffers, that.canAddBuffers) &&
-                Objects.equals(canAddPages, that.canAddPages) &&
-                Objects.equals(totalBufferedBytes, that.totalBufferedBytes) &&
-                Objects.equals(totalBufferedPages, that.totalBufferedPages) &&
-                Objects.equals(totalRowsSent, that.totalRowsSent) &&
-                Objects.equals(totalPagesSent, that.totalPagesSent) &&
+                canAddBuffers == that.canAddBuffers &&
+                canAddPages == that.canAddPages &&
+                totalBufferedBytes == that.totalBufferedBytes &&
+                totalBufferedPages == that.totalBufferedPages &&
+                totalRowsSent == that.totalRowsSent &&
+                totalPagesSent == that.totalPagesSent &&
                 state == that.state &&
                 Objects.equals(pipelinedBufferStates, that.pipelinedBufferStates) &&
                 Objects.equals(utilization, that.utilization);

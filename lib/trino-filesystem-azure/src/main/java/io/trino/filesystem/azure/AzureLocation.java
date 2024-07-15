@@ -30,13 +30,14 @@ class AzureLocation
     private static final CharMatcher STORAGE_ACCOUNT_VALID_CHARACTERS = CharMatcher.inRange('a', 'z').or(CharMatcher.inRange('0', '9'));
 
     private final Location location;
+    private final String scheme;
     private final String account;
 
     public AzureLocation(Location location)
     {
         this.location = requireNonNull(location, "location is null");
         // abfss is also supported but not documented
-        String scheme = location.scheme().orElseThrow(() -> new IllegalArgumentException(String.format(INVALID_LOCATION_MESSAGE, location)));
+        scheme = location.scheme().orElseThrow(() -> new IllegalArgumentException(String.format(INVALID_LOCATION_MESSAGE, location)));
         checkArgument("abfs".equals(scheme) || "abfss".equals(scheme), INVALID_LOCATION_MESSAGE, location);
 
         // container is interpolated into the URL path, so perform extra checks
@@ -108,6 +109,15 @@ class AzureLocation
         return location.path();
     }
 
+    public String directoryPath()
+    {
+        String path = location.path();
+        if (!path.isEmpty() && !path.endsWith("/")) {
+            path += "/";
+        }
+        return path;
+    }
+
     @Override
     public String toString()
     {
@@ -116,7 +126,8 @@ class AzureLocation
 
     public Location baseLocation()
     {
-        return Location.of("abfs://%s%s.dfs.core.windows.net/".formatted(
+        return Location.of("%s://%s%s.dfs.core.windows.net/".formatted(
+                scheme,
                 container().map(container -> container + "@").orElse(""),
                 account()));
     }

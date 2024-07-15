@@ -405,22 +405,29 @@ public abstract class BaseFailureRecoveryTest
                             .hasMessageContaining(".%s' does not exist", temporaryTableName);
                 }
                 catch (AssertionError e) {
-                    remainingTemporaryTables.computeIfAbsent(queryId, ignored -> new HashSet<>()).add(temporaryTableName);
-                    assertionErrorMessages.computeIfAbsent(queryId, ignored -> new HashSet<>()).add(e.getMessage());
+                    remainingTemporaryTables.computeIfAbsent(queryId, _ -> new HashSet<>()).add(temporaryTableName);
+                    assertionErrorMessages.computeIfAbsent(queryId, _ -> new HashSet<>()).add(e.getMessage());
                 }
             }
         }
 
-        assertThat(remainingTemporaryTables.isEmpty())
-                .as("There should be no remaining tmp_trino tables that are queryable. They are:\n%s",
-                        remainingTemporaryTables.entrySet().stream()
-                                .map(entry -> "\tFor queryId [%s] (prefix [%s]) remaining tables: [%s]\n\t\tWith errors: [%s]".formatted(
-                                        entry.getKey(),
-                                        temporaryTableNamePrefix(entry.getKey()),
-                                        Joiner.on(",").join(entry.getValue()),
-                                        Joiner.on("],\n[").join(assertionErrorMessages.get(entry.getKey())).replace("\n", "\n\t\t\t")))
-                                .collect(joining("\n")))
-                .isTrue();
+        if (checkNoRemainingTmpTables()) {
+            assertThat(remainingTemporaryTables.isEmpty())
+                    .as("There should be no remaining tmp_trino tables that are queryable. They are:\n%s",
+                            remainingTemporaryTables.entrySet().stream()
+                                    .map(entry -> "\tFor queryId [%s] (prefix [%s]) remaining tables: [%s]\n\t\tWith errors: [%s]".formatted(
+                                            entry.getKey(),
+                                            temporaryTableNamePrefix(entry.getKey()),
+                                            Joiner.on(",").join(entry.getValue()),
+                                            Joiner.on("],\n[").join(assertionErrorMessages.get(entry.getKey())).replace("\n", "\n\t\t\t")))
+                                    .collect(joining("\n")))
+                    .isTrue();
+        }
+    }
+
+    protected boolean checkNoRemainingTmpTables()
+    {
+        return true;
     }
 
     protected class FailureRecoveryAssert

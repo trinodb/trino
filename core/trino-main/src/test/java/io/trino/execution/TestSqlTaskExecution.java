@@ -14,9 +14,11 @@
 package io.trino.execution;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -55,6 +57,7 @@ import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
 import java.util.OptionalInt;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -512,9 +515,10 @@ public class TestSqlTaskExecution
         }
 
         @Override
-        public Object getInfo()
+        @JsonIgnore
+        public Map<String, String> getSplitInfo()
         {
-            return this;
+            return ImmutableMap.of("begin", String.valueOf(begin), "end", String.valueOf(end));
         }
 
         @Override

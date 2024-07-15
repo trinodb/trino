@@ -18,7 +18,7 @@ string and hash types are supported.
 Requirements for using the connector in a catalog to connect to a Redis data
 source are:
 
-- Redis 2.8.0 or higher (Redis Cluster is not supported)
+- Redis 5.0.14 or higher (Redis Cluster is not supported)
 - Network access, by default on port 6379, from the Trino coordinator and
   workers to Redis.
 
@@ -273,7 +273,6 @@ used, which does not expose any columns.
 ```
 
 (redis-sql-support)=
-
 ## SQL support
 
 The connector provides {ref}`globally available <sql-globally-available>` and
@@ -286,14 +285,12 @@ The connector includes a number of performance improvements, detailed in the
 following sections.
 
 (redis-pushdown)=
-
 ### Pushdown
 
 ```{include} pushdown-correctness-behavior.fragment
 ```
 
 (redis-predicate-pushdown)=
-
 #### Predicate pushdown support
 
 The connector supports pushdown of keys of `string` type only, the `zset`

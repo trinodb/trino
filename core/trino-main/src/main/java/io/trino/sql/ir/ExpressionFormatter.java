@@ -57,6 +57,14 @@ public final class ExpressionFormatter
         }
 
         @Override
+        protected String visitArray(Array node, Void context)
+        {
+            return node.elements().stream()
+                    .map(child -> process(child, context))
+                    .collect(joining(", ", "ARRAY[", "]"));
+        }
+
+        @Override
         protected String visitRow(Row node, Void context)
         {
             return node.items().stream()
@@ -94,9 +102,9 @@ public final class ExpressionFormatter
         @Override
         protected String visitCall(Call node, Void context)
         {
-            String name = isBuiltinFunctionName(node.function().getName()) ?
-                    node.function().getName().getFunctionName() :
-                    node.function().getName().toString();
+            String name = isBuiltinFunctionName(node.function().name()) ?
+                    node.function().name().getFunctionName() :
+                    node.function().name().toString();
 
             return name + '(' + joinExpressions(node.arguments()) + ')';
         }
@@ -106,7 +114,7 @@ public final class ExpressionFormatter
         {
             return "(" +
                     node.arguments().stream()
-                            .map(Symbol::getName)
+                            .map(Symbol::name)
                             .collect(joining(", ")) +
                     ") -> " +
                     process(node.body(), context);
@@ -151,12 +159,6 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitNot(Not node, Void context)
-        {
-            return "(NOT " + process(node.value(), context) + ")";
-        }
-
-        @Override
         protected String visitComparison(Comparison node, Void context)
         {
             return formatBinaryExpression(node.operator().getValue(), node.left(), node.right());
@@ -183,8 +185,7 @@ public final class ExpressionFormatter
         @Override
         public String visitCast(Cast node, Void context)
         {
-            return (node.safe() ? "TRY_CAST" : "CAST") +
-                    "(" + process(node.expression(), context) + " AS " + node.type().getDisplayName() + ")";
+            return "CAST(" + process(node.expression(), context) + " AS " + node.type().getDisplayName() + ")";
         }
 
         @Override

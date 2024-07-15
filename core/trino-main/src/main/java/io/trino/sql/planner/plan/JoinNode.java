@@ -18,11 +18,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolsExtractor;
 
 import java.util.List;
 import java.util.Map;
@@ -118,6 +120,15 @@ public class JoinNode
 
         checkArgument(leftSymbols.containsAll(leftOutputSymbols), "Left source inputs do not contain all left output symbols");
         checkArgument(rightSymbols.containsAll(rightOutputSymbols), "Right source inputs do not contain all right output symbols");
+
+        filter.ifPresent(expression -> {
+            checkArgument(
+                    Sets.union(leftSymbols, rightSymbols).containsAll(SymbolsExtractor.extractAll(expression)),
+                    "Some filter inputs missing from left/right: %s, left = %s, right = %s",
+                    expression,
+                    leftSymbols,
+                    rightSymbols);
+        });
 
         checkArgument(!(criteria.isEmpty() && leftHashSymbol.isPresent()), "Left hash symbol is only valid in an equijoin");
         checkArgument(!(criteria.isEmpty() && rightHashSymbol.isPresent()), "Right hash symbol is only valid in an equijoin");

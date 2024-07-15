@@ -82,12 +82,12 @@ public class FileBasedTableStatisticsProvider
         List<DeltaLakeColumnMetadata> columnMetadata = DeltaLakeSchemaSupport.extractSchema(metadata, tableHandle.getProtocolEntry(), typeManager);
         List<DeltaLakeColumnHandle> columns = columnMetadata.stream()
                 .map(columnMeta -> new DeltaLakeColumnHandle(
-                        columnMeta.getName(),
-                        columnMeta.getType(),
-                        columnMeta.getFieldId(),
-                        columnMeta.getPhysicalName(),
-                        columnMeta.getPhysicalColumnType(),
-                        metadata.getOriginalPartitionColumns().contains(columnMeta.getName()) ? PARTITION_KEY : REGULAR,
+                        columnMeta.name(),
+                        columnMeta.type(),
+                        columnMeta.fieldId(),
+                        columnMeta.physicalName(),
+                        columnMeta.physicalColumnType(),
+                        metadata.getOriginalPartitionColumns().contains(columnMeta.name()) ? PARTITION_KEY : REGULAR,
                         Optional.empty()))
                 .collect(toImmutableList());
 
@@ -110,7 +110,7 @@ public class FileBasedTableStatisticsProvider
                 .map(DeltaLakeColumnHandle::getBaseColumnName)
                 .collect(toImmutableSet());
         List<DeltaLakeColumnMetadata> predicatedColumns = columnMetadata.stream()
-                .filter(column -> predicatedColumnNames.contains(column.getName()))
+                .filter(column -> predicatedColumnNames.contains(column.name()))
                 .collect(toImmutableList());
 
         try (Stream<AddFileEntry> addEntries = transactionLogAccess.getActiveFiles(

@@ -14,7 +14,6 @@
 package io.trino.spi.block;
 
 import com.google.errorprone.annotations.ThreadSafe;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.MapType;
 import jakarta.annotation.Nullable;
@@ -46,7 +45,6 @@ public final class MapHashTables
     private final int hashTableCount;
 
     @SuppressWarnings("VolatileArrayField")
-    @GuardedBy("this")
     @Nullable
     private volatile int[] hashTables;
 
@@ -223,7 +221,7 @@ public final class MapHashTables
                 boolean isDuplicateKey;
                 try {
                     // assuming maps with indeterminate keys are not supported
-                    isDuplicateKey = (boolean) mapType.getKeyBlockNotDistinctFrom().invokeExact(keyBlock, keyOffset + i, keyBlock, keyOffset + hashTables[hashTableOffset + hash]);
+                    isDuplicateKey = (boolean) mapType.getKeyBlockIdentical().invokeExact(keyBlock, keyOffset + i, keyBlock, keyOffset + hashTables[hashTableOffset + hash]);
                 }
                 catch (RuntimeException e) {
                     throw e;

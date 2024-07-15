@@ -50,7 +50,6 @@ use {doc}`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
 (sqlserver-tls)=
-
 ### Connection security
 
 The JDBC driver, and therefore the connector, automatically use Transport Layer
@@ -155,7 +154,6 @@ If you used a different name for your catalog properties file, use
 that catalog name instead of `example` in the above examples.
 
 (sqlserver-type-mapping)=
-
 ## Type mapping
 
 Because Trino and SQL Server each support types that the other does not, this
@@ -295,7 +293,6 @@ The connector maps Trino types to the corresponding SQL Server types following t
 Complete list of [SQL Server data types](https://msdn.microsoft.com/library/ms187752.aspx).
 
 (sqlserver-numeric-mapping)=
-
 ### Numeric type mapping
 
 For SQL Server `FLOAT[(n)]`:
@@ -305,7 +302,6 @@ For SQL Server `FLOAT[(n)]`:
 - If `24 < n <= 53` maps to Trino `DOUBLE`
 
 (sqlserver-character-mapping)=
-
 ### Character type mapping
 
 For Trino `CHAR(n)`:
@@ -322,7 +318,6 @@ For Trino `VARCHAR(n)`:
 ```
 
 (sqlserver-sql-support)=
-
 ## SQL support
 
 The connector provides read access and write access to data and metadata in SQL
@@ -346,7 +341,6 @@ supports the following features:
 ```
 
 (sqlserver-fte-support)=
-
 ## Fault-tolerant execution support
 
 The connector supports {doc}`/admin/fault-tolerant-execution` of query
@@ -358,7 +352,6 @@ The connector provides specific {doc}`table functions </functions/table>` to
 access SQL Server.
 
 (sqlserver-query-function)=
-
 ### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It
@@ -390,7 +383,6 @@ FROM
 ```
 
 (sqlserver-procedure-function)=
-
 ### `procedure(varchar) -> table`
 
 The `procedure` function allows you to run stored procedures on the underlying
@@ -445,7 +437,6 @@ The connector includes a number of performance improvements, detailed in the
 following sections.
 
 (sqlserver-table-statistics)=
-
 ### Table statistics
 
 The SQL Server connector can use {doc}`table and column statistics
@@ -477,7 +468,6 @@ Refer to SQL Server documentation for information about options, limitations and
 additional considerations.
 
 (sqlserver-pushdown)=
-
 ### Pushdown
 
 The connector supports pushdown for a number of operations:
@@ -522,7 +512,6 @@ To ensure correct results, operators are not pushed down for columns using a
 case-insensitive collation.
 
 (sqlserver-bulk-insert)=
-
 ### Bulk insert
 
 You can optionally use the [bulk copy API](https://docs.microsoft.com/sql/connect/jdbc/use-bulk-copy-api-batch-insert-operation)

@@ -176,7 +176,7 @@ values. Typical usage does not require you to configure them.
   - Use randomized, unique table locations.
   - `true`
 * - `delta.register-table-procedure.enabled`
-  - Enable to allow users to call the `register_table` procedure.
+  - Enable to allow users to call the [`register_table` procedure](delta-lake-register-table).
   - `false`
 * - `delta.vacuum.min-retention`
   - Minimum retention threshold for the files taken into account for removal by
@@ -219,7 +219,6 @@ The following table describes {ref}`catalog session properties
 :::
 
 (delta-lake-type-mapping)=
-
 ## Type mapping
 
 Because Trino and Delta Lake each support types that the other does not, this
@@ -328,7 +327,7 @@ No other types are supported.
 
 ## Delta Lake table features
 
-The connector supports the following [Delta Lake table 
+The connector supports the following [Delta Lake table
 features](https://github.com/delta-io/delta/blob/master/PROTOCOL.md#table-features):
 
 :::{list-table} Table features
@@ -364,7 +363,6 @@ authorization at the catalog level. You can select a different type of
 authorization check in different Delta Lake catalog files.
 
 (delta-lake-authorization)=
-
 ### Authorization checks
 
 Enable authorization checks for the connector by setting the `delta.security`
@@ -389,11 +387,10 @@ security values in the following table:
   - Authorization checks are enforced using a catalog-level access control
     configuration file whose path is specified in the `security.config-file`
     catalog configuration property. See [](catalog-file-based-access-control)
-    for information on the authorization configuration file. :::
+    for information on the authorization configuration file.
 :::
 
 (delta-lake-sql-support)=
-
 ## SQL support
 
 The connector provides read and write access to data and metadata in
@@ -409,6 +406,30 @@ statements, the connector supports the following features:
     and table management <delta-lake-schema-table-management>`
   - {ref}`sql-view-management`
 
+(delta-time-travel)=
+### Time travel queries
+
+The connector offers the ability to query historical data. This allows to
+query the table as it was when a previous snapshot of the table was taken, even
+if the data has since been modified or deleted.
+
+The historical data of the table can be retrieved by specifying the version
+number corresponding to the version of the table to be retrieved:
+
+```
+SELECT *
+FROM example.testdb.customer_orders FOR VERSION AS OF 3
+```
+
+Use the `$history` metadata table to determine the snapshot ID of the
+table like in the following query:
+
+```
+SELECT version, operation
+FROM example.testdb."customer_orders$history"
+ORDER BY version DESC
+```
+
 ### Procedures
 
 Use the {doc}`/sql/call` statement to perform data manipulation or
@@ -421,17 +442,16 @@ CALL examplecatalog.system.example_procedure()
 ```
 
 (delta-lake-register-table)=
-
 #### Register table
 
-The connector can register table into the metastore with existing transaction
-logs and data files.
+The connector can register existing Delta Lake tables into the metastore if
+`delta.register-table-procedure.enabled` is set to `true` for the catalog.
 
 The `system.register_table` procedure allows the caller to register an
 existing Delta Lake table in the metastore, using its existing transaction logs
 and data files:
 
-```
+```sql
 CALL example.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 's3://my-bucket/a/path')
 ```
 
@@ -440,20 +460,19 @@ default. The procedure is enabled only when
 `delta.register-table-procedure.enabled` is set to `true`.
 
 (delta-lake-unregister-table)=
-
 #### Unregister table
 
-The connector can unregister existing Delta Lake tables from the metastore.
+The connector can remove existing Delta Lake tables from the metastore. Once
+unregistered, you can no longer query the table from Trino.
 
 The procedure `system.unregister_table` allows the caller to unregister an
 existing Delta Lake table from the metastores without deleting the data:
 
-```
+```sql
 CALL example.system.unregister_table(schema_name => 'testdb', table_name => 'customer_orders')
 ```
 
 (delta-lake-flush-metadata-cache)=
-
 #### Flush metadata cache
 
 - `system.flush_metadata_cache()`
@@ -466,7 +485,6 @@ CALL example.system.unregister_table(schema_name => 'testdb', table_name => 'cus
   Procedure requires passing named parameters.
 
 (delta-lake-vacuum)=
-
 #### `VACUUM`
 
 The `VACUUM` procedure removes all old files that are not in the transaction
@@ -493,7 +511,6 @@ this property is `0s`. There is a minimum retention session property as well,
 `vacuum_min_retention`.
 
 (delta-lake-data-management)=
-
 ### Data management
 
 You can use the connector to {doc}`/sql/insert`, {doc}`/sql/delete`,
@@ -517,7 +534,6 @@ Write operations are supported for tables stored on the following systems:
   corruption.
 
 (delta-lake-schema-table-management)=
-
 ### Schema and table management
 
 The {ref}`sql-schema-table-management` functionality includes support for:
@@ -581,8 +597,26 @@ The Delta Lake connector also supports creating tables using the {doc}`CREATE
 TABLE AS </sql/create-table-as>` syntax.
 
 (delta-lake-alter-table)=
-
 The connector supports the following [](/sql/alter-table) statements.
+
+(delta-lake-create-or-replace)=
+#### Replace tables
+
+The connector supports replacing an existing table as an atomic operation.
+Atomic table replacement creates a new snapshot with the new table definition as
+part of the [table history](#delta-lake-history-table).
+
+To replace a table, use [`CREATE OR REPLACE TABLE`](/sql/create-table) or
+[`CREATE OR REPLACE TABLE AS`](/sql/create-table-as).
+
+In this example, a table `example_table` is replaced by a completely new
+definition and data from the source table:
+
+```sql
+CREATE OR REPLACE TABLE example_table
+WITH (partitioned_by = ARRAY['a'])
+AS SELECT * FROM another_table;
+```
 
 (delta-lake-alter-table-execute)=
 #### ALTER TABLE EXECUTE
@@ -594,7 +628,6 @@ EXECUTE <alter-table-execute>`.
 ```
 
 (delta-lake-alter-table-rename-to)=
-
 #### ALTER TABLE RENAME TO
 
 The connector only supports the `ALTER TABLE RENAME TO` statement when met with
@@ -657,6 +690,7 @@ metadata table name to the table name:
 SELECT * FROM "test_table$history"
 ```
 
+(delta-lake-history-table)=
 ##### `$history` table
 
 The `$history` table provides a log of the metadata changes performed on
@@ -718,6 +752,50 @@ The output of the query has the following history columns:
   - Whether or not the operation appended data
 :::
 
+(delta-lake-partitions-table)=
+##### `$partitions` table
+
+The `$partitions` table provides a detailed overview of the partitions of the
+Delta Lake table.
+
+You can retrieve the information about the partitions of the Delta Lake table
+`test_table` by using the following query:
+
+```
+SELECT * FROM "test_table$partitions"
+```
+
+```text
+           partition           | file_count | total_size |                     data                     |
+-------------------------------+------------+------------+----------------------------------------------+
+{_bigint=1, _date=2021-01-12}  |          2 |        884 | {_decimal={min=1.0, max=2.0, null_count=0}}  |
+{_bigint=1, _date=2021-01-13}  |          1 |        442 | {_decimal={min=1.0, max=1.0, null_count=0}}  |
+```
+
+The output of the query has the following columns:
+
+:::{list-table} Partitions columns
+:widths: 20, 30, 50
+:header-rows: 1
+
+* - Name
+  - Type
+  - Description
+* - `partition`
+  - `ROW(...)`
+  - A row that contains the mapping of the partition column names to the
+    partition column values.
+* - `file_count`
+  - `BIGINT`
+  - The number of files mapped in the partition.
+* - `total_size`
+  - `BIGINT`
+  - The size of all the files in the partition.
+* - `data`
+  - `ROW(... ROW (min ..., max ... , null_count BIGINT))`
+  - Partition range and null counts.
+:::
+
 ##### `$properties` table
 
 The `$properties` table provides access to Delta Lake table configuration,
@@ -740,7 +818,6 @@ delta.feature.columnMapping | supported       |
 ```
 
 (delta-lake-special-columns)=
-
 #### Metadata columns
 
 In addition to the defined columns, the Delta Lake connector automatically
@@ -756,7 +833,6 @@ directly or used in conditional statements.
   : Size of the file for this row.
 
 (delta-lake-fte-support)=
-
 ## Fault-tolerant execution support
 
 The connector supports {doc}`/admin/fault-tolerant-execution` of query
@@ -913,7 +989,6 @@ following sections:
 - Support for {doc}`write partitioning </admin/properties-write-partitioning>`.
 
 (delta-lake-table-statistics)=
-
 ### Table statistics
 
 Use {doc}`/sql/analyze` statements in Trino to populate data size and
@@ -1039,7 +1114,6 @@ In a healthy system, both `datafilemetadatacachestats.hitrate` and
 `metadatacachestats.hitrate` are close to `1.0`.
 
 (delta-lake-table-redirection)=
-
 ### Table redirection
 
 ```{include} table-redirection.fragment

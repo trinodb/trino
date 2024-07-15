@@ -32,7 +32,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
-import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.ORDERS;
@@ -67,11 +66,10 @@ public abstract class BaseTestMySqlTableStatisticsTest
     {
         mysqlServer = closeAfterClass(new TestingMySqlServer(dockerImageName, false));
 
-        return createMySqlQueryRunner(
-                mysqlServer,
-                Map.of(),
-                Map.of("case-insensitive-name-matching", "true"),
-                List.of(ORDERS));
+        return MySqlQueryRunner.builder(mysqlServer)
+                .addConnectorProperties(Map.of("case-insensitive-name-matching", "true"))
+                .setInitialTables(List.of(ORDERS))
+                .build();
     }
 
     @Override

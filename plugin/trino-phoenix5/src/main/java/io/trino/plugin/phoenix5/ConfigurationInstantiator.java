@@ -22,7 +22,7 @@ final class ConfigurationInstantiator
 
     public static Configuration newEmptyConfiguration()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(ConfigurationInstantiator.class.getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(ConfigurationInstantiator.class.getClassLoader())) {
             return new Configuration(false);
         }
     }

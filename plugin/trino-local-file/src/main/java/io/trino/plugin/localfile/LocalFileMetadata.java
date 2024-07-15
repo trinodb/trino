@@ -16,12 +16,14 @@ package io.trino.plugin.localfile;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
@@ -34,6 +36,7 @@ import java.util.Optional;
 
 import static io.trino.plugin.localfile.LocalFileColumnHandle.SERVER_ADDRESS_COLUMN_NAME;
 import static io.trino.plugin.localfile.LocalFileColumnHandle.SERVER_ADDRESS_ORDINAL_POSITION;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -59,8 +62,12 @@ public class LocalFileMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         requireNonNull(tableName, "tableName is null");
         return localFileTables.getTable(tableName);
     }
@@ -69,7 +76,7 @@ public class LocalFileMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         LocalFileTableHandle tableHandle = (LocalFileTableHandle) table;
-        return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), localFileTables.getColumns(tableHandle));
+        return new ConnectorTableMetadata(tableHandle.schemaTableName(), localFileTables.getColumns(tableHandle));
     }
 
     @Override
@@ -136,16 +143,16 @@ public class LocalFileMetadata
     {
         LocalFileTableHandle handle = (LocalFileTableHandle) table;
 
-        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> oldDomain = handle.constraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
         if (oldDomain.equals(newDomain)) {
             return Optional.empty();
         }
 
         handle = new LocalFileTableHandle(
-                handle.getSchemaTableName(),
-                handle.getTimestampColumn(),
-                handle.getServerAddressColumn(),
+                handle.schemaTableName(),
+                handle.timestampColumn(),
+                handle.serverAddressColumn(),
                 newDomain);
 
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), constraint.getExpression(), false));

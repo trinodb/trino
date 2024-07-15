@@ -96,7 +96,7 @@ public class SessionPropertyDefaults
         checkState(factory != null, "Session property configuration manager '%s' is not registered", name);
 
         SessionPropertyConfigurationManager manager;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             manager = factory.create(properties, configurationManagerContext);
         }
 

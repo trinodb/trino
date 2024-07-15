@@ -29,8 +29,8 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.DIVIDE;
 import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.function.OperatorType.MODULUS;
@@ -740,31 +740,31 @@ public class TestRealOperators
     }
 
     @Test
-    public void testIsDistinctFrom()
+    public void testIdentical()
     {
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS REAL)", "CAST(NULL AS REAL)"))
+        assertThat(assertions.operator(IDENTICAL, "CAST(NULL AS REAL)", "CAST(NULL AS REAL)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "REAL '37.7'", "REAL '37.7'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IDENTICAL, "REAL '37.7'", "REAL '37.8'"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "REAL '37.7'", "REAL '37.7'"))
+        assertThat(assertions.operator(IDENTICAL, "NULL", "REAL '37.7'"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "REAL '37.7'", "REAL '37.8'"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "REAL '37.7'"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "REAL '37.7'", "NULL"))
-                .isEqualTo(true);
-
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(nan() AS REAL)", "CAST(nan() AS REAL)"))
+        assertThat(assertions.operator(IDENTICAL, "REAL '37.7'", "NULL"))
                 .isEqualTo(false);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "REAL 'NaN'", "REAL '37.8'"))
+        assertThat(assertions.operator(IDENTICAL, "CAST(nan() AS REAL)", "CAST(nan() AS REAL)"))
                 .isEqualTo(true);
 
-        assertThat(assertions.operator(IS_DISTINCT_FROM, "REAL '37.8'", "REAL 'NaN'"))
-                .isEqualTo(true);
+        assertThat(assertions.operator(IDENTICAL, "REAL 'NaN'", "REAL '37.8'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IDENTICAL, "REAL '37.8'", "REAL 'NaN'"))
+                .isEqualTo(false);
     }
 
     @Test

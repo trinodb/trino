@@ -191,7 +191,7 @@ public final class FormatUtils
     }
 
     /**
-     * Format an indeterminate progress bar: [       <=>       ]
+     * Format an indeterminate progress bar: {@code [       <=>       ]}
      */
     public static String formatProgressBar(int width, int tick)
     {

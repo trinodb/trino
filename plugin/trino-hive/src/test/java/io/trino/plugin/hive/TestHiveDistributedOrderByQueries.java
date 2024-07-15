@@ -16,8 +16,6 @@ package io.trino.plugin.hive;
 import io.trino.testing.AbstractTestOrderByQueries;
 import io.trino.testing.QueryRunner;
 
-import static io.trino.tpch.TpchTable.getTables;
-
 public class TestHiveDistributedOrderByQueries
         extends AbstractTestOrderByQueries
 {
@@ -26,7 +24,7 @@ public class TestHiveDistributedOrderByQueries
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setInitialTables(getTables())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 }

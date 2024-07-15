@@ -25,6 +25,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import jakarta.annotation.PreDestroy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryForever;
@@ -63,10 +64,8 @@ public class ZooKeeperMetadataManager
         String zookeepers = config.getZooKeepers();
 
         // Create the connection to ZooKeeper to check if the metadata root exists
-        CuratorFramework checkRoot = CuratorFrameworkFactory.newClient(zookeepers, new RetryForever(1000));
-        checkRoot.start();
-
-        try {
+        try (CuratorFramework checkRoot = CuratorFrameworkFactory.newClient(zookeepers, new RetryForever(1000))) {
+            checkRoot.start();
             // If the metadata root does not exist, create it
             if (checkRoot.checkExists().forPath(zkMetadataRoot) == null) {
                 checkRoot.create().forPath(zkMetadataRoot);
@@ -75,7 +74,6 @@ public class ZooKeeperMetadataManager
         catch (Exception e) {
             throw new TrinoException(ZOOKEEPER_ERROR, "ZK error checking metadata root", e);
         }
-        checkRoot.close();
 
         // Create the curator client framework to use for metadata management, set at the ZK root
         curator = CuratorFrameworkFactory.newClient(zookeepers + zkMetadataRoot, new RetryForever(1000));
@@ -90,6 +88,12 @@ public class ZooKeeperMetadataManager
         catch (Exception e) {
             throw new TrinoException(ZOOKEEPER_ERROR, "ZK error checking/creating default schema", e);
         }
+    }
+
+    @PreDestroy
+    public void close()
+    {
+        curator.close();
     }
 
     public void createSchema(String schemaName)
@@ -243,7 +247,7 @@ public class ZooKeeperMetadataManager
 
     public void createViewMetadata(AccumuloView view)
     {
-        SchemaTableName tableName = view.getSchemaTableName();
+        SchemaTableName tableName = view.schemaTableName();
         String viewPath = getTablePath(tableName);
         try {
             if (curator.checkExists().forPath(viewPath) != null) {

@@ -16,15 +16,14 @@ package io.trino.plugin.iceberg;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
-import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.parquet.format.CompressionCodec;
-import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.MessageType;
 
 import java.io.Closeable;
@@ -35,10 +34,11 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static io.trino.parquet.reader.MetadataReader.createParquetMetadata;
+import static io.trino.plugin.iceberg.util.ParquetUtil.footerMetrics;
+import static io.trino.plugin.iceberg.util.ParquetUtil.getSplitOffsets;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.parquet.ParquetUtil.footerMetrics;
 
 public final class IcebergParquetFileWriter
         implements IcebergFileWriter
@@ -79,7 +79,7 @@ public final class IcebergParquetFileWriter
     }
 
     @Override
-    public Metrics getMetrics()
+    public FileMetrics getFileMetrics()
     {
         ParquetMetadata parquetMetadata;
         try {
@@ -88,7 +88,7 @@ public final class IcebergParquetFileWriter
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Error creating metadata for Parquet file %s", location), e);
         }
-        return footerMetrics(parquetMetadata, Stream.empty(), metricsConfig);
+        return new FileMetrics(footerMetrics(parquetMetadata, Stream.empty(), metricsConfig), Optional.of(getSplitOffsets(parquetMetadata)));
     }
 
     @Override

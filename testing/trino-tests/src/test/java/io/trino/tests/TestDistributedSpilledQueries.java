@@ -56,7 +56,7 @@ public class TestDistributedSpilledQueries
                 .buildOrThrow();
 
         QueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
-                .setNodeCount(2)
+                .setWorkerCount(1)
                 .setExtraProperties(extraProperties)
                 .build();
 

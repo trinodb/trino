@@ -85,7 +85,7 @@ public final class OrcIcebergIds
     private static String pathName(OrcColumn column, OrcColumn nestedColumn)
     {
         // Trino ORC reader uses "item" for list element names, but NameMapper expects "element"
-        if (column.getColumnType() == OrcTypeKind.LIST) {
+        if (column.getColumnType().getOrcTypeKind() == OrcTypeKind.LIST) {
             return "element";
         }
         return nestedColumn.getColumnName();

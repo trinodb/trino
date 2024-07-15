@@ -47,7 +47,6 @@ import static java.util.Objects.requireNonNull;
  * MBeanServer wrapper that a ignores calls to registerMBean when there is already
  * a MBean registered with the specified object name.
  */
-@SuppressWarnings("deprecation")
 @ThreadSafe
 public class RebindSafeMBeanServer
         implements MBeanServer
@@ -74,7 +73,7 @@ public class RebindSafeMBeanServer
                 // try to register the mbean
                 return mbeanServer.registerMBean(object, name);
             }
-            catch (InstanceAlreadyExistsException ignored) {
+            catch (InstanceAlreadyExistsException _) {
             }
 
             try {
@@ -83,7 +82,7 @@ public class RebindSafeMBeanServer
                 log.debug("%s already bound to %s", name, objectInstance);
                 return objectInstance;
             }
-            catch (InstanceNotFoundException ignored) {
+            catch (InstanceNotFoundException _) {
                 // the mbean was removed before we could get the reference
                 // start the whole process over again
             }
@@ -260,6 +259,7 @@ public class RebindSafeMBeanServer
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     @Deprecated
     public ObjectInputStream deserialize(ObjectName name, byte[] data)
             throws OperationsException
@@ -268,6 +268,7 @@ public class RebindSafeMBeanServer
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     @Deprecated
     public ObjectInputStream deserialize(String className, byte[] data)
             throws OperationsException, ReflectionException
@@ -276,6 +277,7 @@ public class RebindSafeMBeanServer
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     @Deprecated
     public ObjectInputStream deserialize(String className, ObjectName loaderName, byte[] data)
             throws OperationsException, ReflectionException

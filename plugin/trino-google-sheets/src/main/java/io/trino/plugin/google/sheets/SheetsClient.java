@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
-import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.cache.NonEvictableLoadingCache;
@@ -85,10 +84,8 @@ public class SheetsClient
     private final Sheets sheetsService;
 
     @Inject
-    public SheetsClient(SheetsConfig config, JsonCodec<Map<String, List<SheetsTable>>> catalogCodec)
+    public SheetsClient(SheetsConfig config)
     {
-        requireNonNull(catalogCodec, "catalogCodec is null");
-
         this.metadataSheetId = config.getMetadataSheetId();
 
         try {
@@ -126,7 +123,7 @@ public class SheetsClient
     public Optional<SheetsTable> getTable(SheetsConnectorTableHandle tableHandle)
     {
         if (tableHandle instanceof SheetsNamedTableHandle namedTableHandle) {
-            return getTable(namedTableHandle.getTableName());
+            return getTable(namedTableHandle.tableName());
         }
         if (tableHandle instanceof SheetsSheetTableHandle sheetTableHandle) {
             return getTableFromValues(readAllValuesFromSheet(sheetTableHandle.getSheetExpression()));
@@ -144,19 +141,19 @@ public class SheetsClient
     {
         List<List<String>> stringValues = convertToStringValues(values);
         if (stringValues.size() > 0) {
-            ImmutableList.Builder<SheetsColumn> columns = ImmutableList.builder();
+            ImmutableList.Builder<SheetsColumnHandle> columns = ImmutableList.builder();
             Set<String> columnNames = new HashSet<>();
             // Assuming 1st line is always header
             List<String> header = stringValues.get(0);
             int count = 0;
-            for (String column : header) {
-                String columnValue = column.toLowerCase(ENGLISH);
+            for (int i = 0; i < header.size(); i++) {
+                String columnValue = header.get(i).toLowerCase(ENGLISH);
                 // when empty or repeated column header, adding a placeholder column name
                 if (columnValue.isEmpty() || columnNames.contains(columnValue)) {
                     columnValue = "column_" + ++count;
                 }
                 columnNames.add(columnValue);
-                columns.add(new SheetsColumn(columnValue, VarcharType.VARCHAR));
+                columns.add(new SheetsColumnHandle(columnValue, VarcharType.VARCHAR, i));
             }
             List<List<String>> dataValues = stringValues.subList(1, values.size()); // removing header info
             return Optional.of(new SheetsTable(columns.build(), dataValues));

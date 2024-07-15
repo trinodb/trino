@@ -13,8 +13,7 @@
  */
 package io.trino.plugin.iceberg.procedure;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.SchemaTableName;
 
@@ -22,68 +21,21 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public class IcebergTableExecuteHandle
+public record IcebergTableExecuteHandle(
+        SchemaTableName schemaTableName,
+        IcebergTableProcedureId procedureId,
+        IcebergProcedureHandle procedureHandle,
+        String tableLocation,
+        Map<String, String> fileIoProperties)
         implements ConnectorTableExecuteHandle
 {
-    private final SchemaTableName schemaTableName;
-    private final IcebergTableProcedureId procedureId;
-    private final IcebergProcedureHandle procedureHandle;
-    private final String tableLocation;
-    private final Map<String, String> fileIoProperties;
-
-    @JsonCreator
-    public IcebergTableExecuteHandle(
-            SchemaTableName schemaTableName,
-            IcebergTableProcedureId procedureId,
-            IcebergProcedureHandle procedureHandle,
-            String tableLocation,
-            Map<String, String> fileIoProperties)
+    public IcebergTableExecuteHandle
     {
-        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-        this.procedureId = requireNonNull(procedureId, "procedureId is null");
-        this.procedureHandle = requireNonNull(procedureHandle, "procedureHandle is null");
-        this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
-        this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
-    }
-
-    @JsonProperty
-    public SchemaTableName getSchemaTableName()
-    {
-        return schemaTableName;
-    }
-
-    @JsonProperty
-    public IcebergTableProcedureId getProcedureId()
-    {
-        return procedureId;
-    }
-
-    @JsonProperty
-    public IcebergProcedureHandle getProcedureHandle()
-    {
-        return procedureHandle;
-    }
-
-    @JsonProperty
-    public String getTableLocation()
-    {
-        return tableLocation;
-    }
-
-    @JsonProperty
-    public Map<String, String> getFileIoProperties()
-    {
-        return fileIoProperties;
-    }
-
-    public IcebergTableExecuteHandle withProcedureHandle(IcebergProcedureHandle procedureHandle)
-    {
-        return new IcebergTableExecuteHandle(
-                schemaTableName,
-                procedureId,
-                procedureHandle,
-                tableLocation,
-                fileIoProperties);
+        requireNonNull(schemaTableName, "schemaTableName is null");
+        requireNonNull(procedureId, "procedureId is null");
+        requireNonNull(procedureHandle, "procedureHandle is null");
+        requireNonNull(tableLocation, "tableLocation is null");
+        fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
     }
 
     @Override

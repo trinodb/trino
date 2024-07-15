@@ -264,7 +264,7 @@ public class TimeSharingTaskExecutor
         try {
             executor.execute(versionEmbedder.embedVersion(new TaskRunner()));
         }
-        catch (RejectedExecutionException ignored) {
+        catch (RejectedExecutionException _) {
         }
     }
 
@@ -293,7 +293,7 @@ public class TimeSharingTaskExecutor
     public void removeTask(TaskHandle taskHandle)
     {
         TimeSharingTaskHandle handle = (TimeSharingTaskHandle) taskHandle;
-        try (SetThreadName ignored = new SetThreadName("Task-%s", handle.getTaskId())) {
+        try (SetThreadName _ = new SetThreadName("Task-%s", handle.getTaskId())) {
             // Skip additional scheduling if the task was already destroyed
             if (!doRemoveTask(handle)) {
                 return;
@@ -594,12 +594,13 @@ public class TimeSharingTaskExecutor
                         // ignore random errors due to driver thread interruption
                         if (!split.isDestroyed()) {
                             if (t instanceof TrinoException trinoException) {
-                                log.error(t, "Error processing %s: %s: %s", split.getInfo(), trinoException.getErrorCode().getName(), trinoException.getMessage());
+                                log.debug(t, "Error processing %s: %s: %s", split.getInfo(), trinoException.getErrorCode().getName(), trinoException.getMessage());
                             }
                             else {
-                                log.error(t, "Error processing %s", split.getInfo());
+                                log.debug(t, "Error processing %s", split.getInfo());
                             }
                         }
+                        split.markFailed(t);
                         splitFinished(split);
                     }
                     finally {

@@ -48,6 +48,7 @@ import static io.trino.parquet.ValuesType.VALUES;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.BooleanApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.DoubleApacheParquetValueDecoder;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.FloatApacheParquetValueDecoder;
+import static io.trino.parquet.reader.decoders.BooleanPlainValueDecoders.createBooleanPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.DeltaBinaryPackedDecoders.DeltaBinaryPackedByteDecoder;
 import static io.trino.parquet.reader.decoders.DeltaBinaryPackedDecoders.DeltaBinaryPackedIntDecoder;
 import static io.trino.parquet.reader.decoders.DeltaBinaryPackedDecoders.DeltaBinaryPackedLongDecoder;
@@ -61,7 +62,6 @@ import static io.trino.parquet.reader.decoders.DeltaLengthByteArrayDecoders.Char
 import static io.trino.parquet.reader.decoders.PlainByteArrayDecoders.BinaryPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainByteArrayDecoders.BoundedVarcharPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainByteArrayDecoders.CharPlainValueDecoder;
-import static io.trino.parquet.reader.decoders.PlainValueDecoders.BooleanPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.FixedLengthPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.Int96TimestampPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.IntPlainValueDecoder;
@@ -78,6 +78,7 @@ import static io.trino.spi.block.Fixed12Block.encodeFixed12;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.Decimals.overflows;
+import static io.trino.spi.type.Decimals.rescale;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -104,10 +105,17 @@ import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalType
 public final class ValueDecoders
 {
     private final PrimitiveField field;
+    private final boolean vectorizedDecodingEnabled;
 
     public ValueDecoders(PrimitiveField field)
     {
+        this(field, false);
+    }
+
+    public ValueDecoders(PrimitiveField field, boolean vectorizedDecodingEnabled)
+    {
         this.field = requireNonNull(field, "field is null");
+        this.vectorizedDecodingEnabled = vectorizedDecodingEnabled;
     }
 
     public ValueDecoder<long[]> getDoubleDecoder(ParquetEncoding encoding)
@@ -205,8 +213,8 @@ public final class ValueDecoders
     public ValueDecoder<byte[]> getBooleanDecoder(ParquetEncoding encoding)
     {
         return switch (encoding) {
-            case PLAIN -> new BooleanPlainValueDecoder();
-            case RLE -> new RleBitPackingHybridBooleanDecoder();
+            case PLAIN -> createBooleanPlainValueDecoder(vectorizedDecodingEnabled);
+            case RLE -> new RleBitPackingHybridBooleanDecoder(vectorizedDecodingEnabled);
             // BIT_PACKED is a deprecated encoding which should not be used anymore as per
             // https://github.com/apache/parquet-format/blob/master/Encodings.md#bit-packed-deprecated-bit_packed--4
             // An unoptimized decoder for this encoding is provided here for compatibility with old files or non-compliant writers
@@ -974,7 +982,7 @@ public final class ValueDecoders
                                 INVALID_CAST_ARGUMENT,
                                 format("Cannot read parquet INT32 value '%s' as DECIMAL(%s, %s)", buffer[i], decimalType.getPrecision(), decimalType.getScale()));
                     }
-                    values[i + offset] = buffer[i];
+                    values[i + offset] = rescale(buffer[i], 0, decimalType.getScale());
                 }
             }
 

@@ -41,7 +41,7 @@ public class TryCastFunction
 
     public TryCastFunction()
     {
-        super(FunctionMetadata.scalarBuilder("TRY_CAST")
+        super(FunctionMetadata.scalarBuilder("$try_cast")
                 .signature(Signature.builder()
                         .castableToTypeParameter("F", new TypeSignature("T"))
                         .typeVariable("T")

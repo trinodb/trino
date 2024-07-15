@@ -27,6 +27,7 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.sql.gen.ExpressionProfiler;
+import io.trino.sql.gen.columnar.FilterEvaluator;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -56,25 +57,22 @@ public class PageProcessor
 
     private final ExpressionProfiler expressionProfiler;
     private final DictionarySourceIdFunction dictionarySourceIdFunction = new DictionarySourceIdFunction();
-    private final Optional<PageFilter> filter;
+    private final Optional<FilterEvaluator> filterEvaluator;
+    private final Optional<FilterEvaluator> dynamicFilterEvaluator;
     private final List<PageProjection> projections;
 
     private int projectBatchSize;
 
-    public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
+    public PageProcessor(Optional<FilterEvaluator> filterEvaluator, Optional<FilterEvaluator> dynamicFilterEvaluator, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
     {
-        this(filter, projections, initialBatchSize, new ExpressionProfiler());
+        this(filterEvaluator, dynamicFilterEvaluator, projections, initialBatchSize, new ExpressionProfiler());
     }
 
     @VisibleForTesting
-    public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
+    public PageProcessor(Optional<FilterEvaluator> filterEvaluator, Optional<FilterEvaluator> dynamicFilterEvaluator, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
     {
-        this.filter = filter.map(pageFilter -> {
-            if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic()) {
-                return new DictionaryAwarePageFilter(pageFilter);
-            }
-            return pageFilter;
-        });
+        this.filterEvaluator = requireNonNull(filterEvaluator, "filterEvaluator is null");
+        this.dynamicFilterEvaluator = requireNonNull(dynamicFilterEvaluator, "dynamicFilterEvaluator is null");
         this.projections = projections.stream()
                 .map(projection -> {
                     if (projection.getInputChannels().size() == 1 && projection.isDeterministic()) {
@@ -87,9 +85,10 @@ public class PageProcessor
         this.expressionProfiler = requireNonNull(expressionProfiler, "expressionProfiler is null");
     }
 
-    public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections)
+    @VisibleForTesting
+    public PageProcessor(Optional<FilterEvaluator> filterEvaluator, List<? extends PageProjection> projections)
     {
-        this(filter, projections, OptionalInt.of(1));
+        this(filterEvaluator, Optional.empty(), projections, OptionalInt.of(1));
     }
 
     @VisibleForTesting
@@ -113,30 +112,30 @@ public class PageProcessor
             return WorkProcessor.of();
         }
 
-        if (filter.isPresent()) {
-            Page inputPage = filter.get().getInputChannels().getInputChannels(page);
-            long start = System.nanoTime();
-            SelectedPositions selectedPositions = filter.get().filter(session, inputPage);
-            metrics.recordFilterTimeSince(start);
-            if (selectedPositions.isEmpty()) {
-                return WorkProcessor.of();
-            }
-
-            if (projections.isEmpty()) {
-                // retained memory for empty page is negligible
-                return WorkProcessor.of(new Page(selectedPositions.size()));
-            }
-
-            if (selectedPositions.size() != page.getPositionCount()) {
-                return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, selectedPositions));
-            }
+        SelectedPositions activePositions = positionsRange(0, page.getPositionCount());
+        FilterEvaluator.SelectionResult staticFilterResult = new FilterEvaluator.SelectionResult(activePositions, 0);
+        if (filterEvaluator.isPresent()) {
+            staticFilterResult = filterEvaluator.get().evaluate(session, activePositions, page);
+            metrics.recordFilterTime(staticFilterResult.filterTimeNanos());
         }
-        else if (projections.isEmpty()) {
+
+        FilterEvaluator.SelectionResult result = staticFilterResult;
+        if (dynamicFilterEvaluator.isPresent()) {
+            result = dynamicFilterEvaluator.get().evaluate(session, staticFilterResult.selectedPositions(), page);
+            metrics.recordDynamicFilterMetrics(result.filterTimeNanos(), staticFilterResult.selectedPositions().size());
+        }
+        SelectedPositions selectedPositions = result.selectedPositions();
+
+        if (selectedPositions.isEmpty()) {
+            return WorkProcessor.of();
+        }
+
+        if (projections.isEmpty()) {
             // retained memory for empty page is negligible
-            return WorkProcessor.of(new Page(page.getPositionCount()));
+            return WorkProcessor.of(new Page(selectedPositions.size()));
         }
 
-        return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, positionsRange(0, page.getPositionCount())));
+        return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, selectedPositions));
     }
 
     private class ProjectSelectedPositions
@@ -347,7 +346,7 @@ public class PageProcessor
         @Override
         public DictionaryId apply(DictionaryBlock block)
         {
-            return dictionarySourceIds.computeIfAbsent(block.getDictionarySourceId(), ignored -> randomDictionaryId());
+            return dictionarySourceIds.computeIfAbsent(block.getDictionarySourceId(), _ -> randomDictionaryId());
         }
 
         public void reset()

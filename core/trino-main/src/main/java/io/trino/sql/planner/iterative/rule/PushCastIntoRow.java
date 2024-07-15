@@ -78,7 +78,7 @@ public class PushCastIntoRow
                         Expression item = row.items().get(i);
                         Type itemType = type.getFields().get(i).getType();
                         if (!(itemType instanceof UnknownType)) {
-                            item = new Cast(item, itemType, node.safe());
+                            item = new Cast(item, itemType);
                         }
                         items.add(item);
                     }

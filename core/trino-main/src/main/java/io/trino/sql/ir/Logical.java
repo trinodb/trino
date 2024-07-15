@@ -35,13 +35,10 @@ public record Logical(Operator operator, List<Expression> terms)
 
         public Operator flip()
         {
-            switch (this) {
-                case AND:
-                    return OR;
-                case OR:
-                    return AND;
-            }
-            throw new IllegalArgumentException("Unsupported logical expression type: " + this);
+            return switch (this) {
+                case AND -> OR;
+                case OR -> AND;
+            };
         }
     }
 
@@ -90,8 +87,8 @@ public record Logical(Operator operator, List<Expression> terms)
     {
         return "%s(%s)".formatted(
                 switch (operator) {
-                    case AND -> "$and";
-                    case OR -> "$or";
+                    case AND -> "And";
+                    case OR -> "Or";
                 },
                 terms.stream()
                         .map(Expression::toString)

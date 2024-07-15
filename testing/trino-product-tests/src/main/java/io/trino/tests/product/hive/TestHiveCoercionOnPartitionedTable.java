@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.hive;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.Requires;
@@ -22,6 +23,7 @@ import io.trino.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.tempto.Requirements.compose;
@@ -93,8 +95,7 @@ public class TestHiveCoercionOnPartitionedTable
 
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionBuilder(String fileFormat, Optional<String> recommendTableName, Optional<String> rowFormat)
     {
-        String tableName = format("%s_hive_coercion", recommendTableName.orElse(fileFormat).toLowerCase(ENGLISH));
-        String floatType = fileFormat.toLowerCase(ENGLISH).contains("parquet") ? "DOUBLE" : "FLOAT";
+        String tableName = format("%s_hive_coercion_partitioned", recommendTableName.orElse(fileFormat).toLowerCase(ENGLISH));
         String varcharTypeForBooleanCoercion = fileFormat.toLowerCase(ENGLISH).contains("orc") ? "VARCHAR(5)" : "STRING";
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
@@ -102,7 +103,7 @@ public class TestHiveCoercionOnPartitionedTable
                         // all nested primitive coercions and adding/removing trailing nested fields are covered across row_to_row, list_to_list, and map_to_map
                         "    row_to_row                 STRUCT<keep: STRING, ti2si: TINYINT, si2int: SMALLINT, int2bi: INT, bi2vc: BIGINT, lower2uppercase: BIGINT>, " +
                         "    list_to_list               ARRAY<STRUCT<ti2int: TINYINT, si2bi: SMALLINT, bi2vc: BIGINT, remove: STRING>>, " +
-                        "    map_to_map                 MAP<TINYINT, STRUCT<ti2bi: TINYINT, int2bi: INT, float2double: " + floatType + ">>, " +
+                        "    map_to_map                 MAP<TINYINT, STRUCT<ti2bi: TINYINT, int2bi: INT, float2double: FLOAT>>, " +
                         "    boolean_to_varchar         BOOLEAN," +
                         "    string_to_boolean          STRING," +
                         "    special_string_to_boolean  STRING," +
@@ -111,23 +112,33 @@ public class TestHiveCoercionOnPartitionedTable
                         "    tinyint_to_smallint        TINYINT," +
                         "    tinyint_to_int             TINYINT," +
                         "    tinyint_to_bigint          TINYINT," +
+                        "    tinyint_to_varchar         TINYINT," +
+                        "    tinyint_to_string          TINYINT," +
                         "    tinyint_to_double          TINYINT," +
                         "    tinyint_to_shortdecimal    TINYINT," +
                         "    tinyint_to_longdecimal     TINYINT," +
                         "    smallint_to_int            SMALLINT," +
                         "    smallint_to_bigint         SMALLINT," +
+                        "    smallint_to_varchar        SMALLINT," +
+                        "    smallint_to_string         SMALLINT," +
                         "    smallint_to_double         SMALLINT," +
                         "    smallint_to_shortdecimal   SMALLINT," +
                         "    smallint_to_longdecimal    SMALLINT," +
                         "    int_to_bigint              INT," +
+                        "    int_to_varchar             INT," +
+                        "    int_to_string              INT," +
                         "    int_to_double              INT," +
                         "    int_to_shortdecimal        INT," +
                         "    int_to_longdecimal         INT," +
                         "    bigint_to_double           BIGINT," +
                         "    bigint_to_varchar          BIGINT," +
+                        "    bigint_to_string           BIGINT," +
                         "    bigint_to_shortdecimal     BIGINT," +
                         "    bigint_to_longdecimal      BIGINT," +
-                        "    float_to_double            " + floatType + "," +
+                        "    float_to_double            FLOAT," +
+                        "    float_to_string            FLOAT," +
+                        "    float_to_bounded_varchar   FLOAT," +
+                        "    float_infinity_to_string   FLOAT," +
                         "    double_to_float            DOUBLE," +
                         "    double_to_string           DOUBLE," +
                         "    double_to_bounded_varchar  DOUBLE," +
@@ -146,7 +157,7 @@ public class TestHiveCoercionOnPartitionedTable
                         "    shortdecimal_with_0_scale_to_int      DECIMAL(10,0)," +
                         "    longdecimal_to_bigint                 DECIMAL(20,4)," +
                         "    shortdecimal_to_bigint                DECIMAL(10,2)," +
-                        "    float_to_decimal           " + floatType + "," +
+                        "    float_to_decimal                      FLOAT," +
                         "    double_to_decimal          DOUBLE," +
                         "    decimal_to_float                   DECIMAL(10,5)," +
                         "    decimal_to_double                  DECIMAL(10,5)," +
@@ -178,6 +189,9 @@ public class TestHiveCoercionOnPartitionedTable
                         "    date_to_bounded_varchar            DATE," +
                         "    char_to_bigger_char                CHAR(3)," +
                         "    char_to_smaller_char               CHAR(3)," +
+                        "    char_to_string                     CHAR(3)," +
+                        "    char_to_bigger_varchar             CHAR(3)," +
+                        "    char_to_smaller_varchar            CHAR(3)," +
                         "    string_to_char                     STRING," +
                         "    varchar_to_bigger_char             VARCHAR(4)," +
                         "    varchar_to_smaller_char            VARCHAR(20)," +
@@ -188,7 +202,9 @@ public class TestHiveCoercionOnPartitionedTable
                         "    timestamp_to_bounded_varchar       TIMESTAMP," +
                         "    timestamp_to_smaller_varchar       TIMESTAMP," +
                         "    smaller_varchar_to_timestamp       VARCHAR(4)," +
-                        "    varchar_to_timestamp               STRING" +
+                        "    varchar_to_timestamp               STRING," +
+                        "    binary_to_string                   BINARY," +
+                        "    binary_to_smaller_varchar          BINARY" +
                         ") " +
                         "PARTITIONED BY (id BIGINT) " +
                         rowFormat.map(s -> format("ROW FORMAT %s ", s)).orElse("") +
@@ -197,7 +213,7 @@ public class TestHiveCoercionOnPartitionedTable
 
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionForTimestampCoercionBuilder(String fileFormat, Optional<String> tablePrefix, Optional<String> rowFormat)
     {
-        String tableName = format("%s_hive_timestamp_coercion", tablePrefix.orElse(fileFormat).toLowerCase(ENGLISH));
+        String tableName = format("%s_hive_timestamp_coercion_partitioned", tablePrefix.orElse(fileFormat).toLowerCase(ENGLISH));
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE TABLE %NAME%(" +
@@ -418,5 +434,14 @@ public class TestHiveCoercionOnPartitionedTable
         assertThat(queryResult).containsOnly(
                 row(2323L, 0.5, 1),
                 row(-2323L, -1.5, 1));
+    }
+
+    @Override
+    protected Map<ColumnContext, String> expectedExceptionsWithHiveContext()
+    {
+        return ImmutableMap.<ColumnContext, String>builder()
+                .putAll(super.expectedExceptionsWithHiveContext())
+                .put(columnContext("3.1", "parquet", "float_to_double"), "org.apache.hadoop.hive.serde2.io.DoubleWritable cannot be cast to org.apache.hadoop.io.FloatWritable")
+                .buildOrThrow();
     }
 }

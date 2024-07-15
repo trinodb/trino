@@ -26,7 +26,6 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.expression.BytecodeExpressions;
-import io.airlift.bytecode.instruction.LabelNode;
 import io.trino.operator.window.InternalWindowIndex;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -43,6 +42,7 @@ import io.trino.spi.function.AggregationImplementation.AccumulatorStateDescripto
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.GroupedAccumulatorState;
+import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
 import io.trino.sql.gen.Binding;
 import io.trino.sql.gen.CallSiteBinder;
@@ -56,6 +56,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -219,7 +220,7 @@ public final class AccumulatorCompiler
             generateGroupedEvaluateFinal(definition, stateFields, implementation.getOutputFunction(), callSiteBinder);
         }
         else {
-            generateEvaluateFinal(definition, stateFields, implementation.getOutputFunction(), callSiteBinder);
+            generateEvaluateFinal(definition, "evaluateFinal", stateFields, implementation.getOutputFunction(), callSiteBinder);
         }
 
         if (grouped) {
@@ -235,11 +236,19 @@ public final class AccumulatorCompiler
         }
     }
 
-    public static Constructor<? extends WindowAccumulator> generateWindowAccumulatorClass(
+    /**
+     * @return a factory for window accumulators with provided lambda parameter providers
+     */
+    public static Function<List<Supplier<Object>>, WindowAccumulator> generateWindowAccumulatorClass(
             BoundSignature boundSignature,
             AggregationImplementation implementation,
             FunctionNullability functionNullability)
     {
+        var windowAccumulator = implementation.getWindowAccumulator();
+        if (windowAccumulator.isPresent()) {
+            return createWindowAccumulatorFactory(windowAccumulator.get());
+        }
+
         // change types used in Aggregation methods to types used in the core Trino engine to simplify code generation
         implementation = normalizeAggregationMethods(implementation);
 
@@ -295,25 +304,47 @@ public final class AccumulatorCompiler
                 lambdaProviderFields,
                 implementation.getInputFunction(),
                 callSiteBinder);
-        implementation.getRemoveInputFunction().ifPresent(
-                removeInputFunction -> generateRemoveInputWindowIndex(
-                        definition,
-                        stateFields,
-                        argumentNullable,
-                        lambdaProviderFields,
-                        removeInputFunction,
-                        callSiteBinder));
 
-        generateEvaluateFinal(definition, stateFields, implementation.getOutputFunction(), callSiteBinder);
+        generateEvaluateFinal(definition, "output", stateFields, implementation.getOutputFunction(), callSiteBinder);
         generateGetEstimatedSize(definition, stateFields);
 
         Class<? extends WindowAccumulator> windowAccumulatorClass = defineClass(definition, WindowAccumulator.class, callSiteBinder.getBindings(), classLoader);
+        return createWindowAccumulatorFactory(windowAccumulatorClass);
+    }
+
+    /**
+     * @return a factory for window accumulators with provided lambda parameter providers
+     */
+    private static Function<List<Supplier<Object>>, WindowAccumulator> createWindowAccumulatorFactory(Class<? extends WindowAccumulator> windowAccumulator)
+    {
         try {
-            return windowAccumulatorClass.getConstructor(List.class);
+            var constructor = windowAccumulator.getConstructor(List.class);
+            return lambdaProviders -> {
+                try {
+                    return constructor.newInstance(lambdaProviders);
+                }
+                catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            };
         }
-        catch (NoSuchMethodException e) {
-            throw new RuntimeException(e);
+        catch (ReflectiveOperationException _) {
         }
+
+        try {
+            var constructor = windowAccumulator.getConstructor();
+            return lambdaProviders -> {
+                try {
+                    return constructor.newInstance();
+                }
+                catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            };
+        }
+        catch (ReflectiveOperationException _) {
+        }
+        throw new RuntimeException(format("Window accumulator class %s does not have a constructor with a single List argument or a no-argument constructor", windowAccumulator.getName()));
     }
 
     private static void generateWindowAccumulatorConstructor(
@@ -477,75 +508,6 @@ public final class AccumulatorCompiler
                                 .condition(anyParametersAreNull(argumentNullable, index, position))
                                 .ifFalse(invokeInputFunction)))
                 .ret();
-    }
-
-    private static void generateRemoveInputWindowIndex(
-            ClassDefinition definition,
-            List<FieldDefinition> stateField,
-            List<Boolean> argumentNullable,
-            List<FieldDefinition> lambdaProviderFields,
-            MethodHandle removeFunction,
-            CallSiteBinder callSiteBinder)
-    {
-        // TODO: implement masking based on maskChannel field once Window Functions support DISTINCT arguments to the functions.
-
-        Parameter index = arg("index", WindowIndex.class);
-        Parameter startPosition = arg("startPosition", int.class);
-        Parameter endPosition = arg("endPosition", int.class);
-
-        MethodDefinition method = definition.declareMethod(
-                a(PUBLIC),
-                "removeInput",
-                type(boolean.class),
-                ImmutableList.of(index, startPosition, endPosition));
-        Scope scope = method.getScope();
-        BytecodeBlock body = method.getBody();
-
-        Variable position = scope.declareVariable(int.class, "position");
-
-        // input parameters
-        Variable inputBlockPosition = scope.declareVariable(int.class, "inputBlockPosition");
-        List<Variable> inputBlockVariables = new ArrayList<>();
-        for (int i = 0; i < argumentNullable.size(); i++) {
-            inputBlockVariables.add(scope.declareVariable(Block.class, "inputBlock" + i));
-        }
-
-        Binding binding = callSiteBinder.bind(removeFunction);
-        BytecodeBlock invokeRemoveFunction = new BytecodeBlock();
-        // WindowIndex is built on PagesIndex, which simply wraps Blocks
-        // and currently does not understand ValueBlocks.
-        // Until PagesIndex is updated to understand ValueBlocks, the
-        // input function parameters must be directly unwrapped to ValueBlocks.
-        invokeRemoveFunction.append(inputBlockPosition.set(index.cast(InternalWindowIndex.class).invoke("getRawBlockPosition", int.class, position)));
-        for (int i = 0; i < inputBlockVariables.size(); i++) {
-            invokeRemoveFunction.append(inputBlockVariables.get(i).set(index.cast(InternalWindowIndex.class).invoke("getRawBlock", Block.class, constantInt(i), position)));
-        }
-        LabelNode returnFalse = new LabelNode("returnFalse");
-        invokeRemoveFunction.append(invokeDynamic(
-                BOOTSTRAP_METHOD,
-                ImmutableList.of(binding.getBindingId()),
-                "removeInput",
-                binding.getType(),
-                getInvokeFunctionOnWindowIndexParameters(
-                        scope.getThis(),
-                        stateField,
-                        inputBlockPosition,
-                        inputBlockVariables,
-                        lambdaProviderFields)));
-        invokeRemoveFunction.ifFalseGoto(returnFalse);
-
-        body.append(new ForLoop()
-                        .initialize(position.set(startPosition))
-                        .condition(BytecodeExpressions.lessThanOrEqual(position, endPosition))
-                        .update(position.increment())
-                        .body(new IfStatement()
-                                .condition(anyParametersAreNull(argumentNullable, index, position))
-                                .ifFalse(invokeRemoveFunction)))
-                .push(true)
-                .retBoolean()
-                .visitLabel(returnFalse)
-                .push(false)
-                .retBoolean();
     }
 
     private static BytecodeExpression anyParametersAreNull(
@@ -980,6 +942,7 @@ public final class AccumulatorCompiler
 
     private static void generateEvaluateFinal(
             ClassDefinition definition,
+            String methodName,
             List<FieldDefinition> stateFields,
             MethodHandle outputFunction,
             CallSiteBinder callSiteBinder)
@@ -987,7 +950,7 @@ public final class AccumulatorCompiler
         Parameter out = arg("out", BlockBuilder.class);
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC),
-                "evaluateFinal",
+                methodName,
                 type(void.class),
                 out);
 
@@ -1158,15 +1121,13 @@ public final class AccumulatorCompiler
         int lambdaParameterCount = implementation.getLambdaInterfaces().size();
         AggregationImplementation.Builder builder = AggregationImplementation.builder();
         builder.inputFunction(normalizeParameters(implementation.getInputFunction(), lambdaParameterCount));
-        implementation.getRemoveInputFunction()
-                .map(removeFunction -> normalizeParameters(removeFunction, lambdaParameterCount))
-                .ifPresent(builder::removeInputFunction);
         implementation.getCombineFunction()
                 .map(combineFunction -> normalizeParameters(combineFunction, lambdaParameterCount))
                 .ifPresent(builder::combineFunction);
         builder.outputFunction(normalizeParameters(implementation.getOutputFunction(), 0));
         builder.accumulatorStateDescriptors(implementation.getAccumulatorStateDescriptors());
         builder.lambdaInterfaces(implementation.getLambdaInterfaces());
+        implementation.getWindowAccumulator().ifPresent(builder::windowAccumulator);
         return builder.build();
     }
 

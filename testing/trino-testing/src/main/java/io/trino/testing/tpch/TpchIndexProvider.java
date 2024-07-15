@@ -70,7 +70,7 @@ public class TpchIndexProvider
         List<Type> rawFixedTypes = new ArrayList<>(fixedValueColumns.size());
         for (ColumnHandle fixedValueColumn : fixedValueColumns) {
             rawFixedValues.add(fixedValues.get(fixedValueColumn).getValue());
-            rawFixedTypes.add(((TpchColumnHandle) fixedValueColumn).getType());
+            rawFixedTypes.add(((TpchColumnHandle) fixedValueColumn).type());
         }
 
         // Establish the schema after we append the fixed values to the lookup keys.
@@ -109,7 +109,7 @@ public class TpchIndexProvider
     {
         return columnHandles.stream()
                 .map(TpchColumnHandle.class::cast)
-                .map(TpchColumnHandle::getColumnName)
+                .map(TpchColumnHandle::columnName)
                 .collect(toList());
     }
 }

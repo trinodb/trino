@@ -31,6 +31,7 @@ import io.trino.spi.function.Signature;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.type.TypeSignature;
 import io.trino.util.Reflection;
 
@@ -69,53 +70,31 @@ import static java.util.Objects.requireNonNull;
 public class ParametricAggregationImplementation
         implements ParametricImplementation
 {
-    public static class AggregateNativeContainerType
-    {
-        private final Class<?> javaType;
-        private final boolean isBlockPosition;
-
-        public AggregateNativeContainerType(Class<?> javaType, boolean isBlockPosition)
-        {
-            this.javaType = javaType;
-            this.isBlockPosition = isBlockPosition;
-        }
-
-        public Class<?> getJavaType()
-        {
-            return javaType;
-        }
-
-        public boolean isBlockPosition()
-        {
-            return isBlockPosition;
-        }
-    }
+    public record AggregateNativeContainerType(Class<?> javaType, boolean isBlockPosition) {}
 
     private final Signature signature;
 
     private final Class<?> definitionClass;
     private final MethodHandle inputFunction;
-    private final Optional<MethodHandle> removeInputFunction;
     private final MethodHandle outputFunction;
     private final Optional<MethodHandle> combineFunction;
+    private final Optional<Class<? extends WindowAccumulator>> windowAccumulator;
     private final List<AggregateNativeContainerType> argumentNativeContainerTypes;
     private final List<ImplementationDependency> inputDependencies;
-    private final List<ImplementationDependency> removeInputDependencies;
     private final List<ImplementationDependency> combineDependencies;
     private final List<ImplementationDependency> outputDependencies;
     private final List<AggregationParameterKind> inputParameterKinds;
     private final FunctionNullability functionNullability;
 
-    public ParametricAggregationImplementation(
+    private ParametricAggregationImplementation(
             Signature signature,
             Class<?> definitionClass,
             MethodHandle inputFunction,
-            Optional<MethodHandle> removeInputFunction,
             MethodHandle outputFunction,
             Optional<MethodHandle> combineFunction,
+            Optional<Class<? extends WindowAccumulator>> windowAccumulator,
             List<AggregateNativeContainerType> argumentNativeContainerTypes,
             List<ImplementationDependency> inputDependencies,
-            List<ImplementationDependency> removeInputDependencies,
             List<ImplementationDependency> combineDependencies,
             List<ImplementationDependency> outputDependencies,
             List<AggregationParameterKind> inputParameterKinds)
@@ -123,12 +102,11 @@ public class ParametricAggregationImplementation
         this.signature = requireNonNull(signature, "signature cannot be null");
         this.definitionClass = requireNonNull(definitionClass, "definition class cannot be null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction cannot be null");
-        this.removeInputFunction = requireNonNull(removeInputFunction, "removeInputFunction cannot be null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction cannot be null");
         this.combineFunction = requireNonNull(combineFunction, "combineFunction cannot be null");
+        this.windowAccumulator = requireNonNull(windowAccumulator, "windowAccumulator cannot be null");
         this.argumentNativeContainerTypes = requireNonNull(argumentNativeContainerTypes, "argumentNativeContainerTypes cannot be null");
         this.inputDependencies = requireNonNull(inputDependencies, "inputDependencies cannot be null");
-        this.removeInputDependencies = requireNonNull(removeInputDependencies, "removeInputDependencies cannot be null");
         this.outputDependencies = requireNonNull(outputDependencies, "outputDependencies cannot be null");
         this.combineDependencies = requireNonNull(combineDependencies, "combineDependencies cannot be null");
         this.inputParameterKinds = requireNonNull(inputParameterKinds, "inputParameterKinds cannot be null");
@@ -168,11 +146,6 @@ public class ParametricAggregationImplementation
         return inputFunction;
     }
 
-    public Optional<MethodHandle> getRemoveInputFunction()
-    {
-        return removeInputFunction;
-    }
-
     public MethodHandle getOutputFunction()
     {
         return outputFunction;
@@ -183,14 +156,14 @@ public class ParametricAggregationImplementation
         return combineFunction;
     }
 
+    public Optional<Class<? extends WindowAccumulator>> getWindowAccumulator()
+    {
+        return windowAccumulator;
+    }
+
     public List<ImplementationDependency> getInputDependencies()
     {
         return inputDependencies;
-    }
-
-    public List<ImplementationDependency> getRemoveInputDependencies()
-    {
-        return removeInputDependencies;
     }
 
     public List<ImplementationDependency> getOutputDependencies()
@@ -215,7 +188,7 @@ public class ParametricAggregationImplementation
         // TODO specialized functions variants support is missing here
         for (int i = 0; i < boundSignature.getArgumentTypes().size(); i++) {
             Class<?> argumentType = boundSignature.getArgumentTypes().get(i).getJavaType();
-            Class<?> methodDeclaredType = argumentNativeContainerTypes.get(i).getJavaType();
+            Class<?> methodDeclaredType = argumentNativeContainerTypes.get(i).javaType();
             boolean isCurrentBlockPosition = argumentNativeContainerTypes.get(i).isBlockPosition();
 
             // block and position works for any type, but if block is annotated with SqlType nativeContainerType, then only types with the
@@ -236,12 +209,12 @@ public class ParametricAggregationImplementation
     {
         private final Class<?> aggregationDefinition;
         private final MethodHandle inputHandle;
-        private final Optional<MethodHandle> removeInputHandle;
         private final MethodHandle outputHandle;
         private final Optional<MethodHandle> combineHandle;
+        private final Optional<Class<? extends WindowAccumulator>> windowAccumulator;
+
         private final List<AggregateNativeContainerType> argumentNativeContainerTypes;
         private final List<ImplementationDependency> inputDependencies;
-        private final List<ImplementationDependency> removeInputDependencies;
         private final List<ImplementationDependency> combineDependencies;
         private final List<ImplementationDependency> outputDependencies;
         private final List<AggregationParameterKind> inputParameterKinds;
@@ -255,9 +228,9 @@ public class ParametricAggregationImplementation
                 Class<?> aggregationDefinition,
                 List<AccumulatorStateDetails<?>> stateDetails,
                 Method inputFunction,
-                Optional<Method> removeInputFunction,
                 Method outputFunction,
-                Optional<Method> combineFunction)
+                Optional<Method> combineFunction,
+                Optional<Class<? extends WindowAccumulator>> windowAccumulator)
         {
             // rewrite data passed directly
             this.aggregationDefinition = aggregationDefinition;
@@ -269,7 +242,6 @@ public class ParametricAggregationImplementation
 
             // parse dependencies
             inputDependencies = parseImplementationDependencies(inputFunction);
-            removeInputDependencies = removeInputFunction.map(this::parseImplementationDependencies).orElse(ImmutableList.of());
             outputDependencies = parseImplementationDependencies(outputFunction);
             combineDependencies = combineFunction.map(this::parseImplementationDependencies).orElse(ImmutableList.of());
 
@@ -282,7 +254,6 @@ public class ParametricAggregationImplementation
                     Stream.of(
                             stateDetails.stream().map(AccumulatorStateDetails::getDependencies).flatMap(Collection::stream),
                             inputDependencies.stream(),
-                            removeInputDependencies.stream(),
                             outputDependencies.stream(),
                             combineDependencies.stream())
                             .reduce(Stream::concat)
@@ -299,9 +270,10 @@ public class ParametricAggregationImplementation
             signatureBuilder.returnType(parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value(), literalParameters));
 
             inputHandle = methodHandle(inputFunction);
-            removeInputHandle = removeInputFunction.map(Reflection::methodHandle);
             combineHandle = combineFunction.map(Reflection::methodHandle);
             outputHandle = methodHandle(outputFunction);
+
+            this.windowAccumulator = windowAccumulator;
         }
 
         private ParametricAggregationImplementation get()
@@ -310,12 +282,11 @@ public class ParametricAggregationImplementation
                     signatureBuilder.build(),
                     aggregationDefinition,
                     inputHandle,
-                    removeInputHandle,
                     outputHandle,
                     combineHandle,
+                    windowAccumulator,
                     argumentNativeContainerTypes,
                     inputDependencies,
-                    removeInputDependencies,
                     combineDependencies,
                     outputDependencies,
                     inputParameterKinds);
@@ -325,11 +296,11 @@ public class ParametricAggregationImplementation
                 Class<?> aggregationDefinition,
                 List<AccumulatorStateDetails<?>> stateDetails,
                 Method inputFunction,
-                Optional<Method> removeInputFunction,
                 Method outputFunction,
-                Optional<Method> combineFunction)
+                Optional<Method> combineFunction,
+                Optional<Class<? extends WindowAccumulator>> windowAccumulator)
         {
-            return new Parser(aggregationDefinition, stateDetails, inputFunction, removeInputFunction, outputFunction, combineFunction).get();
+            return new Parser(aggregationDefinition, stateDetails, inputFunction, outputFunction, combineFunction, windowAccumulator).get();
         }
 
         private static List<AggregationParameterKind> parseInputParameterKinds(Method method)
@@ -389,7 +360,7 @@ public class ParametricAggregationImplementation
 
         private static Annotation baseTypeAnnotation(Annotation[] annotations, String methodName)
         {
-            List<Annotation> baseTypes = Arrays.asList(annotations).stream()
+            List<Annotation> baseTypes = Arrays.stream(annotations)
                     .filter(annotation -> isAggregationMetaAnnotation(annotation) || annotation instanceof SqlType)
                     .collect(toImmutableList());
 
@@ -398,7 +369,7 @@ public class ParametricAggregationImplementation
             boolean nullable = isParameterNullable(annotations);
             boolean isBlock = isParameterBlock(annotations);
 
-            Annotation annotation = baseTypes.get(0);
+            Annotation annotation = baseTypes.getFirst();
             checkArgument((!isBlock && !nullable) || (annotation instanceof SqlType),
                     "%s contains a parameter with @BlockPosition and/or @NullablePosition that is not @SqlType", methodName);
 
@@ -489,31 +460,6 @@ public class ParametricAggregationImplementation
             }
 
             return builder.build();
-        }
-
-        public static int findAggregationStateParamId(Method method)
-        {
-            return findAggregationStateParamId(method, 0);
-        }
-
-        public static int findAggregationStateParamId(Method method, int id)
-        {
-            int currentParamId = 0;
-            int found = 0;
-            for (Annotation[] annotations : method.getParameterAnnotations()) {
-                for (Annotation annotation : annotations) {
-                    if (annotation instanceof AggregationState) {
-                        if (found++ == id) {
-                            return currentParamId;
-                        }
-                    }
-                }
-                currentParamId++;
-            }
-
-            // backward compatibility @AggregationState annotation didn't exists before
-            // some third party aggregates may assume that State will be id-th parameter
-            return id;
         }
 
         private static boolean isAggregationMetaAnnotation(Annotation annotation)

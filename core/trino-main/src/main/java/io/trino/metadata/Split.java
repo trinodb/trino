@@ -14,14 +14,18 @@
 package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Map;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
@@ -54,9 +58,10 @@ public final class Split
         return connectorSplit;
     }
 
-    public Object getInfo()
+    @JsonIgnore
+    public Map<String, String> getInfo()
     {
-        return connectorSplit.getInfo();
+        return firstNonNull(connectorSplit.getSplitInfo(), ImmutableMap.of());
     }
 
     public List<HostAddress> getAddresses()

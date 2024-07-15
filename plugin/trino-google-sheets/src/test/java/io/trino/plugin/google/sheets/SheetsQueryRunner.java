@@ -14,9 +14,10 @@
 package io.trino.plugin.google.sheets;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.trino.Session;
+import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -24,52 +25,64 @@ import io.trino.testing.QueryRunner;
 import java.util.HashMap;
 import java.util.Map;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.TEST_METADATA_SHEET_ID;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public class SheetsQueryRunner
+public final class SheetsQueryRunner
 {
-    protected static final String GOOGLE_SHEETS = "gsheets";
-
     private SheetsQueryRunner() {}
 
-    public static QueryRunner createSheetsQueryRunner(
-            Map<String, String> extraProperties,
-            Map<String, String> connectorProperties)
+    static final String GOOGLE_SHEETS = "gsheets";
+
+    public static Builder builder()
             throws Exception
     {
-        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(extraProperties)
-                .build();
-        try {
-            // note: additional copy via ImmutableList so that if fails on nulls
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("gsheets.credentials-path", getTestCredentialsPath());
-            connectorProperties.putIfAbsent("gsheets.max-data-cache-size", "1000");
-            connectorProperties.putIfAbsent("gsheets.data-cache-ttl", "1m");
-
-            queryRunner.installPlugin(new SheetsPlugin());
-            queryRunner.createCatalog(GOOGLE_SHEETS, GOOGLE_SHEETS, connectorProperties);
-
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
-
-            return queryRunner;
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
+        return new Builder()
+                .addConnectorProperty("gsheets.credentials-path", getTestCredentialsPath())
+                .addConnectorProperty("gsheets.max-data-cache-size", "1000")
+                .addConnectorProperty("gsheets.data-cache-ttl", "1m");
     }
 
-    private static Session createSession()
+    public static class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        return testSessionBuilder()
-                .setCatalog(GOOGLE_SHEETS)
-                .setSchema("default")
-                .build();
+        private final Map<String, String> connectorProperties = new HashMap<>();
+
+        protected Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog(GOOGLE_SHEETS)
+                    .setSchema("default")
+                    .build());
+        }
+
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperty(String key, String value)
+        {
+            this.connectorProperties.put(key, value);
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new SheetsPlugin());
+                queryRunner.createCatalog(GOOGLE_SHEETS, GOOGLE_SHEETS, connectorProperties);
+
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
+
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                Closables.closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
     }
 
     public static void main(String[] args)
@@ -77,9 +90,10 @@ public class SheetsQueryRunner
     {
         Logging.initialize();
 
-        QueryRunner queryRunner = createSheetsQueryRunner(
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of("gsheets.metadata-sheet-id", TEST_METADATA_SHEET_ID));
+        QueryRunner queryRunner = builder()
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .addConnectorProperty("gsheets.metadata-sheet-id", TEST_METADATA_SHEET_ID)
+                .build();
 
         Logger log = Logger.get(SheetsQueryRunner.class);
         log.info("======== SERVER STARTED ========");

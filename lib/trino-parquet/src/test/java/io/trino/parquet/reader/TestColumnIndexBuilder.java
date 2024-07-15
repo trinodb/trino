@@ -60,9 +60,6 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
 
-// import static org.hamcrest.CoreMatchers.instanceOf;
-// import static org.junit.Assert.assertThat;
-
 public class TestColumnIndexBuilder
 {
     public static class BinaryDecimalIsNullOrZeroUdp
@@ -1462,8 +1459,10 @@ public class TestColumnIndexBuilder
                         .isFalse();
             }
             else {
+                assertThat(value.arrayOffset())
+                        .isEqualTo(0);
                 assertThat(value.array())
-                        .describedAs("Invalid value for page " + i)
+                        .describedAs("Value for page %s", i)
                         .isEqualTo(expectedValue.getBytesUnsafe());
             }
         }

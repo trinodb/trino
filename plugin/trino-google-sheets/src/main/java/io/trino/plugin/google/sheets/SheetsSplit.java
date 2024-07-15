@@ -13,43 +13,31 @@
  */
 package io.trino.plugin.google.sheets;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Map;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
-public class SheetsSplit
+public record SheetsSplit(List<List<String>> values)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(SheetsSplit.class);
 
-    private final List<List<String>> values;
-
-    @JsonCreator
-    public SheetsSplit(
-            @JsonProperty("values") List<List<String>> values)
+    public SheetsSplit
     {
-        this.values = requireNonNull(values, "values is null");
-    }
-
-    @JsonProperty
-    public List<List<String>> getValues()
-    {
-        return values;
+        requireNonNull(values, "values is null");
     }
 
     @Override
-    public Object getInfo()
+    public Map<String, String> getSplitInfo()
     {
-        ImmutableMap.Builder<Object, Object> builder = ImmutableMap.builder();
-        return builder.buildOrThrow();
+        return ImmutableMap.of();
     }
 
     @Override

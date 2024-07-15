@@ -13,7 +13,6 @@
  */
 package io.trino.server.security;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -30,8 +29,6 @@ import java.util.Optional;
         "dispatcher.forwarded-header"})
 public class SecurityConfig
 {
-    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-
     private boolean insecureAuthenticationOverHttpAllowed = true;
     private List<String> authenticationTypes = ImmutableList.of("insecure");
     private Optional<String> fixedManagementUser = Optional.empty();
@@ -57,17 +54,11 @@ public class SecurityConfig
         return authenticationTypes;
     }
 
-    public SecurityConfig setAuthenticationTypes(List<String> authenticationTypes)
-    {
-        this.authenticationTypes = ImmutableList.copyOf(authenticationTypes);
-        return this;
-    }
-
     @Config("http-server.authentication.type")
     @ConfigDescription("Ordered list of authentication types")
-    public SecurityConfig setAuthenticationTypes(String types)
+    public SecurityConfig setAuthenticationTypes(List<String> types)
     {
-        authenticationTypes = Optional.ofNullable(types).map(SPLITTER::splitToList).orElse(null);
+        authenticationTypes = ImmutableList.copyOf(types);
         return this;
     }
 

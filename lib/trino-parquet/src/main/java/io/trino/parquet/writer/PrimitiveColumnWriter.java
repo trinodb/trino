@@ -20,6 +20,7 @@ import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
 import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
 import io.trino.parquet.writer.repdef.RepLevelWriterProvider;
 import io.trino.parquet.writer.repdef.RepLevelWriterProviders;
+import io.trino.parquet.writer.valuewriter.ColumnDescriptorValuesWriter;
 import io.trino.parquet.writer.valuewriter.PrimitiveValueWriter;
 import io.trino.plugin.base.io.ChunkedSliceOutput;
 import jakarta.annotation.Nullable;
@@ -28,7 +29,7 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.statistics.Statistics;
-import org.apache.parquet.column.values.ValuesWriter;
+import org.apache.parquet.column.values.bloomfilter.BloomFilter;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.DataPageHeader;
@@ -43,6 +44,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
@@ -73,8 +75,8 @@ public class PrimitiveColumnWriter
     private final CompressionCodec compressionCodec;
 
     private final PrimitiveValueWriter primitiveValueWriter;
-    private final ValuesWriter definitionLevelWriter;
-    private final ValuesWriter repetitionLevelWriter;
+    private final ColumnDescriptorValuesWriter definitionLevelWriter;
+    private final ColumnDescriptorValuesWriter repetitionLevelWriter;
 
     private boolean closed;
     private boolean getDataStreamsCalled;
@@ -88,6 +90,7 @@ public class PrimitiveColumnWriter
     private final Map<org.apache.parquet.format.Encoding, Integer> dataPagesWithEncoding = new HashMap<>();
     private final Map<org.apache.parquet.format.Encoding, Integer> dictionaryPagesWithEncoding = new HashMap<>();
     private final Statistics<?> columnStatistics;
+    private final Optional<BloomFilter> bloomFilter;
     private long totalCompressedSize;
     private long totalUnCompressedSize;
     private long totalValues;
@@ -110,11 +113,12 @@ public class PrimitiveColumnWriter
     public PrimitiveColumnWriter(
             ColumnDescriptor columnDescriptor,
             PrimitiveValueWriter primitiveValueWriter,
-            ValuesWriter definitionLevelWriter,
-            ValuesWriter repetitionLevelWriter,
+            ColumnDescriptorValuesWriter definitionLevelWriter,
+            ColumnDescriptorValuesWriter repetitionLevelWriter,
             CompressionCodec compressionCodec,
             int pageSizeThreshold,
-            int pageValueCountLimit)
+            int pageValueCountLimit,
+            Optional<BloomFilter> bloomFilter)
     {
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor is null");
         this.maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
@@ -127,6 +131,7 @@ public class PrimitiveColumnWriter
         this.pageValueCountLimit = pageValueCountLimit;
         this.columnStatistics = Statistics.createStats(columnDescriptor.getPrimitiveType());
         this.compressedOutputStream = new ChunkedSliceOutput(MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE, MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE);
+        this.bloomFilter = requireNonNull(bloomFilter, "bloomFilter is null");
     }
 
     @Override
@@ -178,7 +183,7 @@ public class PrimitiveColumnWriter
     {
         checkState(closed);
         DataStreams dataStreams = getDataStreams();
-        return ImmutableList.of(new BufferData(dataStreams.data(), dataStreams.dictionaryPageSize(), getColumnMetaData()));
+        return ImmutableList.of(new BufferData(dataStreams.data(), dataStreams.dictionaryPageSize(), dataStreams.bloomFilter(), getColumnMetaData()));
     }
 
     // Returns ColumnMetaData that offset is invalid
@@ -195,7 +200,7 @@ public class PrimitiveColumnWriter
                 totalUnCompressedSize,
                 totalCompressedSize,
                 -1);
-        columnMetaData.setStatistics(ParquetMetadataUtils.toParquetStatistics(columnStatistics, MAX_STATISTICS_LENGTH_IN_BYTES));
+        columnMetaData.setStatistics(ParquetMetadataConverter.toParquetStatistics(columnStatistics, MAX_STATISTICS_LENGTH_IN_BYTES));
         ImmutableList.Builder<PageEncodingStats> pageEncodingStats = ImmutableList.builder();
         dataPagesWithEncoding.entrySet().stream()
                 .map(encodingAndCount -> new PageEncodingStats(PageType.DATA_PAGE, encodingAndCount.getKey(), encodingAndCount.getValue()))
@@ -304,7 +309,7 @@ public class PrimitiveColumnWriter
         getDataStreamsCalled = true;
 
         outputs.add(createDataOutput(compressedOutputStream));
-        return new DataStreams(outputs.build(), dictionaryPageSize);
+        return new DataStreams(outputs.build(), dictionaryPageSize, bloomFilter);
     }
 
     @Override
@@ -363,5 +368,5 @@ public class PrimitiveColumnWriter
         return header;
     }
 
-    private record DataStreams(List<ParquetDataOutput> data, OptionalInt dictionaryPageSize) {}
+    private record DataStreams(List<ParquetDataOutput> data, OptionalInt dictionaryPageSize, Optional<BloomFilter> bloomFilter) {}
 }

@@ -69,16 +69,16 @@ import static java.util.Objects.requireNonNull;
  * It is similar to TransformCorrelatedGlobalAggregationWithProjection rule, but does not support projection over aggregation in the subquery
  * <p>
  * In the case of single aggregation, it transforms:
- * <pre>
+ * <pre>{@code
  * - CorrelatedJoin LEFT or INNER (correlation: [c], filter: true, output: a, count, agg)
  *      - Input (a, c)
  *      - Aggregation global
  *        count <- count(*)
  *        agg <- agg(b)
  *           - Source (b) with correlated filter (b > c)
- * </pre>
+ * }</pre>
  * Into:
- * <pre>
+ * <pre>{@code
  * - Project (a <- a, count <- count, agg <- agg)
  *      - Aggregation (group by [a, c, unique])
  *        count <- count(*) mask(non_null)
@@ -88,10 +88,10 @@ import static java.util.Objects.requireNonNull;
  *                     - Input (a, c)
  *                - Project (non_null <- TRUE)
  *                     - Source (b) decorrelated
- * </pre>
+ * }</pre>
  * <p>
  * In the case of global aggregation over distinct operator, it transforms:
- * <pre>
+ * <pre>{@code
  * - CorrelatedJoin LEFT or INNER (correlation: [c], filter: true, output: a, count, agg)
  *      - Input (a, c)
  *      - Aggregation global
@@ -99,9 +99,9 @@ import static java.util.Objects.requireNonNull;
  *        agg <- agg(b)
  *           - Aggregation "distinct operator" group by [b]
  *                - Source (b) with correlated filter (b > c)
- * </pre>
+ * }</pre>
  * Into:
- * <pre>
+ * <pre>{@code
  * - Project (a <- a, count <- count, agg <- agg)
  *      - Aggregation (group by [a, c, unique])
  *        count <- count(*) mask(non_null)
@@ -112,7 +112,7 @@ import static java.util.Objects.requireNonNull;
  *                          - Input (a, c)
  *                     - Project (non_null <- TRUE)
  *                          - Source (b) decorrelated
- * </pre>
+ * }</pre>
  */
 public class TransformCorrelatedGlobalAggregationWithoutProjection
         implements Rule<CorrelatedJoinNode>

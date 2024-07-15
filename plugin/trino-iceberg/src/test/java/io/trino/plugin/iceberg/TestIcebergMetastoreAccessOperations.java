@@ -486,7 +486,6 @@ public class TestIcebergMetastoreAccessOperations
         assertMetastoreInvocations(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLES)
-                        .addCopies(GET_TABLE, 2)
                         .build());
 
         // Bulk retrieval for two schemas

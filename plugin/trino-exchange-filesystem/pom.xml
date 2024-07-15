@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>444</version>
+        <version>452</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -13,7 +13,7 @@
     <description>Trino - Exchange</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
     </properties>
 
     <dependencies>
@@ -69,20 +69,12 @@
             <artifactId>gax</artifactId>
             <exclusions>
                 <exclusion>
-                    <groupId>com.google.protobuf</groupId>
-                    <artifactId>protobuf-java</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>io.opencensus</groupId>
                     <artifactId>opencensus-api</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>javax.annotation</groupId>
                     <artifactId>javax.annotation-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.threeten</groupId>
-                    <artifactId>threetenbp</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -137,10 +129,6 @@
                 <exclusion>
                     <groupId>com.google.oauth-client</groupId>
                     <artifactId>google-oauth-client</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.protobuf</groupId>
-                    <artifactId>protobuf-java</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>io.opencensus</groupId>
@@ -262,6 +250,11 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>regions</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>retries-spi</artifactId>
         </dependency>
 
         <dependency>

@@ -13,79 +13,25 @@
  */
 package io.trino.plugin.hive;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
-public final class HivePartitionKey
+public record HivePartitionKey(String name, String value)
 {
     private static final int INSTANCE_SIZE = instanceSize(HivePartitionKey.class);
 
     public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
-    private final String name;
-    private final String value;
 
-    @JsonCreator
-    public HivePartitionKey(
-            @JsonProperty("name") String name,
-            @JsonProperty("value") String value)
+    public HivePartitionKey
     {
         requireNonNull(name, "name is null");
         requireNonNull(value, "value is null");
-
-        this.name = name;
-        this.value = value.equals(HIVE_DEFAULT_DYNAMIC_PARTITION) ? "\\N" : value;
+        value = value.equals(HIVE_DEFAULT_DYNAMIC_PARTITION) ? "\\N" : value;
     }
 
-    @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
-
-    @JsonProperty
-    public String getValue()
-    {
-        return value;
-    }
-
-    public long getEstimatedSizeInBytes()
+    public long estimatedSizeInBytes()
     {
         return INSTANCE_SIZE + estimatedSizeOf(name) + estimatedSizeOf(value);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("name", name)
-                .add("value", value)
-                .toString();
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(name, value);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        HivePartitionKey other = (HivePartitionKey) obj;
-        return Objects.equals(this.name, other.name) &&
-                Objects.equals(this.value, other.value);
     }
 }

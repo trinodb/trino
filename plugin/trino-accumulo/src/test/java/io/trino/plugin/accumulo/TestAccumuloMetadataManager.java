@@ -41,6 +41,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 @TestInstance(PER_CLASS)
 public class TestAccumuloMetadataManager
 {
+    private AccumuloClient client;
     private AccumuloMetadataManager metadataManager;
     private ZooKeeperMetadataManager zooKeeperMetadataManager;
 
@@ -54,7 +55,7 @@ public class TestAccumuloMetadataManager
                 .setInstance(server.getInstanceName())
                 .setUsername("root")
                 .setPassword("secret");
-        AccumuloClient client = server.getClient();
+        client = server.createClient();
         zooKeeperMetadataManager = new ZooKeeperMetadataManager(config, TESTING_TYPE_MANAGER);
         metadataManager = new AccumuloMetadataManager(client, config, zooKeeperMetadataManager, new AccumuloTableManager(client), new IndexLookup(client, new ColumnCardinalityCache(client, config)));
     }
@@ -62,8 +63,11 @@ public class TestAccumuloMetadataManager
     @AfterAll
     public void tearDown()
     {
+        zooKeeperMetadataManager.close();
         zooKeeperMetadataManager = null;
         metadataManager = null;
+        client.close();
+        client = null;
     }
 
     @Test

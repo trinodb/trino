@@ -13,16 +13,18 @@
  */
 package io.trino.plugin.oracle;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
-import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
@@ -31,86 +33,85 @@ import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
 
 public final class OracleQueryRunner
 {
     private OracleQueryRunner() {}
 
-    public static QueryRunner createOracleQueryRunner(
-            TestingOracleServer server,
-            Map<String, String> extraProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
+    public static Builder builder(TestingOracleServer server)
     {
-        return createOracleQueryRunner(server, extraProperties, Map.of(), connectorProperties, tables, queryRunner -> {});
+        return new Builder()
+                .addConnectorProperties(ImmutableMap.<String, String>builder()
+                        .put("connection-url", server.getJdbcUrl())
+                        .put("connection-user", TEST_USER)
+                        .put("connection-password", TEST_PASS)
+                        .buildOrThrow());
     }
 
-    public static QueryRunner createOracleQueryRunner(
-            TestingOracleServer server,
-            Map<String, String> extraProperties,
-            Map<String, String> coordinatorProperties,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables,
-            Consumer<QueryRunner> moreSetup)
-            throws Exception
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
     {
-        QueryRunner queryRunner = null;
-        try {
-            queryRunner = DistributedQueryRunner.builder(createSession())
-                    .setExtraProperties(extraProperties)
-                    .setCoordinatorProperties(coordinatorProperties)
-                    .setAdditionalSetup(moreSetup)
-                    .build();
+        private final Map<String, String> connectorProperties = new HashMap<>();
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
-            queryRunner.installPlugin(new OraclePlugin());
-            queryRunner.createCatalog("oracle", "oracle", connectorProperties);
-
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-
-            return queryRunner;
+        private Builder()
+        {
+            super(testSessionBuilder()
+                    .setCatalog("oracle")
+                    .setSchema(TEST_SCHEMA)
+                    .build());
         }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner, server);
-            throw e;
+
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperties(Map<String, String> connectorProperties)
+        {
+            this.connectorProperties.putAll(requireNonNull(connectorProperties, "connectorProperties is null"));
+            return this;
         }
-    }
 
-    public static Session createSession()
-    {
-        return testSessionBuilder()
-                .setCatalog("oracle")
-                .setSchema(TEST_SCHEMA)
-                .build();
-    }
+        @CanIgnoreReturnValue
+        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
+            return self();
+        }
 
-    public static Map<String, String> connectionProperties(TestingOracleServer server)
-    {
-        return ImmutableMap.<String, String>builder()
-                .put("connection-url", server.getJdbcUrl())
-                .put("connection-user", TEST_USER)
-                .put("connection-password", TEST_PASS)
-                .buildOrThrow();
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                queryRunner.installPlugin(new OraclePlugin());
+                queryRunner.createCatalog("oracle", "oracle", connectorProperties);
+
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
+
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
     }
 
     public static void main(String[] args)
             throws Exception
     {
         TestingOracleServer server = new TestingOracleServer();
-        QueryRunner queryRunner = createOracleQueryRunner(
-                server,
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.<String, String>builder()
-                        .put("connection-url", server.getJdbcUrl())
-                        .put("connection-user", TEST_USER)
-                        .put("connection-password", TEST_PASS)
+        QueryRunner queryRunner = builder(server)
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .addConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("oracle.connection-pool.enabled", "false")
                         .put("oracle.remarks-reporting.enabled", "false")
-                        .buildOrThrow(),
-                TpchTable.getTables());
+                        .buildOrThrow())
+                .setInitialTables(TpchTable.getTables())
+                .build();
 
         Logger log = Logger.get(OracleQueryRunner.class);
         log.info("======== SERVER STARTED ========");

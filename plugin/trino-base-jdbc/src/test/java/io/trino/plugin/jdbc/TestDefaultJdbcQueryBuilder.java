@@ -236,7 +236,7 @@ public class TestDefaultJdbcQueryBuilder
 
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
-            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+            assertThat(preparedQuery.query()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -287,7 +287,7 @@ public class TestDefaultJdbcQueryBuilder
                 tupleDomain,
                 Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(3))) {
-            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+            assertThat(preparedQuery.query()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_3\", \"col_9\" " +
                     "FROM \"test_table\" " +
                     "WHERE (NOT (\"col_0\" IN (?,?,?)) OR \"col_0\" IS NULL) " +
@@ -319,7 +319,7 @@ public class TestDefaultJdbcQueryBuilder
 
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
-            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+            assertThat(preparedQuery.query()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -353,7 +353,7 @@ public class TestDefaultJdbcQueryBuilder
 
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
-            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+            assertThat(preparedQuery.query()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -389,7 +389,7 @@ public class TestDefaultJdbcQueryBuilder
 
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
-            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+            assertThat(preparedQuery.query()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -435,7 +435,7 @@ public class TestDefaultJdbcQueryBuilder
 
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
-            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+            assertThat(preparedQuery.query()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -482,7 +482,7 @@ public class TestDefaultJdbcQueryBuilder
 
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
-            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+            assertThat(preparedQuery.query()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -522,8 +522,8 @@ public class TestDefaultJdbcQueryBuilder
                 ImmutableMap.of(columns.get(3), "name2", columns.get(8), "rcol8"),
                 List.of(new ParameterizedExpression("\"lcol7\" = \"rcol8\"", List.of())));
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.empty())) {
-            assertThat(preparedQuery.getQuery()).isEqualTo("""
-                    SELECT * FROM \
+            assertThat(preparedQuery.query()).isEqualTo("""
+                    SELECT "name1", "lcol7", "name2", "rcol8" FROM \
                     (SELECT "col_2" AS "name1", "col_7" AS "lcol7" FROM (SELECT * FROM "test_table") l) l \
                     INNER JOIN \
                     (SELECT "col_3" AS "name2", "col_8" AS "rcol8" FROM (SELECT * FROM "test_table") r) r \
@@ -555,7 +555,7 @@ public class TestDefaultJdbcQueryBuilder
                 Map.of(columns.get(2), "name1"),
                 Map.of(columns.get(3), "name2"));
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.empty())) {
-            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+            assertThat(preparedQuery.query()).isEqualTo("" +
                     "SELECT l.\"col_2\" AS \"name1\", r.\"col_3\" AS \"name2\" FROM " +
                     "(SELECT * FROM \"test_table\") l " +
                     "INNER JOIN " +
@@ -581,7 +581,7 @@ public class TestDefaultJdbcQueryBuilder
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), TupleDomain.all(), Optional.empty());
         preparedQuery = preparedQuery.transformQuery(function);
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
-            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+            assertThat(preparedQuery.query()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -608,7 +608,7 @@ public class TestDefaultJdbcQueryBuilder
 
         PreparedQuery preparedQuery = queryBuilder.prepareSelectQuery(jdbcClient, SESSION, connection, TEST_TABLE, Optional.empty(), columns, Map.of(), tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.of(columns.size()))) {
-            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+            assertThat(preparedQuery.query()).isEqualTo("" +
                     "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
                     "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -644,7 +644,7 @@ public class TestDefaultJdbcQueryBuilder
                 TupleDomain.all(),
                 Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.empty())) {
-            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+            assertThat(preparedQuery.query()).isEqualTo("" +
                     "SELECT \"col_2\", sum(\"col_0\") AS \"s\" " +
                     "FROM \"test_table\" " +
                     "GROUP BY \"col_2\"");
@@ -687,7 +687,7 @@ public class TestDefaultJdbcQueryBuilder
                 tupleDomain,
                 Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.empty())) {
-            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+            assertThat(preparedQuery.query()).isEqualTo("" +
                     "SELECT \"col_2\", sum(\"col_0\") AS \"s\" " +
                     "FROM \"test_table\" " +
                     "WHERE (\"col_1\" < ? OR \"col_1\" IS NULL) " +

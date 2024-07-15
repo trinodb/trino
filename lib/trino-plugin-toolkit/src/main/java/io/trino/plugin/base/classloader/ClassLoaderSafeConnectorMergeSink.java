@@ -40,7 +40,7 @@ public class ClassLoaderSafeConnectorMergeSink
     @Override
     public void storeMergedRows(Page page)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             delegate.storeMergedRows(page);
         }
     }
@@ -48,7 +48,7 @@ public class ClassLoaderSafeConnectorMergeSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             return delegate.finish();
         }
     }
@@ -56,7 +56,7 @@ public class ClassLoaderSafeConnectorMergeSink
     @Override
     public void abort()
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
             delegate.abort();
         }
     }

@@ -77,6 +77,7 @@ public final class Standard
     /**
      * @deprecated please use {@link EnvironmentContainers#configureTempto} instead.
      */
+    @Deprecated
     public static final String CONTAINER_TEMPTO_PROFILE_CONFIG = "/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml";
 
     private final DockerFiles dockerFiles;
@@ -166,7 +167,7 @@ public final class Standard
     private DockerContainer createTrinoCoordinator()
     {
         DockerContainer container =
-                createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, tracing, "ghcr.io/trinodb/testing/centos7-oj17:" + imagesVersion, COORDINATOR)
+                createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, tracing, "ghcr.io/trinodb/testing/almalinux9-oj17:" + imagesVersion, COORDINATOR)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.properties")), CONTAINER_TRINO_ACCESS_CONTROL_PROPERTIES)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES);
 
@@ -177,7 +178,7 @@ public final class Standard
     @SuppressWarnings("resource")
     private DockerContainer createTestsContainer()
     {
-        return new DockerContainer("ghcr.io/trinodb/testing/centos7-oj17:" + imagesVersion, TESTS)
+        return new DockerContainer("ghcr.io/trinodb/testing/almalinux9-oj17:" + imagesVersion, TESTS)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withCommand("bash", "-xeuc", "echo 'No command provided' >&2; exit 69")
                 .waitingFor(new WaitAllStrategy()) // don't wait

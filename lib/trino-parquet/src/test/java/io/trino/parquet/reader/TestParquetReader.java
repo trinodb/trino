@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -35,7 +36,6 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
-import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -83,9 +83,9 @@ public class TestParquetReader
         assertThat(parquetMetadata.getBlocks().size()).isGreaterThan(1);
         // Verify file has only non-dictionary encodings as dictionary memory usage is already tested in TestFlatColumnReader#testMemoryUsage
         parquetMetadata.getBlocks().forEach(block -> {
-            block.getColumns()
+            block.columns()
                     .forEach(columnChunkMetaData -> assertThat(columnChunkMetaData.getEncodingStats().hasDictionaryEncodedPages()).isFalse());
-            assertThat(block.getRowCount()).isEqualTo(100);
+            assertThat(block.rowCount()).isEqualTo(100);
         });
 
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
@@ -105,7 +105,7 @@ public class TestParquetReader
         assertThat(currentMemoryUsage).isGreaterThan(initialMemoryUsage);
 
         // Memory usage does not change until next row group (1 page per row-group)
-        long rowGroupRowCount = parquetMetadata.getBlocks().get(0).getRowCount();
+        long rowGroupRowCount = parquetMetadata.getBlocks().get(0).rowCount();
         int rowsRead = page.getPositionCount();
         while (rowsRead < rowGroupRowCount) {
             rowsRead += reader.nextPage().getPositionCount();
@@ -141,7 +141,7 @@ public class TestParquetReader
                         "l_shipdate", Domain.multipleValues(DATE, ImmutableList.of(LocalDate.of(1993, 1, 1).toEpochDay(), LocalDate.of(1997, 1, 1).toEpochDay())),
                         "l_commitdate", Domain.create(ValueSet.ofRanges(Range.greaterThan(DATE, LocalDate.of(1995, 1, 1).toEpochDay())), false)));
 
-        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames, predicate)) {
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, new ParquetReaderOptions(), newSimpleAggregatedMemoryContext(), types, columnNames, predicate)) {
             Page page = reader.nextPage();
             int rowsRead = 0;
             while (page != null) {
@@ -153,7 +153,7 @@ public class TestParquetReader
             assertThat(metrics).containsKey(COLUMN_INDEX_ROWS_FILTERED);
             // Column index should filter at least the first row group
             assertThat(((Count<?>) metrics.get(COLUMN_INDEX_ROWS_FILTERED)).getTotal())
-                    .isGreaterThanOrEqualTo(parquetMetadata.getBlocks().get(0).getRowCount());
+                    .isGreaterThanOrEqualTo(parquetMetadata.getBlocks().get(0).rowCount());
         }
     }
 

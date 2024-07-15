@@ -156,7 +156,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timeWriteFunctionUsingSqlTime;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
@@ -190,7 +189,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.max;
@@ -209,7 +207,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hbase.HConstants.FOREVER;
-import static org.apache.phoenix.coprocessor.BaseScannerRegionObserver.SKIP_REGION_BOUNDARY_CHECK;
+import static org.apache.phoenix.coprocessorclient.BaseScannerRegionObserverConstants.SKIP_REGION_BOUNDARY_CHECK;
 import static org.apache.phoenix.util.PhoenixRuntime.getTable;
 import static org.apache.phoenix.util.SchemaUtil.ESCAPE_CHARACTER;
 import static org.apache.phoenix.util.SchemaUtil.getEscapedArgument;
@@ -459,7 +457,7 @@ public class PhoenixClient
             return mapping;
         }
 
-        switch (typeHandle.getJdbcType()) {
+        switch (typeHandle.jdbcType()) {
             case Types.BOOLEAN:
                 return Optional.of(booleanColumnMapping());
 
@@ -482,9 +480,9 @@ public class PhoenixClient
                 return Optional.of(doubleColumnMapping());
 
             case Types.DECIMAL:
-                Optional<Integer> columnSize = typeHandle.getColumnSize();
+                Optional<Integer> columnSize = typeHandle.columnSize();
                 int precision = columnSize.orElse(DEFAULT_PRECISION);
-                int decimalDigits = typeHandle.getDecimalDigits().orElse(DEFAULT_SCALE);
+                int decimalDigits = typeHandle.decimalDigits().orElse(DEFAULT_SCALE);
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW) {
                     if (columnSize.isEmpty()) {
                         return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, getDecimalDefaultScale(session)), getDecimalRoundingMode(session)));
@@ -498,16 +496,16 @@ public class PhoenixClient
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
 
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), true));
+                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), true));
 
             case VARCHAR:
             case NVARCHAR:
             case LONGVARCHAR:
             case LONGNVARCHAR:
-                if (typeHandle.getColumnSize().isEmpty()) {
+                if (typeHandle.columnSize().isEmpty()) {
                     return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
                 }
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), true));
 
             case Types.BINARY:
             case Types.VARBINARY:
@@ -530,18 +528,18 @@ public class PhoenixClient
 
             case ARRAY:
                 JdbcTypeHandle elementTypeHandle = getArrayElementTypeHandle(typeHandle);
-                if (elementTypeHandle.getJdbcType() == Types.VARBINARY) {
+                if (elementTypeHandle.jdbcType() == Types.VARBINARY) {
                     return Optional.empty();
                 }
                 return toColumnMapping(session, connection, elementTypeHandle)
                         .map(elementMapping -> {
                             ArrayType trinoArrayType = new ArrayType(elementMapping.getType());
-                            String jdbcTypeName = elementTypeHandle.getJdbcTypeName()
+                            String jdbcTypeName = elementTypeHandle.jdbcTypeName()
                                     .orElseThrow(() -> new TrinoException(
                                             PHOENIX_METADATA_ERROR,
-                                            "Type name is missing for jdbc type: " + JDBCType.valueOf(elementTypeHandle.getJdbcType())));
+                                            "Type name is missing for jdbc type: " + JDBCType.valueOf(elementTypeHandle.jdbcType())));
                             // TODO (https://github.com/trinodb/trino/issues/11132) Enable predicate pushdown on ARRAY(CHAR) type in Phoenix
-                            PredicatePushdownController pushdownController = elementTypeHandle.getJdbcType() == Types.CHAR ? DISABLE_PUSHDOWN : FULL_PUSHDOWN;
+                            PredicatePushdownController pushdownController = elementTypeHandle.jdbcType() == Types.CHAR ? DISABLE_PUSHDOWN : FULL_PUSHDOWN;
                             return arrayColumnMapping(session, trinoArrayType, jdbcTypeName, pushdownController);
                         });
         }
@@ -604,9 +602,6 @@ public class PhoenixClient
 
         if (type == DATE) {
             return WriteMapping.longMapping("date", dateWriteFunctionUsingString());
-        }
-        if (TIME_MILLIS.equals(type)) {
-            return WriteMapping.longMapping("time", timeWriteFunctionUsingSqlTime());
         }
         if (type instanceof ArrayType arrayType) {
             Type elementType = arrayType.getElementType();
@@ -873,17 +868,17 @@ public class PhoenixClient
 
     private JdbcTypeHandle getArrayElementTypeHandle(JdbcTypeHandle arrayTypeHandle)
     {
-        String arrayTypeName = arrayTypeHandle.getJdbcTypeName()
-                .orElseThrow(() -> new TrinoException(PHOENIX_METADATA_ERROR, "Type name is missing for jdbc type: " + JDBCType.valueOf(arrayTypeHandle.getJdbcType())));
+        String arrayTypeName = arrayTypeHandle.jdbcTypeName()
+                .orElseThrow(() -> new TrinoException(PHOENIX_METADATA_ERROR, "Type name is missing for jdbc type: " + JDBCType.valueOf(arrayTypeHandle.jdbcType())));
         checkArgument(arrayTypeName.endsWith(" ARRAY"), "array type must end with ' ARRAY'");
         arrayTypeName = arrayTypeName.substring(0, arrayTypeName.length() - " ARRAY".length());
-        verify(arrayTypeHandle.getCaseSensitivity().isEmpty(), "Case sensitivity not supported");
+        verify(arrayTypeHandle.caseSensitivity().isEmpty(), "Case sensitivity not supported");
         return new JdbcTypeHandle(
                 PDataType.fromSqlTypeName(arrayTypeName).getSqlType(),
                 Optional.of(arrayTypeName),
-                arrayTypeHandle.getColumnSize(),
-                arrayTypeHandle.getDecimalDigits(),
-                arrayTypeHandle.getArrayDimensions(),
+                arrayTypeHandle.columnSize(),
+                arrayTypeHandle.decimalDigits(),
+                Optional.empty(),
                 Optional.empty());
     }
 

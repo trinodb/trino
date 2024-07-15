@@ -67,7 +67,7 @@ public class RunningSplitInfo
     }
 
     /**
-     * {@link PrioritizedSplitRunner#getInfo()} provides runtime statistics for the split (such as total cpu utilization so far).
+     * {@link io.trino.execution.executor.timesharing.PrioritizedSplitRunner#getInfo()} provides runtime statistics for the split (such as total cpu utilization so far).
      * A value returned from this method changes over time and cannot be cached as a field of {@link RunningSplitInfo}.
      *
      * @return Formatted string containing runtime statistics for the split.

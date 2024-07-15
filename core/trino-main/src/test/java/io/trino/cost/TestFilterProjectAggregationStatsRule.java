@@ -34,6 +34,7 @@ import java.util.function.Function;
 import static io.trino.SystemSessionProperties.NON_ESTIMATABLE_PREDICATE_APPROXIMATION_ENABLED;
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
@@ -81,13 +82,13 @@ public class TestFilterProjectAggregationStatsRule
 
         PlanNodeStatsEstimate sourceStats = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(100)
-                .addSymbolStatistics(new Symbol(UNKNOWN, "y"), SYMBOL_STATS_ESTIMATE_Y)
+                .addSymbolStatistics(new Symbol(DOUBLE, "y"), SYMBOL_STATS_ESTIMATE_Y)
                 .build();
 
         tester().assertStatsFor(APPROXIMATION_ENABLED, planProvider)
                 .withSourceStats(sourceStats)
                 .check(check -> check.outputRowsCount(100 * UNKNOWN_FILTER_COEFFICIENT)
-                        .symbolStatsUnknown("count_on_x"));
+                        .symbolStatsUnknown("count_on_x", DOUBLE));
 
         tester().assertStatsFor(APPROXIMATION_DISABLED, planProvider)
                 .withSourceStats(sourceStats)
@@ -102,11 +103,11 @@ public class TestFilterProjectAggregationStatsRule
 
         // If filter estimate is known, approximation should not be applied
         tester().assertStatsFor(APPROXIMATION_ENABLED, pb -> pb.filter(
-                        new Comparison(EQUAL, new Reference(INTEGER, "y"), new Constant(INTEGER, 1L)),
+                        new Comparison(EQUAL, new Reference(DOUBLE, "y"), new Constant(DOUBLE, 1.0)),
                         pb.aggregation(ab -> ab
-                                .addAggregation(pb.symbol("count_on_x", BIGINT), aggregation("count", ImmutableList.of(new Reference(BIGINT, "x"))), ImmutableList.of(BIGINT))
-                                .singleGroupingSet(pb.symbol("y", BIGINT))
-                                .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))))
+                                .addAggregation(pb.symbol("count_on_x", DOUBLE), aggregation("count", ImmutableList.of(new Reference(DOUBLE, "x"))), ImmutableList.of(DOUBLE))
+                                .singleGroupingSet(pb.symbol("y", DOUBLE))
+                                .source(pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))))
                 .withSourceStats(sourceStats)
                 .check(check -> check.outputRowsCount(100 * (1.0 / 10)));
     }

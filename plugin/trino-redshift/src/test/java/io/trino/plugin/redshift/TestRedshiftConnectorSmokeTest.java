@@ -13,12 +13,9 @@
  */
 package io.trino.plugin.redshift;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-
-import static io.trino.plugin.redshift.RedshiftQueryRunner.createRedshiftQueryRunner;
 
 public class TestRedshiftConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
@@ -36,9 +33,8 @@ public class TestRedshiftConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createRedshiftQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                REQUIRED_TPCH_TABLES);
+        return RedshiftQueryRunner.builder()
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 }

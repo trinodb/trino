@@ -18,9 +18,14 @@ import io.trino.parquet.reader.SimpleSliceInputStream;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.Random;
+import java.util.stream.Stream;
 
 import static io.trino.parquet.reader.decoders.IntBitUnpackers.getIntBitUnpacker;
+import static io.trino.parquet.reader.decoders.VectorIntBitUnpackers.getVectorIntBitUnpacker;
+import static io.trino.testing.DataProviders.cartesianProduct;
+import static io.trino.testing.DataProviders.toDataProvider;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBitUnpackers
@@ -72,14 +77,14 @@ public class TestBitUnpackers
     }
 
     @Test(dataProvider = "length")
-    public void testIntUnpackersUnpack(int length)
+    public void testIntUnpackersUnpack(int length, boolean vectorized)
     {
         for (int i = 0; i < 500; i++) {
             long seed = (long) i * length;
             Random random = new Random(seed);
             for (int bitWidth = 0; bitWidth <= 32; bitWidth++) {
                 ApacheParquetIntUnpacker parquetUnpacker = new ApacheParquetIntUnpacker(bitWidth);
-                IntBitUnpacker optimizedUnpacker = getIntBitUnpacker(bitWidth);
+                IntBitUnpacker optimizedUnpacker = vectorized ? getVectorIntBitUnpacker(bitWidth) : getIntBitUnpacker(bitWidth);
 
                 byte[] buffer = new byte[(bitWidth * length) / Byte.SIZE + 1];
                 random.nextBytes(buffer);
@@ -90,7 +95,7 @@ public class TestBitUnpackers
                 optimizedUnpacker.unpack(optimizedUnpackerOutput, 0, asSliceStream(buffer), length);
 
                 assertThat(optimizedUnpackerOutput)
-                        .as("Error at bit width %d, random seed %d", bitWidth, seed)
+                        .as("Error at bit width %d, random seed %d, buffer %s", bitWidth, seed, Arrays.toString(buffer))
                         .isEqualTo(parquetUnpackerOutput);
             }
         }
@@ -145,7 +150,9 @@ public class TestBitUnpackers
     @DataProvider(name = "length")
     public static Object[][] length()
     {
-        return new Object[][] {{24}, {72}, {168}, {304}, {376}, {8192}};
+        Object[][] vectorized = Stream.of(true, false)
+                .collect(toDataProvider());
+        return cartesianProduct(new Object[][] {{24}, {72}, {168}, {304}, {376}, {8192}}, vectorized);
     }
 
     @DataProvider(name = "deltaLength")

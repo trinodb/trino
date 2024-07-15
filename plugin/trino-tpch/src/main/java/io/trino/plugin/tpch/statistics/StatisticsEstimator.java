@@ -64,23 +64,23 @@ public class StatisticsEstimator
 
     private TableStatisticsData addPartitionStats(TableStatisticsData left, TableStatisticsData right, TpchColumn<?> partitionColumn)
     {
-        Map<String, ColumnStatisticsData> combinedColumnStats = left.getColumns().entrySet().stream().collect(toImmutableMap(
+        Map<String, ColumnStatisticsData> combinedColumnStats = left.columns().entrySet().stream().collect(toImmutableMap(
                 Map.Entry::getKey,
                 entry -> {
                     String columnName = entry.getKey();
                     ColumnStatisticsData leftStats = entry.getValue();
-                    ColumnStatisticsData rightStats = right.getColumns().get(columnName);
+                    ColumnStatisticsData rightStats = right.columns().get(columnName);
                     Optional<Long> ndv = addDistinctValuesCount(partitionColumn, columnName, leftStats, rightStats);
-                    Optional<Object> min = combine(leftStats.getMin(), rightStats.getMin(), this::min);
-                    Optional<Object> max = combine(leftStats.getMax(), rightStats.getMax(), this::max);
+                    Optional<Object> min = combine(leftStats.min(), rightStats.min(), this::min);
+                    Optional<Object> max = combine(leftStats.max(), rightStats.max(), this::max);
                     // Sum data sizes only if both known
-                    Optional<Long> dataSize = leftStats.getDataSize()
-                            .flatMap(leftDataSize -> rightStats.getDataSize().map(rightDataSize -> leftDataSize + rightDataSize));
+                    Optional<Long> dataSize = leftStats.dataSize()
+                            .flatMap(leftDataSize -> rightStats.dataSize().map(rightDataSize -> leftDataSize + rightDataSize));
                     return new ColumnStatisticsData(ndv, min, max, dataSize);
                 }));
 
         return new TableStatisticsData(
-                left.getRowCount() + right.getRowCount(),
+                left.rowCount() + right.rowCount(),
                 combinedColumnStats);
     }
 
@@ -88,7 +88,7 @@ public class StatisticsEstimator
     {
         //unique values count can't be added between different partitions
         //for columns other than the partition column (because almost certainly there are duplicates)
-        return combine(leftStats.getDistinctValuesCount(), rightStats.getDistinctValuesCount(), Long::sum)
+        return combine(leftStats.distinctValuesCount(), rightStats.distinctValuesCount(), Long::sum)
                 .filter(v -> columnName.equals(partitionColumn.getColumnName()));
     }
 

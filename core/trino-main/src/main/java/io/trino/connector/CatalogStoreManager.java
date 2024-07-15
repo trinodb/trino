@@ -90,7 +90,7 @@ public class CatalogStoreManager
         checkState(factory != null, "Catalog store %s is not registered", name);
 
         CatalogStore catalogStore;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             catalogStore = factory.create(ImmutableMap.copyOf(properties));
         }
 

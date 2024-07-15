@@ -477,8 +477,8 @@ public class PlanPrinter
         if (stageInfo.isPresent()) {
             StageStats stageStats = stageInfo.get().getStageStats();
 
-            double avgPositionsPerTask = stageInfo.get().getTasks().stream().mapToLong(task -> task.getStats().getProcessedInputPositions()).average().orElse(Double.NaN);
-            double squaredDifferences = stageInfo.get().getTasks().stream().mapToDouble(task -> Math.pow(task.getStats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
+            double avgPositionsPerTask = stageInfo.get().getTasks().stream().mapToLong(task -> task.stats().getProcessedInputPositions()).average().orElse(Double.NaN);
+            double squaredDifferences = stageInfo.get().getTasks().stream().mapToDouble(task -> Math.pow(task.stats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
             double sdAmongTasks = Math.sqrt(squaredDifferences / stageInfo.get().getTasks().size());
 
             builder.append(indentString(1))
@@ -513,9 +513,9 @@ public class PlanPrinter
             }
 
             TDigest taskOutputDistribution = new TDigest();
-            stageInfo.get().getTasks().forEach(task -> taskOutputDistribution.add(task.getStats().getOutputDataSize().toBytes()));
+            stageInfo.get().getTasks().forEach(task -> taskOutputDistribution.add(task.stats().getOutputDataSize().toBytes()));
             TDigest taskInputDistribution = new TDigest();
-            stageInfo.get().getTasks().forEach(task -> taskInputDistribution.add(task.getStats().getProcessedInputDataSize().toBytes()));
+            stageInfo.get().getTasks().forEach(task -> taskInputDistribution.add(task.stats().getProcessedInputDataSize().toBytes()));
 
             if (verbose) {
                 builder.append(indentString(1))
@@ -1393,7 +1393,7 @@ public class PlanPrinter
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
                 Symbol symbol = node.getOutputSymbols().get(i);
-                if (!name.equals(symbol.getName())) {
+                if (!name.equals(symbol.name())) {
                     nodeOutput.appendDetails("%s := %s", anonymizer.anonymizeColumn(name), anonymizer.anonymize(symbol));
                 }
             }
@@ -1775,7 +1775,7 @@ public class PlanPrinter
                 nodeOutput.appendDetails("Arguments:");
 
                 Map<String, TableArgumentProperties> tableArguments = node.getTableArgumentProperties().stream()
-                        .collect(toImmutableMap(TableArgumentProperties::getArgumentName, identity()));
+                        .collect(toImmutableMap(TableArgumentProperties::argumentName, identity()));
 
                 node.getArguments().entrySet()
                         .forEach(entry -> nodeOutput.appendDetails("%s", formatArgument(entry.getKey(), entry.getValue(), tableArguments)));
@@ -1788,7 +1788,7 @@ public class PlanPrinter
             }
 
             for (int i = 0; i < node.getSources().size(); i++) {
-                node.getSources().get(i).accept(this, new Context(node.getTableArgumentProperties().get(i).getArgumentName(), context.isInitialPlan()));
+                node.getSources().get(i).accept(this, new Context(node.getTableArgumentProperties().get(i).argumentName(), context.isInitialPlan()));
             }
 
             return null;
@@ -1836,27 +1836,27 @@ public class PlanPrinter
         private String formatTableArgument(String argumentName, TableArgumentProperties argumentProperties)
         {
             StringBuilder properties = new StringBuilder();
-            if (argumentProperties.isRowSemantics()) {
+            if (argumentProperties.rowSemantics()) {
                 properties.append("row semantics");
             }
-            argumentProperties.getSpecification().ifPresent(specification -> {
+            argumentProperties.specification().ifPresent(specification -> {
                 properties
                         .append("partition by: [")
-                        .append(Joiner.on(", ").join(anonymize(specification.getPartitionBy())))
+                        .append(Joiner.on(", ").join(anonymize(specification.partitionBy())))
                         .append("]");
-                specification.getOrderingScheme().ifPresent(orderingScheme -> {
+                specification.orderingScheme().ifPresent(orderingScheme -> {
                     properties
                             .append(", order by: ")
                             .append(formatOrderingScheme(orderingScheme));
                 });
             });
             properties.append("required columns: [")
-                    .append(Joiner.on(", ").join(anonymize(argumentProperties.getRequiredColumns())))
+                    .append(Joiner.on(", ").join(anonymize(argumentProperties.requiredColumns())))
                     .append("]");
-            if (argumentProperties.isPruneWhenEmpty()) {
+            if (argumentProperties.pruneWhenEmpty()) {
                 properties.append(", prune when empty");
             }
-            if (argumentProperties.getPassThroughSpecification().declaredAsPassThrough()) {
+            if (argumentProperties.passThroughSpecification().declaredAsPassThrough()) {
                 properties.append(", pass through columns");
             }
             return format("%s => TableArgument{%s}", argumentName, properties);
@@ -1872,12 +1872,12 @@ public class PlanPrinter
             descriptor.put("properOutputs", format("[%s]", Joiner.on(", ").join(anonymize(node.getProperOutputs()))));
 
             node.getSpecification().ifPresent(specification -> {
-                if (!specification.getPartitionBy().isEmpty()) {
-                    List<Symbol> prePartitioned = specification.getPartitionBy().stream()
+                if (!specification.partitionBy().isEmpty()) {
+                    List<Symbol> prePartitioned = specification.partitionBy().stream()
                             .filter(node.getPrePartitioned()::contains)
                             .collect(toImmutableList());
 
-                    List<Symbol> notPrePartitioned = specification.getPartitionBy().stream()
+                    List<Symbol> notPrePartitioned = specification.partitionBy().stream()
                             .filter(column -> !node.getPrePartitioned().contains(column))
                             .collect(toImmutableList());
 
@@ -1894,7 +1894,7 @@ public class PlanPrinter
                     }
                     descriptor.put("partitionBy", format("[%s]", builder));
                 }
-                specification.getOrderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy", formatOrderingScheme(orderingScheme, node.getPreSorted())));
+                specification.orderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy", formatOrderingScheme(orderingScheme, node.getPreSorted())));
             });
 
             addNode(node, "TableFunctionProcessor", descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(), context);
@@ -1920,7 +1920,7 @@ public class PlanPrinter
         private void printAssignments(NodeRepresentation nodeOutput, Assignments assignments)
         {
             for (Entry<Symbol, Expression> entry : assignments.getMap().entrySet()) {
-                if (entry.getValue() instanceof Reference && ((Reference) entry.getValue()).name().equals(entry.getKey().getName())) {
+                if (entry.getValue() instanceof Reference && ((Reference) entry.getValue()).name().equals(entry.getKey().name())) {
                     // skip identity assignments
                     continue;
                 }
@@ -2029,19 +2029,19 @@ public class PlanPrinter
         private String formatOrderingScheme(OrderingScheme orderingScheme, int preSortedOrderPrefix)
         {
             List<String> orderBy = Stream.concat(
-                            orderingScheme.getOrderBy().stream()
+                            orderingScheme.orderBy().stream()
                                     .limit(preSortedOrderPrefix)
-                                    .map(symbol -> "<" + anonymizer.anonymize(symbol) + " " + orderingScheme.getOrdering(symbol) + ">"),
-                            orderingScheme.getOrderBy().stream()
+                                    .map(symbol -> "<" + anonymizer.anonymize(symbol) + " " + orderingScheme.ordering(symbol) + ">"),
+                            orderingScheme.orderBy().stream()
                                     .skip(preSortedOrderPrefix)
-                                    .map(symbol -> anonymizer.anonymize(symbol) + " " + orderingScheme.getOrdering(symbol)))
+                                    .map(symbol -> anonymizer.anonymize(symbol) + " " + orderingScheme.ordering(symbol)))
                     .collect(toImmutableList());
             return formatCollection(orderBy, Objects::toString);
         }
 
         private String formatOrderingScheme(OrderingScheme orderingScheme)
         {
-            return formatCollection(orderingScheme.getOrderBy(), input -> anonymizer.anonymize(input) + " " + orderingScheme.getOrdering(input));
+            return formatCollection(orderingScheme.orderBy(), input -> anonymizer.anonymize(input) + " " + orderingScheme.ordering(input));
         }
 
         @SafeVarargs
@@ -2076,7 +2076,7 @@ public class PlanPrinter
         private String formatOutputs(Iterable<Symbol> outputs)
         {
             return Streams.stream(outputs)
-                    .map(input -> anonymizer.anonymize(input) + ":" + input.getType().getDisplayName())
+                    .map(input -> anonymizer.anonymize(input) + ":" + input.type().getDisplayName())
                     .collect(joining(", ", "[", "]"));
         }
 
@@ -2128,7 +2128,7 @@ public class PlanPrinter
                     rootNode.getClass().getSimpleName(),
                     descriptor,
                     rootNode.getOutputSymbols().stream()
-                            .map(s -> new Symbol(s.getType(), anonymizer.anonymize(s)))
+                            .map(s -> new Symbol(s.type(), anonymizer.anonymize(s)))
                             .collect(toImmutableList()),
                     stats.map(s -> s.get(rootNode.getId())),
                     estimatedStats,
@@ -2161,7 +2161,7 @@ public class PlanPrinter
                 .map(anonymizer::anonymize)
                 .collect(toImmutableList());
         String arguments = Joiner.on(", ").join(anonymizedArguments);
-        if (aggregation.getArguments().isEmpty() && COUNT_NAME.equals(aggregation.getResolvedFunction().getSignature().getName())) {
+        if (aggregation.getArguments().isEmpty() && COUNT_NAME.equals(aggregation.getResolvedFunction().signature().getName())) {
             arguments = "*";
         }
         if (aggregation.isDistinct()) {
@@ -2171,8 +2171,8 @@ public class PlanPrinter
         builder.append(formatFunctionName(aggregation.getResolvedFunction()))
                 .append('(').append(arguments);
 
-        aggregation.getOrderingScheme().ifPresent(orderingScheme -> builder.append(' ').append(orderingScheme.getOrderBy().stream()
-                .map(input -> anonymizer.anonymize(input) + " " + orderingScheme.getOrdering(input))
+        aggregation.getOrderingScheme().ifPresent(orderingScheme -> builder.append(' ').append(orderingScheme.orderBy().stream()
+                .map(input -> anonymizer.anonymize(input) + " " + orderingScheme.ordering(input))
                 .collect(joining(", "))));
 
         builder.append(')');
@@ -2189,7 +2189,7 @@ public class PlanPrinter
 
     private static String formatFunctionName(ResolvedFunction function)
     {
-        CatalogSchemaFunctionName name = function.getSignature().getName();
+        CatalogSchemaFunctionName name = function.signature().getName();
         if (isInlineFunction(name) || isBuiltinFunctionName(name)) {
             return name.getFunctionName();
         }

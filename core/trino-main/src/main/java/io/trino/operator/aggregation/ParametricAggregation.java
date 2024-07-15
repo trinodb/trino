@@ -71,22 +71,22 @@ public class ParametricAggregation
 
     private static FunctionMetadata createFunctionMetadata(Signature signature, AggregationHeader details, FunctionNullability functionNullability)
     {
-        FunctionMetadata.Builder functionMetadata = FunctionMetadata.aggregateBuilder(details.getName())
+        FunctionMetadata.Builder functionMetadata = FunctionMetadata.aggregateBuilder(details.name())
                 .signature(signature);
 
-        details.getAliases().forEach(functionMetadata::alias);
+        details.aliases().forEach(functionMetadata::alias);
 
-        if (details.getDescription().isPresent()) {
-            functionMetadata.description(details.getDescription().get());
+        if (details.description().isPresent()) {
+            functionMetadata.description(details.description().get());
         }
         else {
             functionMetadata.noDescription();
         }
 
-        if (details.isHidden()) {
+        if (details.hidden()) {
             functionMetadata.hidden();
         }
-        if (details.isDeprecated()) {
+        if (details.deprecated()) {
             functionMetadata.deprecated();
         }
 
@@ -101,10 +101,10 @@ public class ParametricAggregation
     private static AggregationFunctionMetadata createAggregationFunctionMetadata(AggregationHeader details, List<AccumulatorStateDetails<?>> stateDetails)
     {
         AggregationFunctionMetadataBuilder builder = AggregationFunctionMetadata.builder();
-        if (details.isOrderSensitive()) {
+        if (details.orderSensitive()) {
             builder.orderSensitive();
         }
-        if (details.isDecomposable()) {
+        if (details.decomposable()) {
             for (AccumulatorStateDetails<?> stateDetail : stateDetails) {
                 builder.intermediateType(stateDetail.getSerializedType());
             }
@@ -166,14 +166,6 @@ public class ParametricAggregation
                         functionDependencies),
                 boundSignature,
                 inputParameterKinds));
-        concreteImplementation.getRemoveInputFunction()
-                .map(removeInputFunction -> bindDependencies(
-                        removeInputFunction,
-                        concreteImplementation.getRemoveInputDependencies(),
-                        functionBinding,
-                        functionDependencies))
-                .map(removeInputFunction -> normalizeInputMethod(removeInputFunction, boundSignature, inputParameterKinds))
-                .ifPresent(builder::removeInputFunction);
 
         if (getAggregationMetadata().isDecomposable()) {
             MethodHandle combineHandle = concreteImplementation.getCombineFunction()
@@ -189,6 +181,8 @@ public class ParametricAggregation
                 concreteImplementation.getOutputDependencies(),
                 functionBinding,
                 functionDependencies));
+
+        concreteImplementation.getWindowAccumulator().ifPresent(builder::windowAccumulator);
 
         return builder.build();
     }

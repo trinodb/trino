@@ -104,7 +104,8 @@ statement
         (WITH properties)? AS rootQuery                                #createMaterializedView
     | CREATE (OR REPLACE)? VIEW qualifiedName
         (COMMENT string)?
-        (SECURITY (DEFINER | INVOKER))? AS rootQuery                   #createView
+        (SECURITY (DEFINER | INVOKER))?
+        (WITH properties)? AS rootQuery                                #createView
     | REFRESH MATERIALIZED VIEW qualifiedName                          #refreshMaterializedView
     | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView
     | ALTER MATERIALIZED VIEW (IF EXISTS)? from=qualifiedName
@@ -156,6 +157,7 @@ statement
     | SHOW CREATE SCHEMA qualifiedName                                 #showCreateSchema
     | SHOW CREATE VIEW qualifiedName                                   #showCreateView
     | SHOW CREATE MATERIALIZED VIEW qualifiedName                      #showCreateMaterializedView
+    | SHOW CREATE FUNCTION qualifiedName                               #showCreateFunction
     | SHOW TABLES ((FROM | IN) qualifiedName)?
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showTables
     | SHOW SCHEMAS ((FROM | IN) identifier)?
@@ -959,7 +961,7 @@ roles
     ;
 
 privilegeOrRole
-    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier
+    : CREATE | SELECT | DELETE | INSERT | UPDATE | EXECUTE | identifier
     ;
 
 identifier

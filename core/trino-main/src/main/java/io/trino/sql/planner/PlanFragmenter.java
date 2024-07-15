@@ -94,7 +94,7 @@ import static java.util.Objects.requireNonNull;
 public class PlanFragmenter
 {
     private static final String TOO_MANY_STAGES_MESSAGE = "" +
-            "If the query contains multiple aggregates with DISTINCT over different columns, please set the 'mark_distinct_strategy' session property to 'none'. " +
+            "If the query contains multiple aggregates with DISTINCT over different columns, please set the 'distinct_aggregations_strategy' session property to 'single_step'. " +
             "If the query contains WITH clauses that are referenced more than once, please create temporary table(s) for the queries in those clauses.";
 
     private final Metadata metadata;
@@ -143,7 +143,7 @@ public class PlanFragmenter
             Map<ExchangeSourceId, SubPlan> unchangedSubPlans)
     {
         List<CatalogProperties> activeCatalogs = transactionManager.getActiveCatalogs(session.getTransactionId().orElseThrow()).stream()
-                .map(CatalogInfo::getCatalogHandle)
+                .map(CatalogInfo::catalogHandle)
                 .flatMap(catalogHandle -> catalogManager.getCatalogProperties(catalogHandle).stream())
                 .collect(toImmutableList());
         Map<FunctionId, IrRoutine> languageScalarFunctions = languageFunctionManager.serializeFunctionsForWorkers(session);
@@ -361,7 +361,7 @@ public class PlanFragmenter
             PartitioningHandle partitioning = metadata.getTableProperties(session, node.getTable())
                     .getTablePartitioning()
                     .filter(value -> node.isUseConnectorNodePartitioning())
-                    .map(TablePartitioning::getPartitioningHandle)
+                    .map(TablePartitioning::partitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
 
             context.get().addSourceDistribution(node.getId(), partitioning, metadata, session);
@@ -799,7 +799,7 @@ public class PlanFragmenter
             PartitioningHandle partitioning = metadata.getTableProperties(session, node.getTable())
                     .getTablePartitioning()
                     .filter(value -> node.isUseConnectorNodePartitioning())
-                    .map(TablePartitioning::getPartitioningHandle)
+                    .map(TablePartitioning::partitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
             if (partitioning.equals(fragmentPartitioningHandle)) {
                 // do nothing if the current scan node's partitioning matches the fragment's

@@ -31,7 +31,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -73,22 +72,22 @@ public class TestWorkProcessorSourceOperatorAdapter
 
         operator.getOutput();
         assertThat(operator.isFinished()).isFalse();
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
+        assertThat(context.getOperatorStats().getMetrics().getMetrics())
                 .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(1));
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
+        assertThat(context.getOperatorStats().getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
                 "testConnectorMetric", new LongCount(2)));
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getPhysicalInputReadTime())
+        assertThat(context.getOperatorStats().getPhysicalInputReadTime())
                 .isEqualTo(new Duration(7, NANOSECONDS));
 
         operator.getOutput();
         assertThat(operator.isFinished()).isTrue();
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
+        assertThat(context.getOperatorStats().getMetrics().getMetrics())
                 .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(2));
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
+        assertThat(context.getOperatorStats().getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
                 "testConnectorMetric", new LongCount(3)));
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getPhysicalInputReadTime())
+        assertThat(context.getOperatorStats().getPhysicalInputReadTime())
                 .isEqualTo(new Duration(7, NANOSECONDS));
     }
 

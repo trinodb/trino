@@ -24,7 +24,7 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
-import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
+import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 
@@ -32,7 +32,7 @@ import static io.trino.operator.scalar.BlockSet.MAX_FUNCTION_MEMORY;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
-import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.IDENTICAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 
 @ScalarFunction("array_distinct")
@@ -53,9 +53,9 @@ public final class ArrayDistinctFunction
     public Block distinct(
             @TypeParameter("E") Type type,
             @OperatorDependency(
-                    operator = IS_DISTINCT_FROM,
+                    operator = IDENTICAL,
                     argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsDistinctFrom elementIsDistinctFrom,
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionIsIdentical elementIdentical,
             @OperatorDependency(
                     operator = HASH_CODE,
                     argumentTypes = "E",
@@ -67,8 +67,8 @@ public final class ArrayDistinctFunction
         }
 
         if (array.getPositionCount() == 2) {
-            boolean distinct = elementIsDistinctFrom.isDistinctFrom(array, 0, array, 1);
-            if (distinct) {
+            boolean identical = elementIdentical.isIdentical(array, 0, array, 1);
+            if (!identical) {
                 return array;
             }
             return array.getSingleValueBlock(0);
@@ -76,7 +76,7 @@ public final class ArrayDistinctFunction
 
         BlockSet distinctElements = new BlockSet(
                 type,
-                elementIsDistinctFrom,
+                elementIdentical,
                 elementHashCode,
                 array.getPositionCount());
 

@@ -25,17 +25,16 @@ import com.google.common.collect.Multimap;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionResolver;
+import io.trino.metadata.LanguageFunctionAnalysisException;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
-import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
@@ -179,7 +178,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.operator.scalar.json.JsonArrayFunction.JSON_ARRAY_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonExistsFunction.JSON_EXISTS_FUNCTION_NAME;
 import static io.trino.operator.scalar.json.JsonInputFunctions.VARBINARY_TO_JSON;
@@ -294,8 +292,6 @@ public class ExpressionAnalyzer
 {
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT = 63;
     private static final int MAX_NUMBER_GROUPING_ARGUMENTS_INTEGER = 31;
-
-    private static final CatalogSchemaFunctionName ARRAY_CONSTRUCTOR_NAME = builtinFunctionName(ArrayConstructor.NAME);
 
     public static final RowType JSON_NO_PARAMETERS_ROW_TYPE = RowType.anonymous(ImmutableList.of(UNKNOWN));
 
@@ -887,7 +883,7 @@ public class ExpressionAnalyzer
                 case EQUAL, NOT_EQUAL -> OperatorType.EQUAL;
                 case LESS_THAN, GREATER_THAN -> OperatorType.LESS_THAN;
                 case LESS_THAN_OR_EQUAL, GREATER_THAN_OR_EQUAL -> OperatorType.LESS_THAN_OR_EQUAL;
-                case IS_DISTINCT_FROM -> OperatorType.IS_DISTINCT_FROM;
+                case IS_DISTINCT_FROM -> OperatorType.IDENTICAL;
             };
 
             return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
@@ -1373,21 +1369,19 @@ public class ExpressionAnalyzer
                     throw e;
                 }
 
+                if (e instanceof LanguageFunctionAnalysisException) {
+                    // report the original reason for language function analysis errors
+                    throw e;
+                }
+
                 // otherwise, it must have failed due to a missing function or other reason, so we report an error at the
                 // current location
 
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
 
-            if (function.getSignature().getName().equals(ARRAY_CONSTRUCTOR_NAME)) {
-                // After optimization, array constructor is rewritten to a function call.
-                // For historic reasons array constructor is allowed to have 254 arguments
-                if (node.getArguments().size() > 254) {
-                    throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for array constructor");
-                }
-            }
-            else if (node.getArguments().size() > 127) {
-                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.getSignature().getName().getFunctionName());
+            if (node.getArguments().size() > 127) {
+                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.signature().getName().getFunctionName());
             }
 
             if (node.getOrderBy().isPresent()) {
@@ -1399,7 +1393,7 @@ public class ExpressionAnalyzer
                 }
             }
 
-            BoundSignature signature = function.getSignature();
+            BoundSignature signature = function.signature();
             for (int i = 0; i < argumentTypes.size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type expectedType = signature.getArgumentTypes().get(i);
@@ -1667,7 +1661,7 @@ public class ExpressionAnalyzer
                 }
                 throw e;
             }
-            BoundSignature signature = function.getSignature();
+            BoundSignature signature = function.signature();
             Type expectedSortKeyType = signature.getArgumentTypes().getFirst();
             if (!expectedSortKeyType.equals(sortKeyType)) {
                 if (!typeCoercion.canCoerce(sortKeyType, expectedSortKeyType)) {
@@ -2171,7 +2165,7 @@ public class ExpressionAnalyzer
             String functionName = node.getSpecification().getFunctionName();
             ResolvedFunction function = plannerContext.getMetadata().resolveBuiltinFunction(functionName, fromTypes(actualTypes));
 
-            List<Type> expectedTypes = function.getSignature().getArgumentTypes();
+            List<Type> expectedTypes = function.signature().getArgumentTypes();
             checkState(expectedTypes.size() == actualTypes.size(), "wrong argument number in the resolved signature");
 
             Type actualTrimSourceType = actualTypes.getFirst();
@@ -2185,7 +2179,7 @@ public class ExpressionAnalyzer
             }
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            return setExpressionType(node, function.getSignature().getReturnType());
+            return setExpressionType(node, function.signature().getReturnType());
         }
 
         @Override
@@ -2676,7 +2670,7 @@ public class ExpressionAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
             resolvedFunctions.put(NodeRef.of(node), function);
-            Type type = function.getSignature().getReturnType();
+            Type type = function.signature().getReturnType();
 
             return setExpressionType(node, type);
         }
@@ -2785,7 +2779,7 @@ public class ExpressionAnalyzer
             }
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            return function.getSignature().getReturnType();
+            return function.signature().getReturnType();
         }
 
         @Override
@@ -2854,7 +2848,7 @@ public class ExpressionAnalyzer
             jsonOutputFunctions.put(NodeRef.of(node), outputFunction);
 
             // cast the output value to the declared returned type if necessary
-            Type outputType = outputFunction.getSignature().getReturnType();
+            Type outputType = outputFunction.signature().getReturnType();
             if (!outputType.equals(returnedType)) {
                 try {
                     plannerContext.getMetadata().getCoercion(outputType, returnedType);
@@ -2883,7 +2877,7 @@ public class ExpressionAnalyzer
             // resolve function to read the context item as JSON
             JsonFormat inputFormat = jsonPathInvocation.getInputFormat();
             ResolvedFunction inputFunction = getInputFunction(inputType, inputFormat, inputExpression);
-            Type expectedType = inputFunction.getSignature().getArgumentType(0);
+            Type expectedType = inputFunction.signature().getArgumentType(0);
             coerceType(inputExpression, inputType, expectedType, format("%s function input argument", functionName));
             jsonInputFunctions.put(NodeRef.of(inputExpression), inputFunction);
 
@@ -2929,7 +2923,7 @@ public class ExpressionAnalyzer
                 if (parameterFormat.isPresent()) {
                     // resolve function to read the parameter as JSON
                     ResolvedFunction parameterInputFunction = getInputFunction(parameterType, parameterFormat.get(), parameter);
-                    Type expectedParameterType = parameterInputFunction.getSignature().getArgumentType(0);
+                    Type expectedParameterType = parameterInputFunction.signature().getArgumentType(0);
                     coerceType(parameter, parameterType, expectedParameterType, format("%s function JSON path parameter", functionName));
                     jsonInputFunctions.put(NodeRef.of(parameter), parameterInputFunction);
                     passedType = JSON_2016;
@@ -3095,7 +3089,7 @@ public class ExpressionAnalyzer
                     }
                     // resolve function to read the value as JSON
                     ResolvedFunction inputFunction = getInputFunction(valueType, format.get(), value);
-                    Type expectedValueType = inputFunction.getSignature().getArgumentType(0);
+                    Type expectedValueType = inputFunction.signature().getArgumentType(0);
                     coerceType(value, valueType, expectedValueType, "value passed to JSON_OBJECT function");
                     jsonInputFunctions.put(NodeRef.of(value), inputFunction);
                     valueType = JSON_2016;
@@ -3160,7 +3154,7 @@ public class ExpressionAnalyzer
             jsonOutputFunctions.put(NodeRef.of(node), outputFunction);
 
             // cast the output value to the declared returned type if necessary
-            Type outputType = outputFunction.getSignature().getReturnType();
+            Type outputType = outputFunction.signature().getReturnType();
             if (!outputType.equals(returnedType)) {
                 try {
                     plannerContext.getMetadata().getCoercion(outputType, returnedType);
@@ -3207,7 +3201,7 @@ public class ExpressionAnalyzer
                 if (format.isPresent()) {
                     // resolve function to read the value as JSON
                     ResolvedFunction inputFunction = getInputFunction(elementType, format.get(), element);
-                    Type expectedElementType = inputFunction.getSignature().getArgumentType(0);
+                    Type expectedElementType = inputFunction.signature().getArgumentType(0);
                     coerceType(element, elementType, expectedElementType, "value passed to JSON_ARRAY function");
                     jsonInputFunctions.put(NodeRef.of(element), inputFunction);
                     elementType = JSON_2016;
@@ -3270,7 +3264,7 @@ public class ExpressionAnalyzer
             jsonOutputFunctions.put(NodeRef.of(node), outputFunction);
 
             // cast the output value to the declared returned type if necessary
-            Type outputType = outputFunction.getSignature().getReturnType();
+            Type outputType = outputFunction.signature().getReturnType();
             if (!outputType.equals(returnedType)) {
                 try {
                     plannerContext.getMetadata().getCoercion(outputType, returnedType);
@@ -3292,7 +3286,7 @@ public class ExpressionAnalyzer
 
             BoundSignature operatorSignature;
             try {
-                operatorSignature = plannerContext.getMetadata().resolveOperator(operatorType, argumentTypes.build()).getSignature();
+                operatorSignature = plannerContext.getMetadata().resolveOperator(operatorType, argumentTypes.build()).signature();
             }
             catch (OperatorNotFoundException e) {
                 throw semanticException(TYPE_MISMATCH, node, e, "%s", e.getMessage());

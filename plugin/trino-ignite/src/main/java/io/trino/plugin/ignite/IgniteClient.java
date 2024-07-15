@@ -168,7 +168,7 @@ public class IgniteClient
                 .addStandardRules(this::quoted)
                 .map("$equal(left, right)").to("left = right")
                 .map("$not_equal(left, right)").to("left <> right")
-                .map("$is_distinct_from(left, right)").to("left IS DISTINCT FROM right")
+                .map("$identical(left, right)").to("left IS NOT DISTINCT FROM right")
                 .map("$less_than(left, right)").to("left < right")
                 .map("$less_than_or_equal(left, right)").to("left <= right")
                 .map("$greater_than(left, right)").to("left > right")
@@ -219,7 +219,7 @@ public class IgniteClient
             return mapping;
         }
 
-        switch (typeHandle.getJdbcType()) {
+        switch (typeHandle.jdbcType()) {
             case Types.BOOLEAN:
                 return Optional.of(booleanColumnMapping());
 
@@ -242,8 +242,8 @@ public class IgniteClient
                 return Optional.of(doubleColumnMapping());
 
             case Types.DECIMAL:
-                int decimalDigits = typeHandle.getRequiredDecimalDigits();
-                int precision = typeHandle.getRequiredColumnSize();
+                int decimalDigits = typeHandle.requiredDecimalDigits();
+                int precision = typeHandle.requiredColumnSize();
                 if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
                     int scale = min(decimalDigits, getDecimalDefaultScale(session));
                     return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
@@ -255,7 +255,7 @@ public class IgniteClient
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
 
             case Types.VARCHAR:
-                return Optional.of(varcharColumnMapping(typeHandle.getColumnSize()));
+                return Optional.of(varcharColumnMapping(typeHandle.columnSize()));
 
             case Types.DATE:
                 return Optional.of(longMapping(DATE, dateReadFunction(), dateWriteFunction()));
@@ -481,9 +481,9 @@ public class IgniteClient
         return Optional.of((query, sortItems, limit) -> {
             String orderBy = sortItems.stream()
                     .map(sortItem -> {
-                        String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
-                        String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "IS NULL DESC" : "IS NULL ASC";
-                        String columnName = quoted(sortItem.getColumn().getColumnName());
+                        String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
+                        String nullsHandling = sortItem.sortOrder().isNullsFirst() ? "IS NULL DESC" : "IS NULL ASC";
+                        String columnName = quoted(sortItem.column().getColumnName());
 
                         return format("%s %s, %1$s %s", columnName, nullsHandling, ordering);
                     })

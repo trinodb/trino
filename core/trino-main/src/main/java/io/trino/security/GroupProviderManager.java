@@ -89,7 +89,7 @@ public class GroupProviderManager
         checkState(factory != null, "Group provider %s is not registered", name);
 
         GroupProvider groupProvider;
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             groupProvider = factory.create(ImmutableMap.copyOf(properties));
         }
 

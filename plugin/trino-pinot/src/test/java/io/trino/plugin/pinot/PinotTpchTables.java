@@ -29,8 +29,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 
-import static io.trino.plugin.pinot.BasePinotConnectorSmokeTest.schemaRegistryAwareProducer;
+import static io.trino.plugin.pinot.TestPinotConnectorSmokeTest.schemaRegistryAwareProducer;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.time.temporal.ChronoUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class PinotTpchTables
 {
@@ -49,6 +51,11 @@ public final class PinotTpchTables
                 case "orders" -> createOrdersTable(kafka, pinot, queryRunner);
                 case "customer" -> createCustomerTable(kafka, pinot, queryRunner);
             }
+            assertEventually(() -> assertThat(queryRunner.execute("SHOW TABLES IN pinot.default").getOnlyColumnAsSet())
+                    .contains(table.getTableName()));
+            assertEventually(() -> assertThat(queryRunner.execute("SELECT count(*) FROM pinot.default." + table.getTableName()).getOnlyValue())
+                    .as("Table is not loaded properly: %s", table.getTableName())
+                    .isEqualTo(queryRunner.execute("SELECT count(*) FROM tpch.tiny." + table.getTableName()).getOnlyValue()));
         }
     }
 
@@ -74,8 +81,8 @@ public final class PinotTpchTables
                     .build()));
         }
         kafka.sendMessages(regionRowsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
-        pinot.createSchema(PinotQueryRunner.class.getClassLoader().getResourceAsStream("region_schema.json"), regionTableName);
-        pinot.addRealTimeTable(PinotQueryRunner.class.getClassLoader().getResourceAsStream("region_realtimeSpec.json"), regionTableName);
+        pinot.createSchema("region_schema.json", regionTableName);
+        pinot.addRealTimeTable("region_realtimeSpec.json", regionTableName);
     }
 
     private static void createNationTable(TestingKafka kafka, TestingPinotCluster pinot, QueryRunner queryRunner)
@@ -102,8 +109,8 @@ public final class PinotTpchTables
                     .build()));
         }
         kafka.sendMessages(nationRowsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
-        pinot.createSchema(PinotQueryRunner.class.getClassLoader().getResourceAsStream("nation_schema.json"), nationTableName);
-        pinot.addRealTimeTable(PinotQueryRunner.class.getClassLoader().getResourceAsStream("nation_realtimeSpec.json"), nationTableName);
+        pinot.createSchema("nation_schema.json", nationTableName);
+        pinot.addRealTimeTable("nation_realtimeSpec.json", nationTableName);
     }
 
     private static void createOrdersTable(TestingKafka kafka, TestingPinotCluster pinot, QueryRunner queryRunner)
@@ -140,8 +147,8 @@ public final class PinotTpchTables
                     .build()));
         }
         kafka.sendMessages(ordersRowsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
-        pinot.createSchema(PinotQueryRunner.class.getClassLoader().getResourceAsStream("orders_schema.json"), ordersTableName);
-        pinot.addRealTimeTable(PinotQueryRunner.class.getClassLoader().getResourceAsStream("orders_realtimeSpec.json"), ordersTableName);
+        pinot.createSchema("orders_schema.json", ordersTableName);
+        pinot.addRealTimeTable("orders_realtimeSpec.json", ordersTableName);
     }
 
     private static void createCustomerTable(TestingKafka kafka, TestingPinotCluster pinot, QueryRunner queryRunner)
@@ -176,7 +183,7 @@ public final class PinotTpchTables
                     .build()));
         }
         kafka.sendMessages(customerRowsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
-        pinot.createSchema(PinotQueryRunner.class.getClassLoader().getResourceAsStream("customer_schema.json"), customerTableName);
-        pinot.addRealTimeTable(PinotQueryRunner.class.getClassLoader().getResourceAsStream("customer_realtimeSpec.json"), customerTableName);
+        pinot.createSchema("customer_schema.json", customerTableName);
+        pinot.addRealTimeTable("customer_realtimeSpec.json", customerTableName);
     }
 }

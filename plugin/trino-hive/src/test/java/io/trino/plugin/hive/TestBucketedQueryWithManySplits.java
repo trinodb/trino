@@ -29,7 +29,7 @@ public class TestBucketedQueryWithManySplits
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setNodeCount(1)
+                .setWorkerCount(0)
                 .setExtraProperties(ImmutableMap.of(
                         "query.schedule-split-batch-size", "1",
                         "node-scheduler.max-splits-per-node", "1",

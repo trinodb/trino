@@ -60,10 +60,10 @@ public class MemoryPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
     {
         MemoryOutputTableHandle memoryOutputTableHandle = (MemoryOutputTableHandle) outputTableHandle;
-        long tableId = memoryOutputTableHandle.getTable();
-        checkState(memoryOutputTableHandle.getActiveTableIds().contains(tableId));
+        long tableId = memoryOutputTableHandle.table();
+        checkState(memoryOutputTableHandle.activeTableIds().contains(tableId));
 
-        pagesStore.cleanUp(memoryOutputTableHandle.getActiveTableIds());
+        pagesStore.cleanUp(memoryOutputTableHandle.activeTableIds());
         pagesStore.initialize(tableId);
         return new MemoryPageSink(pagesStore, currentHostAddress, tableId);
     }
@@ -72,10 +72,10 @@ public class MemoryPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
     {
         MemoryInsertTableHandle memoryInsertTableHandle = (MemoryInsertTableHandle) insertTableHandle;
-        long tableId = memoryInsertTableHandle.getTable();
-        checkState(memoryInsertTableHandle.getActiveTableIds().contains(tableId));
+        long tableId = memoryInsertTableHandle.table();
+        checkState(memoryInsertTableHandle.activeTableIds().contains(tableId));
 
-        pagesStore.cleanUp(memoryInsertTableHandle.getActiveTableIds());
+        pagesStore.cleanUp(memoryInsertTableHandle.activeTableIds());
         pagesStore.initialize(tableId);
         return new MemoryPageSink(pagesStore, currentHostAddress, tableId);
     }

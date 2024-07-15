@@ -13,6 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
+import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.operator.aggregation.state.DoubleState;
 import io.trino.operator.aggregation.state.LongState;
 import io.trino.spi.block.BlockBuilder;
@@ -22,14 +23,15 @@ import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
-import io.trino.spi.function.RemoveInputFunction;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.function.WindowAccumulator;
+import io.trino.spi.function.WindowIndex;
 
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.type.Reals.toReal;
 import static java.lang.Float.intBitsToFloat;
 
-@AggregationFunction("avg")
+@AggregationFunction(value = "avg", windowAccumulator = RealAverageAggregation.RealAverageWindowAccumulator.class)
 @Description("Returns the average value of the argument")
 public final class RealAverageAggregation
 {
@@ -43,21 +45,6 @@ public final class RealAverageAggregation
     {
         count.setValue(count.getValue() + 1);
         sum.setValue(sum.getValue() + intBitsToFloat((int) value));
-    }
-
-    @RemoveInputFunction
-    public static boolean removeInput(
-            @AggregationState LongState count,
-            @AggregationState DoubleState sum,
-            @SqlType("REAL") long value)
-    {
-        double currentValue = sum.getValue();
-        if (Double.isFinite(currentValue)) {
-            sum.setValue(currentValue - intBitsToFloat((int) value));
-            count.setValue(count.getValue() - 1);
-            return true;
-        }
-        return false;
     }
 
     @CombineFunction
@@ -82,6 +69,73 @@ public final class RealAverageAggregation
         }
         else {
             REAL.writeLong(out, toReal((float) (sum.getValue() / count.getValue())));
+        }
+    }
+
+    public static class RealAverageWindowAccumulator
+            implements WindowAccumulator
+    {
+        private long count;
+        private double sum;
+
+        @UsedByGeneratedCode
+        public RealAverageWindowAccumulator() {}
+
+        private RealAverageWindowAccumulator(long count, double sum)
+        {
+            this.count = count;
+            this.sum = sum;
+        }
+
+        @Override
+        public long getEstimatedSize()
+        {
+            return Long.BYTES + Double.BYTES;
+        }
+
+        @Override
+        public WindowAccumulator copy()
+        {
+            return new RealAverageWindowAccumulator(count, sum);
+        }
+
+        @Override
+        public void addInput(WindowIndex index, int startPosition, int endPosition)
+        {
+            for (int i = startPosition; i <= endPosition; i++) {
+                if (!index.isNull(0, i)) {
+                    sum += intBitsToFloat((int) index.getLong(0, i));
+                    count++;
+                }
+            }
+        }
+
+        @Override
+        public boolean removeInput(WindowIndex index, int startPosition, int endPosition)
+        {
+            // If sum is finite, all value to be removed are finite
+            if (!Double.isFinite(sum)) {
+                return false;
+            }
+
+            for (int i = startPosition; i <= endPosition; i++) {
+                if (!index.isNull(0, i)) {
+                    sum -= intBitsToFloat((int) index.getLong(0, i));
+                    count--;
+                }
+            }
+            return true;
+        }
+
+        @Override
+        public void output(BlockBuilder blockBuilder)
+        {
+            if (count == 0) {
+                blockBuilder.appendNull();
+            }
+            else {
+                REAL.writeLong(blockBuilder, toReal((float) (sum / count)));
+            }
         }
     }
 }

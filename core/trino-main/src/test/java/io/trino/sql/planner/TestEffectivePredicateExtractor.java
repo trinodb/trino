@@ -50,7 +50,6 @@ import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.In;
 import io.trino.sql.ir.IrUtils;
 import io.trino.sql.ir.IsNull;
-import io.trino.sql.ir.Not;
 import io.trino.sql.ir.Reference;
 import io.trino.sql.ir.Row;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -102,6 +101,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.ir.Booleans.FALSE;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.ir.IrUtils.and;
 import static io.trino.sql.ir.IrUtils.combineConjuncts;
 import static io.trino.sql.ir.IrUtils.or;
@@ -147,7 +147,7 @@ public class TestEffectivePredicateExtractor
                     TEST_CATALOG_HANDLE,
                     TestingConnectorTransactionHandle.INSTANCE,
                     new ConnectorTableProperties(
-                            ((PredicatedTableHandle) handle.getConnectorHandle()).getPredicate(),
+                            ((PredicatedTableHandle) handle.connectorHandle()).getPredicate(),
                             Optional.empty(),
                             Optional.empty(),
                             ImmutableList.of()));
@@ -168,14 +168,14 @@ public class TestEffectivePredicateExtractor
         scanAssignments = ImmutableMap.<Symbol, ColumnHandle>builder()
                 .put(new Symbol(BIGINT, "a"), new TestingColumnHandle("a"))
                 .put(new Symbol(BIGINT, "b"), new TestingColumnHandle("b"))
-                .put(new Symbol(DOUBLE, "c"), new TestingColumnHandle("c"))
-                .put(new Symbol(REAL, "d"), new TestingColumnHandle("d"))
-                .put(new Symbol(UNKNOWN, "e"), new TestingColumnHandle("e"))
-                .put(new Symbol(UNKNOWN, "f"), new TestingColumnHandle("f"))
+                .put(new Symbol(BIGINT, "c"), new TestingColumnHandle("c"))
+                .put(new Symbol(BIGINT, "d"), new TestingColumnHandle("d"))
+                .put(new Symbol(BIGINT, "e"), new TestingColumnHandle("e"))
+                .put(new Symbol(BIGINT, "f"), new TestingColumnHandle("f"))
                 .put(new Symbol(RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)), "r"), new TestingColumnHandle("r"))
                 .buildOrThrow();
 
-        Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"), new Symbol(DOUBLE, "c"), new Symbol(REAL, "d"), new Symbol(UNKNOWN, "e"), new Symbol(UNKNOWN, "f"))));
+        Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b"), new Symbol(BIGINT, "c"), new Symbol(BIGINT, "d"), new Symbol(BIGINT, "e"), new Symbol(BIGINT, "f"))));
         baseTableScan = TableScanNode.newInstance(
                 newId(),
                 makeTableHandle(TupleDomain.all()),
@@ -532,8 +532,8 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Symbol(BIGINT, "a")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1))),
-                                new Row(ImmutableList.of(bigintLiteral(2)))))
-        )).isEqualTo(new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(2))));
+                                new Row(ImmutableList.of(bigintLiteral(3)))))
+        )).isEqualTo(new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(3))));
 
         // one column with null
         assertThat(effectivePredicateExtractor.extract(
@@ -543,11 +543,11 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Symbol(BIGINT, "a")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1))),
-                                new Row(ImmutableList.of(bigintLiteral(2))),
+                                new Row(ImmutableList.of(bigintLiteral(3))),
                                 new Row(ImmutableList.of(new Constant(BIGINT, null)))))))
                 .isEqualTo(or(
                         new IsNull(new Reference(BIGINT, "a")),
-                        new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(2)))));
+                        new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(3)))));
 
         // all nulls
         assertThat(effectivePredicateExtractor.extract(
@@ -588,7 +588,7 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(new Symbol(DOUBLE, "c")),
                         ImmutableList.of(new Row(ImmutableList.of(doubleLiteral(Double.NaN)))))
-        )).isEqualTo(new Not(new IsNull(new Reference(DOUBLE, "c"))));
+        )).isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(DOUBLE, "c"))));
 
         // NaN and NULL
         assertThat(effectivePredicateExtractor.extract(
@@ -610,7 +610,7 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(
                                 new Row(ImmutableList.of(doubleLiteral(42.))),
                                 new Row(ImmutableList.of(doubleLiteral(Double.NaN)))))
-        )).isEqualTo(new Not(new IsNull(new Reference(DOUBLE, "x"))));
+        )).isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(DOUBLE, "x"))));
 
         // Real NaN
         assertThat(effectivePredicateExtractor.extract(
@@ -619,7 +619,7 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(new Symbol(REAL, "d")),
                         ImmutableList.of(new Row(ImmutableList.of(new Cast(doubleLiteral(Double.NaN), REAL)))))))
-                .isEqualTo(new Not(new IsNull(new Reference(REAL, "d"))));
+                .isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(REAL, "d"))));
 
         // multiple columns
         assertThat(effectivePredicateExtractor.extract(
@@ -629,9 +629,9 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1), bigintLiteral(100))),
-                                new Row(ImmutableList.of(bigintLiteral(2), bigintLiteral(200)))))))
+                                new Row(ImmutableList.of(bigintLiteral(3), bigintLiteral(200)))))))
                 .isEqualTo(and(
-                        new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(2))),
+                        new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(3))),
                         new In(new Reference(BIGINT, "b"), ImmutableList.of(bigintLiteral(100), bigintLiteral(200)))));
 
         // multiple columns with null

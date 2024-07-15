@@ -16,6 +16,7 @@ package io.trino.metadata;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
+import io.trino.spi.RefreshType;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -397,7 +398,7 @@ public interface Metadata
     /**
      * Begin refresh materialized view query
      */
-    InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles);
+    InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, List<TableHandle> sourceTableHandles, RefreshType refreshType);
 
     /**
      * Finish refresh materialized view query
@@ -457,7 +458,7 @@ public interface Metadata
     /**
      * Finish merge query
      */
-    void finishMerge(Session session, MergeHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
+    void finishMerge(Session session, MergeHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     /**
      * Returns a catalog handle for the specified catalog name.
@@ -479,18 +480,17 @@ public interface Metadata
      */
     Map<QualifiedObjectName, ViewInfo> getViews(Session session, QualifiedTablePrefix prefix);
 
-    /**
-     * Is the specified table a view.
-     */
-    default boolean isView(Session session, QualifiedObjectName viewName)
-    {
-        return getView(session, viewName).isPresent();
-    }
+    boolean isView(Session session, QualifiedObjectName viewName);
 
     /**
      * Returns the view definition for the specified view name.
      */
     Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Returns the view definition for the specified view name.
+     */
+    Map<String, Object> getViewProperties(Session session, QualifiedObjectName viewName);
 
     /**
      * Gets the schema properties for the specified schema.
@@ -505,7 +505,7 @@ public interface Metadata
     /**
      * Creates the specified view with the specified view definition.
      */
-    void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, boolean replace);
+    void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> properties, boolean replace);
 
     /**
      * Rename the specified view.
@@ -741,6 +741,8 @@ public interface Metadata
     AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
 
     FunctionDependencyDeclaration getFunctionDependencies(Session session, CatalogHandle catalogHandle, FunctionId functionId, BoundSignature boundSignature);
+
+    Collection<LanguageFunction> getLanguageFunctions(Session session, QualifiedObjectName name);
 
     boolean languageFunctionExists(Session session, QualifiedObjectName name, String signatureToken);
 

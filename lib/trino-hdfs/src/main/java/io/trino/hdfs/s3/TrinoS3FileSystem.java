@@ -30,6 +30,7 @@ import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.auth.Signer;
 import com.amazonaws.auth.SignerFactory;
+import com.amazonaws.auth.WebIdentityTokenCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
@@ -62,6 +63,7 @@ import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.s3.model.KMSEncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
+import com.amazonaws.services.s3.model.MultiObjectDeleteException;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PartETag;
 import com.amazonaws.services.s3.model.PutObjectRequest;
@@ -181,6 +183,7 @@ import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.fs.FSExceptionMessages.CANNOT_SEEK_PAST_EOF;
 import static org.apache.hadoop.fs.FSExceptionMessages.NEGATIVE_SEEK;
@@ -192,6 +195,7 @@ public class TrinoS3FileSystem
 {
     public static final String S3_USER_AGENT_PREFIX = "trino.s3.user-agent-prefix";
     public static final String S3_CREDENTIALS_PROVIDER = "trino.s3.credentials-provider";
+    public static final String S3_USE_WEB_IDENTITY_TOKEN_CREDENTIALS_PROVIDER = "trino.s3.use-web-identity-token-credentials-provider";
     public static final String S3_SSE_TYPE = "trino.s3.sse.type";
     public static final String S3_SSE_ENABLED = "trino.s3.sse.enabled";
     public static final String S3_SSE_KMS_KEY_ID = "trino.s3.sse.kms-key-id";
@@ -776,6 +780,12 @@ public class TrinoS3FileSystem
                 deletePaths(currentBatch);
             }
         }
+        catch (MultiObjectDeleteException e) {
+            String errors = e.getErrors().stream()
+                    .map(error -> format("key: %s, versionId: %s, code: %s, message: %s", error.getKey(), error.getVersionId(), error.getCode(), error.getMessage()))
+                    .collect(joining(", "));
+            throw new IOException("Exception while batch deleting paths: %s".formatted(errors), e);
+        }
         catch (AmazonClientException e) {
             throw new IOException("Exception while batch deleting paths", e);
         }
@@ -1146,6 +1156,10 @@ public class TrinoS3FileSystem
         Optional<AWSCredentials> credentials = getEmbeddedAwsCredentials(uri);
         if (credentials.isPresent()) {
             return new AWSStaticCredentialsProvider(credentials.get());
+        }
+
+        if (conf.getBoolean(S3_USE_WEB_IDENTITY_TOKEN_CREDENTIALS_PROVIDER, false)) {
+            return new WebIdentityTokenCredentialsProvider();
         }
 
         // a custom credential provider is also used alone
@@ -1523,7 +1537,7 @@ public class TrinoS3FileSystem
                             return;
                         }
                     }
-                    catch (IOException ignored) {
+                    catch (IOException _) {
                         // will retry by re-opening the stream
                     }
                 }
@@ -1617,7 +1631,7 @@ public class TrinoS3FileSystem
                     in.close();
                 }
             }
-            catch (IOException | AbortedException ignored) {
+            catch (IOException | AbortedException _) {
                 // thrown if the current thread is in the interrupted state
             }
         }

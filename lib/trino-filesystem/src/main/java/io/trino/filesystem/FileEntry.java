@@ -14,10 +14,12 @@
 package io.trino.filesystem;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -26,7 +28,7 @@ import static java.lang.Math.max;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
-public record FileEntry(Location location, long length, Instant lastModified, Optional<List<Block>> blocks)
+public record FileEntry(Location location, long length, Instant lastModified, Optional<List<Block>> blocks, Set<String> tags)
 {
     public FileEntry
     {
@@ -34,6 +36,12 @@ public record FileEntry(Location location, long length, Instant lastModified, Op
         requireNonNull(location, "location is null");
         requireNonNull(blocks, "blocks is null");
         blocks = blocks.map(locations -> validatedBlocks(locations, length));
+        tags = ImmutableSet.copyOf(requireNonNull(tags, "tags is null"));
+    }
+
+    public FileEntry(Location location, long length, Instant lastModified, Optional<List<Block>> blocks)
+    {
+        this(location, length, lastModified, blocks, ImmutableSet.of());
     }
 
     public record Block(List<String> hosts, long offset, long length)

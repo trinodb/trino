@@ -235,7 +235,7 @@ abstract class SimulationSplit
                     return false;
                 }
             }
-            catch (InterruptedException ignored) {
+            catch (InterruptedException _) {
                 setKilled();
                 return true;
             }
@@ -258,12 +258,12 @@ abstract class SimulationSplit
                         }
                         setSplitReady();
                     }
-                    catch (RuntimeException ignored) {
+                    catch (RuntimeException _) {
                         setKilled();
                     }
                 }, betweenQuantaNanos, NANOSECONDS);
             }
-            catch (RejectedExecutionException ignored) {
+            catch (RejectedExecutionException _) {
                 setKilled();
                 return doneFuture;
             }

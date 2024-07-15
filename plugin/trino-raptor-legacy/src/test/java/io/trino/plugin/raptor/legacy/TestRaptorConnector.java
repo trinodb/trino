@@ -284,6 +284,6 @@ public class TestRaptorConnector
 
     private static ConnectorTableHandle getTableHandle(ConnectorMetadata metadata, String name)
     {
-        return metadata.getTableHandle(SESSION, new SchemaTableName("test", name));
+        return metadata.getTableHandle(SESSION, new SchemaTableName("test", name), Optional.empty(), Optional.empty());
     }
 }

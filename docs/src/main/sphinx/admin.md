@@ -24,4 +24,5 @@ admin/fault-tolerant-execution
 
 admin/event-listeners-http
 admin/event-listeners-mysql
+admin/event-listeners-openlineage
 ```

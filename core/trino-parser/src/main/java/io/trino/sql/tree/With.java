@@ -81,7 +81,7 @@ public class With
             return false;
         }
         With o = (With) obj;
-        return Objects.equals(recursive, o.recursive) &&
+        return recursive == o.recursive &&
                 Objects.equals(queries, o.queries);
     }
 

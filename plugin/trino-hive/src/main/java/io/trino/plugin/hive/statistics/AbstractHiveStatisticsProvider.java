@@ -195,13 +195,13 @@ public abstract class AbstractHiveStatisticsProvider
     static void validatePartitionStatistics(SchemaTableName table, Map<String, PartitionStatistics> partitionStatistics)
     {
         partitionStatistics.forEach((partition, statistics) -> {
-            HiveBasicStatistics basicStatistics = statistics.getBasicStatistics();
+            HiveBasicStatistics basicStatistics = statistics.basicStatistics();
             OptionalLong rowCount = basicStatistics.getRowCount();
             rowCount.ifPresent(count -> checkStatistics(count >= 0, table, partition, "rowCount must be greater than or equal to zero: %s", count));
             basicStatistics.getFileCount().ifPresent(count -> checkStatistics(count >= 0, table, partition, "fileCount must be greater than or equal to zero: %s", count));
             basicStatistics.getInMemoryDataSizeInBytes().ifPresent(size -> checkStatistics(size >= 0, table, partition, "inMemoryDataSizeInBytes must be greater than or equal to zero: %s", size));
             basicStatistics.getOnDiskDataSizeInBytes().ifPresent(size -> checkStatistics(size >= 0, table, partition, "onDiskDataSizeInBytes must be greater than or equal to zero: %s", size));
-            statistics.getColumnStatistics().forEach((column, columnStatistics) -> validateColumnStatistics(table, partition, column, rowCount, columnStatistics));
+            statistics.columnStatistics().forEach((column, columnStatistics) -> validateColumnStatistics(table, partition, column, rowCount, columnStatistics));
         });
     }
 
@@ -394,7 +394,7 @@ public abstract class AbstractHiveStatisticsProvider
     static Optional<PartitionsRowCount> calculatePartitionsRowCount(Collection<PartitionStatistics> statistics, int queriedPartitionsCount)
     {
         long[] rowCounts = statistics.stream()
-                .map(PartitionStatistics::getBasicStatistics)
+                .map(PartitionStatistics::basicStatistics)
                 .map(HiveBasicStatistics::getRowCount)
                 .filter(OptionalLong::isPresent)
                 .mapToLong(OptionalLong::getAsLong)
@@ -610,7 +610,7 @@ public abstract class AbstractHiveStatisticsProvider
         if (partitionStatistics == null) {
             return OptionalDouble.empty();
         }
-        OptionalLong rowCount = partitionStatistics.getBasicStatistics().getRowCount();
+        OptionalLong rowCount = partitionStatistics.basicStatistics().getRowCount();
         if (rowCount.isPresent()) {
             verify(rowCount.getAsLong() >= 0, "rowCount must be greater than or equal to zero");
             return OptionalDouble.of(rowCount.getAsLong());
@@ -657,7 +657,7 @@ public abstract class AbstractHiveStatisticsProvider
     static ColumnStatistics createDataColumnStatistics(String column, Type type, double rowsCount, Collection<PartitionStatistics> partitionStatistics)
     {
         List<HiveColumnStatistics> columnStatistics = partitionStatistics.stream()
-                .map(PartitionStatistics::getColumnStatistics)
+                .map(PartitionStatistics::columnStatistics)
                 .map(statistics -> statistics.get(column))
                 .filter(Objects::nonNull)
                 .collect(toImmutableList());
@@ -690,7 +690,7 @@ public abstract class AbstractHiveStatisticsProvider
     @VisibleForTesting
     static OptionalLong getDistinctValuesCount(String column, PartitionStatistics partitionStatistics)
     {
-        HiveColumnStatistics statistics = partitionStatistics.getColumnStatistics().get(column);
+        HiveColumnStatistics statistics = partitionStatistics.columnStatistics().get(column);
         if (statistics == null) {
             return OptionalLong.empty();
         }
@@ -716,12 +716,12 @@ public abstract class AbstractHiveStatisticsProvider
         }
 
         // if there is non-null row the distinct values count should be at least 1
-        if (distinctValuesCount == 0 && nullsCount < partitionStatistics.getBasicStatistics().getRowCount().orElse(0)) {
+        if (distinctValuesCount == 0 && nullsCount < partitionStatistics.basicStatistics().getRowCount().orElse(0)) {
             distinctValuesCount = 1;
         }
 
         // Hive can produce distinct values that are much larger than the actual number of rows in the partition
-        distinctValuesCount = min(distinctValuesCount, partitionStatistics.getBasicStatistics().getRowCount().orElse(Long.MAX_VALUE) - nullsCount);
+        distinctValuesCount = min(distinctValuesCount, partitionStatistics.basicStatistics().getRowCount().orElse(Long.MAX_VALUE) - nullsCount);
         return OptionalLong.of(distinctValuesCount);
     }
 
@@ -730,10 +730,10 @@ public abstract class AbstractHiveStatisticsProvider
     {
         List<PartitionStatistics> statisticsWithKnownRowCountAndNullsCount = partitionStatistics.stream()
                 .filter(statistics -> {
-                    if (statistics.getBasicStatistics().getRowCount().isEmpty()) {
+                    if (statistics.basicStatistics().getRowCount().isEmpty()) {
                         return false;
                     }
-                    HiveColumnStatistics columnStatistics = statistics.getColumnStatistics().get(column);
+                    HiveColumnStatistics columnStatistics = statistics.columnStatistics().get(column);
                     if (columnStatistics == null) {
                         return false;
                     }
@@ -748,9 +748,9 @@ public abstract class AbstractHiveStatisticsProvider
         long totalNullsCount = 0;
         long totalRowCount = 0;
         for (PartitionStatistics statistics : statisticsWithKnownRowCountAndNullsCount) {
-            long rowCount = statistics.getBasicStatistics().getRowCount().orElseThrow(() -> new VerifyException("rowCount is not present"));
+            long rowCount = statistics.basicStatistics().getRowCount().orElseThrow(() -> new VerifyException("rowCount is not present"));
             verify(rowCount >= 0, "rowCount must be greater than or equal to zero");
-            HiveColumnStatistics columnStatistics = statistics.getColumnStatistics().get(column);
+            HiveColumnStatistics columnStatistics = statistics.columnStatistics().get(column);
             verifyNotNull(columnStatistics, "columnStatistics is null");
             long nullsCount = columnStatistics.getNullsCount().orElseThrow(() -> new VerifyException("nullsCount is not present"));
             verify(nullsCount >= 0, "nullsCount must be greater than or equal to zero");
@@ -776,10 +776,10 @@ public abstract class AbstractHiveStatisticsProvider
     {
         List<PartitionStatistics> statisticsWithKnownRowCountAndDataSize = partitionStatistics.stream()
                 .filter(statistics -> {
-                    if (statistics.getBasicStatistics().getRowCount().isEmpty()) {
+                    if (statistics.basicStatistics().getRowCount().isEmpty()) {
                         return false;
                     }
-                    HiveColumnStatistics columnStatistics = statistics.getColumnStatistics().get(column);
+                    HiveColumnStatistics columnStatistics = statistics.columnStatistics().get(column);
                     if (columnStatistics == null) {
                         return false;
                     }
@@ -794,10 +794,10 @@ public abstract class AbstractHiveStatisticsProvider
         long knownRowCount = 0;
         double knownDataSize = 0;
         for (PartitionStatistics statistics : statisticsWithKnownRowCountAndDataSize) {
-            long rowCount = statistics.getBasicStatistics().getRowCount().orElseThrow(() -> new VerifyException("rowCount is not present"));
+            long rowCount = statistics.basicStatistics().getRowCount().orElseThrow(() -> new VerifyException("rowCount is not present"));
             verify(rowCount >= 0, "rowCount must be greater than or equal to zero");
 
-            HiveColumnStatistics columnStatistics = statistics.getColumnStatistics().get(column);
+            HiveColumnStatistics columnStatistics = statistics.columnStatistics().get(column);
             verifyNotNull(columnStatistics, "columnStatistics is null");
 
             long nullCount = columnStatistics.getNullsCount().orElse(0);

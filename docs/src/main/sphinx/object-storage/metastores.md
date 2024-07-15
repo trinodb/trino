@@ -10,7 +10,6 @@ partition projection metadata or implement first class support for Avro tables.
 These requirements are discussed later in this topic.
 
 (general-metastore-properties)=
-
 ## General metastore configuration properties
 
 The following table describes general metastore configuration properties, most
@@ -41,16 +40,29 @@ are also available. They are discussed later in this topic.
     object storage itself. A small amount of metadata, however, still requires
     the use of a metastore. In the Iceberg ecosystem, these smaller metastores
     are called Iceberg metadata catalogs, or just catalogs. The examples in each
-    subsection depict the contents of a Trino catalog file that uses the the
+    subsection depict the contents of a Trino catalog file that uses the
     Iceberg connector to configures different Iceberg metadata catalogs.
 
     You must set this property in all Iceberg catalog property files. Valid
-    values are `HIVE_METASTORE`, `GLUE`, `JDBC`, `REST`, and `NESSIE`.
-  -
+    values are `hive_metastore`, `glue`, `jdbc`, `rest`, `nessie`, and
+    `snowflake`.
+  - `hive_metastore`
 * - `hive.metastore-cache.cache-partitions`
   - Enable caching for partition metadata. You can disable caching to avoid
     inconsistent behavior that results from it.
   - `true`
+* - `hive.metastore-cache.cache-missing`
+  - Enable caching the fact that a table is missing to prevent future metastore
+    calls for that table.
+  - `true`
+* - `hive.metastore-cache.cache-missing-partitions`
+  - Enable caching the fact that a partition is missing to prevent future
+    metastore calls for that partition.
+  - `false`
+* - `hive.metastore-cache.cache-missing-stats`
+  - Enable caching the fact that table statistics for a specific table are 
+    missing to prevent future metastore calls.
+  - `false`
 * - `hive.metastore-cache-ttl`
   - Duration of how long cached metastore data is considered valid.
   - `0s`
@@ -75,7 +87,6 @@ are also available. They are discussed later in this topic.
 :::
 
 (hive-thrift-metastore)=
-
 ## Thrift metastore configuration properties
 
 In order to use a Hive Thrift metastore, you must configure the metastore with
@@ -183,6 +194,13 @@ properties:
 * - `hive.metastore.thrift.txn-lock-max-wait`
   - Maximum time to wait to acquire hive transaction lock.
   - `10m`
+* - `hive.metastore.thrift.catalog-name`
+  - The term "Hive metastore catalog name" refers to the abstraction concept
+    within Hive, enabling various systems to connect to distinct, independent
+    catalogs stored in the metastore. By default, the catalog name in Hive
+    metastore is set to "hive." When this configuration property is left empty,
+    the default catalog of the Hive metastore will be accessed.
+  -
 :::
 
 Use the following configuration properties for HTTP client transport mode, so
@@ -213,6 +231,7 @@ when the `hive.metastore.uri` uses the `http://` or `https://` protocol.
     header values for Unity catalog.
 :::
 
+(hive-thrift-metastore-authentication)=
 ### Thrift metastore authentication
 
 In a Kerberized Hadoop cluster, Trino connects to the Hive metastore Thrift
@@ -316,14 +335,11 @@ property, and verifies that the identity of the metastore matches
 When using `KERBEROS` Metastore authentication with impersonation, the
 principal specified by the `hive.metastore.client.principal` property must be
 allowed to impersonate the current Trino user, as discussed in the section
-{ref}`configuring-hadoop-impersonation`.
+[](hdfs-security-impersonation).
 
 Keytab files must be distributed to every node in the Trino cluster.
 
-{ref}`Additional information about Keytab Files.<hive-security-additional-keytab>`
-
 (hive-glue-metastore)=
-
 ## AWS Glue catalog configuration properties
 
 In order to use an AWS Glue catalog, you must configure your catalog file as
@@ -412,7 +428,6 @@ properties:
 :::
 
 (iceberg-glue-catalog)=
-
 ### Iceberg-specific Glue catalog configuration properties
 
 When using the Glue catalog, the Iceberg connector supports the same
@@ -445,7 +460,6 @@ Iceberg-specific REST, Nessie or JDBC metadata catalogs, as discussed in this
 section.
 
 (iceberg-rest-catalog)=
-
 ### REST catalog
 
 In order to use the Iceberg REST catalog, configure the catalog type
@@ -461,6 +475,9 @@ following properties:
 * - `iceberg.rest-catalog.uri`
   - REST server API endpoint URI (required). Example:
     `http://iceberg-with-rest:8181`
+* - `iceberg.rest-catalog.prefix`
+  - The prefix for the resource path to use with the REST catalog server (optional).
+    Example: `dev`
 * - `iceberg.rest-catalog.warehouse`
   - Warehouse identifier/location for the catalog (optional). Example:
     `s3://my_bucket/warehouse_location`
@@ -488,16 +505,18 @@ iceberg.catalog.type=rest
 iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
 ```
 
-The REST catalog does not support [view management](sql-view-management) or
-[materialized view management](sql-materialized-view-management).
+The REST catalog supports [view management](sql-view-management) 
+using the [Iceberg View specification](https://iceberg.apache.org/view-spec/).
+
+The REST catalog does not support [materialized view management](sql-materialized-view-management).
 
 (iceberg-jdbc-catalog)=
-
 ### JDBC catalog
 
 The Iceberg JDBC catalog is supported for the Iceberg connector.  At a minimum,
-`iceberg.jdbc-catalog.driver-class`, `iceberg.jdbc-catalog.connection-url`
-and `iceberg.jdbc-catalog.catalog-name` must be configured. When using any
+`iceberg.jdbc-catalog.driver-class`, `iceberg.jdbc-catalog.connection-url`,
+`iceberg.jdbc-catalog.default-warehouse-dir`, and
+`iceberg.jdbc-catalog.catalog-name` must be configured. When using any
 database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin
 directory.
 
@@ -506,17 +525,13 @@ The JDBC catalog may have compatibility issues if Iceberg introduces breaking
 changes in the future. Consider the {ref}`REST catalog
 <iceberg-rest-catalog>` as an alternative solution.
 
-The JDBC catalog requires the metadata tables to already exist. 
+The JDBC catalog requires the metadata tables to already exist.
 Refer to [Iceberg repository](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/jdbc/JdbcUtil.java)
 for creating those tables.
 :::
 
-At a minimum, `iceberg.jdbc-catalog.driver-class`,
-`iceberg.jdbc-catalog.connection-url`, and
-`iceberg.jdbc-catalog.catalog-name` must be configured. When using any
-database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin
-directory. The following example shows a minimal catalog configuration using an
-Iceberg REST metadata catalog:
+The following example shows a minimal catalog configuration using an
+Iceberg JDBC metadata catalog:
 
 ```text
 connector.name=iceberg
@@ -533,7 +548,6 @@ The JDBC catalog does not support [view management](sql-view-management) or
 [materialized view management](sql-materialized-view-management).
 
 (iceberg-nessie-catalog)=
-
 ### Nessie catalog
 
 In order to use a Nessie catalog, configure the catalog type with
@@ -548,7 +562,7 @@ properties:
   - Description
 * - `iceberg.nessie-catalog.uri`
   - Nessie API endpoint URI (required). Example:
-    `https://localhost:19120/api/v1`
+    `https://localhost:19120/api/v2`
 * - `iceberg.nessie-catalog.ref`
   - The branch/tag to use for Nessie. Defaults to `main`.
 * - `iceberg.nessie-catalog.default-warehouse-dir`
@@ -569,20 +583,72 @@ properties:
 * - `iceberg.nessie-catalog.authentication.token`
   - The token to use with `BEARER` authentication. Example:
 `SXVLUXUhIExFQ0tFUiEK`
+* - `iceberg.nessie-catalog.client-api-version`
+  - Optional version of the Client API version to use. By default it is inferred from the `iceberg.nessie-catalog.uri` value.
+    Valid values are `V1` or `V2`.
 :::
 
 ```text
 connector.name=iceberg
 iceberg.catalog.type=nessie
-iceberg.nessie-catalog.uri=https://localhost:19120/api/v1
+iceberg.nessie-catalog.uri=https://localhost:19120/api/v2
 iceberg.nessie-catalog.default-warehouse-dir=/tmp
 ```
 
 The Nessie catalog does not support [view management](sql-view-management) or
 [materialized view management](sql-materialized-view-management).
 
-(partition-projection)=
+(iceberg-snowflake-catalog)=
+### Snowflake catalog
 
+In order to use a Snowflake catalog, configure the catalog type with
+`iceberg.catalog.type=snowflake` and provide further details with the following
+properties:
+
+:::{list-table} Snowflake catalog configuration properties
+:widths: 40, 60
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `iceberg.snowflake-catalog.account-uri`
+  - Snowflake JDBC account URI (required). Example:
+    `jdbc:snowflake://example123456789.snowflakecomputing.com`
+* - `iceberg.snowflake-catalog.user`
+  - Snowflake user (required).
+* - `iceberg.snowflake-catalog.password`
+  - Snowflake password (required).
+* - `iceberg.snowflake-catalog.database`
+  - Snowflake database name (required).
+* - `iceberg.snowflake-catalog.role`
+  - Snowflake role name
+:::
+
+```text
+connector.name=iceberg
+iceberg.catalog.type=snowflake
+iceberg.snowflake-catalog.account-uri=jdbc:snowflake://example1234567890.snowflakecomputing.com
+iceberg.snowflake-catalog.user=user
+iceberg.snowflake-catalog.password=secret
+iceberg.snowflake-catalog.database=db
+```
+
+When using the Snowflake catalog, data management tasks such as creating tables,
+must be performed in Snowflake because using the catalog from external systems
+like Trino only supports `SELECT` queries and other [read operations](sql-read-operations).
+
+Additionally, the [Snowflake-created Iceberg
+tables](https://docs.snowflake.com/en/sql-reference/sql/create-iceberg-table-snowflake)
+do not expose partitioning information, which prevents efficient parallel reads
+and therefore can have significant negative performance implications.
+
+The Snowflake catalog does not support [view management](sql-view-management) or
+[materialized view management](sql-materialized-view-management).
+
+Further information is available in the [Snowflake catalog
+documentation](https://docs.snowflake.com/en/user-guide/tables-iceberg-catalog).
+
+(partition-projection)=
 ## Access tables with Athena partition projection metadata
 
 [Partition projection](https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html)

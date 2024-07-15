@@ -93,7 +93,7 @@ public class TestHive3OnDataLake
         this.metastoreClient = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
                         .metastoreClient(this.hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
-                        .build());
+                        .build(this::closeAfterClass));
         return S3HiveQueryRunner.builder(hiveMinioDataLake)
                 .addExtraProperty("sql.path", "hive.functions")
                 .addExtraProperty("sql.default-function-catalog", "hive")
@@ -273,6 +273,68 @@ public class TestHive3OnDataLake
         getQueryRunner().execute("CALL system.sync_partition_metadata(schema_name => '" + HIVE_TEST_SCHEMA + "', table_name => '" + tableName + "', mode => 'FULL', case_sensitive => false)");
         assertQuery("SELECT * FROM " + fullyQualifiedTestTableName, "VALUES ('Trino', 'rocks', 'part_val')");
 
+        // Verify that syncing again the partition metadata has no negative effect (e.g. drop the partition)
+        getQueryRunner().execute("CALL system.sync_partition_metadata(schema_name => '" + HIVE_TEST_SCHEMA + "', table_name => '" + tableName + "', mode => 'FULL', case_sensitive => false)");
+        assertQuery("SELECT * FROM " + fullyQualifiedTestTableName, "VALUES ('Trino', 'rocks', 'part_val')");
+
+        assertUpdate("DROP TABLE " + fullyQualifiedTestTableName);
+    }
+
+    @Test
+    public void testSyncPartitionSpecialCharacters()
+    {
+        String tableName = "test_sync_partition_special_characters_" + randomNameSuffix();
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        String tableLocation = format("s3://%s/%s/%s/", bucketName, HIVE_TEST_SCHEMA, tableName);
+
+        hiveMinioDataLake.getMinioClient().putObject(
+                bucketName,
+                "Trino\u0001rocks\u0001hyphens".getBytes(UTF_8),
+                HIVE_TEST_SCHEMA + "/" + tableName + "/part_key=with-hyphen/data.txt");
+        hiveMinioDataLake.getMinioClient().putObject(
+                bucketName,
+                "Trino\u0001rocks\u0001dots".getBytes(UTF_8),
+                HIVE_TEST_SCHEMA + "/" + tableName + "/part_key=with.dot/data.txt");
+        hiveMinioDataLake.getMinioClient().putObject(
+                bucketName,
+                "Trino\u0001rocks\u0001colons".getBytes(UTF_8),
+                HIVE_TEST_SCHEMA + "/" + tableName + "/part_key=with%3Acolon/data.txt");
+        hiveMinioDataLake.getMinioClient().putObject(
+                bucketName,
+                "Trino\u0001rocks\u0001slashes".getBytes(UTF_8),
+                HIVE_TEST_SCHEMA + "/" + tableName + "/part_key=with%2Fslash/data.txt");
+        hiveMinioDataLake.getMinioClient().putObject(
+                bucketName,
+                "Trino\u0001rocks\u0001backslashes".getBytes(UTF_8),
+                HIVE_TEST_SCHEMA + "/" + tableName + "/part_key=with%5Cbackslash/data.txt");
+        hiveMinioDataLake.getMinioClient().putObject(
+                bucketName,
+                "Trino\u0001rocks\u0001percents".getBytes(UTF_8),
+                HIVE_TEST_SCHEMA + "/" + tableName + "/part_key=with%25percent/data.txt");
+
+        assertUpdate("CREATE TABLE " + fullyQualifiedTestTableName + "(" +
+                " a varchar," +
+                " b varchar," +
+                " c varchar," +
+                " part_key varchar)" +
+                "WITH (" +
+                " external_location='" + tableLocation + "'," +
+                " partitioned_by=ARRAY['part_key']," +
+                " format='TEXTFILE'" +
+                ")");
+
+        getQueryRunner().execute("CALL system.sync_partition_metadata(schema_name => '" + HIVE_TEST_SCHEMA + "', table_name => '" + tableName + "', mode => 'ADD')");
+        assertQuery(
+                "SELECT * FROM " + fullyQualifiedTestTableName,
+                """
+                    VALUES
+                            ('Trino', 'rocks', 'hyphens', 'with-hyphen'),
+                            ('Trino', 'rocks', 'dots', 'with.dot'),
+                            ('Trino', 'rocks', 'colons', 'with:colon'),
+                            ('Trino', 'rocks', 'slashes', 'with/slash'),
+                            ('Trino', 'rocks', 'backslashes', 'with\\backslash'),
+                            ('Trino', 'rocks', 'percents', 'with%percent')""");
+
         assertUpdate("DROP TABLE " + fullyQualifiedTestTableName);
     }
 
@@ -289,24 +351,6 @@ public class TestHive3OnDataLake
                 partitionColumn,
                 format(
                         "CALL system.flush_metadata_cache(schema_name => '%s', table_name => '%s', partition_columns => ARRAY['%s'], partition_values => ARRAY['0'])",
-                        HIVE_TEST_SCHEMA,
-                        tableName,
-                        partitionColumn));
-    }
-
-    @Test
-    public void testFlushPartitionCacheWithDeprecatedPartitionParams()
-    {
-        String tableName = "nation_" + randomNameSuffix();
-        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
-        String partitionColumn = "regionkey";
-
-        testFlushPartitionCache(
-                tableName,
-                fullyQualifiedTestTableName,
-                partitionColumn,
-                format(
-                        "CALL system.flush_metadata_cache(schema_name => '%s', table_name => '%s', partition_column => ARRAY['%s'], partition_value => ARRAY['0'])",
                         HIVE_TEST_SCHEMA,
                         tableName,
                         partitionColumn));

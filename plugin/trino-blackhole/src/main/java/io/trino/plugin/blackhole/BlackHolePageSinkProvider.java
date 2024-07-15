@@ -40,14 +40,14 @@ public class BlackHolePageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
     {
         BlackHoleOutputTableHandle handle = (BlackHoleOutputTableHandle) outputTableHandle;
-        return new BlackHolePageSink(executorService, handle.getPageProcessingDelay());
+        return new BlackHolePageSink(executorService, handle.pageProcessingDelay());
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
     {
         BlackHoleInsertTableHandle handle = (BlackHoleInsertTableHandle) insertTableHandle;
-        return new BlackHolePageSink(executorService, handle.getPageProcessingDelay());
+        return new BlackHolePageSink(executorService, handle.pageProcessingDelay());
     }
 
     @Override

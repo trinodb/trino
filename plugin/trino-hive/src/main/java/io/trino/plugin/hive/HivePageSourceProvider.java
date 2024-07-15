@@ -57,7 +57,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
-import static io.trino.hive.formats.HiveClassNames.ORC_SERDE_CLASS;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
@@ -67,6 +66,7 @@ import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.toColumn
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createTypeFromCoercer;
+import static io.trino.plugin.hive.coercions.CoercionUtils.extractHiveStorageFormat;
 import static io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
@@ -191,8 +191,7 @@ public class HivePageSourceProvider
         Optional<BucketAdaptation> bucketAdaptation = createBucketAdaptation(bucketConversion, tableBucketNumber, regularAndInterimColumnMappings);
         Optional<BucketValidator> bucketValidator = createBucketValidator(path, bucketValidation, tableBucketNumber, regularAndInterimColumnMappings);
 
-        boolean isOrcFile = ORC_SERDE_CLASS.equals(getDeserializerClassName(schema));
-        CoercionContext coercionContext = new CoercionContext(getTimestampPrecision(session), isOrcFile);
+        CoercionContext coercionContext = new CoercionContext(getTimestampPrecision(session), extractHiveStorageFormat(getDeserializerClassName(schema)));
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
             List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, typeManager, coercionContext);
@@ -387,7 +386,7 @@ public class HivePageSourceProvider
                 long estimatedFileSize,
                 long fileModifiedTime)
         {
-            Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
+            Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::name);
 
             // Maintain state about hive columns added to the mapping as we iterate (for validation)
             Set<Integer> baseColumnHiveIndices = new HashSet<>();

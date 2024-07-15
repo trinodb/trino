@@ -74,12 +74,12 @@ public final class BlackHolePageSourceProvider
         ImmutableList.Builder<Type> builder = ImmutableList.builder();
 
         for (ColumnHandle column : columns) {
-            builder.add(((BlackHoleColumnHandle) column).getColumnType());
+            builder.add(((BlackHoleColumnHandle) column).columnType());
         }
         List<Type> types = builder.build();
 
-        Page page = generateZeroPage(types, table.getRowsPerPage(), table.getFieldsLength());
-        return new BlackHolePageSource(page, table.getPagesPerSplit(), executorService, table.getPageProcessingDelay());
+        Page page = generateZeroPage(types, table.rowsPerPage(), table.fieldsLength());
+        return new BlackHolePageSource(page, table.pagesPerSplit(), executorService, table.pageProcessingDelay());
     }
 
     private Page generateZeroPage(List<Type> types, int rowsCount, int fieldLength)

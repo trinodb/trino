@@ -13,48 +13,16 @@
  */
 package io.trino.sql.relational;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
-
-import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class InputReferenceExpression
-        extends RowExpression
+public record InputReferenceExpression(int field, Type type)
+        implements RowExpression
 {
-    private final int field;
-    private final Type type;
-
-    @JsonCreator
-    public InputReferenceExpression(
-            @JsonProperty int field,
-            @JsonProperty Type type)
+    public InputReferenceExpression
     {
         requireNonNull(type, "type is null");
-
-        this.field = field;
-        this.type = type;
-    }
-
-    @JsonProperty
-    public int getField()
-    {
-        return field;
-    }
-
-    @Override
-    @JsonProperty
-    public Type getType()
-    {
-        return type;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(field, type);
     }
 
     @Override
@@ -67,18 +35,5 @@ public final class InputReferenceExpression
     public <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context)
     {
         return visitor.visitInputReference(this, context);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        InputReferenceExpression other = (InputReferenceExpression) obj;
-        return Objects.equals(this.field, other.field) && Objects.equals(this.type, other.type);
     }
 }

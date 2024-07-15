@@ -26,19 +26,19 @@ import io.trino.spi.type.Type;
         @JsonSubTypes.Type(value = SpecialForm.class, name = "special"),
         @JsonSubTypes.Type(value = VariableReferenceExpression.class, name = "variable"),
 })
-public abstract sealed class RowExpression
+public sealed interface RowExpression
         permits CallExpression, ConstantExpression, InputReferenceExpression, LambdaDefinitionExpression, SpecialForm, VariableReferenceExpression
 {
-    public abstract Type getType();
+    Type type();
 
     @Override
-    public abstract boolean equals(Object other);
+    boolean equals(Object other);
 
     @Override
-    public abstract int hashCode();
+    int hashCode();
 
     @Override
-    public abstract String toString();
+    String toString();
 
-    public abstract <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context);
+    <R, C> R accept(RowExpressionVisitor<R, C> visitor, C context);
 }

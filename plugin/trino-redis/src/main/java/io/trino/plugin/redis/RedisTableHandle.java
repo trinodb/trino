@@ -13,135 +13,40 @@
  */
 package io.trino.plugin.redis;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Redis specific {@link ConnectorTableHandle}.
+ *
+ * @param schemaName The schema name for this table. Is set through configuration and read
+ * using {@link RedisConnectorConfig#getDefaultSchema()}. Usually 'default'.
+ * @param tableName The table name used by Trino.
  */
-public final class RedisTableHandle
+public record RedisTableHandle(
+        String schemaName,
+        String tableName,
+        String keyDataFormat,
+        String valueDataFormat,
+        String keyName,
+        TupleDomain<ColumnHandle> constraint)
         implements ConnectorTableHandle
 {
-    /**
-     * The schema name for this table. Is set through configuration and read
-     * using {@link RedisConnectorConfig#getDefaultSchema()}. Usually 'default'.
-     */
-    private final String schemaName;
-
-    /**
-     * The table name used by Trino.
-     */
-    private final String tableName;
-
-    private final String keyDataFormat;
-    private final String keyName;
-
-    private final String valueDataFormat;
-
-    private final TupleDomain<ColumnHandle> constraint;
-
-    @JsonCreator
-    public RedisTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
-            @JsonProperty("keyDataFormat") String keyDataFormat,
-            @JsonProperty("valueDataFormat") String valueDataFormat,
-            @JsonProperty("keyName") String keyName,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+    public RedisTableHandle
     {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.keyDataFormat = requireNonNull(keyDataFormat, "keyDataFormat is null");
-        this.valueDataFormat = requireNonNull(valueDataFormat, "valueDataFormat is null");
-        this.keyName = keyName;
-        this.constraint = requireNonNull(constraint, "constraint is null");
-    }
-
-    @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    @JsonProperty
-    public String getKeyDataFormat()
-    {
-        return keyDataFormat;
-    }
-
-    @JsonProperty
-    public String getKeyName()
-    {
-        return keyName;
-    }
-
-    @JsonProperty
-    public String getValueDataFormat()
-    {
-        return valueDataFormat;
-    }
-
-    @JsonProperty
-    public TupleDomain<ColumnHandle> getConstraint()
-    {
-        return constraint;
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(keyDataFormat, "keyDataFormat is null");
+        requireNonNull(valueDataFormat, "valueDataFormat is null");
+        requireNonNull(constraint, "constraint is null");
     }
 
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(schemaName, tableName, keyDataFormat, valueDataFormat, keyName, constraint);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-
-        RedisTableHandle other = (RedisTableHandle) obj;
-        return Objects.equals(this.schemaName, other.schemaName)
-                && Objects.equals(this.tableName, other.tableName)
-                && Objects.equals(this.keyDataFormat, other.keyDataFormat)
-                && Objects.equals(this.valueDataFormat, other.valueDataFormat)
-                && Objects.equals(this.keyName, other.keyName)
-                && Objects.equals(this.constraint, other.constraint);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("schemaName", schemaName)
-                .add("tableName", tableName)
-                .add("keyDataFormat", keyDataFormat)
-                .add("valueDataFormat", valueDataFormat)
-                .add("keyName", keyName)
-                .add("constraint", constraint)
-                .toString();
     }
 }

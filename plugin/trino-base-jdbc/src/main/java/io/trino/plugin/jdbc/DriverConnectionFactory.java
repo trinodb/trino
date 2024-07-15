@@ -37,36 +37,6 @@ public class DriverConnectionFactory
     private final CredentialPropertiesProvider<String, String> credentialPropertiesProvider;
     private final TracingDataSource dataSource;
 
-    /**
-     * @deprecated Use {@link #builder(Driver, String, CredentialProvider)} instead.
-     */
-    @Deprecated
-    public DriverConnectionFactory(Driver driver, BaseJdbcConfig config, CredentialProvider credentialProvider)
-    {
-        this(driver,
-                config.getConnectionUrl(),
-                new Properties(),
-                credentialProvider);
-    }
-
-    /**
-     * @deprecated Use {@link #builder(Driver, String, CredentialProvider)} instead.
-     */
-    @Deprecated
-    public DriverConnectionFactory(Driver driver, String connectionUrl, Properties connectionProperties, CredentialProvider credentialProvider)
-    {
-        this(driver, connectionUrl, connectionProperties, new DefaultCredentialPropertiesProvider(credentialProvider), OpenTelemetry.noop());
-    }
-
-    /**
-     * @deprecated Use {@link #builder(Driver, String, CredentialProvider)} instead.
-     */
-    @Deprecated
-    public DriverConnectionFactory(Driver driver, String connectionUrl, Properties connectionProperties, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
-    {
-        this(driver, connectionUrl, connectionProperties, new DefaultCredentialPropertiesProvider(credentialProvider), openTelemetry);
-    }
-
     public DriverConnectionFactory(
             Driver driver,
             String connectionUrl,

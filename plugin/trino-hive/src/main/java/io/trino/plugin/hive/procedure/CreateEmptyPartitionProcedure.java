@@ -97,7 +97,7 @@ public class CreateEmptyPartitionProcedure
 
     public void createEmptyPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<String> partitionColumnNames, List<String> partitionValues)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doCreateEmptyPartition(session, accessControl, schema, table, partitionColumnNames, partitionValues);
         }
     }
@@ -112,7 +112,7 @@ public class CreateEmptyPartitionProcedure
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.create(session.getIdentity(), true);
         hiveMetadata.beginQuery(session);
         try (UncheckedCloseable ignore = () -> hiveMetadata.cleanupQuery(session)) {
-            HiveTableHandle tableHandle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName));
+            HiveTableHandle tableHandle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schemaName, tableName), Optional.empty(), Optional.empty());
             if (tableHandle == null) {
                 throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schemaName, tableName)));
             }

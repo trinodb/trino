@@ -49,6 +49,7 @@ import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTablePartitioning;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -82,6 +83,7 @@ import java.util.function.LongConsumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -167,8 +169,12 @@ public class RaptorMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         return getTableHandle(tableName);
     }
 
@@ -379,7 +385,7 @@ public class RaptorMetadata
         List<String> bucketAssignments = shardManager.getBucketAssignments(distributionId);
         ConnectorPartitioningHandle partitioning = new RaptorPartitioningHandle(distributionId, bucketAssignments);
 
-        return Optional.of(new ConnectorTableLayout(partitioning, partitionColumns));
+        return Optional.of(new ConnectorTableLayout(partitioning, partitionColumns, false));
     }
 
     private Optional<DistributionInfo> getOrCreateDistribution(Map<String, RaptorColumnHandle> columnHandleMap, Map<String, Object> properties)
@@ -714,6 +720,20 @@ public class RaptorMetadata
         clearRollback();
 
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<ConnectorTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        RaptorTableHandle table = (RaptorTableHandle) tableHandle;
+        if (table.getPartitioningHandle().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new ConnectorTableLayout(
+                table.getPartitioningHandle().get(),
+                getBucketColumnHandles(table.getTableId()).stream()
+                        .map(RaptorColumnHandle::getColumnName)
+                        .collect(toImmutableList())));
     }
 
     @Override

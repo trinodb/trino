@@ -20,6 +20,11 @@ public class ExpressionRewriter<C>
         return null;
     }
 
+    public Expression rewriteArray(Array node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
     public Expression rewriteRow(Row node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
@@ -36,11 +41,6 @@ public class ExpressionRewriter<C>
     }
 
     public Expression rewriteLogical(Logical node, C context, ExpressionTreeRewriter<C> treeRewriter)
-    {
-        return rewriteExpression(node, context, treeRewriter);
-    }
-
-    public Expression rewriteNot(Not node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
     }

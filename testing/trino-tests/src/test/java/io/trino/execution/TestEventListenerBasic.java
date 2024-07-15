@@ -127,7 +127,9 @@ public class TestEventListenerBasic
 
         EventsCollector generatedEvents = new EventsCollector();
 
-        QueryRunner queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                .setWorkerCount(0)
+                .build();
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
@@ -1497,6 +1499,19 @@ public class TestEventListenerBasic
                                 ImmutableList.of()))));
         assertThat(event.getMetadata().getJsonPlan())
                 .isEqualTo(Optional.of(ANONYMIZED_PLAN_JSON_CODEC.toJson(anonymizedPlan)));
+    }
+
+    @Test
+    public void testAllImmediateFailureEventsPresent()
+            throws Exception
+    {
+        String immediatelyFailingQuery = "grant select on fake_catalog_%s.fake_schema.fake_table to fake_role";
+        String expectedFailure = "line 1:1: Table 'fake_catalog_%s.fake_schema.fake_table' does not exist";
+        int queryCount = 100;
+
+        for (int i = 0; i < queryCount; i++) {
+            assertFailedQuery(immediatelyFailingQuery.formatted(i), expectedFailure.formatted(i));
+        }
     }
 
     private void assertLineage(String baseQuery, Set<String> inputTables, OutputColumnMetadata... outputColumnMetadata)

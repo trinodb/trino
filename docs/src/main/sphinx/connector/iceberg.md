@@ -37,12 +37,13 @@ To use Iceberg, you need:
 
 - Access to a {ref}`Hive metastore service (HMS) <hive-thrift-metastore>`, an
   {ref}`AWS Glue catalog <iceberg-glue-catalog>`, a {ref}`JDBC catalog
-  <iceberg-jdbc-catalog>`, a {ref}`REST catalog <iceberg-rest-catalog>`, or a
-  {ref}`Nessie server <iceberg-nessie-catalog>`.
+  <iceberg-jdbc-catalog>`, a {ref}`REST catalog <iceberg-rest-catalog>`,
+  a {ref}`Nessie server <iceberg-nessie-catalog>`, or a
+  {ref}`Snowflake catalog <iceberg-snowflake-catalog>`.
 
-- Data files stored in the file formats {ref}`ORC <hive-orc-configuration>` or
-  {ref}`Parquet <hive-parquet-configuration>` (default) on a [supported file
-  system](iceberg-file-system-configuration).
+- Data files stored in the file formats
+  [Parquet](hive-parquet-configuration)(default), [ORC](hive-orc-configuration),
+  or Avro on a [supported file system](iceberg-file-system-configuration).
 
 ## General configuration
 
@@ -50,12 +51,10 @@ To configure the Iceberg connector, create a catalog properties file
 `etc/catalog/example.properties` that references the `iceberg`
 connector and defines a metastore type. The Hive metastore catalog is the
 default implementation. To use a {ref}`Hive metastore <hive-thrift-metastore>`,
-`iceberg.catalog.type` must be set to `hive_metastore` and
 `hive.metastore.uri` must be configured:
 
 ```properties
 connector.name=iceberg
-iceberg.catalog.type=hive_metastore
 hive.metastore.uri=thrift://example.net:9083
 ```
 
@@ -75,14 +74,16 @@ implementation is used:
   - Description
   - Default
 * - `iceberg.catalog.type`
-  - Define the metastore type to use. Possible values are:
+  - Define the [metastore type](general-metastore-properties) to use. Possible
+    values are:
 
     * `hive_metastore`
     * `glue`
     * `jdbc`
     * `rest`
     * `nessie`
-  -
+    * `snowflake`
+  - `hive_metastore`
 * - `iceberg.file-format`
   - Define the data storage file format for Iceberg tables. Possible values are:
 
@@ -157,18 +158,24 @@ implementation is used:
     materialized view definition. When the `storage_schema` materialized view
     property is specified, it takes precedence over this catalog property.
   - Empty
-* - `iceberg.materialized-views.hide-storage-table`
-  - Hide the information about the storage table backing the materialized view
-    in the metastore.
-  - `true`
 * - `iceberg.register-table-procedure.enabled`
-  - Enable to allow user to call `register_table` procedure.
+  - Enable to allow user to call [`register_table` procedure](iceberg-register-table).
   - `false`
 * - `iceberg.query-partition-filter-required`
   - Set to `true` to force a query to use a partition filter. You can use the
     `query_partition_filter_required` catalog session property for temporary,
     catalog specific use.
   - `false`
+* - `iceberg.incremental-refresh-enabled`
+  - Set to `false` to force the materialized view refresh operation to always
+    perform a full refresh. You can use the `incremental_refresh_enabled`
+    catalog session property for temporary, catalog specific use. In the
+    majority of cases, using incremental refresh, as compared to a full refresh,
+    is beneficial since a much smaller subset of the source tables needs to be
+    scanned. While incremental refresh may scan less data, it may result in the
+    creation of more data files, since it uses the append operation to insert
+    the new records.
+  - `true`
 :::
 
 (iceberg-file-system-configuration)=
@@ -306,7 +313,7 @@ No other types are supported.
 
 The Iceberg connector supports Kerberos authentication for the Hive metastore
 and HDFS and is configured using the same parameters as the Hive connector. Find
-more information in the [](/connector/hive-security) section.
+more information in the [](/object-storage/file-system-hdfs) section.
 
 (iceberg-authorization)=
 ### Authorization
@@ -455,16 +462,16 @@ CALL examplecatalog.system.example_procedure()
 ```
 
 (iceberg-register-table)=
-
 #### Register table
 
-The connector can register existing Iceberg tables with the catalog.
+The connector can register existing Iceberg tables into the metastore if
+`iceberg.register-table-procedure.enabled` is set to `true` for the catalog.
 
 The procedure `system.register_table` allows the caller to register an
 existing Iceberg table in the metastore, using its existing metadata and data
 files:
 
-```
+```sql
 CALL example.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/customer_orders-581fad8517934af6be1857a903559d44')
 ```
 
@@ -473,7 +480,7 @@ metadata. This may be used to register the table with some specific table state,
 or may be necessary if the connector cannot automatically figure out the
 metadata version to use:
 
-```
+```sql
 CALL example.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 'hdfs://hadoop-master:9000/user/hive/warehouse/customer_orders-581fad8517934af6be1857a903559d44', metadata_file_name => '00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json')
 ```
 
@@ -482,15 +489,15 @@ default. The procedure is enabled only when
 `iceberg.register-table-procedure.enabled` is set to `true`.
 
 (iceberg-unregister-table)=
-
 #### Unregister table
 
-The connector can unregister existing Iceberg tables from the catalog.
+The connector can remove existing Iceberg tables from the metastore. Once
+unregistered, you can no longer query the table from Trino.
 
 The procedure `system.unregister_table` allows the caller to unregister an
 existing Iceberg table from the metastores without deleting the data:
 
-```
+```sql
 CALL example.system.unregister_table(schema_name => 'testdb', table_name => 'customer_orders')
 ```
 
@@ -532,14 +539,12 @@ exception if subdirectories are found. Set the value to `true` to migrate
 nested directories, or `false` to ignore them.
 
 (iceberg-data-management)=
-
 ### Data management
 
 The {ref}`sql-data-management` functionality includes support for `INSERT`,
 `UPDATE`, `DELETE`, and `MERGE` statements.
 
 (iceberg-delete)=
-
 #### Deletion by partition
 
 For partitioned tables, the Iceberg connector supports the deletion of entire
@@ -562,7 +567,6 @@ Tables using v2 of the Iceberg specification support deletion of individual rows
 by writing position delete files.
 
 (iceberg-schema-table-management)=
-
 ### Schema and table management
 
 The {ref}`sql-schema-table-management` functionality includes support for:
@@ -579,19 +583,18 @@ The {ref}`sql-schema-table-management` functionality includes support for:
 #### Schema evolution
 
 Iceberg supports schema evolution, with safe column add, drop, reorder, and
-rename operations, including in nested structures. 
+rename operations, including in nested structures.
 
 Iceberg supports updating column types only for widening operations:
- 
+
 - `INTEGER` to `BIGINT`
 - `REAL` to `DOUBLE`
 - `DECIMAL(p,s)` to `DECIMAL(p2,s)` when `p2` > `p` (scale cannot change)
 
-Partitioning can also be changed and the connector can still query data 
+Partitioning can also be changed and the connector can still query data
 created before the partitioning change.
 
 (iceberg-alter-table-execute)=
-
 #### ALTER TABLE EXECUTE
 
 The connector supports the following commands for use with {ref}`ALTER TABLE
@@ -640,7 +643,6 @@ than the minimum retention configured in the system (7.00d)`. The default value
 for this property is `7d`.
 
 (drop-extended-stats)=
-
 ##### drop_extended_stats
 
 The `drop_extended_stats` command removes all extended statistics information
@@ -653,7 +655,6 @@ ALTER TABLE test_table EXECUTE drop_extended_stats
 ```
 
 (iceberg-alter-table-set-properties)=
-
 #### ALTER TABLE SET PROPERTIES
 
 The connector supports modifying the properties on existing tables using
@@ -683,7 +684,6 @@ The current values of a table's properties can be shown using {doc}`SHOW CREATE
 TABLE </sql/show-create-table>`.
 
 (iceberg-table-properties)=
-
 ##### Table properties
 
 Table properties supply or set metadata for the underlying tables. This is key
@@ -705,6 +705,12 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - Optionally specifies table partitioning. If a table is partitioned by
     columns `c1` and `c2`, the partitioning property is `partitioning =
     ARRAY['c1', 'c2']`.
+* - `sorted_by`
+  - The sort order to be applied during writes to the content of
+    each file written to the table. If the table files are sorted by columns
+    `c1` and `c2`, the sort order property is `sorted_by = ARRAY['c1', 'c2']`.
+    The sort order applies to the contents written within each output file
+    independently and not the entire dataset.
 * - `location`
   - Optionally specifies the file system location URI for the table.
 * - `format_version`
@@ -718,6 +724,10 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
 * - `orc_bloom_filter_fpp`
   - The ORC bloom filters false positive probability. Requires ORC format.
     Defaults to `0.05`.
+* - `parquet_bloom_filter_columns`
+  - Comma-separated list of columns to use for Parquet bloom filter. It improves
+    the performance of queries using Equality and IN predicates when reading
+    Parquet files. Requires Parquet format. Defaults to `[]`.
 :::
 
 The table definition below specifies to use Parquet files, partitioning by columns
@@ -751,8 +761,19 @@ WITH (
     orc_bloom_filter_fpp = 0.05)
 ```
 
-(iceberg-metadata-tables)=
+The table definition below specifies to use Avro files, partitioning
+by `child1` field in `parent` column:
 
+```
+CREATE TABLE test_table (
+    data INTEGER,
+    parent ROW(child1 DOUBLE, child2 INTEGER))
+WITH (
+    format = 'AVRO',
+    partitioning = ARRAY['"parent.child1"'])
+```
+
+(iceberg-metadata-tables)=
 #### Metadata tables
 
 The connector exposes several metadata tables for each Iceberg table. These
@@ -783,6 +804,7 @@ SELECT * FROM "test_table$properties"
 write.format.default   | PARQUET  |
 ```
 
+(iceberg-history-table)=
 ##### `$history` table
 
 The `$history` table provides a log of the metadata changes performed on the
@@ -1174,7 +1196,6 @@ The output of the query has the following columns:
 :::
 
 (iceberg-metadata-columns)=
-
 #### Metadata columns
 
 In addition to the defined columns, the Iceberg connector automatically exposes
@@ -1220,7 +1241,6 @@ different location than the table's corresponding base directory on the object
 store is not supported.
 
 (iceberg-comment)=
-
 #### COMMENT
 
 The Iceberg connector supports setting comments on the following objects:
@@ -1240,7 +1260,6 @@ The connector supports the command {doc}`COMMENT </sql/comment>` for setting
 comments on existing entities.
 
 (iceberg-tables)=
-
 #### Partitioned tables
 
 Iceberg supports partitioning by specifying transforms over the table columns. A
@@ -1345,36 +1364,27 @@ ORDER BY committed_at DESC
 ```
 
 (iceberg-create-or-replace)=
+#### Replace tables
 
-#### Replacing tables
+The connector supports replacing an existing table, as an atomic operation.
+Atomic table replacement creates a new snapshot with the new table definition as
+part of the [table history](#iceberg-history-table).
 
-The connector supports replacing a table as an atomic operation. Atomic table
-replacement creates a new snapshot with the new table definition (see
-{doc}`/sql/create-table` and {doc}`/sql/create-table-as`), but keeps table history.
+To replace a table, use [`CREATE OR REPLACE TABLE`](/sql/create-table) or
+[`CREATE OR REPLACE TABLE AS`](/sql/create-table-as).
 
-The new table after replacement is completely new and separate from the old table.
-Only the name of the table remains identical. Earlier snapshots can be retrieved 
-through Iceberg's [time travel](iceberg-time-travel).
+Earlier snapshots of the table can be queried through [](iceberg-time-travel).
 
-For example a partitioned table `my_table` can be replaced by completely new
-definition.
+In the following example, a table `example_table` can be replaced by a
+completely new definition and data from the source table:
 
-```
-CREATE TABLE my_table (
-    a BIGINT,
-    b DATE,
-    c BIGINT)
-WITH (partitioning = ARRAY['a']);
-
-CREATE OR REPLACE TABLE my_table
+```sql
+CREATE OR REPLACE TABLE example_table
 WITH (sorted_by = ARRAY['a'])
-AS SELECT * from another_table;
+AS SELECT * FROM another_table;
 ```
-
-Earlier snapshots can be retrieved through Iceberg's [time travel](iceberg-time-travel).
 
 (iceberg-time-travel)=
-
 ##### Time travel queries
 
 The connector offers the ability to query historical data. This allows you to
@@ -1402,7 +1412,7 @@ FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09
 The connector allows to create a new snapshot through Iceberg's [replace table](iceberg-create-or-replace).
 
 ```
-CREATE OR REPLACE TABLE example.testdb.customer_orders AS 
+CREATE OR REPLACE TABLE example.testdb.customer_orders AS
 SELECT *
 FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 Europe/Vienna'
 ```
@@ -1501,15 +1511,20 @@ Creating a materialized view does not automatically populate it with data. You
 must run {doc}`/sql/refresh-materialized-view` to populate data in the
 materialized view.
 
-Updating the data in the materialized view with `REFRESH MATERIALIZED VIEW`
+Updating the data in the materialized view can be achieved using the `REFRESH
+MATERIALIZED VIEW` command. This operation may perform either an incremental or
+a full refresh, depending on the complexity of the materialized view definition
+and the snapshot history of the source tables. For a full refresh, the operation
 deletes the data from the storage table, and inserts the data that is the result
-of executing the materialized view query into the existing table. Data is
-replaced atomically, so users can continue to query the materialized view while
-it is being refreshed. Refreshing a materialized view also stores the
-snapshot-ids of all Iceberg tables that are part of the materialized view's
-query in the materialized view metadata. When the materialized view is queried,
-the snapshot-ids are used to check if the data in the storage table is up to
-date.
+of executing the materialized view query into the existing table. For
+incremental refresh, the existing data is not deleted from the storage table and
+only the delta records are processed from the source tables and appended into
+the storage table as needed. In both cases, data is replaced or appended
+atomically, so users can continue to query the materialized view while it is
+being refreshed. Refreshing a materialized view also stores the snapshot-ids of
+all Iceberg tables that are part of the materialized view's query in the
+materialized view metadata. When the materialized view is queried, the
+snapshot-ids are used to check if the data in the storage table is up to date.
 
 Materialized views that use non-Iceberg tables in the query show the [default
 behavior around grace periods](mv-grace-period). If all tables are Iceberg
@@ -1520,11 +1535,133 @@ Dropping a materialized view with {doc}`/sql/drop-materialized-view` removes
 the definition and the storage table.
 
 (iceberg-fte-support)=
-
 ## Fault-tolerant execution support
 
 The connector supports {doc}`/admin/fault-tolerant-execution` of query
 processing. Read and write operations are both supported with any retry policy.
+
+## Table functions
+
+The connector supports the table functions described in the following sections.
+
+### table_changes
+
+Allows reading row-level changes between two versions of an Iceberg table.
+The following query shows an example of displaying the changes of the `t1`
+table in the `default` schema in the current catalog.
+All changes between the start and end snapshots are returned.
+
+```sql
+SELECT
+  *
+FROM
+  TABLE(
+    system.table_changes(
+      schema_name => 'default',
+      table_name => 't1',
+      start_snapshot_id => 6541165659943306573,
+      end_snapshot_id => 6745790645714043599
+    )
+  );
+```
+
+The function takes the following required parameters:
+
+- `schema_name`
+  : Name of the schema for which the function is called.
+- `table_name`
+  : Name of the table for which the function is called.
+- `start_snapshot_id`
+  : The identifier of the exclusive starting snapshot.
+- `end_snapshot_id`
+  : The identifier of the inclusive end snapshot.
+
+Use the `$snapshots` metadata table to determine the snapshot IDs of the
+table.
+
+The function returns the columns present in the table, and the following values
+for each change:
+
+- `_change_type`
+  : The type of change that occurred. Possible values are `insert` and `delete`.
+- `_change_version_id`
+  : The identifier of the snapshot in which the change occurred.
+- `_change_timestamp`
+  : Timestamp when the snapshot became active.
+- `_change_ordinal`
+  : Order number of the change, useful for sorting the results.
+
+**Example:**
+
+Create a table:
+
+```
+CREATE TABLE test_schema.pages (page_url VARCHAR, domain VARCHAR, views INTEGER);
+```
+
+Insert some data:
+
+```
+INSERT INTO test_schema.pages
+    VALUES
+        ('url1', 'domain1', 1),
+        ('url2', 'domain2', 2),
+        ('url3', 'domain1', 3);
+INSERT INTO test_schema.pages
+    VALUES
+        ('url4', 'domain1', 400),
+        ('url5', 'domain2', 500),
+        ('url6', 'domain3', 2);
+```
+
+Retrieve the snapshot identifiers of the changes performed on the table:
+
+```
+SELECT
+    snapshot_id,
+    parent_id,
+    operation
+FROM test_schema."pages$snapshots";
+```
+
+```text
+     snapshot_id     |      parent_id      | operation
+---------------------+---------------------+-----------
+ 2009020668682716382 |                NULL | append
+ 2135434251890923160 | 2009020668682716382 | append
+ 3108755571950643966 | 2135434251890923160 | append
+(3 rows)
+
+```
+
+Select the changes performed in the previously-mentioned `INSERT` statements:
+
+```
+SELECT
+    *
+FROM
+    TABLE(
+            system.table_changes(
+                    schema_name => 'test_schema',
+                    table_name => 'pages',
+                    start_snapshot_id => 2009020668682716382,
+                    end_snapshot_id => 3108755571950643966
+            )
+    )
+ORDER BY _change_ordinal ASC;
+```
+
+```text
+ page_url | domain  | views | _change_type | _change_version_id  |      _change_timestamp      | _change_ordinal
+----------+---------+-------+--------------+---------------------+-----------------------------+-----------------
+ url1     | domain1 |     1 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0
+ url2     | domain2 |     2 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0
+ url3     | domain1 |     3 | insert       | 2135434251890923160 | 2024-04-04 21:24:26.105 UTC |               0
+ url4     | domain1 |   400 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1
+ url5     | domain2 |   500 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1
+ url6     | domain3 |     2 | insert       | 3108755571950643966 | 2024-04-04 21:24:28.318 UTC |               1
+(6 rows)
+```
 
 ## Performance
 
@@ -1539,7 +1676,6 @@ catalog configuration property, or the corresponding
 `extended_statistics_enabled` session property.
 
 (iceberg-analyze)=
-
 #### Updating table statistics
 
 If your queries are complex and include joining large data sets, running
@@ -1568,7 +1704,6 @@ dropped using the {ref}`drop_extended_stats <drop-extended-stats>` command
 before re-analyzing.
 
 (iceberg-table-redirection)=
-
 ### Table redirection
 
 ```{include} table-redirection.fragment

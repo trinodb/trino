@@ -24,10 +24,10 @@ import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
+import org.testcontainers.containers.wait.strategy.ShellStrategy;
 
 import java.time.Duration;
 
-import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
@@ -57,7 +57,9 @@ public final class EnvMultinodePhoenix5
         String dockerImageName = "ghcr.io/trinodb/testing/phoenix5:" + TestingProperties.getDockerImagesVersion();
         DockerContainer phoenix = new DockerContainer(dockerImageName, "phoenix")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(forSelectedPorts(ZOOKEEPER_PORT))
+                .waitingFor(new ShellStrategy()
+                        .withCommand("grep -q 'All Rolling-Upgrade tasks are complete' /usr/local/lib/hbase/logs/*.log")
+                        .withStartupTimeout(Duration.ofMinutes(5)))
                 .withStartupTimeout(Duration.ofMinutes(5));
 
         portBinder.exposePort(phoenix, ZOOKEEPER_PORT);

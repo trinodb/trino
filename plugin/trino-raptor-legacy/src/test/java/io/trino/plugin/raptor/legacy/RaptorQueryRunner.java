@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
@@ -32,55 +33,94 @@ import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public final class RaptorQueryRunner
 {
-    private static final Logger log = Logger.get(RaptorQueryRunner.class);
-
     private RaptorQueryRunner() {}
 
-    public static QueryRunner createRaptorQueryRunner(
-            Map<String, String> extraProperties,
-            List<TpchTable<?>> tablesToLoad,
-            boolean bucketed,
-            Map<String, String> extraRaptorProperties)
-            throws Exception
+    private static final Logger log = Logger.get(RaptorQueryRunner.class);
+
+    public static Builder builder()
     {
-        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession("tpch"))
-                .setExtraProperties(extraProperties)
-                .build();
+        return new Builder()
+                .addConnectorProperty("metadata.db.type", "h2")
+                .addConnectorProperty("metadata.db.filename", createTempDirectory("raptor-db").toString())
+                .addConnectorProperty("storage.data-directory", createTempDirectory("raptor-data").toString())
+                .addConnectorProperty("storage.max-shard-rows", "2000")
+                .addConnectorProperty("backup.provider", "file")
+                .addConnectorProperty("backup.directory", createTempDirectory("raptor-backup").toString());
+    }
 
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
+    public static final class Builder
+            extends DistributedQueryRunner.Builder<Builder>
+    {
+        private final Map<String, String> connectorProperties = new HashMap<>();
+        private boolean bucketed;
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
 
-        queryRunner.installPlugin(new RaptorPlugin());
-        Map<String, String> raptorProperties = ImmutableMap.<String, String>builder()
-                .putAll(extraRaptorProperties)
-                .put("metadata.db.type", "h2")
-                .put("metadata.db.filename", createTempDirectory("raptor-db").toString())
-                .put("storage.data-directory", createTempDirectory("raptor-data").toString())
-                .put("storage.max-shard-rows", "2000")
-                .put("backup.provider", "file")
-                .put("backup.directory", createTempDirectory("raptor-backup").toString())
-                .buildOrThrow();
+        private Builder()
+        {
+            super(createSession());
+        }
 
-        queryRunner.createCatalog("raptor", "raptor_legacy", raptorProperties);
+        @CanIgnoreReturnValue
+        public Builder addConnectorProperty(String key, String value)
+        {
+            this.connectorProperties.put(key, value);
+            return this;
+        }
 
-        copyTables(queryRunner, "tpch", createSession(), bucketed, tablesToLoad);
+        @CanIgnoreReturnValue
+        public Builder enableBucketed()
+        {
+            this.bucketed = true;
+            return this;
+        }
 
-        return queryRunner;
+        @CanIgnoreReturnValue
+        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
+            return this;
+        }
+
+        @Override
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            DistributedQueryRunner queryRunner = super.build();
+            try {
+                queryRunner.installPlugin(new TpchPlugin());
+                queryRunner.createCatalog("tpch", "tpch");
+
+                queryRunner.installPlugin(new RaptorPlugin());
+                queryRunner.createCatalog("raptor", "raptor_legacy", connectorProperties);
+
+                copyTables(queryRunner, "tpch", createSession(), bucketed, initialTables);
+
+                return queryRunner;
+            }
+            catch (Throwable e) {
+                closeAllSuppress(e, queryRunner);
+                throw e;
+            }
+        }
     }
 
     public static void copyTables(QueryRunner queryRunner, String catalog, Session session, boolean bucketed, List<TpchTable<?>> tables)
@@ -165,19 +205,23 @@ public final class RaptorQueryRunner
     }
 
     public static Path createTempDirectory(String name)
-            throws IOException
     {
-        Path tempDirectory = Files.createTempDirectory(name);
-        tempDirectory.toFile().deleteOnExit();
-        return tempDirectory.toAbsolutePath();
+        try {
+            Path tempDirectory = Files.createTempDirectory(name);
+            tempDirectory.toFile().deleteOnExit();
+            return tempDirectory.toAbsolutePath();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public static void main(String[] args)
             throws Exception
     {
-        Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
-        QueryRunner queryRunner = createRaptorQueryRunner(properties, ImmutableList.of(), false, ImmutableMap.of());
-        Thread.sleep(10);
+        QueryRunner queryRunner = RaptorQueryRunner.builder()
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .build();
         Logger log = Logger.get(RaptorQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

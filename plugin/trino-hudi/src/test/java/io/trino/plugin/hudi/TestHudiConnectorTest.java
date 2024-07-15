@@ -13,14 +13,12 @@
  */
 package io.trino.plugin.hudi;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hudi.testing.TpchHudiTablesInitializer;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
 import static io.trino.plugin.hudi.testing.HudiTestUtils.COLUMNS_TO_HIDE;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -31,10 +29,10 @@ public class TestHudiConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createHudiQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of("hudi.columns-to-hide", COLUMNS_TO_HIDE),
-                new TpchHudiTablesInitializer(REQUIRED_TPCH_TABLES));
+        return HudiQueryRunner.builder()
+                .addConnectorProperty("hudi.columns-to-hide", COLUMNS_TO_HIDE)
+                .setDataLoader(new TpchHudiTablesInitializer(REQUIRED_TPCH_TABLES))
+                .build();
     }
 
     @Override
@@ -42,21 +40,21 @@ public class TestHudiConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN,
-                    SUPPORTS_COMMENT_ON_COLUMN,
-                    SUPPORTS_COMMENT_ON_TABLE,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_SCHEMA,
-                    SUPPORTS_CREATE_TABLE,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_DELETE,
-                    SUPPORTS_DEREFERENCE_PUSHDOWN,
-                    SUPPORTS_INSERT,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_RENAME_COLUMN,
-                    SUPPORTS_RENAME_TABLE,
-                    SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_UPDATE -> false;
+                 SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_SCHEMA,
+                 SUPPORTS_CREATE_TABLE,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_DELETE,
+                 SUPPORTS_DEREFERENCE_PUSHDOWN,
+                 SUPPORTS_INSERT,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_RENAME_COLUMN,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }

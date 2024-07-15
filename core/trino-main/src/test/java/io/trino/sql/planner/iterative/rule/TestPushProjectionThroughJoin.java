@@ -50,7 +50,6 @@ import static io.trino.sql.planner.iterative.rule.PushProjectionThroughJoin.push
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPushProjectionThroughJoin
@@ -102,7 +101,7 @@ public class TestPushProjectionThroughJoin
                 node -> unknown(),
                 new Plan(rewritten.get(), empty()), noLookup(),
                 join(INNER, builder -> builder
-                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(UNKNOWN, "a1"), new Symbol(UNKNOWN, "b1"))))
+                        .equiCriteria(ImmutableList.of(aliases -> new JoinNode.EquiJoinClause(new Symbol(BIGINT, "a1"), new Symbol(BIGINT, "b1"))))
                         .left(
                                 strictProject(ImmutableMap.of(
                                                 "a3", expression(new Call(NEGATION_BIGINT, ImmutableList.of(new Call(NEGATION_BIGINT, ImmutableList.of(new Reference(BIGINT, "a0")))))),

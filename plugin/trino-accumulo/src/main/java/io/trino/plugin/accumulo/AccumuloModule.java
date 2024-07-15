@@ -34,6 +34,7 @@ import org.apache.accumulo.core.client.AccumuloClient;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.trino.plugin.base.ClosingBinder.closingBinder;
 
 /**
  * Trino module to do all kinds of run Guice injection stuff!
@@ -60,6 +61,7 @@ public class AccumuloModule
         binder.bind(IndexLookup.class).in(Scopes.SINGLETON);
         binder.bind(ColumnCardinalityCache.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloClient.class).toProvider(ClientProvider.class).in(Scopes.SINGLETON);
+        closingBinder(binder).registerCloseable(AccumuloClient.class);
 
         configBinder(binder).bindConfig(AccumuloConfig.class);
 

@@ -140,7 +140,7 @@ public class MemoryMetadata
             viewNames.forEach(viewName -> dropView(session, viewName));
 
             Set<SchemaTableName> tableNames = tables.values().stream()
-                    .filter(table -> table.getSchemaName().equals(schemaName))
+                    .filter(table -> table.schemaName().equals(schemaName))
                     .map(TableInfo::getSchemaTableName)
                     .collect(toImmutableSet());
             tableNames.forEach(tableName -> dropTable(session, getTableHandle(session, tableName, Optional.empty(), Optional.empty())));
@@ -156,36 +156,30 @@ public class MemoryMetadata
     @GuardedBy("this")
     private boolean isSchemaEmpty(String schemaName)
     {
-        return tables.values().stream().noneMatch(table -> table.getSchemaName().equals(schemaName)) &&
+        return tables.values().stream().noneMatch(table -> table.schemaName().equals(schemaName)) &&
                 views.keySet().stream().noneMatch(view -> view.getSchemaName().equals(schemaName));
-    }
-
-    @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
-    {
-        throw new UnsupportedOperationException("This method is not supported because getTableHandle with versions is implemented instead");
     }
 
     @Override
     public synchronized ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         Long id = tableIds.get(schemaTableName);
         if (id == null) {
             return null;
         }
 
-        if (startVersion.isPresent() || endVersion.isPresent()) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
-        }
-
-        return new MemoryTableHandle(id);
+        return new MemoryTableHandle(id, OptionalLong.empty(), OptionalDouble.empty());
     }
 
     @Override
     public synchronized ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        return tables.get(handle.getId()).getMetadata();
+        return tables.get(handle.id()).getMetadata();
     }
 
     @Override
@@ -198,7 +192,7 @@ public class MemoryMetadata
                 .forEach(builder::add);
 
         tables.values().stream()
-                .filter(table -> schemaName.map(table.getSchemaName()::contentEquals).orElse(true))
+                .filter(table -> schemaName.map(table.schemaName()::contentEquals).orElse(true))
                 .map(TableInfo::getSchemaTableName)
                 .forEach(builder::add);
 
@@ -209,16 +203,16 @@ public class MemoryMetadata
     public synchronized Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        return tables.get(handle.getId())
-                .getColumns().stream()
-                .collect(toImmutableMap(ColumnInfo::getName, ColumnInfo::getHandle));
+        return tables.get(handle.id())
+                .columns().stream()
+                .collect(toImmutableMap(ColumnInfo::name, ColumnInfo::handle));
     }
 
     @Override
     public synchronized ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        return tables.get(handle.getId())
+        return tables.get(handle.id())
                 .getColumn(columnHandle)
                 .getMetadata();
     }
@@ -267,7 +261,7 @@ public class MemoryMetadata
     public synchronized void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        TableInfo info = tables.remove(handle.getId());
+        TableInfo info = tables.remove(handle.id());
         if (info != null) {
             tableIds.remove(info.getSchemaTableName());
         }
@@ -280,10 +274,10 @@ public class MemoryMetadata
         checkTableNotExists(newTableName);
 
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        long tableId = handle.getId();
+        long tableId = handle.id();
 
         TableInfo oldInfo = tables.get(tableId);
-        tables.put(tableId, new TableInfo(tableId, newTableName.getSchemaName(), newTableName.getTableName(), oldInfo.getColumns(), oldInfo.getDataFragments(), oldInfo.getComment()));
+        tables.put(tableId, new TableInfo(tableId, newTableName.getSchemaName(), newTableName.getTableName(), oldInfo.columns(), oldInfo.dataFragments(), oldInfo.comment()));
 
         tableIds.remove(oldInfo.getSchemaTableName());
         tableIds.put(newTableName, tableId);
@@ -308,7 +302,7 @@ public class MemoryMetadata
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
             ColumnMetadata column = tableMetadata.getColumns().get(i);
-            columns.add(new ColumnInfo(new MemoryColumnHandle(i), column.getName(), column.getType(), Optional.ofNullable(column.getComment())));
+            columns.add(new ColumnInfo(new MemoryColumnHandle(i, column.getType()), column.getName(), column.getType(), column.isNullable(), Optional.ofNullable(column.getComment())));
         }
 
         tableIds.put(tableMetadata.getTable(), tableId);
@@ -348,7 +342,7 @@ public class MemoryMetadata
         requireNonNull(tableHandle, "tableHandle is null");
         MemoryOutputTableHandle memoryOutputHandle = (MemoryOutputTableHandle) tableHandle;
 
-        updateRowsOnHosts(memoryOutputHandle.getTable(), fragments);
+        updateRowsOnHosts(memoryOutputHandle.table(), fragments);
         return Optional.empty();
     }
 
@@ -356,7 +350,7 @@ public class MemoryMetadata
     public synchronized MemoryInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
         MemoryTableHandle memoryTableHandle = (MemoryTableHandle) tableHandle;
-        return new MemoryInsertTableHandle(memoryTableHandle.getId(), ImmutableSet.copyOf(tableIds.values()));
+        return new MemoryInsertTableHandle(memoryTableHandle.id(), ImmutableSet.copyOf(tableIds.values()));
     }
 
     @Override
@@ -370,8 +364,66 @@ public class MemoryMetadata
         requireNonNull(insertHandle, "insertHandle is null");
         MemoryInsertTableHandle memoryInsertHandle = (MemoryInsertTableHandle) insertHandle;
 
-        updateRowsOnHosts(memoryInsertHandle.getTable(), fragments);
+        updateRowsOnHosts(memoryInsertHandle.table(), fragments);
         return Optional.empty();
+    }
+
+    @Override
+    public synchronized void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
+        long tableId = handle.id();
+        TableInfo info = tables.get(handle.id());
+        tables.put(tableId, new TableInfo(tableId, info.schemaName(), info.tableName(), info.columns(), ImmutableMap.of(), info.comment()));
+    }
+
+    @Override
+    public synchronized void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    {
+        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
+        long tableId = handle.id();
+        TableInfo table = tables.get(handle.id());
+
+        if (!column.isNullable() && !table.dataFragments().isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, format("Unable to add NOT NULL column '%s' for non-empty table: %s", column.getName(), table.getSchemaTableName()));
+        }
+
+        List<ColumnInfo> columns = ImmutableList.<ColumnInfo>builderWithExpectedSize(table.columns().size() + 1)
+                .addAll(table.columns())
+                .add(new ColumnInfo(new MemoryColumnHandle(table.columns().size(), column.getType()), column.getName(), column.getType(), column.isNullable(), Optional.ofNullable(column.getComment())))
+                .build();
+
+        tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), columns, table.dataFragments(), table.comment()));
+    }
+
+    @Override
+    public synchronized void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, String target)
+    {
+        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
+        MemoryColumnHandle column = (MemoryColumnHandle) columnHandle;
+        long tableId = handle.id();
+        TableInfo table = tables.get(handle.id());
+
+        List<ColumnInfo> columns = new ArrayList<>(table.columns());
+        ColumnInfo columnInfo = columns.get(column.columnIndex());
+        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), target, columnInfo.type(), columnInfo.nullable(), columnInfo.comment()));
+
+        tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.dataFragments(), table.comment()));
+    }
+
+    @Override
+    public synchronized void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
+        MemoryColumnHandle column = (MemoryColumnHandle) columnHandle;
+        long tableId = handle.id();
+        TableInfo table = tables.get(handle.id());
+
+        List<ColumnInfo> columns = new ArrayList<>(table.columns());
+        ColumnInfo columnInfo = columns.get(column.columnIndex());
+        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), columnInfo.name(), columnInfo.type(), true, columnInfo.comment()));
+
+        tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.dataFragments(), table.comment()));
     }
 
     @Override
@@ -480,26 +532,26 @@ public class MemoryMetadata
         TableInfo info = tables.get(tableId);
         checkState(info != null, "Uninitialized tableId %s", tableId);
 
-        Map<HostAddress, MemoryDataFragment> dataFragments = new HashMap<>(info.getDataFragments());
+        Map<HostAddress, MemoryDataFragment> dataFragments = new HashMap<>(info.dataFragments());
         for (Slice fragment : fragments) {
             MemoryDataFragment memoryDataFragment = MemoryDataFragment.fromSlice(fragment);
-            dataFragments.merge(memoryDataFragment.getHostAddress(), memoryDataFragment, MemoryDataFragment::merge);
+            dataFragments.merge(memoryDataFragment.hostAddress(), memoryDataFragment, MemoryDataFragment::merge);
         }
 
-        tables.put(tableId, new TableInfo(tableId, info.getSchemaName(), info.getTableName(), info.getColumns(), dataFragments, info.getComment()));
+        tables.put(tableId, new TableInfo(tableId, info.schemaName(), info.tableName(), info.columns(), dataFragments, info.comment()));
     }
 
     public synchronized List<MemoryDataFragment> getDataFragments(long tableId)
     {
-        return ImmutableList.copyOf(tables.get(tableId).getDataFragments().values());
+        return ImmutableList.copyOf(tables.get(tableId).dataFragments().values());
     }
 
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        List<MemoryDataFragment> dataFragments = getDataFragments(((MemoryTableHandle) tableHandle).getId());
+        List<MemoryDataFragment> dataFragments = getDataFragments(((MemoryTableHandle) tableHandle).id());
         long rows = dataFragments.stream()
-                .mapToLong(MemoryDataFragment::getRows)
+                .mapToLong(MemoryDataFragment::rows)
                 .sum();
         return TableStatistics.builder()
                 .setRowCount(Estimate.of(rows))
@@ -511,12 +563,12 @@ public class MemoryMetadata
     {
         MemoryTableHandle table = (MemoryTableHandle) handle;
 
-        if (table.getLimit().isPresent() && table.getLimit().getAsLong() <= limit) {
+        if (table.limit().isPresent() && table.limit().getAsLong() <= limit) {
             return Optional.empty();
         }
 
         return Optional.of(new LimitApplicationResult<>(
-                new MemoryTableHandle(table.getId(), OptionalLong.of(limit), OptionalDouble.empty()),
+                new MemoryTableHandle(table.id(), OptionalLong.of(limit), OptionalDouble.empty()),
                 true,
                 true));
     }
@@ -526,12 +578,12 @@ public class MemoryMetadata
     {
         MemoryTableHandle table = (MemoryTableHandle) handle;
 
-        if ((table.getSampleRatio().isPresent() && table.getSampleRatio().getAsDouble() == sampleRatio) || sampleType != SYSTEM || table.getLimit().isPresent()) {
+        if ((table.sampleRatio().isPresent() && table.sampleRatio().getAsDouble() == sampleRatio) || sampleType != SYSTEM || table.limit().isPresent()) {
             return Optional.empty();
         }
 
         return Optional.of(new SampleApplicationResult<>(
-                new MemoryTableHandle(table.getId(), table.getLimit(), OptionalDouble.of(table.getSampleRatio().orElse(1) * sampleRatio)),
+                new MemoryTableHandle(table.id(), table.limit(), OptionalDouble.of(table.sampleRatio().orElse(1) * sampleRatio)),
                 true));
     }
 
@@ -539,28 +591,28 @@ public class MemoryMetadata
     public synchronized void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
     {
         MemoryTableHandle table = (MemoryTableHandle) tableHandle;
-        TableInfo info = tables.get(table.getId());
+        TableInfo info = tables.get(table.id());
         checkArgument(info != null, "Table not found");
-        tables.put(table.getId(), new TableInfo(table.getId(), info.getSchemaName(), info.getTableName(), info.getColumns(), info.getDataFragments(), comment));
+        tables.put(table.id(), new TableInfo(table.id(), info.schemaName(), info.tableName(), info.columns(), info.dataFragments(), comment));
     }
 
     @Override
     public synchronized void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Optional<String> comment)
     {
         MemoryTableHandle table = (MemoryTableHandle) tableHandle;
-        TableInfo info = tables.get(table.getId());
+        TableInfo info = tables.get(table.id());
         checkArgument(info != null, "Table not found");
         tables.put(
-                table.getId(),
+                table.id(),
                 new TableInfo(
-                        table.getId(),
-                        info.getSchemaName(),
-                        info.getTableName(),
-                        info.getColumns().stream()
-                                .map(tableColumn -> Objects.equals(tableColumn.getHandle(), columnHandle) ? new ColumnInfo(tableColumn.getHandle(), tableColumn.getName(), tableColumn.getMetadata().getType(), comment) : tableColumn)
+                        table.id(),
+                        info.schemaName(),
+                        info.tableName(),
+                        info.columns().stream()
+                                .map(tableColumn -> Objects.equals(tableColumn.handle(), columnHandle) ? new ColumnInfo(tableColumn.handle(), tableColumn.name(), tableColumn.getMetadata().getType(), tableColumn.nullable(), comment) : tableColumn)
                                 .collect(toImmutableList()),
-                        info.getDataFragments(),
-                        info.getComment()));
+                        info.dataFragments(),
+                        info.comment()));
     }
 
     @Override
@@ -587,7 +639,7 @@ public class MemoryMetadata
     @Override
     public synchronized void createLanguageFunction(ConnectorSession session, SchemaFunctionName name, LanguageFunction function, boolean replace)
     {
-        Map<String, LanguageFunction> map = functions.computeIfAbsent(name, ignored -> new HashMap<>());
+        Map<String, LanguageFunction> map = functions.computeIfAbsent(name, _ -> new HashMap<>());
         if (!replace && map.containsKey(function.signatureToken())) {
             throw new TrinoException(ALREADY_EXISTS, "Function already exists");
         }

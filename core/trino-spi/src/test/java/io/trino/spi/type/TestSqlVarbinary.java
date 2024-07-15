@@ -16,7 +16,7 @@ package io.trino.spi.type;
 import org.junit.jupiter.api.Test;
 
 import static java.lang.String.format;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlVarbinary
 {
@@ -27,7 +27,7 @@ public class TestSqlVarbinary
             for (int lastLineBytes = 0; lastLineBytes < 32; lastLineBytes++) {
                 byte[] bytes = createBytes(lines, lastLineBytes);
                 String expected = simpleToString(bytes);
-                assertEquals(new SqlVarbinary(bytes).toString(), expected);
+                assertThat(expected).isEqualTo(new SqlVarbinary(bytes).toString());
             }
         }
     }

@@ -110,7 +110,7 @@ public class PushProjectionThroughExchange
 
             if (exchange.getOrderingScheme().isPresent()) {
                 // Need to retain ordering columns for the exchange
-                exchange.getOrderingScheme().get().getOrderBy().stream()
+                exchange.getOrderingScheme().get().orderBy().stream()
                         // Do not duplicate symbols in inputs list
                         .filter(symbol -> !partitioningColumns.contains(symbol))
                         .map(outputToInputMap::get)
@@ -123,7 +123,7 @@ public class PushProjectionThroughExchange
             ImmutableSet.Builder<Symbol> outputBuilder = ImmutableSet.builder();
             partitioningColumns.forEach(outputBuilder::add);
             exchange.getPartitioningScheme().getHashColumn().ifPresent(outputBuilder::add);
-            exchange.getOrderingScheme().ifPresent(orderingScheme -> outputBuilder.addAll(orderingScheme.getOrderBy()));
+            exchange.getOrderingScheme().ifPresent(orderingScheme -> outputBuilder.addAll(orderingScheme.orderBy()));
             Set<Symbol> partitioningHashAndOrderingOutputs = outputBuilder.build();
 
             Map<Symbol, Expression> translationMap = outputToInputMap.entrySet().stream()
@@ -148,7 +148,7 @@ public class PushProjectionThroughExchange
         partitioningColumns.forEach(outputBuilder::add);
         exchange.getPartitioningScheme().getHashColumn().ifPresent(outputBuilder::add);
         if (exchange.getOrderingScheme().isPresent()) {
-            exchange.getOrderingScheme().get().getOrderBy().stream()
+            exchange.getOrderingScheme().get().orderBy().stream()
                     // Do not duplicate symbols in outputs list (for consistency with inputs lists)
                     .filter(symbol -> !partitioningColumns.contains(symbol))
                     .forEach(outputBuilder::add);

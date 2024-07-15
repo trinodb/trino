@@ -22,6 +22,7 @@ import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
+import com.amazonaws.auth.WebIdentityTokenCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.S3ClientOptions;
@@ -100,6 +101,7 @@ import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_STAGING_DIRECTORY;
 import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_STREAMING_UPLOAD_ENABLED;
 import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_STREAMING_UPLOAD_PART_SIZE;
 import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_USER_AGENT_PREFIX;
+import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_USE_WEB_IDENTITY_TOKEN_CREDENTIALS_PROVIDER;
 import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
@@ -566,6 +568,18 @@ public class TestTrinoS3FileSystem
     {
         assertThat(new UnrecoverableS3OperationException("my-bucket", "tmp/test/path", new IOException("test io exception")))
                 .hasMessage("java.io.IOException: test io exception (Bucket: my-bucket, Key: tmp/test/path)");
+    }
+
+    @Test
+    public void testWebIdentityTokenCredentialsProvider()
+            throws Exception
+    {
+        Configuration config = new Configuration(false);
+        config.setBoolean(S3_USE_WEB_IDENTITY_TOKEN_CREDENTIALS_PROVIDER, true);
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            assertInstanceOf(getAwsCredentialsProvider(fs), WebIdentityTokenCredentialsProvider.class);
+        }
     }
 
     @Test

@@ -461,6 +461,37 @@ public class TestCorrelatedAggregation
     }
 
     @Test
+    public void testBoolOrAggregation()
+    {
+        // without projection
+        assertThat(assertions.query("""
+                SELECT * FROM
+                (VALUES  1, 2, 3, 4) t(key)
+                LEFT JOIN
+                LATERAL (SELECT bool_or(value) FROM (VALUES (2, null), (3, false), (4, true)) t2(key, value) WHERE t2.key <= t.key)
+                ON TRUE"""))
+                .matches("VALUES (1, null), (2, null), (3, false), (4, true)");
+
+        // with projection
+        assertThat(assertions.query("""
+                SELECT * FROM
+                (VALUES  1, 2, 3, 4) t(key)
+                LEFT JOIN
+                LATERAL (SELECT bool_or(value), true FROM (VALUES (2, null), (3, false), (4, true)) t2(key, value) WHERE t2.key <= t.key)
+                ON TRUE"""))
+                .matches("VALUES (1, null, true) ,(2, null, true), (3, false, true), (4, true, true)");
+
+        // with projection and distinct
+        assertThat(assertions.query("""
+                SELECT * FROM
+                (VALUES  1, 2, 3, 4) t(key)
+                LEFT JOIN
+                LATERAL (SELECT bool_or(distinct value), true FROM (VALUES (2, null), (3, false), (4, true)) t2(key, value) WHERE t2.key <= t.key)
+                ON TRUE"""))
+                .matches("VALUES (1, null, true), (2, null, true), (3, false, true), (4, true, true)");
+    }
+
+    @Test
     public void testChecksum()
     {
         assertThat(assertions.query("SELECT * FROM " +

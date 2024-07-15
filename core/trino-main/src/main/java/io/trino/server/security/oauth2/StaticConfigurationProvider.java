@@ -23,7 +23,7 @@ public class StaticConfigurationProvider
     private final OAuth2ServerConfig config;
 
     @Inject
-    StaticConfigurationProvider(StaticOAuth2ServerConfiguration config)
+    StaticConfigurationProvider(StaticOAuth2ServerConfig config)
     {
         this.config = new OAuth2ServerConfig(
                 config.getAccessTokenIssuer(),

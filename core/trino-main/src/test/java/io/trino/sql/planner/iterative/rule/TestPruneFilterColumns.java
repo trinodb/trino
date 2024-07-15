@@ -29,7 +29,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -43,14 +43,14 @@ public class TestPruneFilterColumns
     public void testNotAllInputsReferenced()
     {
         tester().assertThat(new PruneFilterColumns())
-                .on(p -> buildProjectedFilter(p, symbol -> symbol.getName().equals("b")))
+                .on(p -> buildProjectedFilter(p, symbol -> symbol.name().equals("b")))
                 .matches(
                         strictProject(
-                                ImmutableMap.of("b", expression(new Reference(INTEGER, "b"))),
+                                ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
                                 filter(
-                                        new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 5L)),
+                                        new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 5L)),
                                         strictProject(
-                                                ImmutableMap.of("b", expression(new Reference(INTEGER, "b"))),
+                                                ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
                                                 values("a", "b")))));
     }
 
@@ -58,7 +58,7 @@ public class TestPruneFilterColumns
     public void testAllInputsReferenced()
     {
         tester().assertThat(new PruneFilterColumns())
-                .on(p -> buildProjectedFilter(p, symbol -> symbol.getName().equals("a")))
+                .on(p -> buildProjectedFilter(p, symbol -> symbol.name().equals("a")))
                 .doesNotFire();
     }
 
@@ -72,12 +72,12 @@ public class TestPruneFilterColumns
 
     private ProjectNode buildProjectedFilter(PlanBuilder planBuilder, Predicate<Symbol> projectionFilter)
     {
-        Symbol a = planBuilder.symbol("a");
-        Symbol b = planBuilder.symbol("b");
+        Symbol a = planBuilder.symbol("a", BIGINT);
+        Symbol b = planBuilder.symbol("b", BIGINT);
         return planBuilder.project(
                 Assignments.identity(Stream.of(a, b).filter(projectionFilter).collect(toImmutableSet())),
                 planBuilder.filter(
-                        new Comparison(GREATER_THAN, new Reference(INTEGER, "b"), new Constant(INTEGER, 5L)),
+                        new Comparison(GREATER_THAN, new Reference(BIGINT, "b"), new Constant(BIGINT, 5L)),
                         planBuilder.values(a, b)));
     }
 }

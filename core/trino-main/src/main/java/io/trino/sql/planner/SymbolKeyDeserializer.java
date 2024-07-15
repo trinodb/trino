@@ -19,9 +19,15 @@ import com.google.inject.Inject;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 
+import java.util.Base64;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 public class SymbolKeyDeserializer
         extends KeyDeserializer
 {
+    private static final Base64.Decoder DECODER = Base64.getDecoder();
     private final TypeManager typeManager;
 
     @Inject
@@ -33,7 +39,11 @@ public class SymbolKeyDeserializer
     @Override
     public Object deserializeKey(String key, DeserializationContext context)
     {
-        String[] parts = key.split("::");
-        return new Symbol(typeManager.getType(TypeId.of(parts[1])), parts[0]);
+        String[] parts = key.split(":");
+        checkArgument(parts.length == 2, "Expected two parts, found: " + parts.length);
+
+        String name = new String(DECODER.decode(parts[0].getBytes(UTF_8)), UTF_8);
+        String type = new String(DECODER.decode(parts[1].getBytes(UTF_8)), UTF_8);
+        return new Symbol(typeManager.getType(TypeId.of(type)), name);
     }
 }

@@ -31,11 +31,11 @@ public final class HadoopTestUtils
 
     /**
      * Link to issues:
-     * <ul>
-     *     <ol><a href="https://github.com/trinodb/trino/issues/7535">#7535</a></ol>
-     *     <ol><a href="https://github.com/trinodb/trino/issues/4936">#4936</a></ol>
-     *     <ol><a href="https://github.com/trinodb/trino/issues/5427">#5427</a></ol>
-     * </ul>
+     * <ol>
+     *     <li><a href="https://github.com/trinodb/trino/issues/7535">#7535</a></li>
+     *     <li><a href="https://github.com/trinodb/trino/issues/4936">#4936</a></li>
+     *     <li><a href="https://github.com/trinodb/trino/issues/5427">#5427</a></li>
+     * </ol>
      */
     public static final String RETRYABLE_FAILURES_ISSUES = "https://github.com/trinodb/trino/issues?q=is%3Aissue+issue%3A+4936+5427";
     @Language("RegExp")

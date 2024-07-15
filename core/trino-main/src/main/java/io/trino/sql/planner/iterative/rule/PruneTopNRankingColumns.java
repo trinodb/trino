@@ -40,7 +40,7 @@ public class PruneTopNRankingColumns
                 referencedOutputs.stream()
                         .filter(symbol -> !symbol.equals(topNRankingNode.getRankingSymbol())),
                 topNRankingNode.getPartitionBy().stream(),
-                topNRankingNode.getOrderingScheme().getOrderBy().stream(),
+                topNRankingNode.getOrderingScheme().orderBy().stream(),
                 topNRankingNode.getHashSymbol().stream())
                 .collect(toImmutableSet());
 

@@ -24,7 +24,7 @@ import com.datastax.oss.driver.api.core.session.Request;
 
 /**
  * A retry policy that never retries (nor ignores).
- * <p/>
+ * <p>
  * All of the methods of this retry policy unconditionally return {@link RetryDecision#RETHROW}.
  * If this policy is used, retry logic will have to be implemented in business code.
  */
@@ -35,30 +35,35 @@ public class FallthroughRetryPolicy
     public FallthroughRetryPolicy(DriverContext context, String profileName) {}
 
     @Override
+    @SuppressWarnings("deprecation")
     public RetryDecision onReadTimeout(Request request, ConsistencyLevel consistencyLevel, int blockFor, int received, boolean dataPresent, int retryCount)
     {
         return RetryDecision.RETHROW;
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public RetryDecision onWriteTimeout(Request request, ConsistencyLevel consistencyLevel, WriteType writeType, int blockFor, int received, int retryCount)
     {
         return RetryDecision.RETHROW;
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public RetryDecision onUnavailable(Request request, ConsistencyLevel consistencyLevel, int required, int alive, int retries)
     {
         return RetryDecision.RETHROW;
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public RetryDecision onRequestAborted(Request request, Throwable error, int retryCount)
     {
         return RetryDecision.RETHROW;
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public RetryDecision onErrorResponse(Request request, CoordinatorException error, int retryCount)
     {
         return RetryDecision.RETHROW;

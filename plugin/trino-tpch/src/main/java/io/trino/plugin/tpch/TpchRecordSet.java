@@ -238,8 +238,8 @@ public class TpchRecordSet<E extends TpchEntity>
                             column -> column,
                             column -> {
                                 TpchColumnHandle tpchColumnHandle = (TpchColumnHandle) column;
-                                Type type = tpchColumnHandle.getType();
-                                TpchColumn<E> tpchColumn = table.getColumn(tpchColumnHandle.getColumnName());
+                                Type type = tpchColumnHandle.type();
+                                TpchColumn<E> tpchColumn = table.getColumn(tpchColumnHandle.columnName());
                                 return NullableValue.of(type, getTrinoObject(tpchColumn, type));
                             }));
 

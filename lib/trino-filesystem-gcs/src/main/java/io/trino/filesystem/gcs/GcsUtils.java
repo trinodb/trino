@@ -25,8 +25,8 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.google.api.client.util.Preconditions.checkArgument;
 import static com.google.cloud.storage.Blob.BlobSourceOption.shouldReturnRawInputStream;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class GcsUtils
@@ -49,7 +49,7 @@ public class GcsUtils
             throws IOException
     {
         long fileSize = requireNonNull(blob.getSize(), "blob size is null");
-        if (position >= fileSize) {
+        if (position != 0 && position >= fileSize) {
             throw new IOException("Cannot read at %s. File size is %s: %s".formatted(position, fileSize, location));
         }
         // Enable shouldReturnRawInputStream: currently set by default but just to ensure the behavior is predictable

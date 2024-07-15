@@ -569,7 +569,7 @@ public class OrcTester
                         assertColumnValueEquals(valueType, actualEntry.getValue(), expectedEntry.getValue());
                         iterator.remove();
                     }
-                    catch (AssertionError ignored) {
+                    catch (AssertionError _) {
                     }
                 }
             }

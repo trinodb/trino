@@ -53,7 +53,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
-import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -104,7 +103,7 @@ public class MetadataQueryOptimizer
         {
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
             for (Aggregation aggregation : node.getAggregations().values()) {
-                if (!ALLOWED_FUNCTIONS.contains(aggregation.getResolvedFunction().getSignature().getName()) && !aggregation.isDistinct()) {
+                if (!ALLOWED_FUNCTIONS.contains(aggregation.getResolvedFunction().signature().getName()) && !aggregation.isDistinct()) {
                     return context.defaultRewrite(node);
                 }
             }

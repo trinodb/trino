@@ -57,22 +57,22 @@ import static java.util.Objects.requireNonNull;
  * This rule decorrelates a correlated subquery of LEFT correlated join with distinct operator (grouped aggregation with no aggregation assignments)
  * <p>
  * Transforms:
- * <pre>
+ * <pre>{@code
  * - CorrelatedJoin LEFT (correlation: [c], filter: true, output: a, x)
  *      - Input (a, c)
  *      - Project (x <- b + 100)
  *           - Aggregation "distinct operator" group by [b]
  *                - Source (b) with correlated filter (b > c)
- * </pre>
+ * }</pre>
  * Into:
- * <pre>
+ * <pre>{@code
  * - Project (a <- a, x <- b + 100)
  *      - Aggregation "distinct operator" group by [a, c, unique, b]
  *           - LEFT join (filter: b > c)
  *                - UniqueId (unique)
  *                     - Input (a, c)
  *                - Source (b) decorrelated
- * </pre>
+ * }</pre>
  */
 public class TransformCorrelatedDistinctAggregationWithProjection
         implements Rule<CorrelatedJoinNode>

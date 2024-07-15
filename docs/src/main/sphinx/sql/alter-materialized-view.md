@@ -17,7 +17,6 @@ materialized view does not exist, but a table or view with the given name
 exists.
 
 (alter-materialized-view-set-properties)=
-
 ### SET PROPERTIES
 
 The `ALTER MATERIALIZED VIEW SET PROPERTIES`  statement followed by some number

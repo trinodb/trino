@@ -13,13 +13,11 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
 import java.sql.Timestamp;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createTestTables;
-import static io.trino.plugin.cassandra.ScyllaQueryRunner.createScyllaQueryRunner;
 
 public class TestScyllaConnectorSmokeTest
         extends BaseCassandraConnectorSmokeTest
@@ -28,9 +26,11 @@ public class TestScyllaConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        TestingScyllaServer server = closeAfterClass(new TestingScyllaServer("3.3.4"));
+        TestingScyllaServer server = closeAfterClass(new TestingScyllaServer());
         CassandraSession session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
-        return createScyllaQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return ScyllaQueryRunner.builder(server)
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 }

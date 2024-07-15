@@ -163,10 +163,9 @@ public final class AggregationMaskCompiler
         // create expression to test if a position is selected
         Variable maskValueBlock = scope.declareVariable(ByteArrayBlock.class, "maskValueBlock");
         Variable maskValueBlockPosition = scope.declareVariable("maskValueBlockPosition", body, constantInt(0));
-        BytecodeExpression isMaskPositionSelected = testMaskBlock(maskValueBlock, maskBlockMayHaveNull, maskValueBlockPosition);
+        BytecodeExpression isPositionSelected = testMaskBlock(maskValueBlock, maskBlockMayHaveNull, maskValueBlockPosition);
 
         Variable pagePosition = scope.declareVariable("pagePosition", body, constantInt(0));
-        BytecodeExpression isPositionSelected = isMaskPositionSelected;
         for (int i = 0; i < nonNullArgs.size(); i++) {
             Variable arg = nonNullArgs.get(i);
             Variable mayHaveNull = nonNullArgMayHaveNulls.get(i);

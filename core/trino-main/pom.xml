@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>444</version>
+        <version>452</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -13,7 +13,8 @@
     <description>Trino - Engine</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <!-- TODO enable @GuardedBy checks in trino-main -->
+        <trino.error-prone.guarded-by>WARN</trino.error-prone.guarded-by>
     </properties>
 
     <dependencies>
@@ -206,12 +207,6 @@
         <dependency>
             <groupId>io.airlift.discovery</groupId>
             <artifactId>discovery-server</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>javax.validation</groupId>
-                    <artifactId>validation-api</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -347,7 +342,7 @@
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-analysis-common</artifactId>
-            <version>9.10.0</version>
+            <version>9.11.1</version>
         </dependency>
 
         <dependency>
@@ -502,6 +497,13 @@
             <groupId>org.junit.vintage</groupId>
             <artifactId>junit-vintage-engine</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <!-- newer hamcrest is pulled in by airlift jaxrs-testing -->
+                <exclusion>
+                    <groupId>org.hamcrest</groupId>
+                    <artifactId>hamcrest-core</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -539,36 +541,4 @@
             </resource>
         </resources>
     </build>
-
-    <profiles>
-        <profile>
-            <id>benchmarks</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <configuration>
-                            <executable>${java.home}/bin/java</executable>
-                            <arguments>
-                                <argument>-DoutputDirectory=benchmark_outputs</argument>
-                                <argument>-classpath</argument>
-                                <classpath />
-                                <argument>io.trino.benchmark.BenchmarkSuite</argument>
-                            </arguments>
-                            <classpathScope>test</classpathScope>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>benchmarks</id>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

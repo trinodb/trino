@@ -75,7 +75,7 @@ public class UnregisterTableProcedure
 
     public void unregisterTable(ConnectorAccessControl accessControl, ConnectorSession session, String schemaName, String tableName)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doUnregisterTable(accessControl, session, schemaName, tableName);
         }
     }

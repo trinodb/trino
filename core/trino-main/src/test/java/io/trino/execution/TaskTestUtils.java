@@ -47,6 +47,7 @@ import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.NodePartitioningManager;
@@ -80,7 +81,7 @@ public final class TaskTestUtils
 
     public static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("tableScan");
 
-    private static final CatalogHandle CATALOG_HANDLE = TEST_TABLE_HANDLE.getCatalogHandle();
+    private static final CatalogHandle CATALOG_HANDLE = TEST_TABLE_HANDLE.catalogHandle();
 
     public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CATALOG_HANDLE, TestingSplit.createLocalSplit()));
 
@@ -151,6 +152,7 @@ public final class TaskTestUtils
                 CatalogServiceProvider.fail());
 
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
+        ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
         return new LocalExecutionPlanner(
                 PLANNER_CONTEXT,
                 Optional.empty(),
@@ -159,7 +161,7 @@ public final class TaskTestUtils
                 nodePartitioningManager,
                 new PageSinkManager(CatalogServiceProvider.fail()),
                 new MockDirectExchangeClientSupplier(),
-                new ExpressionCompiler(PLANNER_CONTEXT.getFunctionManager(), pageFunctionCompiler),
+                new ExpressionCompiler(PLANNER_CONTEXT.getFunctionManager(), pageFunctionCompiler, columnarFilterCompiler),
                 pageFunctionCompiler,
                 new JoinFilterFunctionCompiler(PLANNER_CONTEXT.getFunctionManager()),
                 new IndexJoinLookupStats(),

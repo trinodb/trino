@@ -41,16 +41,22 @@ http-server.https.keystore.path=/etc/trino/keystore.jks
 http-server.https.keystore.key=keystore_password
 ```
 
-| Property                                                   | Description                                                                                                                                                                  |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `http-server.authentication.type`                          | Enable the password {doc}`authentication type <authentication-types>` for the Trino coordinator. Must be set to `PASSWORD`.                                                  |
-| `http-server.https.enabled`                                | Enables HTTPS access for the Trino coordinator. Should be set to `true`. Default value is `false`.                                                                           |
-| `http-server.https.port`                                   | HTTPS server port.                                                                                                                                                           |
-| `http-server.https.keystore.path`                          | The location of the PEM or Java keystore file is used to enable TLS.                                                                                                         |
-| `http-server.https.keystore.key`                           | The password for the PEM or Java keystore. This must match the password you specified when creating the PEM or keystore.                                                     |
-| `http-server.process-forwarded`                            | Enable treating forwarded HTTPS requests over HTTP as secure.  Requires the `X-Forwarded-Proto` header to be set to `https` on forwarded requests. Default value is `false`. |
-| `http-server.authentication.password.user-mapping.pattern` | Regex to match against user.  If matched, user will be replaced with first regex group. If not matched, authentication is denied.  Default is `(.*)`.                        |
-| `http-server.authentication.password.user-mapping.file`    | File containing rules for mapping user.  See {doc}`/security/user-mapping` for more information.                                                                             |
+Find detailed description for the available properties in
+[](/admin/properties-http-server) and the following table:
+
+:::{list-table}
+:widths: 15, 85
+:header-rows: 1
+
+* - Property
+  - Description
+* - `http-server.authentication.password.user-mapping.pattern`
+  - Regex to match against user.  If matched, user is replaced with first regex
+    group. If not matched, authentication is denied.  Defaults to `(.*)`.
+* - `http-server.authentication.password.user-mapping.file`
+  - File containing rules for mapping user.  See [](/security/user-mapping)
+    for more information.
+:::
 
 #### Password authenticator configuration
 
@@ -172,7 +178,6 @@ ldap.group-auth-pattern=(&(|(memberOf=CN=normal_group,DC=corp,DC=com)(memberOf=C
 ```
 
 (cli-ldap)=
-
 ## Trino CLI
 
 ### Environment configuration

@@ -15,7 +15,10 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.VarcharType;
+import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -24,11 +27,16 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.StructuralTestUtil.mapType;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.PART;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestWindowQueries
         extends AbstractTestQueryFramework
 {
+    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = List.of(LINE_ITEM, ORDERS, PART);
+
     @Test
     public void testDistinctWindowPartitionAndPeerGroups()
     {

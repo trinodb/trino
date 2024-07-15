@@ -59,7 +59,7 @@ public class OpenSearchPageSourceProvider
         OpenSearchTableHandle opensearchTable = (OpenSearchTableHandle) table;
         OpenSearchSplit opensearchSplit = (OpenSearchSplit) split;
 
-        if (opensearchTable.getType().equals(QUERY)) {
+        if (opensearchTable.type().equals(QUERY)) {
             return new PassthroughQueryPageSource(client, opensearchTable);
         }
 

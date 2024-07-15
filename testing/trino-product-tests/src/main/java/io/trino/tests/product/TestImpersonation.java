@@ -36,7 +36,6 @@ import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MA
 import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestImpersonation
         extends ProductTest
@@ -90,7 +89,7 @@ public class TestImpersonation
         String tableLocationBob = commonExternalLocationPath + "/bob_table";
         bobExecutor.executeQuery(format("CREATE TABLE %s (a bigint) WITH (external_location = '%s')", tableNameBob, tableLocationBob));
         String owner = hdfsClient.getOwner(commonExternalLocationPath);
-        assertEquals(owner, bobJdbcUser);
+        assertThat(owner).isEqualTo(bobJdbcUser);
 
         String tableNameAlice = "alice_external_table" + randomNameSuffix();
         String tableLocationAlice = commonExternalLocationPath + "/alice_table";
@@ -110,14 +109,14 @@ public class TestImpersonation
         String tableLocationBob = commonExternalLocationPath + "/bob_table";
         bobExecutor.executeQuery(format("CREATE TABLE %s (a bigint) WITH (external_location = '%s')", tableNameBob, tableLocationBob));
         String owner = hdfsClient.getOwner(tableLocationBob);
-        assertEquals(owner, configuredHdfsUser);
+        assertThat(owner).isEqualTo(configuredHdfsUser);
 
         String tableNameAlice = "alice_external_table" + randomNameSuffix();
         String tableLocationAlice = commonExternalLocationPath + "/alice_table";
         aliceExecutor.executeQuery(format("CREATE TABLE %s (a bigint) WITH (external_location = '%s')", tableNameAlice, tableLocationAlice));
         assertThat(aliceExecutor.executeQuery(format("SELECT * FROM %s", tableNameAlice))).hasRowsCount(0);
         owner = hdfsClient.getOwner(tableLocationAlice);
-        assertEquals(owner, configuredHdfsUser);
+        assertThat(owner).isEqualTo(configuredHdfsUser);
 
         bobExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableNameBob));
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableNameAlice));
@@ -155,7 +154,7 @@ public class TestImpersonation
         executor.executeQuery(format("CREATE TABLE %s AS SELECT 'abc' c", tableName));
         String tableLocation = getTableLocation(executor, tableName);
         String owner = hdfsClient.getOwner(tableLocation);
-        assertEquals(owner, expectedOwner);
+        assertThat(owner).isEqualTo(expectedOwner);
         executor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
     }
 
@@ -171,6 +170,6 @@ public class TestImpersonation
         // user alice doesn't have permission to setOwner, so the user group info should be alice:supergroup still
         String warehouseLocationGroup = hdfsClient.getGroup(warehouseLocation);
         String tableLocationGroup = hdfsClient.getGroup(warehouseLocation);
-        assertEquals(tableLocationGroup, warehouseLocationGroup);
+        assertThat(tableLocationGroup).isEqualTo(warehouseLocationGroup);
     }
 }

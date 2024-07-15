@@ -83,15 +83,15 @@ abstract class AbstractPropertiesSystemTable
         InMemoryRecordSet.Builder table = InMemoryRecordSet.builder(tableMetadata);
 
         List<CatalogInfo> catalogInfos = listCatalogs(session, metadata, accessControl).stream()
-                .sorted(Comparator.comparing(CatalogInfo::getCatalogName))
+                .sorted(Comparator.comparing(CatalogInfo::catalogName))
                 .collect(toImmutableList());
 
         for (CatalogInfo catalogInfo : catalogInfos) {
-            catalogProperties.apply(catalogInfo.getCatalogHandle()).stream()
+            catalogProperties.apply(catalogInfo.catalogHandle()).stream()
                     .sorted(Comparator.comparing(PropertyMetadata::getName))
                     .forEach(propertyMetadata ->
                             table.addRow(
-                                    catalogInfo.getCatalogName(),
+                                    catalogInfo.catalogName(),
                                     propertyMetadata.getName(),
                                     firstNonNull(propertyMetadata.getDefaultValue(), "").toString(),
                                     propertyMetadata.getSqlType().toString(),

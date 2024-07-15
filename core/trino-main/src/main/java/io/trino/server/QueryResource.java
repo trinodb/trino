@@ -120,7 +120,7 @@ public class QueryResource
         catch (AccessDeniedException e) {
             throw new ForbiddenException();
         }
-        catch (NoSuchElementException ignored) {
+        catch (NoSuchElementException _) {
         }
     }
 

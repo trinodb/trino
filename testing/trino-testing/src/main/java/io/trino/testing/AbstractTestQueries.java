@@ -231,6 +231,7 @@ public abstract class AbstractTestQueries
     {
         for (int count : largeInValuesCountData()) {
             String longValues = range(0, count)
+                    .map(value -> value * 2) // Make the values discontinuous to avoid getting optimized to a BETWEEN filter
                     .mapToObj(Integer::toString)
                     .collect(joining(", "));
             assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");

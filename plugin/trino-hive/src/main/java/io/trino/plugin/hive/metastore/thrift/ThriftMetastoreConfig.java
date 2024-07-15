@@ -28,6 +28,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 @DefunctConfig("hive.metastore.thrift.batch-fetch.enabled")
@@ -47,6 +48,7 @@ public class ThriftMetastoreConfig
     private long delegationTokenCacheMaximumSize = 1000;
     private boolean deleteFilesOnDrop;
     private Duration maxWaitForTransactionLock = new Duration(10, TimeUnit.MINUTES);
+    private String catalogName;
 
     private boolean tlsEnabled;
     private File keystorePath;
@@ -345,6 +347,19 @@ public class ThriftMetastoreConfig
     public ThriftMetastoreConfig setWriteStatisticsThreads(int writeStatisticsThreads)
     {
         this.writeStatisticsThreads = writeStatisticsThreads;
+        return this;
+    }
+
+    public Optional<String> getCatalogName()
+    {
+        return Optional.ofNullable(catalogName);
+    }
+
+    @Config("hive.metastore.thrift.catalog-name")
+    @ConfigDescription("Hive metastore thrift catalog name")
+    public ThriftMetastoreConfig setCatalogName(String catalogName)
+    {
+        this.catalogName = catalogName;
         return this;
     }
 }

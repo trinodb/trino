@@ -96,10 +96,10 @@ public class PatternRecognitionNode
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
         requireNonNull(hashSymbol, "hashSymbol is null");
-        checkArgument(specification.getPartitionBy().containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
-        Optional<OrderingScheme> orderingScheme = specification.getOrderingScheme();
-        checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().getOrderBy().size()), "Cannot have sorted more symbols than those requested");
-        checkArgument(preSortedOrderPrefix == 0 || ImmutableSet.copyOf(prePartitionedInputs).equals(ImmutableSet.copyOf(specification.getPartitionBy())), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
+        checkArgument(specification.partitionBy().containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
+        Optional<OrderingScheme> orderingScheme = specification.orderingScheme();
+        checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().orderBy().size()), "Cannot have sorted more symbols than those requested");
+        checkArgument(preSortedOrderPrefix == 0 || ImmutableSet.copyOf(prePartitionedInputs).equals(ImmutableSet.copyOf(specification.partitionBy())), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
         requireNonNull(windowFunctions, "windowFunctions is null");
         requireNonNull(measures, "measures is null");
         requireNonNull(commonBaseFrame, "commonBaseFrame is null");
@@ -171,12 +171,12 @@ public class PatternRecognitionNode
 
     public List<Symbol> getPartitionBy()
     {
-        return specification.getPartitionBy();
+        return specification.partitionBy();
     }
 
     public Optional<OrderingScheme> getOrderingScheme()
     {
-        return specification.getOrderingScheme();
+        return specification.orderingScheme();
     }
 
     @JsonProperty

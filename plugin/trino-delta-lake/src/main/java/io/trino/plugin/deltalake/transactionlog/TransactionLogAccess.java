@@ -22,6 +22,8 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import io.airlift.jmx.CacheStatsMBean;
 import io.trino.cache.EvictableCacheBuilder;
+import io.trino.filesystem.FileEntry;
+import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -69,6 +71,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.alwaysTrue;
@@ -83,9 +87,9 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SC
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isCheckpointFilteringEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.COMMIT;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
@@ -95,6 +99,10 @@ import static java.util.Objects.requireNonNull;
 
 public class TransactionLogAccess
 {
+    private static final Pattern CLASSIC_CHECKPOINT = Pattern.compile("(\\d*)\\.checkpoint\\.parquet");
+    private static final Pattern MULTI_PART_CHECKPOINT = Pattern.compile("(\\d*)\\.checkpoint\\.(\\d*)\\.(\\d*)\\.parquet");
+    private static final Pattern V2_CHECKPOINT = Pattern.compile("(\\d*)\\.checkpoint\\.[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\.(json|parquet)");
+
     private final TypeManager typeManager;
     private final CheckpointSchemaManager checkpointSchemaManager;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
@@ -152,13 +160,17 @@ public class TransactionLogAccess
         return new CacheStatsMBean(tableSnapshots);
     }
 
-    public TableSnapshot loadSnapshot(ConnectorSession session, SchemaTableName table, String tableLocation)
+    public TableSnapshot loadSnapshot(ConnectorSession session, SchemaTableName table, String tableLocation, Optional<Long> endVersion)
             throws IOException
     {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        if (endVersion.isPresent()) {
+            return loadSnapshotForTimeTravel(fileSystem, table, tableLocation, endVersion.get());
+        }
+
         TableLocation cacheKey = new TableLocation(table, tableLocation);
         TableSnapshot cachedSnapshot = tableSnapshots.getIfPresent(cacheKey);
         TableSnapshot snapshot;
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         if (cachedSnapshot == null) {
             try {
                 Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
@@ -170,7 +182,8 @@ public class TransactionLogAccess
                                 tableLocation,
                                 parquetReaderOptions,
                                 checkpointRowStatisticsWritingEnabled,
-                                domainCompactionThreshold));
+                                domainCompactionThreshold,
+                                endVersion));
             }
             catch (UncheckedExecutionException | ExecutionException e) {
                 throwIfUnchecked(e.getCause());
@@ -188,6 +201,80 @@ public class TransactionLogAccess
             }
         }
         return snapshot;
+    }
+
+    private TableSnapshot loadSnapshotForTimeTravel(TrinoFileSystem fileSystem, SchemaTableName table, String tableLocation, long endVersion)
+            throws IOException
+    {
+        return TableSnapshot.load(
+                table,
+                findCheckpoint(fileSystem, tableLocation, endVersion),
+                fileSystem,
+                tableLocation,
+                parquetReaderOptions,
+                checkpointRowStatisticsWritingEnabled,
+                domainCompactionThreshold,
+                Optional.of(endVersion));
+    }
+
+    private static Optional<LastCheckpoint> findCheckpoint(TrinoFileSystem fileSystem, String tableLocation, long endVersion)
+    {
+        Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
+        if (lastCheckpoint.isPresent() && lastCheckpoint.get().version() <= endVersion) {
+            return lastCheckpoint;
+        }
+
+        // TODO https://github.com/trinodb/trino/issues/21366 Make this logic efficient
+        Optional<LastCheckpoint> latestCheckpoint = Optional.empty();
+        Location transactionDirectory = Location.of(getTransactionLogDir(tableLocation));
+        try {
+            FileIterator files = fileSystem.listFiles(transactionDirectory);
+            while (files.hasNext()) {
+                FileEntry file = files.next();
+                Optional<LastCheckpoint> checkpoint = extractCheckpointVersion(file);
+                if (checkpoint.isEmpty()) {
+                    continue;
+                }
+
+                long version = checkpoint.get().version();
+                if (version == endVersion) {
+                    return checkpoint;
+                }
+                if (version > endVersion || (latestCheckpoint.isPresent() && version < latestCheckpoint.get().version())) {
+                    continue;
+                }
+                latestCheckpoint = checkpoint;
+            }
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return latestCheckpoint;
+    }
+
+    private static Optional<LastCheckpoint> extractCheckpointVersion(FileEntry file)
+    {
+        String fileName = file.location().fileName();
+        Matcher classicCheckpoint = CLASSIC_CHECKPOINT.matcher(fileName);
+        if (classicCheckpoint.matches()) {
+            long version = Long.parseLong(classicCheckpoint.group(1));
+            return Optional.of(new LastCheckpoint(version, file.length(), Optional.empty(), Optional.empty()));
+        }
+
+        Matcher multiPartCheckpoint = MULTI_PART_CHECKPOINT.matcher(fileName);
+        if (multiPartCheckpoint.matches()) {
+            long version = Long.parseLong(multiPartCheckpoint.group(1));
+            int parts = Integer.parseInt(multiPartCheckpoint.group(3));
+            return Optional.of(new LastCheckpoint(version, file.length(), Optional.of(parts), Optional.empty()));
+        }
+
+        Matcher v2Checkpoint = V2_CHECKPOINT.matcher(fileName);
+        if (v2Checkpoint.matches()) {
+            long version = Long.parseLong(v2Checkpoint.group(1));
+            return Optional.of(new LastCheckpoint(version, file.length(), Optional.empty(), Optional.of(new V2Checkpoint(fileName))));
+        }
+
+        return Optional.empty();
     }
 
     public void flushCache()
@@ -294,7 +381,7 @@ public class TransactionLogAccess
         }
     }
 
-    private Stream<AddFileEntry> loadActiveFiles(
+    public Stream<AddFileEntry> loadActiveFiles(
             ConnectorSession session,
             TableSnapshot tableSnapshot,
             MetadataEntry metadataEntry,
@@ -331,9 +418,9 @@ public class TransactionLogAccess
     public static ImmutableList<DeltaLakeColumnMetadata> columnsWithStats(List<DeltaLakeColumnMetadata> schema, List<String> partitionColumns)
     {
         return schema.stream()
-                .filter(column -> !partitionColumns.contains(column.getName()))
+                .filter(column -> !partitionColumns.contains(column.name()))
                 .filter(column -> {
-                    Type type = column.getType();
+                    Type type = column.type();
                     return !(type instanceof MapType || type instanceof ArrayType || type.equals(BooleanType.BOOLEAN) || type.equals(VarbinaryType.VARBINARY));
                 })
                 .collect(toImmutableList());
@@ -416,17 +503,6 @@ public class TransactionLogAccess
                 tableSnapshot,
                 PROTOCOL,
                 entryStream -> entryStream.map(DeltaLakeTransactionLogEntry::getProtocol).filter(Objects::nonNull),
-                fileSystemFactory.create(session),
-                fileFormatDataSourceStats);
-    }
-
-    public Stream<CommitInfoEntry> getCommitInfoEntries(ConnectorSession session, TableSnapshot tableSnapshot)
-    {
-        return getEntries(
-                session,
-                tableSnapshot,
-                COMMIT,
-                entryStream -> entryStream.map(DeltaLakeTransactionLogEntry::getCommitInfo).filter(Objects::nonNull),
                 fileSystemFactory.create(session),
                 fileFormatDataSourceStats);
     }

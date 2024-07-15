@@ -14,10 +14,9 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
@@ -40,10 +39,8 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
         extends BaseDeltaLakeSharedMetastoreWithTableRedirectionsTest
 {
-    private static final Logger LOG = Logger.get(TestDeltaLakeSharedGlueMetastoreWithTableRedirections.class);
-
     private Path dataDirectory;
-    private HiveMetastore glueMetastore;
+    private GlueHiveMetastore glueMetastore;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -57,7 +54,6 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
         QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
 
         this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
-        this.dataDirectory.toFile().deleteOnExit();
 
         queryRunner.installPlugin(new DeltaLakePlugin());
         queryRunner.createCatalog(
@@ -69,7 +65,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                         .put("delta.hive-catalog-name", "hive_with_redirections")
                         .buildOrThrow());
 
-        this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory);
+        this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory, this::closeAfterClass);
         queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data"), glueMetastore));
         queryRunner.createCatalog(
                 "hive_with_redirections",
@@ -86,15 +82,9 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
     @AfterAll
     public void cleanup()
     {
-        try {
-            if (glueMetastore != null) {
-                // Data is on the local disk and will be deleted by the deleteOnExit hook
-                glueMetastore.dropDatabase(schema, false);
-            }
-        }
-        catch (Exception e) {
-            LOG.error(e, "Failed to clean up Glue database: %s", schema);
-        }
+        // Data is on the local disk and will be deleted by the deleteOnExit hook
+        glueMetastore.dropDatabase(schema, false);
+        glueMetastore.shutdown();
     }
 
     @Override

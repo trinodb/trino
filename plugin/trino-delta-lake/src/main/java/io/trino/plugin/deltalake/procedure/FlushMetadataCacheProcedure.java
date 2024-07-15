@@ -81,7 +81,7 @@ public class FlushMetadataCacheProcedure
 
     public void flushMetadataCache(String schemaName, String tableName)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doFlushMetadataCache(Optional.ofNullable(schemaName), Optional.ofNullable(tableName));
         }
     }

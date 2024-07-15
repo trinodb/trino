@@ -13,58 +13,33 @@
  */
 package io.trino.plugin.opensearch;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
-public class OpenSearchSplit
+public record OpenSearchSplit(
+        String index,
+        int shard,
+        Optional<String> address)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(OpenSearchSplit.class);
 
-    private final String index;
-    private final int shard;
-    private final Optional<String> address;
-
-    @JsonCreator
-    public OpenSearchSplit(
-            @JsonProperty("index") String index,
-            @JsonProperty("shard") int shard,
-            @JsonProperty("address") Optional<String> address)
+    public OpenSearchSplit
     {
-        this.index = requireNonNull(index, "index is null");
-        this.shard = shard;
-        this.address = requireNonNull(address, "address is null");
-    }
-
-    @JsonProperty
-    public String getIndex()
-    {
-        return index;
-    }
-
-    @JsonProperty
-    public int getShard()
-    {
-        return shard;
-    }
-
-    @JsonProperty
-    public Optional<String> getAddress()
-    {
-        return address;
+        requireNonNull(index, "index is null");
+        requireNonNull(address, "address is null");
     }
 
     @Override
@@ -75,9 +50,9 @@ public class OpenSearchSplit
     }
 
     @Override
-    public Object getInfo()
+    public Map<String, String> getSplitInfo()
     {
-        return this;
+        return ImmutableMap.of("index", index, "shard", String.valueOf(shard), "address", address.orElse(""));
     }
 
     @Override
@@ -86,14 +61,5 @@ public class OpenSearchSplit
         return INSTANCE_SIZE
                 + estimatedSizeOf(index)
                 + sizeOf(address, SizeOf::estimatedSizeOf);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("index", index)
-                .add("shard", shard)
-                .toString();
     }
 }

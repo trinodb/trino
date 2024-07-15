@@ -13,13 +13,9 @@
  */
 package io.trino.plugin.oracle;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
-
-import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
-import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 
 public class TestOracleTypeMapping
         extends AbstractTestOracleTypeMapping
@@ -31,17 +27,12 @@ public class TestOracleTypeMapping
             throws Exception
     {
         this.oracleServer = closeAfterClass(new TestingOracleServer());
-        return OracleQueryRunner.createOracleQueryRunner(
-                oracleServer,
-                ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
-                        .put("connection-url", oracleServer.getJdbcUrl())
-                        .put("connection-user", TEST_USER)
-                        .put("connection-password", TEST_PASS)
+        return OracleQueryRunner.builder(oracleServer)
+                .addConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("oracle.connection-pool.enabled", "false")
                         .put("oracle.remarks-reporting.enabled", "false")
-                        .buildOrThrow(),
-                ImmutableList.of());
+                        .buildOrThrow())
+                .build();
     }
 
     @Override

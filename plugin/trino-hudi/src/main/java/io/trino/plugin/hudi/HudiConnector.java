@@ -126,7 +126,7 @@ public class HudiConnector
     {
         checkConnectorSupports(SERIALIZABLE, isolationLevel);
         ConnectorTransactionHandle transaction = new HiveTransactionHandle(true);
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             transactionManager.put(transaction);
         }
         return transaction;

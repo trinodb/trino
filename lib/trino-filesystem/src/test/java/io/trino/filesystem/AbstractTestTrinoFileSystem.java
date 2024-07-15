@@ -54,8 +54,6 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -478,6 +476,12 @@ public abstract class AbstractTestTrinoFileSystem
                 assertThatThrownBy(() -> trinoInput.readTail(bytes, 0, 10))
                         .isInstanceOf(IOException.class)
                         .hasMessageContaining(tempBlob.location().toString());
+            }
+
+            // overwrite with an empty file and verify that reading it doesn't throw errors
+            tempBlob.outputFile().createOrOverwrite(new byte[0]);
+            try (TrinoInputStream inputStream = tempBlob.inputFile().newStream()) {
+                assertThat(inputStream.read()).isLessThan(0);
             }
         }
     }
@@ -907,6 +911,33 @@ public abstract class AbstractTestTrinoFileSystem
                 }
             }
         }
+        finally {
+            // clean up manually created parent directory
+            try {
+                getFileSystem().deleteFile(createLocation("renameTarget"));
+            }
+            catch (IOException ignored) {
+            }
+        }
+
+        // rename to a file with special characters in the name
+        try (TempBlob sourceBlob = randomBlobLocation("renameSource");
+                TempBlob targetBlob = randomBlobLocation("renameTarget%25special")) {
+            sourceBlob.createOrOverwrite("data");
+            getFileSystem().createDirectory(targetBlob.location().parentDirectory());
+            getFileSystem().renameFile(sourceBlob.location(), targetBlob.location());
+            assertThat(sourceBlob.exists()).isFalse();
+            assertThat(targetBlob.exists()).isTrue();
+            assertThat(targetBlob.read()).isEqualTo("data");
+        }
+        finally {
+            // clean up manually created parent directory
+            try {
+                getFileSystem().deleteFile(createLocation("renameTarget%25special"));
+            }
+            catch (IOException ignored) {
+            }
+        }
     }
 
     @Test
@@ -1231,14 +1262,14 @@ public abstract class AbstractTestTrinoFileSystem
         Location location = getRootLocation().appendPath("testFileDoesNotExistUntilClosed-%s".formatted(UUID.randomUUID()));
         getFileSystem().deleteFile(location);
         try (OutputStream out = getFileSystem().newOutputFile(location).create()) {
-            assertFalse(fileExistsInListing(location));
-            assertFalse(fileExists(location));
+            assertThat(fileExistsInListing(location)).isFalse();
+            assertThat(fileExists(location)).isFalse();
             out.write("test".getBytes(UTF_8));
-            assertFalse(fileExistsInListing(location));
-            assertFalse(fileExists(location));
+            assertThat(fileExistsInListing(location)).isFalse();
+            assertThat(fileExists(location)).isFalse();
         }
-        assertTrue(fileExistsInListing(location));
-        assertTrue(fileExists(location));
+        assertThat(fileExistsInListing(location)).isTrue();
+        assertThat(fileExists(location)).isTrue();
         getFileSystem().deleteFile(location);
     }
 
@@ -1260,13 +1291,13 @@ public abstract class AbstractTestTrinoFileSystem
                 outputStream.write(bytes);
                 count += bytes.length;
                 if (count + bytes.length >= target) {
-                    assertFalse(fileExistsInListing(location));
-                    assertFalse(fileExists(location));
+                    assertThat(fileExistsInListing(location)).isFalse();
+                    assertThat(fileExists(location)).isFalse();
                 }
             }
         }
-        assertTrue(fileExistsInListing(location));
-        assertTrue(fileExists(location));
+        assertThat(fileExistsInListing(location)).isTrue();
+        assertThat(fileExists(location)).isTrue();
         getFileSystem().deleteFile(location);
     }
 
@@ -1407,7 +1438,7 @@ public abstract class AbstractTestTrinoFileSystem
             try {
                 fileSystem.deleteFile(location);
             }
-            catch (IOException ignored) {
+            catch (IOException _) {
             }
         }
     }

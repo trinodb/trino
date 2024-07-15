@@ -170,7 +170,7 @@ public class ReportBadTestAnnotations
             // Simplistic override detection
             return Optional.of(base.getMethod(method.getName(), method.getParameterTypes()));
         }
-        catch (NoSuchMethodException ignored) {
+        catch (NoSuchMethodException _) {
             return Optional.empty();
         }
     }

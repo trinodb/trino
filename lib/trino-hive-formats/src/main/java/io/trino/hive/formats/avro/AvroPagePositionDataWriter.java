@@ -47,6 +47,7 @@ import static io.trino.hive.formats.avro.AvroTypeUtils.getSimpleNullableUnionNul
 import static io.trino.hive.formats.avro.AvroTypeUtils.isSimpleNullableUnion;
 import static io.trino.hive.formats.avro.AvroTypeUtils.lowerCaseAllFieldsForWriter;
 import static io.trino.hive.formats.avro.AvroTypeUtils.unwrapNullableUnion;
+import static io.trino.hive.formats.avro.AvroTypeUtils.verifyNoCircularReferences;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -69,6 +70,7 @@ public class AvroPagePositionDataWriter
             throws AvroTypeException
     {
         this.schema = requireNonNull(schema, "schema is null");
+        verifyNoCircularReferences(schema);
         pageBlockPositionEncoder = new RecordBlockPositionEncoder(schema, avroTypeManager, channelNames, channelTypes);
         checkInvariants();
     }

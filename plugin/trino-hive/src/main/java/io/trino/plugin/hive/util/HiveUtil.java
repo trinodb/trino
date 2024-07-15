@@ -65,6 +65,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -94,6 +95,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_COLUMNS_KEY;
 import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_FPP_KEY;
+import static io.trino.plugin.hive.HiveMetadata.PARQUET_BLOOM_FILTER_COLUMNS_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
@@ -134,7 +136,6 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 
 public final class HiveUtil
 {
@@ -627,7 +628,7 @@ public final class HiveUtil
     {
         String columnValue;
         if (partitionKey != null) {
-            columnValue = partitionKey.getValue();
+            columnValue = partitionKey.value();
         }
         else if (isPathColumnHandle(columnHandle)) {
             columnValue = path;
@@ -746,6 +747,14 @@ public final class HiveUtil
         return toHiveTypes(schema.getOrDefault(LIST_COLUMN_TYPES, ""));
     }
 
+    public static Set<String> getParquetBloomFilterColumns(Map<String, String> schema)
+    {
+        return ImmutableSet.copyOf(
+                Optional.ofNullable(schema.get(PARQUET_BLOOM_FILTER_COLUMNS_KEY))
+                        .map(COLUMN_NAMES_SPLITTER::splitToList)
+                        .orElse(ImmutableList.of()));
+    }
+
     public static OrcWriterOptions getOrcWriterOptions(Map<String, String> schema, OrcWriterOptions orcWriterOptions)
     {
         if (schema.containsKey(ORC_BLOOM_FILTER_COLUMNS_KEY)) {
@@ -820,10 +829,11 @@ public final class HiveUtil
 
     public static boolean isHudiTable(Table table)
     {
-        requireNonNull(table, "table is null");
-        @Nullable
-        String inputFormat = table.getStorage().getStorageFormat().getInputFormatNullable();
+        return isHudiTable(table.getStorage().getStorageFormat().getInputFormatNullable());
+    }
 
+    public static boolean isHudiTable(String inputFormat)
+    {
         return HUDI_PARQUET_INPUT_FORMAT.equals(inputFormat) ||
                 HUDI_PARQUET_REALTIME_INPUT_FORMAT.equals(inputFormat) ||
                 HUDI_INPUT_FORMAT.equals(inputFormat) ||

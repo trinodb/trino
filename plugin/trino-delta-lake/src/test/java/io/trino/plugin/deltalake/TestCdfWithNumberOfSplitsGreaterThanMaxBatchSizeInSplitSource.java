@@ -19,8 +19,6 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -31,11 +29,13 @@ public class TestCdfWithNumberOfSplitsGreaterThanMaxBatchSizeInSplitSource
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(
+        return DeltaLakeQueryRunner.builder()
+                .setExtraProperties(ImmutableMap.of(
                         "query.schedule-split-batch-size", "1",
                         "node-scheduler.max-splits-per-node", "1",
-                        "node-scheduler.min-pending-splits-per-task", "1"),
-                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"));
+                        "node-scheduler.min-pending-splits-per-task", "1"))
+                .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .build();
     }
 
     @Test
@@ -47,7 +47,7 @@ public class TestCdfWithNumberOfSplitsGreaterThanMaxBatchSizeInSplitSource
         assertUpdate("INSERT INTO " + tableName + " VALUES('url4', 'domain4', 4), ('url5', 'domain5', 2), ('url6', 'domain6', 6)", 3);
 
         assertUpdate("UPDATE " + tableName + " SET page_url = 'url22' WHERE views = 2", 2);
-        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('tpch', '" + tableName + "'))",
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "'))",
                 """
                         VALUES
                             ('url1', 'domain1', 1, 'insert', BIGINT '1'),
@@ -63,14 +63,14 @@ public class TestCdfWithNumberOfSplitsGreaterThanMaxBatchSizeInSplitSource
                         """);
 
         assertUpdate("DELETE FROM " + tableName + " WHERE views = 2", 2);
-        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('tpch', '" + tableName + "', 3))",
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "', 3))",
                 """
                         VALUES
                             ('url22', 'domain2', 2, 'delete', BIGINT '4'),
                             ('url22', 'domain5', 2, 'delete', BIGINT '4')
                         """);
 
-        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('tpch', '" + tableName + "')) ORDER BY _commit_version, _change_type, domain",
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "')) ORDER BY _commit_version, _change_type, domain",
                 """
                         VALUES
                             ('url1', 'domain1', 1, 'insert', BIGINT '1'),

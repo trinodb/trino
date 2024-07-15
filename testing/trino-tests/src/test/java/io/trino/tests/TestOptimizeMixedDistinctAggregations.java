@@ -16,7 +16,7 @@ package io.trino.tests;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestAggregations;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 
 public class TestOptimizeMixedDistinctAggregations
         extends AbstractTestAggregations
@@ -25,8 +25,8 @@ public class TestOptimizeMixedDistinctAggregations
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpchQueryRunnerBuilder.builder()
-                .setCoordinatorProperties(ImmutableMap.of("optimizer.optimize-mixed-distinct-aggregations", "true"))
+        return TpchQueryRunner.builder()
+                .setCoordinatorProperties(ImmutableMap.of("optimizer.distinct-aggregations-strategy", "pre_aggregate"))
                 .build();
     }
 

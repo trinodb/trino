@@ -50,7 +50,7 @@ public class SqlIntervalDayTime
             return false;
         }
         SqlIntervalDayTime other = (SqlIntervalDayTime) obj;
-        return Objects.equals(this.milliSeconds, other.milliSeconds);
+        return this.milliSeconds == other.milliSeconds;
     }
 
     @JsonValue

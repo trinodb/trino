@@ -18,12 +18,14 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.math.LongMath;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.ObjectType;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
@@ -35,6 +37,7 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
@@ -61,7 +64,7 @@ public class SharedHiveMetastoreCache
     private final Duration userMetastoreCacheTtl;
     private final long userMetastoreCacheMaximumSize;
     private final boolean metastorePartitionCacheEnabled;
-    private final boolean cacheMissing;
+    private final Set<ObjectType> cacheMissing;
 
     private ExecutorService executorService;
 
@@ -83,7 +86,17 @@ public class SharedHiveMetastoreCache
         metastoreRefreshInterval = config.getMetastoreRefreshInterval();
         metastoreCacheMaximumSize = config.getMetastoreCacheMaximumSize();
         metastorePartitionCacheEnabled = config.isPartitionCacheEnabled();
-        cacheMissing = config.isCacheMissing();
+        ImmutableSet.Builder<ObjectType> cacheMissing = ImmutableSet.builder();
+        if (config.isCacheMissing()) {
+            cacheMissing.add(ObjectType.OTHER);
+        }
+        if (config.isCacheMissingPartitions()) {
+            cacheMissing.add(ObjectType.PARTITION);
+        }
+        if (config.isCacheMissingStats()) {
+            cacheMissing.add(ObjectType.STATS);
+        }
+        this.cacheMissing = cacheMissing.build();
 
         userMetastoreCacheTtl = impersonationCachingConfig.getUserMetastoreCacheTtl();
         userMetastoreCacheMaximumSize = impersonationCachingConfig.getUserMetastoreCacheMaximumSize();
@@ -119,7 +132,7 @@ public class SharedHiveMetastoreCache
 
     public HiveMetastoreFactory createCachingHiveMetastoreFactory(HiveMetastoreFactory metastoreFactory)
     {
-        if (!enabled) {
+        if (!enabled || metastoreFactory.hasBuiltInCaching()) {
             return metastoreFactory;
         }
 
@@ -147,8 +160,8 @@ public class SharedHiveMetastoreCache
                 new ReentrantBoundedExecutor(executorService, maxMetastoreRefreshThreads),
                 metastoreCacheMaximumSize,
                 CachingHiveMetastore.StatsRecording.ENABLED,
-                cacheMissing,
-                metastorePartitionCacheEnabled);
+                metastorePartitionCacheEnabled,
+                cacheMissing);
     }
 
     public static class CachingHiveMetastoreFactory

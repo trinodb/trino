@@ -223,32 +223,21 @@ public class CostCalculatorUsingExchanges
         private LocalCostEstimate calculateExchangeCost(ExchangeNode node)
         {
             double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputSymbols());
-            switch (node.getScope()) {
-                case LOCAL:
-                    switch (node.getType()) {
-                        case GATHER:
-                            return LocalCostEstimate.zero();
-                        case REPARTITION:
-                            return calculateLocalRepartitionCost(inputSizeInBytes);
-                        case REPLICATE:
-                            return LocalCostEstimate.zero();
-                    }
-                    throw new IllegalArgumentException("Unexpected type: " + node.getType());
-                case REMOTE:
-                    switch (node.getType()) {
-                        case GATHER:
-                            return calculateRemoteGatherCost(inputSizeInBytes);
-                        case REPARTITION:
-                            return calculateRemoteRepartitionCost(inputSizeInBytes);
-                        case REPLICATE:
-                            // assuming that destination is always source distributed
-                            // it is true as now replicated exchange is used for joins only
-                            // for replicated join probe side is usually source distributed
-                            return calculateRemoteReplicateCost(inputSizeInBytes, taskCountEstimator.estimateSourceDistributedTaskCount(session));
-                    }
-                    throw new IllegalArgumentException("Unexpected type: " + node.getType());
-            }
-            throw new IllegalArgumentException("Unexpected scope: " + node.getScope());
+            return switch (node.getScope()) {
+                case LOCAL -> switch (node.getType()) {
+                    case GATHER -> LocalCostEstimate.zero();
+                    case REPARTITION -> calculateLocalRepartitionCost(inputSizeInBytes);
+                    case REPLICATE -> LocalCostEstimate.zero();
+                };
+                case REMOTE -> switch (node.getType()) {
+                    case GATHER -> calculateRemoteGatherCost(inputSizeInBytes);
+                    case REPARTITION -> calculateRemoteRepartitionCost(inputSizeInBytes);
+                    // assuming that destination is always source distributed
+                    // it is true as now replicated exchange is used for joins only
+                    // for replicated join probe side is usually source distributed
+                    case REPLICATE -> calculateRemoteReplicateCost(inputSizeInBytes, taskCountEstimator.estimateSourceDistributedTaskCount(session));
+                };
+            };
         }
 
         @Override

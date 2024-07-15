@@ -16,6 +16,7 @@ package io.trino.connector;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
@@ -1369,9 +1370,9 @@ public class TestingTableFunctions
             }
 
             @Override
-            public Object getInfo()
+            public Map<String, String> getSplitInfo()
             {
-                return count;
+                return ImmutableMap.of("count", String.valueOf(count));
             }
 
             @Override

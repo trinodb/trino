@@ -20,8 +20,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -77,12 +75,16 @@ public class TestSelectAll
         // non-deterministic expression precomputed
         MaterializedResult materializedResult = assertions.execute("SELECT (x, x, x, x, x, x, x, x).* FROM (SELECT rand()) T(x)");
         long distinctValuesCount = materializedResult.getMaterializedRows().get(0).getFields().stream().distinct().count();
-        assertEquals(1, distinctValuesCount, "rand() must be computed once only");
+        assertThat(distinctValuesCount)
+                .as("rand() must be computed once only")
+                .isEqualTo(1);
 
         // non-deterministic subquery
         MaterializedResult materializedResult1 = assertions.execute("SELECT (SELECT (rand(), rand(), rand(), rand())).*");
         long distinctValuesCount1 = materializedResult1.getMaterializedRows().get(0).getFields().stream().distinct().count();
-        assertTrue(distinctValuesCount1 >= 3, "rand() must be computed multiple times");
+        assertThat(distinctValuesCount1 >= 3)
+                .as("rand() must be computed multiple times")
+                .isTrue();
 
         assertThat(assertions.query("SELECT 1, (2, 3).*")).matches("SELECT 1, 2, 3");
     }

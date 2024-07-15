@@ -13,7 +13,6 @@
  */
 package io.trino.orc.reader;
 
-import com.google.common.base.VerifyException;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
@@ -140,22 +139,23 @@ public class TimestampColumnReader
     private static TimestampKind getTimestampKind(Type type, OrcColumn column)
             throws OrcCorruptionException
     {
-        if (type.equals(TIMESTAMP_MILLIS) && (column.getColumnType() == OrcTypeKind.TIMESTAMP)) {
+        OrcTypeKind orcTypeKind = column.getColumnType().getOrcTypeKind();
+        if (type.equals(TIMESTAMP_MILLIS) && (orcTypeKind == OrcTypeKind.TIMESTAMP)) {
             return TimestampKind.TIMESTAMP_MILLIS;
         }
-        if (type.equals(TIMESTAMP_MICROS) && (column.getColumnType() == OrcTypeKind.TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MICROS) && (orcTypeKind == OrcTypeKind.TIMESTAMP)) {
             return TimestampKind.TIMESTAMP_MICROS;
         }
-        if (type.equals(TIMESTAMP_NANOS) && (column.getColumnType() == OrcTypeKind.TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_NANOS) && (orcTypeKind == OrcTypeKind.TIMESTAMP)) {
             return TimestampKind.TIMESTAMP_NANOS;
         }
-        if (type.equals(TIMESTAMP_TZ_MILLIS) && (column.getColumnType() == OrcTypeKind.TIMESTAMP_INSTANT)) {
+        if (type.equals(TIMESTAMP_TZ_MILLIS) && (orcTypeKind == OrcTypeKind.TIMESTAMP_INSTANT)) {
             return TimestampKind.INSTANT_MILLIS;
         }
-        if (type.equals(TIMESTAMP_TZ_MICROS) && (column.getColumnType() == OrcTypeKind.TIMESTAMP_INSTANT)) {
+        if (type.equals(TIMESTAMP_TZ_MICROS) && (orcTypeKind == OrcTypeKind.TIMESTAMP_INSTANT)) {
             return TimestampKind.INSTANT_MICROS;
         }
-        if (type.equals(TIMESTAMP_TZ_NANOS) && (column.getColumnType() == OrcTypeKind.TIMESTAMP_INSTANT)) {
+        if (type.equals(TIMESTAMP_TZ_NANOS) && (orcTypeKind == OrcTypeKind.TIMESTAMP_INSTANT)) {
             return TimestampKind.INSTANT_NANOS;
         }
         throw invalidStreamType(column, type);
@@ -235,21 +235,14 @@ public class TimestampColumnReader
     {
         verifyStreamsPresent();
 
-        switch (timestampKind) {
-            case TIMESTAMP_MILLIS:
-                return readNonNullTimestampMillis();
-            case TIMESTAMP_MICROS:
-                return readNonNullTimestampMicros();
-            case TIMESTAMP_NANOS:
-                return readNonNullTimestampNanos();
-            case INSTANT_MILLIS:
-                return readNonNullInstantMillis();
-            case INSTANT_MICROS:
-                return readNonNullInstantMicros();
-            case INSTANT_NANOS:
-                return readNonNullInstantNanos();
-        }
-        throw new VerifyException("Unhandled timestmap kind: " + timestampKind);
+        return switch (timestampKind) {
+            case TIMESTAMP_MILLIS -> readNonNullTimestampMillis();
+            case TIMESTAMP_MICROS -> readNonNullTimestampMicros();
+            case TIMESTAMP_NANOS -> readNonNullTimestampNanos();
+            case INSTANT_MILLIS -> readNonNullInstantMillis();
+            case INSTANT_MICROS -> readNonNullInstantMicros();
+            case INSTANT_NANOS -> readNonNullInstantNanos();
+        };
     }
 
     private Block readNullBlock(boolean[] isNull)
@@ -257,21 +250,14 @@ public class TimestampColumnReader
     {
         verifyStreamsPresent();
 
-        switch (timestampKind) {
-            case TIMESTAMP_MILLIS:
-                return readNullTimestampMillis(isNull);
-            case TIMESTAMP_MICROS:
-                return readNullTimestampMicros(isNull);
-            case TIMESTAMP_NANOS:
-                return readNullTimestampNanos(isNull);
-            case INSTANT_MILLIS:
-                return readNullInstantMillis(isNull);
-            case INSTANT_MICROS:
-                return readNullInstantMicros(isNull);
-            case INSTANT_NANOS:
-                return readNullInstantNanos(isNull);
-        }
-        throw new VerifyException("Unhandled timestamp kind: " + timestampKind);
+        return switch (timestampKind) {
+            case TIMESTAMP_MILLIS -> readNullTimestampMillis(isNull);
+            case TIMESTAMP_MICROS -> readNullTimestampMicros(isNull);
+            case TIMESTAMP_NANOS -> readNullTimestampNanos(isNull);
+            case INSTANT_MILLIS -> readNullInstantMillis(isNull);
+            case INSTANT_MICROS -> readNullInstantMicros(isNull);
+            case INSTANT_NANOS -> readNullInstantNanos(isNull);
+        };
     }
 
     private void openRowGroup()

@@ -114,13 +114,10 @@ public class PasswordStore
 
     private static HashedPassword getHashedPassword(String hashedPassword)
     {
-        switch (getHashingAlgorithm(hashedPassword)) {
-            case BCRYPT:
-                return password -> doesBCryptPasswordMatch(password, hashedPassword);
-            case PBKDF2:
-                return password -> doesPBKDF2PasswordMatch(password, hashedPassword);
-        }
-        throw new HashedPasswordException("Hashing algorithm of password cannot be determined");
+        return switch (getHashingAlgorithm(hashedPassword)) {
+            case BCRYPT -> password -> doesBCryptPasswordMatch(password, hashedPassword);
+            case PBKDF2 -> password -> doesPBKDF2PasswordMatch(password, hashedPassword);
+        };
     }
 
     public interface HashedPassword

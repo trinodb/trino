@@ -13,6 +13,7 @@
  */
 package io.trino.cost;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -30,7 +31,6 @@ import io.trino.sql.ir.Constant;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.IrVisitor;
 import io.trino.sql.ir.Reference;
-import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 
 import java.util.OptionalDouble;
@@ -43,6 +43,7 @@ import static io.trino.spi.function.OperatorType.MULTIPLY;
 import static io.trino.spi.function.OperatorType.NEGATION;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
+import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.util.MoreMath.max;
 import static io.trino.util.MoreMath.min;
 import static java.lang.Double.NaN;
@@ -114,22 +115,22 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitCall(Call node, Void context)
         {
-            if (node.function().getName().equals(builtinFunctionName(NEGATION))) {
+            if (node.function().name().equals(builtinFunctionName(NEGATION))) {
                 SymbolStatsEstimate stats = process(node.arguments().getFirst());
                 return SymbolStatsEstimate.buildFrom(stats)
                         .setLowValue(-stats.getHighValue())
                         .setHighValue(-stats.getLowValue())
                         .build();
             }
-            else if (node.function().getName().equals(builtinFunctionName(ADD)) ||
-                    node.function().getName().equals(builtinFunctionName(SUBTRACT)) ||
-                    node.function().getName().equals(builtinFunctionName(MULTIPLY)) ||
-                    node.function().getName().equals(builtinFunctionName(DIVIDE)) ||
-                    node.function().getName().equals(builtinFunctionName(MODULUS))) {
+            else if (node.function().name().equals(builtinFunctionName(ADD)) ||
+                    node.function().name().equals(builtinFunctionName(SUBTRACT)) ||
+                    node.function().name().equals(builtinFunctionName(MULTIPLY)) ||
+                    node.function().name().equals(builtinFunctionName(DIVIDE)) ||
+                    node.function().name().equals(builtinFunctionName(MODULUS))) {
                 return processArithmetic(node);
             }
 
-            Expression value = new IrExpressionInterpreter(node, plannerContext, session).optimize();
+            Expression value = newOptimizer(plannerContext).process(node, session, ImmutableMap.of()).orElse(node);
 
             if (value instanceof Constant constant && constant.value() == null) {
                 return nullStatsEstimate();
@@ -214,11 +215,11 @@ public class ScalarStatsCalculator
                 result.setLowValue(NaN)
                         .setHighValue(NaN);
             }
-            else if (node.function().getName().equals(builtinFunctionName(DIVIDE)) && rightLow < 0 && rightHigh > 0) {
+            else if (node.function().name().equals(builtinFunctionName(DIVIDE)) && rightLow < 0 && rightHigh > 0) {
                 result.setLowValue(Double.NEGATIVE_INFINITY)
                         .setHighValue(Double.POSITIVE_INFINITY);
             }
-            else if (node.function().getName().equals(builtinFunctionName(MODULUS))) {
+            else if (node.function().name().equals(builtinFunctionName(MODULUS))) {
                 double maxDivisor = max(abs(rightLow), abs(rightHigh));
                 if (leftHigh <= 0) {
                     result.setLowValue(max(-maxDivisor, leftLow))
@@ -234,10 +235,10 @@ public class ScalarStatsCalculator
                 }
             }
             else {
-                double v1 = operate(node.function().getName(), leftLow, rightLow);
-                double v2 = operate(node.function().getName(), leftLow, rightHigh);
-                double v3 = operate(node.function().getName(), leftHigh, rightLow);
-                double v4 = operate(node.function().getName(), leftHigh, rightHigh);
+                double v1 = operate(node.function().name(), leftLow, rightLow);
+                double v2 = operate(node.function().name(), leftLow, rightHigh);
+                double v3 = operate(node.function().name(), leftHigh, rightLow);
+                double v4 = operate(node.function().name(), leftHigh, rightHigh);
                 double lowValue = min(v1, v2, v3, v4);
                 double highValue = max(v1, v2, v3, v4);
 

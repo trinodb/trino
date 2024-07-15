@@ -103,7 +103,7 @@ public class CallTask
 
         Session session = stateMachine.getSession();
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
-        CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), stateMachine.getSession(), call, procedureName.getCatalogName());
+        CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), stateMachine.getSession(), call, procedureName.catalogName());
         Procedure procedure = procedureRegistry.resolve(catalogHandle, procedureName.asSchemaTableName());
 
         // map declared argument names to positions
@@ -196,7 +196,7 @@ public class CallTask
                 arguments.add(session.toConnectorSession(catalogHandle));
             }
             else if (ConnectorAccessControl.class.equals(type)) {
-                arguments.add(new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), procedureName.getCatalogName()));
+                arguments.add(new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), procedureName.catalogName()));
             }
             else {
                 arguments.add(valuesIterator.next());
@@ -204,7 +204,7 @@ public class CallTask
         }
 
         accessControl.checkCanExecuteProcedure(session.toSecurityContext(), procedureName);
-        stateMachine.setRoutines(ImmutableList.of(new RoutineInfo(procedureName.getObjectName(), session.getUser())));
+        stateMachine.setRoutines(ImmutableList.of(new RoutineInfo(procedureName.objectName(), session.getUser())));
 
         try {
             procedure.getMethodHandle().invokeWithArguments(arguments);

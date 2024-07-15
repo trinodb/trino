@@ -51,7 +51,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
-import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -120,54 +119,6 @@ public class DockerContainer
     {
         listeners.add(listener);
         return this;
-    }
-
-    public DockerContainer onContainerStarting(Consumer<InspectContainerResponse> callback)
-    {
-        return addContainerListener(new ContainerListener()
-        {
-            @Override
-            public void containerStarting(DockerContainer container, InspectContainerResponse response)
-            {
-                callback.accept(response);
-            }
-        });
-    }
-
-    public DockerContainer onContainerStarted(Consumer<InspectContainerResponse> callback)
-    {
-        return addContainerListener(new ContainerListener()
-        {
-            @Override
-            public void containerStarted(DockerContainer container, InspectContainerResponse containerInfo)
-            {
-                callback.accept(containerInfo);
-            }
-        });
-    }
-
-    public DockerContainer onContainerStopping(Consumer<InspectContainerResponse> callback)
-    {
-        return addContainerListener(new ContainerListener()
-        {
-            @Override
-            public void containerStopping(DockerContainer container, InspectContainerResponse response)
-            {
-                callback.accept(response);
-            }
-        });
-    }
-
-    public DockerContainer onContainerStopped(Consumer<InspectContainerResponse> callback)
-    {
-        return addContainerListener(new ContainerListener()
-        {
-            @Override
-            public void containerStopped(DockerContainer container, InspectContainerResponse response)
-            {
-                callback.accept(response);
-            }
-        });
     }
 
     @Override
@@ -446,7 +397,7 @@ public class DockerContainer
         try {
             return super.isHealthy();
         }
-        catch (RuntimeException ignored) {
+        catch (RuntimeException _) {
             // Container without health checks will throw
             return true;
         }

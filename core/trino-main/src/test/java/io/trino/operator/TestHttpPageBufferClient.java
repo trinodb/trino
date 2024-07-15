@@ -350,12 +350,12 @@ public class TestHttpPageBufferClient
         try {
             requestComplete.await(10, TimeUnit.SECONDS);
         }
-        catch (BrokenBarrierException ignored) {
+        catch (BrokenBarrierException _) {
         }
         try {
             afterRequest.await(10, TimeUnit.SECONDS);
         }
-        catch (BrokenBarrierException ignored) {
+        catch (BrokenBarrierException _) {
             afterRequest.reset();
         }
         // client.close() triggers a DELETE request, so wait for it to finish

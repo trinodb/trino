@@ -96,10 +96,10 @@ public class CassandraPartitionManager
             for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
                 CassandraColumnHandle column = (CassandraColumnHandle) entry.getKey();
                 Domain domain = entry.getValue();
-                if (column.isIndexed() && domain.isSingleValue()) {
-                    sb.append(CassandraCqlUtils.validColumnName(column.getName()))
+                if (column.indexed() && domain.isSingleValue()) {
+                    sb.append(CassandraCqlUtils.validColumnName(column.name()))
                             .append(" = ")
-                            .append(cassandraTypeManager.toCqlLiteral(column.getCassandraType(), entry.getValue().getSingleValue()));
+                            .append(cassandraTypeManager.toCqlLiteral(column.cassandraType(), entry.getValue().getSingleValue()));
                     indexedColumns.add(column);
                     // Only one indexed column predicate can be pushed down.
                     break;
@@ -136,7 +136,7 @@ public class CassandraPartitionManager
     private List<Set<Object>> getPartitionKeysList(CassandraTable table, TupleDomain<ColumnHandle> tupleDomain)
     {
         ImmutableList.Builder<Set<Object>> partitionColumnValues = ImmutableList.builder();
-        for (CassandraColumnHandle columnHandle : table.getPartitionKeyColumns()) {
+        for (CassandraColumnHandle columnHandle : table.partitionKeyColumns()) {
             Domain domain = tupleDomain.getDomains().get().get(columnHandle);
 
             // if there is no constraint on a partition key, return an empty set
@@ -159,8 +159,8 @@ public class CassandraPartitionManager
                             }
                             Object value = range.getSingleValue();
 
-                            CassandraType valueType = columnHandle.getCassandraType();
-                            if (valueType.getKind().isSupportedPartitionKey()) {
+                            CassandraType valueType = columnHandle.cassandraType();
+                            if (valueType.kind().isSupportedPartitionKey()) {
                                 columnValues.add(value);
                             }
                         }

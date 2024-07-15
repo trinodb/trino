@@ -46,6 +46,6 @@ public class SheetsPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
     {
         SheetsConnectorInsertTableHandle handle = (SheetsConnectorInsertTableHandle) insertTableHandle;
-        return new SheetsPageSink(sheetsClient, handle.getTableName(), handle.getColumns());
+        return new SheetsPageSink(sheetsClient, handle.tableName(), handle.columns());
     }
 }

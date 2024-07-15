@@ -23,7 +23,7 @@ import static java.util.Objects.requireNonNull;
 public final class MapTypeInfo
         extends TypeInfo
 {
-    private static final int INSTANCE_SIZE = instanceSize(UnionTypeInfo.class);
+    private static final int INSTANCE_SIZE = instanceSize(MapTypeInfo.class);
 
     private final TypeInfo keyTypeInfo;
     private final TypeInfo valueTypeInfo;

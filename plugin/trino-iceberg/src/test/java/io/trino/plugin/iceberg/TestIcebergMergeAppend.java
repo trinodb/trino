@@ -49,7 +49,7 @@ public class TestIcebergMergeAppend
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = IcebergQueryRunner.createIcebergQueryRunner();
+        QueryRunner queryRunner = IcebergQueryRunner.builder().build();
         HiveMetastore metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
                 .getInstance(HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());

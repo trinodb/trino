@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>444</version>
+        <version>452</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -14,9 +14,8 @@
     <description>Trino - Iceberg connector</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.79.0</dep.nessie.version>
+        <dep.nessie.version>0.91.3</dep.nessie.version>
     </properties>
 
     <dependencies>
@@ -211,6 +210,11 @@
         </dependency>
 
         <dependency>
+            <groupId>net.snowflake</groupId>
+            <artifactId>snowflake-jdbc</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
         </dependency>
@@ -218,16 +222,45 @@
         <dependency>
             <groupId>org.apache.datasketches</groupId>
             <artifactId>datasketches-java</artifactId>
-            <version>5.0.2</version>
+            <version>6.0.0</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.datasketches</groupId>
             <artifactId>datasketches-memory</artifactId>
-            <version>2.2.0</version>
+            <version>2.2.1</version>
         </dependency>
 
         <dependency>
+<<<<<<< HEAD
+=======
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-nessie</artifactId>
+            <version>${dep.iceberg.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-parquet</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-snowflake</artifactId>
+        </dependency>
+
+        <dependency>
+>>>>>>> temp-branch
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-column</artifactId>
         </dependency>
@@ -240,6 +273,12 @@
         <dependency>
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-format-structures</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.annotation</groupId>
+                    <artifactId>javax.annotation-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -357,14 +396,12 @@
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>
-            <version>5.3.1</version>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.httpcomponents.core5</groupId>
             <artifactId>httpcore5</artifactId>
-            <version>5.2.4</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -622,7 +659,7 @@
         <dependency>
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-core</artifactId>
-            <version>24.0.2</version>
+            <version>24.0.4</version>
             <scope>test</scope>
         </dependency>
 
@@ -635,6 +672,20 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <!-- Allow running tests when locally `aws sso login` is required to access AWS services -->
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sso</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <!-- Allow running tests when locally `aws sso login` is required to access AWS services -->
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>ssooidc</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -665,6 +716,7 @@
                     <ignoredResourcePatterns>
                         <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
+                        <ignoredResourcePattern>mime.types</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                 </configuration>
             </plugin>
@@ -698,6 +750,8 @@
                                 <exclude>**/TestIcebergGcsConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
+                                <exclude>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestTrinoSnowflakeCatalog.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -760,6 +814,8 @@
                                 <include>**/TestIcebergS3AndGlueMetastoreTest.java</include>
                                 <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
+                                <include>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</include>
+                                <include>**/TestTrinoSnowflakeCatalog.java</include>
                             </includes>
                         </configuration>
                     </plugin>

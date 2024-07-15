@@ -19,6 +19,7 @@ import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetEncoding;
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.AbstractColumnReaderTest;
 import io.trino.parquet.reader.ColumnReader;
@@ -63,7 +64,7 @@ public class TestFlatColumnReader
     @Override
     protected ColumnReader createColumnReader(PrimitiveField field)
     {
-        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC);
+        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions());
         ColumnReader columnReader = columnReaderFactory.create(field, newSimpleAggregatedMemoryContext());
         assertThat(columnReader).isInstanceOf(FlatColumnReader.class);
         return columnReader;

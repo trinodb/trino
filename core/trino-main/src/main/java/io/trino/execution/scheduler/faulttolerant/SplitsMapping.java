@@ -212,7 +212,7 @@ public final class SplitsMapping
                 // ensure we do not have empty lists in result splits map.
                 return this;
             }
-            updates.computeIfAbsent(planNodeId, ignored -> new HashMap<>())
+            updates.computeIfAbsent(planNodeId, _ -> new HashMap<>())
                     .computeIfAbsent(partitionId, key -> ImmutableList.builder())
                     .addAll(splits);
             return this;
@@ -270,8 +270,8 @@ public final class SplitsMapping
                 // ensure we do not have empty lists in result splits map.
                 return this;
             }
-            splitsBuilder.computeIfAbsent(planNodeId, ignored -> new HashMap<>())
-                    .computeIfAbsent(partitionId, ignored -> ImmutableList.builder())
+            splitsBuilder.computeIfAbsent(planNodeId, _ -> new HashMap<>())
+                    .computeIfAbsent(partitionId, _ -> ImmutableList.builder())
                     .addAll(splits);
             return this;
         }

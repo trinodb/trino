@@ -55,9 +55,9 @@ import static io.trino.plugin.pinot.query.PinotTransformFunctionTypeResolver.get
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static org.apache.pinot.common.function.TransformFunctionType.DATETIMECONVERT;
-import static org.apache.pinot.common.function.TransformFunctionType.DATETRUNC;
-import static org.apache.pinot.common.function.TransformFunctionType.TIMECONVERT;
+import static org.apache.pinot.common.function.TransformFunctionType.DATE_TIME_CONVERT;
+import static org.apache.pinot.common.function.TransformFunctionType.DATE_TRUNC;
+import static org.apache.pinot.common.function.TransformFunctionType.TIME_CONVERT;
 import static org.apache.pinot.common.request.Literal.stringValue;
 import static org.apache.pinot.common.request.context.ExpressionContext.Type.FUNCTION;
 import static org.apache.pinot.common.request.context.ExpressionContext.Type.IDENTIFIER;
@@ -80,9 +80,9 @@ public class PinotExpressionRewriter
 
     static {
         Map<TransformFunctionType, RewriteRule<FunctionContext>> functionMap = new HashMap<>();
-        functionMap.put(DATETIMECONVERT, new DateTimeConvertRewriteRule());
-        functionMap.put(TIMECONVERT, new TimeConvertRewriteRule());
-        functionMap.put(DATETRUNC, new DateTruncRewriteRule());
+        functionMap.put(DATE_TIME_CONVERT, new DateTimeConvertRewriteRule());
+        functionMap.put(TIME_CONVERT, new TimeConvertRewriteRule());
+        functionMap.put(DATE_TRUNC, new DateTruncRewriteRule());
         FUNCTION_RULE_MAP = immutableEnumMap(functionMap);
 
         Map<AggregationFunctionType, RewriteRule<FunctionContext>> aggregationFunctionMap = new HashMap<>();
@@ -111,15 +111,11 @@ public class PinotExpressionRewriter
 
     private static ExpressionContext rewriteExpression(ExpressionContext expressionContext, Context context)
     {
-        switch (expressionContext.getType()) {
-            case LITERAL:
-                return expressionContext;
-            case IDENTIFIER:
-                return forIdentifier(getColumnHandle(expressionContext.getIdentifier(), context.getSchemaTableName(), context.getColumnHandles()).getColumnName());
-            case FUNCTION:
-                return forFunction(rewriteFunction(expressionContext.getFunction(), context));
-        }
-        throw new PinotException(PINOT_EXCEPTION, Optional.empty(), format("Unsupported expression type '%s'", expressionContext.getType()));
+        return switch (expressionContext.getType()) {
+            case LITERAL -> expressionContext;
+            case IDENTIFIER -> forIdentifier(getColumnHandle(expressionContext.getIdentifier(), context.getSchemaTableName(), context.getColumnHandles()).getColumnName());
+            case FUNCTION -> forFunction(rewriteFunction(expressionContext.getFunction(), context));
+        };
     }
 
     private static FunctionContext rewriteFunction(FunctionContext functionContext, Context context)
@@ -164,7 +160,7 @@ public class PinotExpressionRewriter
         @Override
         public Pattern<FunctionContext> getPattern()
         {
-            return transformFunction().with(transformFunctionType().equalTo(DATETIMECONVERT));
+            return transformFunction().with(transformFunctionType().equalTo(DATE_TIME_CONVERT));
         }
 
         @Override
@@ -197,7 +193,7 @@ public class PinotExpressionRewriter
         @Override
         public Pattern<FunctionContext> getPattern()
         {
-            return transformFunction().with(transformFunctionType().equalTo(TIMECONVERT));
+            return transformFunction().with(transformFunctionType().equalTo(TIME_CONVERT));
         }
 
         @Override
@@ -228,7 +224,7 @@ public class PinotExpressionRewriter
         @Override
         public Pattern<FunctionContext> getPattern()
         {
-            return transformFunction().with(transformFunctionType().equalTo(DATETRUNC));
+            return transformFunction().with(transformFunctionType().equalTo(DATE_TRUNC));
         }
 
         @Override

@@ -79,6 +79,25 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitArray(Array node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteArray(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            List<Expression> elements = rewrite(node.elements(), context);
+
+            if (!sameElements(node.elements(), elements)) {
+                return new Array(node.elementType(), elements);
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitRow(Row node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {
@@ -170,25 +189,6 @@ public final class ExpressionTreeRewriter<C>
             List<Expression> terms = rewrite(node.terms(), context);
             if (!sameElements(node.terms(), terms)) {
                 return new Logical(node.operator(), terms);
-            }
-
-            return node;
-        }
-
-        @Override
-        public Expression visitNot(Not node, Context<C> context)
-        {
-            if (!context.isDefaultRewrite()) {
-                Expression result = rewriter.rewriteNot(node, context.get(), ExpressionTreeRewriter.this);
-                if (result != null) {
-                    return result;
-                }
-            }
-
-            Expression value = rewrite(node.value(), context.get());
-
-            if (value != node.value()) {
-                return new Not(value);
             }
 
             return node;
@@ -420,7 +420,7 @@ public final class ExpressionTreeRewriter<C>
             Expression expression = rewrite(node.expression(), context.get());
 
             if (node.expression() != expression) {
-                return new Cast(expression, node.type(), node.safe());
+                return new Cast(expression, node.type());
             }
 
             return node;

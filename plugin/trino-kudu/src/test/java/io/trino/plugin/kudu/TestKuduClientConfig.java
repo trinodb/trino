@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.kudu;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
@@ -31,7 +32,7 @@ public class TestKuduClientConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(KuduClientConfig.class)
-                .setMasterAddresses("")
+                .setMasterAddresses(ImmutableList.of())
                 .setDefaultAdminOperationTimeout(new Duration(30, SECONDS))
                 .setDefaultOperationTimeout(new Duration(30, SECONDS))
                 .setDisableStatistics(false)
@@ -45,7 +46,7 @@ public class TestKuduClientConfig
     public void testExplicitPropertyMappingsWithCredentialsKey()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("kudu.client.master-addresses", "localhost")
+                .put("kudu.client.master-addresses", "localhost,localhost2")
                 .put("kudu.client.default-admin-operation-timeout", "1m")
                 .put("kudu.client.default-operation-timeout", "5m")
                 .put("kudu.client.disable-statistics", "true")
@@ -56,7 +57,7 @@ public class TestKuduClientConfig
                 .buildOrThrow();
 
         KuduClientConfig expected = new KuduClientConfig()
-                .setMasterAddresses("localhost")
+                .setMasterAddresses(ImmutableList.of("localhost", "localhost2"))
                 .setDefaultAdminOperationTimeout(new Duration(1, MINUTES))
                 .setDefaultOperationTimeout(new Duration(5, MINUTES))
                 .setDisableStatistics(true)

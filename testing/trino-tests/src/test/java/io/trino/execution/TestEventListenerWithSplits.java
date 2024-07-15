@@ -70,7 +70,9 @@ public class TestEventListenerWithSplits
                 .setClientInfo("{\"clientVersion\":\"testVersion\"}")
                 .build();
 
-        QueryRunner queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                .setWorkerCount(0)
+                .build();
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
@@ -164,7 +166,7 @@ public class TestEventListenerWithSplits
         assertThat(statistics.getPhysicalInputRows()).isEqualTo(expectedCompletedPositions);
         assertThat(statistics.getProcessedInputBytes()).isEqualTo(0);
         assertThat(statistics.getProcessedInputRows()).isEqualTo(expectedCompletedPositions);
-        assertThat(statistics.getInternalNetworkBytes()).isEqualTo(261);
+        assertThat(statistics.getInternalNetworkBytes()).isEqualTo(132);
         assertThat(statistics.getInternalNetworkRows()).isEqualTo(3);
         assertThat(statistics.getTotalBytes()).isEqualTo(0);
         assertThat(statistics.getOutputBytes()).isEqualTo(9);

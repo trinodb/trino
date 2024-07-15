@@ -13,14 +13,12 @@
  */
 package io.trino.plugin.prometheus;
 
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
-import static io.trino.plugin.prometheus.PrometheusQueryRunner.createPrometheusQueryRunner;
 import static io.trino.plugin.prometheus.PrometheusServer.LATEST_VERSION;
 import static io.trino.plugin.prometheus.PrometheusServer.PASSWORD;
 import static io.trino.plugin.prometheus.PrometheusServer.USER;
@@ -40,7 +38,10 @@ public class TestPrometheusBasicAuth
             throws Exception
     {
         server = closeAfterClass(new PrometheusServer(LATEST_VERSION, true));
-        return createPrometheusQueryRunner(server, ImmutableMap.of(), ImmutableMap.of("prometheus.auth.user", USER, "prometheus.auth.password", PASSWORD));
+        return PrometheusQueryRunner.builder(server)
+                .addConnectorProperty("prometheus.auth.user", USER)
+                .addConnectorProperty("prometheus.auth.password", PASSWORD)
+                .build();
     }
 
     @Test

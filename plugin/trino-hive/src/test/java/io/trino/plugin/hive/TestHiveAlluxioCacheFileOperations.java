@@ -17,12 +17,10 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
-import com.google.common.io.Closer;
 import io.opentelemetry.api.common.Attributes;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -49,16 +47,14 @@ import static java.util.stream.Collectors.toCollection;
 public class TestHiveAlluxioCacheFileOperations
         extends AbstractTestQueryFramework
 {
-    private final Closer closer = Closer.create();
-
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
         Path cacheDirectory = Files.createTempDirectory("cache");
-        closer.register(() -> deleteRecursively(cacheDirectory, ALLOW_INSECURE));
+        closeAfterClass(() -> deleteRecursively(cacheDirectory, ALLOW_INSECURE));
         Path metastoreDirectory = Files.createTempDirectory(HIVE_CATALOG);
-        closer.register(() -> deleteRecursively(metastoreDirectory, ALLOW_INSECURE));
+        closeAfterClass(() -> deleteRecursively(metastoreDirectory, ALLOW_INSECURE));
 
         Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                 .put("fs.cache.enabled", "true")
@@ -71,15 +67,8 @@ public class TestHiveAlluxioCacheFileOperations
         return HiveQueryRunner.builder()
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
                 .setHiveProperties(hiveProperties)
-                .setNodeCount(2)
+                .setWorkerCount(1)
                 .build();
-    }
-
-    @AfterAll
-    public void destroy()
-            throws Exception
-    {
-        closer.close();
     }
 
     @Test
@@ -92,18 +81,18 @@ public class TestHiveAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 279))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 279))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p1/", 0, 279))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p2/", 0, 279))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p1/", 0, 279))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p2/", 0, 279))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p1/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p2/", 0, 281))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p1/", 0, 281))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p2/", 0, 281))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 279))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 279))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 281))
                         .build());
         assertUpdate("INSERT INTO test_cache_file_operations VALUES ('3-xyz', 'p3')", 1);
         assertUpdate("INSERT INTO test_cache_file_operations VALUES ('4-xyz', 'p4')", 1);
@@ -111,26 +100,26 @@ public class TestHiveAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 279))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 279))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 279))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 279))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 279))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p3/", 0, 279))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p4/", 0, 279))
-                        .add(new CacheOperation("Alluxio.readExternal", "key=p5/", 0, 279))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p3/", 0, 279))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p4/", 0, 279))
-                        .add(new CacheOperation("Alluxio.writeCache", "key=p5/", 0, 279))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p3/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p4/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readExternal", "key=p5/", 0, 281))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p3/", 0, 281))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p4/", 0, 281))
+                        .add(new CacheOperation("Alluxio.writeCache", "key=p5/", 0, 281))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 279))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 279))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 279))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 279))
-                        .add(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 279))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p1/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p2/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p3/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p4/", 0, 281))
+                        .add(new CacheOperation("Alluxio.readCached", "key=p5/", 0, 281))
                         .build());
     }
 

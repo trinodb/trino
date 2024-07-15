@@ -36,6 +36,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -128,18 +129,20 @@ public class DefaultQueryBuilder
         String query = format(
                 // The subquery aliases (`l` and `r`) are needed by some databases, but are not needed for expressions
                 // The joinConditions and output columns are aliased to use unique names.
-                "SELECT * FROM (SELECT %s FROM (%s) l) l %s (SELECT %s FROM (%s) r) r ON %s",
+                "SELECT %s, %s FROM (SELECT %s FROM (%s) l) l %s (SELECT %s FROM (%s) r) r ON %s",
+                formatProjectionAliases(client, leftProjections.values()),
+                formatProjectionAliases(client, rightProjections.values()),
                 formatProjections(client, leftProjections),
-                leftSource.getQuery(),
+                leftSource.query(),
                 formatJoinType(joinType),
                 formatProjections(client, rightProjections),
-                rightSource.getQuery(),
+                rightSource.query(),
                 joinConditions.stream()
                         .map(ParameterizedExpression::expression)
                         .collect(joining(") AND (", "(", ")")));
         List<QueryParameter> parameters = ImmutableList.<QueryParameter>builder()
-                .addAll(leftSource.getParameters())
-                .addAll(rightSource.getParameters())
+                .addAll(leftSource.parameters())
+                .addAll(rightSource.parameters())
                 .addAll(joinConditions.stream()
                         .flatMap(expression -> expression.parameters().stream())
                         .iterator())
@@ -172,17 +175,17 @@ public class DefaultQueryBuilder
                 "SELECT %s, %s FROM (%s) %s %s (%s) %s ON %s",
                 formatAssignments(client, leftRelationAlias, leftAssignments),
                 formatAssignments(client, rightRelationAlias, rightAssignments),
-                leftSource.getQuery(),
+                leftSource.query(),
                 leftRelationAlias,
                 formatJoinType(joinType),
-                rightSource.getQuery(),
+                rightSource.query(),
                 rightRelationAlias,
                 joinConditions.stream()
                         .map(condition -> formatJoinCondition(client, leftRelationAlias, rightRelationAlias, condition))
                         .collect(joining(" AND ")));
         List<QueryParameter> parameters = ImmutableList.<QueryParameter>builder()
-                .addAll(leftSource.getParameters())
-                .addAll(rightSource.getParameters())
+                .addAll(leftSource.parameters())
+                .addAll(rightSource.parameters())
                 .build();
         return new PreparedQuery(query, parameters);
     }
@@ -273,12 +276,12 @@ public class DefaultQueryBuilder
             Optional<Integer> columnCount)
             throws SQLException
     {
-        String modifiedQuery = queryModifier.apply(session, preparedQuery.getQuery());
+        String modifiedQuery = queryModifier.apply(session, preparedQuery.query());
         log.debug("Preparing query: %s", modifiedQuery);
         columnCount = columnCount.map(count -> max(count, 1)); // Query builder appends a dummy projection when no columns projected
         PreparedStatement statement = client.getPreparedStatement(connection, modifiedQuery, columnCount);
 
-        List<QueryParameter> parameters = preparedQuery.getParameters();
+        List<QueryParameter> parameters = preparedQuery.parameters();
         for (int i = 0; i < parameters.size(); i++) {
             QueryParameter parameter = parameters.get(i);
             int parameterIndex = i + 1;
@@ -340,6 +343,13 @@ public class DefaultQueryBuilder
                 .collect(joining(", "));
     }
 
+    protected String formatProjectionAliases(JdbcClient client, Collection<String> aliases)
+    {
+        return aliases.stream()
+                .map(s -> format("%s", client.quoted(s)))
+                .collect(joining(", "));
+    }
+
     protected String formatAssignments(JdbcClient client, String relationAlias, Map<JdbcColumnHandle, String> assignments)
     {
         return assignments.entrySet().stream()
@@ -349,17 +359,12 @@ public class DefaultQueryBuilder
 
     protected String formatJoinType(JoinType joinType)
     {
-        switch (joinType) {
-            case INNER:
-                return "INNER JOIN";
-            case LEFT_OUTER:
-                return "LEFT JOIN";
-            case RIGHT_OUTER:
-                return "RIGHT JOIN";
-            case FULL_OUTER:
-                return "FULL JOIN";
-        }
-        throw new IllegalStateException("Unsupported join type: " + joinType);
+        return switch (joinType) {
+            case INNER -> "INNER JOIN";
+            case LEFT_OUTER -> "LEFT JOIN";
+            case RIGHT_OUTER -> "RIGHT JOIN";
+            case FULL_OUTER -> "FULL JOIN";
+        };
     }
 
     protected String getRelation(JdbcClient client, RemoteTableName remoteTableName)
@@ -394,8 +399,8 @@ public class DefaultQueryBuilder
         }
         if (baseRelation instanceof JdbcQueryRelationHandle) {
             PreparedQuery preparedQuery = ((JdbcQueryRelationHandle) baseRelation).getPreparedQuery();
-            preparedQuery.getParameters().forEach(accumulator);
-            return " FROM (" + preparedQuery.getQuery() + ") o";
+            preparedQuery.parameters().forEach(accumulator);
+            return " FROM (" + preparedQuery.query() + ") o";
         }
         throw new IllegalArgumentException("Unsupported relation: " + baseRelation);
     }

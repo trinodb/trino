@@ -48,6 +48,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.RowExpression;
 import io.trino.testing.TestingConnectorSession;
@@ -140,7 +141,10 @@ public class TestOrcPageSourceMemoryTracking
     private static final int NUM_ROWS = 50000;
     private static final int STRIPE_ROWS = 20000;
     private static final FunctionManager functionManager = createTestingFunctionManager();
-    private static final ExpressionCompiler EXPRESSION_COMPILER = new ExpressionCompiler(functionManager, new PageFunctionCompiler(functionManager, 0));
+    private static final ExpressionCompiler EXPRESSION_COMPILER = new ExpressionCompiler(
+            functionManager,
+            new PageFunctionCompiler(functionManager, 0),
+            new ColumnarFilterCompiler(functionManager, 0));
     private static final ConnectorSession UNCACHED_SESSION = HiveTestUtils.getHiveSession(new HiveConfig(), new OrcReaderConfig().setTinyStripeThreshold(DataSize.of(0, BYTE)));
     private static final ConnectorSession CACHED_SESSION = SESSION;
 
@@ -516,7 +520,7 @@ public class TestOrcPageSourceMemoryTracking
                     .collect(toList());
 
             partitionName = String.join("/", partitionKeys.stream()
-                    .map(partitionKey -> format("%s=%s", partitionKey.getName(), partitionKey.getValue()))
+                    .map(partitionKey -> format("%s=%s", partitionKey.name(), partitionKey.value()))
                     .collect(toImmutableList()));
 
             ImmutableList.Builder<HiveColumnHandle> columnsBuilder = ImmutableList.builder();
@@ -590,7 +594,7 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("0"),
                     new PlanNodeId("0"),
-                    (session, split, table, columnHandles, dynamicFilter) -> pageSource,
+                    catalog -> (session, split, table, columnHandles, dynamicFilter) -> pageSource,
                     TEST_TABLE_HANDLE,
                     columns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
                     DynamicFilter.EMPTY);
@@ -612,7 +616,7 @@ public class TestOrcPageSourceMemoryTracking
                     0,
                     new PlanNodeId("test"),
                     new PlanNodeId("0"),
-                    (session, split, table, columnHandles, dynamicFilter) -> pageSource,
+                    (catalog) -> (session, split, table, columnHandles, dynamicFilter) -> pageSource,
                     cursorProcessor,
                     pageProcessor,
                     TEST_TABLE_HANDLE,
@@ -722,7 +726,7 @@ public class TestOrcPageSourceMemoryTracking
 
     private static RecordWriter createRecordWriter(Path target, Configuration conf)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
             WriterOptions options = OrcFile.writerOptions(conf)
                     .memory(new NullMemoryManager())
                     .compress(ZLIB);

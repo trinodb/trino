@@ -17,7 +17,6 @@ import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
@@ -31,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -68,15 +68,9 @@ public final class FairScheduler
 
         concurrencyControl = new Reservation<>(maxConcurrentTasks);
 
-        schedulerExecutor = Executors.newCachedThreadPool(new ThreadFactoryBuilder()
-                .setNameFormat("fair-scheduler-%d")
-                .setDaemon(true)
-                .build());
+        schedulerExecutor = Executors.newCachedThreadPool(daemonThreadsNamed("fair-scheduler-%d"));
 
-        taskExecutor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool(new ThreadFactoryBuilder()
-                .setNameFormat(threadNameFormat)
-                .setDaemon(true)
-                .build()));
+        taskExecutor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool(daemonThreadsNamed(threadNameFormat)));
     }
 
     public static FairScheduler newInstance(int maxConcurrentTasks)

@@ -15,7 +15,7 @@ package io.trino.tests;
 
 import io.trino.testing.AbstractTestOrderByQueries;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 
 public class TestOrderByQueries
         extends AbstractTestOrderByQueries
@@ -24,6 +24,6 @@ public class TestOrderByQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpchQueryRunnerBuilder.builder().build();
+        return TpchQueryRunner.builder().build();
     }
 }

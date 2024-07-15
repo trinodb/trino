@@ -45,6 +45,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
@@ -106,7 +107,7 @@ public class SyncPartitionMetadataProcedure
 
     public void syncPartitionMetadata(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, String mode, boolean caseSensitive)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doSyncPartitionMetadata(session, accessControl, schemaName, tableName, mode, caseSensitive);
         }
     }
@@ -137,21 +138,61 @@ public class SyncPartitionMetadataProcedure
                 accessControl.checkCanDeleteFromTable(null, new SchemaTableName(schemaName, tableName));
             }
 
-            Location tableLocation = Location.of(table.getStorage().getLocation());
-
-            Set<String> partitionsInMetastore = metastore.getPartitionNames(schemaName, tableName)
+            Set<String> partitionNamesInMetastore = metastore.getPartitionNames(schemaName, tableName)
                     .map(ImmutableSet::copyOf)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
-            Set<String> partitionsInFileSystem = listPartitions(fileSystemFactory.create(session), tableLocation, table.getPartitionColumns(), caseSensitive);
+            String tableStorageLocation = table.getStorage().getLocation();
+            Set<String> canonicalPartitionNamesInMetastore = metastore.getPartitionsByNames(schemaName, tableName, ImmutableList.copyOf(partitionNamesInMetastore))
+                    .values().stream()
+                    .flatMap(Optional::stream) // disregard partitions which disappeared in the meantime since listing the partition names
+                    // Disregard the partitions which do not have a canonical Hive location (e.g. `ALTER TABLE ... ADD PARTITION (...) LOCATION '...'`)
+                    .flatMap(partition -> getCanonicalPartitionName(partition, table.getPartitionColumns(), tableStorageLocation).stream())
+                    .collect(toImmutableSet());
+
+            Set<String> partitionsInFileSystem = listPartitions(fileSystemFactory.create(session), Location.of(tableStorageLocation), table.getPartitionColumns(), caseSensitive);
 
             // partitions in file system but not in metastore
-            Set<String> partitionsToAdd = difference(partitionsInFileSystem, partitionsInMetastore);
+            Set<String> partitionsToAdd = difference(partitionsInFileSystem, canonicalPartitionNamesInMetastore);
 
             // partitions in metastore but not in file system
-            Set<String> partitionsToDrop = difference(partitionsInMetastore, partitionsInFileSystem);
+            Set<String> partitionsToDrop = difference(canonicalPartitionNamesInMetastore, partitionsInFileSystem);
 
             syncPartitions(partitionsToAdd, partitionsToDrop, syncMode, metastore, session, table);
         }
+    }
+
+    private static Optional<String> getCanonicalPartitionName(Partition partition, List<Column> partitionColumns, String tableLocation)
+    {
+        String partitionStorageLocation = partition.getStorage().getLocation();
+        if (!partitionStorageLocation.startsWith(tableLocation)) {
+            return Optional.empty();
+        }
+
+        String partitionName = partitionStorageLocation.substring(tableLocation.length());
+
+        if (partitionName.startsWith("/")) {
+            // Remove eventual forward slash from the name of the partition
+            partitionName = partitionName.replaceFirst("^/+", "");
+        }
+        if (partitionName.endsWith("/")) {
+            // Remove eventual trailing slash from the name of the partition
+            partitionName = partitionName.replaceFirst("/+$", "");
+        }
+
+        // Ensure that the partition location is corresponding to a canonical Hive partition location
+        String[] partitionDirectories = partitionName.split("/");
+        if (partitionDirectories.length != partitionColumns.size()) {
+            return Optional.empty();
+        }
+        for (int i = 0; i < partitionDirectories.length; i++) {
+            String partitionDirectory = partitionDirectories[i];
+            Column column = partitionColumns.get(i);
+            if (!isValidPartitionPath(partitionDirectory, column, false)) {
+                return Optional.empty();
+            }
+        }
+
+        return Optional.of(partitionName);
     }
 
     private static Set<String> listPartitions(TrinoFileSystem fileSystem, Location directory, List<Column> partitionColumns, boolean caseSensitive)

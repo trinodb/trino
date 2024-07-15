@@ -85,7 +85,6 @@ public class ScaleWriterPartitioningExchanger
     public void accept(Page page)
     {
         // Reset the value of partition row count, writer ids and data processed for this page
-        long dataProcessed = 0;
         for (int partitionId = 0; partitionId < partitionRowCounts.length; partitionId++) {
             partitionRowCounts[partitionId] = 0;
             partitionWriterIds[partitionId] = -1;
@@ -136,12 +135,12 @@ public class ScaleWriterPartitioningExchanger
                 // whole input page will go to this partition, compact the input page avoid over-retaining memory and to
                 // match the behavior of sub-partitioned pages that copy positions out
                 page.compact();
-                dataProcessed += sendPageToPartition(buffers.get(bucket), page);
+                sendPageToPartition(buffers.get(bucket), page);
                 break;
             }
 
             Page pageSplit = page.copyPositions(positions, 0, bucketSize);
-            dataProcessed += sendPageToPartition(buffers.get(bucket), pageSplit);
+            sendPageToPartition(buffers.get(bucket), pageSplit);
         }
 
         // Only update the scaling state if the memory used is below the SCALE_WRITER_MEMORY_PERCENTAGE limit. Otherwise, if we keep updating
@@ -151,7 +150,7 @@ public class ScaleWriterPartitioningExchanger
             for (int partitionId = 0; partitionId < partitionRowCounts.length; partitionId++) {
                 partitionRebalancer.addPartitionRowCount(partitionId, partitionRowCounts[partitionId]);
             }
-            partitionRebalancer.addDataProcessed(dataProcessed);
+            partitionRebalancer.addDataProcessed(page.getSizeInBytes());
         }
     }
 
@@ -166,11 +165,10 @@ public class ScaleWriterPartitioningExchanger
         return partitionRebalancer.getTaskId(partitionId, partitionWriterIndexes[partitionId]++);
     }
 
-    private long sendPageToPartition(Consumer<Page> buffer, Page pageSplit)
+    private void sendPageToPartition(Consumer<Page> buffer, Page pageSplit)
     {
         long retainedSizeInBytes = pageSplit.getRetainedSizeInBytes();
         memoryManager.updateMemoryUsage(retainedSizeInBytes);
         buffer.accept(pageSplit);
-        return retainedSizeInBytes;
     }
 }

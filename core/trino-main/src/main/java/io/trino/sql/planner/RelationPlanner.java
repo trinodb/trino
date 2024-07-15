@@ -100,6 +100,7 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Except;
 import io.trino.sql.tree.Identifier;
@@ -177,7 +178,15 @@ import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.LAST;
 import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationMode.RUNNING;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.ir.Comparison.Operator.EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.IDENTICAL;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
+import static io.trino.sql.ir.IrExpressions.not;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.QueryPlanner.coerce;
@@ -255,19 +264,6 @@ class RelationPlanner
             case LEFT -> JoinType.LEFT;
             case RIGHT -> JoinType.RIGHT;
             case FULL -> JoinType.FULL;
-        };
-    }
-
-    private Comparison.Operator mapComparisonOperator(io.trino.sql.tree.ComparisonExpression.Operator operator)
-    {
-        return switch (operator) {
-            case EQUAL -> Comparison.Operator.EQUAL;
-            case NOT_EQUAL -> Comparison.Operator.NOT_EQUAL;
-            case LESS_THAN -> Comparison.Operator.LESS_THAN;
-            case LESS_THAN_OR_EQUAL -> Comparison.Operator.LESS_THAN_OR_EQUAL;
-            case GREATER_THAN -> Comparison.Operator.GREATER_THAN;
-            case GREATER_THAN_OR_EQUAL -> Comparison.Operator.GREATER_THAN_OR_EQUAL;
-            case IS_DISTINCT_FROM -> Comparison.Operator.IS_DISTINCT_FROM;
         };
     }
 
@@ -537,7 +533,7 @@ class RelationPlanner
                 // note: hidden columns are included. They are present in sourcePlan.fieldMappings
                 outputSymbols.addAll(sourcePlan.getFieldMappings());
                 Set<Symbol> partitionBy = specification
-                        .map(DataOrganizationSpecification::getPartitionBy)
+                        .map(DataOrganizationSpecification::partitionBy)
                         .map(ImmutableSet::copyOf)
                         .orElse(ImmutableSet.of());
                 sourcePlan.getFieldMappings().stream()
@@ -628,7 +624,7 @@ class RelationPlanner
         boolean oneRowOutput = rowsPerMatch.isOneRow();
 
         DataOrganizationSpecification specification = planWindowSpecification(node.getPartitionBy(), node.getOrderBy(), planBuilder::translate);
-        outputLayout.addAll(specification.getPartitionBy());
+        outputLayout.addAll(specification.partitionBy());
         if (!oneRowOutput) {
             getSortItemsFromOrderBy(node.getOrderBy()).stream()
                     .map(SortItem::getSortKey)
@@ -994,10 +990,10 @@ class RelationPlanner
                     equiClauses.add(new JoinNode.EquiJoinClause(leftSymbol, rightSymbol));
                 }
                 else {
-                    postInnerJoinConditions.add(
-                            new Comparison(mapComparisonOperator(joinConditionComparisonOperators.get(i)),
-                                    leftCoercions.get(leftComparisonExpressions.get(i)).toSymbolReference(),
-                                    rightCoercions.get(rightComparisonExpressions.get(i)).toSymbolReference()));
+                    postInnerJoinConditions.add(translateComparison(
+                            joinConditionComparisonOperators.get(i),
+                            leftCoercions.get(leftComparisonExpressions.get(i)),
+                            rightCoercions.get(rightComparisonExpressions.get(i))));
                 }
             }
         }
@@ -1081,6 +1077,19 @@ class RelationPlanner
         return new RelationPlan(root, scope, outputSymbols, outerContext);
     }
 
+    private Expression translateComparison(ComparisonExpression.Operator operator, Symbol left, Symbol right)
+    {
+        return switch (operator) {
+            case EQUAL -> new Comparison(EQUAL, left.toSymbolReference(), right.toSymbolReference());
+            case NOT_EQUAL -> new Comparison(NOT_EQUAL, left.toSymbolReference(), right.toSymbolReference());
+            case LESS_THAN -> new Comparison(LESS_THAN, left.toSymbolReference(), right.toSymbolReference());
+            case LESS_THAN_OR_EQUAL -> new Comparison(LESS_THAN_OR_EQUAL, left.toSymbolReference(), right.toSymbolReference());
+            case GREATER_THAN -> new Comparison(GREATER_THAN, left.toSymbolReference(), right.toSymbolReference());
+            case GREATER_THAN_OR_EQUAL -> new Comparison(GREATER_THAN_OR_EQUAL, left.toSymbolReference(), right.toSymbolReference());
+            case IS_DISTINCT_FROM -> not(plannerContext.getMetadata(), new Comparison(IDENTICAL, left.toSymbolReference(), right.toSymbolReference()));
+        };
+    }
+
     private RelationPlan planJoinUsing(Join node, RelationPlan left, RelationPlan right)
     {
         /* Given: l JOIN r USING (k1, ..., kn)
@@ -1129,19 +1138,13 @@ class RelationPlanner
             // compute the coercion for the field on the left to the common supertype of left & right
             Symbol leftOutput = symbolAllocator.newSymbol(identifier.getValue(), type);
             int leftField = joinAnalysis.getLeftJoinFields().get(i);
-            leftCoercions.put(leftOutput, new Cast(
-                    left.getSymbol(leftField).toSymbolReference(),
-                    type,
-                    false));
+            leftCoercions.put(leftOutput, new Cast(left.getSymbol(leftField).toSymbolReference(), type));
             leftJoinColumns.put(identifier, leftOutput);
 
             // compute the coercion for the field on the right to the common supertype of left & right
             Symbol rightOutput = symbolAllocator.newSymbol(identifier.getValue(), type);
             int rightField = joinAnalysis.getRightJoinFields().get(i);
-            rightCoercions.put(rightOutput, new Cast(
-                    right.getSymbol(rightField).toSymbolReference(),
-                    type,
-                    false));
+            rightCoercions.put(rightOutput, new Cast(right.getSymbol(rightField).toSymbolReference(), type));
             rightJoinColumns.put(identifier, rightOutput);
 
             clauses.add(new JoinNode.EquiJoinClause(leftOutput, rightOutput));
@@ -1460,7 +1463,7 @@ class RelationPlanner
                 defaultErrorOnError,
                 parametersType,
                 properOutputs.stream()
-                        .map(Symbol::getType)
+                        .map(Symbol::type)
                         .toArray(Type[]::new));
 
         TableFunctionNode tableFunctionNode = new TableFunctionNode(
@@ -1501,7 +1504,7 @@ class RelationPlanner
 
                 // cast to declared returned type
                 Type expectedType = jsonTableRelationType.getFieldByIndex(i).getType();
-                Type resultType = outputFunction.getSignature().getReturnType();
+                Type resultType = outputFunction.signature().getReturnType();
                 if (!resultType.equals(expectedType)) {
                     result = new Cast(result, expectedType);
                 }
@@ -1715,7 +1718,7 @@ class RelationPlanner
         // The node is an intermediate stage of planning json_table. There's no recorded relation type available for this node.
         // The returned RowType is only used in plan printer
         return RowType.from(node.getOutputSymbols().stream()
-                .map(symbol -> new RowType.Field(Optional.of(symbol.getName()), symbol.getType()))
+                .map(symbol -> new RowType.Field(Optional.of(symbol.name()), symbol.type()))
                 .collect(toImmutableList()));
     }
 

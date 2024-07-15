@@ -52,6 +52,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.io.Resources.getResource;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
@@ -65,9 +66,7 @@ import static org.testcontainers.utility.DockerImageName.parse;
 public class TestingPinotCluster
         implements Closeable
 {
-    public static final String PINOT_LATEST_IMAGE_NAME = "apachepinot/pinot:0.12.1";
-    public static final String PINOT_PREVIOUS_IMAGE_NAME = "apachepinot/pinot:0.11.0";
-
+    public static final String PINOT_LATEST_IMAGE_NAME = "apachepinot/pinot:1.1.0";
     private static final String ZOOKEEPER_INTERNAL_HOST = "zookeeper";
     private static final JsonCodec<List<String>> LIST_JSON_CODEC = listJsonCodec(String.class);
     private static final JsonCodec<PinotSuccessResponse> PINOT_SUCCESS_RESPONSE_JSON_CODEC = jsonCodec(PinotSuccessResponse.class);
@@ -87,10 +86,10 @@ public class TestingPinotCluster
     private final Closer closer = Closer.create();
     private final boolean secured;
 
-    public TestingPinotCluster(Network network, boolean secured, String pinotImageName)
+    public TestingPinotCluster(Network network, boolean secured)
     {
         httpClient = closer.register(new JettyHttpClient());
-        zookeeper = new GenericContainer<>(parse("zookeeper:3.5.6"))
+        zookeeper = new GenericContainer<>(parse("zookeeper:3.9"))
                 .withStartupAttempts(3)
                 .withNetwork(network)
                 .withNetworkAliases(ZOOKEEPER_INTERNAL_HOST)
@@ -99,7 +98,7 @@ public class TestingPinotCluster
         closer.register(zookeeper::stop);
 
         String controllerConfig = secured ? "/var/pinot/controller/config/pinot-controller-secured.conf" : "/var/pinot/controller/config/pinot-controller.conf";
-        controller = new GenericContainer<>(parse(pinotImageName))
+        controller = new GenericContainer<>(parse(PINOT_LATEST_IMAGE_NAME))
                 .withStartupAttempts(3)
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-controller", "/var/pinot/controller/config", BindMode.READ_ONLY)
@@ -110,7 +109,7 @@ public class TestingPinotCluster
         closer.register(controller::stop);
 
         String brokerConfig = secured ? "/var/pinot/broker/config/pinot-broker-secured.conf" : "/var/pinot/broker/config/pinot-broker.conf";
-        broker = new GenericContainer<>(parse(pinotImageName))
+        broker = new GenericContainer<>(parse(PINOT_LATEST_IMAGE_NAME))
                 .withStartupAttempts(3)
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-broker", "/var/pinot/broker/config", BindMode.READ_ONLY)
@@ -121,7 +120,7 @@ public class TestingPinotCluster
         closer.register(broker::stop);
 
         String serverConfig = secured ? "/var/pinot/server/config/pinot-server-secured.conf" : "/var/pinot/server/config/pinot-server.conf";
-        server = new GenericContainer<>(parse(pinotImageName))
+        server = new GenericContainer<>(parse(PINOT_LATEST_IMAGE_NAME))
                 .withStartupAttempts(3)
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-server", "/var/pinot/server/config", BindMode.READ_ONLY)
@@ -174,10 +173,10 @@ public class TestingPinotCluster
         return HostAndPort.fromParts(server.getHost(), server.getMappedPort(GRPC_PORT));
     }
 
-    public void createSchema(InputStream tableSchemaSpec, String tableName)
+    public void createSchema(String resourceName, String tableName)
             throws Exception
     {
-        byte[] bytes = ByteStreams.toByteArray(tableSchemaSpec);
+        byte[] bytes = ByteStreams.toByteArray(getResource(resourceName).openStream());
         Request request = Request.Builder.preparePost()
                 .setUri(getControllerUri("schemas"))
                 .setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON)
@@ -210,10 +209,10 @@ public class TestingPinotCluster
         }, 10);
     }
 
-    public void addRealTimeTable(InputStream realTimeSpec, String tableName)
+    public void addRealTimeTable(String resourceName, String tableName)
             throws Exception
     {
-        byte[] bytes = ByteStreams.toByteArray(realTimeSpec);
+        byte[] bytes = ByteStreams.toByteArray(getResource(resourceName).openStream());
         Request request = Request.Builder.preparePost()
                 .setUri(getControllerUri("tables"))
                 .setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON)
@@ -223,14 +222,13 @@ public class TestingPinotCluster
                 .build();
 
         PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
-        // Typo in response: https://github.com/apache/incubator-pinot/issues/5566
-        checkState(response.getStatus().startsWith(format("Table %s_REALTIME succes", tableName)), "Unexpected response: '%s'", response.getStatus());
+        checkState(response.getStatus().startsWith(format("Table %s_REALTIME successfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
     }
 
-    public void addOfflineTable(InputStream offlineSpec, String tableName)
+    public void addOfflineTable(String resourceName, String tableName)
             throws Exception
     {
-        byte[] bytes = ByteStreams.toByteArray(offlineSpec);
+        byte[] bytes = ByteStreams.toByteArray(getResource(resourceName).openStream());
         Request request = Request.Builder.preparePost()
                 .setUri(getControllerUri("tables"))
                 .setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON)
@@ -240,8 +238,7 @@ public class TestingPinotCluster
                 .build();
 
         PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
-        // Typo in response: https://github.com/apache/incubator-pinot/issues/5566
-        checkState(response.getStatus().startsWith(format("Table %s_OFFLINE succes", tableName)), "Unexpected response: '%s'", response.getStatus());
+        checkState(response.getStatus().startsWith(format("Table %s_OFFLINE successfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
     }
 
     public void publishOfflineSegment(String tableName, Path segmentPath)

@@ -37,7 +37,7 @@ import static io.trino.sql.ir.IrUtils.validateType;
  * It requires special treatment from the type system. There is no way
  * to write out the type of `bind`. The return type of `bind` is function.
  * Its type looks somewhat like:
- * <p><ul>
+ * <ul>
  * <li>X, (X) -> Y => () -> Y
  * <li>X1, (X1, X2) -> Y => (X2) -> Y
  * <li>X1, (X1, X2, X3) -> Y => (X2, X3) -> Y
@@ -56,7 +56,7 @@ public record Bind(List<Expression> values, Lambda function)
     {
         values = ImmutableList.copyOf(values);
         for (int i = 0; i < values.size(); i++) {
-            validateType(function.arguments().get(i).getType(), values.get(i));
+            validateType(function.arguments().get(i).type(), values.get(i));
         }
     }
 
@@ -66,7 +66,7 @@ public record Bind(List<Expression> values, Lambda function)
         return new FunctionType(
                 function.arguments()
                         .subList(values.size(), function.arguments().size()).stream()
-                        .map(Symbol::getType)
+                        .map(Symbol::type)
                         .collect(toImmutableList()),
                 ((FunctionType) function.type()).getReturnType());
     }

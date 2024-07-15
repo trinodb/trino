@@ -59,7 +59,7 @@ public final class TableMetadata
             return false;
         }
         TableMetadata that = (TableMetadata) o;
-        return Objects.equals(tableId, that.tableId) &&
+        return tableId == that.tableId &&
                 Objects.equals(columns, that.columns) &&
                 Objects.equals(sortColumnIds, that.sortColumnIds);
     }

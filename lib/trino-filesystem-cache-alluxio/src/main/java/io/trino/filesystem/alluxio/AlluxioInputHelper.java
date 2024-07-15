@@ -24,7 +24,6 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -75,7 +74,6 @@ public class AlluxioInputHelper
     }
 
     public int doCacheRead(long position, byte[] bytes, int offset, int length)
-            throws IOException
     {
         Span span = tracer.spanBuilder("Alluxio.readCached")
                 .setAttribute(CACHE_KEY, cacheKey)
@@ -104,7 +102,6 @@ public class AlluxioInputHelper
     }
 
     private int doInternalCacheRead(long position, byte[] bytes, int offset, int length)
-            throws IOException
     {
         // TODO: Support reading cache hits from the back as well
         if (length == 0) {
@@ -113,11 +110,10 @@ public class AlluxioInputHelper
         int remainingLength = length;
         while (remainingLength > 0) {
             int bytesReadFromCache = readPageFromCache(position, bytes, offset, remainingLength);
-            if (bytesReadFromCache == 0) {
+            // When dealing with concurrent access for a new file, CacheManager#put doesn't guarantee the page is fully written,
+            // and trying to access the page could return -1, so we read the data from source and update the cache.
+            if (bytesReadFromCache <= 0) {
                 break;
-            }
-            if (bytesReadFromCache < 0) {
-                throw new IOException("Read %d bytes from cache".formatted(bytesReadFromCache));
             }
             position += bytesReadFromCache;
             remainingLength -= bytesReadFromCache;

@@ -105,7 +105,7 @@ public class Signature
                 Objects.equals(this.longVariableConstraints, other.longVariableConstraints) &&
                 Objects.equals(this.returnType, other.returnType) &&
                 Objects.equals(this.argumentTypes, other.argumentTypes) &&
-                Objects.equals(this.variableArity, other.variableArity);
+                this.variableArity == other.variableArity;
     }
 
     @Override
@@ -208,6 +208,12 @@ public class Signature
         public Builder longVariable(String name, String expression)
         {
             this.longVariableConstraints.add(new LongVariableConstraint(name, expression));
+            return this;
+        }
+
+        public Builder longVariable(String name)
+        {
+            this.longVariableConstraints.add(new LongVariableConstraint(name, name));
             return this;
         }
 

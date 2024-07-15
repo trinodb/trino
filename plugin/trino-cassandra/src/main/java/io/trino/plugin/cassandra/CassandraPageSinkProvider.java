@@ -54,10 +54,10 @@ public class CassandraPageSinkProvider
                 cassandraTypeManager,
                 cassandraSession,
                 cassandraSession.getProtocolVersion(),
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.getColumnNames(),
-                handle.getColumnTypes(),
+                handle.schemaName(),
+                handle.tableName(),
+                handle.columnNames(),
+                handle.columnTypes(),
                 true,
                 batchSize);
     }
@@ -73,11 +73,11 @@ public class CassandraPageSinkProvider
                 cassandraTypeManager,
                 cassandraSession,
                 cassandraSession.getProtocolVersion(),
-                handle.getSchemaName(),
-                handle.getTableName(),
-                handle.getColumnNames(),
-                handle.getColumnTypes(),
-                handle.isGenerateUuid(),
+                handle.schemaName(),
+                handle.tableName(),
+                handle.columnNames(),
+                handle.columnTypes(),
+                handle.generateUuid(),
                 batchSize);
     }
 }

@@ -46,7 +46,7 @@ public final class JoinCondition
         LESS_THAN_OR_EQUAL("<=", StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME),
         GREATER_THAN(">", StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME),
         GREATER_THAN_OR_EQUAL(">=", StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME),
-        IS_DISTINCT_FROM("IS DISTINCT FROM", StandardFunctions.IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME),
+        IDENTICAL("≡", StandardFunctions.IDENTICAL_OPERATOR_FUNCTION_NAME),
         /**/;
 
         private static final Map<FunctionName, Operator> byFunctionName = Stream.of(values())
@@ -69,7 +69,7 @@ public final class JoinCondition
         public Operator flip()
         {
             return switch (this) {
-                case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM -> this;
+                case EQUAL, NOT_EQUAL, IDENTICAL -> this;
                 case LESS_THAN -> GREATER_THAN;
                 case LESS_THAN_OR_EQUAL -> GREATER_THAN_OR_EQUAL;
                 case GREATER_THAN -> LESS_THAN;

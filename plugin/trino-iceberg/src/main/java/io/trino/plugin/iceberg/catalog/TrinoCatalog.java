@@ -88,6 +88,11 @@ public interface TrinoCatalog
             UnaryOperator<Set<SchemaTableName>> relationFilter,
             Predicate<SchemaTableName> isRedirected);
 
+    default Transaction newTransaction(Table icebergTable)
+    {
+        return icebergTable.newTransaction();
+    }
+
     Transaction newCreateTableTransaction(
             ConnectorSession session,
             SchemaTableName schemaTableName,

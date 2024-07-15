@@ -31,7 +31,6 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
-import jakarta.annotation.PreDestroy;
 
 import java.util.List;
 import java.util.Map;
@@ -45,6 +44,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFi
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxOutstandingSplits;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxSplitsPerSecond;
+import static io.trino.plugin.hudi.partition.HiveHudiPartitionInfo.NON_PARTITION;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -71,12 +71,6 @@ public class HudiSplitManager
         this.executor = requireNonNull(executor, "executor is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.splitLoaderExecutorService = requireNonNull(splitLoaderExecutorService, "splitLoaderExecutorService is null");
-    }
-
-    @PreDestroy
-    public void destroy()
-    {
-        this.executor.shutdown();
     }
 
     @Override
@@ -115,7 +109,7 @@ public class HudiSplitManager
     private static List<String> getPartitions(HiveMetastore metastore, HudiTableHandle table, List<HiveColumnHandle> partitionColumns)
     {
         if (partitionColumns.isEmpty()) {
-            return ImmutableList.of("");
+            return ImmutableList.of(NON_PARTITION);
         }
 
         return metastore.getPartitionNamesByFilter(

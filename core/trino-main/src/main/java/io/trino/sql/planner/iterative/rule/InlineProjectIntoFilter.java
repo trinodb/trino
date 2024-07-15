@@ -49,16 +49,16 @@ import static java.util.stream.Collectors.partitioningBy;
  * Replace filter predicate conjuncts with underlying project expressions.
  * <p>
  * Transforms:
- * <pre>
+ * <pre>{@code
  * - Filter (a AND b > c)
  *     - Project
  *       a <- d IS NULL
  *       b <- b
  *       c <- c
  *         - source (b, c, d)
- * </pre>
+ * }</pre>
  * into:
- * <pre>
+ * <pre>{@code
  * - Project
  *   a <- TRUE
  *   b <- b
@@ -69,16 +69,16 @@ import static java.util.stream.Collectors.partitioningBy;
  *           c <- c
  *           d <- d
  *         - source (b, c, d)
- * </pre>
- * In the preceding example, filter predicate conjunct `a` is replaced with
- * project expression `d IS NULL`.
+ * }</pre>
+ * In the preceding example, filter predicate conjunct {@code a} is replaced with
+ * project expression {@code d IS NULL}.
  * Additionally:
- * - an identity assignment `d <- d` is added to the underlying projection in order
- * to expose the symbol `d` used by the rewritten filter predicate,
- * - the inlined assignment `a <- d IS NULL` is removed from the underlying projection.
+ * - an identity assignment {@code d <- d} is added to the underlying projection in order
+ * to expose the symbol {@code d} used by the rewritten filter predicate,
+ * - the inlined assignment {@code a <- d IS NULL} is removed from the underlying projection.
  * - another projection is added above the rewritten FilterNode, assigning
- * TRUE_LITERAL to the replaced symbol `a`. It is needed to restore the original
- * output of the FilterNode. If the symbol `a` is not referenced in the upstream plan,
+ * TRUE_LITERAL to the replaced symbol {@code a}. It is needed to restore the original
+ * output of the FilterNode. If the symbol {@code a} is not referenced in the upstream plan,
  * the projection should be subsequently removed by other rules.
  * <p>
  * Note: project expressions are inlined only in case when the resulting symbols

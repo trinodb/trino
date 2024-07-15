@@ -73,8 +73,8 @@ public class PruneTableFunctionProcessorSourceColumns
                 .forEach(requiredInputs::addAll);
 
         node.getSpecification().ifPresent(specification -> {
-            requiredInputs.addAll(specification.getPartitionBy());
-            specification.getOrderingScheme().ifPresent(orderingScheme -> requiredInputs.addAll(orderingScheme.getOrderBy()));
+            requiredInputs.addAll(specification.partitionBy());
+            specification.orderingScheme().ifPresent(orderingScheme -> requiredInputs.addAll(orderingScheme.orderBy()));
         });
 
         node.getHashSymbol().ifPresent(requiredInputs::add);

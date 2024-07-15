@@ -171,6 +171,7 @@ public class Launcher
         protected Object[][] getContents()
         {
             try {
+                Path jdkDistribution = findJdkDistribution();
                 return new Object[][] {
                         {"project.version", TestingProperties.getProjectVersion()},
                         {"product-tests.module", "testing/trino-product-tests"},
@@ -179,7 +180,8 @@ public class Launcher
                         {"server.name", "trino-server"},
                         {"launcher.bin", "testing/trino-product-tests-launcher/bin/run-launcher"},
                         {"cli.bin", format("client/trino-cli/target/trino-cli-%s-executable.jar", TestingProperties.getProjectVersion())},
-                        {"temurin.release", Files.readString(findTemurinRelease()).trim()}
+                        {"jdk.current", Files.readString(jdkDistribution).trim()},
+                        {"jdk.distributions", jdkDistribution.getParent().toAbsolutePath().toString()}
                 };
             }
             catch (IOException e) {
@@ -187,9 +189,9 @@ public class Launcher
             }
         }
 
-        protected Path findTemurinRelease()
+        protected Path findJdkDistribution()
         {
-            String searchFor = ".temurin-release";
+            String searchFor = "core/jdk/current";
             Path currentWorkingDirectory = Paths.get("").toAbsolutePath();
             Path current = currentWorkingDirectory; // current working directory
 

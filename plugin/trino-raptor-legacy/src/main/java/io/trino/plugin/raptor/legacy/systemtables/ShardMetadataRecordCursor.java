@@ -253,7 +253,7 @@ public class ShardMetadataRecordCursor
                 ResultSet resultSet = this.resultSet) {
             // do nothing
         }
-        catch (SQLException ignored) {
+        catch (SQLException _) {
         }
     }
 

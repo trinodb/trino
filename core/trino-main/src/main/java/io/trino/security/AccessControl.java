@@ -15,6 +15,7 @@ package io.trino.security;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.EntityKindAndName;
@@ -77,7 +78,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanExecuteQuery(Identity identity);
+    void checkCanExecuteQuery(Identity identity, QueryId queryId);
 
     /**
      * Checks if identity can view a query owned by the specified user.  The method
@@ -463,7 +464,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSetSystemSessionProperty(Identity identity, String propertyName);
+    void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName);
 
     /**
      * Check if identity is allowed to set the specified catalog property.
@@ -601,6 +602,13 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanDropFunction(SecurityContext context, QualifiedObjectName functionName);
+
+    /**
+     * Check if identity is allowed to execute SHOW CREATE FUNCTION.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName);
 
     default List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {

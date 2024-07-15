@@ -52,17 +52,22 @@ public class TestArrayFunctions
     @Test
     public void testArrayConstructor()
     {
-        assertThat(assertions.expression("array[" + Joiner.on(", ").join(nCopies(254, "rand()")) + "]"))
+        // large constant array
+        assertThat(assertions.expression("array[" + Joiner.on(", ").join(nCopies(20000, "rand()")) + "]"))
                 .hasType(new ArrayType(DOUBLE));
+
+        // large non-constant array
+        // 1900 is close to the max number of elements for the expression below. The actual limit depends
+        // currently depends on the number of bytecodes in the expression containing the array constructor
+        assertThat(assertions.expression("array[a, " + Joiner.on(", ").join(nCopies(1900, "1")) + "]")
+                .binding("a", "1"))
+                .hasType(new ArrayType(INTEGER));
 
         assertThat(assertions.expression("array[a, b, c]")
                 .binding("a", "1")
                 .binding("b", "2")
                 .binding("c", "3"))
                 .matches("ARRAY[1, 2, 3]");
-
-        assertTrinoExceptionThrownBy(assertions.expression("array[" + Joiner.on(", ").join(nCopies(255, "rand()")) + "]")::evaluate)
-                .hasMessage("Too many arguments for array constructor");
     }
 
     @Test

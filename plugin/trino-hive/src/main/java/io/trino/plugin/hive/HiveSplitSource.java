@@ -370,18 +370,12 @@ class HiveSplitSource
     {
         State state = stateReference.get();
 
-        switch (state.getKind()) {
-            case INITIAL:
-                return false;
-            case NO_MORE_SPLITS:
-                return bufferedInternalSplitCount.get() == 0;
-            case FAILED:
-                throw propagateTrinoException(state.getThrowable());
-            case CLOSED:
-                throw new IllegalStateException("HiveSplitSource is already closed");
-            default:
-                throw new UnsupportedOperationException();
-        }
+        return switch (state.getKind()) {
+            case INITIAL -> false;
+            case NO_MORE_SPLITS -> bufferedInternalSplitCount.get() == 0;
+            case FAILED -> throw propagateTrinoException(state.getThrowable());
+            case CLOSED -> throw new IllegalStateException("HiveSplitSource is already closed");
+        };
     }
 
     @Override

@@ -24,7 +24,7 @@ import io.trino.server.testing.TestingTrinoServer;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -369,9 +369,9 @@ public class TestMemoryManager
     public static DistributedQueryRunner createQueryRunner(Session session, Map<String, String> extraProperties)
             throws Exception
     {
-        return TpchQueryRunnerBuilder.builder()
+        return TpchQueryRunner.builder()
                 .amendSession(sessionBuilder -> Session.builder(session))
-                .setNodeCount(2)
+                .setWorkerCount(1)
                 .setExtraProperties(extraProperties)
                 .build();
     }

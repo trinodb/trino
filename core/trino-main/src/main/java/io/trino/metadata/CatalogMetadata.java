@@ -22,9 +22,11 @@ import io.trino.spi.connector.CatalogHandle.CatalogHandleType;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -101,16 +103,11 @@ public class CatalogMetadata
 
     public ConnectorTransactionHandle getTransactionHandleFor(CatalogHandleType catalogHandleType)
     {
-        switch (catalogHandleType) {
-            case NORMAL:
-                return catalogTransaction.getTransactionHandle();
-            case INFORMATION_SCHEMA:
-                return informationSchemaTransaction.getTransactionHandle();
-            case SYSTEM:
-                return systemTransaction.getTransactionHandle();
-            default:
-                throw new IllegalArgumentException("Unknown catalog handle: " + catalogHandleType);
-        }
+        return switch (catalogHandleType) {
+            case NORMAL -> catalogTransaction.getTransactionHandle();
+            case INFORMATION_SCHEMA -> informationSchemaTransaction.getTransactionHandle();
+            case SYSTEM -> systemTransaction.getTransactionHandle();
+        };
     }
 
     public ConnectorTransactionHandle getTransactionHandleFor(CatalogHandle catalogHandle)
@@ -135,13 +132,14 @@ public class CatalogMetadata
         return catalogTransaction.getCatalogHandle();
     }
 
-    public CatalogHandle getCatalogHandle(Session session, QualifiedObjectName table)
+    public CatalogHandle getCatalogHandle(Session session, QualifiedObjectName table, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
-        if (table.getSchemaName().equals(INFORMATION_SCHEMA_NAME)) {
+        if (table.schemaName().equals(INFORMATION_SCHEMA_NAME)) {
             return informationSchemaTransaction.getCatalogHandle();
         }
 
-        if (systemTransaction.getConnectorMetadata(session).getTableHandle(session.toConnectorSession(systemTransaction.getCatalogHandle()), table.asSchemaTableName()) != null) {
+        if (systemTransaction.getConnectorMetadata(session)
+                .getTableHandle(session.toConnectorSession(systemTransaction.getCatalogHandle()), table.asSchemaTableName(), startVersion, endVersion) != null) {
             return systemTransaction.getCatalogHandle();
         }
 

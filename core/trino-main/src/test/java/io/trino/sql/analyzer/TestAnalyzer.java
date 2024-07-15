@@ -60,6 +60,7 @@ import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
+import io.trino.metadata.ViewPropertyManager;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControl;
@@ -82,6 +83,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.OptimizerConfig;
@@ -942,11 +944,11 @@ public class TestAnalyzer
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessage("line 1:15: Table 'tpch.s1.foo' does not exist");
         assertFails("SELECT * FROM foo FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'")
-                .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("line 1:15: Table 'tpch.s1.foo' does not exist");
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
         assertFails("SELECT * FROM foo FOR VERSION AS OF 'version1'")
-                .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("line 1:15: Table 'tpch.s1.foo' does not exist");
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("This connector does not support versioned tables");
         // table name containing dots
         assertFails("SELECT * FROM \"table.not.existing\"")
                 .hasErrorCode(TABLE_NOT_FOUND)
@@ -3531,12 +3533,12 @@ public class TestAnalyzer
         // Materialized view redirects to "t1"
         Analysis analysis = analyze("SELECT * FROM table_view_and_materialized_view");
         TableHandle handle = getOnlyElement(analysis.getTables());
-        assertThat(((TestingTableHandle) handle.getConnectorHandle()).getTableName().getTableName()).isEqualTo("t1");
+        assertThat(((TestingTableHandle) handle.connectorHandle()).getTableName().getTableName()).isEqualTo("t1");
 
         // View redirects to "t2"
         analysis = analyze("SELECT * FROM table_and_view");
         handle = getOnlyElement(analysis.getTables());
-        assertThat(((TestingTableHandle) handle.getConnectorHandle()).getTableName().getTableName()).isEqualTo("t2");
+        assertThat(((TestingTableHandle) handle.connectorHandle()).getTableName().getTableName()).isEqualTo("t2");
     }
 
     @Test
@@ -6371,6 +6373,20 @@ public class TestAnalyzer
                                       ORDER BY b))
                 """);
 
+        analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(t1) PARTITION BY \"a\"))");
+
+        analyze("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(t1) ORDER BY \"a\"))");
+
+        // TODO Fix failure when partitioning by a nested field
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT CAST(ROW(1) AS ROW(x BIGINT)) a) PARTITION BY a.x))")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:120: Column a.x is not present in the input relation");
+
+        // TODO Fix failure when ordering by a nested field
+        assertFails("SELECT * FROM TABLE(system.table_argument_function(input => TABLE(SELECT CAST(ROW(1) AS ROW(x BIGINT)) a) ORDER BY a.x))")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:116: Column a.x is not present in the input relation");
+
         assertFails("SELECT * FROM TABLE(system.table_argument_row_semantics_function(input => TABLE(t1) PARTITION BY a))")
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("line 1:66: Invalid argument INPUT. Partitioning specified for table argument with row semantics");
@@ -7405,7 +7421,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, ImmutableMap.of(), false));
 
         // stale view (different column type)
         ViewDefinition viewData2 = new ViewDefinition(
@@ -7416,7 +7432,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, ImmutableMap.of(), false));
 
         // valid view with uppercase column name
         ViewDefinition viewData4 = new ViewDefinition(
@@ -7427,7 +7443,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4,ImmutableMap.of(), false));
 
         // recursive view referencing to itself
         ViewDefinition viewData5 = new ViewDefinition(
@@ -7438,7 +7454,7 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
                 ImmutableList.of());
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, ImmutableMap.of(), false));
 
         // type analysis for INSERT
         SchemaTableName table8 = new SchemaTableName("s1", "t8");
@@ -7532,6 +7548,7 @@ public class TestAnalyzer
                 session,
                 tableViewAndMaterializedView,
                 viewDefinition,
+                ImmutableMap.of(),
                 false));
         inSetupTransaction(session -> metadata.createTable(
                 session,
@@ -7546,6 +7563,7 @@ public class TestAnalyzer
                 session,
                 tableAndView,
                 viewDefinition,
+                ImmutableMap.of(),
                 false));
         inSetupTransaction(session -> metadata.createTable(
                 session,
@@ -7673,6 +7691,7 @@ public class TestAnalyzer
     private Analyzer createAnalyzer(Session session, AccessControl accessControl)
     {
         StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(
+                new SqlEnvironmentConfig(),
                 plannerContext.getMetadata(),
                 SQL_PARSER,
                 accessControl,
@@ -7680,6 +7699,7 @@ public class TestAnalyzer
                 new SchemaPropertyManager(CatalogServiceProvider.fail()),
                 new ColumnPropertyManager(CatalogServiceProvider.fail()),
                 tablePropertyManager,
+                new ViewPropertyManager(catalogName -> ImmutableMap.of()),
                 new MaterializedViewPropertyManager(catalogName -> ImmutableMap.of()))));
         StatementAnalyzerFactory statementAnalyzerFactory = new StatementAnalyzerFactory(
                 plannerContext,

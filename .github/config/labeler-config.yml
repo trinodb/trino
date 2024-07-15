@@ -1,8 +1,4 @@
 # Pull Request Labeler Github Action Configuration: https://github.com/marketplace/actions/labeler
-"tests:hive":
-  - changed-files:
-    - any-glob-to-any-file: ['lib/trino-orc/**', 'lib/trino-parquet/**', 'lib/trino-hive-formats/**', 'plugin/trino-hive/**', 'testing/trino-product-tests/**', 'lib/trino-filesystem/**', 'lib/trino-filesystem-*/**']
-
 jdbc:
   - changed-files:
     - any-glob-to-any-file: 'client/trino-jdbc/**'

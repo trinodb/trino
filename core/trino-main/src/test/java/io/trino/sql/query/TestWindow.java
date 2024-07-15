@@ -36,7 +36,7 @@ public class TestWindow
     }
 
     @Test
-    @Timeout(5)
+    @Timeout(10)
     public void testManyFunctionsWithSameWindow()
     {
         assertThat(assertions.query("""

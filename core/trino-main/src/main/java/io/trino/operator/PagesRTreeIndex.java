@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
@@ -58,6 +59,7 @@ public class PagesRTreeIndex
     private final List<ObjectArrayList<Block>> channels;
     private final STRtree rtree;
     private final int radiusChannel;
+    private final OptionalDouble constantRadius;
     private final SpatialPredicate spatialRelationshipTest;
     private final JoinFilterFunction filterFunction;
     private final Map<Integer, Rectangle> partitions;
@@ -106,6 +108,7 @@ public class PagesRTreeIndex
             List<ObjectArrayList<Block>> channels,
             STRtree rtree,
             Optional<Integer> radiusChannel,
+            OptionalDouble constantRadius,
             SpatialPredicate spatialRelationshipTest,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Map<Integer, Rectangle> partitions)
@@ -116,9 +119,12 @@ public class PagesRTreeIndex
         this.channels = requireNonNull(channels, "channels is null");
         this.rtree = requireNonNull(rtree, "rtree is null");
         this.radiusChannel = radiusChannel.orElse(-1);
+        this.constantRadius = requireNonNull(constantRadius, "constantRadius is null");
         this.spatialRelationshipTest = requireNonNull(spatialRelationshipTest, "spatialRelationshipTest is null");
         this.filterFunction = filterFunctionFactory.map(factory -> factory.create(session.toConnectorSession(), addresses, channelsToPages(channels))).orElse(null);
         this.partitions = requireNonNull(partitions, "partitions is null");
+
+        checkArgument(!(constantRadius.isPresent() && radiusChannel.isPresent()), "Radius channel and constant radius are mutually exclusive");
     }
 
     private static Envelope getEnvelope(OGCGeometry ogcGeometry)
@@ -165,13 +171,17 @@ public class PagesRTreeIndex
             GeometryWithPosition geometryWithPosition = (GeometryWithPosition) item;
             OGCGeometry buildGeometry = geometryWithPosition.getGeometry();
             if (partitions.isEmpty() || (probePartition == geometryWithPosition.getPartition() && (probeIsPoint || (buildGeometry instanceof OGCPoint) || testReferencePoint(envelope, buildGeometry, probePartition)))) {
-                if (radiusChannel == -1) {
+                if (radiusChannel == -1 && constantRadius.isEmpty()) {
                     if (spatialRelationshipTest.apply(buildGeometry, probeGeometry, OptionalDouble.empty())) {
                         matchingPositions.add(geometryWithPosition.getPosition());
                     }
                 }
                 else {
-                    if (spatialRelationshipTest.apply(geometryWithPosition.getGeometry(), probeGeometry, OptionalDouble.of(getRadius(geometryWithPosition.getPosition())))) {
+                    OptionalDouble radius = constantRadius;
+                    if (radius.isEmpty()) {
+                        radius = OptionalDouble.of(getRadius(geometryWithPosition.getPosition()));
+                    }
+                    if (spatialRelationshipTest.apply(geometryWithPosition.getGeometry(), probeGeometry, radius)) {
                         matchingPositions.add(geometryWithPosition.getPosition());
                     }
                 }

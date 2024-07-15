@@ -36,6 +36,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
@@ -52,6 +53,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -181,6 +183,15 @@ public class CachingJdbcClient
     }
 
     @Override
+    public Iterator<RelationColumnsMetadata> getAllTableColumns(ConnectorSession session, Optional<String> schema)
+    {
+        // TODO should this cache the list (once iterator is completed)?
+        // TODO should it cache the iterator (smartly) before it's completed? (sharing failures?)
+        // TODO should this put objects into tableCache when iterating?
+        return delegate.getAllTableColumns(session, schema);
+    }
+
+    @Override
     public List<RelationCommentMetadata> getAllTableComments(ConnectorSession session, Optional<String> schema)
     {
         return get(tableCommentsCache, new TableListingCacheKey(getIdentityKey(session), schema), () -> delegate.getAllTableComments(session, schema));
@@ -226,6 +237,12 @@ public class CachingJdbcClient
     public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return delegate.convertPredicate(session, expression, assignments);
+    }
+
+    @Override
+    public Optional<JdbcExpression> convertProjection(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return delegate.convertProjection(session, expression, assignments);
     }
 
     @Override

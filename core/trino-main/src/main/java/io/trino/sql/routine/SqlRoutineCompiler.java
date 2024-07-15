@@ -72,7 +72,7 @@ import io.trino.util.Reflection;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.IdentityHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -287,8 +287,8 @@ public final class SqlRoutineCompiler
         private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
         private final Map<IrVariable, Variable> variables;
 
-        private final Map<IrLabel, LabelNode> continueLabels = new IdentityHashMap<>();
-        private final Map<IrLabel, LabelNode> breakLabels = new IdentityHashMap<>();
+        private final Map<IrLabel, LabelNode> continueLabels = new HashMap<>();
+        private final Map<IrLabel, LabelNode> breakLabels = new HashMap<>();
 
         public BytecodeVisitor(
                 CachedInstanceBinder cachedInstanceBinder,
@@ -333,11 +333,11 @@ public final class SqlRoutineCompiler
             LabelNode continueLabel = new LabelNode("continue");
             LabelNode breakLabel = new LabelNode("break");
 
-            if (node.label().isPresent()) {
-                continueLabels.put(node.label().get(), continueLabel);
-                breakLabels.put(node.label().get(), breakLabel);
+            node.label().ifPresent(label -> {
+                verify(continueLabels.putIfAbsent(label, continueLabel) == null, "continue label for loop label %s already exists", label);
+                verify(breakLabels.putIfAbsent(label, breakLabel) == null, "break label for loop label %s already exists", label);
                 block.visitLabel(continueLabel);
-            }
+            });
 
             for (IrStatement statement : node.statements()) {
                 block.append(process(statement, scope));
@@ -355,7 +355,7 @@ public final class SqlRoutineCompiler
         {
             return new BytecodeBlock()
                     .append(compile(node.value(), scope))
-                    .ret(wrap(node.value().getType().getJavaType()));
+                    .ret(wrap(node.value().type().getJavaType()));
         }
 
         @Override
@@ -424,7 +424,7 @@ public final class SqlRoutineCompiler
         {
             BytecodeBlock block = new BytecodeBlock();
 
-            Variable interruption = scope.createTempVariable(int.class);
+            Variable interruption = scope.getOrCreateTempVariable(int.class);
             block.putVariable(interruption, 0);
 
             BytecodeBlock interruptionBlock = new BytecodeBlock()
@@ -439,8 +439,8 @@ public final class SqlRoutineCompiler
             LabelNode breakLabel = new LabelNode("break");
 
             if (label.isPresent()) {
-                continueLabels.put(label.get(), continueLabel);
-                breakLabels.put(label.get(), breakLabel);
+                verify(continueLabels.putIfAbsent(label.get(), continueLabel) == null, "continue label for loop label %s already exists", label.get());
+                verify(breakLabels.putIfAbsent(label.get(), breakLabel) == null, "break label for loop label %s already exists", label.get());
                 block.visitLabel(continueLabel);
             }
 
@@ -450,13 +450,15 @@ public final class SqlRoutineCompiler
                 block.visitLabel(breakLabel);
             }
 
+            scope.releaseTempVariableForReuse(interruption);
+
             return block;
         }
 
         private BytecodeNode compile(RowExpression expression, Scope scope)
         {
             if (expression instanceof InputReferenceExpression input) {
-                return scope.getVariable(name(input.getField()));
+                return scope.getVariable(name(input.field()));
             }
 
             RowExpressionCompiler rowExpressionCompiler = new RowExpressionCompiler(
@@ -468,15 +470,15 @@ public final class SqlRoutineCompiler
 
             return new BytecodeBlock()
                     .comment("boolean wasNull = false;")
-                    .putVariable(scope.getVariable("wasNull"), expression.getType().getJavaType() == void.class)
+                    .putVariable(scope.getVariable("wasNull"), expression.type().getJavaType() == void.class)
                     .comment("expression: " + expression)
                     .append(rowExpressionCompiler.compile(expression, scope))
-                    .append(boxPrimitiveIfNecessary(scope, wrap(expression.getType().getJavaType())));
+                    .append(boxPrimitiveIfNecessary(scope, wrap(expression.type().getJavaType())));
         }
 
         private BytecodeNode compileBoolean(RowExpression expression, Scope scope)
         {
-            checkArgument(expression.getType().equals(BooleanType.BOOLEAN), "type must be boolean");
+            checkArgument(expression.type().equals(BooleanType.BOOLEAN), "type must be boolean");
 
             LabelNode notNull = new LabelNode("notNull");
             LabelNode done = new LabelNode("done");
@@ -532,9 +534,9 @@ public final class SqlRoutineCompiler
         @Override
         public BytecodeNode visitInputReference(InputReferenceExpression node, Scope scope)
         {
-            Class<?> boxedType = wrap(node.getType().getJavaType());
+            Class<?> boxedType = wrap(node.type().getJavaType());
             return new BytecodeBlock()
-                    .append(scope.getVariable(name(node.getField())))
+                    .append(scope.getVariable(name(node.field())))
                     .append(unboxPrimitiveIfNecessary(scope, boxedType));
         }
 

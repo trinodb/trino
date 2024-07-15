@@ -45,15 +45,15 @@ public class TpcdsRecordSetProvider
         TpcdsSplit tpcdsSplit = (TpcdsSplit) split;
         TpcdsTableHandle tpcdsTable = (TpcdsTableHandle) tableHandle;
 
-        Table table = getTable(tpcdsTable.getTableName());
-        double scaleFactor = tpcdsTable.getScaleFactor();
+        Table table = getTable(tpcdsTable.tableName());
+        double scaleFactor = tpcdsTable.scaleFactor();
         int partNumber = tpcdsSplit.getPartNumber();
         int totalParts = tpcdsSplit.getTotalParts();
         boolean noSexism = tpcdsSplit.isNoSexism();
 
         ImmutableList.Builder<Column> builder = ImmutableList.builder();
         for (ColumnHandle column : columns) {
-            String columnName = ((TpcdsColumnHandle) column).getColumnName();
+            String columnName = ((TpcdsColumnHandle) column).columnName();
             builder.add(table.getColumn(columnName));
         }
 

@@ -232,10 +232,8 @@ public class TestLineReader
         }
     }
 
-    @SuppressWarnings("unused")
     private record TestData(byte[] inputData, List<ExpectedLine> expectedLines) {}
 
-    @SuppressWarnings("unused")
     private record ExpectedLine(String line, int start, int endExclusive) {}
 
     private static TestData createInputData(List<String> lines, String delimiter, boolean delimiterAtEndOfFile, boolean bom)

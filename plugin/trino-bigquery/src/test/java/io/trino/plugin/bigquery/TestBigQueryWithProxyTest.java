@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -24,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.net.URISyntaxException;
+import java.util.Map;
 
 public class TestBigQueryWithProxyTest
         extends AbstractTestQueryFramework
@@ -36,16 +35,13 @@ public class TestBigQueryWithProxyTest
                 .withSSLCertificate(fromResources("proxy/cert.pem").toPath())
                 .build());
         proxy.start();
-        QueryRunner queryRunner = BigQueryQueryRunner.createQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of(
+        return BigQueryQueryRunner.builder()
+                .setConnectorProperties(Map.of(
                         "bigquery.rpc-proxy.enabled", "true",
                         "bigquery.rpc-proxy.uri", proxy.getProxyEndpoint(),
                         "bigquery.rpc-proxy.truststore-path", fromResources("proxy/truststore.jks").getAbsolutePath(),
-                        "bigquery.rpc-proxy.truststore-password", "123456"),
-                ImmutableSet.of());
-
-        return queryRunner;
+                        "bigquery.rpc-proxy.truststore-password", "123456"))
+                .build();
     }
 
     @Test

@@ -18,6 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.trino.array.BooleanBigArray;
+import io.trino.array.DoubleBigArray;
+import io.trino.array.LongBigArray;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SqlMap;
@@ -25,6 +28,7 @@ import io.trino.spi.block.SqlRow;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.function.InOut;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -32,6 +36,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -234,6 +239,47 @@ public class TestStateCompiler
         assertThat(VARCHAR.getSlice(sqlRow.getRawFieldBlock(2), sqlRow.getRawIndex())).isEqualTo(VARCHAR.getSlice(expectedSqlRow.getRawFieldBlock(2), expectedSqlRow.getRawIndex()));
     }
 
+    @Test
+    public void testEstimatedInOutStatesInstanceSizes()
+    {
+        AccumulatorStateFactory<InOut> factory = StateCompiler.generateInOutStateFactory(BIGINT);
+        InOut groupedState = factory.createGroupedState();
+        InOut singleState = factory.createSingleState();
+
+        long expectedGroupedSize =
+                instanceSize(groupedState.getClass()) +
+                new LongBigArray().sizeOf() + // values, 1024 longs
+                new BooleanBigArray().sizeOf(); // isNull, 1024 booleans
+
+        assertThat(groupedState.getEstimatedSize())
+                .isEqualTo(expectedGroupedSize)
+                .isEqualTo(17568);
+
+        assertThat(singleState.getEstimatedSize())
+                .isEqualTo(instanceSize(singleState.getClass()))
+                .isEqualTo(24);
+    }
+
+    @Test
+    public void testEstimatedStateInstanceSizes()
+    {
+        AccumulatorStateFactory<TestSimpleState> stateFactory = StateCompiler.generateStateFactory(TestSimpleState.class);
+        TestSimpleState groupedState = stateFactory.createGroupedState();
+        TestSimpleState singleState = stateFactory.createSingleState();
+
+        long expectedGroupedSize = instanceSize(groupedState.getClass()) +
+                new LongBigArray().sizeOf() +
+                new DoubleBigArray().sizeOf();
+
+        assertThat(groupedState.getEstimatedSize())
+                .isEqualTo(expectedGroupedSize)
+                .isEqualTo(24744);
+
+        assertThat(singleState.getEstimatedSize())
+                .isEqualTo(instanceSize(singleState.getClass()))
+                .isEqualTo(32);
+    }
+
     private static Slice toSlice(double... values)
     {
         Slice slice = Slices.allocate(values.length * Double.BYTES);
@@ -242,6 +288,18 @@ public class TestStateCompiler
             output.writeDouble(value);
         }
         return slice;
+    }
+
+    public interface TestSimpleState
+            extends AccumulatorState
+    {
+        long getLong();
+
+        void setLong(long value);
+
+        double getDouble();
+
+        void setDouble(double value);
     }
 
     public interface TestComplexState

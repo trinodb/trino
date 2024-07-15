@@ -13,6 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
+import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.operator.aggregation.state.LongState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
@@ -20,12 +21,13 @@ import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
-import io.trino.spi.function.RemoveInputFunction;
+import io.trino.spi.function.WindowAccumulator;
+import io.trino.spi.function.WindowIndex;
 import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 
-@AggregationFunction("count")
+@AggregationFunction(value = "count", windowAccumulator = CountAggregation.CountWindowAccumulator.class)
 public final class CountAggregation
 {
     private CountAggregation() {}
@@ -34,13 +36,6 @@ public final class CountAggregation
     public static void input(@AggregationState LongState state)
     {
         state.setValue(state.getValue() + 1);
-    }
-
-    @RemoveInputFunction
-    public static boolean removeInput(@AggregationState LongState state)
-    {
-        state.setValue(state.getValue() - 1);
-        return true;
     }
 
     @CombineFunction
@@ -53,5 +48,50 @@ public final class CountAggregation
     public static void output(@AggregationState LongState state, BlockBuilder out)
     {
         BIGINT.writeLong(out, state.getValue());
+    }
+
+    public static class CountWindowAccumulator
+            implements WindowAccumulator
+    {
+        private long count;
+
+        @UsedByGeneratedCode
+        public CountWindowAccumulator() {}
+
+        private CountWindowAccumulator(long count)
+        {
+            this.count = count;
+        }
+
+        @Override
+        public long getEstimatedSize()
+        {
+            return Long.BYTES;
+        }
+
+        @Override
+        public WindowAccumulator copy()
+        {
+            return new CountWindowAccumulator(count);
+        }
+
+        @Override
+        public void addInput(WindowIndex index, int startPosition, int endPosition)
+        {
+            count += endPosition - startPosition + 1;
+        }
+
+        @Override
+        public boolean removeInput(WindowIndex index, int startPosition, int endPosition)
+        {
+            count -= endPosition - startPosition + 1;
+            return true;
+        }
+
+        @Override
+        public void output(BlockBuilder blockBuilder)
+        {
+            BIGINT.writeLong(blockBuilder, count);
+        }
     }
 }

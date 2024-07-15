@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.jdbc;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -22,6 +21,7 @@ import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -50,7 +50,7 @@ public class TestJdbcTableProperties
                 return ImmutableMap.of();
             }
         });
-        return createH2QueryRunner(ImmutableList.copyOf(TpchTable.getTables()), properties, module);
+        return createH2QueryRunner(List.of(TpchTable.NATION), properties, module);
     }
 
     @Test

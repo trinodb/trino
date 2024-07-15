@@ -610,7 +610,7 @@ public class RaptorStorageManager
 
             flush();
 
-            return allAsList(futures).thenApplyAsync(ignored -> {
+            return allAsList(futures).thenApplyAsync(_ -> {
                 for (ShardInfo shard : shards) {
                     writeShard(shard.getShardUuid());
                 }
@@ -662,7 +662,7 @@ public class RaptorStorageManager
         try {
             closeable.close();
         }
-        catch (IOException ignored) {
+        catch (IOException _) {
         }
     }
 }

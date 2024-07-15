@@ -14,7 +14,6 @@
 package io.trino.plugin.druid;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -39,7 +38,6 @@ import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 
 import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
-import static io.trino.plugin.druid.DruidQueryRunner.createDruidQueryRunnerTpch;
 import static io.trino.plugin.druid.DruidTpchTables.SELECT_FROM_ORDERS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -70,11 +68,9 @@ public class TestDruidConnectorTest
             throws Exception
     {
         druidServer = closeAfterClass(new TestingDruidServer());
-        return createDruidQueryRunnerTpch(
-                druidServer,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableList.of(ORDERS, LINE_ITEM, NATION, REGION, PART, CUSTOMER));
+        return DruidQueryRunner.builder(druidServer)
+                .setInitialTables(ImmutableList.of(ORDERS, LINE_ITEM, NATION, REGION, PART, CUSTOMER))
+                .build();
     }
 
     @AfterAll
@@ -88,20 +84,20 @@ public class TestDruidConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN,
-                    SUPPORTS_AGGREGATION_PUSHDOWN,
-                    SUPPORTS_COMMENT_ON_COLUMN,
-                    SUPPORTS_COMMENT_ON_TABLE,
-                    SUPPORTS_CREATE_SCHEMA,
-                    SUPPORTS_CREATE_TABLE,
-                    SUPPORTS_DELETE,
-                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_INSERT,
-                    SUPPORTS_RENAME_COLUMN,
-                    SUPPORTS_RENAME_TABLE,
-                    SUPPORTS_ROW_TYPE,
-                    SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_UPDATE -> false;
+                 SUPPORTS_AGGREGATION_PUSHDOWN,
+                 SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_CREATE_SCHEMA,
+                 SUPPORTS_CREATE_TABLE,
+                 SUPPORTS_DELETE,
+                 SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_INSERT,
+                 SUPPORTS_RENAME_COLUMN,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_ROW_TYPE,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -164,43 +160,22 @@ public class TestDruidConnectorTest
                         ")");
     }
 
-    @Test
     @Override
-    public void testSelectInformationSchemaColumns()
+    protected @Language("SQL") String getOrdersTableWithColumns()
     {
-        String catalog = getSession().getCatalog().get();
-        String schema = getSession().getSchema().get();
-        String schemaPattern = schema.replaceAll(".$", "_");
-
-        @Language("SQL") String ordersTableWithColumns = "VALUES " +
-                "('orders', 'orderkey'), " +
-                "('orders', 'custkey'), " +
-                "('orders', 'orderstatus'), " +
-                "('orders', 'totalprice'), " +
-                "('orders', 'orderdate'), " +
-                "('orders', '__time'), " +
-                "('orders', 'orderpriority'), " +
-                "('orders', 'clerk'), " +
-                "('orders', 'shippriority'), " +
-                "('orders', 'comment')";
-
-        assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
-        assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = 'orders' GROUP BY table_name", "VALUES 'orders'");
-        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name = 'orders'", ordersTableWithColumns);
-        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%rders'", ordersTableWithColumns);
-        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema LIKE '" + schemaPattern + "' AND table_name LIKE '_rder_'", ordersTableWithColumns);
-        assertQuery(
-                "SELECT table_name, column_name FROM information_schema.columns " +
-                        "WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '%orders%'",
-                ordersTableWithColumns);
-
-        assertQuerySucceeds("SELECT * FROM information_schema.columns");
-        assertQuery("SELECT DISTINCT table_name, column_name FROM information_schema.columns WHERE table_name LIKE '_rders'", ordersTableWithColumns);
-        assertQuerySucceeds("SELECT * FROM information_schema.columns WHERE table_catalog = '" + catalog + "'");
-        assertQuerySucceeds("SELECT * FROM information_schema.columns WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "'");
-        assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '_rders'", ordersTableWithColumns);
-        assertQuerySucceeds("SELECT * FROM information_schema.columns WHERE table_catalog = '" + catalog + "' AND table_name LIKE '%'");
-        assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
+        return """
+                VALUES
+                   ('orders', 'orderkey'),
+                   ('orders', 'custkey'),
+                   ('orders', 'orderstatus'),
+                   ('orders', 'totalprice'),
+                   ('orders', 'orderdate'),
+                   ('orders', '__time'),
+                   ('orders', 'orderpriority'),
+                   ('orders', 'clerk'),
+                   ('orders', 'shippriority'),
+                   ('orders', 'comment')
+                """;
     }
 
     @Test

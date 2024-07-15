@@ -55,7 +55,6 @@ This functionality is enabled by default but can be turned off with:
 `http-server.authentication.oauth2.oidc.discovery=false`.
 
 (trino-server-configuration-oauth2)=
-
 ## Trino server configuration
 
 Using the OAuth2 authentication requires the Trino coordinator to be secured
@@ -171,7 +170,6 @@ The following configuration properties are available:
 :::
 
 (trino-oauth2-refresh-tokens)=
-
 ### Refresh tokens
 
 *Refresh tokens* allow you to securely control the length of user sessions
@@ -243,7 +241,6 @@ The following configuration properties are available:
 :::
 
 (trino-oauth2-troubleshooting)=
-
 ## Troubleshooting
 
 To debug issues, change the {ref}`log level <log-levels>` for the OAuth 2.0

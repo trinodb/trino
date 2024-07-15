@@ -52,7 +52,7 @@ public class TestSystemSecurityMetadata
                             .setBinding()
                             .toInstance(securityMetadata);
                 })
-                .setNodeCount(1)
+                .setWorkerCount(0)
                 .build();
     }
 

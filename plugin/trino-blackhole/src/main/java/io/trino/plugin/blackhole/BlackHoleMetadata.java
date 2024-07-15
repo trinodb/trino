@@ -32,6 +32,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -71,6 +72,7 @@ import static io.trino.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
 import static io.trino.plugin.blackhole.BlackHolePageSourceProvider.isNumericType;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -108,8 +110,12 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> startVersion, Optional<ConnectorTableVersion> endVersion)
     {
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support versioned tables");
+        }
+
         return tables.get(tableName);
     }
 
@@ -143,7 +149,7 @@ public class BlackHoleMetadata
         // Deduplicate with set because state may change concurrently
         return ImmutableSet.<SchemaTableName>builder()
                 .addAll(tables.values().stream()
-                        .filter(table -> schemaName.isEmpty() || table.getSchemaName().equals(schemaName.get()))
+                        .filter(table -> schemaName.isEmpty() || table.schemaName().equals(schemaName.get()))
                         .map(BlackHoleTableHandle::toSchemaTableName)
                         .collect(toList()))
                 .addAll(listViews(session, schemaName))
@@ -155,8 +161,8 @@ public class BlackHoleMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         BlackHoleTableHandle blackHoleTableHandle = (BlackHoleTableHandle) tableHandle;
-        return blackHoleTableHandle.getColumnHandles().stream()
-                .collect(toImmutableMap(BlackHoleColumnHandle::getName, Function.identity()));
+        return blackHoleTableHandle.columnHandles().stream()
+                .collect(toImmutableMap(BlackHoleColumnHandle::name, Function.identity()));
     }
 
     @Override
@@ -182,22 +188,52 @@ public class BlackHoleMetadata
     }
 
     @Override
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    {
+        BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
+        List<BlackHoleColumnHandle> columns = ImmutableList.<BlackHoleColumnHandle>builderWithExpectedSize(table.columnHandles().size() + 1)
+                .addAll(table.columnHandles())
+                .add(new BlackHoleColumnHandle(column.getName(), column.getType()))
+                .build();
+
+        tables.put(table.toSchemaTableName(), table.withColumnHandles(columns));
+    }
+
+    @Override
+    public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
+        BlackHoleColumnHandle column = (BlackHoleColumnHandle) columnHandle;
+
+        List<BlackHoleColumnHandle> columns = table.columnHandles().stream()
+                .filter(c -> !c.name().equals(column.name()))
+                .collect(toImmutableList());
+
+        tables.put(table.toSchemaTableName(), table.withColumnHandles(columns));
+    }
+
+    @Override
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, String target)
+    {
+        BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
+        BlackHoleColumnHandle column = (BlackHoleColumnHandle) columnHandle;
+
+        List<BlackHoleColumnHandle> columns = table.columnHandles().stream()
+                .map(c -> c.name().equals(column.name()) ? new BlackHoleColumnHandle(target, c.columnType()) : c)
+                .collect(toImmutableList());
+
+        tables.put(table.toSchemaTableName(), table.withColumnHandles(columns));
+    }
+
+    @Override
     public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Type type)
     {
         BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
         BlackHoleColumnHandle column = (BlackHoleColumnHandle) columnHandle;
-        List<BlackHoleColumnHandle> columns = new ArrayList<>(table.getColumnHandles());
-        columns.set(columns.indexOf(column), new BlackHoleColumnHandle(column.getName(), type));
+        List<BlackHoleColumnHandle> columns = new ArrayList<>(table.columnHandles());
+        columns.set(columns.indexOf(column), new BlackHoleColumnHandle(column.name(), type));
 
-        tables.put(table.toSchemaTableName(), new BlackHoleTableHandle(
-                table.getSchemaName(),
-                table.getTableName(),
-                ImmutableList.copyOf(columns),
-                table.getSplitCount(),
-                table.getPagesPerSplit(),
-                table.getRowsPerPage(),
-                table.getFieldsLength(),
-                table.getPageProcessingDelay()));
+        tables.put(table.toSchemaTableName(), table.withColumnHandles(ImmutableList.copyOf(columns)));
     }
 
     @Override
@@ -206,14 +242,14 @@ public class BlackHoleMetadata
         BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
         TableStatistics.Builder tableStats = TableStatistics.builder();
 
-        double rows = (double) table.getSplitCount() * table.getPagesPerSplit() * table.getRowsPerPage();
+        double rows = (double) table.splitCount() * table.pagesPerSplit() * table.rowsPerPage();
         tableStats.setRowCount(Estimate.of(rows));
 
-        for (BlackHoleColumnHandle column : table.getColumnHandles()) {
+        for (BlackHoleColumnHandle column : table.columnHandles()) {
             ColumnStatistics.Builder stats = ColumnStatistics.builder()
                     .setDistinctValuesCount(Estimate.of(1))
                     .setNullsFraction(Estimate.of(0));
-            if (isNumericType(column.getColumnType())) {
+            if (isNumericType(column.columnType())) {
                 stats.setRange(new DoubleRange(0, 0));
             }
             tableStats.setColumnStatistics(column, stats.build());
@@ -234,14 +270,14 @@ public class BlackHoleMetadata
     {
         BlackHoleTableHandle oldTableHandle = (BlackHoleTableHandle) tableHandle;
         BlackHoleTableHandle newTableHandle = new BlackHoleTableHandle(
-                oldTableHandle.getSchemaName(),
+                oldTableHandle.schemaName(),
                 newTableName.getTableName(),
-                oldTableHandle.getColumnHandles(),
-                oldTableHandle.getSplitCount(),
-                oldTableHandle.getPagesPerSplit(),
-                oldTableHandle.getRowsPerPage(),
-                oldTableHandle.getFieldsLength(),
-                oldTableHandle.getPageProcessingDelay());
+                oldTableHandle.columnHandles(),
+                oldTableHandle.splitCount(),
+                oldTableHandle.pagesPerSplit(),
+                oldTableHandle.rowsPerPage(),
+                oldTableHandle.fieldsLength(),
+                oldTableHandle.pageProcessingDelay());
         tables.remove(oldTableHandle.toSchemaTableName());
         tables.put(newTableName, newTableHandle);
     }
@@ -302,7 +338,11 @@ public class BlackHoleMetadata
         Duration pageProcessingDelay = (Duration) tableMetadata.getProperties().get(PAGE_PROCESSING_DELAY);
 
         BlackHoleTableHandle handle = new BlackHoleTableHandle(
-                tableMetadata,
+                tableMetadata.getTable().getSchemaName(),
+                tableMetadata.getTable().getTableName(),
+                tableMetadata.getColumns().stream()
+                        .map(column -> new BlackHoleColumnHandle(column.getName(), column.getType()))
+                        .collect(toList()),
                 splitCount,
                 pagesPerSplit,
                 rowsPerPage,
@@ -315,7 +355,7 @@ public class BlackHoleMetadata
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         BlackHoleOutputTableHandle blackHoleOutputTableHandle = (BlackHoleOutputTableHandle) tableHandle;
-        BlackHoleTableHandle table = blackHoleOutputTableHandle.getTable();
+        BlackHoleTableHandle table = blackHoleOutputTableHandle.table();
         tables.put(table.toSchemaTableName(), table);
         return Optional.empty();
     }
@@ -324,7 +364,7 @@ public class BlackHoleMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
         BlackHoleTableHandle handle = (BlackHoleTableHandle) tableHandle;
-        return new BlackHoleInsertTableHandle(handle.getPageProcessingDelay());
+        return new BlackHoleInsertTableHandle(handle.pageProcessingDelay());
     }
 
     @Override

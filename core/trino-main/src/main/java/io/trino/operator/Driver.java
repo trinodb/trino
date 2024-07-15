@@ -221,42 +221,47 @@ public class Driver
     private void processNewSources()
     {
         checkLockHeld("Lock must be held to call processNewSources");
+        try {
+            // only update if the driver is still alive
+            if (state.get() != State.ALIVE) {
+                return;
+            }
 
-        // only update if the driver is still alive
-        if (state.get() != State.ALIVE) {
-            return;
+            SplitAssignment splitAssignment = pendingSplitAssignmentUpdates.getAndSet(null);
+            if (splitAssignment == null) {
+                return;
+            }
+
+            // merge the current assignment and the specified assignment
+            SplitAssignment newAssignment = currentSplitAssignment.update(splitAssignment);
+
+            // if the update contains no new data, just return
+            if (newAssignment == currentSplitAssignment) {
+                return;
+            }
+
+            // determine new splits to add
+            Set<ScheduledSplit> newSplits = Sets.difference(newAssignment.getSplits(), currentSplitAssignment.getSplits());
+
+            // add new splits
+            SourceOperator sourceOperator = this.sourceOperator.orElseThrow(VerifyException::new);
+            for (ScheduledSplit newSplit : newSplits) {
+                Split split = newSplit.getSplit();
+
+                sourceOperator.addSplit(split);
+            }
+
+            // set no more splits
+            if (newAssignment.isNoMoreSplits()) {
+                sourceOperator.noMoreSplits();
+            }
+
+            currentSplitAssignment = newAssignment;
         }
-
-        SplitAssignment splitAssignment = pendingSplitAssignmentUpdates.getAndSet(null);
-        if (splitAssignment == null) {
-            return;
+        catch (Throwable failure) {
+            driverContext.failed(failure);
+            throw failure;
         }
-
-        // merge the current assignment and the specified assignment
-        SplitAssignment newAssignment = currentSplitAssignment.update(splitAssignment);
-
-        // if the update contains no new data, just return
-        if (newAssignment == currentSplitAssignment) {
-            return;
-        }
-
-        // determine new splits to add
-        Set<ScheduledSplit> newSplits = Sets.difference(newAssignment.getSplits(), currentSplitAssignment.getSplits());
-
-        // add new splits
-        SourceOperator sourceOperator = this.sourceOperator.orElseThrow(VerifyException::new);
-        for (ScheduledSplit newSplit : newSplits) {
-            Split split = newSplit.getSplit();
-
-            sourceOperator.addSplit(split);
-        }
-
-        // set no more splits
-        if (newAssignment.isNoMoreSplits()) {
-            sourceOperator.noMoreSplits();
-        }
-
-        currentSplitAssignment = newAssignment;
     }
 
     public ListenableFuture<Void> processForDuration(Duration duration)

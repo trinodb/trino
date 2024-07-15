@@ -36,7 +36,7 @@ public class IfCodeGenerator
     public IfCodeGenerator(SpecialForm specialForm)
     {
         requireNonNull(specialForm, "specialForm is null");
-        List<RowExpression> arguments = specialForm.getArguments();
+        List<RowExpression> arguments = specialForm.arguments();
         checkArgument(arguments.size() == 3);
         condition = arguments.get(0);
         trueValue = arguments.get(1);

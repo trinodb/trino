@@ -79,7 +79,7 @@ public class PushDownDereferencesThroughSort
 
         // Exclude dereferences on symbols used in ordering scheme to avoid replication of data
         dereferences = dereferences.stream()
-                .filter(expression -> !sortNode.getOrderingScheme().getOrderBy().contains(getBase(expression)))
+                .filter(expression -> !sortNode.getOrderingScheme().orderBy().contains(getBase(expression)))
                 .collect(toImmutableSet());
 
         if (dereferences.isEmpty()) {

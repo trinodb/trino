@@ -234,7 +234,7 @@ public final class TestRun
                 log.info("Tests execution completed with code %d", exitCode);
                 return exitCode;
             }
-            catch (TimeoutExceededException ignored) {
+            catch (TimeoutExceededException _) {
                 log.error("Test execution exceeded timeout of %s", timeout);
             }
             catch (Throwable e) {
@@ -350,10 +350,6 @@ public final class TestRun
                                 .add(
                                         jdkProvider.getJavaCommand(),
                                         "-Xmx1g",
-                                        // Force Parallel GC to ensure MaxHeapFreeRatio is respected
-                                        "-XX:+UseParallelGC",
-                                        "-XX:MinHeapFreeRatio=10",
-                                        "-XX:MaxHeapFreeRatio=50",
                                         "-Djava.util.logging.config.file=/docker/presto-product-tests/conf/tempto/logging.properties",
                                         "-Duser.timezone=Asia/Kathmandu",
                                         // Tempto has progress logging built in

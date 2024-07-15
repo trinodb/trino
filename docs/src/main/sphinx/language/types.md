@@ -4,7 +4,6 @@ Trino has a set of built-in data types, described below. Additional types can be
 [provided by plugins](/develop/types).
 
 (type-mapping-overview)=
-
 ## Trino type support and mapping
 
 Connectors to data sources are not required to support all Trino data types
@@ -30,7 +29,6 @@ Data type support and mappings vary depending on the connector. Refer to the
 {doc}`connector documentation </connector>` for more information.
 
 (boolean-data-types)=
-
 ## Boolean
 
 ### `BOOLEAN`
@@ -38,7 +36,6 @@ Data type support and mappings vary depending on the connector. Refer to the
 This type captures boolean values `true` and `false`.
 
 (integer-data-types)=
-
 ## Integer
 
 Integer numbers can be expressed as numeric literals in the following formats:
@@ -80,7 +77,6 @@ A 64-bit signed two's complement integer with a minimum value of `-2^63` or
 `-0x8000000000000000` and a maximum value of `2^63 - 1` or `0x7FFFFFFFFFFFFFFF`.
 
 (floating-point-data-types)=
-
 ## Floating-point
 
 Floating-point, fixed-precision numbers can be expressed as numeric literal
@@ -133,7 +129,6 @@ Example type definitions: `DECIMAL(10,3)`, `DECIMAL(20)`
 Example literals: `DECIMAL '10.3'`, `DECIMAL '1234567890'`, `1.1`
 
 (string-data-types)=
-
 ## String
 
 ### `VARCHAR`
@@ -193,13 +188,11 @@ JSON value type, which can be a JSON object, a JSON array, a JSON number, a JSON
 `true`, `false` or `null`.
 
 (date-time-data-types)=
-
 ## Date and time
 
 See also {doc}`/functions/datetime`
 
 (date-data-type)=
-
 ### `DATE`
 
 Calendar date (year, month, day).
@@ -229,7 +222,6 @@ SELECT TIME '01:02:03.456 -08:00';
 ```
 
 (timestamp-data-type)=
-
 ### `TIMESTAMP`
 
 `TIMESTAMP` is an alias for `TIMESTAMP(3)` (millisecond precision).
@@ -271,7 +263,6 @@ SELECT cast(TIMESTAMP '2020-06-10 15:55:23.383345' as TIMESTAMP(12));
 ```
 
 (timestamp-with-time-zone-data-type)=
-
 ### `TIMESTAMP WITH TIME ZONE`
 
 `TIMESTAMP WITH TIME ZONE` is an alias for `TIMESTAMP(3) WITH TIME ZONE`
@@ -320,11 +311,9 @@ Span of days, hours, minutes, seconds and milliseconds.
 Example: `INTERVAL '2' DAY`
 
 (structural-data-types)=
-
 ## Structural
 
 (array-type)=
-
 ### `ARRAY`
 
 An array of the given component type.
@@ -332,7 +321,6 @@ An array of the given component type.
 Example: `ARRAY[1, 2, 3]`
 
 (map-type)=
-
 ### `MAP`
 
 A map between the given component types.
@@ -340,7 +328,6 @@ A map between the given component types.
 Example: `MAP(ARRAY['foo', 'bar'], ARRAY[1, 2])`
 
 (row-type)=
-
 ### `ROW`
 
 A structure made up of fields that allows mixed types.
@@ -362,7 +349,6 @@ Example: `ROW(1, 2.0)[1]`
 ## Network address
 
 (ipaddress-type)=
-
 ### `IPADDRESS`
 
 An IP address that can represent either an IPv4 or IPv6 address. Internally,
@@ -378,7 +364,6 @@ Examples: `IPADDRESS '10.0.0.1'`, `IPADDRESS '2001:db8::1'`
 ## UUID
 
 (uuid-type)=
-
 ### `UUID`
 
 This type represents a UUID (Universally Unique IDentifier), also known as a
@@ -392,14 +377,12 @@ Calculating the approximate distinct count can be done much more cheaply than an
 [HyperLogLog](https://wikipedia.org/wiki/HyperLogLog) data sketch. See {doc}`/functions/hyperloglog`.
 
 (hyperloglog-type)=
-
 ### `HyperLogLog`
 
 A HyperLogLog sketch allows efficient computation of {func}`approx_distinct`. It starts as a
 sparse representation, switching to a dense representation when it becomes more efficient.
 
 (p4hyperloglog-type)=
-
 ### `P4HyperLogLog`
 
 A P4HyperLogLog sketch is similar to {ref}`hyperloglog-type`, but it starts (and remains)
@@ -408,7 +391,6 @@ in the dense representation.
 ## SetDigest
 
 (setdigest-type)=
-
 ### `SetDigest`
 
 A SetDigest (setdigest) is a data sketch structure used
@@ -431,7 +413,6 @@ SetDigests are additive, meaning they can be merged together.
 ## Quantile digest
 
 (qdigest-type)=
-
 ### `QDigest`
 
 A quantile digest (qdigest) is a summary structure which captures the approximate
@@ -452,7 +433,6 @@ daily, and quickly merged to retrieve the 99th percentile value.
 ## T-Digest
 
 (tdigest-type)=
-
 ### `TDigest`
 
 A T-digest (tdigest) is a summary structure which, similarly to qdigest, captures the

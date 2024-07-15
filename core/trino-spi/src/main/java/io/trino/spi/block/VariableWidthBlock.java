@@ -322,4 +322,10 @@ public final class VariableWidthBlock
     {
         return "VariableWidthBlock{positionCount=" + getPositionCount() + ", slice=" + slice + '}';
     }
+
+    @Override
+    public Optional<ByteArrayBlock> getNulls()
+    {
+        return BlockUtil.getNulls(valueIsNull, arrayOffset, positionCount);
+    }
 }

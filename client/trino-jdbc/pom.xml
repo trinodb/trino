@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>444</version>
+        <version>452</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -13,7 +13,6 @@
     <description>Trino - JDBC driver</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>8</project.build.targetJdk>
         <shadeBase>io.trino.jdbc.\$internal</shadeBase>
     </properties>
@@ -77,6 +76,8 @@
         <dependency>
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>
+            <!-- JDK8 support dropped by version 3.0.0+ -->
+            <version>2.1.1</version>
         </dependency>
 
         <dependency>
@@ -225,6 +226,12 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-password-authenticators</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-plugin-toolkit</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -433,6 +440,10 @@
                                 <relocation>
                                     <pattern>io.opentelemetry.instrumentation</pattern>
                                     <shadedPattern>${shadeBase}.opentelemetry.instrumentation</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.opentelemetry.api.incubator</pattern>
+                                    <shadedPattern>${shadeBase}.opentelemetry.api.incubator</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>okio</pattern>

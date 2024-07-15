@@ -24,7 +24,7 @@ import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 
 /**
- * See {@link org.apache.orc.impl.RunLengthIntegerWriterV2} for description of various lightweight compression techniques.
+ * See {@code org.apache.orc.impl.RunLengthIntegerWriterV2} for description of various lightweight compression techniques.
  */
 // This comes from the Apache Hive ORC code
 public class LongInputStreamV2

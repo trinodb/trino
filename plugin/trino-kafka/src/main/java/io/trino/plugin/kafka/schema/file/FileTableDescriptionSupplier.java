@@ -81,9 +81,9 @@ public class FileTableDescriptionSupplier
             for (File file : listFiles(tableDescriptionDir)) {
                 if (file.isFile() && file.getName().endsWith(".json")) {
                     KafkaTopicDescription table = topicDescriptionCodec.fromJson(readAllBytes(file.toPath()));
-                    String schemaName = table.getSchemaName().orElse(defaultSchema);
-                    log.debug("Kafka table %s.%s: %s", schemaName, table.getTableName(), table);
-                    builder.put(new SchemaTableName(schemaName, table.getTableName()), table);
+                    String schemaName = table.schemaName().orElse(defaultSchema);
+                    log.debug("Kafka table %s.%s: %s", schemaName, table.tableName(), table);
+                    builder.put(new SchemaTableName(schemaName, table.tableName()), table);
                 }
             }
 

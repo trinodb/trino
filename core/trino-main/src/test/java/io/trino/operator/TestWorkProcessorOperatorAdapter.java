@@ -30,7 +30,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -70,13 +69,13 @@ public class TestWorkProcessorOperatorAdapter
 
         operator.getOutput();
         assertThat(operator.isFinished()).isFalse();
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
+        assertThat(context.getOperatorStats().getMetrics().getMetrics())
                 .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(1));
 
         operator.getOutput();
         assertThat(operator.isFinished()).isTrue();
-        assertThat(getOnlyElement(context.getNestedOperatorStats()).getMetrics().getMetrics())
+        assertThat(context.getOperatorStats().getMetrics().getMetrics())
                 .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(2));
     }

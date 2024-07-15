@@ -63,12 +63,12 @@ public class JmxSplitManager
         JmxTableHandle tableHandle = (JmxTableHandle) table;
 
         //TODO is there a better way to get the node column?
-        Optional<JmxColumnHandle> nodeColumnHandle = tableHandle.getColumnHandles().stream()
-                .filter(jmxColumnHandle -> jmxColumnHandle.getColumnName().equals(NODE_COLUMN_NAME))
+        Optional<JmxColumnHandle> nodeColumnHandle = tableHandle.columnHandles().stream()
+                .filter(jmxColumnHandle -> jmxColumnHandle.columnName().equals(NODE_COLUMN_NAME))
                 .findFirst();
         checkState(nodeColumnHandle.isPresent(), "Failed to find %s column", NODE_COLUMN_NAME);
 
-        TupleDomain<ColumnHandle> nodeFilter = tableHandle.getNodeFilter();
+        TupleDomain<ColumnHandle> nodeFilter = tableHandle.nodeFilter();
 
         List<ConnectorSplit> splits = nodeManager.getAllNodes().stream()
                 .filter(node -> {

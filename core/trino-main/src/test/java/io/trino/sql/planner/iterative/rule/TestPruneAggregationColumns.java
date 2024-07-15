@@ -44,7 +44,7 @@ public class TestPruneAggregationColumns
     public void testNotAllInputsReferenced()
     {
         tester().assertThat(new PruneAggregationColumns())
-                .on(p -> buildProjectedAggregation(p, symbol -> symbol.getName().equals("b")))
+                .on(p -> buildProjectedAggregation(p, symbol -> symbol.name().equals("b")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),

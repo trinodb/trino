@@ -29,7 +29,6 @@ openssl rand 512 | base64
 ```
 
 (verify-secrets)=
-
 ### Verify configuration
 
 To verify shared secret configuration:
@@ -49,7 +48,6 @@ To verify shared secret configuration:
    configured with your shared secret.
 
 (internal-tls)=
-
 ## Configure internal TLS
 
 You can optionally add an extra layer of security by configuring the cluster to
@@ -124,6 +122,7 @@ window functions, which require repartitioning), the performance impact can be
 considerable. The slowdown may vary from 10% to even 100%+, depending on the network
 traffic and the CPU utilization.
 
+(internal-performance)=
 ### Advanced performance tuning
 
 In some cases, changing the source of random numbers improves performance

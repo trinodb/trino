@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Random;
 
 import static io.trino.parquet.reader.TestData.generateMixedData;
+import static io.trino.parquet.reader.flat.NullsDecoders.createNullsDecoder;
 import static java.lang.Math.min;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,11 +49,18 @@ public class TestNullsDecoder
     public void testDecoding()
             throws IOException
     {
+        testDecoding(true);
+        testDecoding(false);
+    }
+
+    private void testDecoding(boolean vectorizedDecodingEnabled)
+            throws IOException
+    {
         for (NullValuesProvider nullValuesProvider : NullValuesProvider.values()) {
             for (int batchSize : Arrays.asList(1, 3, 16, 100, 1000)) {
                 boolean[] values = nullValuesProvider.getPositions();
                 byte[] encoded = encode(values);
-                NullsDecoder decoder = new NullsDecoder();
+                FlatDefinitionLevelDecoder decoder = createNullsDecoder(vectorizedDecodingEnabled);
                 decoder.init(Slices.wrappedBuffer(encoded));
                 boolean[] result = new boolean[N];
                 int nonNullCount = 0;
@@ -62,7 +70,6 @@ public class TestNullsDecoder
                 // Parquet encodes whether value exists, Trino whether value is null
                 boolean[] byteResult = flip(result);
                 assertThat(byteResult).containsExactly(values);
-
                 int expectedNonNull = nonNullCount(values);
                 assertThat(nonNullCount).isEqualTo(expectedNonNull);
             }
@@ -73,11 +80,18 @@ public class TestNullsDecoder
     public void testSkippedDecoding()
             throws IOException
     {
+        testSkippedDecoding(true);
+        testSkippedDecoding(false);
+    }
+
+    private void testSkippedDecoding(boolean vectorizedDecodingEnabled)
+            throws IOException
+    {
         for (NullValuesProvider nullValuesProvider : NullValuesProvider.values()) {
             for (int batchSize : Arrays.asList(1, 3, 16, 100, 1000)) {
                 boolean[] values = nullValuesProvider.getPositions();
                 byte[] encoded = encode(values);
-                NullsDecoder decoder = new NullsDecoder();
+                FlatDefinitionLevelDecoder decoder = createNullsDecoder(vectorizedDecodingEnabled);
                 decoder.init(Slices.wrappedBuffer(encoded));
                 int nonNullCount = 0;
                 int numberOfBatches = (N + batchSize - 1) / batchSize;

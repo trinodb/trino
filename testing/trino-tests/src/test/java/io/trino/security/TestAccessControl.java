@@ -149,7 +149,7 @@ public class TestAccessControl
                             .to(TestingSystemSecurityMetadata.class)
                             .in(Scopes.SINGLETON);
                 })
-                .setNodeCount(1)
+                .setWorkerCount(0)
                 .setSystemAccessControl(new ForwardingSystemAccessControl()
                 {
                     @Override
@@ -736,6 +736,42 @@ public class TestAccessControl
         assertUpdate("CREATE MATERIALIZED VIEW mock.default." + viewName + " AS SELECT * FROM orders");
         assertAccessDenied("COMMENT ON COLUMN mock.default." + viewName + ".column_0 IS 'new comment'", "Cannot comment column to .*", privilege(viewName, COMMENT_COLUMN));
         assertUpdate(getSession(), "COMMENT ON COLUMN mock.default." + viewName + ".column_0 IS 'new comment'");
+    }
+
+    @Test
+    public void testAddColumn()
+    {
+        reset();
+
+        String tableName = "test_add_column" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
+
+        assertAccessDenied("ALTER TABLE " + tableName + " ADD COLUMN new_col char(100)", "Cannot add a column to table .*." + tableName + ".*", privilege(tableName, ADD_COLUMN));
+        assertAccessAllowed("ALTER TABLE " + tableName + " ADD COLUMN new_col char(100)", privilege(tableName + ".orderkey", ADD_COLUMN));
+    }
+
+    @Test
+    public void testDropColumn()
+    {
+        reset();
+
+        String tableName = "test_drop_column" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
+
+        assertAccessDenied("ALTER TABLE " + tableName + " DROP COLUMN orderkey", "Cannot drop a column from table .*." + tableName + ".*", privilege(tableName, DROP_COLUMN));
+        assertAccessAllowed("ALTER TABLE " + tableName + " DROP COLUMN orderkey", privilege(tableName + ".orderkey", DROP_COLUMN));
+    }
+
+    @Test
+    public void testRenameColumn()
+    {
+        reset();
+
+        String tableName = "test_rename_column" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
+
+        assertAccessDenied("ALTER TABLE " + tableName + " RENAME COLUMN orderkey TO renamed", "Cannot rename a column in table .*." + tableName + ".*", privilege(tableName, RENAME_COLUMN));
+        assertAccessAllowed("ALTER TABLE " + tableName + " RENAME COLUMN orderkey TO renamed", privilege(tableName + ".orderkey", RENAME_COLUMN));
     }
 
     @Test

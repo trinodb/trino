@@ -49,7 +49,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertTrue;
 
 public class TestTrinoCli
         extends TrinoCliLauncher
@@ -185,7 +184,7 @@ public class TestTrinoCli
             throws Exception
     {
         launchTrinoCliWithServerArgument("--execute", "");
-        assertTrue(trimLines(trino.readRemainingOutputLines()).isEmpty());
+        assertThat(trimLines(trino.readRemainingOutputLines()).isEmpty()).isTrue();
         trino.waitForWithTimeoutAndKill();
     }
 

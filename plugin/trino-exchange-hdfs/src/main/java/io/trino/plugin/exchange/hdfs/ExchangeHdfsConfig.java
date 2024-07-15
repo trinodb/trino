@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.exchange.hdfs;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -57,9 +56,9 @@ public class ExchangeHdfsConfig
     }
 
     @Config("hdfs.config.resources")
-    public ExchangeHdfsConfig setResourceConfigFiles(String files)
+    public ExchangeHdfsConfig setResourceConfigFiles(List<String> files)
     {
-        this.resourceConfigFiles = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files).stream()
+        this.resourceConfigFiles = files.stream()
                 .map(File::new)
                 .collect(toImmutableList());
         return this;

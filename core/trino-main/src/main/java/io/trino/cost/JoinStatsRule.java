@@ -83,17 +83,12 @@ public class JoinStatsRule
         PlanNodeStatsEstimate rightStats = context.statsProvider().getStats(node.getRight());
         PlanNodeStatsEstimate crossJoinStats = crossJoinStats(node, leftStats, rightStats);
 
-        switch (node.getType()) {
-            case INNER:
-                return Optional.of(computeInnerJoinStats(node, crossJoinStats, context.session()));
-            case LEFT:
-                return Optional.of(computeLeftJoinStats(node, leftStats, rightStats, crossJoinStats, context.session()));
-            case RIGHT:
-                return Optional.of(computeRightJoinStats(node, leftStats, rightStats, crossJoinStats, context.session()));
-            case FULL:
-                return Optional.of(computeFullJoinStats(node, leftStats, rightStats, crossJoinStats, context.session()));
-        }
-        throw new IllegalStateException("Unknown join type: " + node.getType());
+        return switch (node.getType()) {
+            case INNER -> Optional.of(computeInnerJoinStats(node, crossJoinStats, context.session()));
+            case LEFT -> Optional.of(computeLeftJoinStats(node, leftStats, rightStats, crossJoinStats, context.session()));
+            case RIGHT -> Optional.of(computeRightJoinStats(node, leftStats, rightStats, crossJoinStats, context.session()));
+            case FULL -> Optional.of(computeFullJoinStats(node, leftStats, rightStats, crossJoinStats, context.session()));
+        };
     }
 
     @SuppressWarnings("ArgumentSelectionDefectChecker")

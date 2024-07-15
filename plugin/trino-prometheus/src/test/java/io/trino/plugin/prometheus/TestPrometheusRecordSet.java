@@ -90,9 +90,9 @@ public class TestPrometheusRecordSet
         for (int i = 0; i < actual.size(); i++) {
             PrometheusStandardizedRow actualRow = actual.get(i);
             PrometheusStandardizedRow expectedRow = expected.get(i);
-            assertThat(getMapFromSqlMap(varcharMapType, getSqlMapFromMap(varcharMapType, actualRow.getLabels()))).isEqualTo(getMapFromSqlMap(varcharMapType, getSqlMapFromMap(varcharMapType, expectedRow.getLabels())));
-            assertThat(actualRow.getTimestamp()).isEqualTo(expectedRow.getTimestamp());
-            assertThat(actualRow.getValue()).isEqualTo(expectedRow.getValue());
+            assertThat(getMapFromSqlMap(varcharMapType, getSqlMapFromMap(varcharMapType, actualRow.labels()))).isEqualTo(getMapFromSqlMap(varcharMapType, getSqlMapFromMap(varcharMapType, expectedRow.labels())));
+            assertThat(actualRow.timestamp()).isEqualTo(expectedRow.timestamp());
+            assertThat(actualRow.value()).isEqualTo(expectedRow.value());
         }
     }
 

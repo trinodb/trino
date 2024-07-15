@@ -44,6 +44,7 @@ connector. The following connectors support fault-tolerant execution:
 - {ref}`Delta Lake connector <delta-lake-fte-support>`
 - {ref}`Hive connector <hive-fte-support>`
 - {ref}`Iceberg connector <iceberg-fte-support>`
+- {ref}`MariaDB connector <mariadb-fte-support>`
 - {ref}`MongoDB connector <mongodb-fte-support>`
 - {ref}`MySQL connector <mysql-fte-support>`
 - {ref}`Oracle connector <oracle-fte-support>`
@@ -71,9 +72,9 @@ execution on a Trino cluster:
   - [Data size](prop-type-data-size) of the coordinator's in-memory buffer used
     by fault-tolerant execution to store output of query
     [stages](trino-concept-stage). If this buffer is filled during query
-    execution, the query fails with a "Task descriptor storage capacity has been
-    exceeded" error message unless an [exchange manager](fte-exchange-manager)
-    is configured.
+    execution, the query fails with a "Exchange manager must be configured for 
+    the failure recovery capabilities to be fully functional" error message unless an 
+    [exchange manager](fte-exchange-manager) is configured.
   - `32MB`
 * - `fault-tolerant-execution.exchange-encryption-enabled`
   - Enable encryption of spooling data, see [Encryption](fte-encryption) for details. 
@@ -85,7 +86,6 @@ Find further related properties in [](/admin/properties), specifically in
 [](/admin/properties-resource-management) and [](/admin/properties-exchange).
 
 (fte-retry-policy)=
-
 ## Retry policy
 
 The `retry-policy` configuration property designates whether Trino retries
@@ -134,10 +134,6 @@ following changes:
 - Set the `query.low-memory-killer.delay`
   {doc}`query management property </admin/properties-query-management>` to
   `0s` so the cluster immediately unblocks nodes that run out of memory.
-- Modify the `query.remote-task.max-error-duration`
-  {doc}`query management property </admin/properties-query-management>`
-  to adjust how long Trino allows a remote task to try reconnecting before
-  considering it lost and rescheduling.
 
 :::{note}
 A `TASK` retry policy is best suited for large batch queries, but this
@@ -380,7 +376,6 @@ fault-tolerant execution:
 :::
 
 (fte-exchange-manager)=
-
 ## Exchange manager
 
 Exchange spooling is responsible for storing and managing spooled data for
@@ -491,8 +486,14 @@ the property may be configured for:
     together with `exchange.gcs.json-key-file-path`
   -
   - GCS
+* - `exchange.azure.endpoint`
+  - Azure blob endpoint used to access the spooling container. Not to be set
+    together with `exchange.azure.connection-string`
+  - 
+  - Azure Blob Storage
 * - `exchange.azure.connection-string`
-  - Connection string used to access the spooling container.
+  - Connection string used to access the spooling container. Not to be set
+    together with `exchange.azure.endpoint`
   -
   - Azure Blob Storage
 * - `exchange.azure.block-size`
@@ -523,7 +524,6 @@ lifecycle rule to automatically expire abandoned objects in the event of a node
 crash.
 
 (fte-exchange-aws-s3)=
-
 #### AWS S3
 
 The following example `exchange-manager.properties` configuration specifies an
@@ -551,7 +551,6 @@ exchange.base-directories=s3://exchange-spooling-bucket-1,s3://exchange-spooling
 ```
 
 (fte-exchange-azure-blob)=
-
 #### Azure Blob Storage
 
 The following example `exchange-manager.properties` configuration specifies an
@@ -566,7 +565,6 @@ exchange.azure.connection-string=connection-string
 ```
 
 (fte-exchange-gcs)=
-
 #### Google Cloud Storage
 
 To enable exchange spooling on GCS in Trino, change the request endpoint to the
@@ -592,7 +590,6 @@ exchange.gcs.json-key-file-path=/path/to/gcs_keyfile.json
 ```
 
 (fte-exchange-hdfs)=
-
 #### HDFS
 
 The following `exchange-manager.properties` configuration example specifies HDFS
@@ -605,7 +602,6 @@ hdfs.config.resources=/usr/lib/hadoop/etc/hadoop/core-site.xml
 ```
 
 (fte-exchange-local-filesystem)=
-
 #### Local filesystem storage
 
 The following example `exchange-manager.properties` configuration specifies a

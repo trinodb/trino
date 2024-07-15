@@ -111,12 +111,12 @@ class TestCreateTableTask
                 .build());
         metadata = new MockMetadata();
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                .withMetadataWrapper(ignored -> metadata)
+                .withMetadataWrapper(_ -> metadata)
                 .withTableProperties(() -> ImmutableList.of(stringProperty("baz", "test property", null, false)))
                 .withCapabilities(() -> ImmutableSet.of(ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT))
                 .build()));
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                .withMetadataWrapper(ignored -> metadata)
+                .withMetadataWrapper(_ -> metadata)
                 .withName("other_mock")
                 .build()));
 

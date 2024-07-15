@@ -102,7 +102,7 @@ public class DictionaryAwarePageFilter
                 SelectedPositions selectedDictionaryPositions = filter.filter(session, new Page(dictionary));
                 lastOutputDictionary = Optional.of(toPositionsMask(selectedDictionaryPositions, dictionary.getPositionCount()));
             }
-            catch (Exception ignored) {
+            catch (Exception _) {
                 // Processing of dictionary failed, but we ignore the exception here
                 // and force reprocessing of the whole block using the normal code.
                 // The second pass may not fail due to filtering.

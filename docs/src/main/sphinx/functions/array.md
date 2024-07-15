@@ -1,7 +1,6 @@
 # Array functions and operators
 
 (subscript-operator)=
-
 ## Subscript operator: \[\]
 
 The `[]` operator is used to access an element of an array and is indexed starting from one:
@@ -11,7 +10,6 @@ SELECT my_array[1] AS first_element
 ```
 
 (concatenation-operator)=
-
 ## Concatenation operator: ||
 
 The `||` operator is used to concatenate an array with an array or an element of the same type:
@@ -391,6 +389,33 @@ SELECT transform(ARRAY['x', 'abc', 'z'], x -> x || '0');
 SELECT transform(ARRAY[ARRAY[1, NULL, 2], ARRAY[3, NULL]],
                  a -> filter(a, x -> x IS NOT NULL));
 -- [[1, 2], [3]]
+```
+:::
+
+:::{function} euclidean_distance(array(double), array(double)) -> double
+Calculates the euclidean distance:
+
+```sql
+SELECT euclidean_distance(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
+-- 2.8284271247461903
+```
+:::
+
+:::{function} dot_product(array(double), array(double)) -> double
+Calculates the dot product:
+
+```sql
+SELECT dot_product(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
+-- 11.0
+```
+:::
+
+:::{function} cosine_distance(array(double), array(double)) -> double
+Calculates the cosine distance:
+
+```sql
+SELECT cosine_distance(ARRAY[1.0, 2.0], ARRAY[3.0, 4.0]);
+-- 0.01613008990009257
 ```
 :::
 

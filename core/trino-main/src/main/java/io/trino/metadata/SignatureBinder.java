@@ -71,12 +71,13 @@ import static java.util.stream.Collectors.toList;
  * bind to an orderable type)
  * <p>
  * This implementation has made assumptions. When any of the assumptions is not satisfied, it will fail loudly.
- * <p><ul>
+ * <ul>
  * <li>A type cannot have both type parameter and literal parameter.
  * <li>A literal parameter cannot be used across types. see {@link #checkNoLiteralVariableUsageAcrossTypes(TypeSignature, Map)}.
- * </ul><p>
+ * </ul>
+ * <p>
  * Here are some known implementation limitations:
- * <p><ul>
+ * <ul>
  * <li>Binding signature {@code (decimal(x,2))boolean} with arguments {@code decimal(1,0)} fails.
  * It should produce {@code decimal(3,1)}.
  * </ul>
@@ -655,17 +656,12 @@ public class SignatureBinder
 
     private boolean satisfiesCoercion(RelationshipType relationshipType, Type actualType, TypeSignature constraintTypeSignature)
     {
-        switch (relationshipType) {
-            case EXACT:
-                return actualType.getTypeSignature().equals(constraintTypeSignature);
-            case IMPLICIT_COERCION:
-                return typeCoercion.canCoerce(actualType, typeManager.getType(constraintTypeSignature));
-            case EXPLICIT_COERCION_TO:
-                return canCast(actualType, typeManager.getType(constraintTypeSignature));
-            case EXPLICIT_COERCION_FROM:
-                return canCast(typeManager.getType(constraintTypeSignature), actualType);
-        }
-        throw new IllegalArgumentException("Unsupported relationshipType " + relationshipType);
+        return switch (relationshipType) {
+            case EXACT -> actualType.getTypeSignature().equals(constraintTypeSignature);
+            case IMPLICIT_COERCION -> typeCoercion.canCoerce(actualType, typeManager.getType(constraintTypeSignature));
+            case EXPLICIT_COERCION_TO -> canCast(actualType, typeManager.getType(constraintTypeSignature));
+            case EXPLICIT_COERCION_FROM -> canCast(typeManager.getType(constraintTypeSignature), actualType);
+        };
     }
 
     private boolean canCast(Type fromType, Type toType)
@@ -1052,14 +1048,12 @@ public class SignatureBinder
         EXACT, IMPLICIT_COERCION, EXPLICIT_COERCION_TO, EXPLICIT_COERCION_FROM
     }
 
-    private static final class FunctionTypeVariables
+    private record FunctionTypeVariables(FunctionBinding functionBinding)
             implements TypeVariables
     {
-        private final FunctionBinding functionBinding;
-
-        public FunctionTypeVariables(FunctionBinding functionBinding)
+        private FunctionTypeVariables
         {
-            this.functionBinding = requireNonNull(functionBinding, "functionBinding is null");
+            requireNonNull(functionBinding, "functionBinding is null");
         }
 
         @Override

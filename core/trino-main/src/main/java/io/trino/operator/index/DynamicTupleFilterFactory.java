@@ -24,6 +24,7 @@ import io.trino.operator.project.PageProjection;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.gen.columnar.PageFilterEvaluator;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.Expressions;
 import io.trino.type.BlockTypeOperators;
@@ -97,7 +98,8 @@ public class DynamicTupleFilterFactory
     {
         TuplePageFilter filter = new TuplePageFilter(filterTuple, filterEqualOperators, outputFilterChannels);
         return () -> new PageProcessor(
-                Optional.of(filter),
+                Optional.of(new PageFilterEvaluator(filter)),
+                Optional.empty(),
                 outputProjections.stream()
                         .map(Supplier::get)
                         .collect(toImmutableList()), initialBatchSize);

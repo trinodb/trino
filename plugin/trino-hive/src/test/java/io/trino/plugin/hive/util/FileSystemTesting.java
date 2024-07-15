@@ -42,7 +42,6 @@ import java.util.TreeSet;
 import static java.lang.Math.toIntExact;
 
 // copied from org.apache.hadoop.hive.ql.io.orc.TestInputOutputFormat
-@SuppressWarnings("AccessingNonPublicFieldOfAnotherObject")
 public class FileSystemTesting
 {
     public static class MockBlock
@@ -382,7 +381,6 @@ public class FileSystemTesting
 
         @Override
         public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path f)
-                throws IOException
         {
             return new RemoteIterator<>()
             {

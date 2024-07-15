@@ -18,7 +18,6 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
 public class PrometheusModule
@@ -35,7 +34,6 @@ public class PrometheusModule
         binder.bind(PrometheusRecordSetProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(PrometheusConnectorConfig.class);
 
-        jsonCodecBinder(binder).bindMapJsonCodec(String.class, listJsonCodec(PrometheusTable.class));
         jsonCodecBinder(binder).bindMapJsonCodec(String.class, Object.class);
     }
 }

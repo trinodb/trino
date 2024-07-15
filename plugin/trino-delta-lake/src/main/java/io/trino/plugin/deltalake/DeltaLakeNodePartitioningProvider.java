@@ -49,6 +49,6 @@ public class DeltaLakeNodePartitioningProvider
         }
 
         DeltaLakePartitioningHandle handle = (DeltaLakePartitioningHandle) partitioningHandle;
-        return new DeltaLakeBucketFunction(typeOperators, handle.getPartitioningColumns(), bucketCount);
+        return new DeltaLakeBucketFunction(typeOperators, handle.partitioningColumns(), bucketCount);
     }
 }

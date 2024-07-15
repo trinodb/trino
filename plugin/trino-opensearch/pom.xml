@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>444</version>
+        <version>452</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -14,8 +14,8 @@
     <description>Trino - OpenSearch connector</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.opensearch.version>2.13.0</dep.opensearch.version>
+        <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
+        <dep.opensearch.version>2.15.0</dep.opensearch.version>
     </properties>
 
     <dependencies>
@@ -144,12 +144,6 @@
             <groupId>org.opensearch</groupId>
             <artifactId>opensearch</artifactId>
             <version>${dep.opensearch.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.hdrhistogram</groupId>
-                    <artifactId>HdrHistogram</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -162,12 +156,6 @@
             <groupId>org.opensearch</groupId>
             <artifactId>opensearch-core</artifactId>
             <version>${dep.opensearch.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.hdrhistogram</groupId>
-                    <artifactId>HdrHistogram</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -186,12 +174,6 @@
             <groupId>org.opensearch.client</groupId>
             <artifactId>opensearch-rest-high-level-client</artifactId>
             <version>${dep.opensearch.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.hdrhistogram</groupId>
-                    <artifactId>HdrHistogram</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -233,6 +215,12 @@
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>

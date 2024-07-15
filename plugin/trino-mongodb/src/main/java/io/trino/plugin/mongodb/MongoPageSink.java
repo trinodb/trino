@@ -98,9 +98,9 @@ public class MongoPageSink
             Optional<String> pageSinkIdColumnName,
             ConnectorPageSinkId pageSinkId)
     {
-        this.mongoSession = mongoSession;
-        this.remoteTableName = remoteTableName;
-        this.columns = columns;
+        this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
+        this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.implicitPrefix = requireNonNull(implicitPrefix, "implicitPrefix is null");
         this.pageSinkIdColumnName = requireNonNull(pageSinkIdColumnName, "pageSinkIdColumnName is null");
         this.pageSinkId = requireNonNull(pageSinkId, "pageSinkId is null");
@@ -118,7 +118,7 @@ public class MongoPageSink
 
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 MongoColumnHandle column = columns.get(channel);
-                doc.append(column.getBaseName(), getObjectValue(columns.get(channel).getType(), page.getBlock(channel), position));
+                doc.append(column.baseName(), getObjectValue(columns.get(channel).type(), page.getBlock(channel), position));
             }
             batch.add(doc);
         }

@@ -287,7 +287,7 @@ public class TaskDescriptorStorage
             descriptors.put(stageId, partitionId, descriptor);
             long descriptorRetainedBytes = descriptor.getRetainedSizeInBytes();
             reservedBytes += descriptorRetainedBytes;
-            stagesReservedBytes.computeIfAbsent(stageId, ignored -> new AtomicLong()).addAndGet(descriptorRetainedBytes);
+            stagesReservedBytes.computeIfAbsent(stageId, _ -> new AtomicLong()).addAndGet(descriptorRetainedBytes);
         }
 
         public TaskDescriptor get(StageId stageId, int partitionId)

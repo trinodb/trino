@@ -181,7 +181,7 @@ public abstract class BaseDataDefinitionTaskTest
 
     protected static QualifiedName asQualifiedName(QualifiedObjectName qualifiedObjectName)
     {
-        return QualifiedName.of(qualifiedObjectName.getCatalogName(), qualifiedObjectName.getSchemaName(), qualifiedObjectName.getObjectName());
+        return QualifiedName.of(qualifiedObjectName.catalogName(), qualifiedObjectName.schemaName(), qualifiedObjectName.objectName());
     }
 
     protected MaterializedViewDefinition someMaterializedView()
@@ -368,6 +368,12 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
+        {
+            return Optional.empty();
+        }
+
+        @Override
         public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column)
         {
             SchemaTableName tableName = table.getSchemaTableName();
@@ -444,7 +450,7 @@ public abstract class BaseDataDefinitionTaskTest
 
         private SchemaTableName getTableName(TableHandle tableHandle)
         {
-            return ((TestingTableHandle) tableHandle.getConnectorHandle()).getTableName();
+            return ((TestingTableHandle) tableHandle.connectorHandle()).getTableName();
         }
 
         @Override
@@ -520,7 +526,7 @@ public abstract class BaseDataDefinitionTaskTest
                             view.getCatalog(),
                             view.getSchema(),
                             view.getColumns().stream()
-                                    .map(currentViewColumn -> columnName.equals(currentViewColumn.getName()) ? new ViewColumn(currentViewColumn.getName(), currentViewColumn.getType(), comment) : currentViewColumn)
+                                    .map(currentViewColumn -> columnName.equals(currentViewColumn.name()) ? new ViewColumn(currentViewColumn.name(), currentViewColumn.type(), comment) : currentViewColumn)
                                     .collect(toImmutableList()),
                             view.getGracePeriod(),
                             view.getComment(),
@@ -542,7 +548,13 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, boolean replace)
+        public boolean isView(Session session, QualifiedObjectName viewName)
+        {
+            return getView(session, viewName).isPresent();
+        }
+
+        @Override
+        public void createView(Session session, QualifiedObjectName viewName, ViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
         {
             checkArgument(replace || !views.containsKey(viewName.asSchemaTableName()));
             views.put(viewName.asSchemaTableName(), definition);
@@ -616,7 +628,7 @@ public abstract class BaseDataDefinitionTaskTest
                             view.getCatalog(),
                             view.getSchema(),
                             view.getColumns().stream()
-                                    .map(currentViewColumn -> columnName.equals(currentViewColumn.getName()) ? new ViewColumn(currentViewColumn.getName(), currentViewColumn.getType(), comment) : currentViewColumn)
+                                    .map(currentViewColumn -> columnName.equals(currentViewColumn.name()) ? new ViewColumn(currentViewColumn.name(), currentViewColumn.type(), comment) : currentViewColumn)
                                     .collect(toImmutableList()),
                             view.getComment(),
                             view.getRunAsIdentity(),

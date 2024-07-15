@@ -15,8 +15,8 @@ package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
-import io.trino.Session;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -40,24 +40,6 @@ public final class MemoryQueryRunner
 
     private MemoryQueryRunner() {}
 
-    public static QueryRunner createMemoryQueryRunner(
-            Map<String, String> extraProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        extraProperties = ImmutableMap.<String, String>builder()
-                .putAll(extraProperties)
-                .put("sql.path", CATALOG + ".functions")
-                .put("sql.default-function-catalog", CATALOG)
-                .put("sql.default-function-schema", "functions")
-                .buildOrThrow();
-
-        return builder()
-                .setExtraProperties(extraProperties)
-                .setInitialTables(tables)
-                .build();
-    }
-
     public static Builder builder()
     {
         return new Builder();
@@ -66,20 +48,18 @@ public final class MemoryQueryRunner
     public static class Builder
             extends DistributedQueryRunner.Builder<Builder>
     {
-        private List<TpchTable<?>> initialTables = ImmutableList.of();
         private ImmutableMap.Builder<String, String> memoryProperties = ImmutableMap.builder();
+        private List<TpchTable<?>> initialTables = ImmutableList.of();
 
         protected Builder()
         {
-            super(createSession());
+            super(testSessionBuilder()
+                    .setCatalog(CATALOG)
+                    .setSchema("default")
+                    .build());
         }
 
-        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
-        {
-            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
-            return self();
-        }
-
+        @CanIgnoreReturnValue
         public Builder setMemoryProperties(Map<String, String> memoryProperties)
         {
             this.memoryProperties = ImmutableMap.<String, String>builder()
@@ -87,9 +67,17 @@ public final class MemoryQueryRunner
             return self();
         }
 
+        @CanIgnoreReturnValue
         public Builder addMemoryProperty(String key, String value)
         {
             this.memoryProperties.put(key, value);
+            return self();
+        }
+
+        @CanIgnoreReturnValue
+        public Builder setInitialTables(Iterable<TpchTable<?>> initialTables)
+        {
+            this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
             return self();
         }
 
@@ -106,7 +94,7 @@ public final class MemoryQueryRunner
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
 
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), initialTables);
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
 
                 return queryRunner;
             }
@@ -115,23 +103,18 @@ public final class MemoryQueryRunner
                 throw e;
             }
         }
-
-        private static Session createSession()
-        {
-            return testSessionBuilder()
-                    .setCatalog(CATALOG)
-                    .setSchema("default")
-                    .build();
-        }
     }
 
     public static void main(String[] args)
             throws Exception
     {
-        QueryRunner queryRunner = createMemoryQueryRunner(
-                ImmutableMap.of("http-server.http.port", "8080"),
-                TpchTable.getTables());
-        Thread.sleep(10);
+        QueryRunner queryRunner = builder()
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .addExtraProperty("sql.path", CATALOG + ".functions")
+                .addExtraProperty("sql.default-function-catalog", CATALOG)
+                .addExtraProperty("sql.default-function-schema", "functions")
+                .setInitialTables(TpchTable.getTables())
+                .build();
         Logger log = Logger.get(MemoryQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
@@ -150,8 +133,8 @@ public final class MemoryQueryRunner
                     .buildOrThrow();
 
             QueryRunner queryRunner = MemoryQueryRunner.builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
                     .setExtraProperties(ImmutableMap.<String, String>builder()
-                            .put("http-server.http.port", "8080")
                             .put("retry-policy", "TASK")
                             .put("fault-tolerant-execution-task-memory", "1GB")
                             .buildOrThrow())
@@ -161,7 +144,6 @@ public final class MemoryQueryRunner
                     })
                     .setInitialTables(TpchTable.getTables())
                     .build();
-            Thread.sleep(10);
             Logger log = Logger.get(MemoryQueryRunner.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

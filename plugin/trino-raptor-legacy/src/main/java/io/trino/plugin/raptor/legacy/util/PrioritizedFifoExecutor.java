@@ -134,7 +134,7 @@ public class PrioritizedFifoExecutor<T extends Runnable>
 
             FifoRunnableTask<?> other = (FifoRunnableTask<?>) o;
             return Objects.equals(this.task, other.task) &&
-                    Objects.equals(this.sequenceNumber, other.sequenceNumber);
+                    this.sequenceNumber == other.sequenceNumber;
         }
 
         @Override

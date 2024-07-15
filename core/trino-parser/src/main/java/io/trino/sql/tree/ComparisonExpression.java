@@ -48,23 +48,15 @@ public class ComparisonExpression
 
         public Operator flip()
         {
-            switch (this) {
-                case EQUAL:
-                    return EQUAL;
-                case NOT_EQUAL:
-                    return NOT_EQUAL;
-                case LESS_THAN:
-                    return GREATER_THAN;
-                case LESS_THAN_OR_EQUAL:
-                    return GREATER_THAN_OR_EQUAL;
-                case GREATER_THAN:
-                    return LESS_THAN;
-                case GREATER_THAN_OR_EQUAL:
-                    return LESS_THAN_OR_EQUAL;
-                case IS_DISTINCT_FROM:
-                    return IS_DISTINCT_FROM;
-            }
-            throw new IllegalArgumentException("Unsupported comparison: " + this);
+            return switch (this) {
+                case EQUAL -> EQUAL;
+                case NOT_EQUAL -> NOT_EQUAL;
+                case LESS_THAN -> GREATER_THAN;
+                case LESS_THAN_OR_EQUAL -> GREATER_THAN_OR_EQUAL;
+                case GREATER_THAN -> LESS_THAN;
+                case GREATER_THAN_OR_EQUAL -> LESS_THAN_OR_EQUAL;
+                case IS_DISTINCT_FROM -> IS_DISTINCT_FROM;
+            };
         }
 
         public Operator negate()

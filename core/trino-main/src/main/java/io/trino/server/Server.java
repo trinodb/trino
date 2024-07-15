@@ -20,7 +20,6 @@ import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
-import com.google.inject.util.Types;
 import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.Announcer;
@@ -78,10 +77,10 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
-import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
-import static io.trino.server.TrinoSystemRequirements.verifySystemTimeIsReasonable;
+import static io.trino.server.TrinoSystemRequirements.verifySystemRequirements;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 import static java.util.function.Predicate.not;
@@ -101,8 +100,7 @@ public class Server
         Locale.setDefault(Locale.US);
 
         long startTime = System.nanoTime();
-        verifyJvmRequirements();
-        verifySystemTimeIsReasonable();
+        verifySystemRequirements();
 
         Logger log = Logger.get(Server.class);
         log.info("Java version: %s", StandardSystemProperty.JAVA_VERSION.value());
@@ -148,7 +146,7 @@ public class Server
 
             injector.getInstance(PluginInstaller.class).loadPlugins();
 
-            var catalogStoreManager = injector.getInstance(optionalKey(CatalogStoreManager.class));
+            var catalogStoreManager = injector.getInstance(Key.get(new TypeLiteral<Optional<CatalogStoreManager>>() {}));
             if (catalogStoreManager.isPresent()) {
                 catalogStoreManager.get().loadConfiguredCatalogStore();
             }
@@ -173,16 +171,17 @@ public class Server
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
-            injector.getInstance(optionalKey(PasswordAuthenticatorManager.class))
+            injector.getInstance(Key.get(new TypeLiteral<Optional<PasswordAuthenticatorManager>>() {}))
                     .ifPresent(PasswordAuthenticatorManager::loadPasswordAuthenticator);
             injector.getInstance(EventListenerManager.class).loadEventListeners();
             injector.getInstance(GroupProviderManager.class).loadConfiguredGroupProvider();
             injector.getInstance(ExchangeManagerRegistry.class).loadExchangeManager();
             injector.getInstance(CertificateAuthenticatorManager.class).loadCertificateAuthenticator();
-            injector.getInstance(optionalKey(HeaderAuthenticatorManager.class))
+            injector.getInstance(Key.get(new TypeLiteral<Optional<HeaderAuthenticatorManager>>() {}))
                     .ifPresent(HeaderAuthenticatorManager::loadHeaderAuthenticator);
 
-            injector.getInstance(optionalKey(OAuth2Client.class)).ifPresent(OAuth2Client::load);
+            injector.getInstance(Key.get(new TypeLiteral<Optional<OAuth2Client>>() {}))
+                    .ifPresent(OAuth2Client::load);
 
             injector.getInstance(Announcer.class).start();
 
@@ -223,12 +222,6 @@ public class Server
                 .map(ConnectorServices::getEventListeners)
                 .flatMap(Collection::stream)
                 .forEach(eventListenerManager::addEventListener);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T> Key<Optional<T>> optionalKey(Class<T> type)
-    {
-        return Key.get((TypeLiteral<Optional<T>>) TypeLiteral.get(Types.newParameterizedType(Optional.class, type)));
     }
 
     private static void addMessages(StringBuilder output, String type, List<Object> messages)
@@ -274,12 +267,10 @@ public class Server
 
     private static ServiceAnnouncement getTrinoAnnouncement(Set<ServiceAnnouncement> announcements)
     {
-        for (ServiceAnnouncement announcement : announcements) {
-            if (announcement.getType().equals("trino")) {
-                return announcement;
-            }
-        }
-        throw new IllegalArgumentException("Trino announcement not found: " + announcements);
+        return announcements.stream()
+                .filter(announcement -> announcement.getType().equals("trino"))
+                .collect(toOptional())
+                .orElseThrow(() -> new IllegalArgumentException("Trino announcement not found: " + announcements));
     }
 
     private static void logLocation(Logger log, String name, Path path)

@@ -105,14 +105,14 @@ public class KinesisSplitManager
     {
         KinesisTableHandle kinesisTableHandle = (KinesisTableHandle) table;
 
-        InternalStreamDescription description = this.getStreamDescription(kinesisTableHandle.getStreamName());
+        InternalStreamDescription description = this.getStreamDescription(kinesisTableHandle.streamName());
 
         ImmutableList.Builder<ConnectorSplit> builder = ImmutableList.builder();
         for (Shard shard : description.getShards()) {
             KinesisSplit split = new KinesisSplit(
-                    kinesisTableHandle.getStreamName(),
-                    kinesisTableHandle.getMessageDataFormat(),
-                    kinesisTableHandle.getCompressionCodec(),
+                    kinesisTableHandle.streamName(),
+                    kinesisTableHandle.messageDataFormat(),
+                    kinesisTableHandle.compressionCodec(),
                     shard.getShardId(),
                     shard.getSequenceNumberRange().getStartingSequenceNumber(),
                     shard.getSequenceNumberRange().getEndingSequenceNumber());

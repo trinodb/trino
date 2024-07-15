@@ -33,29 +33,19 @@ public class AllowAllAccessControl
         implements ConnectorAccessControl
 {
     @Override
-    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName, Map<String, Object> properties)
-    {
-    }
+    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName, Map<String, Object> properties) {}
 
     @Override
-    public void checkCanDropSchema(ConnectorSecurityContext context, String schemaName)
-    {
-    }
+    public void checkCanDropSchema(ConnectorSecurityContext context, String schemaName) {}
 
     @Override
-    public void checkCanRenameSchema(ConnectorSecurityContext context, String schemaName, String newSchemaName)
-    {
-    }
+    public void checkCanRenameSchema(ConnectorSecurityContext context, String schemaName, String newSchemaName) {}
 
     @Override
-    public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, TrinoPrincipal principal)
-    {
-    }
+    public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, TrinoPrincipal principal) {}
 
     @Override
-    public void checkCanShowSchemas(ConnectorSecurityContext context)
-    {
-    }
+    public void checkCanShowSchemas(ConnectorSecurityContext context) {}
 
     @Override
     public Set<String> filterSchemas(ConnectorSecurityContext context, Set<String> schemaNames)
@@ -64,54 +54,34 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName)
-    {
-    }
+    public void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName) {}
 
     @Override
-    public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-    }
+    public void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
     @Override
-    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties)
-    {
-    }
+    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Object> properties) {}
 
     @Override
-    public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-    }
+    public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
     @Override
-    public void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
-    {
-    }
+    public void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName) {}
 
     @Override
-    public void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-    }
+    public void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
     @Override
-    public void checkCanSetViewComment(ConnectorSecurityContext context, SchemaTableName viewName)
-    {
-    }
+    public void checkCanSetViewComment(ConnectorSecurityContext context, SchemaTableName viewName) {}
 
     @Override
-    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Optional<Object>> properties)
-    {
-    }
+    public void checkCanSetTableProperties(ConnectorSecurityContext context, SchemaTableName tableName, Map<String, Optional<Object>> properties) {}
 
     @Override
-    public void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-    }
+    public void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
     @Override
-    public void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
-    {
-    }
+    public void checkCanShowTables(ConnectorSecurityContext context, String schemaName) {}
 
     @Override
     public Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
@@ -120,9 +90,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanShowColumns(ConnectorSecurityContext context, SchemaTableName table)
-    {
-    }
+    public void checkCanShowColumns(ConnectorSecurityContext context, SchemaTableName table) {}
 
     @Override
     public Map<SchemaTableName, Set<String>> filterColumns(ConnectorSecurityContext context, Map<SchemaTableName, Set<String>> tableColumns)
@@ -131,197 +99,115 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanAddColumn(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-    }
+    public void checkCanAddColumn(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
     @Override
-    public void checkCanDropColumn(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-    }
+    public void checkCanDropColumn(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
     @Override
-    public void checkCanRenameColumn(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-    }
+    public void checkCanRenameColumn(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
     @Override
-    public void checkCanAlterColumn(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-    }
+    public void checkCanAlterColumn(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
     @Override
-    public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal)
-    {
-    }
+    public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal) {}
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
-    {
-    }
+    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames) {}
 
     @Override
-    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-    }
+    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
     @Override
-    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-    }
+    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
     @Override
-    public void checkCanTruncateTable(ConnectorSecurityContext context, SchemaTableName tableName)
-    {
-    }
+    public void checkCanTruncateTable(ConnectorSecurityContext context, SchemaTableName tableName) {}
 
     @Override
-    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumnNames)
-    {
-    }
+    public void checkCanUpdateTableColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> updatedColumnNames) {}
 
     @Override
-    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
-    {
-    }
+    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName) {}
 
     @Override
-    public void checkCanRenameView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
-    {
-    }
+    public void checkCanRenameView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName) {}
 
     @Override
-    public void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
-    {
-    }
+    public void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal) {}
 
     @Override
-    public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
-    {
-    }
+    public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName) {}
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
-    {
-    }
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames) {}
 
     @Override
-    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Object> properties)
-    {
-    }
+    public void checkCanCreateMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Object> properties) {}
 
     @Override
-    public void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
-    {
-    }
+    public void checkCanRefreshMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName) {}
 
     @Override
-    public void checkCanDropMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName)
-    {
-    }
+    public void checkCanDropMaterializedView(ConnectorSecurityContext context, SchemaTableName materializedViewName) {}
 
     @Override
-    public void checkCanRenameMaterializedView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
-    {
-    }
+    public void checkCanRenameMaterializedView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName) {}
 
     @Override
-    public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Optional<Object>> properties)
-    {
-    }
+    public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Optional<Object>> properties) {}
 
     @Override
-    public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
-    {
-    }
+    public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName) {}
 
     @Override
-    public void checkCanGrantSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal grantee, boolean grantOption)
-    {
-    }
+    public void checkCanGrantSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal grantee, boolean grantOption) {}
 
     @Override
-    public void checkCanDenySchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal grantee)
-    {
-    }
+    public void checkCanDenySchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal grantee) {}
 
     @Override
-    public void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal revokee, boolean grantOption)
-    {
-    }
+    public void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal revokee, boolean grantOption) {}
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal grantee, boolean grantOption)
-    {
-    }
+    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal grantee, boolean grantOption) {}
 
     @Override
-    public void checkCanDenyTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal grantee)
-    {
-    }
+    public void checkCanDenyTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal grantee) {}
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal revokee, boolean grantOption)
-    {
-    }
+    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal revokee, boolean grantOption) {}
 
     @Override
-    public void checkCanCreateRole(ConnectorSecurityContext context, String role, Optional<TrinoPrincipal> grantor)
-    {
-    }
+    public void checkCanCreateRole(ConnectorSecurityContext context, String role, Optional<TrinoPrincipal> grantor) {}
 
     @Override
-    public void checkCanDropRole(ConnectorSecurityContext context, String role)
-    {
-    }
+    public void checkCanDropRole(ConnectorSecurityContext context, String role) {}
 
     @Override
-    public void checkCanGrantRoles(ConnectorSecurityContext context,
-            Set<String> roles,
-            Set<TrinoPrincipal> grantees,
-            boolean adminOption,
-            Optional<TrinoPrincipal> grantor)
-    {
-    }
+    public void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor) {}
 
     @Override
-    public void checkCanRevokeRoles(ConnectorSecurityContext context,
-            Set<String> roles,
-            Set<TrinoPrincipal> grantees,
-            boolean adminOption,
-            Optional<TrinoPrincipal> grantor)
-    {
-    }
+    public void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor) {}
 
     @Override
-    public void checkCanSetRole(ConnectorSecurityContext context, String role)
-    {
-    }
+    public void checkCanSetRole(ConnectorSecurityContext context, String role) {}
 
     @Override
-    public void checkCanShowRoles(ConnectorSecurityContext context)
-    {
-    }
+    public void checkCanShowRoles(ConnectorSecurityContext context) {}
 
     @Override
-    public void checkCanShowCurrentRoles(ConnectorSecurityContext context)
-    {
-    }
+    public void checkCanShowCurrentRoles(ConnectorSecurityContext context) {}
 
     @Override
-    public void checkCanShowRoleGrants(ConnectorSecurityContext context)
-    {
-    }
+    public void checkCanShowRoleGrants(ConnectorSecurityContext context) {}
 
     @Override
-    public void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure)
-    {
-    }
+    public void checkCanExecuteProcedure(ConnectorSecurityContext context, SchemaRoutineName procedure) {}
 
     @Override
-    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
-    {
-    }
+    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure) {}
 
     @Override
     public boolean canExecuteFunction(ConnectorSecurityContext context, SchemaRoutineName function)
@@ -336,9 +222,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanShowFunctions(ConnectorSecurityContext context, String schemaName)
-    {
-    }
+    public void checkCanShowFunctions(ConnectorSecurityContext context, String schemaName) {}
 
     @Override
     public Set<SchemaFunctionName> filterFunctions(ConnectorSecurityContext context, Set<SchemaFunctionName> functionNames)
@@ -347,14 +231,13 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanCreateFunction(ConnectorSecurityContext context, SchemaRoutineName function)
-    {
-    }
+    public void checkCanCreateFunction(ConnectorSecurityContext context, SchemaRoutineName function) {}
 
     @Override
-    public void checkCanDropFunction(ConnectorSecurityContext context, SchemaRoutineName function)
-    {
-    }
+    public void checkCanDropFunction(ConnectorSecurityContext context, SchemaRoutineName function) {}
+
+    @Override
+    public void checkCanShowCreateFunction(ConnectorSecurityContext context, SchemaRoutineName function) {}
 
     @Override
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)

@@ -60,6 +60,7 @@ The following configuration properties are available:
 | `mongodb.required-replica-set`           | The required replica set name                                              |
 | `mongodb.cursor-batch-size`              | The number of elements to return in a batch                                |
 | `mongodb.allow-local-scheduling`         | Assign MongoDB splits to a specific worker                                 |
+| `mongodb.dynamic-filtering.wait-timeout` | Duration to wait for completion of dynamic filters during split generation |
 
 ### `mongodb.connection-url`
 
@@ -213,8 +214,13 @@ this property can lead to resource contention.
 
 This property is optional, and defaults to false.
 
-(table-definition-label)=
+### `mongodb.dynamic-filtering.wait-timeout`
 
+Duration to wait for completion of dynamic filters during split generation.
+
+This property is optional; the default is `5s`.
+
+(table-definition-label)=
 ## Table definition
 
 MongoDB maintains table definitions on the special collection where `mongodb.schema-collection` configuration value specifies.
@@ -359,7 +365,6 @@ WHERE _id > timestamp_objectid(TIMESTAMP '2021-08-07 17:51:36 +00:00');
 ```
 
 (mongodb-type-mapping)=
-
 ## Type mapping
 
 Because Trino and MongoDB each support types that the other does not, this
@@ -456,7 +461,6 @@ this table:
 No other types are supported.
 
 (mongodb-sql-support)=
-
 ## SQL support
 
 The connector provides read and write access to data and metadata in
@@ -481,7 +485,6 @@ and `ALTER TABLE DROP COLUMN` operations.
 Other uses of `ALTER TABLE` are not supported.
 
 (mongodb-fte-support)=
-
 ## Fault-tolerant execution support
 
 The connector supports {doc}`/admin/fault-tolerant-execution` of query
@@ -493,7 +496,6 @@ The connector provides specific {doc}`table functions </functions/table>` to
 access MongoDB.
 
 (mongodb-query-function)=
-
 ### `query(database, collection, filter) -> table`
 
 The `query` function allows you to query the underlying MongoDB directly. It

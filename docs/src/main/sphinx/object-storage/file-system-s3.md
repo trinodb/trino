@@ -50,7 +50,7 @@ support:
   - Switch to activate billing transfer cost to the requester. Defaults to
     `false`.
 * - `s3.max-connections`
-  - Maximum number of connections to S3.
+  - Maximum number of connections to S3.  Defaults to `500`.
 * - `s3.connection-ttl`
   - Maximum time [duration](prop-type-duration) allowed to reuse connections in
     the connection pool before being replaced.
@@ -68,7 +68,31 @@ support:
 * - `s3.http-proxy`
   - URL of a HTTP proxy server to use for connecting to S3.
 * - `s3.http-proxy.secure`
-  - Set to `true` to enable HTTPS for the proxy server..
+  - Set to `true` to enable HTTPS for the proxy server.
+* - `s3.http-proxy.username`
+  - Proxy username to use if connecting through a proxy server.
+* - `s3.http-proxy.password`
+  - Proxy password to use if connecting through a proxy server.
+* - `s3.http-proxy.non-proxy-hosts`
+  - Hosts list to access without going through the proxy server.
+* - `s3.http-proxy.preemptive-basic-auth`
+  - Whether to attempt to authenticate preemptively against proxy server
+    when using base authorization, defaults to `false`.
+* - `s3.retry-mode`
+  - Specifies how the AWS SDK attempts retries. Default value is `LEGACY`.
+    Other allowed values are `STANDARD` and `ADAPTIVE`. The `STANDARD` mode
+    includes a standard set of errors that are retried. `ADAPTIVE` mode
+    includes the functionality of `STANDARD` mode with automatic client-side 
+    throttling.
+* - `s3.max-error-retries`
+  - Specifies maximum number of retries the client will make on errors.
+    Defaults to `10`.
+* - `s3.use-web-identity-token-credentials-provider`
+  - Set to `true` to only use the web identity token credentials provider,
+    instead of the default providers chain. This can be useful when running
+    Trino on Amazon EKS and using [IAM roles for service accounts
+    (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
+    Defaults to `false`.
 :::
 
 ## Authentication

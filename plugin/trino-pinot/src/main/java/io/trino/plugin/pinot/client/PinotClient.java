@@ -118,6 +118,7 @@ public class PinotClient
     private static final String QUERY_URL_PATH = "query/sql";
 
     private final List<URI> controllerUrls;
+    private final Optional<HostAndPort> brokerHostAndPort;
     private final HttpClient httpClient;
     private final PinotHostMapper pinotHostMapper;
     private final String scheme;
@@ -169,6 +170,7 @@ public class PinotClient
                 asyncReloading(CacheLoader.from(this::getAllTables), executor));
         this.controllerAuthenticationProvider = controllerAuthenticationProvider;
         this.brokerAuthenticationProvider = brokerAuthenticationProvider;
+        brokerHostAndPort = config.getBrokerUrl();
     }
 
     public static void addJsonBinders(JsonCodecBinder jsonCodecBinder)
@@ -380,6 +382,11 @@ public class PinotClient
 
     public String getBrokerHost(String table)
     {
+        // Use global broker URI if provided explicitly via config
+        if (brokerHostAndPort.isPresent()) {
+            return brokerHostAndPort.get().toString();
+        }
+        // or fallback to broker discovery mechanism
         try {
             List<String> brokers = brokersForTableCache.get(table);
             if (brokers.isEmpty()) {
@@ -535,14 +542,14 @@ public class PinotClient
 
     private BrokerResponseNative submitBrokerQueryJson(ConnectorSession session, PinotQueryInfo query)
     {
-        String queryRequest = QUERY_REQUEST_JSON_CODEC.toJson(new QueryRequest(query.getQuery()));
+        String queryRequest = QUERY_REQUEST_JSON_CODEC.toJson(new QueryRequest(query.query()));
         return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), retryNumber -> {
-            HttpUriBuilder httpUriBuilder = getBrokerHttpUriBuilder(getBrokerHost(query.getTable()));
+            HttpUriBuilder httpUriBuilder = getBrokerHttpUriBuilder(getBrokerHost(query.table()));
             URI queryPathUri = httpUriBuilder
                     .scheme(scheme)
                     .appendPath(QUERY_URL_PATH)
                     .build();
-            LOG.debug("Query '%s' on broker host '%s'", query.getQuery(), queryPathUri);
+            LOG.debug("Query '%s' on broker host '%s'", query.query(), queryPathUri);
             Request.Builder builder = Request.Builder.preparePost().setUri(queryPathUri);
 
             ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
@@ -558,8 +565,8 @@ public class PinotClient
                         .collect(joining(","));
                 throw new PinotException(
                         PINOT_EXCEPTION,
-                        Optional.of(query.getQuery()),
-                        format("Query %s encountered exception %s", query.getQuery(), processingExceptionMessage));
+                        Optional.of(query.query()),
+                        format("Query %s encountered exception %s", query.query(), processingExceptionMessage));
             }
             if (response.getNumServersQueried() == 0 || response.getNumServersResponded() == 0 || response.getNumServersQueried() > response.getNumServersResponded()) {
                 throw new PinotInsufficientServerResponseException(query, response.getNumServersResponded(), response.getNumServersQueried());
@@ -585,7 +592,7 @@ public class PinotClient
     public Iterator<BrokerResultRow> createResultIterator(ConnectorSession session, PinotQueryInfo query, List<PinotColumnHandle> columnHandles)
     {
         BrokerResponseNative response = submitBrokerQueryJson(session, query);
-        return fromResultTable(response, columnHandles, query.getGroupByClauses());
+        return fromResultTable(response, columnHandles, query.groupByClauses());
     }
 
     @VisibleForTesting

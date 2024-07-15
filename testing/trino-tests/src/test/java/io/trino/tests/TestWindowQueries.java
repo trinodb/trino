@@ -15,7 +15,7 @@ package io.trino.tests;
 
 import io.trino.testing.AbstractTestWindowQueries;
 import io.trino.testing.QueryRunner;
-import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tests.tpch.TpchQueryRunner;
 
 public class TestWindowQueries
         extends AbstractTestWindowQueries
@@ -24,6 +24,6 @@ public class TestWindowQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpchQueryRunnerBuilder.builder().build();
+        return TpchQueryRunner.builder().build();
     }
 }

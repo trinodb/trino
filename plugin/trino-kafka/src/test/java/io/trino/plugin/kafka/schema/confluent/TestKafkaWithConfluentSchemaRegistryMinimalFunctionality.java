@@ -23,6 +23,7 @@ import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer;
 import io.confluent.kafka.serializers.subject.RecordNameStrategy;
 import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
+import io.trino.plugin.kafka.KafkaQueryRunner;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -43,8 +44,8 @@ import java.util.Map;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
-import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
-import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
+import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
+import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
@@ -81,8 +82,9 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
             throws Exception
     {
         testingKafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
-        return KafkaWithConfluentSchemaRegistryQueryRunner.builder(testingKafka)
-                .setExtraKafkaProperties(ImmutableMap.of("kafka.confluent-subjects-cache-refresh-interval", "1ms"))
+        testingKafka.start();
+        return KafkaQueryRunner.builderForConfluentSchemaRegistry(testingKafka)
+                .addConnectorProperties(ImmutableMap.of("kafka.confluent-subjects-cache-refresh-interval", "1ms"))
                 .build();
     }
 

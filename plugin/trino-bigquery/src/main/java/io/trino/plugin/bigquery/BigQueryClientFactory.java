@@ -35,6 +35,7 @@ public class BigQueryClientFactory
     private final BigQueryTypeManager typeManager;
     private final Optional<String> projectId;
     private final boolean caseInsensitiveNameMatching;
+    private final Duration caseInsensitiveNameMatchingCacheTtl;
     private final ViewMaterializationCache materializationCache;
     private final BigQueryLabelFactory labelFactory;
 
@@ -56,6 +57,7 @@ public class BigQueryClientFactory
         requireNonNull(bigQueryConfig, "bigQueryConfig is null");
         this.projectId = bigQueryConfig.getProjectId();
         this.caseInsensitiveNameMatching = bigQueryConfig.isCaseInsensitiveNameMatching();
+        this.caseInsensitiveNameMatchingCacheTtl = bigQueryConfig.getCaseInsensitiveNameMatchingCacheTtl();
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
         this.labelFactory = requireNonNull(labelFactory, "labelFactory is null");
         this.metadataCacheTtl = bigQueryConfig.getMetadataCacheTtl();
@@ -75,7 +77,15 @@ public class BigQueryClientFactory
 
     protected BigQueryClient createBigQueryClient(ConnectorSession session)
     {
-        return new BigQueryClient(createBigQuery(session), labelFactory, typeManager, caseInsensitiveNameMatching, materializationCache, metadataCacheTtl, projectId);
+        return new BigQueryClient(
+                createBigQuery(session),
+                labelFactory,
+                typeManager,
+                caseInsensitiveNameMatching,
+                caseInsensitiveNameMatchingCacheTtl,
+                materializationCache,
+                metadataCacheTtl,
+                projectId);
     }
 
     protected BigQuery createBigQuery(ConnectorSession session)

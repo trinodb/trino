@@ -106,6 +106,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.tracing.TrinoAttributes;
+import io.trino.util.Failures;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -185,6 +186,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.TopologicalOrderSubPlanVisitor.sortPlanInTopologicalOrder;
 import static io.trino.tracing.TrinoAttributes.FAILURE_MESSAGE;
 import static io.trino.util.Failures.toFailure;
+import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.round;
@@ -930,7 +932,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 }
                 else if (failureInfo.getErrorCode() == USER_CANCELED.toErrorCode()
                         && noEventsStopwatch.elapsed().toMillis() > SCHEDULER_STALLED_DURATION_ON_USER_CANCELED_THRESHOLD_MILLIS) {
-                    logDebugInfoSafe(format("Scheduler stalled for %s on USER_CANCLED", noEventsStopwatch.elapsed()));
+                    logDebugInfoSafe(format("Scheduler stalled for %s on USER_CANCELED", noEventsStopwatch.elapsed()));
                 }
             });
 
@@ -1170,7 +1172,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 currentPlanStages.add(stageId);
                 StageExecution stageExecution = stageExecutions.get(stageId);
                 if (stageExecution == null) {
-                    IsReadyForExecutionResult result = isReadyForExecutionCache.computeIfAbsent(subPlan, ignored -> isReadyForExecution(subPlan));
+                    IsReadyForExecutionResult result = isReadyForExecutionCache.computeIfAbsent(subPlan, _ -> isReadyForExecution(subPlan));
                     if (result.isReadyForExecution()) {
                         createStageExecution(
                                 subPlan,
@@ -1320,7 +1322,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     return IsReadyForExecutionResult.notReady();
                 }
 
-                estimateCountByKind.compute(result.orElseThrow().kind(), (k, v) -> v == null ? 0 : v + 1);
+                estimateCountByKind.compute(result.orElseThrow().kind(), (k, v) -> v == null ? 1 : v + 1);
 
                 sourceOutputStatsEstimates.put(sourceStageExecution.getStageId(), result.orElseThrow().outputDataSizeEstimate());
                 someSourcesMadeProgress = someSourcesMadeProgress || sourceStageExecution.isSomeProgressMade();
@@ -1488,6 +1490,11 @@ public class EventDrivenFaultTolerantQueryScheduler
                     checkArgument(stageExecution != null, "stage for fragment %s not started yet", planFragmentId);
                     return stageExecution.getStageInfo().getPlan();
                 };
+
+                List<StageExecution> sourceStageExecutions = subPlan.getChildren().stream()
+                        .map(source -> getStageExecution(getStageId(source.getFragment().getId())))
+                        .collect(toImmutableList());
+
                 StageExecution execution = new StageExecution(
                         taskDescriptorStorage,
                         taskFailures,
@@ -1495,6 +1502,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         taskSource,
                         sinkPartitioningScheme,
                         exchange,
+                        sourceStageExecutions,
                         stageExecutionStats,
                         memoryEstimatorFactory.createPartitionMemoryEstimator(session, fragment, planFragmentLookup),
                         outputStatsEstimator,
@@ -1502,15 +1510,13 @@ public class EventDrivenFaultTolerantQueryScheduler
                         coordinatorStage ? 1 : maxTaskExecutionAttempts,
                         schedulingPriority,
                         eager,
+                        speculative,
                         dynamicFilterService);
-                execution.setSpeculative(speculative);
 
                 stageExecutions.put(execution.getStageId(), execution);
 
-                for (SubPlan source : subPlan.getChildren()) {
-                    PlanFragmentId sourceFragmentId = source.getFragment().getId();
-                    StageExecution sourceExecution = getStageExecution(getStageId(sourceFragmentId));
-                    execution.setSourceOutputSelector(sourceFragmentId, sourceExecution.getSinkOutputSelector());
+                for (StageExecution sourceExecution : sourceStageExecutions) {
+                    execution.setSourceOutputSelector(sourceExecution.getStageFragmentId(), sourceExecution.getSinkOutputSelector());
                 }
             }
             catch (Throwable t) {
@@ -1686,7 +1692,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     }
                 });
                 task.addFinalTaskInfoListener(taskExecutionStats::update);
-                task.addFinalTaskInfoListener(taskInfo -> eventQueue.add(new RemoteTaskCompletedEvent(taskInfo.getTaskStatus())));
+                task.addFinalTaskInfoListener(taskInfo -> eventQueue.add(new RemoteTaskCompletedEvent(taskInfo.taskStatus())));
                 nodeLease.attachTaskId(task.getTaskId());
                 task.start();
                 if (queryStateMachine.getQueryState() == QueryState.STARTING) {
@@ -1764,8 +1770,14 @@ public class EventDrivenFaultTolerantQueryScheduler
             TaskId taskId = taskStatus.getTaskId();
             TaskState taskState = taskStatus.getState();
             StageExecution stageExecution = getStageExecution(taskId.getStageId());
+
+            if (stageExecution.getState().isDone()) {
+                return null;
+            }
+
             if (taskState == TaskState.FINISHED) {
-                stageExecution.taskFinished(taskId, taskStatus);
+                Optional<List<PrioritizedScheduledTask>> failOverrideReplacementTasks = stageExecution.taskFinished(taskId, taskStatus);
+                failOverrideReplacementTasks.ifPresent(prioritizedScheduledTasks -> prioritizedScheduledTasks.forEach(schedulingQueue::addOrUpdate));
             }
             else if (taskState == TaskState.FAILED) {
                 ExecutionFailureInfo failureInfo = taskStatus.getFailures().stream()
@@ -1894,6 +1906,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final EventDrivenTaskSource taskSource;
         private final FaultTolerantPartitioningScheme sinkPartitioningScheme;
         private final Exchange exchange;
+        private final List<StageExecution> sourceStageExecutions;
         private final StageExecutionStats stageExecutionStats;
         private final PartitionMemoryEstimator partitionMemoryEstimator;
         private final OutputStatsEstimator outputStatsEstimator;
@@ -1922,8 +1935,8 @@ public class EventDrivenFaultTolerantQueryScheduler
         private boolean taskDescriptorLoadingActive;
         private boolean exchangeClosed;
 
-        private final long startTime = System.currentTimeMillis();
-        private OptionalLong nonSpeculativeSwitchTime = OptionalLong.empty();
+        private final long startTime;
+        private OptionalLong nonSpeculativeSwitchTime;
 
         private MemoryRequirements initialMemoryRequirements;
 
@@ -1934,12 +1947,14 @@ public class EventDrivenFaultTolerantQueryScheduler
                 EventDrivenTaskSource taskSource,
                 FaultTolerantPartitioningScheme sinkPartitioningScheme,
                 Exchange exchange,
+                List<StageExecution> sourceStageExecutions,
                 StageExecutionStats stageExecutionStats,
                 PartitionMemoryEstimator partitionMemoryEstimator,
                 OutputStatsEstimator outputStatsEstimator,
                 int maxTaskExecutionAttempts,
                 int schedulingPriority,
                 boolean eager,
+                boolean speculative,
                 DynamicFilterService dynamicFilterService)
         {
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
@@ -1948,12 +1963,16 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.taskSource = requireNonNull(taskSource, "taskSource is null");
             this.sinkPartitioningScheme = requireNonNull(sinkPartitioningScheme, "sinkPartitioningScheme is null");
             this.exchange = requireNonNull(exchange, "exchange is null");
+            this.sourceStageExecutions = ImmutableList.copyOf(requireNonNull(sourceStageExecutions, "sourceStageExecutions is null"));
             this.stageExecutionStats = requireNonNull(stageExecutionStats, "stageExecutionStats is null");
             this.partitionMemoryEstimator = requireNonNull(partitionMemoryEstimator, "partitionMemoryEstimator is null");
             this.outputStatsEstimator = requireNonNull(outputStatsEstimator, "outputStatsEstimator is null");
             this.maxTaskExecutionAttempts = maxTaskExecutionAttempts;
             this.schedulingPriority = schedulingPriority;
             this.eager = eager;
+            this.speculative = speculative;
+            this.startTime = System.nanoTime();
+            this.nonSpeculativeSwitchTime = speculative ? OptionalLong.empty() : OptionalLong.of(startTime);
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             outputDataSize = new long[sinkPartitioningScheme.getPartitionCount()];
             sinkOutputSelectorBuilder = ExchangeSourceOutputSelector.builder(ImmutableSet.of(exchange.getId()));
@@ -2030,7 +2049,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             checkArgument(!speculative || this.speculative, "cannot mark non-speculative stage as speculative");
             if (this.speculative && !speculative) {
-                nonSpeculativeSwitchTime = OptionalLong.of(System.currentTimeMillis());
+                nonSpeculativeSwitchTime = OptionalLong.of(System.nanoTime());
             }
             this.speculative = speculative;
         }
@@ -2246,8 +2265,13 @@ public class EventDrivenFaultTolerantQueryScheduler
             if (getState().isDone() || taskDescriptorLoadingActive) {
                 return Optional.empty();
             }
+            Optional<ListenableFuture<AssignmentResult>> loadingFuture = taskSource.process();
+            if (loadingFuture.isEmpty()) {
+                // taskSource finished
+                return Optional.empty();
+            }
             taskDescriptorLoadingActive = true;
-            return Optional.of(taskSource.process());
+            return loadingFuture;
         }
 
         public void taskDescriptorLoadingComplete()
@@ -2306,16 +2330,25 @@ public class EventDrivenFaultTolerantQueryScheduler
             partition.updateExchangeSinkInstanceHandle(taskId, updatedExchangeSinkInstanceHandle);
         }
 
-        public void taskFinished(TaskId taskId, TaskStatus taskStatus)
+        /**
+         * Marks task as finished.
+         * It can be that internal logic decides that we want to fail task instead.
+         * In such case the returned Optional will not be empty and will contain list of replacement tasks to be scheduled.
+         */
+        public Optional<List<PrioritizedScheduledTask>> taskFinished(TaskId taskId, TaskStatus taskStatus)
         {
-            if (getState().isDone()) {
-                return;
-            }
-
             int partitionId = taskId.getPartitionId();
             StagePartition partition = getStagePartition(partitionId);
+            Optional<SpoolingOutputStats.Snapshot> outputStats = partition.taskFinished(taskId);
+
+            if (outputStats.isEmpty()) {
+                // it is rare but possible to get empty spooling output stats for task which completed successfully.
+                // As we need this information in FTE mode we need to fail such task artificially
+                log.warn("Failing task " + taskId + " because we received empty spooling output stats");
+                return Optional.of(taskFailed(taskId, Failures.toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "Treating FINISHED task as FAILED because we received empty spooling output stats")), taskStatus));
+            }
+
             exchange.sinkFinished(partition.getExchangeSinkHandle(), taskId.getAttemptId());
-            SpoolingOutputStats.Snapshot outputStats = partition.taskFinished(taskId);
 
             if (!partition.isRunning()) {
                 runningPartitions.remove(partitionId);
@@ -2323,10 +2356,10 @@ public class EventDrivenFaultTolerantQueryScheduler
 
             if (!remainingPartitions.remove(partitionId)) {
                 // a different task for the same partition finished before
-                return;
+                return Optional.empty();
             }
 
-            updateOutputSize(outputStats);
+            updateOutputSize(outputStats.orElseThrow());
 
             partitionMemoryEstimator.registerPartitionFinished(
                     partition.getMemoryRequirements(),
@@ -2339,36 +2372,53 @@ public class EventDrivenFaultTolerantQueryScheduler
             if (noMorePartitions && remainingPartitions.isEmpty() && !stage.getState().isDone()) {
                 finish();
             }
+            return Optional.empty();
         }
 
         private void finish()
         {
+            doFinish(false);
+        }
+
+        private void finishSubStages()
+        {
+            // parent already finished so no need to continue execution
+            // mark substages which can still be running as finished
+            if (stage.getState().isDone()) {
+                return;
+            }
+            doFinish(true);
+        }
+
+        private void doFinish(boolean force)
+        {
             dynamicFilterService.stageCannotScheduleMoreTasks(stage.getStageId(), 0, partitions.size());
             exchange.noMoreSinks();
             exchange.allRequiredSinksFinished();
-            verify(finalSinkOutputSelector == null, "finalOutputSelector is already set");
-            sinkOutputSelectorBuilder.setPartitionCount(exchange.getId(), partitions.size());
-            sinkOutputSelectorBuilder.setFinal();
-            finalSinkOutputSelector = sinkOutputSelectorBuilder.build();
+            if (!force) {
+                // not relevant if we are marking stage still running; no more output will be read
+                verify(finalSinkOutputSelector == null, "finalOutputSelector is already set");
+                sinkOutputSelectorBuilder.setPartitionCount(exchange.getId(), partitions.size());
+                sinkOutputSelectorBuilder.setFinal();
+                finalSinkOutputSelector = sinkOutputSelectorBuilder.build();
+            }
             sinkOutputSelectorBuilder = null;
             stage.finish();
             taskSource.close();
 
             recordFinishStats();
+
+            sourceStageExecutions.forEach(StageExecution::finishSubStages);
         }
 
         private void recordFinishStats()
         {
-            long finishTime = System.currentTimeMillis();
+            long finishTime = System.nanoTime();
             long nonSpeculativeSwitchTime = this.nonSpeculativeSwitchTime.orElse(finishTime);
-
-            double speculativeExecutionFraction = ((double) nonSpeculativeSwitchTime - (double) startTime) / ((double) finishTime - (double) startTime);
-            if (Double.isFinite(speculativeExecutionFraction)) {
-                stageExecutionStats.recordStageSpeculativeExecutionFraction(speculativeExecutionFraction);
-            }
-            else {
-                stageExecutionStats.recordStageSpeculativeExecutionFraction(1.0);
-            }
+            stageExecutionStats.recordStageSpeculativeExecutionFraction(clamp(
+                    ((double) nonSpeculativeSwitchTime - startTime) / (finishTime - startTime),
+                    0.0,
+                    1.0));
         }
 
         private void updateOutputSize(SpoolingOutputStats.Snapshot taskOutputStats)
@@ -2383,10 +2433,6 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public List<PrioritizedScheduledTask> taskFailed(TaskId taskId, ExecutionFailureInfo failureInfo, TaskStatus taskStatus)
         {
-            if (getState().isDone()) {
-                return ImmutableList.of();
-            }
-
             int partitionId = taskId.getPartitionId();
             StagePartition partition = getStagePartition(partitionId);
             partition.taskFailed(taskId);
@@ -2796,12 +2842,22 @@ public class EventDrivenFaultTolerantQueryScheduler
             runningTasks.add(taskId);
         }
 
-        public SpoolingOutputStats.Snapshot taskFinished(TaskId taskId)
+        public Optional<SpoolingOutputStats.Snapshot> taskFinished(TaskId taskId)
         {
             RemoteTask remoteTask = tasks.get(taskId);
             checkArgument(remoteTask != null, "task not found: %s", taskId);
-            SpoolingOutputStats.Snapshot outputStats = remoteTask.retrieveAndDropSpoolingOutputStats();
-            runningTasks.remove(taskId);
+            Optional<SpoolingOutputStats.Snapshot> outputStats = remoteTask.retrieveAndDropSpoolingOutputStats();
+            if (outputStats.isEmpty()) {
+                // It is rare but possible to get empty spooling output stats for task which completed successfully.
+                // This may happen if we observe FINISHED task state based on received TaskStatus but are later on unable to
+                // successfully retrieve TaskInfo. In such case we are building final TaskInfo based on last known taskInfo, just
+                // updating the taskState field. The spooling output stats will not be present.
+                // As we need this information in FTE mode we need to fail such task artificially
+                // (see EventDrivenFaultTolerantQueryScheduler.StageExecution.taskFinished)
+                return outputStats;
+            }
+            checkState(runningTasks.remove(taskId), "task %s already marked as finished", taskId);
+
             tasks.values().forEach(RemoteTask::abort);
             finished = true;
             // task descriptor has been created
@@ -2813,7 +2869,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public void taskFailed(TaskId taskId)
         {
-            runningTasks.remove(taskId);
+            checkState(runningTasks.remove(taskId), "task %s already marked as finished", taskId);
             failureObserved = true;
             remainingAttempts--;
         }

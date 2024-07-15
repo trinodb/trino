@@ -25,9 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
-import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
-import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 
@@ -46,22 +43,17 @@ public abstract class BaseOracleFailureRecoveryTest
             Map<String, String> coordinatorProperties)
             throws Exception
     {
-        TestingOracleServer oracleServer = new TestingOracleServer();
-        return createOracleQueryRunner(
-                closeAfterClass(oracleServer),
-                configProperties,
-                coordinatorProperties,
-                ImmutableMap.<String, String>builder()
-                        .put("connection-url", oracleServer.getJdbcUrl())
-                        .put("connection-user", TEST_USER)
-                        .put("connection-password", TEST_PASS)
-                        .buildOrThrow(),
-                requiredTpchTables,
-                runner -> {
+        TestingOracleServer oracleServer = closeAfterClass(new TestingOracleServer());
+        return OracleQueryRunner.builder(oracleServer)
+                .setExtraProperties(configProperties)
+                .setCoordinatorProperties(coordinatorProperties)
+                .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", ImmutableMap.of(
                             "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
-                });
+                })
+                .setInitialTables(requiredTpchTables)
+                .build();
     }
 
     @Test
@@ -86,5 +78,13 @@ public abstract class BaseOracleFailureRecoveryTest
                 .withSetupQuery(setupQuery)
                 .withCleanupQuery(cleanupQuery)
                 .isCoordinatorOnly();
+    }
+
+    @Override
+    protected boolean checkNoRemainingTmpTables()
+    {
+        // we could not ensure that tmp tables are always promptly removed in Oracle.
+        // checking if tmp_trino tables are deleted immediatelly after DML operation renders test flaky.
+        return false;
     }
 }

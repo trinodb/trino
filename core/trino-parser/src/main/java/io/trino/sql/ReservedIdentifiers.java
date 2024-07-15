@@ -121,7 +121,7 @@ public final class ReservedIdentifiers
         try {
             return !(PARSER.createExpression(name) instanceof Identifier);
         }
-        catch (ParsingException ignored) {
+        catch (ParsingException _) {
             return true;
         }
     }

@@ -72,4 +72,38 @@ public class TestDeltaLakeTimeTravelCompatibility
             dropDeltaTableWithRetry("default." + tableName);
         }
     }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testSelectForVersionAsOf()
+    {
+        String tableName = "test_dl_select_version" + randomNameSuffix();
+
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                " (id INT, part STRING)" +
+                "USING delta " +
+                "PARTITIONED BY (part)" +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 'spark')");
+            onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD COLUMN new_column INT");
+
+            // Both Spark and Trino Delta Lake connector use the old table definition for the versioned query
+            List<QueryAssert.Row> expectedRows = ImmutableList.of(row(1, "spark"));
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName + " VERSION AS OF 1"))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " FOR VERSION AS OF 1"))
+                    .containsOnly(expectedRows);
+
+            // Do time travel after table replacement
+            onDelta().executeQuery("CREATE OR REPLACE TABLE " + tableName + " USING DELTA AS SELECT id + 1 AS id, part, new_column FROM " + tableName);
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName + " VERSION AS OF 1"))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " FOR VERSION AS OF 1"))
+                    .containsOnly(expectedRows);
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
 }

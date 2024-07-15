@@ -13,18 +13,19 @@
  */
 package io.trino.plugin.deltalake.metastore.glue;
 
-import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Key;
-import com.google.inject.TypeLiteral;
+import com.google.inject.Singleton;
+import com.google.inject.multibindings.ProvidesIntoOptional;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
-import io.trino.plugin.hive.metastore.glue.ForGlueHiveMetastore;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
 
-import java.util.function.Predicate;
+import java.util.EnumSet;
+import java.util.Set;
 
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static com.google.inject.multibindings.ProvidesIntoOptional.Type.ACTUAL;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class DeltaLakeGlueMetastoreModule
@@ -35,10 +36,17 @@ public class DeltaLakeGlueMetastoreModule
     {
         configBinder(binder).bindConfig(DeltaLakeGlueMetastoreConfig.class);
 
-        newOptionalBinder(binder, Key.get(new TypeLiteral<Predicate<Table>>() {}, ForGlueHiveMetastore.class))
-                .setBinding().toProvider(DeltaLakeGlueMetastoreTableFilterProvider.class);
-
         install(new GlueMetastoreModule());
         binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(true);
+    }
+
+    @ProvidesIntoOptional(ACTUAL)
+    @Singleton
+    public static Set<GlueHiveMetastore.TableKind> getTableKinds(DeltaLakeGlueMetastoreConfig config)
+    {
+        if (config.isHideNonDeltaLakeTables()) {
+            return EnumSet.of(GlueHiveMetastore.TableKind.DELTA);
+        }
+        return EnumSet.allOf(GlueHiveMetastore.TableKind.class);
     }
 }

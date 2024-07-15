@@ -23,6 +23,6 @@ public class TestElasticsearch7ConnectorTest
     public TestElasticsearch7ConnectorTest()
             throws IOException
     {
-        super(new ElasticsearchServer(ELASTICSEARCH_7_IMAGE), "elasticsearch7");
+        super(new ElasticsearchServer(ELASTICSEARCH_7_IMAGE));
     }
 }

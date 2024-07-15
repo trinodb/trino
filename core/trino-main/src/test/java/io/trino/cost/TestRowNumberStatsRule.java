@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 
 public class TestRowNumberStatsRule
         extends BaseStatsCalculatorTest
@@ -40,14 +40,14 @@ public class TestRowNumberStatsRule
         // grouping on a key with 0 nulls fraction without max rows per partition limit
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.symbol("x", BIGINT)),
+                        ImmutableList.of(pb.symbol("x", DOUBLE)),
                         Optional.empty(),
-                        pb.symbol("z", BIGINT),
-                        pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
+                        pb.symbol("z", DOUBLE),
+                        pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), yStats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "x"), xStats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "y"), yStats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(10)
@@ -62,14 +62,14 @@ public class TestRowNumberStatsRule
         // grouping on a key with 0 nulls fraction with max rows per partition limit
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.symbol("x", BIGINT)),
+                        ImmutableList.of(pb.symbol("x", DOUBLE)),
                         Optional.of(1),
-                        pb.symbol("z", BIGINT),
-                        pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
+                        pb.symbol("z", DOUBLE),
+                        pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), yStats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "x"), xStats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "y"), yStats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(5)
@@ -82,14 +82,14 @@ public class TestRowNumberStatsRule
         // grouping on a key with non zero nulls fraction
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.symbol("y", BIGINT)),
+                        ImmutableList.of(pb.symbol("y", DOUBLE)),
                         Optional.empty(),
-                        pb.symbol("z", BIGINT),
-                        pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
+                        pb.symbol("z", DOUBLE),
+                        pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(60)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), yStats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "x"), xStats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "y"), yStats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(60)
@@ -102,13 +102,13 @@ public class TestRowNumberStatsRule
         // unknown input row count
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.symbol("x", BIGINT)),
+                        ImmutableList.of(pb.symbol("x", DOUBLE)),
                         Optional.of(1),
-                        pb.symbol("z", BIGINT),
-                        pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
+                        pb.symbol("z", DOUBLE),
+                        pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), yStats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "x"), xStats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "y"), yStats)
                         .build())
                 .check(PlanNodeStatsAssertion::outputRowsCountUnknown);
     }
@@ -119,14 +119,14 @@ public class TestRowNumberStatsRule
         // grouping on multiple keys with the number of estimated groups less than the row count
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT)),
+                        ImmutableList.of(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE)),
                         Optional.empty(),
-                        pb.symbol("z", BIGINT),
-                        pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
+                        pb.symbol("z", DOUBLE),
+                        pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(60)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), yStats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "x"), xStats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "y"), yStats)
                         .build())
                 .check(check -> check
                         .outputRowsCount(60)
@@ -139,34 +139,36 @@ public class TestRowNumberStatsRule
         // grouping on multiple keys with the number of estimated groups greater than the row count
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT)),
+                        ImmutableList.of(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE)),
                         Optional.empty(),
-                        pb.symbol("z", BIGINT),
-                        pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
+                        pb.symbol("z", DOUBLE),
+                        pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), yStats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "x"), xStats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "y"), yStats)
                         .build())
-                .check(check -> check
-                        .outputRowsCount(20)
-                        .symbolStats("z", assertion -> assertion
-                                .lowValue(1)
-                                .distinctValuesCount(1)
-                                .nullsFraction(0)
-                                .averageRowSize(BIGINT.getFixedSize())));
+                .check(check -> {
+                    check
+                            .outputRowsCount(20)
+                            .symbolStats("z", assertion -> assertion
+                                    .lowValue(1)
+                                    .distinctValuesCount(1)
+                                    .nullsFraction(0)
+                                    .averageRowSize(BIGINT.getFixedSize()));
+                });
 
         // grouping on multiple keys with stats for one of the keys are unknown
         tester().assertStatsFor(pb -> pb
                 .rowNumber(
-                        ImmutableList.of(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT)),
+                        ImmutableList.of(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE)),
                         Optional.empty(),
-                        pb.symbol("z", BIGINT),
-                        pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT))))
+                        pb.symbol("z", DOUBLE),
+                        pb.values(pb.symbol("x", DOUBLE), pb.symbol("y", DOUBLE))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "x"), xStats)
-                        .addSymbolStatistics(new Symbol(UNKNOWN, "y"), SymbolStatsEstimate.unknown())
+                        .addSymbolStatistics(new Symbol(DOUBLE, "x"), xStats)
+                        .addSymbolStatistics(new Symbol(DOUBLE, "y"), SymbolStatsEstimate.unknown())
                         .build())
                 .check(PlanNodeStatsAssertion::outputRowsCountUnknown);
     }

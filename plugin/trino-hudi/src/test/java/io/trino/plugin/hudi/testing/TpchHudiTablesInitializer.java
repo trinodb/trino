@@ -42,7 +42,6 @@ import io.trino.tpch.TpchTable;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.client.common.HoodieJavaEngineContext;
@@ -59,6 +58,8 @@ import org.apache.hudi.config.HoodieArchivalConfig;
 import org.apache.hudi.config.HoodieIndexConfig;
 import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.index.HoodieIndex;
+import org.apache.hudi.storage.StorageConfiguration;
+import org.apache.hudi.storage.hadoop.HadoopStorageConfiguration;
 import org.intellij.lang.annotations.Language;
 
 import java.io.IOException;
@@ -210,7 +211,7 @@ public class TpchHudiTablesInitializer
     private static HoodieJavaWriteClient<HoodieAvroPayload> createWriteClient(TpchTable<?> table, HdfsEnvironment hdfsEnvironment, Path tablePath)
     {
         Schema schema = createAvroSchema(table);
-        Configuration conf = hdfsEnvironment.getConfiguration(CONTEXT, tablePath);
+        StorageConfiguration<?> conf = new HadoopStorageConfiguration(hdfsEnvironment.getConfiguration(CONTEXT, tablePath));
 
         try {
             HoodieTableMetaClient.withPropertyBuilder()
@@ -371,7 +372,7 @@ public class TpchHudiTablesInitializer
 
         private static Function<TpchColumnType, HiveType> hiveTypeOf(HiveType hiveType)
         {
-            return ignored -> hiveType;
+            return _ -> hiveType;
         }
 
         private static HiveType hiveVarcharOf(TpchColumnType type)

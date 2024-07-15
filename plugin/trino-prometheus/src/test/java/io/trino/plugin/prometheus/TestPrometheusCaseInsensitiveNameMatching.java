@@ -85,6 +85,6 @@ public class TestPrometheusCaseInsensitiveNameMatching
         assertThat(UPPER_CASE_METRIC.toLowerCase(ENGLISH)).isEqualTo(table.getTableName());
 
         assertThat(client.getTable(DEFAULT_SCHEMA, tables.get(0).getTableName())).isNotNull();
-        assertThat(UPPER_CASE_METRIC).isEqualTo(client.getTable(DEFAULT_SCHEMA, tables.get(0).getTableName()).getName());
+        assertThat(UPPER_CASE_METRIC).isEqualTo(client.getTable(DEFAULT_SCHEMA, tables.get(0).getTableName()).name());
     }
 }

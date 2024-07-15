@@ -20,11 +20,11 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.ACCESS_TOKEN_ISSUER;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.AUTH_URL;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.JWKS_URL;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.TOKEN_URL;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.USERINFO_URL;
+import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.ACCESS_TOKEN_ISSUER;
+import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.AUTH_URL;
+import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.JWKS_URL;
+import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.TOKEN_URL;
+import static io.trino.server.security.oauth2.StaticOAuth2ServerConfig.USERINFO_URL;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class OidcDiscoveryConfig

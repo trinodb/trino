@@ -718,6 +718,16 @@ public sealed class OpaAccessControl
     }
 
     @Override
+    public void checkCanShowCreateFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
+    {
+        opaHighLevelClient.queryAndEnforce(
+                buildQueryContext(systemSecurityContext),
+                "ShowCreateFunction",
+                () -> denyShowFunctions(functionName.toString()),
+                OpaQueryInputResource.builder().function(TrinoFunction.fromTrinoFunction(functionName)).build());
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
         List<OpaViewExpression> rowFilterExpressions = opaHighLevelClient.getRowFilterExpressionsFromOpa(buildQueryContext(context), tableName);

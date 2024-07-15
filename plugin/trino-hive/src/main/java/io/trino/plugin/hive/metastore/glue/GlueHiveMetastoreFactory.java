@@ -35,6 +35,12 @@ public class GlueHiveMetastoreFactory
     }
 
     @Override
+    public boolean hasBuiltInCaching()
+    {
+        return true;
+    }
+
+    @Override
     public boolean isImpersonationEnabled()
     {
         return false;

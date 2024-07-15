@@ -10,7 +10,6 @@ values in the count. The `coalesce` function can be used to convert null into
 zero.
 
 (aggregate-function-ordering-during-aggregation)=
-
 ## Ordering during aggregation
 
 Some aggregate functions such as {func}`array_agg` produce different results
@@ -23,7 +22,6 @@ array_agg(x ORDER BY x, y, z)
 ```
 
 (aggregate-function-filtering-during-aggregation)=
-
 ## Filtering during aggregation
 
 The `FILTER` keyword can be used to remove rows from aggregation processing
@@ -325,11 +323,18 @@ Returns the sum of all input values.
 ## Bitwise aggregate functions
 
 :::{function} bitwise_and_agg(x) -> bigint
-Returns the bitwise AND of all input values in 2's complement representation.
+Returns the bitwise AND of all input non-NULL values in 2's complement representation.
+If all records inside the group are NULL, or if the group is empty, the function returns NULL.
 :::
 
 :::{function} bitwise_or_agg(x) -> bigint
-Returns the bitwise OR of all input values in 2's complement representation.
+Returns the bitwise OR of all input non-NULL values in 2's complement representation.
+If all records inside the group are NULL, or if the group is empty, the function returns NULL.
+:::
+
+:::{function} bitwise_xor_agg(x) -> bigint
+Returns the bitwise XOR of all input non-NULL values in 2's complement representation.
+If all records inside the group are NULL, or if the group is empty, the function returns NULL.
 :::
 
 ## Map aggregate functions

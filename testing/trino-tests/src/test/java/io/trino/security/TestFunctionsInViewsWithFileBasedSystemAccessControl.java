@@ -63,7 +63,7 @@ public class TestFunctionsInViewsWithFileBasedSystemAccessControl
                         .setSchema(Optional.empty())
                         .setPath(SqlPath.buildPath("mock.function", Optional.empty()))
                         .build())
-                .setNodeCount(1)
+                .setWorkerCount(0)
                 .setSystemAccessControl("file", Map.of(SECURITY_CONFIG_FILE, securityConfigFile))
                 .build();
         queryRunner.installPlugin(new BlackHolePlugin());

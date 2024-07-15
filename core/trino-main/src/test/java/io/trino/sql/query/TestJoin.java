@@ -255,27 +255,29 @@ public class TestJoin
     public void testOutputDuplicatesInsensitiveJoin()
     {
         assertions.assertQueryAndPlan(
-                "SELECT t.x, count(*) FROM (VALUES 1, 2) t(x) JOIN (VALUES 2, 2) u(x) ON t.x = u.x GROUP BY t.x",
-                "VALUES (2, BIGINT '2')",
+                "SELECT t.x, count(*) FROM (VALUES random(), 2) t(x) JOIN (VALUES -random(), 2, 2) u(x) ON t.x = u.x GROUP BY t.x",
+                "VALUES (DOUBLE '2', BIGINT '2')",
                 anyTree(
                         aggregation(
                                 ImmutableMap.of("COUNT", aggregationFunction("count", ImmutableList.of())),
                                 join(INNER, builder -> builder
-                                        .left(anyTree(values("y")))
-                                        .right(values()))
+                                        .ignoreEquiCriteria()
+                                        .left(anyTree(values("t_x")))
+                                        .right(anyTree(values("u_x"))))
                                         .with(JoinNode.class, not(JoinNode::isMaySkipOutputDuplicates)))));
 
         assertions.assertQueryAndPlan(
-                "SELECT t.x FROM (VALUES 1, 2) t(x) JOIN (VALUES 2, 2) u(x) ON t.x = u.x GROUP BY t.x",
-                "VALUES 2",
+                "SELECT t.x FROM (VALUES random(), 2) t(x) JOIN (VALUES -random(), 2, 2) u(x) ON t.x = u.x GROUP BY t.x",
+                "VALUES DOUBLE '2'",
                 anyTree(
                         aggregation(
                                 ImmutableMap.of(),
                                 FINAL,
                                 anyTree(
                                         join(INNER, builder -> builder
-                                                .left(anyTree(values("y")))
-                                                .right(values()))
+                                                .ignoreEquiCriteria()
+                                                .left(anyTree(values("t_x")))
+                                                .right(anyTree(values("u_x"))))
                                                 .with(JoinNode.class, JoinNode::isMaySkipOutputDuplicates)))));
     }
 
@@ -299,5 +301,43 @@ public class TestJoin
                 WHERE r1 >= COALESCE(l1, 0)
                 """))
                 .matches("VALUES 5");
+    }
+
+    @Test
+    void testFilterThatMayFail()
+    {
+        assertThat(assertions.query(
+                """
+                WITH
+                	t(x,y) AS (
+                	    VALUES
+                            ('a', '1'),
+                            ('b', 'x'),
+                            (null, 'y')
+                	),
+                	u(x,y) AS (
+                	    VALUES
+                            ('a', '1'),
+                            ('c', 'x'),
+                            (null, 'y')
+                	)
+                SELECT *
+                FROM t JOIN u ON t.x = u.x
+                WHERE CAST(t.y AS int) = 1
+                """))
+                .matches("VALUES ('a', '1', 'a', '1')");
+
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(k, v) AS (VALUES if(random() >= 0, (1, CAST('10' AS varchar)))),
+                    b(k, v) AS (VALUES if(random() >= 0, (1, CAST('foo' AS varchar)))),
+                    t AS (
+                		SELECT k, CAST(v AS BIGINT) v1, v
+                		FROM a)
+                SELECT t.k, b.k
+                FROM t JOIN b ON t.k = b.k AND t.v1 = 10 AND t.v = b.v
+                """))
+                .returnsEmptyResult();
     }
 }

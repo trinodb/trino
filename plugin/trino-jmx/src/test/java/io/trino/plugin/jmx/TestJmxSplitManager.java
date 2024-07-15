@@ -199,7 +199,7 @@ public class TestJmxSplitManager
     private RecordSet getRecordSet(SchemaTableName schemaTableName)
             throws Exception
     {
-        JmxTableHandle tableHandle = metadata.getTableHandle(SESSION, schemaTableName);
+        JmxTableHandle tableHandle = metadata.getTableHandle(SESSION, schemaTableName, Optional.empty(), Optional.empty());
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
 
         ConnectorSplitSource splitSource = splitManager.getSplits(JmxTransactionHandle.INSTANCE, SESSION, tableHandle, DynamicFilter.EMPTY, Constraint.alwaysTrue());

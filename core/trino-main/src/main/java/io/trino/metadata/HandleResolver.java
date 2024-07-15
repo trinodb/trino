@@ -58,7 +58,7 @@ public final class HandleResolver
         try {
             return classLoader.loadClass(className);
         }
-        catch (ClassNotFoundException ignored) {
+        catch (ClassNotFoundException _) {
             throw new IllegalArgumentException("Handle ID not found: " + id);
         }
     }

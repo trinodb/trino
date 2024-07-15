@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.type.Type;
-import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -37,7 +37,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestByteStreamSplitEncoding
 {
@@ -89,10 +88,10 @@ public class TestByteStreamSplitEncoding
                     List<Double> expectedValues = expected.get(channel);
                     for (int postition = 0; postition < block.getPositionCount(); postition++) {
                         if (block instanceof IntArrayBlock) {
-                            assertEquals(REAL.getObjectValue(SESSION, block, postition), expectedValues.get(rowCount + postition).floatValue());
+                            assertThat(REAL.getObjectValue(SESSION, block, postition)).isEqualTo(expectedValues.get(rowCount + postition).floatValue());
                         }
                         else {
-                            assertEquals(DOUBLE.getObjectValue(SESSION, block, postition), expectedValues.get(rowCount + postition));
+                            assertThat(DOUBLE.getObjectValue(SESSION, block, postition)).isEqualTo(expectedValues.get(rowCount + postition));
                         }
                     }
                 }

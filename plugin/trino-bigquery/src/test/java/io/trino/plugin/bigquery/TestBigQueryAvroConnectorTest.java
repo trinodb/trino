@@ -35,16 +35,21 @@ public class TestBigQueryAvroConnectorTest
             .add("a:colon")
             .add("an'apostrophe")
             .add("0startwithdigit")
+            .add("カラム")
             .build();
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return BigQueryQueryRunner.createQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of("bigquery.job.label-name", "trino_query", "bigquery.job.label-format", "q_$QUERY_ID__t_$TRACE_TOKEN"),
-                REQUIRED_TPCH_TABLES);
+        return BigQueryQueryRunner.builder()
+                .setConnectorProperties(ImmutableMap.<String, String>builder()
+                        .put("bigquery.arrow-serialization.enabled", "false")
+                        .put("bigquery.job.label-name", "trino_query")
+                        .put("bigquery.job.label-format", "q_$QUERY_ID__t_$TRACE_TOKEN")
+                        .buildOrThrow())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Override
@@ -68,9 +73,7 @@ public class TestBigQueryAvroConnectorTest
                 assertUpdate("INSERT INTO " + tableName + " VALUES ('test value')", 1);
                 // The storage API can't read the table, but query based API can read it
                 assertThat(query("SELECT * FROM " + tableName))
-                        // TODO should be TrinoException, provide better error message
-                        .nonTrinoExceptionFailure().cause()
-                        .hasMessageMatching(".*(Illegal initial character|Invalid name).*");
+                        .failure().hasMessageMatching("(Cannot create read|Invalid Avro schema).*(Illegal initial character|Invalid name).*");
                 assertThat(bigQuerySqlExecutor.executeQuery("SELECT * FROM " + tableName).getValues())
                         .extracting(field -> field.get(0).getStringValue())
                         .containsExactly("test value");

@@ -45,7 +45,7 @@ public class TestPruneTopNColumns
     public void testNotAllInputsReferenced()
     {
         tester().assertThat(new PruneTopNColumns())
-                .on(p -> buildProjectedTopN(p, symbol -> symbol.getName().equals("b")))
+                .on(p -> buildProjectedTopN(p, symbol -> symbol.name().equals("b")))
                 .matches(
                         strictProject(
                                 ImmutableMap.of("b", expression(new Reference(BIGINT, "b"))),
@@ -61,7 +61,7 @@ public class TestPruneTopNColumns
     public void testAllInputsReferenced()
     {
         tester().assertThat(new PruneTopNColumns())
-                .on(p -> buildProjectedTopN(p, symbol -> symbol.getName().equals("a")))
+                .on(p -> buildProjectedTopN(p, symbol -> symbol.name().equals("a")))
                 .doesNotFire();
     }
 

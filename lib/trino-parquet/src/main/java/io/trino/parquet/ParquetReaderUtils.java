@@ -16,11 +16,11 @@ package io.trino.parquet;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
+import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.EncodingStats;
-import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 
 import java.util.Set;
 
@@ -271,7 +271,7 @@ public final class ParquetReaderUtils
     }
 
     @SuppressWarnings("deprecation")
-    public static boolean isOnlyDictionaryEncodingPages(ColumnChunkMetaData columnMetaData)
+    public static boolean isOnlyDictionaryEncodingPages(ColumnChunkMetadata columnMetaData)
     {
         // Files written with newer versions of Parquet libraries (e.g. parquet-mr 1.9.0) will have EncodingStats available
         // Otherwise, fallback to v1 logic

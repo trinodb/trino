@@ -73,7 +73,7 @@ class AzureInputFile
             throws IOException
     {
         try {
-            return new AzureInput(location, blobClient, readBlockSizeBytes, length);
+            return new AzureInput(location, blobClient, length);
         }
         catch (RuntimeException e) {
             throw handleAzureException(e, "opening file", location);

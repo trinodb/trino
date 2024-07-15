@@ -19,7 +19,7 @@ from different catalogs accessing ClickHouse or any other supported data source.
 
 To connect to a ClickHouse server, you need:
 
-- ClickHouse (version 21.8 or higher) or Altinity (version 20.8 or higher).
+- ClickHouse (version 23.8 or higher) or Altinity (version 21.8 or higher).
 - Network access from the Trino coordinator and workers to the ClickHouse
   server. Port 8123 is the default port.
 
@@ -49,7 +49,6 @@ use {doc}`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
 (clickhouse-tls)=
-
 ### Connection security
 
 If you have TLS configured with a globally-trusted certificate installed on your
@@ -170,7 +169,6 @@ Currently the connector only supports `Log` and `MergeTree` table engines
 in create table statement. `ReplicatedMergeTree` engine is not yet supported.
 
 (clickhouse-type-mapping)=
-
 ## Type mapping
 
 Because Trino and ClickHouse each support types that the other does not, this
@@ -320,7 +318,6 @@ No other types are supported.
 ```
 
 (clickhouse-sql-support)=
-
 ## SQL support
 
 The connector provides read and write access to data and metadata in
@@ -335,13 +332,48 @@ statements, the connector supports the following features:
 ```{include} alter-schema-limitation.fragment
 ```
 
+## Table functions
+
+The connector provides specific {doc}`table functions </functions/table>` to
+access ClickHouse.
+
+(clickhouse-query-function)=
+### `query(varchar) -> table`
+
+The `query` function allows you to query the underlying database directly. It
+requires syntax native to ClickHouse, because the full query is pushed down and
+processed in ClickHouse. This can be useful for accessing native features which
+are not available in Trino or for improving query performance in situations
+where running a query natively may be faster.
+
+```{include} query-passthrough-warning.fragment
+```
+
+As a simple example, query the `example` catalog and select an entire table:
+
+```
+SELECT
+  *
+FROM
+  TABLE(
+    example.system.query(
+      query => 'SELECT
+        *
+      FROM
+        tpch.nation'
+    )
+  );
+```
+
+```{include} query-table-function-ordering.fragment
+```
+
 ## Performance
 
 The connector includes a number of performance improvements, detailed in the
 following sections.
 
 (clickhouse-pushdown)=
-
 ### Pushdown
 
 The connector supports pushdown for a number of operations:
@@ -360,5 +392,5 @@ The connector supports pushdown for a number of operations:
 ```{include} pushdown-correctness-behavior.fragment
 ```
 
-```{include} no-pushdown-text-type.fragment
+```{include} no-inequality-pushdown-text-type.fragment
 ```

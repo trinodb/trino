@@ -48,7 +48,7 @@ public class TestUserImpersonationAccessControl
     {
         String securityConfigFile = new File(getResource("access_control_rules.json").toURI()).getPath();
         QueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION)
-                .setNodeCount(1)
+                .setWorkerCount(0)
                 .setSystemAccessControl("file", Map.of(SECURITY_CONFIG_FILE, securityConfigFile))
                 .build();
 

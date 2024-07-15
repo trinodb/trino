@@ -18,6 +18,8 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.trino.plugin.hive.HiveErrorCode;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
+import io.trino.plugin.hive.metastore.glue.GlueCache;
+import io.trino.plugin.hive.metastore.glue.PartitionName;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -42,11 +44,6 @@ public class FlushMetadataCacheProcedure
 
     private static final String PARAM_SCHEMA_NAME = "SCHEMA_NAME";
     private static final String PARAM_TABLE_NAME = "TABLE_NAME";
-    // Other procedures use plural naming, but it's kept for backward compatibility
-    @Deprecated
-    private static final String PARAM_PARTITION_COLUMN = "PARTITION_COLUMN";
-    @Deprecated
-    private static final String PARAM_PARTITION_VALUE = "PARTITION_VALUE";
     private static final String PARAM_PARTITION_COLUMNS = "PARTITION_COLUMNS";
     private static final String PARAM_PARTITION_VALUES = "PARTITION_VALUES";
 
@@ -62,19 +59,12 @@ public class FlushMetadataCacheProcedure
             PARAM_PARTITION_COLUMNS.toLowerCase(ENGLISH),
             PARAM_PARTITION_VALUES.toLowerCase(ENGLISH));
 
-    private static final String INVALID_PARTITION_PARAMS_ERROR_MESSAGE = format(
-            "Procedure should only be invoked with single pair of partition definition named params: %1$s and %2$s or %3$s and %4$s",
-            PARAM_PARTITION_COLUMNS.toLowerCase(ENGLISH),
-            PARAM_PARTITION_VALUES.toLowerCase(ENGLISH),
-            PARAM_PARTITION_COLUMN.toLowerCase(ENGLISH),
-            PARAM_PARTITION_VALUE.toLowerCase(ENGLISH));
-
     private static final MethodHandle FLUSH_HIVE_METASTORE_CACHE;
 
     static {
         try {
             FLUSH_HIVE_METASTORE_CACHE = lookup().unreflect(FlushMetadataCacheProcedure.class.getMethod(
-                    "flushMetadataCache", String.class, String.class, List.class, List.class, List.class, List.class));
+                    "flushMetadataCache", String.class, String.class, List.class, List.class));
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
@@ -82,11 +72,13 @@ public class FlushMetadataCacheProcedure
     }
 
     private final Optional<CachingHiveMetastore> cachingHiveMetastore;
+    private final Optional<GlueCache> glueCache;
 
     @Inject
-    public FlushMetadataCacheProcedure(Optional<CachingHiveMetastore> cachingHiveMetastore)
+    public FlushMetadataCacheProcedure(Optional<CachingHiveMetastore> cachingHiveMetastore, Optional<GlueCache> glueCache)
     {
         this.cachingHiveMetastore = requireNonNull(cachingHiveMetastore, "cachingHiveMetastore is null");
+        this.glueCache = requireNonNull(glueCache, "glueCache is null");
     }
 
     @Override
@@ -99,9 +91,7 @@ public class FlushMetadataCacheProcedure
                         new Procedure.Argument(PARAM_SCHEMA_NAME, VARCHAR, false, null),
                         new Procedure.Argument(PARAM_TABLE_NAME, VARCHAR, false, null),
                         new Procedure.Argument(PARAM_PARTITION_COLUMNS, new ArrayType(VARCHAR), false, null),
-                        new Procedure.Argument(PARAM_PARTITION_VALUES, new ArrayType(VARCHAR), false, null),
-                        new Procedure.Argument(PARAM_PARTITION_COLUMN, new ArrayType(VARCHAR), false, null),
-                        new Procedure.Argument(PARAM_PARTITION_VALUE, new ArrayType(VARCHAR), false, null)),
+                        new Procedure.Argument(PARAM_PARTITION_VALUES, new ArrayType(VARCHAR), false, null)),
                 FLUSH_HIVE_METASTORE_CACHE.bindTo(this),
                 true);
     }
@@ -110,80 +100,45 @@ public class FlushMetadataCacheProcedure
             String schemaName,
             String tableName,
             List<String> partitionColumns,
-            List<String> partitionValues,
-            List<String> partitionColumn,
-            List<String> partitionValue)
+            List<String> partitionValues)
     {
-        Optional<List<String>> optionalPartitionColumns = Optional.ofNullable(partitionColumns);
-        Optional<List<String>> optionalPartitionValues = Optional.ofNullable(partitionValues);
-        Optional<List<String>> optionalPartitionColumn = Optional.ofNullable(partitionColumn);
-        Optional<List<String>> optionalPartitionValue = Optional.ofNullable(partitionValue);
-        checkState(partitionParamsUsed(optionalPartitionColumns, optionalPartitionValues, optionalPartitionColumn, optionalPartitionValue)
-                        || deprecatedPartitionParamsUsed(optionalPartitionColumns, optionalPartitionValues, optionalPartitionColumn, optionalPartitionValue)
-                        || partitionParamsNotUsed(optionalPartitionColumns, optionalPartitionValues, optionalPartitionColumn, optionalPartitionValue),
-                INVALID_PARTITION_PARAMS_ERROR_MESSAGE);
-
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
             doFlushMetadataCache(
                     Optional.ofNullable(schemaName),
                     Optional.ofNullable(tableName),
-                    optionalPartitionColumns.or(() -> optionalPartitionColumn).orElse(ImmutableList.of()),
-                    optionalPartitionValues.or(() -> optionalPartitionValue).orElse(ImmutableList.of()));
+                    Optional.ofNullable(partitionColumns).orElse(ImmutableList.of()),
+                    Optional.ofNullable(partitionValues).orElse(ImmutableList.of()));
         }
     }
 
     private void doFlushMetadataCache(Optional<String> schemaName, Optional<String> tableName, List<String> partitionColumns, List<String> partitionValues)
     {
-        CachingHiveMetastore cachingHiveMetastore = this.cachingHiveMetastore
-                .orElseThrow(() -> new TrinoException(HiveErrorCode.HIVE_METASTORE_ERROR, "Cannot flush, metastore cache is not enabled"));
+        if (cachingHiveMetastore.isEmpty() && glueCache.isEmpty()) {
+            // TODO this currently does not work. CachingHiveMetastore is always bound for metastores other than Glue, even when caching is disabled,
+            //  so for consistency we do not discern between GlueCache NOOP and real.
+            throw new TrinoException(HiveErrorCode.HIVE_METASTORE_ERROR, "Cannot flush, metastore cache is not enabled");
+        }
 
         checkState(
                 partitionColumns.size() == partitionValues.size(),
                 "Parameters partition_column and partition_value should have same length");
 
         if (schemaName.isEmpty() && tableName.isEmpty() && partitionColumns.isEmpty()) {
-            cachingHiveMetastore.flushCache();
+            cachingHiveMetastore.ifPresent(CachingHiveMetastore::flushCache);
+            glueCache.ifPresent(GlueCache::flushCache);
         }
         else if (schemaName.isPresent() && tableName.isPresent()) {
             if (!partitionColumns.isEmpty()) {
-                cachingHiveMetastore.flushPartitionCache(schemaName.get(), tableName.get(), partitionColumns, partitionValues);
+                cachingHiveMetastore.ifPresent(cachingHiveMetastore -> cachingHiveMetastore.flushPartitionCache(schemaName.get(), tableName.get(), partitionColumns, partitionValues));
+                glueCache.ifPresent(glueCache -> glueCache.invalidatePartition(schemaName.get(), tableName.get(), new PartitionName(partitionValues)));
             }
             else {
-                cachingHiveMetastore.invalidateTable(schemaName.get(), tableName.get());
+                cachingHiveMetastore.ifPresent(cachingHiveMetastore -> cachingHiveMetastore.invalidateTable(schemaName.get(), tableName.get()));
+                glueCache.ifPresent(glueCache -> glueCache.invalidateTable(schemaName.get(), tableName.get(), true));
             }
         }
         else {
             throw new TrinoException(StandardErrorCode.INVALID_PROCEDURE_ARGUMENT, "Illegal parameter set passed. " + PROCEDURE_USAGE_EXAMPLES);
         }
-    }
-
-    private boolean partitionParamsNotUsed(
-            Optional<List<String>> partitionColumns,
-            Optional<List<String>> partitionValues,
-            Optional<List<String>> partitionColumn,
-            Optional<List<String>> partitionValue)
-    {
-        return partitionColumns.isEmpty() && partitionValues.isEmpty()
-                && partitionColumn.isEmpty() && partitionValue.isEmpty();
-    }
-
-    private boolean partitionParamsUsed(
-            Optional<List<String>> partitionColumns,
-            Optional<List<String>> partitionValues,
-            Optional<List<String>> partitionColumn,
-            Optional<List<String>> partitionValue)
-    {
-        return (partitionColumns.isPresent() || partitionValues.isPresent())
-                && partitionColumn.isEmpty() && partitionValue.isEmpty();
-    }
-
-    private boolean deprecatedPartitionParamsUsed(
-            Optional<List<String>> partitionColumns,
-            Optional<List<String>> partitionValues,
-            Optional<List<String>> partitionColumn,
-            Optional<List<String>> partitionValue)
-    {
-        return (partitionColumn.isPresent() || partitionValue.isPresent())
-                && partitionColumns.isEmpty() && partitionValues.isEmpty();
     }
 }

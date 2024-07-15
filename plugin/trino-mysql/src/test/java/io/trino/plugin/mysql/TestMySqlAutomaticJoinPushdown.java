@@ -13,14 +13,12 @@
  */
 package io.trino.plugin.mysql;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static java.lang.String.format;
 import static org.junit.jupiter.api.Assumptions.abort;
 
@@ -33,18 +31,14 @@ public class TestMySqlAutomaticJoinPushdown
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        // Using MySQL 8.0.15 because test is sensitive to quality of NDV estimation and 5.5.46 we use
-        // in other places does very poor job; for 10000 row table with 1000 distinct keys it estimates NDV at ~2500
-        mySqlServer = closeAfterClass(new TestingMySqlServer("mysql:8.0.30", false));
+        mySqlServer = closeAfterClass(new TestingMySqlServer());
 
-        return createMySqlQueryRunner(
-                mySqlServer,
-                ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
+        return MySqlQueryRunner.builder(mySqlServer)
+                .addConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("metadata.cache-ttl", "0m")
                         .put("metadata.cache-missing", "false")
-                        .buildOrThrow(),
-                ImmutableList.of());
+                        .buildOrThrow())
+                .build();
     }
 
     @Test
