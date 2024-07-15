@@ -32,6 +32,8 @@
 
 ## Elasticsearch connector
 
+## Exasol connector
+
 ## Google Sheets connector
 
 ## Hive connector
