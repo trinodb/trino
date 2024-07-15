@@ -66,6 +66,7 @@ public class TestCachedHiveGlueMetastore
                 .addHiveProperty("hive.metastore", "glue")
                 .addHiveProperty("hive.metastore.glue.default-warehouse-dir", "local:///glue")
                 .addHiveProperty("hive.metastore-cache-ttl", "1d")
+                .addHiveProperty("hive.metastore-refresh-interval", "1h")
                 .addHiveProperty("hive.security", "allow-all")
                 .setCreateTpchSchemas(false)
                 .build();
