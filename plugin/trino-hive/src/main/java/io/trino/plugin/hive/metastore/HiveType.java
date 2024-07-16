@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.plugin.hive.HiveTimestampPrecision;
+import io.trino.plugin.hive.HiveTypeName;
 import io.trino.plugin.hive.type.Category;
 import io.trino.plugin.hive.type.ListTypeInfo;
 import io.trino.plugin.hive.type.MapTypeInfo;

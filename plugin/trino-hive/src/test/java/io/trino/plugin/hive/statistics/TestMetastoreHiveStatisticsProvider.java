@@ -53,14 +53,14 @@ import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITI
 import static io.trino.plugin.hive.HivePartitionManager.parsePartition;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
-import static io.trino.plugin.hive.HiveType.HIVE_LONG;
-import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.HivePartition.UNPARTITIONED_ID;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_LONG;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.PartitionsRowCount;
 import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateDataSize;
 import static io.trino.plugin.hive.statistics.AbstractHiveStatisticsProvider.calculateDataSizeForPartitioningKey;

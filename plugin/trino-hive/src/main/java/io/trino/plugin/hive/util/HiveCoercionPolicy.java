@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.util;
 
 import io.trino.plugin.hive.HiveTimestampPrecision;
-import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.metastore.HiveType;
 import io.trino.plugin.hive.type.Category;
 import io.trino.plugin.hive.type.ListTypeInfo;
 import io.trino.plugin.hive.type.MapTypeInfo;
@@ -29,15 +29,15 @@ import io.trino.spi.type.VarcharType;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.hive.HiveType.HIVE_BOOLEAN;
-import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
-import static io.trino.plugin.hive.HiveType.HIVE_DATE;
-import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
-import static io.trino.plugin.hive.HiveType.HIVE_FLOAT;
-import static io.trino.plugin.hive.HiveType.HIVE_INT;
-import static io.trino.plugin.hive.HiveType.HIVE_LONG;
-import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
-import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_BOOLEAN;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_BYTE;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_DATE;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_DOUBLE;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_FLOAT;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_INT;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_LONG;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_SHORT;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_TIMESTAMP;
 import static io.trino.plugin.hive.util.HiveUtil.extractStructFieldTypes;
 import static java.lang.Math.min;
 import static java.lang.String.format;

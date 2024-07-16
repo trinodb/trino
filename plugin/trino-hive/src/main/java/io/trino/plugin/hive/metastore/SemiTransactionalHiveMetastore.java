@@ -35,7 +35,6 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveTableHandle;
-import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.LocationHandle.WriteMode;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.PartitionUpdateAndMergeResults;
