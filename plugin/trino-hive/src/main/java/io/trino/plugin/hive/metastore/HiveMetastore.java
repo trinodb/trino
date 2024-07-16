@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore;
 
-import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;

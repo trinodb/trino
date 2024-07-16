@@ -29,6 +29,7 @@ import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
+import io.trino.plugin.hive.metastore.HiveType;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.SplitWeight;

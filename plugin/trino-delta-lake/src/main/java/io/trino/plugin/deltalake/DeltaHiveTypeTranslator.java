@@ -14,7 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.metastore.HiveType;
 import io.trino.plugin.hive.type.DecimalTypeInfo;
 import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.TrinoException;
@@ -31,17 +31,17 @@ import io.trino.spi.type.VarcharType;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.HiveType.HIVE_BINARY;
-import static io.trino.plugin.hive.HiveType.HIVE_BOOLEAN;
-import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
-import static io.trino.plugin.hive.HiveType.HIVE_DATE;
-import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
-import static io.trino.plugin.hive.HiveType.HIVE_FLOAT;
-import static io.trino.plugin.hive.HiveType.HIVE_INT;
-import static io.trino.plugin.hive.HiveType.HIVE_LONG;
-import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
-import static io.trino.plugin.hive.HiveType.HIVE_STRING;
-import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_BINARY;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_BOOLEAN;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_BYTE;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_DATE;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_DOUBLE;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_FLOAT;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_INT;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_LONG;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_SHORT;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_STRING;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_TIMESTAMP;
 import static io.trino.plugin.hive.type.CharTypeInfo.MAX_CHAR_LENGTH;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getCharTypeInfo;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getListTypeInfo;

@@ -33,7 +33,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.trino.plugin.hive.HiveType.HIVE_LONG;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.Assertions.assertThat;

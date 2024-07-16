@@ -36,8 +36,8 @@ import java.util.Optional;
 
 import static com.amazonaws.util.CollectionUtils.isNullOrEmpty;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
+import static io.trino.plugin.hive.metastore.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.getGlueTestColumn;
 import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.getGlueTestDatabase;
 import static io.trino.plugin.hive.metastore.glue.v1.TestingMetastoreObjects.getGlueTestPartition;
