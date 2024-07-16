@@ -15,7 +15,6 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.hive.thrift.metastore.FieldSchema;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
@@ -67,6 +66,7 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMeta
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isCsvPartition;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isCsvTable;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toDataOperationType;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiFunction;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
@@ -548,10 +548,10 @@ public class BridgingHiveMetastore
             long transactionId,
             String dbName,
             String tableName,
-            DataOperationType operation,
+            AcidOperation acidOperation,
             boolean isDynamicPartitionWrite)
     {
-        delegate.acquireTableWriteLock(transactionOwner, queryId, transactionId, dbName, tableName, operation, isDynamicPartitionWrite);
+        delegate.acquireTableWriteLock(transactionOwner, queryId, transactionId, dbName, tableName, toDataOperationType(acidOperation), isDynamicPartitionWrite);
     }
 
     @Override
@@ -563,7 +563,7 @@ public class BridgingHiveMetastore
     @Override
     public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
     {
-        delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation);
+        delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, toDataOperationType(operation));
     }
 
     @Override

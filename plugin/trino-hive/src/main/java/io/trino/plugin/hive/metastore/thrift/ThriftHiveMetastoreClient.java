@@ -29,6 +29,7 @@ import io.trino.hive.thrift.metastore.ColumnStatistics;
 import io.trino.hive.thrift.metastore.ColumnStatisticsDesc;
 import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
 import io.trino.hive.thrift.metastore.CommitTxnRequest;
+import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.EnvironmentContext;
 import io.trino.hive.thrift.metastore.FieldSchema;
@@ -62,7 +63,6 @@ import io.trino.hive.thrift.metastore.ThriftHiveMetastore;
 import io.trino.hive.thrift.metastore.TxnToWriteId;
 import io.trino.hive.thrift.metastore.UnlockRequest;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
-import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport;
 import io.trino.spi.connector.RelationType;
 import jakarta.annotation.Nullable;
@@ -701,11 +701,11 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, DataOperationType operation)
             throws TException
     {
         AddDynamicPartitions request = new AddDynamicPartitions(transactionId, writeId, dbName, tableName, partitionNames);
-        request.setOperationType(operation.getMetastoreOperationType());
+        request.setOperationType(operation);
         client.addDynamicPartitions(request);
     }
 

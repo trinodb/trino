@@ -15,7 +15,6 @@ package io.trino.plugin.hive.metastore.tracing;
 
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -557,8 +556,7 @@ public class TracingHiveMetastore
     }
 
     @Override
-    public void acquireTableWriteLock(AcidTransactionOwner transactionOwner, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation,
-            boolean isDynamicPartitionWrite)
+    public void acquireTableWriteLock(AcidTransactionOwner transactionOwner, String queryId, long transactionId, String dbName, String tableName, AcidOperation operation, boolean isDynamicPartitionWrite)
     {
         Span span = tracer.spanBuilder("HiveMetastore.acquireTableWriteLock")
                 .setAttribute(SCHEMA, dbName)

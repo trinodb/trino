@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
@@ -354,7 +353,7 @@ public class HiveMetastoreClosure
             long transactionId,
             String dbName,
             String tableName,
-            DataOperationType operation,
+            AcidOperation operation,
             boolean isPartitioned)
     {
         delegate.acquireTableWriteLock(transactionOwner, queryId, transactionId, dbName, tableName, operation, isPartitioned);
