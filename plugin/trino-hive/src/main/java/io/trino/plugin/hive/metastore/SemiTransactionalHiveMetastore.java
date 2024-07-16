@@ -519,8 +519,8 @@ public class SemiTransactionalHiveMetastore
                         Entry::getValue));
         setExclusive(delegate ->
                 delegate.updatePartitionStatistics(
-                        table.getDatabaseName(),
-                        table.getTableName(),
+                        delegate.getTable(table.getDatabaseName(), table.getTableName())
+                                .orElseThrow(() -> new TableNotFoundException(table.getSchemaTableName())),
                         OVERWRITE_SOME_COLUMNS,
                         updates));
     }
@@ -3084,7 +3084,11 @@ public class SemiTransactionalHiveMetastore
         {
             StatisticsUpdateMode mode = merge ? MERGE_INCREMENTAL : OVERWRITE_ALL;
             if (partitionName.isPresent()) {
-                metastore.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), mode, ImmutableMap.of(partitionName.get(), statistics));
+                metastore.updatePartitionStatistics(
+                        metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+                                .orElseThrow(() -> new TableNotFoundException(tableName)),
+                        mode,
+                        ImmutableMap.of(partitionName.get(), statistics));
             }
             else {
                 metastore.updateTableStatistics(tableName.getSchemaName(), tableName.getTableName(), transaction.getOptionalWriteId(), mode, statistics);
@@ -3098,7 +3102,11 @@ public class SemiTransactionalHiveMetastore
                 return;
             }
             if (partitionName.isPresent()) {
-                metastore.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), UNDO_MERGE_INCREMENTAL, ImmutableMap.of(partitionName.get(), statistics));
+                metastore.updatePartitionStatistics(
+                        metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+                                .orElseThrow(() -> new TableNotFoundException(tableName)),
+                        UNDO_MERGE_INCREMENTAL,
+                        ImmutableMap.of(partitionName.get(), statistics));
             }
             else {
                 metastore.updateTableStatistics(tableName.getSchemaName(), tableName.getTableName(), transaction.getOptionalWriteId(), UNDO_MERGE_INCREMENTAL, statistics);

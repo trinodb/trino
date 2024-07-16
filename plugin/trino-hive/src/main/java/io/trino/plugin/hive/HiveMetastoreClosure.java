@@ -33,7 +33,6 @@ import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.TupleDomain;
@@ -79,12 +78,6 @@ public class HiveMetastoreClosure
         return delegate.getAllDatabases();
     }
 
-    private Table getExistingTable(String databaseName, String tableName)
-    {
-        return delegate.getTable(databaseName, tableName)
-                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
-    }
-
     public Optional<Table> getTable(String databaseName, String tableName)
     {
         return delegate.getTable(databaseName, tableName);
@@ -114,9 +107,8 @@ public class HiveMetastoreClosure
         delegate.updateTableStatistics(databaseName, tableName, acidWriteId, mode, statisticsUpdate);
     }
 
-    public void updatePartitionStatistics(String databaseName, String tableName, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
+    public void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
-        Table table = getExistingTable(databaseName, tableName);
         delegate.updatePartitionStatistics(table, mode, partitionUpdates);
     }
 
