@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.util;
 
-import io.trino.plugin.hive.metastore.Partition;
+import io.trino.metastore.Partition;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
@@ -26,7 +26,7 @@ import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.List;
 
-import static io.trino.plugin.hive.metastore.Partition.toPartitionValues;
+import static io.trino.metastore.Partition.toPartitionValues;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.hive.util.HiveUtil.parseHiveTimestamp;

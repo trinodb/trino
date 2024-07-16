@@ -14,7 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.hive.metastore.Table;
+import io.trino.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorViewDefinition;
@@ -24,9 +24,9 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveToTrinoTranslator.translateHiveViewToTrino;
-import static io.trino.plugin.hive.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
 
 public class LegacyHiveViewReader

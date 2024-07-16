@@ -32,29 +32,30 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.AcidOperation;
+import io.trino.metastore.Column;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveBasicStatistics;
+import io.trino.metastore.HiveBucketProperty;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.HivePartition;
+import io.trino.metastore.HivePrincipal;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.Partition;
+import io.trino.metastore.PartitionStatistics;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.SortingColumn;
+import io.trino.metastore.StorageFormat;
+import io.trino.metastore.Table;
+import io.trino.metastore.TableInfo;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import io.trino.plugin.hive.HiveWritableTableHandle.BucketInfo;
 import io.trino.plugin.hive.LocationService.WriteInfo;
-import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.fs.DirectoryLister;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveBasicStatistics;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
-import io.trino.plugin.hive.metastore.HivePartition;
-import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.HiveType;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.PartitionStatistics;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.trino.plugin.hive.metastore.SortingColumn;
-import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.hive.procedure.OptimizeTableProcedure;
 import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.plugin.hive.statistics.HiveStatisticsProvider;
@@ -162,6 +163,15 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.metastore.HiveBasicStatistics.createEmptyStatistics;
+import static io.trino.metastore.HiveBasicStatistics.createZeroStatistics;
+import static io.trino.metastore.HiveType.HIVE_STRING;
+import static io.trino.metastore.Partition.toPartitionValues;
+import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
+import static io.trino.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
+import static io.trino.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
+import static io.trino.metastore.type.Category.PRIMITIVE;
 import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
@@ -262,29 +272,18 @@ import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.acid.AcidTransaction.forCreateTable;
-import static io.trino.plugin.hive.metastore.HiveBasicStatistics.createEmptyStatistics;
-import static io.trino.plugin.hive.metastore.HiveBasicStatistics.createZeroStatistics;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.STATS_PROPERTIES;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
-import static io.trino.plugin.hive.metastore.Partition.toPartitionValues;
-import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
-import static io.trino.plugin.hive.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
 import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.PartitionUpdateInfo;
 import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.cleanExtraOutputFiles;
-import static io.trino.plugin.hive.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
-import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
-import static io.trino.plugin.hive.metastore.Table.TABLE_COMMENT;
-import static io.trino.plugin.hive.metastore.TableInfo.PRESTO_VIEW_COMMENT;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getSupportedColumnStatistics;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.arePartitionProjectionPropertiesSet;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionHiveTableProperties;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionTrinoTableProperties;
-import static io.trino.plugin.hive.type.Category.PRIMITIVE;
 import static io.trino.plugin.hive.util.AcidTables.deltaSubdir;
 import static io.trino.plugin.hive.util.AcidTables.isFullAcidTable;
 import static io.trino.plugin.hive.util.AcidTables.isTransactionalTable;
@@ -757,7 +756,7 @@ public class HiveMetadata
         getSerdeProperty(table, REGEX_CASE_SENSITIVE_KEY)
                 .ifPresent(regexCaseInsensitive -> properties.put(REGEX_CASE_INSENSITIVE, parseBoolean(regexCaseInsensitive)));
 
-        Optional<String> comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
+        Optional<String> comment = Optional.ofNullable(table.getParameters().get(Table.TABLE_COMMENT));
 
         String autoPurgeProperty = table.getParameters().get(AUTO_PURGE_KEY);
         if (parseBoolean(autoPurgeProperty)) {
@@ -1245,7 +1244,7 @@ public class HiveMetadata
         tableProperties.put("totalSize", "-1");
 
         // Table comment property
-        tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));
+        tableMetadata.getComment().ifPresent(value -> tableProperties.put(Table.TABLE_COMMENT, value));
 
         // Partition Projection specific properties
         if (partitionProjectionEnabled) {
@@ -2725,7 +2724,7 @@ public class HiveMetadata
 
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         propertiesBuilder
-                .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
+                .put(Table.TABLE_COMMENT, TableInfo.PRESTO_VIEW_COMMENT)
                 .put(PRESTO_VIEW_FLAG, "true")
                 .put(TRINO_CREATED_BY, "Trino Hive connector")
                 .put(TRINO_VERSION_NAME, trinoVersion)

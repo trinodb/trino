@@ -15,7 +15,7 @@ package io.trino.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.metastore.HiveType;
+import io.trino.metastore.HiveType;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;

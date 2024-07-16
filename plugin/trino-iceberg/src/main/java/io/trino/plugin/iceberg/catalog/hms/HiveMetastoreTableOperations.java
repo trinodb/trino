@@ -15,10 +15,10 @@ package io.trino.plugin.iceberg.catalog.hms;
 
 import io.airlift.log.Logger;
 import io.trino.annotation.NotThreadSafe;
-import io.trino.plugin.hive.metastore.AcidTransactionOwner;
+import io.trino.metastore.AcidTransactionOwner;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.spi.connector.ConnectorSession;
@@ -32,7 +32,7 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
 import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;

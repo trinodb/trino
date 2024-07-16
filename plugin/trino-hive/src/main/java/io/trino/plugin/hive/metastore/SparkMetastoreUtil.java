@@ -16,8 +16,12 @@ package io.trino.plugin.hive.metastore;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Longs;
-import io.trino.plugin.hive.type.PrimitiveTypeInfo;
-import io.trino.plugin.hive.type.TypeInfo;
+import io.trino.metastore.HiveBasicStatistics;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.PartitionStatistics;
+import io.trino.metastore.type.PrimitiveTypeInfo;
+import io.trino.metastore.type.TypeInfo;
 import jakarta.annotation.Nullable;
 
 import java.math.BigDecimal;
@@ -29,15 +33,15 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
-import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
-import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
-import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
-import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
-import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
-import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
+import static io.trino.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
+import static io.trino.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
+import static io.trino.metastore.HiveColumnStatistics.createDateColumnStatistics;
+import static io.trino.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
+import static io.trino.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
+import static io.trino.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
+import static io.trino.metastore.HiveColumnStatistics.createStringColumnStatistics;
+import static io.trino.metastore.type.Category.PRIMITIVE;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.NUM_ROWS;
-import static io.trino.plugin.hive.type.Category.PRIMITIVE;
 
 public final class SparkMetastoreUtil
 {

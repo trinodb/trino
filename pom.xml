@@ -52,6 +52,7 @@
         <module>lib/trino-hive-formats</module>
         <module>lib/trino-matching</module>
         <module>lib/trino-memory-context</module>
+        <module>lib/trino-metastore</module>
         <module>lib/trino-orc</module>
         <module>lib/trino-parquet</module>
         <module>lib/trino-plugin-toolkit</module>
@@ -1234,6 +1235,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-memory-context</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-metastore</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

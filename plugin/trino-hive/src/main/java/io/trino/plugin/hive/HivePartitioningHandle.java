@@ -16,7 +16,7 @@ package io.trino.plugin.hive;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects.ToStringHelper;
-import io.trino.plugin.hive.metastore.HiveType;
+import io.trino.metastore.HiveType;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 

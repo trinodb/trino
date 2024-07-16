@@ -14,9 +14,9 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metastore.HiveType;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
-import io.trino.plugin.hive.metastore.HiveType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RowType;
 import org.apache.parquet.schema.GroupType;
