@@ -50,7 +50,7 @@ import static io.trino.client.uri.ConnectionProperties.SSL_VERIFICATION;
 import static io.trino.client.uri.ConnectionProperties.TIMEOUT;
 import static io.trino.client.uri.ConnectionProperties.TIMEZONE;
 import static io.trino.client.uri.ConnectionProperties.USER;
-import static okhttp3.logging.HttpLoggingInterceptor.Level.HEADERS;
+import static io.trino.client.uri.LoggingLevel.HEADERS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTrinoUriBuilder

@@ -22,6 +22,7 @@ import io.trino.client.auth.kerberos.DelegatedUnconstrainedContextProvider;
 import io.trino.client.auth.kerberos.GSSContextProvider;
 import io.trino.client.auth.kerberos.LoginBasedUnconstrainedContextProvider;
 import io.trino.client.auth.kerberos.SpnegoHandler;
+import io.trino.client.uri.LoggingLevel;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
@@ -138,15 +139,28 @@ public final class OkHttpUtil
                 .ifPresent(clientBuilder::proxy);
     }
 
-    public static void setupHttpLogging(OkHttpClient.Builder clientBuilder, Level level)
+    public static void setupHttpLogging(OkHttpClient.Builder clientBuilder, LoggingLevel level)
     {
-        if (level.equals(Level.NONE)) {
-            return;
-        }
+        switch (level) {
+            case NONE:
+                return;
 
-        clientBuilder.addNetworkInterceptor(
-                new HttpLoggingInterceptor(System.err::println)
-                        .setLevel(level));
+            case BODY:
+                clientBuilder.addNetworkInterceptor(
+                        new HttpLoggingInterceptor(System.err::println)
+                                .setLevel(Level.BODY));
+                break;
+            case BASIC:
+                clientBuilder.addNetworkInterceptor(
+                        new HttpLoggingInterceptor(System.err::println)
+                                .setLevel(Level.BASIC));
+                break;
+            case HEADERS:
+                clientBuilder.addNetworkInterceptor(
+                        new HttpLoggingInterceptor(System.err::println)
+                                .setLevel(Level.HEADERS));
+                break;
+        }
     }
 
     private static InetSocketAddress toUnresolvedAddress(HostAndPort address)

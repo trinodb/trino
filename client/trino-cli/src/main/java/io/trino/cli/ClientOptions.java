@@ -23,10 +23,10 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
+import io.trino.client.uri.LoggingLevel;
 import io.trino.client.uri.PropertyName;
 import io.trino.client.uri.RestrictedPropertyException;
 import io.trino.client.uri.TrinoUri;
-import okhttp3.logging.HttpLoggingInterceptor;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import picocli.CommandLine;
@@ -221,7 +221,7 @@ public class ClientOptions
 
     @PropertyMapping(HTTP_LOGGING_LEVEL)
     @Option(names = "--network-logging", paramLabel = "<level>", defaultValue = "NONE", description = "Network logging level [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
-    public Optional<HttpLoggingInterceptor.Level> networkLogging;
+    public Optional<LoggingLevel> networkLogging;
 
     @Option(names = "--progress", paramLabel = "<progress>", description = "Show query progress", negatable = true)
     public Optional<Boolean> progress;
