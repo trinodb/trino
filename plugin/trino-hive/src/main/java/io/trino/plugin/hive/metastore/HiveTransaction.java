@@ -15,7 +15,6 @@ package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveMetastoreClosure;
-import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.util.ValidTxnWriteIdList;
