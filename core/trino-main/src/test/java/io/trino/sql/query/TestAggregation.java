@@ -24,6 +24,7 @@ import java.time.ZonedDateTime;
 
 import static io.trino.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
 import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
+import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -146,5 +147,36 @@ public class TestAggregation
     {
         assertThat(assertions.query("SELECT count(DISTINCT 'x'), count(*) FROM (VALUES 1, 2, 3)"))
                 .matches("VALUES (BIGINT '1', BIGINT '3')");
+    }
+
+    @Test
+    void testNonDeterministicFunctions()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT random(), random()
+                FROM (VALUES 1,2,3) t
+                GROUP BY random()
+                """))
+                .failure()
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+
+        assertThat(assertions.query(
+                """
+                SELECT a, random()
+                FROM (VALUES 1,2,3) t(a)
+                GROUP BY a
+                """))
+                .failure()
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+
+        assertThat(assertions.query(
+                """
+                SELECT random(), random()
+                FROM (VALUES 1,2,3) t
+                GROUP BY 1
+                """))
+                .failure()
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
     }
 }

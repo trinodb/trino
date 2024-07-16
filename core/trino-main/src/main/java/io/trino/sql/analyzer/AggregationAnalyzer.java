@@ -487,6 +487,11 @@ class AggregationAnalyzer
                     return false;
                 }
             }
+            else {
+                if (!expressions.contains(scopeAwareKey(node, analysis, sourceScope))) {
+                    throw semanticException(EXPRESSION_NOT_AGGREGATE, node, "'%s' must be an aggregate expression or appear in GROUP BY clause", node);
+                }
+            }
 
             return node.getArguments().stream().allMatch(expression -> process(expression, context));
         }
