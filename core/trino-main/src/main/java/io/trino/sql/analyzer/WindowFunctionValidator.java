@@ -17,6 +17,8 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.FunctionCall;
 
+import java.util.Optional;
+
 import static io.trino.spi.StandardErrorCode.MISSING_OVER;
 import static io.trino.spi.function.FunctionKind.WINDOW;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -32,9 +34,9 @@ class WindowFunctionValidator
 
         // pattern recognition functions are not resolved
         if (!analysis.isPatternRecognitionFunction(functionCall)) {
-            ResolvedFunction resolvedFunction = analysis.getResolvedFunction(functionCall);
-            if (resolvedFunction != null && functionCall.getWindow().isEmpty() && resolvedFunction.functionKind() == WINDOW) {
-                throw semanticException(MISSING_OVER, functionCall, "Window function %s requires an OVER clause", resolvedFunction.signature().getName());
+            Optional<ResolvedFunction> resolvedFunction = analysis.getResolvedFunction(functionCall);
+            if (resolvedFunction.isPresent() && functionCall.getWindow().isEmpty() && resolvedFunction.get().functionKind() == WINDOW) {
+                throw semanticException(MISSING_OVER, functionCall, "Window function %s requires an OVER clause", resolvedFunction.get().signature().getName());
             }
         }
         return super.visitFunctionCall(functionCall, analysis);
