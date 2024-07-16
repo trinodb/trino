@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore;
 
-import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -205,7 +204,7 @@ public interface HiveMetastore
             long transactionId,
             String dbName,
             String tableName,
-            DataOperationType operation,
+            AcidOperation operation,
             boolean isDynamicPartitionWrite)
     {
         throw new UnsupportedOperationException();

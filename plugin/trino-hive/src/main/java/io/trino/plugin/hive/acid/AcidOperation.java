@@ -13,18 +13,7 @@
  */
 package io.trino.plugin.hive.acid;
 
-import io.trino.hive.thrift.metastore.DataOperationType;
-
 public enum AcidOperation
 {
-    NONE, CREATE_TABLE, INSERT, MERGE;
-
-    public DataOperationType getMetastoreOperationType()
-    {
-        return switch (this) {
-            case INSERT -> DataOperationType.INSERT;
-            case MERGE -> DataOperationType.UPDATE;
-            default -> throw new IllegalStateException("No metastore operation for ACID operation " + this);
-        };
-    }
+    NONE, CREATE_TABLE, INSERT, MERGE
 }
