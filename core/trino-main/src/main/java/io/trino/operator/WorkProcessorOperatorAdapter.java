@@ -17,6 +17,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.spi.Page;
 
+import java.util.function.Supplier;
+
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -101,7 +103,13 @@ public class WorkProcessorOperatorAdapter
         memoryTrackingContext.initializeLocalMemoryContexts(workProcessorOperatorFactory.getOperatorType());
         this.workProcessorOperator = workProcessorOperatorFactory.createAdapterOperator(new ProcessorContext(operatorContext.getSession(), memoryTrackingContext, operatorContext));
         this.pages = workProcessorOperator.getOutputPages();
-        operatorContext.setInfoSupplier(() -> workProcessorOperator.getOperatorInfo().orElse(null));
+        operatorContext.setInfoSupplier(createInfoSupplier(workProcessorOperator));
+    }
+
+    // static method to avoid capturing a reference to "this"
+    private static Supplier<OperatorInfo> createInfoSupplier(AdapterWorkProcessorOperator workProcessorOperator)
+    {
+        return () -> workProcessorOperator.getOperatorInfo().orElse(null);
     }
 
     @Override
