@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.metastore.file;
 
 import com.google.errorprone.annotations.Immutable;
-import io.trino.plugin.hive.HiveBasicStatistics;
+import io.trino.plugin.hive.metastore.HiveBasicStatistics;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 
 import java.math.BigDecimal;
