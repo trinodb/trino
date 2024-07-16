@@ -66,6 +66,7 @@ import static io.trino.client.uri.PropertyName.KERBEROS_REMOTE_SERVICE_NAME;
 import static io.trino.client.uri.PropertyName.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
 import static io.trino.client.uri.PropertyName.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static io.trino.client.uri.PropertyName.PASSWORD;
+import static io.trino.client.uri.PropertyName.RESOURCE_ESTIMATES;
 import static io.trino.client.uri.PropertyName.SCHEMA;
 import static io.trino.client.uri.PropertyName.SESSION_PROPERTIES;
 import static io.trino.client.uri.PropertyName.SESSION_USER;
@@ -237,6 +238,7 @@ public class ClientOptions
     @Option(names = "--pager", paramLabel = "<pager>", defaultValue = "${env:TRINO_PAGER}", description = "Path to the pager program used to display the query results")
     public Optional<String> pager;
 
+    @PropertyMapping(RESOURCE_ESTIMATES)
     @Option(names = "--resource-estimate", paramLabel = "<estimate>", description = "Resource estimate (property can be used multiple times; format is key=value)")
     public final List<ClientResourceEstimate> resourceEstimates = new ArrayList<>();
 
@@ -327,7 +329,6 @@ public class ClientOptions
         return ClientSession
                 .builder(clientSession)
                 .source(firstNonNull(clientSession.getSource(), SOURCE_DEFAULT))
-                .resourceEstimates(toResourceEstimates(resourceEstimates))
                 .clientRequestTimeout(clientRequestTimeout)
                 .build();
     }
@@ -393,6 +394,9 @@ public class ClientOptions
         if (!sessionProperties.isEmpty()) {
             builder.setSessionProperties(toProperties(sessionProperties));
         }
+        if (!resourceEstimates.isEmpty()) {
+            builder.setResourceEstimates(toResourceEstimates(resourceEstimates));
+        }
         builder.setExternalAuthentication(externalAuthentication);
         if (!externalAuthenticationRedirectHandler.isEmpty()) {
             builder.setExternalAuthenticationRedirectHandlers(externalAuthenticationRedirectHandler);
@@ -406,6 +410,9 @@ public class ClientOptions
         builder.setTimeZone(timeZone);
         builder.setDisableCompression(disableCompression);
         networkLogging.ifPresent(builder::setHttpLoggingLevel);
+        if (!resourceEstimates.isEmpty()) {
+            builder.setResourceEstimates(toResourceEstimates(resourceEstimates));
+        }
 
         try {
             return builder.build();
