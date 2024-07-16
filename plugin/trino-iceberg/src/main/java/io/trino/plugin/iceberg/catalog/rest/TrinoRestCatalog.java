@@ -54,6 +54,7 @@ import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.SessionCatalog;
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.ForbiddenException;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
@@ -225,6 +226,9 @@ public class TrinoRestCatalog
         }
         catch (NoSuchNamespaceException e) {
             // Namespace may have been deleted during listing
+        }
+        catch (ForbiddenException e) {
+            log.debug(e, "Failed to list tables from %s namespace because of insufficient permissions", restNamespace);
         }
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to list tables from namespace: %s", restNamespace), e);
