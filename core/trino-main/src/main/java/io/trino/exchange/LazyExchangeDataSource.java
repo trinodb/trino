@@ -26,7 +26,9 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
+import io.trino.spi.metrics.Metrics;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -165,6 +167,16 @@ public class LazyExchangeDataSource
             return null;
         }
         return dataSource.getInfo();
+    }
+
+    @Override
+    public Optional<Metrics> getMetrics()
+    {
+        ExchangeDataSource dataSource = delegate.get();
+        if (dataSource == null) {
+            return Optional.empty();
+        }
+        return dataSource.getMetrics();
     }
 
     @Override
