@@ -18,7 +18,6 @@ import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Longs;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.type.PrimitiveTypeInfo;
 import io.trino.plugin.hive.type.TypeInfo;
 import jakarta.annotation.Nullable;
