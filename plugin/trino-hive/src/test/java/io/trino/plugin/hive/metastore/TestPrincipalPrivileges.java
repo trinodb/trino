@@ -14,10 +14,13 @@
 package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.metastore.HivePrincipal;
+import io.trino.metastore.HivePrivilegeInfo;
+import io.trino.metastore.PrincipalPrivileges;
 import io.trino.spi.security.PrincipalType;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
+import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrincipalPrivileges

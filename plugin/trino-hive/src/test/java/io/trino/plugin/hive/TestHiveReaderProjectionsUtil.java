@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.metastore.HiveType;
+import io.trino.metastore.HiveType;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.RowType;

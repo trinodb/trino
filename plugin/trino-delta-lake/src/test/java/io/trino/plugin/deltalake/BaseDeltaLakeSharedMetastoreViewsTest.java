@@ -14,9 +14,9 @@
 package io.trino.plugin.deltalake;
 
 import io.trino.Session;
+import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;

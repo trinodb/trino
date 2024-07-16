@@ -14,6 +14,11 @@
 package io.trino.plugin.hive.coercions;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.type.Category;
+import io.trino.metastore.type.ListTypeInfo;
+import io.trino.metastore.type.MapTypeInfo;
+import io.trino.metastore.type.StructTypeInfo;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.coercions.BooleanCoercer.BooleanToVarcharCoercer;
@@ -23,11 +28,6 @@ import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToDateCoerce
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToLongTimestampCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToShortTimestampCoercer;
-import io.trino.plugin.hive.metastore.HiveType;
-import io.trino.plugin.hive.type.Category;
-import io.trino.plugin.hive.type.ListTypeInfo;
-import io.trino.plugin.hive.type.MapTypeInfo;
-import io.trino.plugin.hive.type.StructTypeInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
@@ -60,6 +60,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.metastore.HiveType.HIVE_BOOLEAN;
+import static io.trino.metastore.HiveType.HIVE_BYTE;
+import static io.trino.metastore.HiveType.HIVE_DOUBLE;
+import static io.trino.metastore.HiveType.HIVE_FLOAT;
+import static io.trino.metastore.HiveType.HIVE_INT;
+import static io.trino.metastore.HiveType.HIVE_LONG;
+import static io.trino.metastore.HiveType.HIVE_SHORT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.coercions.BooleanCoercer.createVarcharToBooleanCoercer;
@@ -75,13 +82,6 @@ import static io.trino.plugin.hive.coercions.DoubleToVarcharCoercers.createDoubl
 import static io.trino.plugin.hive.coercions.FloatToVarcharCoercers.createFloatToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.VarbinaryToVarcharCoercers.createVarbinaryToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.VarcharToIntegralNumericCoercers.createVarcharToIntegerNumberCoercer;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_BOOLEAN;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_BYTE;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_DOUBLE;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_FLOAT;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_INT;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_LONG;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_SHORT;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;

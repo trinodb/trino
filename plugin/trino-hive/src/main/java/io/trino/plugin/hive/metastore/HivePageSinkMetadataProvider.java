@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.hive.metastore;
 
+import io.trino.metastore.Partition;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.spi.connector.SchemaTableName;
 

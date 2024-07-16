@@ -16,15 +16,16 @@ package io.trino.plugin.hive.acid;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.metastore.AcidOperation;
 
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.plugin.hive.acid.AcidOperation.CREATE_TABLE;
-import static io.trino.plugin.hive.acid.AcidOperation.INSERT;
-import static io.trino.plugin.hive.acid.AcidOperation.MERGE;
-import static io.trino.plugin.hive.acid.AcidOperation.NONE;
+import static io.trino.metastore.AcidOperation.CREATE_TABLE;
+import static io.trino.metastore.AcidOperation.INSERT;
+import static io.trino.metastore.AcidOperation.MERGE;
+import static io.trino.metastore.AcidOperation.NONE;
 import static java.util.Objects.requireNonNull;
 
 public class AcidTransaction

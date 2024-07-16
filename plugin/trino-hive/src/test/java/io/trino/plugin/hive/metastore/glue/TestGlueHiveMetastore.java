@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.metastore.AbstractTestHiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import org.junit.jupiter.api.AfterAll;
 
 import java.io.IOException;

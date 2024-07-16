@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.metastore.StorageFormat;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 

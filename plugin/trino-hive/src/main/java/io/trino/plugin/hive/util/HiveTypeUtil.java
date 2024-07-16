@@ -14,16 +14,16 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.StorageFormat;
+import io.trino.metastore.type.ListTypeInfo;
+import io.trino.metastore.type.MapTypeInfo;
+import io.trino.metastore.type.PrimitiveCategory;
+import io.trino.metastore.type.PrimitiveTypeInfo;
+import io.trino.metastore.type.StructTypeInfo;
+import io.trino.metastore.type.TypeInfo;
+import io.trino.metastore.type.UnionTypeInfo;
 import io.trino.plugin.hive.HiveTimestampPrecision;
-import io.trino.plugin.hive.metastore.HiveType;
-import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.plugin.hive.type.ListTypeInfo;
-import io.trino.plugin.hive.type.MapTypeInfo;
-import io.trino.plugin.hive.type.PrimitiveCategory;
-import io.trino.plugin.hive.type.PrimitiveTypeInfo;
-import io.trino.plugin.hive.type.StructTypeInfo;
-import io.trino.plugin.hive.type.TypeInfo;
-import io.trino.plugin.hive.type.UnionTypeInfo;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;

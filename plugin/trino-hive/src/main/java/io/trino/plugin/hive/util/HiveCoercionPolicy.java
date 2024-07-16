@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.hive.util;
 
+import io.trino.metastore.HiveType;
+import io.trino.metastore.type.Category;
+import io.trino.metastore.type.ListTypeInfo;
+import io.trino.metastore.type.MapTypeInfo;
+import io.trino.metastore.type.StructTypeInfo;
 import io.trino.plugin.hive.HiveTimestampPrecision;
-import io.trino.plugin.hive.metastore.HiveType;
-import io.trino.plugin.hive.type.Category;
-import io.trino.plugin.hive.type.ListTypeInfo;
-import io.trino.plugin.hive.type.MapTypeInfo;
-import io.trino.plugin.hive.type.StructTypeInfo;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
@@ -29,15 +29,15 @@ import io.trino.spi.type.VarcharType;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_BOOLEAN;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_BYTE;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_DATE;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_DOUBLE;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_FLOAT;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_INT;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_LONG;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_SHORT;
-import static io.trino.plugin.hive.metastore.HiveType.HIVE_TIMESTAMP;
+import static io.trino.metastore.HiveType.HIVE_BOOLEAN;
+import static io.trino.metastore.HiveType.HIVE_BYTE;
+import static io.trino.metastore.HiveType.HIVE_DATE;
+import static io.trino.metastore.HiveType.HIVE_DOUBLE;
+import static io.trino.metastore.HiveType.HIVE_FLOAT;
+import static io.trino.metastore.HiveType.HIVE_INT;
+import static io.trino.metastore.HiveType.HIVE_LONG;
+import static io.trino.metastore.HiveType.HIVE_SHORT;
+import static io.trino.metastore.HiveType.HIVE_TIMESTAMP;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore;
 
+import io.trino.metastore.HiveMetastore;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Optional;

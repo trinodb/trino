@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.hive.security;
 
-import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.metastore.HivePrincipal;
+import io.trino.metastore.HivePrivilegeInfo;
+import io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.spi.security.RoleGrant;
 
 import java.util.Optional;

@@ -148,6 +148,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-metastore</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-orc</artifactId>
         </dependency>
 

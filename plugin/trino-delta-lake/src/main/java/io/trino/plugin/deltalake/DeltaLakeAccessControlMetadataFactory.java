@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadata;
 
 public interface DeltaLakeAccessControlMetadataFactory
