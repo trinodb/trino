@@ -961,7 +961,7 @@ roles
     ;
 
 privilegeOrRole
-    : CREATE | SELECT | DELETE | INSERT | UPDATE | EXECUTE | identifier
+    : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier
     ;
 
 identifier
