@@ -397,7 +397,7 @@ public final class DeltaLakeSchemaSupport
             return Optional.of("string");
         }
         if (type instanceof DecimalType decimalType) {
-            return Optional.of(String.format("decimal(%s,%s)", decimalType.getPrecision(), decimalType.getScale()));
+            return Optional.of(format("decimal(%s,%s)", decimalType.getPrecision(), decimalType.getScale()));
         }
         return Optional.ofNullable(PRIMITIVE_TYPE_MAPPING.get(type));
     }
