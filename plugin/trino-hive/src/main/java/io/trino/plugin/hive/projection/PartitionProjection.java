@@ -15,9 +15,9 @@ package io.trino.plugin.hive.projection;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.Table;
+import io.trino.metastore.Column;
+import io.trino.metastore.Partition;
+import io.trino.metastore.Table;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -33,7 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.cartesianProduct;
-import static io.trino.plugin.hive.metastore.Partition.toPartitionValues;
+import static io.trino.metastore.Partition.toPartitionValues;
 import static io.trino.plugin.hive.projection.InvalidProjectionException.invalidProjectionMessage;
 import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
 import static java.lang.String.format;

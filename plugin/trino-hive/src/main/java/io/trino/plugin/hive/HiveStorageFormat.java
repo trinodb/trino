@@ -15,12 +15,12 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.hive.formats.compression.CompressionKind;
-import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.plugin.hive.type.Category;
-import io.trino.plugin.hive.type.MapTypeInfo;
-import io.trino.plugin.hive.type.PrimitiveCategory;
-import io.trino.plugin.hive.type.PrimitiveTypeInfo;
-import io.trino.plugin.hive.type.TypeInfo;
+import io.trino.metastore.StorageFormat;
+import io.trino.metastore.type.Category;
+import io.trino.metastore.type.MapTypeInfo;
+import io.trino.metastore.type.PrimitiveCategory;
+import io.trino.metastore.type.PrimitiveTypeInfo;
+import io.trino.metastore.type.TypeInfo;
 import io.trino.spi.TrinoException;
 
 import java.util.Arrays;

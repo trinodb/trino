@@ -14,6 +14,8 @@
 package io.trino.plugin.hive.metastore;
 
 import io.airlift.json.JsonCodec;
+import io.trino.metastore.Storage;
+import io.trino.metastore.StorageFormat;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;

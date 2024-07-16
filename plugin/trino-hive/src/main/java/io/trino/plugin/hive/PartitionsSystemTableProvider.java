@@ -14,7 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.inject.Inject;
-import io.trino.plugin.hive.metastore.Table;
+import io.trino.metastore.Table;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;

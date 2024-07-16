@@ -15,10 +15,10 @@ package io.trino.plugin.hudi.query;
 
 import io.airlift.units.DataSize;
 import io.trino.filesystem.FileEntry.Block;
+import io.trino.metastore.Column;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.files.HudiBaseFile;
