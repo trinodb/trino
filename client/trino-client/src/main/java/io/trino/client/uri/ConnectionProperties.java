@@ -22,7 +22,6 @@ import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.DnsResolver;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
-import okhttp3.logging.HttpLoggingInterceptor;
 import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
@@ -110,7 +109,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, Boolean> ASSUME_NULL_CATALOG_MEANS_CURRENT_CATALOG = new AssumeNullCatalogMeansCurrentCatalog();
     public static final ConnectionProperty<String, Locale> LOCALE = new UserLocale();
     public static final ConnectionProperty<String, Duration> TIMEOUT = new Timeout();
-    public static final ConnectionProperty<String, HttpLoggingInterceptor.Level> HTTP_LOGGING_LEVEL = new HttpLoggingLevel();
+    public static final ConnectionProperty<String, LoggingLevel> HTTP_LOGGING_LEVEL = new HttpLoggingLevel();
     public static final ConnectionProperty<String, Map<String, String>> RESOURCE_ESTIMATES = new ResourceEstimates();
 
     private static final Set<ConnectionProperty<?, ?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?, ?>>builder()
@@ -810,11 +809,11 @@ final class ConnectionProperties
     }
 
     private static class HttpLoggingLevel
-            extends AbstractConnectionProperty<String, HttpLoggingInterceptor.Level>
+            extends AbstractConnectionProperty<String, LoggingLevel>
     {
         protected HttpLoggingLevel()
         {
-            super(PropertyName.HTTP_LOGGING_LEVEL, NOT_REQUIRED, ALLOWED, converter(HttpLoggingInterceptor.Level::valueOf, HttpLoggingInterceptor.Level::toString));
+            super(PropertyName.HTTP_LOGGING_LEVEL, NOT_REQUIRED, ALLOWED, converter(LoggingLevel::valueOf, LoggingLevel::toString));
         }
     }
 

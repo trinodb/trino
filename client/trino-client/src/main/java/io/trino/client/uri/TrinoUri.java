@@ -25,7 +25,6 @@ import io.trino.client.ClientSession;
 import io.trino.client.DnsResolver;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
 import io.trino.client.auth.external.RedirectHandler;
-import okhttp3.logging.HttpLoggingInterceptor;
 import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
@@ -95,6 +94,7 @@ import static io.trino.client.uri.ConnectionProperties.TIMEOUT;
 import static io.trino.client.uri.ConnectionProperties.TIMEZONE;
 import static io.trino.client.uri.ConnectionProperties.TRACE_TOKEN;
 import static io.trino.client.uri.ConnectionProperties.USER;
+import static io.trino.client.uri.LoggingLevel.NONE;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
 import static java.lang.System.getProperty;
@@ -434,9 +434,9 @@ public class TrinoUri
         return resolveWithDefault(TIMEOUT, Duration.valueOf("30s"));
     }
 
-    public HttpLoggingInterceptor.Level getHttpLoggingLevel()
+    public LoggingLevel getHttpLoggingLevel()
     {
-        return resolveWithDefault(HTTP_LOGGING_LEVEL, HttpLoggingInterceptor.Level.NONE);
+        return resolveWithDefault(HTTP_LOGGING_LEVEL, NONE);
     }
 
     private Map<String, String> getResourceEstimates()
@@ -1002,7 +1002,7 @@ public class TrinoUri
             return setProperty(TIMEOUT, requireNonNull(timeout, "timeout is null"));
         }
 
-        public Builder setHttpLoggingLevel(HttpLoggingInterceptor.Level level)
+        public Builder setHttpLoggingLevel(LoggingLevel level)
         {
             return setProperty(HTTP_LOGGING_LEVEL, requireNonNull(level, "level is null"));
         }
