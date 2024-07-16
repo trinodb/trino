@@ -15,10 +15,10 @@ package io.trino.plugin.hive.metastore.glue;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
+import io.trino.plugin.hive.metastore.HiveType;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;

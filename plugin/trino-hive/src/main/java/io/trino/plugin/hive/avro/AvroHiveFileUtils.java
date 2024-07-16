@@ -19,7 +19,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 import io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager;
-import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.metastore.HiveType;
 import io.trino.plugin.hive.type.CharTypeInfo;
 import io.trino.plugin.hive.type.DecimalTypeInfo;
 import io.trino.plugin.hive.type.ListTypeInfo;

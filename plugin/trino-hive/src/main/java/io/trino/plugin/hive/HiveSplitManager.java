@@ -27,6 +27,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HivePartition;
+import io.trino.plugin.hive.metastore.HiveType;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.SortingColumn;

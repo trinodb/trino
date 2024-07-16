@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore;
 
-import io.trino.plugin.hive.HiveType;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
