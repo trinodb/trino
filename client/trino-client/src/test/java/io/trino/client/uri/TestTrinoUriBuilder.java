@@ -34,6 +34,7 @@ import static io.trino.client.uri.ConnectionProperties.HTTP_LOGGING_LEVEL;
 import static io.trino.client.uri.ConnectionProperties.HTTP_PROXY;
 import static io.trino.client.uri.ConnectionProperties.LOCALE;
 import static io.trino.client.uri.ConnectionProperties.PASSWORD;
+import static io.trino.client.uri.ConnectionProperties.RESOURCE_ESTIMATES;
 import static io.trino.client.uri.ConnectionProperties.ROLES;
 import static io.trino.client.uri.ConnectionProperties.SESSION_PROPERTIES;
 import static io.trino.client.uri.ConnectionProperties.SESSION_USER;
@@ -102,6 +103,15 @@ public class TestTrinoUriBuilder
                 SESSION_PROPERTIES,
                 ImmutableMap.of("session_key1", "session_value1", "session_key2", "session_value2", "catalog.session_key3", "session_value3"),
                 "session_key1:session_value1;session_key2:session_value2;catalog.session_key3:session_value3");
+    }
+
+    @Test
+    public void testSetResourceEstimates()
+    {
+        assertRoundTrip(
+                RESOURCE_ESTIMATES,
+                ImmutableMap.of("EXECUTION_TIME", "10d", "CPU_TIME", "10d", "PEAK_MEMORY", "10G"),
+                "EXECUTION_TIME:10d;CPU_TIME:10d;PEAK_MEMORY:10G");
     }
 
     public <T, V> void assertRoundTrip(ConnectionProperty<V, T> property, T value, V expectedSerialized)

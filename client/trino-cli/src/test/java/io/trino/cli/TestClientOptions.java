@@ -348,7 +348,6 @@ public class TestClientOptions
             case "outputFormat":
             case "outputFormatInteractive":
             case "pager":
-            case "resourceEstimates":
             case "ignoreErrors":
             case "editingMode":
             case "disableAutoSuggestion":

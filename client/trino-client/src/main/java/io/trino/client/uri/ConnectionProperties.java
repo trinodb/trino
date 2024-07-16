@@ -44,9 +44,6 @@ import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.client.ClientSelectedRole.Type.ALL;
 import static io.trino.client.ClientSelectedRole.Type.NONE;
-import static io.trino.client.uri.AbstractConnectionProperty.ALLOWED;
-import static io.trino.client.uri.AbstractConnectionProperty.BOOLEAN_CONVERTER;
-import static io.trino.client.uri.AbstractConnectionProperty.NOT_REQUIRED;
 import static io.trino.client.uri.AbstractConnectionProperty.Validator;
 import static io.trino.client.uri.AbstractConnectionProperty.validator;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.FULL;
@@ -114,6 +111,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, Locale> LOCALE = new UserLocale();
     public static final ConnectionProperty<String, Duration> TIMEOUT = new Timeout();
     public static final ConnectionProperty<String, HttpLoggingInterceptor.Level> HTTP_LOGGING_LEVEL = new HttpLoggingLevel();
+    public static final ConnectionProperty<String, Map<String, String>> RESOURCE_ESTIMATES = new ResourceEstimates();
 
     private static final Set<ConnectionProperty<?, ?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?, ?>>builder()
             // Keep sorted
@@ -148,6 +146,7 @@ final class ConnectionProperties
             .add(KERBEROS_USE_CANONICAL_HOSTNAME)
             .add(LOCALE)
             .add(PASSWORD)
+            .add(RESOURCE_ESTIMATES)
             .add(ROLES)
             .add(SCHEMA)
             .add(SESSION_PROPERTIES)
@@ -261,6 +260,35 @@ final class ConnectionProperties
                 return new ClientSelectedRole(NONE, Optional.empty());
             }
             return new ClientSelectedRole(ClientSelectedRole.Type.ROLE, Optional.of(role));
+        }
+    }
+
+    private static class ResourceEstimates
+            extends AbstractConnectionProperty<String, Map<String, String>>
+    {
+        private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E);
+
+        public ResourceEstimates()
+        {
+            super(PropertyName.RESOURCE_ESTIMATES, NOT_REQUIRED, ALLOWED, converter(ResourceEstimates::parseResourceEstimates, ResourceEstimates::toString));
+        }
+
+        public static Map<String, String> parseResourceEstimates(String resourceEstimateString)
+        {
+            Map<String, String> resourceEstimates = new MapPropertyParser(PropertyName.RESOURCE_ESTIMATES.toString()).parse(resourceEstimateString);
+            for (String resourceName : resourceEstimates.keySet()) {
+                checkArgument(PRINTABLE_ASCII.matchesAllOf(resourceName), "Resource contains spaces or is not ASCII: %s", resourceName);
+                checkArgument(resourceName.indexOf('=') < 0, "Resource must not contain '=': %s", resourceName);
+                checkArgument(PRINTABLE_ASCII.matchesAllOf(resourceEstimates.get(resourceName)), "Resource estimate contains spaces or is not ASCII: %s", resourceName);
+            }
+            return resourceEstimates;
+        }
+
+        public static String toString(Map<String, String> values)
+        {
+            return values.entrySet().stream()
+                    .map(entry -> entry.getKey() + ":" + entry.getValue())
+                    .collect(Collectors.joining(";"));
         }
     }
 
