@@ -32,7 +32,6 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveTableHandle;
@@ -1229,15 +1228,15 @@ public class SemiTransactionalHiveMetastore
 
     public AcidTransaction beginInsert(ConnectorSession session, Table table)
     {
-        return beginOperation(session, table, AcidOperation.INSERT, DataOperationType.INSERT);
+        return beginOperation(session, table, AcidOperation.INSERT);
     }
 
     public AcidTransaction beginMerge(ConnectorSession session, Table table)
     {
-        return beginOperation(session, table, AcidOperation.MERGE, DataOperationType.UPDATE);
+        return beginOperation(session, table, AcidOperation.MERGE);
     }
 
-    private AcidTransaction beginOperation(ConnectorSession session, Table table, AcidOperation operation, DataOperationType hiveOperation)
+    private AcidTransaction beginOperation(ConnectorSession session, Table table, AcidOperation operation)
     {
         String queryId = session.getQueryId();
 
@@ -1253,7 +1252,7 @@ public class SemiTransactionalHiveMetastore
                         transactionId,
                         table.getDatabaseName(),
                         table.getTableName(),
-                        hiveOperation,
+                        operation,
                         !table.getPartitionColumns().isEmpty());
                 long writeId = allocateWriteId(table.getDatabaseName(), table.getTableName(), transactionId);
                 return new AcidTransaction(operation, transactionId, writeId);
@@ -3227,7 +3226,7 @@ public class SemiTransactionalHiveMetastore
             long transactionId,
             String dbName,
             String tableName,
-            DataOperationType operation,
+            AcidOperation operation,
             boolean isPartitioned)
     {
         delegate.acquireTableWriteLock(transactionOwner, queryId, transactionId, dbName, tableName, operation, isPartitioned);

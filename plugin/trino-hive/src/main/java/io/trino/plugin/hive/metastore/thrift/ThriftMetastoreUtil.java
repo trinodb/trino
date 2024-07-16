@@ -25,6 +25,7 @@ import io.airlift.json.JsonCodec;
 import io.trino.hive.thrift.metastore.BinaryColumnStatsData;
 import io.trino.hive.thrift.metastore.BooleanColumnStatsData;
 import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
+import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.hive.thrift.metastore.Date;
 import io.trino.hive.thrift.metastore.DateColumnStatsData;
 import io.trino.hive.thrift.metastore.Decimal;
@@ -44,6 +45,7 @@ import io.trino.hive.thrift.metastore.StringColumnStatsData;
 import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -929,5 +931,14 @@ public final class ThriftMetastoreUtil
         catch (RuntimeException e) {
             throw new TrinoException(HIVE_INVALID_METADATA, "Failed to decode function: " + name, e);
         }
+    }
+
+    public static DataOperationType toDataOperationType(AcidOperation acidOperation)
+    {
+        return switch (acidOperation) {
+            case INSERT -> DataOperationType.INSERT;
+            case MERGE -> DataOperationType.UPDATE;
+            default -> throw new IllegalStateException("No metastore operation for ACID operation " + acidOperation);
+        };
     }
 }
