@@ -16,7 +16,6 @@ package io.trino.plugin.hive.metastore;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.util.Statistics;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatisticType;

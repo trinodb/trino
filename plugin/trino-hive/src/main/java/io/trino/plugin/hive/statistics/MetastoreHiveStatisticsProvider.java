@@ -16,7 +16,7 @@ package io.trino.plugin.hive.statistics;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HivePartition;
-import io.trino.plugin.hive.PartitionStatistics;
+import io.trino.plugin.hive.metastore.PartitionStatistics;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
