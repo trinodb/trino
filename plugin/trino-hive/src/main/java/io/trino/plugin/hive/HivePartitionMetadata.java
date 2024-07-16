@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.hive.metastore.HivePartition;
 import io.trino.plugin.hive.metastore.Partition;
 
 import java.util.Map;

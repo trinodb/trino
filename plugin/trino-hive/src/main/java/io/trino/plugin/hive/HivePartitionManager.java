@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.trino.plugin.hive.metastore.HivePartition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.spi.connector.ColumnHandle;

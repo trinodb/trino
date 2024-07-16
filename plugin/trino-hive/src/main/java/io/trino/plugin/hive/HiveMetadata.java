@@ -43,6 +43,7 @@ import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
+import io.trino.plugin.hive.metastore.HivePartition;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionStatistics;
