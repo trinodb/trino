@@ -25,7 +25,6 @@ import io.airlift.compress.zstd.ZstdCompressor;
 import io.airlift.slice.Slice;
 import io.trino.hive.thrift.metastore.ResourceType;
 import io.trino.hive.thrift.metastore.ResourceUri;
-import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.PartitionOfflineException;
 import io.trino.plugin.hive.TableOfflineException;
