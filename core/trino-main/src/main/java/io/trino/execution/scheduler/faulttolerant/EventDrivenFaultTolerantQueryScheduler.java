@@ -640,6 +640,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     // Also empty events can push important events out of recorded debug information - making debug logs less useful.
                     return Optional.empty();
                 }
+                return Optional.of(splitAssignmentEvent.debugInfo());
             }
 
             return Optional.of(event.toString());
@@ -3402,6 +3403,15 @@ public class EventDrivenFaultTolerantQueryScheduler
             return toStringHelper(this)
                     .add("stageId", getStageId())
                     .add("assignmentResult", assignmentResult)
+                    .toString();
+        }
+
+        public String debugInfo()
+        {
+            // toString is too verbose
+            return toStringHelper(this)
+                    .add("stageId", getStageId())
+                    .add("assignmentResult", assignmentResult.debugInfo())
                     .toString();
         }
     }
