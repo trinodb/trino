@@ -53,6 +53,7 @@ public enum PropertyName
     KERBEROS_USE_CANONICAL_HOSTNAME("KerberosUseCanonicalHostname"),
     LOCALE("locale"),
     PASSWORD("password"),
+    RESOURCE_ESTIMATES("resourceEstimates"),
     ROLES("roles"),
     SCHEMA("schema"), // this is not actual property but part of the path
     SESSION_PROPERTIES("sessionProperties"),

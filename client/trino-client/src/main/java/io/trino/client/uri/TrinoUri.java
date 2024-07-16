@@ -73,6 +73,7 @@ import static io.trino.client.uri.ConnectionProperties.KERBEROS_SERVICE_PRINCIPA
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static io.trino.client.uri.ConnectionProperties.LOCALE;
 import static io.trino.client.uri.ConnectionProperties.PASSWORD;
+import static io.trino.client.uri.ConnectionProperties.RESOURCE_ESTIMATES;
 import static io.trino.client.uri.ConnectionProperties.ROLES;
 import static io.trino.client.uri.ConnectionProperties.SCHEMA;
 import static io.trino.client.uri.ConnectionProperties.SESSION_PROPERTIES;
@@ -438,6 +439,11 @@ public class TrinoUri
         return resolveWithDefault(HTTP_LOGGING_LEVEL, HttpLoggingInterceptor.Level.NONE);
     }
 
+    private Map<String, String> getResourceEstimates()
+    {
+        return resolveWithDefault(RESOURCE_ESTIMATES, ImmutableMap.of());
+    }
+
     @VisibleForTesting
     public Properties getProperties()
     {
@@ -481,6 +487,7 @@ public class TrinoUri
                 .properties(getSessionProperties())
                 .credentials(getExtraCredentials())
                 .transactionId(null)
+                .resourceEstimates(getResourceEstimates())
                 .compressionDisabled(isCompressionDisabled())
                 .build();
     }
@@ -998,6 +1005,11 @@ public class TrinoUri
         public Builder setHttpLoggingLevel(HttpLoggingInterceptor.Level level)
         {
             return setProperty(HTTP_LOGGING_LEVEL, requireNonNull(level, "level is null"));
+        }
+
+        public Builder setResourceEstimates(Map<String, String> resourceEstimates)
+        {
+            return setProperty(RESOURCE_ESTIMATES, requireNonNull(resourceEstimates, "resourceEstimates is null"));
         }
 
         <V, T> Builder setProperty(ConnectionProperty<V, T> connectionProperty, T value)
