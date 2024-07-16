@@ -672,9 +672,10 @@ public class Analysis
                 .collect(toImmutableSet());
     }
 
-    public ResolvedFunction getResolvedFunction(Node node)
+    public Optional<ResolvedFunction> getResolvedFunction(Node node)
     {
-        return resolvedFunctions.get(NodeRef.of(node)).getFunction();
+        return Optional.ofNullable(resolvedFunctions.get(NodeRef.of(node)))
+                .map(RoutineEntry::getFunction);
     }
 
     public void addResolvedFunction(Node node, ResolvedFunction function, String authorization)
