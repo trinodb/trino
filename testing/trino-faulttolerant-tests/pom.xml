@@ -12,12 +12,6 @@
     <artifactId>trino-faulttolerant-tests</artifactId>
     <description>Trino - Fault-tolerant execution tests</description>
 
-<<<<<<< HEAD
-    <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-    </properties>
-=======
->>>>>>> temp-branch
     <dependencies>
         <dependency>
             <groupId>org.jetbrains</groupId>
