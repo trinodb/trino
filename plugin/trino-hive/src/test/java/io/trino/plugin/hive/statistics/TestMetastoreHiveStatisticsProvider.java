@@ -15,12 +15,12 @@ package io.trino.plugin.hive.statistics;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.DateStatistics;
 import io.trino.plugin.hive.metastore.DecimalStatistics;
 import io.trino.plugin.hive.metastore.DoubleStatistics;
+import io.trino.plugin.hive.metastore.HiveBasicStatistics;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HivePartition;
 import io.trino.plugin.hive.metastore.IntegerStatistics;

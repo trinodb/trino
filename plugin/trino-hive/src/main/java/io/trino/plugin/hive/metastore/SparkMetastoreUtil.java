@@ -16,7 +16,6 @@ package io.trino.plugin.hive.metastore;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Longs;
-import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.type.PrimitiveTypeInfo;
 import io.trino.plugin.hive.type.TypeInfo;
 import jakarta.annotation.Nullable;
