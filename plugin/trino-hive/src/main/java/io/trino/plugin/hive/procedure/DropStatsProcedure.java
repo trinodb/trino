@@ -30,6 +30,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
@@ -129,8 +130,8 @@ public class DropStatsProcedure
                 validatePartitions(partitionStringValues, partitionColumns);
 
                 partitionStringValues.forEach(values -> metastore.updatePartitionStatistics(
-                        schema,
-                        table,
+                        metastore.getTable(schema, table)
+                                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(schema, table))),
                         CLEAR_ALL,
                         ImmutableMap.of(
                                 makePartName(partitionColumns, values),
@@ -151,8 +152,8 @@ public class DropStatsProcedure
                     // the table is partitioned; remove stats for every partition
                     metastore.getPartitionNamesByFilter(handle.getSchemaName(), handle.getTableName(), partitionColumns, TupleDomain.all())
                             .ifPresent(partitions -> partitions.forEach(partitionName -> metastore.updatePartitionStatistics(
-                                    schema,
-                                    table,
+                                    metastore.getTable(schema, table)
+                                            .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(schema, table))),
                                     CLEAR_ALL,
                                     ImmutableMap.of(
                                             partitionName,
