@@ -329,7 +329,6 @@ public class ClientOptions
         return ClientSession
                 .builder(clientSession)
                 .source(firstNonNull(clientSession.getSource(), SOURCE_DEFAULT))
-                .clientRequestTimeout(clientRequestTimeout)
                 .build();
     }
 

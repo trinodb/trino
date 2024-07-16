@@ -13,6 +13,7 @@
  */
 package io.trino.jdbc;
 
+import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -249,6 +250,14 @@ public class TestTrinoDriverUri
     {
         TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080/blackhole");
         assertUriPortScheme(parameters, 8080, "http");
+    }
+
+    @Test
+    public void testUriWithTimeout()
+            throws SQLException
+    {
+        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080/?timeout=10s");
+        assertThat(parameters.getTimeout()).isEqualTo(Duration.valueOf("10s"));
     }
 
     @Test
