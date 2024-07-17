@@ -80,7 +80,6 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
-import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveBasicStatistics;
@@ -597,17 +596,17 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
-                .run(() -> updateTableStatisticsInternal(databaseName, tableName, transaction, mode, statisticsUpdate));
+                .run(() -> updateTableStatisticsInternal(databaseName, tableName, acidWriteId, mode, statisticsUpdate));
     }
 
-    private void updateTableStatisticsInternal(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    private void updateTableStatisticsInternal(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Table table = getExistingTable(databaseName, tableName);
-        if (transaction.isAcidTransactionRunning()) {
-            table = Table.builder(table).setWriteId(OptionalLong.of(transaction.getWriteId())).build();
+        if (acidWriteId.isPresent()) {
+            table = Table.builder(table).setWriteId(acidWriteId).build();
         }
         // load current statistics
         HiveBasicStatistics currentBasicStatistics = getHiveBasicStatistics(table.getParameters());
