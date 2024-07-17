@@ -222,10 +222,12 @@ public class HiveMetadataFactory
     public TransactionalMetadata create(ConnectorIdentity identity, boolean autoCommit)
     {
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastoreFactory.createMetastore(Optional.of(identity)), perTransactionCacheMaximumSize);
-        HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(cachingHiveMetastore, typeManager, partitionProjectionEnabled);
+        HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(cachingHiveMetastore);
 
         DirectoryLister directoryLister = transactionScopeCachingDirectoryListerFactory.get(this.directoryLister);
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
+                typeManager,
+                partitionProjectionEnabled,
                 fileSystemFactory,
                 hiveMetastoreClosure,
                 fileSystemExecutor,

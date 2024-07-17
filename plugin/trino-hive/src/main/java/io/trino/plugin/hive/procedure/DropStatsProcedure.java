@@ -150,7 +150,7 @@ public class DropStatsProcedure
                 }
                 else {
                     // the table is partitioned; remove stats for every partition
-                    metastore.getPartitionNamesByFilter(handle.getSchemaName(), handle.getTableName(), partitionColumns, TupleDomain.all())
+                    hiveMetadata.getMetastore().getPartitionNamesByFilter(handle.getSchemaName(), handle.getTableName(), partitionColumns, TupleDomain.all())
                             .ifPresent(partitions -> partitions.forEach(partitionName -> metastore.updatePartitionStatistics(
                                     metastore.getTable(schema, table)
                                             .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(schema, table))),
