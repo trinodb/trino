@@ -40,7 +40,7 @@ public final class VariableWidthData
 {
     private static final int INSTANCE_SIZE = instanceSize(VariableWidthData.class);
 
-    public static final int MIN_CHUNK_SIZE = 1024;
+    public static final int MIN_CHUNK_SIZE = 256;
     public static final int MAX_CHUNK_SIZE = 8 * 1024 * 1024;
 
     public static final int POINTER_SIZE = SIZE_OF_INT + SIZE_OF_INT + SIZE_OF_INT;
