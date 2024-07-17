@@ -205,7 +205,7 @@ public final class ColumnReaderFactory
             }
             if (timestampType.isShort()) {
                 return switch (timestampAnnotation.getUnit()) {
-                    case MILLIS -> createColumnReader(field, valueDecoders::getInt64TimestampMillsToShortTimestampDecoder, LONG_ADAPTER, memoryContext);
+                    case MILLIS -> createColumnReader(field, valueDecoders::getInt64TimestampMillisToShortTimestampDecoder, LONG_ADAPTER, memoryContext);
                     case MICROS -> createColumnReader(field, valueDecoders::getInt64TimestampMicrosToShortTimestampDecoder, LONG_ADAPTER, memoryContext);
                     case NANOS -> createColumnReader(field, valueDecoders::getInt64TimestampNanosToShortTimestampDecoder, LONG_ADAPTER, memoryContext);
                 };
