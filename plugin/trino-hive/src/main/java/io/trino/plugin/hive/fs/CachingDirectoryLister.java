@@ -59,11 +59,18 @@ public class CachingDirectoryLister
     @Inject
     public CachingDirectoryLister(HiveConfig hiveClientConfig)
     {
-        this(hiveClientConfig.getFileStatusCacheExpireAfterWrite(), hiveClientConfig.getFileStatusCacheMaxRetainedSize(),
-                hiveClientConfig.getFileStatusCacheTables(), hiveClientConfig.getS3StorageClassFilter().toFileEntryPredicate());
+        this(
+                hiveClientConfig.getFileStatusCacheExpireAfterWrite(),
+                hiveClientConfig.getFileStatusCacheMaxRetainedSize(),
+                hiveClientConfig.getFileStatusCacheTables(),
+                hiveClientConfig.getS3StorageClassFilter().toFileEntryPredicate());
     }
 
-    public CachingDirectoryLister(Duration expireAfterWrite, DataSize maxSize, List<String> tables, Predicate<FileEntry> filterPredicate)
+    public CachingDirectoryLister(
+            Duration expireAfterWrite,
+            DataSize maxSize,
+            List<String> tables,
+            Predicate<FileEntry> filterPredicate)
     {
         requireNonNull(expireAfterWrite, "expireAfterWrite is null");
         requireNonNull(maxSize, "maxSize is null");
