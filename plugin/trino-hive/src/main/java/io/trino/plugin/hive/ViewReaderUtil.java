@@ -57,7 +57,6 @@ import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.metastore.HiveType.toHiveType;
-import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static java.lang.String.format;
@@ -118,7 +117,7 @@ public final class ViewReaderUtil
                     .setTableType(EXTERNAL_TABLE.name())
                     .setDataColumns(columns)
                     // Required by 'Table', but not used by view translation.
-                    .withStorage(storage -> storage.setStorageFormat(fromHiveStorageFormat(TEXTFILE)))
+                    .withStorage(storage -> storage.setStorageFormat(TEXTFILE.toStorageFormat()))
                     .setOwner(Optional.empty())
                     .build();
             return toMetastoreApiTable(table);

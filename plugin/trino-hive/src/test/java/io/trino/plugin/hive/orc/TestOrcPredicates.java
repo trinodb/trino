@@ -31,7 +31,6 @@ import io.trino.plugin.hive.HivePageSourceProvider;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.metastore.HiveType;
-import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
@@ -198,7 +197,7 @@ class TestOrcPredicates
                 .createFileWriter(
                         location,
                         COLUMNS.stream().map(HiveColumnHandle::getName).collect(toList()),
-                        StorageFormat.fromHiveStorageFormat(ORC),
+                        ORC.toStorageFormat(),
                         HiveCompressionCodec.NONE,
                         getTableProperties(),
                         session,
