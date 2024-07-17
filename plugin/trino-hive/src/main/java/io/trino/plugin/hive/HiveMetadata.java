@@ -291,6 +291,8 @@ import static io.trino.plugin.hive.util.HiveBucketing.getBucketingVersion;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveDereferenceNames;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveTypeForDereferences;
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.getTableColumnMetadata;
@@ -3202,7 +3204,7 @@ public class HiveMetadata
     private HiveColumnHandle createProjectedColumnHandle(HiveColumnHandle column, List<Integer> indices)
     {
         HiveType oldHiveType = column.getHiveType();
-        HiveType newHiveType = oldHiveType.getHiveTypeForDereferences(indices).orElseThrow();
+        HiveType newHiveType = getHiveTypeForDereferences(oldHiveType, indices).orElseThrow();
 
         HiveColumnProjectionInfo columnProjectionInfo = new HiveColumnProjectionInfo(
                 // Merge indices
@@ -3217,7 +3219,7 @@ public class HiveMetadata
                         .addAll(column.getHiveColumnProjectionInfo()
                                 .map(HiveColumnProjectionInfo::getDereferenceNames)
                                 .orElse(ImmutableList.of()))
-                        .addAll(oldHiveType.getHiveDereferenceNames(indices))
+                        .addAll(getHiveDereferenceNames(oldHiveType, indices))
                         .build(),
                 newHiveType,
                 typeManager.getType(newHiveType.getTypeSignature()));

@@ -30,6 +30,8 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveTestUtils.rowType;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveDereferenceNames;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveTypeForDereferences;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
@@ -70,8 +72,8 @@ public class TestHiveReaderProjectionsUtil
         }
 
         HiveType baseHiveType = column.getHiveType();
-        List<String> names = baseHiveType.getHiveDereferenceNames(indices);
-        HiveType hiveType = baseHiveType.getHiveTypeForDereferences(indices).get();
+        List<String> names = getHiveDereferenceNames(baseHiveType, indices);
+        HiveType hiveType = getHiveTypeForDereferences(baseHiveType, indices).get();
 
         HiveColumnProjectionInfo columnProjection = new HiveColumnProjectionInfo(indices, names, hiveType, TESTING_TYPE_MANAGER.getType(hiveType.getTypeSignature()));
 

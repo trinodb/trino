@@ -106,6 +106,7 @@ import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionTrinoColumnProperties;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
+import static io.trino.plugin.hive.util.HiveTypeUtil.typeSupported;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
@@ -555,7 +556,7 @@ public final class HiveUtil
         for (Column field : table.getDataColumns()) {
             // ignore unsupported types rather than failing
             HiveType hiveType = field.getType();
-            if (hiveType.isSupportedType(table.getStorage().getStorageFormat())) {
+            if (typeSupported(hiveType.getTypeInfo(), table.getStorage().getStorageFormat())) {
                 columns.add(createBaseColumn(field.getName(), hiveColumnIndex, hiveType, hiveType.getType(typeManager, timestampPrecision), REGULAR, field.getComment()));
             }
             hiveColumnIndex++;
@@ -571,7 +572,7 @@ public final class HiveUtil
         List<Column> partitionKeys = table.getPartitionColumns();
         for (Column field : partitionKeys) {
             HiveType hiveType = field.getType();
-            if (!hiveType.isSupportedType(table.getStorage().getStorageFormat())) {
+            if (!typeSupported(hiveType.getTypeInfo(), table.getStorage().getStorageFormat())) {
                 throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
             columns.add(createBaseColumn(field.getName(), -1, hiveType, typeManager.getType(hiveType.getTypeSignature()), PARTITION_KEY, field.getComment()));
