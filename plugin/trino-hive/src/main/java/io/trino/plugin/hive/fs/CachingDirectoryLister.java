@@ -39,7 +39,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -53,7 +52,7 @@ public class CachingDirectoryLister
     //TODO use a cache key based on Path & SchemaTableName and iterate over the cache keys
     // to deal more efficiently with cache invalidation scenarios for partitioned tables.
     private final Cache<Location, ValueHolder> cache;
-    private final List<SchemaTablePrefix> tablePrefixes;
+    private final Predicate<SchemaTableName> tablePredicate;
     private final Predicate<FileEntry> filterPredicate;
 
     @Inject
@@ -83,10 +82,17 @@ public class CachingDirectoryLister
                 .shareNothingWhenDisabled()
                 .recordStats()
                 .build();
-        this.tablePrefixes = tables.stream()
-                .map(CachingDirectoryLister::parseTableName)
-                .collect(toImmutableList());
+        this.tablePredicate = matches(tables);
         this.filterPredicate = filterPredicate;
+    }
+
+    private static Predicate<SchemaTableName> matches(List<String> tables)
+    {
+        return tables.stream()
+                .map(CachingDirectoryLister::parseTableName)
+                .map(prefix -> (Predicate<SchemaTableName>) prefix::matches)
+                .reduce(Predicate::or)
+                .orElse(_ -> false);
     }
 
     private static SchemaTablePrefix parseTableName(String tableName)
@@ -235,7 +241,7 @@ public class CachingDirectoryLister
 
     private boolean isCacheEnabledFor(SchemaTableName schemaTableName)
     {
-        return tablePrefixes.stream().anyMatch(prefix -> prefix.matches(schemaTableName));
+        return tablePredicate.test(schemaTableName);
     }
 
     private static boolean isLocationPresent(Storage storage)
