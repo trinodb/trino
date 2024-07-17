@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.type;
 
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.plugin.hive.util.SerdeConstants.LIST_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.LIST_TYPE_NAME;
 import static java.util.Objects.requireNonNull;
 
 // based on org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo
