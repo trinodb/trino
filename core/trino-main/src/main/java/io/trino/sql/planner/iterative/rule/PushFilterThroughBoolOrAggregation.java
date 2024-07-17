@@ -239,7 +239,7 @@ public class PushFilterThroughBoolOrAggregation
                 context.getIdAllocator().getNextId(),
                 newAggregationNode,
                 Assignments.builder()
-                        .putIdentities(source.getOutputSymbols())
+                        .putIdentities(newAggregationNode.getOutputSymbols())
                         .put(boolOrSymbol, TRUE)
                         .build());
 
