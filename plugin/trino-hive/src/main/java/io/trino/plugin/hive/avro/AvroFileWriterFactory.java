@@ -52,6 +52,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -102,7 +103,7 @@ public class AvroFileWriterFactory
         // an index to rearrange columns in the proper order
         List<String> fileColumnNames = getColumnNames(schema);
         List<Type> fileColumnTypes = getColumnTypes(schema).stream()
-                .map(hiveType -> hiveType.getType(typeManager, hiveTimestampPrecision))
+                .map(hiveType -> getType(hiveType, typeManager, hiveTimestampPrecision))
                 .collect(toImmutableList());
 
         List<Type> inputColumnTypes = inputColumnNames.stream().map(inputColumnName -> {

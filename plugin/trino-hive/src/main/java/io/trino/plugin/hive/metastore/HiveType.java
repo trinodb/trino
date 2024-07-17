@@ -15,19 +15,14 @@ package io.trino.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveTypeName;
 import io.trino.plugin.hive.type.Category;
 import io.trino.plugin.hive.type.TypeInfo;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.type.TypeConstants.BIGINT_TYPE_NAME;
 import static io.trino.plugin.hive.type.TypeConstants.BINARY_TYPE_NAME;
 import static io.trino.plugin.hive.type.TypeConstants.BOOLEAN_TYPE_NAME;
@@ -43,7 +38,6 @@ import static io.trino.plugin.hive.type.TypeConstants.TINYINT_TYPE_NAME;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getPrimitiveTypeInfo;
 import static io.trino.plugin.hive.type.TypeInfoUtils.getTypeInfoFromTypeString;
 import static io.trino.plugin.hive.type.TypeInfoUtils.getTypeInfosFromTypeString;
-import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeSignature;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveType
@@ -86,25 +80,6 @@ public final class HiveType
     public TypeInfo getTypeInfo()
     {
         return typeInfo;
-    }
-
-    /**
-     * @deprecated Prefer {@link #getTypeSignature(HiveTimestampPrecision)}.
-     */
-    @Deprecated
-    public TypeSignature getTypeSignature()
-    {
-        return getTypeSignature(DEFAULT_PRECISION);
-    }
-
-    public TypeSignature getTypeSignature(HiveTimestampPrecision timestampPrecision)
-    {
-        return toTypeSignature(typeInfo, timestampPrecision);
-    }
-
-    public Type getType(TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
-    {
-        return typeManager.getType(getTypeSignature(timestampPrecision));
     }
 
     @Override
