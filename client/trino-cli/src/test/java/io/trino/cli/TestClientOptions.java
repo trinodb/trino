@@ -276,6 +276,21 @@ public class TestClientOptions
     }
 
     @Test
+    public void testTimeout()
+    {
+        Console console = createConsole("--client-request-timeout=17s");
+
+        ClientOptions options = console.clientOptions;
+        assertThat(options.clientRequestTimeout).isEqualTo(Duration.succinctDuration(17, SECONDS));
+
+        ClientSession session = options.toClientSession(options.getTrinoUri());
+        assertThat(session.getClientRequestTimeout()).isEqualTo(Duration.succinctDuration(17, SECONDS));
+
+        assertThatThrownBy(() -> createConsole("--client-request-timeout=17s", "trino://localhost:8080?timeout=30s").clientOptions.getTrinoUri())
+                .hasMessageContaining("Connection property timeout is passed both by URL and properties");
+    }
+
+    @Test
     public void testDisableCompression()
     {
         Console console = createConsole("--disable-compression");
