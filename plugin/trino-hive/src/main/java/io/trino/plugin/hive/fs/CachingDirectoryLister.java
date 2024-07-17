@@ -65,6 +65,10 @@ public class CachingDirectoryLister
 
     public CachingDirectoryLister(Duration expireAfterWrite, DataSize maxSize, List<String> tables, Predicate<FileEntry> filterPredicate)
     {
+        requireNonNull(expireAfterWrite, "expireAfterWrite is null");
+        requireNonNull(maxSize, "maxSize is null");
+        requireNonNull(tables, "tables is null");
+        requireNonNull(filterPredicate, "filterPredicate is null");
         this.cache = EvictableCacheBuilder.newBuilder()
                 .maximumWeight(maxSize.toBytes())
                 .weigher((Weigher<Location, ValueHolder>) (key, value) -> toIntExact(estimatedSizeOf(key.toString()) + value.getRetainedSizeInBytes()))
