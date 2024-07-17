@@ -13,14 +13,16 @@
  */
 package io.trino.plugin.hive.type;
 
-import io.trino.plugin.hive.util.SerdeConstants;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.plugin.hive.type.TypeConstants.LIST_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.MAP_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.STRUCT_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.UNION_TYPE_NAME;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getCharTypeInfo;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getDecimalTypeInfo;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getListTypeInfo;
@@ -29,10 +31,6 @@ import static io.trino.plugin.hive.type.TypeInfoFactory.getPrimitiveTypeInfo;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getStructTypeInfo;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getUnionTypeInfo;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getVarcharTypeInfo;
-import static io.trino.plugin.hive.util.SerdeConstants.LIST_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.MAP_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.STRUCT_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.UNION_TYPE_NAME;
 import static java.lang.Character.isLetterOrDigit;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
@@ -45,24 +43,24 @@ public final class TypeInfoUtils
     private TypeInfoUtils() {}
 
     static {
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.BINARY, SerdeConstants.BINARY_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.STRING, SerdeConstants.STRING_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.CHAR, SerdeConstants.CHAR_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.VARCHAR, SerdeConstants.VARCHAR_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.BOOLEAN, SerdeConstants.BOOLEAN_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.INT, SerdeConstants.INT_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.LONG, SerdeConstants.BIGINT_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.FLOAT, SerdeConstants.FLOAT_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.VOID, SerdeConstants.VOID_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.DOUBLE, SerdeConstants.DOUBLE_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.BYTE, SerdeConstants.TINYINT_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.SHORT, SerdeConstants.SMALLINT_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.DATE, SerdeConstants.DATE_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.TIMESTAMP, SerdeConstants.TIMESTAMP_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.TIMESTAMPLOCALTZ, SerdeConstants.TIMESTAMPLOCALTZ_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.INTERVAL_YEAR_MONTH, SerdeConstants.INTERVAL_YEAR_MONTH_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.INTERVAL_DAY_TIME, SerdeConstants.INTERVAL_DAY_TIME_TYPE_NAME));
-        registerType(new PrimitiveTypeEntry(PrimitiveCategory.DECIMAL, SerdeConstants.DECIMAL_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.BINARY, TypeConstants.BINARY_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.STRING, TypeConstants.STRING_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.CHAR, TypeConstants.CHAR_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.VARCHAR, TypeConstants.VARCHAR_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.BOOLEAN, TypeConstants.BOOLEAN_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.INT, TypeConstants.INT_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.LONG, TypeConstants.BIGINT_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.FLOAT, TypeConstants.FLOAT_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.VOID, TypeConstants.VOID_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.DOUBLE, TypeConstants.DOUBLE_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.BYTE, TypeConstants.TINYINT_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.SHORT, TypeConstants.SMALLINT_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.DATE, TypeConstants.DATE_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.TIMESTAMP, TypeConstants.TIMESTAMP_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.TIMESTAMPLOCALTZ, TypeConstants.TIMESTAMPLOCALTZ_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.INTERVAL_YEAR_MONTH, TypeConstants.INTERVAL_YEAR_MONTH_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.INTERVAL_DAY_TIME, TypeConstants.INTERVAL_DAY_TIME_TYPE_NAME));
+        registerType(new PrimitiveTypeEntry(PrimitiveCategory.DECIMAL, TypeConstants.DECIMAL_TYPE_NAME));
         registerType(new PrimitiveTypeEntry(PrimitiveCategory.UNKNOWN, "unknown"));
     }
 

@@ -16,7 +16,7 @@ package io.trino.plugin.hive.type;
 import java.util.Objects;
 
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.plugin.hive.util.SerdeConstants.MAP_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.MAP_TYPE_NAME;
 import static java.util.Objects.requireNonNull;
 
 // based on org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo

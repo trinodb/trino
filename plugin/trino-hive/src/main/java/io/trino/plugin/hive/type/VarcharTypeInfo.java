@@ -15,7 +15,7 @@ package io.trino.plugin.hive.type;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.plugin.hive.util.SerdeConstants.VARCHAR_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.VARCHAR_TYPE_NAME;
 
 // based on org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo
 public final class VarcharTypeInfo

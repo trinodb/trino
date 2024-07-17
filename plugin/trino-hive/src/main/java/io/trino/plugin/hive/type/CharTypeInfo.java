@@ -15,7 +15,7 @@ package io.trino.plugin.hive.type;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.plugin.hive.util.SerdeConstants.CHAR_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.CHAR_TYPE_NAME;
 
 public final class CharTypeInfo
         extends BaseCharTypeInfo

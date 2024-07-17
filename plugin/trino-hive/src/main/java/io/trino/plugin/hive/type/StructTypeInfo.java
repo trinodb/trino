@@ -24,7 +24,7 @@ import java.util.StringJoiner;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.plugin.hive.util.SerdeConstants.STRUCT_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.STRUCT_TYPE_NAME;
 import static java.util.Objects.requireNonNull;
 
 // based on org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo
