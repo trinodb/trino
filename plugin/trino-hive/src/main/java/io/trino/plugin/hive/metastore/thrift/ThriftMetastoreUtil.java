@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
@@ -54,6 +55,7 @@ import io.trino.plugin.hive.metastore.HiveType;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
@@ -672,7 +674,7 @@ public final class ThriftMetastoreUtil
 
         builder.setStorageFormat(StorageFormat.createNullable(serdeInfo.getSerializationLib(), storageDescriptor.getInputFormat(), storageDescriptor.getOutputFormat()))
                 .setLocation(nullToEmpty(storageDescriptor.getLocation()))
-                .setBucketProperty(HiveBucketProperty.fromStorageDescriptor(storageDescriptor, tablePartitionName))
+                .setBucketProperty(createBucketProperty(storageDescriptor, tablePartitionName))
                 .setSkewed(storageDescriptor.isSetSkewedInfo() && storageDescriptor.getSkewedInfo().isSetSkewedColNames() && !storageDescriptor.getSkewedInfo().getSkewedColNames().isEmpty())
                 .setSerdeParameters(serdeInfo.getParameters() == null ? ImmutableMap.of() : serdeInfo.getParameters());
     }
@@ -707,6 +709,30 @@ public final class ThriftMetastoreUtil
         }
 
         return sd;
+    }
+
+    private static Optional<HiveBucketProperty> createBucketProperty(StorageDescriptor storageDescriptor, String tablePartitionName)
+    {
+        boolean bucketColsSet = storageDescriptor.isSetBucketCols() && !storageDescriptor.getBucketCols().isEmpty();
+        boolean numBucketsSet = storageDescriptor.isSetNumBuckets() && storageDescriptor.getNumBuckets() > 0;
+        if (!numBucketsSet) {
+            // In Hive, a table is considered as not bucketed when its bucketCols is set but its numBucket is not set.
+            return Optional.empty();
+        }
+        if (!bucketColsSet) {
+            throw new TrinoException(HIVE_INVALID_METADATA, "Table/partition metadata has 'numBuckets' set, but 'bucketCols' is not set: " + tablePartitionName);
+        }
+        List<SortingColumn> sortedBy = ImmutableList.of();
+        if (storageDescriptor.isSetSortCols()) {
+            sortedBy = storageDescriptor.getSortCols().stream()
+                    .map(order -> SortingColumn.fromMetastoreApiOrder(order, tablePartitionName))
+                    .collect(toImmutableList());
+        }
+        List<String> bucketColumnNames = storageDescriptor.getBucketCols().stream()
+                // Ensure that the names used for the bucket columns are specified in lower case to match the names of the table columns
+                .map(name -> name.toLowerCase(ENGLISH))
+                .collect(toImmutableList());
+        return Optional.of(new HiveBucketProperty(bucketColumnNames, storageDescriptor.getNumBuckets(), sortedBy));
     }
 
     public static Set<HivePrivilegeInfo> parsePrivilege(PrivilegeGrantInfo userGrant, Optional<HivePrincipal> grantee)
