@@ -4,7 +4,7 @@
 
 ```text
 GRANT role_name [, ...]
-TO ( user | USER user_mame | ROLE role_name) [, ...]
+TO ( user | USER user_name | ROLE role_name) [, ...]
 [ GRANTED BY ( user | USER user | ROLE role | CURRENT_USER | CURRENT_ROLE ) ]
 [ WITH ADMIN OPTION ]
 [ IN catalog ]
