@@ -528,7 +528,10 @@ crash.
 
 The following example `exchange-manager.properties` configuration specifies an
 AWS S3 bucket as the spooling storage destination. Note that the destination
-does not have to be in AWS, but can be any S3-compatible storage system.
+does not have to be in AWS, but can be any S3-compatible storage system. While
+the exchange manager is designed to support S3-compatible storage systems, not
+all such systems are tested for compatibility. To ensure your storage system is
+compatible, refer to your vendor's documentation.
 
 ```properties
 exchange-manager.name=filesystem
