@@ -722,14 +722,16 @@ public final class ThriftMetastoreUtil
         if (!bucketColsSet) {
             throw new TrinoException(HIVE_INVALID_METADATA, "Table/partition metadata has 'numBuckets' set, but 'bucketCols' is not set: " + tablePartitionName);
         }
+        // Ensure that the names used for columns are specified in lower case to match the names of the table columns
         List<SortingColumn> sortedBy = ImmutableList.of();
         if (storageDescriptor.isSetSortCols()) {
             sortedBy = storageDescriptor.getSortCols().stream()
-                    .map(order -> SortingColumn.fromMetastoreApiOrder(order, tablePartitionName))
+                    .map(order -> new SortingColumn(
+                            order.getCol().toLowerCase(ENGLISH),
+                            SortingColumn.Order.fromMetastoreApiOrder(order.getOrder(), tablePartitionName)))
                     .collect(toImmutableList());
         }
         List<String> bucketColumnNames = storageDescriptor.getBucketCols().stream()
-                // Ensure that the names used for the bucket columns are specified in lower case to match the names of the table columns
                 .map(name -> name.toLowerCase(ENGLISH))
                 .collect(toImmutableList());
         return Optional.of(new HiveBucketProperty(bucketColumnNames, storageDescriptor.getNumBuckets(), sortedBy));
