@@ -1004,7 +1004,7 @@ public class HiveMetadata
             // Commit and then drop the database with raw metastore because exclusive operation after dropping object is disallowed in SemiTransactionalHiveMetastore
             metastore.commit();
             boolean deleteData = metastore.shouldDeleteDatabaseData(session, schemaName);
-            metastore.unsafeGetRawHiveMetastoreClosure().dropDatabase(schemaName, deleteData);
+            metastore.unsafeGetRawHiveMetastore().dropDatabase(schemaName, deleteData);
         }
         else {
             metastore.dropDatabase(session, schemaName);
