@@ -557,12 +557,12 @@ public class HiveWriterFactory
             List<Integer> sortFields = new ArrayList<>();
             List<SortOrder> sortOrders = new ArrayList<>();
             for (SortingColumn column : sortedBy) {
-                Integer index = columnIndexes.get(column.getColumnName());
+                Integer index = columnIndexes.get(column.columnName());
                 if (index == null) {
-                    throw new TrinoException(HIVE_INVALID_METADATA, format("Sorting column '%s' does exist in table '%s.%s'", column.getColumnName(), schemaName, tableName));
+                    throw new TrinoException(HIVE_INVALID_METADATA, format("Sorting column '%s' does exist in table '%s.%s'", column.columnName(), schemaName, tableName));
                 }
                 sortFields.add(index);
-                sortOrders.add(column.getOrder().getSortOrder());
+                sortOrders.add(column.order().getSortOrder());
             }
 
             hiveFileWriter = new SortingFileWriter(

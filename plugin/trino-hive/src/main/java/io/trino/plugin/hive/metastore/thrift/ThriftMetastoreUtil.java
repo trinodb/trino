@@ -703,7 +703,7 @@ public final class ThriftMetastoreUtil
             sd.setBucketCols(bucketProperty.get().bucketedBy());
             if (!bucketProperty.get().sortedBy().isEmpty()) {
                 sd.setSortCols(bucketProperty.get().sortedBy().stream()
-                        .map(column -> new Order(column.getColumnName(), column.getOrder().getHiveOrder()))
+                        .map(column -> new Order(column.columnName(), column.order().getHiveOrder()))
                         .collect(toImmutableList()));
             }
         }

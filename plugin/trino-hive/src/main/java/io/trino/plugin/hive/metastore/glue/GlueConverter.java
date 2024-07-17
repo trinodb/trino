@@ -357,8 +357,8 @@ final class GlueConverter
     private static Order toGlueSortOrder(SortingColumn column)
     {
         return Order.builder()
-                .column(column.getColumnName())
-                .sortOrder(switch (column.getOrder()) {
+                .column(column.columnName())
+                .sortOrder(switch (column.order()) {
                     case ASCENDING -> 1;
                     case DESCENDING -> 0;
                 })

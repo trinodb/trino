@@ -242,7 +242,7 @@ public class Table
             throw new TrinoException(NOT_SUPPORTED, "Cannot drop partition columns");
         }
         if (storage.getBucketProperty().stream().flatMap(bucket -> bucket.bucketedBy().stream()).anyMatch(columnName::equals) ||
-                storage.getBucketProperty().stream().flatMap(bucket -> bucket.sortedBy().stream()).map(SortingColumn::getColumnName).anyMatch(columnName::equals)) {
+                storage.getBucketProperty().stream().flatMap(bucket -> bucket.sortedBy().stream()).map(SortingColumn::columnName).anyMatch(columnName::equals)) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot drop bucket column %s.%s.%s".formatted(databaseName, tableName, columnName));
         }
 
@@ -312,8 +312,8 @@ public class Table
 
             ImmutableList.Builder<SortingColumn> newSortedColumns = ImmutableList.builder();
             for (SortingColumn sortingColumn : bucketProperty.sortedBy()) {
-                if (sortingColumn.getColumnName().equals(oldColumnName)) {
-                    newSortedColumns.add(new SortingColumn(newColumnName, sortingColumn.getOrder()));
+                if (sortingColumn.columnName().equals(oldColumnName)) {
+                    newSortedColumns.add(new SortingColumn(newColumnName, sortingColumn.order()));
                 }
                 else {
                     newSortedColumns.add(sortingColumn);

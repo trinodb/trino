@@ -793,7 +793,7 @@ public final class HiveUtil
 
     public static String sortingColumnToString(SortingColumn column)
     {
-        return column.getColumnName() + ((column.getOrder() == DESCENDING) ? " DESC" : "");
+        return column.columnName() + ((column.order() == DESCENDING) ? " DESC" : "");
     }
 
     public static boolean isHiveSystemSchema(String schemaName)
