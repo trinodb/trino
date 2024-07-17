@@ -24,7 +24,7 @@ import static io.trino.tests.product.TestGroups.SQLSERVER;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestSelect
+public class TestSqlServer
         extends ProductTest
 {
     @Test(groups = {SQLSERVER, PROFILE_SPECIFIC_TESTS})
