@@ -416,6 +416,7 @@ public class ClientOptions
         httpProxy.ifPresent(builder::setHttpProxy);
         builder.setTimeZone(timeZone);
         builder.setDisableCompression(disableCompression);
+        builder.setTimeout(clientRequestTimeout);
         networkLogging.ifPresent(builder::setHttpLoggingLevel);
         if (!resourceEstimates.isEmpty()) {
             builder.setResourceEstimates(toResourceEstimates(resourceEstimates));
