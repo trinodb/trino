@@ -49,6 +49,7 @@ import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isRcfileOptimizedWriterValidate;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static java.util.Objects.requireNonNull;
@@ -116,7 +117,7 @@ public class RcFileFileWriterFactory
         // an index to rearrange columns in the proper order
         List<String> fileColumnNames = getColumnNames(schema);
         List<Type> fileColumnTypes = getColumnTypes(schema).stream()
-                .map(hiveType -> hiveType.getType(typeManager, getTimestampPrecision(session)))
+                .map(hiveType -> getType(hiveType, typeManager, getTimestampPrecision(session)))
                 .collect(toList());
 
         int[] fileInputColumnIndexes = fileColumnNames.stream()

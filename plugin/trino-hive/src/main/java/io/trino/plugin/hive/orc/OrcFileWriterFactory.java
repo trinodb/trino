@@ -66,6 +66,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.isOrcOptimizedWriterVal
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_NAMES;
 import static io.trino.plugin.hive.acid.AcidSchema.createAcidColumnTrinoTypes;
 import static io.trino.plugin.hive.acid.AcidSchema.createRowType;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.trino.plugin.hive.util.HiveUtil.getOrcWriterOptions;
@@ -140,7 +141,7 @@ public class OrcFileWriterFactory
         // an index to rearrange columns in the proper order
         List<String> fileColumnNames = getColumnNames(schema);
         List<Type> fileColumnTypes = getColumnTypes(schema).stream()
-                .map(hiveType -> hiveType.getType(typeManager, getTimestampPrecision(session)))
+                .map(hiveType -> getType(hiveType, typeManager, getTimestampPrecision(session)))
                 .collect(toList());
 
         int[] fileInputColumnIndexes = fileColumnNames.stream()
