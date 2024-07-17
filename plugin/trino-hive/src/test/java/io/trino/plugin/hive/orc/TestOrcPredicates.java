@@ -31,6 +31,7 @@ import io.trino.plugin.hive.HivePageSourceProvider;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.metastore.HiveType;
+import io.trino.plugin.hive.util.HiveTypeTranslator;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
@@ -79,7 +80,7 @@ class TestOrcPredicates
     private static final HiveColumnHandle STRUCT_COLUMN = createBaseColumn(
             "column1_struct",
             1,
-            HiveType.toHiveType(RowType.rowType(field("field0", BIGINT), field("field1", BIGINT))),
+            HiveTypeTranslator.toHiveType(RowType.rowType(field("field0", BIGINT), field("field1", BIGINT))),
             RowType.rowType(field("field0", BIGINT), field("field1", BIGINT)),
             REGULAR,
             Optional.empty());

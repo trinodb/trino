@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.metastore.HiveType;
+import io.trino.plugin.hive.util.HiveTypeTranslator;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
@@ -160,7 +161,7 @@ public class TestParquetPredicateUtils
         HiveColumnHandle projectedColumn = new HiveColumnHandle(
                 "row_field",
                 0,
-                HiveType.toHiveType(baseType),
+                HiveTypeTranslator.toHiveType(baseType),
                 baseType,
                 Optional.of(columnProjectionInfo),
                 REGULAR,
@@ -195,13 +196,13 @@ public class TestParquetPredicateUtils
         HiveColumnProjectionInfo columnProjectionInfo = new HiveColumnProjectionInfo(
                 ImmutableList.of(2),
                 ImmutableList.of("C"),
-                HiveType.toHiveType(c1Type),
+                HiveTypeTranslator.toHiveType(c1Type),
                 c1Type);
 
         HiveColumnHandle projectedColumn = new HiveColumnHandle(
                 "row_field",
                 0,
-                HiveType.toHiveType(baseType),
+                HiveTypeTranslator.toHiveType(baseType),
                 baseType,
                 Optional.of(columnProjectionInfo),
                 REGULAR,
@@ -241,7 +242,7 @@ public class TestParquetPredicateUtils
         HiveColumnHandle projectedColumn = new HiveColumnHandle(
                 "row_field",
                 0,
-                HiveType.toHiveType(baseType),
+                HiveTypeTranslator.toHiveType(baseType),
                 baseType,
                 Optional.of(columnProjectionInfo),
                 REGULAR,

@@ -57,7 +57,7 @@ import static io.trino.plugin.hive.type.TypeConstants.TINYINT_TYPE_NAME;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getPrimitiveTypeInfo;
 import static io.trino.plugin.hive.type.TypeInfoUtils.getTypeInfoFromTypeString;
 import static io.trino.plugin.hive.type.TypeInfoUtils.getTypeInfosFromTypeString;
-import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeInfo;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeSignature;
 import static java.util.Objects.requireNonNull;
 
@@ -219,11 +219,6 @@ public final class HiveType
     public static HiveType fromTypeInfo(TypeInfo typeInfo)
     {
         return new HiveType(typeInfo);
-    }
-
-    public static HiveType toHiveType(Type type)
-    {
-        return new HiveType(toTypeInfo(type));
     }
 
     public Optional<HiveType> getHiveTypeForDereferences(List<Integer> dereferences)

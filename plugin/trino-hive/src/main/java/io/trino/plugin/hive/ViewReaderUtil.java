@@ -56,8 +56,8 @@ import static io.trino.plugin.hive.HiveSessionProperties.isHiveViewsLegacyTransl
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
-import static io.trino.plugin.hive.metastore.HiveType.toHiveType;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

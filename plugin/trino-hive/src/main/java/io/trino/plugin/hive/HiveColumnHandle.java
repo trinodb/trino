@@ -36,7 +36,7 @@ import static io.trino.plugin.hive.acid.AcidSchema.ACID_ROW_ID_ROW_TYPE;
 import static io.trino.plugin.hive.metastore.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.metastore.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.metastore.HiveType.HIVE_STRING;
-import static io.trino.plugin.hive.metastore.HiveType.toHiveType;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
