@@ -250,7 +250,7 @@ public class TestTrinoUri
         assertInvalid("trino://localhost:8080?path=catalog.schema.whatever", "Connection property 'path' has invalid syntax, should be [catalog].[schema] or [schema]");
 
         assertThat(createTrinoUri("trino://localhost:8080?path=catalog.schema,catalog2").getPath()).hasValue(ImmutableList.of("catalog.schema", "catalog2"));
-        assertThat(createTrinoUri("trino://localhost:8080?path=catalog").getPath()).hasValue(ImmutableList.of("catalog"));
+        assertThat(createTrinoUri("trino://localhost:8080?path=schema").getPath()).hasValue(ImmutableList.of("schema"));
     }
 
     @Test
