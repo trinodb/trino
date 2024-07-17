@@ -130,7 +130,7 @@ public class RegisterPartitionProcedure
             checkIsPartitionedTable(table);
             checkPartitionColumns(table, partitionColumns);
 
-            Optional<Partition> partition = metastore.unsafeGetRawHiveMetastoreClosure().getPartition(schemaName, tableName, partitionValues);
+            Optional<Partition> partition = metastore.unsafeGetRawHiveMetastore().getPartition(table, partitionValues);
             if (partition.isPresent()) {
                 String partitionName = makePartName(partitionColumns, partitionValues);
                 throw new TrinoException(ALREADY_EXISTS, format("Partition [%s] is already registered with location %s", partitionName, partition.get().getStorage().getLocation()));

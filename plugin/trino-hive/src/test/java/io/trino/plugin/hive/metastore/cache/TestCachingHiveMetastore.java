@@ -33,7 +33,6 @@ import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
@@ -899,12 +898,10 @@ public class TestCachingHiveMetastore
     {
         assertThat(mockClient.getAccessCount()).isEqualTo(0);
 
-        HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(metastore);
-
-        Table table = hiveMetastoreClosure.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
+        Table table = metastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
         assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
-        hiveMetastoreClosure.updatePartitionStatistics(table, MERGE_INCREMENTAL, Map.of(TEST_PARTITION1, TEST_STATS));
+        metastore.updatePartitionStatistics(table, MERGE_INCREMENTAL, Map.of(TEST_PARTITION1, TEST_STATS));
         assertThat(mockClient.getAccessCount()).isEqualTo(5);
     }
 
