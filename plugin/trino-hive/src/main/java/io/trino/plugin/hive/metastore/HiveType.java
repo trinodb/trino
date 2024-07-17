@@ -205,20 +205,19 @@ public final class HiveType
     public static HiveType valueOf(String hiveTypeName)
     {
         requireNonNull(hiveTypeName, "hiveTypeName is null");
-        return toHiveType(getTypeInfoFromTypeString(hiveTypeName));
+        return fromTypeInfo(getTypeInfoFromTypeString(hiveTypeName));
     }
 
     public static List<HiveType> toHiveTypes(String hiveTypes)
     {
         requireNonNull(hiveTypes, "hiveTypes is null");
         return getTypeInfosFromTypeString(hiveTypes).stream()
-                .map(HiveType::toHiveType)
+                .map(HiveType::fromTypeInfo)
                 .collect(toImmutableList());
     }
 
-    public static HiveType toHiveType(TypeInfo typeInfo)
+    public static HiveType fromTypeInfo(TypeInfo typeInfo)
     {
-        requireNonNull(typeInfo, "typeInfo is null");
         return new HiveType(typeInfo);
     }
 
@@ -259,7 +258,7 @@ public final class HiveType
                 throw new IllegalArgumentException(lenientFormat("typeInfo: %s should be struct or union type", typeInfo));
             }
         }
-        return Optional.of(toHiveType(typeInfo));
+        return Optional.of(fromTypeInfo(typeInfo));
     }
 
     public List<String> getHiveDereferenceNames(List<Integer> dereferences)
