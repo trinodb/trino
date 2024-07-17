@@ -16,8 +16,6 @@ package io.trino.plugin.hive.metastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SortOrder;
 
-import java.util.Locale;
-
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
@@ -64,12 +62,5 @@ public record SortingColumn(String columnName, SortingColumn.Order order)
     {
         requireNonNull(columnName, "columnName is null");
         requireNonNull(order, "order is null");
-    }
-
-    public static SortingColumn fromMetastoreApiOrder(io.trino.hive.thrift.metastore.Order order, String tablePartitionName)
-    {
-        // Ensure that the names used for the bucket columns are specified in lower case to match the names of the table columns
-        String orderColumnName = order.getCol().toLowerCase(Locale.ENGLISH);
-        return new SortingColumn(orderColumnName, Order.fromMetastoreApiOrder(order.getOrder(), tablePartitionName));
     }
 }
