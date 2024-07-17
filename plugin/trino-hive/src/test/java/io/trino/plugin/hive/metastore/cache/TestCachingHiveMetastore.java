@@ -96,7 +96,6 @@ import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TE
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -900,7 +899,7 @@ public class TestCachingHiveMetastore
     {
         assertThat(mockClient.getAccessCount()).isEqualTo(0);
 
-        HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(metastore, TESTING_TYPE_MANAGER, false);
+        HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(metastore);
 
         Table table = hiveMetastoreClosure.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
         assertThat(mockClient.getAccessCount()).isEqualTo(1);

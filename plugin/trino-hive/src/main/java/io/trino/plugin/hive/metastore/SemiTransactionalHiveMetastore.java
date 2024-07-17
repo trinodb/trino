@@ -57,6 +57,7 @@ import io.trino.plugin.hive.PartitionUpdateAndMergeResults;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TableInvalidationCallback;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadataMetastore;
 import io.trino.plugin.hive.util.ValidTxnWriteIdList;
 import io.trino.spi.TrinoException;
@@ -70,6 +71,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.type.TypeManager;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -129,6 +131,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilege
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getBasicStatisticsWithSparkFallback;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.SparkMetastoreUtil.getSparkTableStatistics;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionFromTable;
 import static io.trino.plugin.hive.util.AcidTables.isTransactionalTable;
 import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isFileCreatedByQuery;
@@ -166,6 +169,8 @@ public class SemiTransactionalHiveMetastore
             AcidOperation.MERGE, ActionType.MERGE);
 
     private final HiveMetastoreClosure delegate;
+    private final TypeManager typeManager;
+    private final boolean partitionProjectionEnabled;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final Executor fileSystemExecutor;
     private final Executor dropExecutor;
@@ -201,6 +206,8 @@ public class SemiTransactionalHiveMetastore
     private Optional<HiveTransaction> currentHiveTransaction = Optional.empty();
 
     public SemiTransactionalHiveMetastore(
+            TypeManager typeManager,
+            boolean partitionProjectionEnabled,
             TrinoFileSystemFactory fileSystemFactory,
             HiveMetastoreClosure delegate,
             Executor fileSystemExecutor,
@@ -213,6 +220,8 @@ public class SemiTransactionalHiveMetastore
             ScheduledExecutorService heartbeatService,
             TableInvalidationCallback tableInvalidationCallback)
     {
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.partitionProjectionEnabled = partitionProjectionEnabled;
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.fileSystemExecutor = requireNonNull(fileSystemExecutor, "fileSystemExecutor is null");
@@ -796,7 +805,7 @@ public class SemiTransactionalHiveMetastore
         TableSource tableSource = getTableSource(databaseName, tableName);
         partitionNames = switch (tableSource) {
             case CREATED_IN_THIS_TRANSACTION -> ImmutableList.of();
-            case PRE_EXISTING_TABLE -> delegate.getPartitionNamesByFilter(databaseName, tableName, columnNames, partitionKeysFilter)
+            case PRE_EXISTING_TABLE -> getOptionalPartitions(databaseName, tableName, columnNames, partitionKeysFilter)
                     .orElseThrow(() -> new TrinoException(TRANSACTION_CONFLICT, format("Table '%s.%s' was dropped by another transaction", databaseName, tableName)));
         };
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(table.get().getSchemaTableName(), k -> new HashMap<>());
@@ -852,7 +861,7 @@ public class SemiTransactionalHiveMetastore
 
         List<String> partitionNamesToQuery = partitionNamesToQueryBuilder.build();
         if (!partitionNamesToQuery.isEmpty()) {
-            Map<String, Optional<Partition>> delegateResult = delegate.getPartitionsByNames(
+            Map<String, Optional<Partition>> delegateResult = getPartitionsByNames(
                     databaseName,
                     tableName,
                     partitionNamesToQuery);
@@ -1108,9 +1117,46 @@ public class SemiTransactionalHiveMetastore
 
     private Map<String, Partition> getExistingPartitions(String databaseName, String tableName, Collection<String> partitionNames)
     {
-        return delegate.getPartitionsByNames(databaseName, tableName, ImmutableList.copyOf(partitionNames)).entrySet().stream()
+        return getOptionalPartitions(databaseName, tableName, ImmutableList.copyOf(partitionNames)).entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue()
                         .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), extractPartitionValues(entry.getKey())))));
+    }
+
+    private Map<String, Optional<Partition>> getOptionalPartitions(String databaseName, String tableName, List<String> partitionNames)
+    {
+        return delegate.getTable(databaseName, tableName)
+                .map(table -> getOptionalPartitions(table, partitionNames))
+                .orElseGet(() -> partitionNames.stream()
+                        .collect(toImmutableMap(name -> name, _ -> Optional.empty())));
+    }
+
+    private Map<String, Optional<Partition>> getOptionalPartitions(Table table, List<String> partitionNames)
+    {
+        if (partitionProjectionEnabled) {
+            Optional<PartitionProjection> projection = getPartitionProjectionFromTable(table, typeManager);
+            if (projection.isPresent()) {
+                return projection.get().getProjectedPartitionsByNames(table, partitionNames);
+            }
+        }
+        return delegate.getPartitionsByNames(table, partitionNames);
+    }
+
+    private Optional<List<String>> getOptionalPartitions(
+            String databaseName,
+            String tableName,
+            List<String> columnNames,
+            TupleDomain<String> partitionKeysFilter)
+    {
+        if (partitionProjectionEnabled) {
+            Table table = getTable(databaseName, tableName)
+                    .orElseThrow(() -> new TrinoException(HIVE_TABLE_DROPPED_DURING_QUERY, "Table does not exists: " + tableName));
+
+            Optional<PartitionProjection> projection = getPartitionProjectionFromTable(table, typeManager);
+            if (projection.isPresent()) {
+                return projection.get().getProjectedPartitionNamesByFilter(columnNames, partitionKeysFilter);
+            }
+        }
+        return delegate.getPartitionNamesByFilter(databaseName, tableName, columnNames, partitionKeysFilter);
     }
 
     @Override
@@ -2229,14 +2275,14 @@ public class SemiTransactionalHiveMetastore
                             List<String> partitionColumnNames = partitionColumns.stream()
                                     .map(Column::getName)
                                     .collect(toImmutableList());
-                            List<String> partitionNames = delegate.getPartitionNamesByFilter(
+                            List<String> partitionNames = getOptionalPartitions(
                                             schemaTableName.getSchemaName(),
                                             schemaTableName.getTableName(),
                                             partitionColumnNames,
                                             TupleDomain.all())
                                     .orElse(ImmutableList.of());
                             for (List<String> partitionNameBatch : Iterables.partition(partitionNames, 10)) {
-                                Collection<Optional<Partition>> partitions = delegate.getPartitionsByNames(schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionNameBatch).values();
+                                Collection<Optional<Partition>> partitions = getOptionalPartitions(schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionNameBatch).values();
                                 partitions.stream()
                                         .flatMap(Optional::stream)
                                         .map(partition -> partition.getStorage().getLocation())
