@@ -494,7 +494,7 @@ public final class ValueDecoders
                 });
     }
 
-    public ValueDecoder<long[]> getInt64TimestampMillsToShortTimestampDecoder(ParquetEncoding encoding)
+    public ValueDecoder<long[]> getInt64TimestampMillisToShortTimestampDecoder(ParquetEncoding encoding)
     {
         checkArgument(
                 field.getType() instanceof TimestampType timestampType && timestampType.isShort(),
