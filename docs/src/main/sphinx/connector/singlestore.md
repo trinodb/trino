@@ -25,10 +25,9 @@ To connect to SingleStore, you need:
 ## Configuration
 
 To configure the SingleStore connector, create a catalog properties file in
-`etc/catalog` named, for example, `example.properties`, to mount the
-SingleStore connector as the `example` catalog. Create the file with the
-following contents, replacing the connection properties as appropriate for your
-setup:
+`etc/catalog` named, for example, `example.properties`, to mount the SingleStore
+connector as the `example` catalog. Create the file with the following contents,
+replacing the connection properties as appropriate for your setup:
 
 ```text
 connector.name=singlestore
@@ -39,7 +38,8 @@ connection-password=secret
 
 The `connection-url` defines the connection information and parameters to pass
 to the SingleStore JDBC driver. The supported parameters for the URL are
-available in the [SingleStore JDBC driver documentation](https://docs.singlestore.com/db/v7.6/en/developer-resources/connect-with-application-development-tools/connect-with-java-jdbc/the-singlestore-jdbc-driver.html#connection-string-parameters).
+available in the [SingleStore JDBC driver
+documentation](https://docs.singlestore.com/db/latest/developer-resources/connect-with-application-development-tools/connect-with-java-jdbc/the-singlestore-jdbc-driver/#connection-string-parameters).
 
 The `connection-user` and `connection-password` are typically required and
 determine the user credentials for the connection, often a service user. You can
@@ -62,7 +62,7 @@ connection-url=jdbc:singlestore://example.net:3306/?useSsl=true
 ```
 
 For more information on TLS configuration options, see the [JDBC driver
-documentation](https://docs.singlestore.com/db/v7.6/en/developer-resources/connect-with-application-development-tools/connect-with-java-jdbc/the-singlestore-jdbc-driver.html#tls-parameters).
+documentation](https://docs.singlestore.com/db/latest/developer-resources/connect-with-application-development-tools/connect-with-java-jdbc/the-singlestore-jdbc-driver/#tls-parameters).
 
 ### Multiple SingleStore servers
 
