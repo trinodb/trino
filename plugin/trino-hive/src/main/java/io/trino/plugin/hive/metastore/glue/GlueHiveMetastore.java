@@ -31,7 +31,6 @@ import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
-import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveBasicStatistics;
@@ -731,9 +730,9 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
-        verify(!transaction.isTransactional(), "Glue metastore does not support Hive Acid tables");
+        verify(acidWriteId.isEmpty(), "Glue metastore does not support Hive Acid tables");
 
         // adding zero rows does not change stats
         if (mode == StatisticsUpdateMode.MERGE_INCREMENTAL && statisticsUpdate.basicStatistics().getRowCount().equals(OptionalLong.of(0))) {

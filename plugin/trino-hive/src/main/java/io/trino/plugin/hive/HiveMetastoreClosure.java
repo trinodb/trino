@@ -14,7 +14,6 @@
 package io.trino.plugin.hive;
 
 import io.trino.plugin.hive.acid.AcidOperation;
-import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -110,9 +109,9 @@ public class HiveMetastoreClosure
         return delegate.useSparkTableStatistics();
     }
 
-    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
-        delegate.updateTableStatistics(databaseName, tableName, transaction, mode, statisticsUpdate);
+        delegate.updateTableStatistics(databaseName, tableName, acidWriteId, mode, statisticsUpdate);
     }
 
     public void updatePartitionStatistics(String databaseName, String tableName, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)

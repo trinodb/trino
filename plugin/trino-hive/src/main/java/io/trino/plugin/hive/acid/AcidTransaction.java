@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.OptionalLong;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.hive.acid.AcidOperation.CREATE_TABLE;
@@ -86,6 +88,12 @@ public class AcidTransaction
     {
         ensureTransactionRunning("accessing writeId");
         return writeId;
+    }
+
+    @JsonIgnore
+    public OptionalLong getOptionalWriteId()
+    {
+        return isAcidTransactionRunning() ? OptionalLong.of(writeId) : OptionalLong.empty();
     }
 
     private void ensureTransactionRunning(String description)

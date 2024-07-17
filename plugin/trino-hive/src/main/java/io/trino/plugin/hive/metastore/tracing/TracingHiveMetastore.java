@@ -16,7 +16,6 @@ package io.trino.plugin.hive.metastore.tracing;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.plugin.hive.acid.AcidOperation;
-import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -132,17 +131,14 @@ public class TracingHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Span span = tracer.spanBuilder("HiveMetastore.updateTableStatistics")
                 .setAttribute(SCHEMA, databaseName)
                 .setAttribute(TABLE, tableName)
                 .startSpan();
-        if (transaction.isAcidTransactionRunning()) {
-            span.setAttribute(ACID_TRANSACTION, String.valueOf(transaction.getAcidTransactionId()));
-        }
-
-        withTracing(span, () -> delegate.updateTableStatistics(databaseName, tableName, transaction, mode, statisticsUpdate));
+        acidWriteId.ifPresent(id -> span.setAttribute(ACID_TRANSACTION, String.valueOf(id)));
+        withTracing(span, () -> delegate.updateTableStatistics(databaseName, tableName, acidWriteId, mode, statisticsUpdate));
     }
 
     @Override
