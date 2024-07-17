@@ -55,6 +55,7 @@ import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.EMPT
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucket;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveTypeForDereferences;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -112,7 +113,7 @@ public class HivePageSource
                 List<Integer> dereferenceIndices = column.getHiveColumnProjectionInfo()
                         .map(HiveColumnProjectionInfo::getDereferenceIndices)
                         .orElse(ImmutableList.of());
-                HiveType fromType = columnMapping.getBaseTypeCoercionFrom().get().getHiveTypeForDereferences(dereferenceIndices).get();
+                HiveType fromType = getHiveTypeForDereferences(columnMapping.getBaseTypeCoercionFrom().get(), dereferenceIndices).get();
                 HiveType toType = columnMapping.getHiveColumnHandle().getHiveType();
                 coercers.add(createCoercer(typeManager, fromType, toType, coercionContext));
             }
