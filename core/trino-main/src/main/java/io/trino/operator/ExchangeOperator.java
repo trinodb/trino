@@ -176,7 +176,6 @@ public class ExchangeOperator
 
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
         exchangeDataSource.addInput(remoteSplit.getExchangeInput());
-        updateOperatorMetrics();
     }
 
     @Override
@@ -185,7 +184,6 @@ public class ExchangeOperator
         noMoreSplitsTracker.noMoreSplits(operatorInstanceId);
         if (noMoreSplitsTracker.isNoMoreSplits()) {
             exchangeDataSource.noMoreInputs();
-            updateOperatorMetrics();
         }
     }
 
@@ -243,7 +241,6 @@ public class ExchangeOperator
         Page deserializedPage = deserializer.deserialize(page);
         operatorContext.recordNetworkInput(page.length(), deserializedPage.getPositionCount());
         operatorContext.recordProcessedInput(deserializedPage.getSizeInBytes(), deserializedPage.getPositionCount());
-        updateOperatorMetrics();
 
         return deserializedPage;
     }
@@ -252,12 +249,6 @@ public class ExchangeOperator
     public void close()
     {
         exchangeDataSource.close();
-        updateOperatorMetrics();
-    }
-
-    private void updateOperatorMetrics()
-    {
-        exchangeDataSource.getMetrics().ifPresent(operatorContext::setLatestMetrics);
     }
 
     @ThreadSafe
