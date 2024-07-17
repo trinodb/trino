@@ -37,6 +37,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.hive.HiveTableProperties.getPartitionedBy;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
 import static java.util.Locale.ROOT;
@@ -198,7 +199,7 @@ public final class PartitionProjectionProperties
                         .filter(partitionColumnNames::contains)
                         .collect(toImmutableList()),
                 table.getPartitionColumns().stream()
-                        .collect(toImmutableMap(Column::getName, column -> column.getType().getType(typeManager, DEFAULT_PRECISION))),
+                        .collect(toImmutableMap(Column::getName, column -> getType(column.getType(), typeManager, DEFAULT_PRECISION))),
                 tableProperties);
     }
 

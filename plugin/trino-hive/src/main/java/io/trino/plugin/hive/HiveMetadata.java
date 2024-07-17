@@ -293,6 +293,8 @@ import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveDereferenceNames;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveTypeForDereferences;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.getTableColumnMetadata;
@@ -1644,7 +1646,7 @@ public class HiveMetadata
         List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table, typeManager, timestampPrecision);
         Map<String, Type> columnTypes = hiveColumnHandles.stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
-                .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager, timestampPrecision)));
+                .collect(toImmutableMap(HiveColumnHandle::getName, column -> getType(column.getHiveType(), typeManager, timestampPrecision)));
 
         Map<List<String>, ComputedStatistics> computedStatisticsMap = createComputedStatisticsToPartitionMap(computedStatistics, partitionColumnNames, columnTypes);
 
@@ -1868,7 +1870,7 @@ public class HiveMetadata
         }
 
         Map<String, Type> columnTypes = handle.getInputColumns().stream()
-                .collect(toImmutableMap(HiveColumnHandle::getName, column -> typeManager.getType(column.getHiveType().getTypeSignature())));
+                .collect(toImmutableMap(HiveColumnHandle::getName, column -> typeManager.getType(getTypeSignature(column.getHiveType()))));
         Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, handle.getPartitionedBy(), columnTypes);
 
         PartitionStatistics tableStatistics;
@@ -2247,7 +2249,7 @@ public class HiveMetadata
                 .map(Column::getName)
                 .collect(toImmutableList());
         Map<String, Type> columnTypes = handle.getInputColumns().stream()
-                .collect(toImmutableMap(HiveColumnHandle::getName, column -> typeManager.getType(column.getHiveType().getTypeSignature())));
+                .collect(toImmutableMap(HiveColumnHandle::getName, column -> typeManager.getType(getTypeSignature(column.getHiveType()))));
         Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, partitionedBy, columnTypes);
 
         ImmutableList.Builder<PartitionUpdateInfo> partitionUpdateInfosBuilder = ImmutableList.builder();
@@ -3222,7 +3224,7 @@ public class HiveMetadata
                         .addAll(getHiveDereferenceNames(oldHiveType, indices))
                         .build(),
                 newHiveType,
-                typeManager.getType(newHiveType.getTypeSignature()));
+                typeManager.getType(getTypeSignature(newHiveType)));
 
         return new HiveColumnHandle(
                 column.getBaseColumnName(),

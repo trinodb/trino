@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.metastore.HiveType;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.type.ListTypeInfo;
@@ -23,6 +24,9 @@ import io.trino.plugin.hive.type.PrimitiveTypeInfo;
 import io.trino.plugin.hive.type.StructTypeInfo;
 import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.type.UnionTypeInfo;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,11 +38,32 @@ import static io.trino.hive.formats.UnionToRowCoercionUtils.UNION_FIELD_TAG_NAME
 import static io.trino.hive.formats.UnionToRowCoercionUtils.UNION_FIELD_TAG_TYPE;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeSignature;
 
 public final class HiveTypeUtil
 {
     private HiveTypeUtil() {}
+
+    /**
+     * @deprecated Prefer {@link #getTypeSignature(HiveType, HiveTimestampPrecision)}.
+     */
+    @Deprecated
+    public static TypeSignature getTypeSignature(HiveType type)
+    {
+        return getTypeSignature(type, DEFAULT_PRECISION);
+    }
+
+    public static TypeSignature getTypeSignature(HiveType type, HiveTimestampPrecision timestampPrecision)
+    {
+        return toTypeSignature(type.getTypeInfo(), timestampPrecision);
+    }
+
+    public static Type getType(HiveType type, TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
+    {
+        return typeManager.getType(getTypeSignature(type, timestampPrecision));
+    }
 
     public static boolean typeSupported(TypeInfo typeInfo, StorageFormat storageFormat)
     {
