@@ -228,7 +228,7 @@ public final class TypedHeap
         int variableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             int variableWidthLength = elementType.getFlatVariableWidthSize(block, position);
-            variableWidthChunk = variableWidthData.allocate(fixedChunk, recordOffset, variableWidthLength);
+            variableWidthChunk = variableWidthData.allocateWithCapacity(fixedChunk, recordOffset, variableWidthLength, capacity - positionCount);
             variableWidthChunkOffset = getChunkOffset(fixedChunk, recordOffset);
         }
 

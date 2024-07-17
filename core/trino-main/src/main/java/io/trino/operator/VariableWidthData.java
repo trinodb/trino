@@ -42,6 +42,9 @@ public final class VariableWidthData
 
     public static final int MIN_CHUNK_SIZE = 256;
     public static final int MAX_CHUNK_SIZE = 8 * 1024 * 1024;
+    // Minimum number of new row allocations to be satisfiable when allocating a new chunk
+    private static final int MINIMUM_ROWS_PER_NEW_CHUNK = 32;
+    private static final int UNKNOWN_ADDITIONAL_ALLOCATIONS = 0;
 
     public static final int POINTER_SIZE = SIZE_OF_INT + SIZE_OF_INT + SIZE_OF_INT;
 
@@ -105,6 +108,24 @@ public final class VariableWidthData
 
     public byte[] allocate(byte[] pointer, int pointerOffset, int size)
     {
+        return allocateInternal(pointer, pointerOffset, size, UNKNOWN_ADDITIONAL_ALLOCATIONS);
+    }
+
+    public byte[] allocateWithCapacity(byte[] pointer, int pointerOffset, int size, int maximumAdditionalAllocations)
+    {
+        return allocateInternal(pointer, pointerOffset, size, maximumAdditionalAllocations);
+    }
+
+    private static int minimumRowTargetInNewChunk(int maximumAdditionalAllocations)
+    {
+        if (maximumAdditionalAllocations == UNKNOWN_ADDITIONAL_ALLOCATIONS) {
+            return MINIMUM_ROWS_PER_NEW_CHUNK;
+        }
+        return clamp(maximumAdditionalAllocations, 1, MINIMUM_ROWS_PER_NEW_CHUNK);
+    }
+
+    private byte[] allocateInternal(byte[] pointer, int pointerOffset, int size, int maximumAdditionalAllocations)
+    {
         if (size == 0) {
             writePointer(pointer, pointerOffset, 0, 0, 0);
             return EMPTY_CHUNK;
@@ -115,8 +136,8 @@ public final class VariableWidthData
             // record unused space as free bytes
             freeBytes += (openChunk.length - openChunkOffset);
 
-            // allocate enough space for 32 values of the current size, or double the current chunk size, whichever is larger
-            int newSize = Ints.saturatedCast(max(size * 32L, openChunk.length * 2L));
+            // allocate enough space for the target number of rows assuming the current size, or double the current chunk size, whichever is larger
+            int newSize = Ints.saturatedCast(max(((long) size) * minimumRowTargetInNewChunk(maximumAdditionalAllocations), openChunk.length * 2L));
             // constrain to be between min and max chunk size
             newSize = clamp(newSize, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
             // jumbo rows get a separate allocation

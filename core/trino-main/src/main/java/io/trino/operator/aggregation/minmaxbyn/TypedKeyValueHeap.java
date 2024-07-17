@@ -281,7 +281,7 @@ public final class TypedKeyValueHeap
                 keyVariableWidthLength = keyType.getFlatVariableWidthSize(keyBlock, keyPosition);
             }
             int valueVariableWidthLength = valueType.getFlatVariableWidthSize(valueBlock, valuePosition);
-            variableWidthChunk = variableWidthData.allocate(fixedChunk, recordOffset, keyVariableWidthLength + valueVariableWidthLength);
+            variableWidthChunk = variableWidthData.allocateWithCapacity(fixedChunk, recordOffset, keyVariableWidthLength + valueVariableWidthLength, capacity - positionCount);
             variableWidthChunkOffset = getChunkOffset(fixedChunk, recordOffset);
         }
 
