@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - hackathon-2024-08
   pull_request:
     paths-ignore:
       - 'docs/**'
