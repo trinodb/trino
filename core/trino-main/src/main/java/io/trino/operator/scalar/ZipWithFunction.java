@@ -58,7 +58,6 @@ public final class ZipWithFunction
                         .argumentType(arrayType(new TypeSignature("U")))
                         .argumentType(functionType(new TypeSignature("T"), new TypeSignature("U"), new TypeSignature("R")))
                         .build())
-                .nondeterministic()
                 .description("Merge two arrays, element-wise, into a single array using the lambda function")
                 .build());
     }
