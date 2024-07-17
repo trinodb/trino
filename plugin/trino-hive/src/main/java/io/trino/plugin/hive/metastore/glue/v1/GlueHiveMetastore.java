@@ -102,7 +102,6 @@ import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter;
 import io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter;
 import io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.GluePartitionConverter;
-import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -153,6 +152,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
+import static io.trino.plugin.hive.metastore.Partition.toPartitionValues;
 import static io.trino.plugin.hive.metastore.glue.v1.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter.convertFunction;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter.convertPartition;
@@ -161,7 +161,6 @@ import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConver
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
-import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -875,7 +874,7 @@ public class GlueHiveMetastore
         List<Partition> partitions = batchGetPartition(table, partitionNames);
 
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
-                .collect(toMap(identity(), HiveUtil::toPartitionValues));
+                .collect(toMap(identity(), Partition::toPartitionValues));
         Map<List<String>, Partition> partitionValuesToPartitionMap = partitions.stream()
                 .collect(toMap(Partition::getValues, identity()));
 

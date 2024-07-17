@@ -21,7 +21,6 @@ import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -73,7 +72,7 @@ public class HiveHudiPartitionInfo
     public String getRelativePartitionPath()
     {
         if (relativePartitionPath == null) {
-            loadPartitionInfo(hiveMetastore.getPartition(table, HiveUtil.toPartitionValues(hivePartitionName)));
+            loadPartitionInfo(hiveMetastore.getPartition(table, Partition.toPartitionValues(hivePartitionName)));
         }
         return relativePartitionPath;
     }
@@ -82,7 +81,7 @@ public class HiveHudiPartitionInfo
     public List<HivePartitionKey> getHivePartitionKeys()
     {
         if (hivePartitionKeys == null) {
-            loadPartitionInfo(hiveMetastore.getPartition(table, HiveUtil.toPartitionValues(hivePartitionName)));
+            loadPartitionInfo(hiveMetastore.getPartition(table, Partition.toPartitionValues(hivePartitionName)));
         }
         return hivePartitionKeys;
     }
