@@ -68,7 +68,7 @@ public class DeltaHiveTypeTranslator
 
     public static HiveType toHiveType(Type type)
     {
-        return HiveType.toHiveType(translate(type));
+        return HiveType.fromTypeInfo(translate(type));
     }
 
     // Copy from HiveTypeTranslator with custom mappings for TimestampType and TimestampWithTimeZone
