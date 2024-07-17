@@ -20,7 +20,6 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageBatch;
 import com.google.cloud.storage.StorageOptions;
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Lists;
@@ -44,9 +43,6 @@ import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
 import io.trino.plugin.exchange.filesystem.FileStatus;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
-import io.trino.plugin.exchange.filesystem.MetricsBuilder;
-import io.trino.plugin.exchange.filesystem.MetricsBuilder.CounterMetricBuilder;
-import io.trino.plugin.exchange.filesystem.MetricsBuilder.DistributionMetricBuilder;
 import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -117,13 +113,11 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeFutures.translateFailures;
 import static io.trino.plugin.exchange.filesystem.FileSystemExchangeManager.PATH_SEPARATOR;
-import static io.trino.plugin.exchange.filesystem.MetricsBuilder.SOURCE_FILES_PROCESSED;
 import static io.trino.plugin.exchange.filesystem.s3.S3FileSystemExchangeStorage.CompatibilityMode.GCP;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElseGet;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static software.amazon.awssdk.core.async.AsyncRequestBody.fromByteBufferUnsafe;
 import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.USER_AGENT_PREFIX;
@@ -232,9 +226,9 @@ public class S3FileSystemExchangeStorage
     }
 
     @Override
-    public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize, MetricsBuilder metricsBuilder)
+    public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
     {
-        return new S3ExchangeStorageReader(stats, s3AsyncClient, multiUploadPartSize, sourceFiles, maxPageStorageSize, metricsBuilder);
+        return new S3ExchangeStorageReader(stats, s3AsyncClient, multiUploadPartSize, sourceFiles, maxPageStorageSize);
     }
 
     @Override
@@ -497,9 +491,6 @@ public class S3FileSystemExchangeStorage
         private final S3AsyncClient s3AsyncClient;
         private final int partSize;
         private final int bufferSize;
-        CounterMetricBuilder sourceFilesProcessedMetric;
-        DistributionMetricBuilder s3GetObjectRequestsSuccessMetric;
-        DistributionMetricBuilder s3GetObjectRequestsFailedMetric;
 
         @GuardedBy("this")
         private final Queue<ExchangeSourceFile> sourceFiles;
@@ -520,17 +511,12 @@ public class S3FileSystemExchangeStorage
                 S3AsyncClient s3AsyncClient,
                 int partSize,
                 List<ExchangeSourceFile> sourceFiles,
-                int maxPageStorageSize,
-                MetricsBuilder metricsBuilder)
+                int maxPageStorageSize)
         {
             this.stats = requireNonNull(stats, "stats is null");
             this.s3AsyncClient = requireNonNull(s3AsyncClient, "s3AsyncClient is null");
             this.partSize = partSize;
             this.sourceFiles = new ArrayDeque<>(requireNonNull(sourceFiles, "sourceFiles is null"));
-            requireNonNull(metricsBuilder, "metricsBuilder is null");
-            sourceFilesProcessedMetric = metricsBuilder.getCounterMetric(SOURCE_FILES_PROCESSED);
-            s3GetObjectRequestsSuccessMetric = metricsBuilder.getDistributionMetric("FileSystemExchangeSource.s3GetObjectRequestsSuccess");
-            s3GetObjectRequestsFailedMetric = metricsBuilder.getDistributionMetric("FileSystemExchangeSource.s3GetObjectRequestsFailed");
             // Make sure buffer can accommodate at least one complete Slice, and keep reads aligned to part boundaries
             this.bufferSize = maxPageStorageSize + partSize;
 
@@ -654,14 +640,12 @@ public class S3FileSystemExchangeStorage
                             BufferWriteAsyncResponseTransformer.toBufferWrite(buffer, bufferFill)));
                     stats.getGetObject().record(getObjectFuture);
                     stats.getGetObjectDataSizeInBytes().add(length);
-                    recordDistributionMetric(getObjectFuture, s3GetObjectRequestsSuccessMetric, s3GetObjectRequestsFailedMetric);
                     getObjectFutures.add(getObjectFuture);
                     bufferFill += length;
                     fileOffset += length;
                 }
 
                 if (fileOffset == fileSize) {
-                    sourceFilesProcessedMetric.increment();
                     currentFile = sourceFiles.poll();
                     if (currentFile == null) {
                         break;
@@ -674,25 +658,6 @@ public class S3FileSystemExchangeStorage
             sliceInput = Slices.wrappedBuffer(buffer, 0, bufferFill).getInput();
             bufferRetainedSize = sliceInput.getRetainedSize();
         }
-    }
-
-    private static <T> void recordDistributionMetric(ListenableFuture<T> future, DistributionMetricBuilder successMetric, DistributionMetricBuilder failureMetric)
-    {
-        Stopwatch stopwatch = Stopwatch.createStarted();
-        Futures.addCallback(future, new FutureCallback<T>()
-        {
-            @Override
-            public void onSuccess(T result)
-            {
-                successMetric.add(stopwatch.elapsed(MILLISECONDS));
-            }
-
-            @Override
-            public void onFailure(Throwable t)
-            {
-                failureMetric.add(stopwatch.elapsed(MILLISECONDS));
-            }
-        }, directExecutor());
     }
 
     @NotThreadSafe
