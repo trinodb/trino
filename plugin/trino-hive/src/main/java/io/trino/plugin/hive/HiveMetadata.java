@@ -3041,8 +3041,8 @@ public class HiveMetadata
                 Map<String, ColumnHandle> columnHandles = getColumnHandles(session, table);
                 sortingProperties = hiveTable.getBucketHandle().get().sortedBy().stream()
                         .map(sortingColumn -> new SortingProperty<>(
-                                columnHandles.get(sortingColumn.getColumnName()),
-                                sortingColumn.getOrder().getSortOrder()))
+                                columnHandles.get(sortingColumn.columnName()),
+                                sortingColumn.order().getSortOrder()))
                         .collect(toImmutableList());
             }
             if (isBucketExecutionEnabled(session)) {
@@ -3742,7 +3742,7 @@ public class HiveMetadata
         }
 
         List<String> sortedBy = bucketInfo.get().sortedBy().stream()
-                .map(SortingColumn::getColumnName)
+                .map(SortingColumn::columnName)
                 .collect(toImmutableList());
         if (!allColumns.containsAll(sortedBy)) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, format("Sorting columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(sortedBy), allColumns)));

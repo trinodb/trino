@@ -129,7 +129,7 @@ public final class GlueInputConverter
             sd.setBucketColumns(bucketProperty.get().bucketedBy());
             if (!bucketProperty.get().sortedBy().isEmpty()) {
                 sd.setSortColumns(bucketProperty.get().sortedBy().stream()
-                        .map(column -> new Order().withColumn(column.getColumnName()).withSortOrder(column.getOrder().getHiveOrder()))
+                        .map(column -> new Order().withColumn(column.columnName()).withSortOrder(column.order().getHiveOrder()))
                         .collect(toImmutableList()));
             }
         }

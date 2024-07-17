@@ -13,23 +13,17 @@
  */
 package io.trino.plugin.hive.metastore;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SortOrder;
 
 import java.util.Locale;
-import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static java.util.Objects.requireNonNull;
 
-@Immutable
-public class SortingColumn
+public record SortingColumn(String columnName, SortingColumn.Order order)
 {
     public enum Order
     {
@@ -66,28 +60,10 @@ public class SortingColumn
         }
     }
 
-    private final String columnName;
-    private final Order order;
-
-    @JsonCreator
-    public SortingColumn(
-            @JsonProperty("columnName") String columnName,
-            @JsonProperty("order") Order order)
+    public SortingColumn
     {
-        this.columnName = requireNonNull(columnName, "columnName is null");
-        this.order = requireNonNull(order, "order is null");
-    }
-
-    @JsonProperty
-    public String getColumnName()
-    {
-        return columnName;
-    }
-
-    @JsonProperty
-    public Order getOrder()
-    {
-        return order;
+        requireNonNull(columnName, "columnName is null");
+        requireNonNull(order, "order is null");
     }
 
     public static SortingColumn fromMetastoreApiOrder(io.trino.hive.thrift.metastore.Order order, String tablePartitionName)
@@ -95,35 +71,5 @@ public class SortingColumn
         // Ensure that the names used for the bucket columns are specified in lower case to match the names of the table columns
         String orderColumnName = order.getCol().toLowerCase(Locale.ENGLISH);
         return new SortingColumn(orderColumnName, Order.fromMetastoreApiOrder(order.getOrder(), tablePartitionName));
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("columnName", columnName)
-                .add("order", order)
-                .toString();
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        SortingColumn that = (SortingColumn) o;
-        return Objects.equals(columnName, that.columnName) &&
-                order == that.order;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(columnName, order);
     }
 }
