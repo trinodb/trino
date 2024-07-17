@@ -138,6 +138,11 @@ public enum HiveStorageFormat
         };
     }
 
+    public StorageFormat toStorageFormat()
+    {
+        return StorageFormat.create(serde, inputFormat, outputFormat);
+    }
+
     public void validateColumns(List<HiveColumnHandle> handles)
     {
         if (this == AVRO) {

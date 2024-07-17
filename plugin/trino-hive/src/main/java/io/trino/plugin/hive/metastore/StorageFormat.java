@@ -16,7 +16,6 @@ package io.trino.plugin.hive.metastore;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.Immutable;
-import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.spi.TrinoException;
 
 import java.util.Objects;
@@ -83,11 +82,6 @@ public class StorageFormat
     public String getOutputFormatNullable()
     {
         return outputFormat;
-    }
-
-    public static StorageFormat fromHiveStorageFormat(HiveStorageFormat hiveStorageFormat)
-    {
-        return new StorageFormat(hiveStorageFormat.getSerde(), hiveStorageFormat.getInputFormat(), hiveStorageFormat.getOutputFormat());
     }
 
     public static StorageFormat create(String serde, String inputFormat, String outputFormat)

@@ -83,7 +83,7 @@ public class PartitionMetadata
 
         StorageFormat tableFormat = partition.getStorage().getStorageFormat();
         storageFormat = Arrays.stream(HiveStorageFormat.values())
-                .filter(format -> tableFormat.equals(StorageFormat.fromHiveStorageFormat(format)))
+                .filter(format -> tableFormat.equals(format.toStorageFormat()))
                 .findFirst();
 
         if (table.getTableType().equals(EXTERNAL_TABLE.name())) {
@@ -159,7 +159,7 @@ public class PartitionMetadata
                 values,
                 Storage.builder()
                         .setLocation(externalLocation.orElse(location))
-                        .setStorageFormat(storageFormat.map(StorageFormat::fromHiveStorageFormat).orElse(VIEW_STORAGE_FORMAT))
+                        .setStorageFormat(storageFormat.map(HiveStorageFormat::toStorageFormat).orElse(VIEW_STORAGE_FORMAT))
                         .setBucketProperty(bucketProperty)
                         .setSerdeParameters(serdeParameters)
                         .build(),

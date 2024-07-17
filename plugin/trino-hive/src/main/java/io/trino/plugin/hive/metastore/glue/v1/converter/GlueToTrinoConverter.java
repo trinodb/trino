@@ -153,7 +153,7 @@ public final class GlueToTrinoConverter
             // Delta Lake tables only need to provide a dummy properties if a StorageDescriptor was not explicitly configured.
             // Materialized views do not need to read the StorageDescriptor, but we still need to return dummy properties for compatibility
             tableBuilder.setDataColumns(ImmutableList.of(new Column("dummy", HIVE_INT, Optional.empty(), ImmutableMap.of())));
-            tableBuilder.getStorageBuilder().setStorageFormat(StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET));
+            tableBuilder.getStorageBuilder().setStorageFormat(HiveStorageFormat.PARQUET.toStorageFormat());
         }
         else {
             if (sd == null) {
