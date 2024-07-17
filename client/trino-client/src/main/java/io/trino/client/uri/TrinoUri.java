@@ -79,6 +79,7 @@ import static io.trino.client.uri.ConnectionProperties.SESSION_PROPERTIES;
 import static io.trino.client.uri.ConnectionProperties.SESSION_USER;
 import static io.trino.client.uri.ConnectionProperties.SOCKS_PROXY;
 import static io.trino.client.uri.ConnectionProperties.SOURCE;
+import static io.trino.client.uri.ConnectionProperties.SQL_PATH;
 import static io.trino.client.uri.ConnectionProperties.SSL;
 import static io.trino.client.uri.ConnectionProperties.SSL_KEY_STORE_PASSWORD;
 import static io.trino.client.uri.ConnectionProperties.SSL_KEY_STORE_PATH;
@@ -242,6 +243,11 @@ public class TrinoUri
     public Optional<String> getSource()
     {
         return resolveOptional(SOURCE);
+    }
+
+    public Optional<List<String>> getPath()
+    {
+        return resolveOptional(SQL_PATH);
     }
 
     public Optional<HostAndPort> getSocksProxy()
@@ -475,6 +481,7 @@ public class TrinoUri
         return ClientSession.builder()
                 .server(getHttpUri())
                 .principal(Optional.of(getUser()))
+                .path(getPath().orElse(ImmutableList.of()))
                 .user(getSessionUser())
                 .clientTags(getClientTags().orElse(ImmutableSet.of()))
                 .source(getSource().orElse(null))
@@ -1010,6 +1017,11 @@ public class TrinoUri
         public Builder setResourceEstimates(Map<String, String> resourceEstimates)
         {
             return setProperty(RESOURCE_ESTIMATES, requireNonNull(resourceEstimates, "resourceEstimates is null"));
+        }
+
+        public Builder setPath(List<String> path)
+        {
+            return setProperty(SQL_PATH, requireNonNull(path, "path is null"));
         }
 
         <V, T> Builder setProperty(ConnectionProperty<V, T> connectionProperty, T value)

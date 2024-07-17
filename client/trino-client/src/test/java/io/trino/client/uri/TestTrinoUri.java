@@ -14,6 +14,7 @@
 package io.trino.client.uri;
 
 import org.junit.jupiter.api.Test;
+import org.weakref.jmx.$internal.guava.collect.ImmutableList;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -241,6 +242,15 @@ public class TestTrinoUri
 
         Properties properties = parameters.getProperties();
         assertThat(properties.getProperty(HTTP_PROXY.toString())).isEqualTo("localhost:5678");
+    }
+
+    @Test
+    public void testSqlPath()
+    {
+        assertInvalid("trino://localhost:8080?path=catalog.schema.whatever", "Connection property 'path' has invalid syntax, should be [catalog].[schema] or [schema]");
+
+        assertThat(createTrinoUri("trino://localhost:8080?path=catalog.schema,catalog2").getPath()).hasValue(ImmutableList.of("catalog.schema", "catalog2"));
+        assertThat(createTrinoUri("trino://localhost:8080?path=catalog").getPath()).hasValue(ImmutableList.of("catalog"));
     }
 
     @Test
