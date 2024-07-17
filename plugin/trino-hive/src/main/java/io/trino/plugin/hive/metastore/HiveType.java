@@ -42,23 +42,23 @@ import static io.trino.hive.formats.UnionToRowCoercionUtils.UNION_FIELD_TAG_TYPE
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
+import static io.trino.plugin.hive.type.TypeConstants.BIGINT_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.BINARY_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.BOOLEAN_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.DATE_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.DOUBLE_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.FLOAT_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.INT_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.SMALLINT_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.STRING_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.TIMESTAMPLOCALTZ_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.TIMESTAMP_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.TINYINT_TYPE_NAME;
 import static io.trino.plugin.hive.type.TypeInfoFactory.getPrimitiveTypeInfo;
 import static io.trino.plugin.hive.type.TypeInfoUtils.getTypeInfoFromTypeString;
 import static io.trino.plugin.hive.type.TypeInfoUtils.getTypeInfosFromTypeString;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeInfo;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeSignature;
-import static io.trino.plugin.hive.util.SerdeConstants.BIGINT_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.BINARY_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.BOOLEAN_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.DATE_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.DOUBLE_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.FLOAT_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.INT_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.SMALLINT_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.STRING_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.TIMESTAMPLOCALTZ_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.TIMESTAMP_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.TINYINT_TYPE_NAME;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveType

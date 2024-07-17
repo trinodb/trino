@@ -23,7 +23,7 @@ import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
 import static io.trino.plugin.hive.metastore.SparkMetastoreUtil.fromMetastoreColumnStatistics;
-import static io.trino.plugin.hive.util.SerdeConstants.DECIMAL_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.DECIMAL_TYPE_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSparkMetastoreUtil

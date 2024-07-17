@@ -21,11 +21,11 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.type.BaseCharTypeInfo.charTypeName;
 import static io.trino.plugin.hive.type.DecimalTypeInfo.decimalTypeName;
+import static io.trino.plugin.hive.type.TypeConstants.CHAR_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.VARCHAR_TYPE_NAME;
 import static io.trino.plugin.hive.type.TypeInfoUtils.getBaseName;
 import static io.trino.plugin.hive.type.TypeInfoUtils.getTypeEntryFromTypeName;
 import static io.trino.plugin.hive.type.TypeInfoUtils.parsePrimitiveParts;
-import static io.trino.plugin.hive.util.SerdeConstants.CHAR_TYPE_NAME;
-import static io.trino.plugin.hive.util.SerdeConstants.VARCHAR_TYPE_NAME;
 import static java.lang.Integer.parseInt;
 
 // based on org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory

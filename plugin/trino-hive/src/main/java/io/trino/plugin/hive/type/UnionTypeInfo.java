@@ -19,7 +19,7 @@ import java.util.List;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.plugin.hive.util.SerdeConstants.UNION_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.UNION_TYPE_NAME;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 

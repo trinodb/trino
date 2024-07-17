@@ -17,7 +17,7 @@ import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.plugin.hive.util.SerdeConstants.DECIMAL_TYPE_NAME;
+import static io.trino.plugin.hive.type.TypeConstants.DECIMAL_TYPE_NAME;
 
 // based on org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo
 public final class DecimalTypeInfo
