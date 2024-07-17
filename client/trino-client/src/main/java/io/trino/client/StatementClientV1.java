@@ -15,6 +15,7 @@ package io.trino.client;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -83,7 +84,7 @@ class StatementClientV1
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
     private final AtomicReference<String> setSchema = new AtomicReference<>();
-    private final AtomicReference<String> setPath = new AtomicReference<>();
+    private final AtomicReference<List<String>> setPath = new AtomicReference<>();
     private final AtomicReference<String> setAuthorizationUser = new AtomicReference<>();
     private final AtomicBoolean resetAuthorizationUser = new AtomicBoolean();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
@@ -157,8 +158,8 @@ class StatementClientV1
         }
         session.getCatalog().ifPresent(value -> builder.addHeader(TRINO_HEADERS.requestCatalog(), value));
         session.getSchema().ifPresent(value -> builder.addHeader(TRINO_HEADERS.requestSchema(), value));
-        if (session.getPath() != null) {
-            builder.addHeader(TRINO_HEADERS.requestPath(), session.getPath());
+        if (session.getPath() != null && !session.getPath().isEmpty()) {
+            builder.addHeader(TRINO_HEADERS.requestPath(), Joiner.on(",").join(session.getPath()));
         }
         builder.addHeader(TRINO_HEADERS.requestTimeZone(), session.getTimeZone().getId());
         if (session.getLocale() != null) {
@@ -272,7 +273,7 @@ class StatementClientV1
     }
 
     @Override
-    public Optional<String> getSetPath()
+    public Optional<List<String>> getSetPath()
     {
         return Optional.ofNullable(setPath.get());
     }
@@ -436,7 +437,7 @@ class StatementClientV1
     {
         setCatalog.set(headers.get(TRINO_HEADERS.responseSetCatalog()));
         setSchema.set(headers.get(TRINO_HEADERS.responseSetSchema()));
-        setPath.set(headers.get(TRINO_HEADERS.responseSetPath()));
+        setPath.set(safeSplitToList(headers.get(TRINO_HEADERS.responseSetPath())));
 
         String setAuthorizationUser = headers.get(TRINO_HEADERS.responseSetAuthorizationUser());
         if (setAuthorizationUser != null) {
@@ -485,6 +486,14 @@ class StatementClientV1
         }
 
         currentResults.set(results);
+    }
+
+    private List<String> safeSplitToList(String value)
+    {
+        if (value == null || value.isEmpty()) {
+            return ImmutableList.of();
+        }
+        return Splitter.on(',').trimResults().splitToList(value);
     }
 
     private RuntimeException requestFailedException(String task, Request request, JsonResponse<QueryResults> response)

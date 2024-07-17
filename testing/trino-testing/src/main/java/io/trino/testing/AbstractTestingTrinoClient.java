@@ -13,6 +13,7 @@
  */
 package io.trino.testing;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -156,7 +157,6 @@ public abstract class AbstractTestingTrinoClient<T>
         estimates.getExecutionTime().ifPresent(e -> resourceEstimates.put(EXECUTION_TIME, e.toString()));
         estimates.getCpuTime().ifPresent(e -> resourceEstimates.put(CPU_TIME, e.toString()));
         estimates.getPeakMemoryBytes().ifPresent(e -> resourceEstimates.put(PEAK_MEMORY, e.toString()));
-
         return ClientSession.builder()
                 .server(server)
                 .principal(Optional.of(session.getIdentity().getUser()))
@@ -166,7 +166,7 @@ public abstract class AbstractTestingTrinoClient<T>
                 .clientInfo(session.getClientInfo().orElse(null))
                 .catalog(session.getCatalog().orElse(null))
                 .schema(session.getSchema().orElse(null))
-                .path(session.getPath().toString())
+                .path(Splitter.on(",").splitToList(session.getPath().getRawPath()))
                 .timeZone(session.getTimeZoneKey().getZoneId())
                 .locale(session.getLocale())
                 .resourceEstimates(resourceEstimates.buildOrThrow())
