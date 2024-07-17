@@ -61,7 +61,6 @@ import io.trino.hive.thrift.metastore.UnknownTableException;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
-import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveBasicStatistics;
@@ -399,7 +398,7 @@ public final class ThriftHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Table originalTable = getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
@@ -409,8 +408,8 @@ public final class ThriftHiveMetastore
 
         Table modifiedTable = originalTable.deepCopy();
         modifiedTable.setParameters(updateStatisticsParameters(modifiedTable.getParameters(), updatedStatistics.basicStatistics()));
-        if (transaction.isAcidTransactionRunning()) {
-            modifiedTable.setWriteId(transaction.getWriteId());
+        if (acidWriteId.isPresent()) {
+            modifiedTable.setWriteId(acidWriteId.getAsLong());
         }
         alterTable(databaseName, tableName, modifiedTable);
 

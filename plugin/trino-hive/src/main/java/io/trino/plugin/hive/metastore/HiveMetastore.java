@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.metastore;
 
 import io.trino.plugin.hive.acid.AcidOperation;
-import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
@@ -63,7 +62,7 @@ public interface HiveMetastore
         return false;
     }
 
-    void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate);
+    void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate);
 
     void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates);
 

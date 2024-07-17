@@ -37,7 +37,6 @@ import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TableType;
-import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveBasicStatistics;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -81,6 +80,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -484,7 +484,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public synchronized void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Location tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
         TableMetadata tableMetadata = readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)

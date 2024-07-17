@@ -19,7 +19,6 @@ import io.trino.hive.thrift.metastore.FieldSchema;
 import io.trino.hive.thrift.metastore.Partition;
 import io.trino.hive.thrift.metastore.Table;
 import io.trino.hive.thrift.metastore.TableMeta;
-import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HivePartition;
@@ -88,7 +87,7 @@ public sealed interface ThriftMetastore
 
     boolean useSparkTableStatistics();
 
-    void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate);
+    void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate);
 
     void updatePartitionStatistics(Table table, String partitionName, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate);
 
