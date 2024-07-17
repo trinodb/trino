@@ -105,6 +105,8 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistic
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
+import static io.trino.plugin.hive.metastore.Partition.toPartitionValues;
+import static io.trino.plugin.hive.metastore.Partition.unescapePathName;
 import static io.trino.plugin.hive.metastore.file.ColumnStatistics.fromHiveColumnStatistics;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.SchemaType.DATABASE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.SchemaType.PARTITION;
@@ -117,8 +119,6 @@ import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
-import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
-import static io.trino.plugin.hive.util.HiveUtil.unescapePathName;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;

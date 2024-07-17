@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.metastore;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
+import static io.trino.plugin.hive.metastore.Partition.toPartitionValues;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionWithStatistics
