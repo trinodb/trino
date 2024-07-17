@@ -35,7 +35,6 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.TableInfo;
-import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -382,7 +381,7 @@ public class BridgingHiveMetastore
         }
 
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
-                .collect(Collectors.toMap(identity(), HiveUtil::toPartitionValues));
+                .collect(Collectors.toMap(identity(), Partition::toPartitionValues));
         Map<List<String>, Partition> partitionValuesToPartitionMap = delegate.getPartitionsByNames(table.getDatabaseName(), table.getTableName(), partitionNames).stream()
                 .map(partition -> fromMetastoreApiPartition(table, partition))
                 .collect(Collectors.toMap(Partition::getValues, identity()));

@@ -271,6 +271,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
+import static io.trino.plugin.hive.metastore.Partition.toPartitionValues;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
 import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.PartitionUpdateInfo;
@@ -305,7 +306,6 @@ import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.hive.util.HiveUtil.isSparkBucketedTable;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
-import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.plugin.hive.util.HiveUtil.verifyPartitionTypeSupported;
 import static io.trino.plugin.hive.util.HiveWriteUtils.checkTableIsWritable;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createPartitionValues;
@@ -1669,7 +1669,7 @@ public class HiveMetadata
                         .orElseThrow(() -> new TableNotFoundException(tableName));
                 partitionValuesList = partitionNames
                         .stream()
-                        .map(HiveUtil::toPartitionValues)
+                        .map(Partition::toPartitionValues)
                         .collect(toImmutableList());
             }
 
