@@ -82,6 +82,7 @@ import static io.trino.plugin.hive.metastore.HiveType.HIVE_FLOAT;
 import static io.trino.plugin.hive.metastore.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.metastore.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.metastore.HiveType.HIVE_SHORT;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
@@ -265,8 +266,8 @@ public final class CoercionUtils
                     coercionContext);
         }
         if ((fromType instanceof RowType) && (toType instanceof RowType)) {
-            HiveType fromHiveTypeStruct = (fromHiveType.getCategory() == Category.UNION) ? HiveType.toHiveType(fromType) : fromHiveType;
-            HiveType toHiveTypeStruct = (toHiveType.getCategory() == Category.UNION) ? HiveType.toHiveType(toType) : toHiveType;
+            HiveType fromHiveTypeStruct = (fromHiveType.getCategory() == Category.UNION) ? toHiveType(fromType) : fromHiveType;
+            HiveType toHiveTypeStruct = (toHiveType.getCategory() == Category.UNION) ? toHiveType(toType) : toHiveType;
 
             return createCoercerForStruct(
                     typeManager,

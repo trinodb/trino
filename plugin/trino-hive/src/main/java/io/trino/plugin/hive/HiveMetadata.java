@@ -265,7 +265,6 @@ import static io.trino.plugin.hive.acid.AcidTransaction.forCreateTable;
 import static io.trino.plugin.hive.metastore.HiveBasicStatistics.createEmptyStatistics;
 import static io.trino.plugin.hive.metastore.HiveBasicStatistics.createZeroStatistics;
 import static io.trino.plugin.hive.metastore.HiveType.HIVE_STRING;
-import static io.trino.plugin.hive.metastore.HiveType.toHiveType;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.STATS_PROPERTIES;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
@@ -291,6 +290,7 @@ import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING
 import static io.trino.plugin.hive.util.HiveBucketing.getBucketingVersion;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.getTableColumnMetadata;
