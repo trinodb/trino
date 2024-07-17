@@ -17,10 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
@@ -121,7 +121,7 @@ public class DropStatsProcedure
                     .map(HiveColumnHandle::getName)
                     .collect(toImmutableList());
 
-            HiveMetastoreClosure metastore = hiveMetadata.getMetastore().unsafeGetRawHiveMetastoreClosure();
+            HiveMetastore metastore = hiveMetadata.getMetastore().unsafeGetRawHiveMetastore();
             if (partitionValues != null) {
                 // drop stats for specified partitions
                 List<List<String>> partitionStringValues = partitionValues.stream()

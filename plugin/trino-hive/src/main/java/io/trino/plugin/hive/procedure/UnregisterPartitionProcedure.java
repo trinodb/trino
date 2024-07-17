@@ -111,7 +111,7 @@ public class UnregisterPartitionProcedure
 
             String partitionName = makePartName(partitionColumns, partitionValues);
 
-            Partition partition = metastore.unsafeGetRawHiveMetastoreClosure().getPartition(schemaName, tableName, partitionValues)
+            Partition partition = metastore.unsafeGetRawHiveMetastore().getPartition(table, partitionValues)
                     .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Partition '%s' does not exist", partitionName)));
 
             metastore.dropPartition(
