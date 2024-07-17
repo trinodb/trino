@@ -109,7 +109,7 @@ public class TableMetadata
 
         StorageFormat tableFormat = table.getStorage().getStorageFormat();
         storageFormat = Arrays.stream(HiveStorageFormat.values())
-                .filter(format -> tableFormat.equals(StorageFormat.fromHiveStorageFormat(format)))
+                .filter(format -> tableFormat.equals(format.toStorageFormat()))
                 .findFirst();
         if (storageFormat.isPresent()) {
             originalStorageFormat = Optional.empty();
@@ -316,7 +316,7 @@ public class TableMetadata
                 tableType,
                 Storage.builder()
                         .setLocation(externalLocation.or(() -> Optional.ofNullable(parameters.get(LOCATION_PROPERTY))).orElse(location))
-                        .setStorageFormat(storageFormat.map(StorageFormat::fromHiveStorageFormat)
+                        .setStorageFormat(storageFormat.map(HiveStorageFormat::toStorageFormat)
                                 .or(() -> originalStorageFormat)
                                 .orElse(VIEW_STORAGE_FORMAT))
                         .setBucketProperty(bucketProperty)

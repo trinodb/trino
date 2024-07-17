@@ -278,7 +278,6 @@ import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.Part
 import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.cleanExtraOutputFiles;
 import static io.trino.plugin.hive.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
-import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getSupportedColumnStatistics;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.arePartitionProjectionPropertiesSet;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionHiveTableProperties;
@@ -1463,7 +1462,7 @@ public class HiveMetadata
                 .setParameters(tableParameters.buildOrThrow());
 
         tableBuilder.getStorageBuilder()
-                .setStorageFormat(fromHiveStorageFormat(hiveStorageFormat))
+                .setStorageFormat(hiveStorageFormat.toStorageFormat())
                 .setBucketProperty(bucketInfo.map(info -> new HiveBucketProperty(info.bucketedBy(), info.bucketCount(), info.sortedBy())))
                 .setLocation(targetPath.map(Object::toString));
 
@@ -2409,7 +2408,7 @@ public class HiveMetadata
                 .withStorage(storage -> storage
                         .setStorageFormat(isRespectTableFormat(session) ?
                                 table.getStorage().getStorageFormat() :
-                                fromHiveStorageFormat(getHiveStorageFormat(session)))
+                                getHiveStorageFormat(session).toStorageFormat())
                         .setLocation(partitionUpdate.getTargetPath().toString())
                         .setBucketProperty(table.getStorage().getBucketProperty())
                         .setSerdeParameters(table.getStorage().getSerdeParameters()))

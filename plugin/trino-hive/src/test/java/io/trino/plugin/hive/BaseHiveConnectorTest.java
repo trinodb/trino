@@ -38,7 +38,6 @@ import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.HiveType;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Storage;
-import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
@@ -8824,7 +8823,7 @@ public abstract class BaseHiveConnectorTest
                         Optional.of("hive"),
                         "EXTERNAL_TABLE",
                         new Storage(
-                                StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET),
+                                HiveStorageFormat.PARQUET.toStorageFormat(),
                                 Optional.of(tableLocation),
                                 Optional.empty(),
                                 false,

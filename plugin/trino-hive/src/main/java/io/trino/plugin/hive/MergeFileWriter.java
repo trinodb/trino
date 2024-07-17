@@ -48,7 +48,6 @@ import static io.trino.plugin.hive.HivePageSource.ROW_ID_CHANNEL;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_NAMES;
 import static io.trino.plugin.hive.acid.AcidSchema.createAcidSchema;
-import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.orc.OrcFileWriter.computeBucketValue;
 import static io.trino.plugin.hive.util.AcidTables.deleteDeltaSubdir;
 import static io.trino.plugin.hive.util.AcidTables.deltaSubdir;
@@ -251,7 +250,7 @@ public final class MergeFileWriter
             insertFileWriter = orcFileWriterFactory.createFileWriter(
                     deltaDirectory.appendPath(bucketFilename),
                     ACID_COLUMN_NAMES,
-                    fromHiveStorageFormat(ORC),
+                    ORC.toStorageFormat(),
                     compressionCodec,
                     hiveAcidSchema,
                     session,
@@ -270,7 +269,7 @@ public final class MergeFileWriter
             FileWriter writer = getWriter(orcFileWriterFactory.createFileWriter(
                     deletePath,
                     ACID_COLUMN_NAMES,
-                    fromHiveStorageFormat(ORC),
+                    ORC.toStorageFormat(),
                     compressionCodec,
                     hiveAcidSchema,
                     session,

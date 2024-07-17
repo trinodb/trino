@@ -84,7 +84,6 @@ import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXI
 import static io.trino.plugin.hive.acid.AcidOperation.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.HiveType.toHiveType;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
-import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.util.AcidTables.deltaSubdir;
 import static io.trino.plugin.hive.util.AcidTables.isFullAcidTable;
 import static io.trino.plugin.hive.util.AcidTables.isInsertOnlyTable;
@@ -373,12 +372,12 @@ public class HiveWriterFactory
 
             if (partitionName.isPresent()) {
                 // Write to a new partition
-                outputStorageFormat = fromHiveStorageFormat(partitionStorageFormat);
+                outputStorageFormat = partitionStorageFormat.toStorageFormat();
                 compressionCodec = selectCompressionCodec(session, partitionStorageFormat);
             }
             else {
                 // Write to a new/existing unpartitioned table
-                outputStorageFormat = fromHiveStorageFormat(tableStorageFormat);
+                outputStorageFormat = tableStorageFormat.toStorageFormat();
                 compressionCodec = selectCompressionCodec(session, tableStorageFormat);
             }
         }
@@ -426,7 +425,7 @@ public class HiveWriterFactory
                     // * Table schema and storage format is used for the new partition (instead of existing partition schema and storage format).
                     updateMode = UpdateMode.OVERWRITE;
 
-                    outputStorageFormat = fromHiveStorageFormat(partitionStorageFormat);
+                    outputStorageFormat = partitionStorageFormat.toStorageFormat();
                     compressionCodec = selectCompressionCodec(session, partitionStorageFormat);
                     schema.putAll(getHiveSchema(table));
 

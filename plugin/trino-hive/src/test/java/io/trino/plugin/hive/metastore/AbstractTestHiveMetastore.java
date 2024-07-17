@@ -30,7 +30,6 @@ import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.metastore.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
-import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -82,7 +81,7 @@ public abstract class AbstractTestHiveMetastore
                 .setOwner(Optional.empty());
         table.getStorageBuilder()
                 .setLocation(Optional.of("/tmp/location"))
-                .setStorageFormat(fromHiveStorageFormat(PARQUET));
+                .setStorageFormat(PARQUET.toStorageFormat());
         getMetastore().createTable(table.build(), NO_PRIVILEGES);
         // second call with the same query ID succeeds
         getMetastore().createTable(table.build(), NO_PRIVILEGES);
