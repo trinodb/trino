@@ -31,7 +31,7 @@ import java.util.stream.Stream;
 
 import static io.trino.hive.formats.avro.AvroHiveConstants.TABLE_NAME;
 import static io.trino.plugin.hive.metastore.HiveType.HIVE_STRING;
-import static io.trino.plugin.hive.metastore.HiveType.toHiveType;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.type.VarcharType.VARCHAR;
