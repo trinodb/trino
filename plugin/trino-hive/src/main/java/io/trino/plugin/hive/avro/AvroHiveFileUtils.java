@@ -152,7 +152,7 @@ public final class AvroHiveFileUtils
             case PRIMITIVE -> createAvroPrimitive(hiveType);
             case LIST -> {
                 ListTypeInfo listTypeInfo = (ListTypeInfo) hiveType.getTypeInfo();
-                yield Schema.createArray(avroSchemaForHiveType(HiveType.toHiveType(listTypeInfo.getListElementTypeInfo())));
+                yield Schema.createArray(avroSchemaForHiveType(HiveType.fromTypeInfo(listTypeInfo.getListElementTypeInfo())));
             }
             case MAP -> {
                 MapTypeInfo mapTypeInfo = ((MapTypeInfo) hiveType.getTypeInfo());
@@ -162,13 +162,13 @@ public final class AvroHiveFileUtils
                     throw new UnsupportedOperationException("Key of Map must be a String");
                 }
                 TypeInfo valueTypeInfo = mapTypeInfo.getMapValueTypeInfo();
-                yield Schema.createMap(avroSchemaForHiveType(HiveType.toHiveType(valueTypeInfo)));
+                yield Schema.createMap(avroSchemaForHiveType(HiveType.fromTypeInfo(valueTypeInfo)));
             }
             case STRUCT -> createAvroRecord(hiveType);
             case UNION -> {
                 List<Schema> childSchemas = new ArrayList<>();
                 for (TypeInfo childTypeInfo : ((UnionTypeInfo) hiveType.getTypeInfo()).getAllUnionObjectTypeInfos()) {
-                    final Schema childSchema = avroSchemaForHiveType(HiveType.toHiveType(childTypeInfo));
+                    final Schema childSchema = avroSchemaForHiveType(HiveType.fromTypeInfo(childTypeInfo));
                     if (childSchema.getType() == Schema.Type.UNION) {
                         childSchemas.addAll(childSchema.getTypes());
                     }
@@ -243,7 +243,7 @@ public final class AvroHiveFileUtils
 
         for (int i = 0; i < allStructFieldNames.size(); ++i) {
             final TypeInfo childTypeInfo = allStructFieldTypeInfo.get(i);
-            final Schema fieldSchema = avroSchemaForHiveType(HiveType.toHiveType(childTypeInfo));
+            final Schema fieldSchema = avroSchemaForHiveType(HiveType.fromTypeInfo(childTypeInfo));
             fieldAssembler = fieldAssembler
                     .name(allStructFieldNames.get(i))
                     .doc(childTypeInfo.toString())
