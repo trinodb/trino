@@ -13,8 +13,6 @@
  */
 package io.trino.tests.product.mysql;
 
-import io.trino.tempto.AfterMethodWithContext;
-import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
@@ -22,27 +20,24 @@ import org.testng.annotations.Test;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.TestGroups.MYSQL;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.utils.QueryExecutors.onMySql;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestCreateTableAsSelect
+public class TestMySql
         extends ProductTest
 {
-    private static final String TABLE_NAME = "test.nation_tmp";
-
-    @BeforeMethodWithContext
-    @AfterMethodWithContext
-    public void dropTestTable()
-    {
-        onMySql().executeQuery(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
-    }
-
     @Test(groups = {MYSQL, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
-        QueryResult queryResult = onTrino().executeQuery(format("CREATE TABLE mysql.%s AS SELECT * FROM tpch.tiny.nation", TABLE_NAME));
-        assertThat(queryResult).containsOnly(row(25));
+        onTrino().executeQuery("DROP TABLE IF EXISTS mysql.test.nation");
+        QueryResult result = onTrino().executeQuery("CREATE TABLE mysql.test.nation AS SELECT * FROM tpch.tiny.nation");
+        try {
+            assertThat(result).updatedRowsCountIsEqualTo(25);
+            assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM mysql.test.nation"))
+                    .containsOnly(row(25));
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE mysql.test.nation");
+        }
     }
 }
