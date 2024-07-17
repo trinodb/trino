@@ -72,6 +72,7 @@ import static io.trino.client.uri.PropertyName.SESSION_PROPERTIES;
 import static io.trino.client.uri.PropertyName.SESSION_USER;
 import static io.trino.client.uri.PropertyName.SOCKS_PROXY;
 import static io.trino.client.uri.PropertyName.SOURCE;
+import static io.trino.client.uri.PropertyName.SQL_PATH;
 import static io.trino.client.uri.PropertyName.SSL_KEY_STORE_PASSWORD;
 import static io.trino.client.uri.PropertyName.SSL_KEY_STORE_PATH;
 import static io.trino.client.uri.PropertyName.SSL_KEY_STORE_TYPE;
@@ -209,6 +210,10 @@ public class ClientOptions
     @PropertyMapping(SCHEMA)
     @Option(names = "--schema", paramLabel = "<schema>", description = "Default schema")
     public Optional<String> schema;
+
+    @PropertyMapping(SQL_PATH)
+    @Option(names = "--path", paramLabel = "<catalog.schema>", description = "Default SQL path", arity = "0..*")
+    public List<String> path = ImmutableList.of();
 
     @Option(names = {"-f", "--file"}, paramLabel = "<file>", description = "Execute statements from file and exit")
     public String file;
@@ -360,6 +365,9 @@ public class ClientOptions
         schema.ifPresent(builder::setSchema);
         user.ifPresent(builder::setUser);
         sessionUser.ifPresent(builder::setSessionUser);
+        if (!path.isEmpty()) {
+            builder.setPath(path);
+        }
         if (password) {
             builder.setPassword(getPassword());
         }

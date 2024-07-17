@@ -156,6 +156,22 @@ public class TestClientOptions
     }
 
     @Test
+    public void testPath()
+    {
+        assertThatThrownBy(() -> {
+            Console console = createConsole("--path=name.name.name");
+            console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Connection property 'path' has invalid syntax, should be [catalog].[schema] or [schema]");
+
+        Console console = createConsole("--path=catalog.schema");
+        TrinoUri trinoUri = console.clientOptions.getTrinoUri();
+        assertThat(trinoUri.getPath()).hasValue(ImmutableList.of("catalog.schema"));
+        assertThat(console.clientOptions.toClientSession(trinoUri).getPath()).isEqualTo(ImmutableList.of("catalog.schema"));
+    }
+
+    @Test
     public void testURLHostOnly()
     {
         Console console = createConsole("test");

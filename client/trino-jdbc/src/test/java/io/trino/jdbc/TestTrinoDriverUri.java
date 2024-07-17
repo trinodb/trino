@@ -13,6 +13,7 @@
  */
 package io.trino.jdbc;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
@@ -281,6 +282,20 @@ public class TestTrinoDriverUri
     }
 
     @Test
+    public void testSqlPath()
+            throws SQLException
+    {
+        assertInvalid("jdbc:trino://localhost:8080?path=catalog.schema.whatever", "Connection property 'path' has invalid syntax, should be [catalog].[schema] or [schema]");
+        assertInvalid("jdbc:trino://localhost:8080", properties("path", "catalog.schema.whatever"), "Connection property 'path' has invalid syntax, should be [catalog].[schema] or [schema]");
+
+        assertThat(createDriverUri("jdbc:trino://localhost:8080?path=catalog.schema").getPath()).hasValue(ImmutableList.of("catalog.schema"));
+        assertThat(createDriverUri("jdbc:trino://localhost:8080?path=catalog,catalog2").getPath()).hasValue(ImmutableList.of("catalog", "catalog2"));
+
+        assertThat(createDriverUri("jdbc:trino://localhost:8080", properties("path", "catalog.schema,catalog2")).getPath()).hasValue(ImmutableList.of("catalog.schema", "catalog2"));
+        assertThat(createDriverUri("jdbc:trino://localhost:8080", properties("path", "catalog")).getPath()).hasValue(ImmutableList.of("catalog"));
+    }
+
+    @Test
     public void testUriWithSslDisabledUsing443()
             throws SQLException
     {
@@ -462,15 +477,32 @@ public class TestTrinoDriverUri
     private static TrinoDriverUri createDriverUri(String url)
             throws SQLException
     {
-        Properties properties = new Properties();
-        properties.setProperty("user", "test");
+        return createDriverUri(url, properties("user", "test"));
+    }
 
+    private static TrinoDriverUri createDriverUri(String url, Properties properties)
+            throws SQLException
+    {
         return TrinoDriverUri.createDriverUri(url, properties);
+    }
+
+    private static Properties properties(String key, String value)
+    {
+        Properties properties = new Properties();
+        properties.setProperty(key, value);
+        return properties;
     }
 
     private static void assertInvalid(String url, String prefix)
     {
         assertThatThrownBy(() -> createDriverUri(url))
+                .isInstanceOf(SQLException.class)
+                .hasMessageContaining(prefix);
+    }
+
+    private static void assertInvalid(String url, Properties properties, String prefix)
+    {
+        assertThatThrownBy(() -> createDriverUri(url, properties))
                 .isInstanceOf(SQLException.class)
                 .hasMessageContaining(prefix);
     }

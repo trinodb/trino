@@ -111,6 +111,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, Duration> TIMEOUT = new Timeout();
     public static final ConnectionProperty<String, LoggingLevel> HTTP_LOGGING_LEVEL = new HttpLoggingLevel();
     public static final ConnectionProperty<String, Map<String, String>> RESOURCE_ESTIMATES = new ResourceEstimates();
+    public static final ConnectionProperty<String, List<String>> SQL_PATH = new SqlPath();
 
     private static final Set<ConnectionProperty<?, ?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?, ?>>builder()
             // Keep sorted
@@ -152,6 +153,7 @@ final class ConnectionProperties
             .add(SESSION_USER)
             .add(SOCKS_PROXY)
             .add(SOURCE)
+            .add(SQL_PATH)
             .add(SSL)
             .add(SSL_KEY_STORE_PASSWORD)
             .add(SSL_KEY_STORE_PATH)
@@ -805,6 +807,30 @@ final class ConnectionProperties
         protected Timeout()
         {
             super(PropertyName.TIMEOUT, NOT_REQUIRED, ALLOWED, converter(Duration::valueOf, Duration::toString));
+        }
+    }
+
+    private static class SqlPath
+            extends AbstractConnectionProperty<String, List<String>>
+    {
+        protected SqlPath()
+        {
+            super(PropertyName.SQL_PATH, NOT_REQUIRED, SqlPath::isValidSqlPath, converter(Splitter.on(",")::splitToList, Joiner.on(",")::join));
+        }
+
+        private static Optional<String> isValidSqlPath(Properties properties)
+        {
+            String paths = properties.getProperty(SQL_PATH.getKey());
+            if (paths == null) {
+                return Optional.empty();
+            }
+
+            for (String path : Splitter.on(',').split(paths)) {
+                if (Splitter.on('.').splitToList(path).size() > 2) {
+                    return Optional.of(format("Connection property '%s' has invalid syntax, should be [catalog].[schema] or [schema]", SQL_PATH.getKey()));
+                }
+            }
+            return Optional.empty();
         }
     }
 

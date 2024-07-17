@@ -53,6 +53,7 @@ public enum PropertyName
     KERBEROS_USE_CANONICAL_HOSTNAME("KerberosUseCanonicalHostname"),
     LOCALE("locale"),
     PASSWORD("password"),
+    SQL_PATH("path"),
     RESOURCE_ESTIMATES("resourceEstimates"),
     ROLES("roles"),
     SCHEMA("schema"), // this is not actual property but part of the path
