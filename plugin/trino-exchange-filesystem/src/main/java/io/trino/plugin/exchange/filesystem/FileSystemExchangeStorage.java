@@ -25,7 +25,7 @@ public interface FileSystemExchangeStorage
     void createDirectories(URI dir)
             throws IOException;
 
-    ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize, MetricsBuilder metricsBuilder);
+    ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize);
 
     ExchangeStorageWriter createExchangeStorageWriter(URI file);
 

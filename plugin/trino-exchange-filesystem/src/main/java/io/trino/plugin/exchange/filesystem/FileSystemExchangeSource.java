@@ -21,11 +21,9 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
-import io.trino.plugin.exchange.filesystem.MetricsBuilder.CounterMetricBuilder;
 import io.trino.spi.exchange.ExchangeSource;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.exchange.ExchangeSourceOutputSelector;
-import io.trino.spi.metrics.Metrics;
 import jakarta.annotation.Nullable;
 
 import java.io.IOException;
@@ -33,7 +31,6 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -45,7 +42,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
-import static io.trino.plugin.exchange.filesystem.MetricsBuilder.SOURCE_FILES_TOTAL;
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.INCLUDED;
 import static java.util.Objects.requireNonNull;
 
@@ -70,9 +66,6 @@ public class FileSystemExchangeSource
     private final AtomicReference<ListenableFuture<Void>> blocked = new AtomicReference<>();
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    private final MetricsBuilder metricsBuilder = new MetricsBuilder();
-    private final CounterMetricBuilder totalFilesMetric = metricsBuilder.getCounterMetric(SOURCE_FILES_TOTAL);
-
     public FileSystemExchangeSource(
             FileSystemExchangeStorage exchangeStorage,
             FileSystemExchangeStats stats,
@@ -93,9 +86,7 @@ public class FileSystemExchangeSource
         if (closed.get()) {
             return;
         }
-        List<ExchangeSourceFile> newFiles = getFiles(handles);
-        files.addAll(newFiles);
-        totalFilesMetric.add(newFiles.size());
+        files.addAll(getFiles(handles));
         closeAndCreateReadersIfNecessary();
     }
 
@@ -298,7 +289,7 @@ public class FileSystemExchangeSource
                             break;
                         }
                     }
-                    activeReaders.add(exchangeStorage.createExchangeStorageReader(readerFiles.build(), maxPageStorageSize, metricsBuilder));
+                    activeReaders.add(exchangeStorage.createExchangeStorageReader(readerFiles.build(), maxPageStorageSize));
                 }
                 if (activeReaders.isEmpty()) {
                     if (noMoreFiles) {
@@ -345,12 +336,6 @@ public class FileSystemExchangeSource
             }
         }
         return result;
-    }
-
-    @Override
-    public Optional<Metrics> getMetrics()
-    {
-        return Optional.of(metricsBuilder.buildMetrics());
     }
 
     private static List<ExchangeSourceFile> getFiles(List<ExchangeSourceHandle> handles)
