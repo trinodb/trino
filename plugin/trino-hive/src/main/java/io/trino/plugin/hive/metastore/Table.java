@@ -37,7 +37,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -46,6 +45,8 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class Table
 {
+    public static final String TABLE_COMMENT = "comment";
+
     private final String databaseName;
     private final String tableName;
     private final Optional<String> owner;
