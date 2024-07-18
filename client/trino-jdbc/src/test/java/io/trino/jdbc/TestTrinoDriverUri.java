@@ -55,8 +55,9 @@ public class TestTrinoDriverUri
         // invalid scheme
         assertInvalid("jdbc:http://localhost", "Invalid JDBC URL: jdbc:http://localhost");
 
-        // missing port
-        assertInvalid("jdbc:trino://localhost/", "No port number specified:");
+        // invalid port
+        assertInvalid("jdbc:trino://localhost:0/", "Invalid port number:");
+        assertInvalid("jdbc:trino://localhost:70000/", "Invalid port number:");
 
         // extra path segments
         assertInvalid("jdbc:trino://localhost:8080/hive/default/abc", "Invalid path segments in URL:");
@@ -450,6 +451,17 @@ public class TestTrinoDriverUri
                 .hasMessage("Connection property timezone value is invalid: Asia/NOT_FOUND")
                 .hasRootCauseInstanceOf(ZoneRulesException.class)
                 .hasRootCauseMessage("Unknown time-zone ID: Asia/NOT_FOUND");
+    }
+
+    @Test
+    public void testDefaultPorts()
+            throws SQLException
+    {
+        TrinoDriverUri uri = createDriverUri("jdbc:trino://localhost");
+        assertThat(uri.getHttpUri()).isEqualTo(URI.create("http://localhost:80"));
+
+        TrinoDriverUri secureUri = createDriverUri("jdbc:trino://localhost?SSL=true");
+        assertThat(secureUri.getHttpUri()).isEqualTo(URI.create("https://localhost:443"));
     }
 
     private static void assertUriPortScheme(TrinoDriverUri parameters, int port, String scheme)

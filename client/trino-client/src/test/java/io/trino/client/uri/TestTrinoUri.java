@@ -53,8 +53,9 @@ public class TestTrinoUri
         // invalid scheme
         assertInvalid("mysql://localhost", "Invalid Trino URL: mysql://localhost");
 
-        // missing port
-        assertInvalid("trino://localhost/", "No port number specified:");
+        // invalid port
+        assertInvalid("trino://localhost:0/", "Invalid port number:");
+        assertInvalid("trino://localhost:70000/", "Invalid port number:");
 
         // extra path segments
         assertInvalid("trino://localhost:8080/hive/default/abc", "Invalid path segments in URL:");
@@ -434,6 +435,16 @@ public class TestTrinoUri
                 .collect(toImmutableSet());
 
         assertThat(allProperties).hasSameElementsAs(setters);
+    }
+
+    @Test
+    public void testDefaultPorts()
+    {
+        TrinoUri uri = createTrinoUri("trino://localhost");
+        assertThat(uri.getHttpUri()).isEqualTo(URI.create("http://localhost:80"));
+
+        TrinoUri secureUri = createTrinoUri("trino://localhost?SSL=true");
+        assertThat(secureUri.getHttpUri()).isEqualTo(URI.create("https://localhost:443"));
     }
 
     private static boolean isBuilderHelperMethod(String name)
