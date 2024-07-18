@@ -52,77 +52,33 @@ public class GlueCatalogIdRequestHandler
     }
 
     @Override
-    public AmazonWebServiceRequest beforeExecution(AmazonWebServiceRequest request)
+    public AmazonWebServiceRequest beforeExecution(AmazonWebServiceRequest serviceRequest)
     {
-        if (request instanceof GetDatabasesRequest) {
-            return ((GetDatabasesRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof GetDatabaseRequest) {
-            return ((GetDatabaseRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof CreateDatabaseRequest) {
-            return ((CreateDatabaseRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof UpdateDatabaseRequest) {
-            return ((UpdateDatabaseRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof DeleteDatabaseRequest) {
-            return ((DeleteDatabaseRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof GetTablesRequest) {
-            return ((GetTablesRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof GetTableRequest) {
-            return ((GetTableRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof CreateTableRequest) {
-            return ((CreateTableRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof UpdateTableRequest) {
-            return ((UpdateTableRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof DeleteTableRequest) {
-            return ((DeleteTableRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof GetPartitionsRequest) {
-            return ((GetPartitionsRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof GetPartitionRequest) {
-            return ((GetPartitionRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof UpdatePartitionRequest) {
-            return ((UpdatePartitionRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof DeletePartitionRequest) {
-            return ((DeletePartitionRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof BatchGetPartitionRequest) {
-            return ((BatchGetPartitionRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof BatchCreatePartitionRequest) {
-            return ((BatchCreatePartitionRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof BatchUpdatePartitionRequest) {
-            return ((BatchUpdatePartitionRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof GetColumnStatisticsForTableRequest) {
-            return ((GetColumnStatisticsForTableRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof UpdateColumnStatisticsForTableRequest) {
-            return ((UpdateColumnStatisticsForTableRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof DeleteColumnStatisticsForTableRequest) {
-            return ((DeleteColumnStatisticsForTableRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof GetColumnStatisticsForPartitionRequest) {
-            return ((GetColumnStatisticsForPartitionRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof UpdateColumnStatisticsForPartitionRequest) {
-            return ((UpdateColumnStatisticsForPartitionRequest) request).withCatalogId(catalogId);
-        }
-        if (request instanceof DeleteColumnStatisticsForPartitionRequest) {
-            return ((DeleteColumnStatisticsForPartitionRequest) request).withCatalogId(catalogId);
-        }
-        throw new IllegalArgumentException("Unsupported request: " + request);
+        return switch (serviceRequest) {
+            case GetDatabasesRequest request -> request.withCatalogId(catalogId);
+            case GetDatabaseRequest request -> request.withCatalogId(catalogId);
+            case CreateDatabaseRequest request -> request.withCatalogId(catalogId);
+            case UpdateDatabaseRequest request -> request.withCatalogId(catalogId);
+            case DeleteDatabaseRequest request -> request.withCatalogId(catalogId);
+            case GetTablesRequest request -> request.withCatalogId(catalogId);
+            case GetTableRequest request -> request.withCatalogId(catalogId);
+            case CreateTableRequest request -> request.withCatalogId(catalogId);
+            case UpdateTableRequest request -> request.withCatalogId(catalogId);
+            case DeleteTableRequest request -> request.withCatalogId(catalogId);
+            case GetPartitionsRequest request -> request.withCatalogId(catalogId);
+            case GetPartitionRequest request -> request.withCatalogId(catalogId);
+            case UpdatePartitionRequest request -> request.withCatalogId(catalogId);
+            case DeletePartitionRequest request -> request.withCatalogId(catalogId);
+            case BatchGetPartitionRequest request -> request.withCatalogId(catalogId);
+            case BatchCreatePartitionRequest request -> request.withCatalogId(catalogId);
+            case BatchUpdatePartitionRequest request -> request.withCatalogId(catalogId);
+            case GetColumnStatisticsForTableRequest request -> request.withCatalogId(catalogId);
+            case UpdateColumnStatisticsForTableRequest request -> request.withCatalogId(catalogId);
+            case DeleteColumnStatisticsForTableRequest request -> request.withCatalogId(catalogId);
+            case GetColumnStatisticsForPartitionRequest request -> request.withCatalogId(catalogId);
+            case UpdateColumnStatisticsForPartitionRequest request -> request.withCatalogId(catalogId);
+            case DeleteColumnStatisticsForPartitionRequest request -> request.withCatalogId(catalogId);
+            default -> throw new IllegalArgumentException("Unsupported request: " + serviceRequest);
+        };
     }
 }
