@@ -279,6 +279,7 @@ import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.clea
 import static io.trino.plugin.hive.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.metastore.Table.TABLE_COMMENT;
+import static io.trino.plugin.hive.metastore.TableInfo.PRESTO_VIEW_COMMENT;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getSupportedColumnStatistics;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.arePartitionProjectionPropertiesSet;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionHiveTableProperties;
@@ -352,7 +353,6 @@ public class HiveMetadata
     private static final String BUCKETING_VERSION = "bucketing_version";
     public static final String STORAGE_TABLE = "storage_table";
     public static final String TRANSACTIONAL = "transactional";
-    public static final String PRESTO_VIEW_COMMENT = "Presto View";
     public static final String PRESTO_VIEW_EXPANDED_TEXT_MARKER = "/* Presto View */";
 
     public static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";

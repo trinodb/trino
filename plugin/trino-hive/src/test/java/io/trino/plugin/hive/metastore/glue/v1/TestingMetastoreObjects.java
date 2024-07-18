@@ -34,9 +34,9 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
-import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.Table.TABLE_COMMENT;
+import static io.trino.plugin.hive.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static java.lang.String.format;
 
 public final class TestingMetastoreObjects

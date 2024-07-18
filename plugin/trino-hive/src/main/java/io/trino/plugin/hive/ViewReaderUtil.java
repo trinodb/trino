@@ -50,12 +50,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.linkedin.coral.trino.rel2trino.functions.TrinoKeywordsConverter.quoteWordIfNotQuoted;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_VIEW_COMMENT;
 import static io.trino.plugin.hive.HiveSessionProperties.isHiveViewsLegacyTranslation;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.metastore.Table.TABLE_COMMENT;
+import static io.trino.plugin.hive.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
+import static io.trino.plugin.hive.metastore.TableInfo.PRESTO_VIEW_COMMENT;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
@@ -124,7 +125,6 @@ public final class ViewReaderUtil
         });
     }
 
-    public static final String ICEBERG_MATERIALIZED_VIEW_COMMENT = "Presto Materialized View";
     public static final String PRESTO_VIEW_FLAG = "presto_view";
     static final String VIEW_PREFIX = "/* Presto View: ";
     static final String VIEW_SUFFIX = " */";
