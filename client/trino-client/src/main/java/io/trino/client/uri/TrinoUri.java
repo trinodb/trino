@@ -482,6 +482,7 @@ public class TrinoUri
                 .server(getHttpUri())
                 .principal(Optional.of(getUser()))
                 .path(getPath().orElse(ImmutableList.of()))
+                .clientRequestTimeout(getTimeout())
                 .user(getSessionUser())
                 .clientTags(getClientTags().orElse(ImmutableSet.of()))
                 .source(getSource().orElse(null))
