@@ -84,6 +84,7 @@
         <module>plugin/trino-kinesis</module>
         <module>plugin/trino-kudu</module>
         <module>plugin/trino-local-file</module>
+        <module>plugin/trino-loki</module>
         <module>plugin/trino-mariadb</module>
         <module>plugin/trino-memory</module>
         <module>plugin/trino-ml</module>
