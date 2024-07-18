@@ -289,10 +289,10 @@ public class TestTrinoDriverUri
         assertInvalid("jdbc:trino://localhost:8080", properties("path", "catalog.schema.whatever"), "Connection property 'path' has invalid syntax, should be [catalog].[schema] or [schema]");
 
         assertThat(createDriverUri("jdbc:trino://localhost:8080?path=catalog.schema").getPath()).hasValue(ImmutableList.of("catalog.schema"));
-        assertThat(createDriverUri("jdbc:trino://localhost:8080?path=catalog,catalog2").getPath()).hasValue(ImmutableList.of("catalog", "catalog2"));
+        assertThat(createDriverUri("jdbc:trino://localhost:8080?path=schema,schema2").getPath()).hasValue(ImmutableList.of("schema", "schema2"));
 
-        assertThat(createDriverUri("jdbc:trino://localhost:8080", properties("path", "catalog.schema,catalog2")).getPath()).hasValue(ImmutableList.of("catalog.schema", "catalog2"));
-        assertThat(createDriverUri("jdbc:trino://localhost:8080", properties("path", "catalog")).getPath()).hasValue(ImmutableList.of("catalog"));
+        assertThat(createDriverUri("jdbc:trino://localhost:8080", properties("path", "catalog.schema,schema2")).getPath()).hasValue(ImmutableList.of("catalog.schema", "schema2"));
+        assertThat(createDriverUri("jdbc:trino://localhost:8080", properties("path", "schema")).getPath()).hasValue(ImmutableList.of("schema"));
     }
 
     @Test
