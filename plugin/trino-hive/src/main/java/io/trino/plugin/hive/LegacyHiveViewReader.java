@@ -25,8 +25,8 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveToTrinoTranslator.translateHiveViewToTrino;
+import static io.trino.plugin.hive.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
 
 public class LegacyHiveViewReader

@@ -278,6 +278,7 @@ import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.Part
 import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.cleanExtraOutputFiles;
 import static io.trino.plugin.hive.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
+import static io.trino.plugin.hive.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getSupportedColumnStatistics;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.arePartitionProjectionPropertiesSet;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionHiveTableProperties;
@@ -349,7 +350,6 @@ public class HiveMetadata
     public static final String TRINO_CREATED_BY = "trino_created_by";
     public static final String TRINO_QUERY_ID_NAME = "trino_query_id";
     private static final String BUCKETING_VERSION = "bucketing_version";
-    public static final String TABLE_COMMENT = "comment";
     public static final String STORAGE_TABLE = "storage_table";
     public static final String TRANSACTIONAL = "transactional";
     public static final String PRESTO_VIEW_COMMENT = "Presto View";

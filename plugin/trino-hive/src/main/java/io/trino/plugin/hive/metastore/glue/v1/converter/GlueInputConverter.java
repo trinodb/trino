@@ -42,12 +42,12 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toResourceUris;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
+import static io.trino.plugin.hive.metastore.Table.TABLE_COMMENT;
 
 public final class GlueInputConverter
 {

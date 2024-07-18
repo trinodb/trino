@@ -93,7 +93,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.hash.Hashing.sha256;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
@@ -107,6 +106,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParam
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.Partition.toPartitionValues;
 import static io.trino.plugin.hive.metastore.Partition.unescapePathName;
+import static io.trino.plugin.hive.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.metastore.file.ColumnStatistics.fromHiveColumnStatistics;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.SchemaType.DATABASE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.SchemaType.PARTITION;
