@@ -65,9 +65,6 @@ properties files.
 ```{include} jdbc-domain-compaction-threshold.fragment
 ```
 
-```{include} jdbc-procedures.fragment
-```
-
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
@@ -122,6 +119,13 @@ be an empty string `''`, and so forth.
 The connector provides {ref}`globally available <sql-globally-available>` and
 {ref}`read operation <sql-read-operations>` statements to access data and
 metadata in the Druid database.
+
+### Procedures
+
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} jdbc-procedures-execute.fragment
+```
 
 ## Table functions
 

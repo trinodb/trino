@@ -95,9 +95,6 @@ you name the property file `sales.properties`, Trino creates a catalog named
 ```{include} jdbc-domain-compaction-threshold.fragment
 ```
 
-```{include} jdbc-procedures.fragment
-```
-
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
@@ -430,6 +427,13 @@ supports the following statements:
 
 The connector supports {doc}`/admin/fault-tolerant-execution` of query
 processing. Read and write operations are both supported with any retry policy.
+
+### Procedures
+
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} jdbc-procedures-execute.fragment
+```
 
 ## Table functions
 

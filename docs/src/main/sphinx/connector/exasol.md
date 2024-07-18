@@ -137,6 +137,13 @@ The connector provides {ref}`globally available <sql-globally-available>` and
 {ref}`read operation <sql-read-operations>` statements to access data and
 metadata in the Exasol database.
 
+### Procedures
+
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} jdbc-procedures-execute.fragment
+```
+
 ## Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to

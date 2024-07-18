@@ -108,9 +108,6 @@ behavior of the connector and the issues queries to the database.
       isolation is enabled.
 :::
 
-```{include} jdbc-procedures.fragment
-```
-
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
@@ -338,6 +335,13 @@ supports the following features:
 ```
 
 ```{include} alter-table-limitation.fragment
+```
+
+### Procedures
+
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} jdbc-procedures-execute.fragment
 ```
 
 (sqlserver-fte-support)=
