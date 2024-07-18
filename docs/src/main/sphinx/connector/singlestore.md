@@ -82,9 +82,6 @@ will create a catalog named `sales` using the configured connector.
 ```{include} jdbc-domain-compaction-threshold.fragment
 ```
 
-```{include} jdbc-procedures.fragment
-```
-
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
@@ -336,6 +333,13 @@ statements, the connector supports the following features:
 ```
 
 ```{include} alter-table-limitation.fragment
+```
+
+### Procedures
+
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} jdbc-procedures-execute.fragment
 ```
 
 ## Performance

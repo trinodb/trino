@@ -192,7 +192,7 @@ to the following table:
     to avoid implicit default values and use `NULL` as the default value.
 * - `DATETIME(n)`
   - `TIMESTAMP(n)`
-  - 
+  -
 :::
 
 No other types are supported.
@@ -304,6 +304,13 @@ statements, the connector supports the following features:
 
 The connector supports {doc}`/admin/fault-tolerant-execution` of query
 processing. Read and write operations are both supported with any retry policy.
+
+### Procedures
+
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} jdbc-procedures-execute.fragment
+```
 
 ## Table functions
 

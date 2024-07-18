@@ -279,3 +279,8 @@ statements, the connector supports the following features:
 
 ```{include} sql-delete-limitation.fragment
 ```
+
+### Procedures
+
+```{include} jdbc-procedures-execute.fragment
+```

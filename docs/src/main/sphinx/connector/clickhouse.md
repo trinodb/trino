@@ -90,9 +90,6 @@ configured connector to create a catalog named `sales`.
 ```{include} jdbc-domain-compaction-threshold.fragment
 ```
 
-```{include} jdbc-procedures.fragment
-```
-
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
@@ -330,6 +327,13 @@ statements, the connector supports the following features:
 - {ref}`sql-schema-table-management`
 
 ```{include} alter-schema-limitation.fragment
+```
+
+### Procedures
+
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} jdbc-procedures-execute.fragment
 ```
 
 ## Table functions
