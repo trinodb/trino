@@ -1,0 +1,9 @@
+#### `system.flush_metadata_cache()`
+
+Flush JDBC metadata caches. For example, the following system call
+flushes the metadata caches for all schemas in the `example` catalog
+
+```sql
+USE example.example_schema;
+CALL system.flush_metadata_cache();
+```
