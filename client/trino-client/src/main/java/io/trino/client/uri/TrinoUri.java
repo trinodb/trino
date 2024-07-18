@@ -555,14 +555,10 @@ public class TrinoUri
     {
         validatePrefix(url);
         URI uri = parseUrl(url);
-
         if (isNullOrEmpty(uri.getHost())) {
             throw new RuntimeException("No host specified: " + url);
         }
-        if (uri.getPort() == -1) {
-            throw new RuntimeException("No port number specified: " + url);
-        }
-        if ((uri.getPort() < 1) || (uri.getPort() > 65535)) {
+        if (uri.getPort() == 0 || uri.getPort() > 65535) {
             throw new RuntimeException("Invalid port number: " + url);
         }
         return uri;

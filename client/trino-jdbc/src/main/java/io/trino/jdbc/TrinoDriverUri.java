@@ -65,10 +65,7 @@ public final class TrinoDriverUri
         if (isNullOrEmpty(uri.getHost())) {
             throw new SQLException("No host specified: " + url);
         }
-        if (uri.getPort() == -1) {
-            throw new SQLException("No port number specified: " + url);
-        }
-        if ((uri.getPort() < 1) || (uri.getPort() > 65535)) {
+        if (uri.getPort() == 0 || uri.getPort() > 65535) {
             throw new SQLException("Invalid port number: " + url);
         }
         return uri;
