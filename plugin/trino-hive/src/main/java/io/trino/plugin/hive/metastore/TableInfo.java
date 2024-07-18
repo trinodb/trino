@@ -16,12 +16,13 @@ package io.trino.plugin.hive.metastore;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_VIEW_COMMENT;
-import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static java.util.Objects.requireNonNull;
 
 public record TableInfo(SchemaTableName tableName, ExtendedRelationType extendedRelationType)
 {
+    public static final String PRESTO_VIEW_COMMENT = "Presto View";
+    public static final String ICEBERG_MATERIALIZED_VIEW_COMMENT = "Presto Materialized View";
+
     public TableInfo
     {
         requireNonNull(tableName, "tableName is null");
