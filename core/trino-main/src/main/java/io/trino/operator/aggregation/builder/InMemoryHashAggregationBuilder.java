@@ -99,7 +99,7 @@ public class InMemoryHashAggregationBuilder
             UpdateMemory updateMemory)
     {
         if (hashChannel.isPresent()) {
-            this.groupByOutputTypes = ImmutableList.<Type>builder()
+            this.groupByOutputTypes = ImmutableList.<Type>builderWithExpectedSize(groupByTypes.size() + 1)
                     .addAll(groupByTypes)
                     .add(BIGINT)
                     .build();
@@ -126,8 +126,8 @@ public class InMemoryHashAggregationBuilder
         this.updateMemory = requireNonNull(updateMemory, "updateMemory is null");
 
         // wrapper each function with an aggregator
-        ImmutableList.Builder<GroupedAggregator> builder = ImmutableList.builder();
         requireNonNull(aggregatorFactories, "aggregatorFactories is null");
+        ImmutableList.Builder<GroupedAggregator> builder = ImmutableList.builderWithExpectedSize(aggregatorFactories.size());
         for (int i = 0; i < aggregatorFactories.size(); i++) {
             AggregatorFactory accumulatorFactory = aggregatorFactories.get(i);
             if (unspillIntermediateChannelOffset.isPresent()) {
@@ -333,7 +333,7 @@ public class InMemoryHashAggregationBuilder
 
     public static List<Type> toTypes(List<? extends Type> groupByType, List<AggregatorFactory> factories, Optional<Integer> hashChannel)
     {
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
+        ImmutableList.Builder<Type> types = ImmutableList.builderWithExpectedSize(groupByType.size() + (hashChannel.isPresent() ? 1 : 0) + factories.size());
         types.addAll(groupByType);
         if (hashChannel.isPresent()) {
             types.add(BIGINT);
