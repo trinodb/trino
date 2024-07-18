@@ -241,6 +241,11 @@ public class OperatorContext
         this.connectorMetrics.set(metrics);
     }
 
+    public void setPipelineOperatorMetrics(Metrics metrics)
+    {
+        getDriverContext().getPipelineContext().setPipelineOperatorMetrics(operatorId, metrics);
+    }
+
     Optional<ListenableFuture<Void>> getFinishedFuture()
     {
         return Optional.ofNullable(finishedFuture.get());
@@ -558,6 +563,7 @@ public class OperatorContext
                         new Duration(addInputTiming.getWallNanos() + getOutputTiming.getWallNanos() + finishTiming.getWallNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
                         new Duration(blockedWallNanos.get(), NANOSECONDS).convertTo(SECONDS).getValue()),
                 connectorMetrics.get(),
+                Metrics.EMPTY, // will be filled in when aggregating at pipeline level
 
                 DataSize.ofBytes(physicalWrittenDataSize.get()),
 
