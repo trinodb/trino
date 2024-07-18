@@ -484,7 +484,7 @@ public final class DeltaLakeSchemaSupport
                 catch (UnsupportedTypeException e) {
                     // Write operations are denied by unsupported 'variantType' writer feature,
                     // as well as reads of unsupported type-widened columns are skipped
-                    log.debug("Skip unsupported column type: %s", e.type());
+                    log.debug("Skip unsupported column type: %s", e.getMessage());
                 }
             }
             return columns.build();
@@ -580,7 +580,7 @@ public final class DeltaLakeSchemaSupport
                 (fromType.equals("short") && toType.equals("integer"))) {
             return;
         }
-        throw new UnsupportedTypeException("Type change from '%s' to '%s' is not supported".formatted(fromType, toType));
+        throw new UnsupportedTypeException(fromType, toType);
     }
 
     private static boolean isStruct(JsonNode typeNode)
@@ -842,17 +842,14 @@ public final class DeltaLakeSchemaSupport
     public static class UnsupportedTypeException
             extends Exception
     {
-        private final String type;
-
         public UnsupportedTypeException(String type)
         {
-            super();
-            this.type = requireNonNull(type, "type is null");
+            super("Unsupported type: %s".formatted(requireNonNull(type, "type is null")));
         }
 
-        public String type()
+        public UnsupportedTypeException(String fromType, String toType)
         {
-            return type;
+            super("Type change from '%s' to '%s' is not supported".formatted(requireNonNull(fromType, "fromType is null"), requireNonNull(toType, "toType is null")));
         }
     }
 }
