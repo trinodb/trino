@@ -13,89 +13,26 @@
  */
 package io.trino.plugin.localfile;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class LocalFileColumnHandle
+public record LocalFileColumnHandle(String columnName, Type columnType, int ordinalPosition)
         implements ColumnHandle
 {
     public static final int SERVER_ADDRESS_ORDINAL_POSITION = -1;
     public static final String SERVER_ADDRESS_COLUMN_NAME = "server_address";
 
-    private final String columnName;
-    private final Type columnType;
-    private final int ordinalPosition;
-
-    @JsonCreator
-    public LocalFileColumnHandle(
-            @JsonProperty("columnName") String columnName,
-            @JsonProperty("columnType") Type columnType,
-            @JsonProperty("ordinalPosition") int ordinalPosition)
+    public LocalFileColumnHandle
     {
-        this.columnName = requireNonNull(columnName, "columnName is null");
-        this.columnType = requireNonNull(columnType, "columnType is null");
-        this.ordinalPosition = ordinalPosition;
-    }
-
-    @JsonProperty
-    public String getColumnName()
-    {
-        return columnName;
-    }
-
-    @JsonProperty
-    public Type getColumnType()
-    {
-        return columnType;
-    }
-
-    @JsonProperty
-    public int getOrdinalPosition()
-    {
-        return ordinalPosition;
+        requireNonNull(columnName, "columnName is null");
+        requireNonNull(columnType, "columnType is null");
     }
 
     public ColumnMetadata toColumnMetadata()
     {
         return new ColumnMetadata(columnName, columnType);
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        LocalFileColumnHandle that = (LocalFileColumnHandle) o;
-        return Objects.equals(columnName, that.columnName) &&
-                Objects.equals(columnType, that.columnType) &&
-                ordinalPosition == that.ordinalPosition;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(columnName, columnType, ordinalPosition);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("columnName", columnName)
-                .add("columnType", columnType)
-                .add("ordinalPosition", ordinalPosition)
-                .toString();
     }
 }

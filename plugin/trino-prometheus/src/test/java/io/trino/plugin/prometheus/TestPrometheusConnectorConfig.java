@@ -45,7 +45,8 @@ public class TestPrometheusConnectorConfig
                 .setUser(null)
                 .setPassword(null)
                 .setReadTimeout(new Duration(10, SECONDS))
-                .setCaseInsensitiveNameMatching(false));
+                .setCaseInsensitiveNameMatching(false)
+                .setAdditionalHeaders(null));
     }
 
     @Test
@@ -62,6 +63,7 @@ public class TestPrometheusConnectorConfig
                 .put("prometheus.auth.password", "password")
                 .put("prometheus.read-timeout", "30s")
                 .put("prometheus.case-insensitive-name-matching", "true")
+                .put("prometheus.http.additional-headers", "key\\:1:value\\,1, key\\,2:value\\:2")
                 .buildOrThrow();
 
         URI uri = URI.create("file://test.json");
@@ -76,6 +78,7 @@ public class TestPrometheusConnectorConfig
         expected.setPassword("password");
         expected.setReadTimeout(new Duration(30, SECONDS));
         expected.setCaseInsensitiveNameMatching(true);
+        expected.setAdditionalHeaders("key\\:1:value\\,1, key\\,2:value\\:2");
 
         assertFullMapping(properties, expected);
     }
@@ -111,5 +114,10 @@ public class TestPrometheusConnectorConfig
         assertThatThrownBy(new PrometheusConnectorConfig().setPassword("test")::checkConfig)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Both username and password must be set when using basic authentication");
+
+        assertThatThrownBy(new PrometheusConnectorConfig().setAdditionalHeaders("Authorization: test").setHttpAuthHeaderName("Authorization")
+                ::checkConfig)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Additional headers can not include: Authorization");
     }
 }

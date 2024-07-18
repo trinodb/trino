@@ -30,7 +30,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 import static io.trino.plugin.pinot.TestPinotConnectorSmokeTest.schemaRegistryAwareProducer;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.time.temporal.ChronoUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class PinotTpchTables
 {
@@ -49,6 +51,11 @@ public final class PinotTpchTables
                 case "orders" -> createOrdersTable(kafka, pinot, queryRunner);
                 case "customer" -> createCustomerTable(kafka, pinot, queryRunner);
             }
+            assertEventually(() -> assertThat(queryRunner.execute("SHOW TABLES IN pinot.default").getOnlyColumnAsSet())
+                    .contains(table.getTableName()));
+            assertEventually(() -> assertThat(queryRunner.execute("SELECT count(*) FROM pinot.default." + table.getTableName()).getOnlyValue())
+                    .as("Table is not loaded properly: %s", table.getTableName())
+                    .isEqualTo(queryRunner.execute("SELECT count(*) FROM tpch.tiny." + table.getTableName()).getOnlyValue()));
         }
     }
 

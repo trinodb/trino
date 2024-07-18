@@ -87,6 +87,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.server.testing.TestingSystemSessionProperties.TESTING_SESSION_TIME;
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
@@ -2067,16 +2068,7 @@ public abstract class BaseConnectorTest
         String schema = getSession().getSchema().get();
         String schemaPattern = schema.replaceAll(".$", "_");
 
-        @Language("SQL") String ordersTableWithColumns = "VALUES " +
-                "('orders', 'orderkey'), " +
-                "('orders', 'custkey'), " +
-                "('orders', 'orderstatus'), " +
-                "('orders', 'totalprice'), " +
-                "('orders', 'orderdate'), " +
-                "('orders', 'orderpriority'), " +
-                "('orders', 'clerk'), " +
-                "('orders', 'shippriority'), " +
-                "('orders', 'comment')";
+        String ordersTableWithColumns = getOrdersTableWithColumns();
 
         assertQuery("SELECT table_schema FROM information_schema.columns WHERE table_schema = '" + schema + "' GROUP BY table_schema", "VALUES '" + schema + "'");
         assertQuery("SELECT table_name FROM information_schema.columns WHERE table_name = 'orders' GROUP BY table_name", "VALUES 'orders'");
@@ -2108,6 +2100,22 @@ public abstract class BaseConnectorTest
                         "('table_privileges'), " +
                         "('tables'), " +
                         "('views')");
+    }
+
+    protected @Language("SQL") String getOrdersTableWithColumns()
+    {
+        return """
+                VALUES
+                ('orders', 'orderkey'),
+                ('orders', 'custkey'),
+                ('orders', 'orderstatus'),
+                ('orders', 'totalprice'),
+                ('orders', 'orderdate'),
+                ('orders', 'orderpriority'),
+                ('orders', 'clerk'),
+                ('orders', 'shippriority'),
+                ('orders', 'comment')
+                """;
     }
 
     @Test
@@ -2271,6 +2279,9 @@ public abstract class BaseConnectorTest
             // Verify table state after adding a column, but before inserting anything to it
             assertQuery(
                     "SELECT * FROM " + table.getName(),
+                    "VALUES ('first', NULL)");
+            assertQuery(
+                    "SELECT * FROM " + table.getName() + " WHERE a IS NULL",
                     "VALUES ('first', NULL)");
             assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second', 'xxx'", 1);
             assertQuery(
@@ -2940,9 +2951,14 @@ public abstract class BaseConnectorTest
     {
         return ImmutableList.<SetColumnTypeSetup>builder()
                 .add(new SetColumnTypeSetup("tinyint", "TINYINT '127'", "smallint"))
+                .add(new SetColumnTypeSetup("tinyint", "TINYINT '126'", "integer"))
+                .add(new SetColumnTypeSetup("tinyint", "TINYINT '125'", "bigint"))
                 .add(new SetColumnTypeSetup("smallint", "SMALLINT '32767'", "integer"))
+                .add(new SetColumnTypeSetup("smallint", "SMALLINT '32766'", "bigint"))
                 .add(new SetColumnTypeSetup("integer", "2147483647", "bigint"))
                 .add(new SetColumnTypeSetup("bigint", "BIGINT '-2147483648'", "integer"))
+                .add(new SetColumnTypeSetup("bigint", "BIGINT '-32768'", "smallint"))
+                .add(new SetColumnTypeSetup("bigint", "BIGINT '-128'", "tinyint"))
                 .add(new SetColumnTypeSetup("real", "REAL '10.3'", "double"))
                 .add(new SetColumnTypeSetup("real", "REAL 'NaN'", "double"))
                 .add(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(10,3)")) // short decimal -> short decimal
@@ -2992,6 +3008,12 @@ public abstract class BaseConnectorTest
             requireNonNull(sourceValueLiteral, "sourceValueLiteral is null");
             requireNonNull(newColumnType, "newColumnType is null");
             requireNonNull(newValueLiteral, "newValueLiteral is null");
+        }
+
+        public SetColumnTypeSetup withNewColumnType(String newColumnType)
+        {
+            checkState(!unsupportedType);
+            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType);
         }
 
         public SetColumnTypeSetup withNewValueLiteral(String newValueLiteral)
@@ -6818,6 +6840,25 @@ public abstract class BaseConnectorTest
         assertQueryFails("SELECT " + recursive2 + "(42)", "Recursive language functions are not supported: " + recursive2 + "\\(integer\\):integer");
         assertUpdate("DROP FUNCTION " + recursive1 + "(integer)");
         assertUpdate("DROP FUNCTION " + recursive2 + "(integer)");
+
+        // verify exception code when function references another, not existing function
+        String wrappingFunction = "wrapping_" + randomNameSuffix();
+        String wrappedFunction = "wrapped_" + randomNameSuffix();
+
+        // wrapped_() not yet registered
+        assertThat(query("CREATE FUNCTION " + wrappingFunction + "() RETURNS integer RETURN " + wrappedFunction + "()")).failure()
+                .hasMessage("line 1:62: Function '" + wrappedFunction + "' not registered")
+                .hasErrorCode(FUNCTION_NOT_FOUND);
+
+        assertUpdate("CREATE FUNCTION " + wrappedFunction + "() RETURNS integer RETURN 42");
+        assertUpdate("CREATE FUNCTION " + wrappingFunction + "() RETURNS integer RETURN " + wrappedFunction + "()");
+        assertQuery("SELECT " + wrappingFunction + "()", "SELECT 42");
+        assertUpdate("DROP FUNCTION " + wrappedFunction + "()");
+
+        // wrapped_() dropped
+        assertThat(query("SELECT " + wrappingFunction + "()")).failure()
+                .hasMessage("line 1:8: Function '" + wrappedFunction + "' not registered")
+                .hasErrorCode(FUNCTION_NOT_FOUND);
     }
 
     @Test

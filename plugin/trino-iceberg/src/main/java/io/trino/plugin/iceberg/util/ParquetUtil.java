@@ -97,8 +97,8 @@ public final class ParquetUtil
 
         List<BlockMetadata> blocks = metadata.getBlocks();
         for (BlockMetadata block : blocks) {
-            rowCount += block.getRowCount();
-            for (ColumnChunkMetadata column : block.getColumns()) {
+            rowCount += block.rowCount();
+            for (ColumnChunkMetadata column : block.columns()) {
                 Integer fieldId = fileSchema.aliasToId(column.getPath().toDotString());
                 if (fieldId == null) {
                     // fileSchema may contain a subset of columns present in the file

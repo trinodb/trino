@@ -99,6 +99,7 @@ public class DynamicTupleFilterFactory
         TuplePageFilter filter = new TuplePageFilter(filterTuple, filterEqualOperators, outputFilterChannels);
         return () -> new PageProcessor(
                 Optional.of(new PageFilterEvaluator(filter)),
+                Optional.empty(),
                 outputProjections.stream()
                         .map(Supplier::get)
                         .collect(toImmutableList()), initialBatchSize);

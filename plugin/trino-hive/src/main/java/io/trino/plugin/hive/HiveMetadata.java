@@ -4033,6 +4033,6 @@ public class HiveMetadata
         Set<String> requiredSchemas = getQueryPartitionFilterRequiredSchemas(session);
         // If query_partition_filter_required_schemas is empty, then we would apply partition filter for all tables.
         return isQueryPartitionFilterRequired(session) &&
-                requiredSchemas.isEmpty() || requiredSchemas.contains(schemaTableName.getSchemaName());
+                (requiredSchemas.isEmpty() || requiredSchemas.contains(schemaTableName.getSchemaName()));
     }
 }

@@ -20,9 +20,9 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         use = JsonTypeInfo.Id.NAME,
         property = "@type")
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = IcebergOptimizeHandle.class, name = "optimize"),
         @JsonSubTypes.Type(value = IcebergDropExtendedStatsHandle.class, name = "drop_extended_stats"),
         @JsonSubTypes.Type(value = IcebergExpireSnapshotsHandle.class, name = "expire_snapshots"),
+        @JsonSubTypes.Type(value = IcebergOptimizeHandle.class, name = "optimize"),
         @JsonSubTypes.Type(value = IcebergRemoveOrphanFilesHandle.class, name = "remove_orphan_files"),
 })
 public interface IcebergProcedureHandle {}

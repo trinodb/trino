@@ -226,43 +226,54 @@ export function getChildren(nodeInfo: any)
 {
     // TODO: Remove this function by migrating StageDetail to use node JSON representation
     switch (nodeInfo['@type']) {
-        case 'output':
-        case 'explainAnalyze':
-        case 'project':
-        case 'filter':
         case 'aggregation':
-        case 'sort':
-        case 'markDistinct':
-        case 'window':
-        case 'rowNumber':
-        case 'topnRanking':
-        case 'limit':
-        case 'distinctlimit':
-        case 'topn':
-        case 'sample':
-        case 'tablewriter':
+        case 'assignUniqueId':
+        case 'cacheData':
         case 'delete':
-        case 'tableDelete':
-        case 'tablecommit':
-        case 'groupid':
-        case 'unnest':
+        case 'distinctLimit':
+        case 'dynamicFilterSource':
+        case 'explainAnalyze':
+        case 'filter':
+        case 'groupId':
+        case 'limit':
+        case 'markDistinct':
+        case 'mergeProcessor':
+        case 'mergeWriter':
+        case 'output':
+        case 'project':
+        case 'rowNumber':
+        case 'sample':
         case 'scalar':
+        case 'simpleTableExecuteNode':
+        case 'sort':
+        case 'tableCommit':
+        case 'tableExecute':
+        case 'tableWriter':
+        case 'topN':
+        case 'topNRanking':
+        case 'unnest':
+        case 'window':
             return [nodeInfo.source];
         case 'join':
             return [nodeInfo.left, nodeInfo.right];
-        case 'semijoin':
+        case 'semiJoin':
             return [nodeInfo.source, nodeInfo.filteringSource];
-        case 'spatialjoin':
+        case 'spatialJoin':
             return [nodeInfo.left, nodeInfo.right];
-        case 'indexjoin':
+        case 'indexJoin':
             return [nodeInfo.probeSource, nodeInfo.indexSource];
-        case 'union':
         case 'exchange':
+        case 'intersect':
+        case 'union':
             return nodeInfo.sources;
+        case 'indexSource':
+        case 'loadCachedData':
+        case 'refreshMaterializedView':
         case 'remoteSource':
-        case 'tablescan':
+        case 'tableDelete':
+        case 'tableScan':
+        case 'tableUpdate':
         case 'values':
-        case 'indexsource':
             break;
         default:
             console.log("NOTE: Unhandled PlanNode: " + nodeInfo['@type']);

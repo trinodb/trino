@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.log.Logger;
 import io.jsonwebtoken.impl.DefaultJwtBuilder;
 import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.trino.cache.EvictableCacheBuilder;
@@ -94,6 +95,8 @@ import static org.apache.iceberg.view.ViewProperties.COMMENT;
 public class TrinoRestCatalog
         implements TrinoCatalog
 {
+    private static final Logger log = Logger.get(TrinoRestCatalog.class);
+
     private static final int PER_QUERY_CACHE_SIZE = 1000;
 
     private final RESTSessionCatalog restSessionCatalog;
@@ -438,7 +441,16 @@ public class TrinoRestCatalog
         for (Namespace restNamespace : listNamespaces(session, namespace)) {
             for (TableIdentifier restView : restSessionCatalog.listViews(sessionContext, restNamespace)) {
                 SchemaTableName schemaTableName = SchemaTableName.schemaTableName(restView.namespace().toString(), restView.name());
-                getView(session, schemaTableName).ifPresent(view -> views.put(schemaTableName, view));
+                try {
+                    getView(session, schemaTableName).ifPresent(view -> views.put(schemaTableName, view));
+                }
+                catch (TrinoException e) {
+                    if (e.getErrorCode().equals(ICEBERG_UNSUPPORTED_VIEW_DIALECT.toErrorCode())) {
+                        log.debug(e, "Skip unsupported view dialect: %s", schemaTableName);
+                        continue;
+                    }
+                    throw e;
+                }
             }
         }
 

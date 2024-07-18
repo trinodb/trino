@@ -110,6 +110,7 @@ public final class PinotQueryRunner
                         .toInstance(new TestingPinotHostMapper(pinot.getBrokerHostAndPort(), pinot.getServerHostAndPort(), pinot.getServerGrpcHostAndPort())))));
                 Map<String, String> extraPinotProperties = new HashMap<>(pinotProperties.buildOrThrow());
                 extraPinotProperties.put("pinot.controller-urls", pinot.getControllerConnectString());
+                extraPinotProperties.put("pinot.metadata-expiry", "5s");
                 queryRunner.createCatalog(PINOT_CATALOG, "pinot", extraPinotProperties);
 
                 queryRunner.installPlugin(new TpchPlugin());
