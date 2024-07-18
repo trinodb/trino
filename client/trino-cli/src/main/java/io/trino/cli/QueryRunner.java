@@ -23,7 +23,6 @@ import okhttp3.OkHttpClient;
 import java.io.Closeable;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.trino.client.ClientSession.stripTransactionId;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static java.util.Objects.requireNonNull;
@@ -38,7 +37,7 @@ public class QueryRunner
     public QueryRunner(TrinoUri uri, ClientSession session, boolean debug)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
-        this.httpClient = HttpClientFactory.toHttpClientBuilder(uri, firstNonNull(session.getSource(), uri.getSource().orElse(null))).build();
+        this.httpClient = HttpClientFactory.toHttpClientBuilder(uri, session.getSource()).build();
         this.debug = debug;
     }
 

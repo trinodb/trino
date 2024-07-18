@@ -80,6 +80,7 @@ public class TestRetry
         ClientSession session = ClientSession.builder()
                 .server(URI.create("http://" + server.getHostName() + ":" + server.getPort()))
                 .timeZone(ZoneId.of("UTC"))
+                .source("test")
                 .clientRequestTimeout(Duration.valueOf("2s"))
                 .build();
 
@@ -109,6 +110,7 @@ public class TestRetry
         ClientSession session = ClientSession.builder()
                 .server(URI.create("http://" + server.getHostName() + ":" + server.getPort()))
                 .timeZone(ZoneId.of("UTC"))
+                .source("test")
                 .clientRequestTimeout(Duration.valueOf("2s"))
                 .build();
 
