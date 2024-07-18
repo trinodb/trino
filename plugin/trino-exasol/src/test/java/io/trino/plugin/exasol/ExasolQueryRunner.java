@@ -14,6 +14,7 @@
 package io.trino.plugin.exasol;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -25,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static io.airlift.log.Logging.initialize;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.exasol.ExasolTpchTables.copyAndIngestTpchData;
 import static io.trino.plugin.exasol.TestingExasolServer.TEST_PASSWORD;
@@ -38,6 +40,12 @@ import static java.util.Objects.requireNonNull;
 public final class ExasolQueryRunner
 {
     private static final Logger log = Logger.get(ExasolQueryRunner.class);
+
+    static {
+        Logging logging = initialize();
+        logging.setLevel("io.trino.plugin.exasol", Level.TRACE);
+        logging.setLevel("com.exasol", Level.TRACE);
+    }
 
     private ExasolQueryRunner() {}
 

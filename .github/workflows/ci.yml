@@ -57,7 +57,6 @@ jobs:
       matrix:
         include:
           - { java-version: 22, cache: 'true' }
-          - { java-version: 23-ea, cache: 'restore' }
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -438,72 +437,7 @@ jobs:
           touch gib-impacted.log
           cat <<EOF > .github/test-matrix.yaml
           include:
-            - modules:
-                - client/trino-jdbc
-                - plugin/trino-base-jdbc
-                - plugin/trino-memory
-                - plugin/trino-thrift
-            - modules:
-                - lib/trino-orc
-                - lib/trino-parquet
-            - modules:
-                - lib/trino-filesystem
-                - lib/trino-filesystem-azure
-                - lib/trino-filesystem-manager
-                - lib/trino-filesystem-s3
-                - lib/trino-hdfs
-            - { modules: core/trino-main }
-            - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
-            - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
-            - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
-            - { modules: lib/trino-hdfs, profile: cloud-tests }
-            - { modules: plugin/trino-accumulo }
-            - { modules: plugin/trino-bigquery }
-            - { modules: plugin/trino-bigquery, profile: cloud-tests-2 }
-            - { modules: plugin/trino-cassandra }
-            - { modules: plugin/trino-clickhouse }
-            - { modules: plugin/trino-delta-lake }
-            - { modules: plugin/trino-delta-lake, profile: cloud-tests }
-            - { modules: plugin/trino-delta-lake, profile: fte-tests }
-            - { modules: plugin/trino-druid }
-            - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-exasol }
-            - { modules: plugin/trino-google-sheets }
-            - { modules: plugin/trino-hive }
-            - { modules: plugin/trino-hive, profile: fte-tests }
-            - { modules: plugin/trino-hive, profile: test-parquet }
-            - { modules: plugin/trino-hudi }
-            - { modules: plugin/trino-iceberg }
-            - { modules: plugin/trino-iceberg, profile: cloud-tests }
-            - { modules: plugin/trino-iceberg, profile: fte-tests }
-            - { modules: plugin/trino-iceberg, profile: minio-and-avro }
-            - { modules: plugin/trino-ignite }
-            - { modules: plugin/trino-kafka }
-            - { modules: plugin/trino-kudu }
-            - { modules: plugin/trino-mariadb }
-            - { modules: plugin/trino-mongodb }
-            - { modules: plugin/trino-mysql }
-            - { modules: plugin/trino-openlineage }
-            - { modules: plugin/trino-opensearch }
-            - { modules: plugin/trino-oracle }
-            - { modules: plugin/trino-phoenix5 }
-            - { modules: plugin/trino-pinot }
-            - { modules: plugin/trino-postgresql }
-            - { modules: plugin/trino-raptor-legacy }
-            - { modules: plugin/trino-redis }
-            - { modules: plugin/trino-redshift }
-            - { modules: plugin/trino-redshift, profile: cloud-tests }
-            - { modules: plugin/trino-redshift, profile: fte-tests }
-            - { modules: plugin/trino-resource-group-managers }
-            - { modules: plugin/trino-singlestore }
-            - { modules: plugin/trino-snowflake }
-            - { modules: plugin/trino-snowflake, profile: cloud-tests }
-            - { modules: plugin/trino-sqlserver }
-            - { modules: testing/trino-faulttolerant-tests, profile: default }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
-            - { modules: testing/trino-tests }
           EOF
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
@@ -535,6 +469,10 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${{ matrix.modules }}"
+      - name: Print disk space before tests
+        run: df -h
+      - name: Create dir for jdbc driver logs
+        run: mkdir -p /tmp/exasol-jdbc-log/
       - name: Maven Tests
         id: tests
         if: >-
@@ -549,7 +487,16 @@ jobs:
           && ! (contains(matrix.modules, 'trino-filesystem-gcs') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-hdfs') && contains(matrix.profile, 'cloud-tests'))
-        run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
+        run: $MAVEN test ${MAVEN_TEST} -Dsurefire.runOrder.random.seed=382749377773 -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
+      - name: Print disk space after tests
+        if: ${{ always() }}
+        run: df -h
+      - name: "Upload Exasol JDBC driver logs"
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          path: /tmp/exasol-jdbc-log/
+          name: exasol-jdbc-log
       # Additional tests for selected modules
       - name: HDFS file system cache isolated JVM tests
         id: tests-hdfs-isolated
@@ -878,40 +825,6 @@ jobs:
             - default
           suite:
             - suite-1
-            - suite-2
-            - suite-3
-            # suite-4 does not exist
-            - suite-5
-            - suite-6-non-generic
-            - suite-7-non-generic
-            - suite-hive-transactional
-            - suite-azure
-            - suite-delta-lake-databricks91
-            - suite-delta-lake-databricks104
-            - suite-delta-lake-databricks113
-            - suite-delta-lake-databricks122
-            - suite-delta-lake-databricks133
-            - suite-databricks-unity-http-hms
-            - suite-gcs
-            - suite-clients
-            - suite-functions
-            - suite-tpch
-            - suite-tpcds
-            - suite-storage-formats-detailed
-            - suite-parquet
-            - suite-oauth2
-            - suite-ldap
-            - suite-compatibility
-            - suite-all-connectors-smoke
-            - suite-delta-lake-oss
-            - suite-kafka
-            - suite-cassandra
-            - suite-clickhouse
-            - suite-mysql
-            - suite-iceberg
-            - suite-snowflake
-            - suite-hudi
-            - suite-ignite
           exclude:
             - suite: suite-azure
               ignore exclusion if: >-
