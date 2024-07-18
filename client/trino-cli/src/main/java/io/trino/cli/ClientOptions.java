@@ -42,7 +42,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -325,10 +324,9 @@ public class ClientOptions
 
     public ClientSession toClientSession(TrinoUri uri)
     {
-        ClientSession clientSession = uri.toClientSession();
-        return ClientSession
-                .builder(clientSession)
-                .source(firstNonNull(clientSession.getSource(), SOURCE_DEFAULT))
+        return uri
+                .toClientSessionBuilder()
+                .source(uri.getSource().orElse(SOURCE_DEFAULT))
                 .build();
     }
 
