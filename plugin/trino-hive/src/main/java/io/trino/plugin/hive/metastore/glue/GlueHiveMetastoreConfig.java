@@ -44,6 +44,7 @@ public class GlueHiveMetastoreConfig
     private Optional<String> externalId = Optional.empty();
     private Optional<String> awsAccessKey = Optional.empty();
     private Optional<String> awsSecretKey = Optional.empty();
+    private boolean useWebIdentityTokenCredentialsProvider;
     private Optional<String> catalogId = Optional.empty();
     private int partitionSegments = 5;
     private int threads = 40;
@@ -205,6 +206,20 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setAwsSecretKey(String awsSecretKey)
     {
         this.awsSecretKey = Optional.ofNullable(awsSecretKey);
+        return this;
+    }
+
+    public boolean isUseWebIdentityTokenCredentialsProvider()
+    {
+        return useWebIdentityTokenCredentialsProvider;
+    }
+
+    @Config("hive.metastore.glue.use-web-identity-token-credentials-provider")
+    @ConfigDescription("If true, explicitly use the WebIdentityTokenCredentialsProvider" +
+            " instead of the default credential provider chain.")
+    public GlueHiveMetastoreConfig setUseWebIdentityTokenCredentialsProvider(boolean useWebIdentityTokenCredentialsProvider)
+    {
+        this.useWebIdentityTokenCredentialsProvider = useWebIdentityTokenCredentialsProvider;
         return this;
     }
 
