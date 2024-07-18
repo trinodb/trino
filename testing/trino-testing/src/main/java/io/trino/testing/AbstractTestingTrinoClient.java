@@ -160,7 +160,7 @@ public abstract class AbstractTestingTrinoClient<T>
         return ClientSession.builder()
                 .server(server)
                 .principal(Optional.of(session.getIdentity().getUser()))
-                .source(session.getSource().orElse(null))
+                .source(session.getSource().orElse("test"))
                 .traceToken(session.getTraceToken())
                 .clientTags(session.getClientTags())
                 .clientInfo(session.getClientInfo().orElse(null))
