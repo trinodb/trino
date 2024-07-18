@@ -20,11 +20,13 @@ import com.amazonaws.services.glue.model.BatchGetPartitionRequest;
 import com.amazonaws.services.glue.model.BatchUpdatePartitionRequest;
 import com.amazonaws.services.glue.model.CreateDatabaseRequest;
 import com.amazonaws.services.glue.model.CreateTableRequest;
+import com.amazonaws.services.glue.model.CreateUserDefinedFunctionRequest;
 import com.amazonaws.services.glue.model.DeleteColumnStatisticsForPartitionRequest;
 import com.amazonaws.services.glue.model.DeleteColumnStatisticsForTableRequest;
 import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
 import com.amazonaws.services.glue.model.DeletePartitionRequest;
 import com.amazonaws.services.glue.model.DeleteTableRequest;
+import com.amazonaws.services.glue.model.DeleteUserDefinedFunctionRequest;
 import com.amazonaws.services.glue.model.GetColumnStatisticsForPartitionRequest;
 import com.amazonaws.services.glue.model.GetColumnStatisticsForTableRequest;
 import com.amazonaws.services.glue.model.GetDatabaseRequest;
@@ -33,11 +35,14 @@ import com.amazonaws.services.glue.model.GetPartitionRequest;
 import com.amazonaws.services.glue.model.GetPartitionsRequest;
 import com.amazonaws.services.glue.model.GetTableRequest;
 import com.amazonaws.services.glue.model.GetTablesRequest;
+import com.amazonaws.services.glue.model.GetUserDefinedFunctionRequest;
+import com.amazonaws.services.glue.model.GetUserDefinedFunctionsRequest;
 import com.amazonaws.services.glue.model.UpdateColumnStatisticsForPartitionRequest;
 import com.amazonaws.services.glue.model.UpdateColumnStatisticsForTableRequest;
 import com.amazonaws.services.glue.model.UpdateDatabaseRequest;
 import com.amazonaws.services.glue.model.UpdatePartitionRequest;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
+import com.amazonaws.services.glue.model.UpdateUserDefinedFunctionRequest;
 
 import static java.util.Objects.requireNonNull;
 
@@ -78,6 +83,11 @@ public class GlueCatalogIdRequestHandler
             case GetColumnStatisticsForPartitionRequest request -> request.withCatalogId(catalogId);
             case UpdateColumnStatisticsForPartitionRequest request -> request.withCatalogId(catalogId);
             case DeleteColumnStatisticsForPartitionRequest request -> request.withCatalogId(catalogId);
+            case GetUserDefinedFunctionsRequest request -> request.withCatalogId(catalogId);
+            case GetUserDefinedFunctionRequest request -> request.withCatalogId(catalogId);
+            case CreateUserDefinedFunctionRequest request -> request.withCatalogId(catalogId);
+            case UpdateUserDefinedFunctionRequest request -> request.withCatalogId(catalogId);
+            case DeleteUserDefinedFunctionRequest request -> request.withCatalogId(catalogId);
             default -> throw new IllegalArgumentException("Unsupported request: " + serviceRequest);
         };
     }
