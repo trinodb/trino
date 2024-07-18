@@ -66,6 +66,7 @@ public class OperatorStats
     private final long dynamicFilterSplitsProcessed;
     private final Metrics metrics;
     private final Metrics connectorMetrics;
+    private final Metrics pipelineMetrics;
 
     private final DataSize physicalWrittenDataSize;
 
@@ -120,6 +121,7 @@ public class OperatorStats
             @JsonProperty("dynamicFilterSplitsProcessed") long dynamicFilterSplitsProcessed,
             @JsonProperty("metrics") Metrics metrics,
             @JsonProperty("connectorMetrics") Metrics connectorMetrics,
+            @JsonProperty("pipelineMetrics") Metrics pipelineMetrics,
 
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
@@ -176,6 +178,7 @@ public class OperatorStats
         this.dynamicFilterSplitsProcessed = dynamicFilterSplitsProcessed;
         this.metrics = requireNonNull(metrics, "metrics is null");
         this.connectorMetrics = requireNonNull(connectorMetrics, "connectorMetrics is null");
+        this.pipelineMetrics = requireNonNull(pipelineMetrics, "pipelineMetrics is null");
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
@@ -356,6 +359,12 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public Metrics getPipelineMetrics()
+    {
+        return pipelineMetrics;
+    }
+
+    @JsonProperty
     public DataSize getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize;
@@ -434,12 +443,27 @@ public class OperatorStats
         return info;
     }
 
-    public OperatorStats add(OperatorStats operatorStats)
+    public OperatorStats addFillingPipelineMetrics(OperatorStats operators, Metrics pipelineMetrics)
     {
-        return add(ImmutableList.of(operatorStats));
+        return add(ImmutableList.of(operators), Optional.of(pipelineMetrics));
+    }
+
+    public OperatorStats addFillingPipelineMetrics(Iterable<OperatorStats> operators, Metrics pipelineMetrics)
+    {
+        return add(operators, Optional.of(pipelineMetrics));
+    }
+
+    public OperatorStats add(OperatorStats operators)
+    {
+        return add(ImmutableList.of(operators), Optional.empty());
     }
 
     public OperatorStats add(Iterable<OperatorStats> operators)
+    {
+        return add(operators, Optional.empty());
+    }
+
+    private OperatorStats add(Iterable<OperatorStats> operators, Optional<Metrics> pipelineMetrics)
     {
         long totalDrivers = this.totalDrivers;
 
@@ -465,6 +489,7 @@ public class OperatorStats
         long dynamicFilterSplitsProcessed = this.dynamicFilterSplitsProcessed;
         Metrics.Accumulator metricsAccumulator = Metrics.accumulator().add(this.getMetrics());
         Metrics.Accumulator connectorMetricsAccumulator = Metrics.accumulator().add(this.getConnectorMetrics());
+        Optional<Metrics.Accumulator> pipelineMetricsAccumulator = pipelineMetrics.isPresent() ? Optional.empty() : Optional.of(Metrics.accumulator().add(this.getPipelineMetrics()));
 
         long physicalWrittenDataSize = this.physicalWrittenDataSize.toBytes();
 
@@ -514,6 +539,7 @@ public class OperatorStats
             dynamicFilterSplitsProcessed += operator.getDynamicFilterSplitsProcessed();
             metricsAccumulator.add(operator.getMetrics());
             connectorMetricsAccumulator.add(operator.getConnectorMetrics());
+            pipelineMetricsAccumulator.ifPresent(accumulator -> accumulator.add(operator.getPipelineMetrics()));
 
             physicalWrittenDataSize += operator.getPhysicalWrittenDataSize().toBytes();
 
@@ -574,6 +600,7 @@ public class OperatorStats
                 dynamicFilterSplitsProcessed,
                 metricsAccumulator.get(),
                 connectorMetricsAccumulator.get(),
+                pipelineMetrics.orElseGet(() -> pipelineMetricsAccumulator.orElseThrow().get()),
 
                 DataSize.ofBytes(physicalWrittenDataSize),
 
@@ -648,6 +675,52 @@ public class OperatorStats
                 dynamicFilterSplitsProcessed,
                 metrics,
                 connectorMetrics,
+                pipelineMetrics,
+                physicalWrittenDataSize,
+                blockedWall,
+                finishCalls,
+                finishWall,
+                finishCpu,
+                userMemoryReservation,
+                revocableMemoryReservation,
+                peakUserMemoryReservation,
+                peakRevocableMemoryReservation,
+                peakTotalMemoryReservation,
+                spilledDataSize,
+                blockedReason,
+                info);
+    }
+
+    public OperatorStats withPipelineMetrics(Metrics pipelineMetrics)
+    {
+        return new OperatorStats(
+                stageId,
+                pipelineId,
+                operatorId,
+                planNodeId,
+                operatorType,
+                totalDrivers,
+                addInputCalls,
+                addInputWall,
+                addInputCpu,
+                physicalInputDataSize,
+                physicalInputPositions,
+                physicalInputReadTime,
+                internalNetworkInputDataSize,
+                internalNetworkInputPositions,
+                rawInputDataSize,
+                inputDataSize,
+                inputPositions,
+                sumSquaredInputPositions,
+                getOutputCalls,
+                getOutputWall,
+                getOutputCpu,
+                outputDataSize,
+                outputPositions,
+                dynamicFilterSplitsProcessed,
+                metrics,
+                connectorMetrics,
+                pipelineMetrics,
                 physicalWrittenDataSize,
                 blockedWall,
                 finishCalls,
