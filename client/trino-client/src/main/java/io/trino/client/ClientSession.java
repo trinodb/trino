@@ -279,6 +279,10 @@ public class ClientSession
                 .add("locale", locale)
                 .add("properties", properties)
                 .add("transactionId", transactionId)
+                .add("source", source)
+                .add("resourceEstimates", resourceEstimates)
+                .add("clientRequestTimeout", clientRequestTimeout)
+                .add("compressionDisabled", compressionDisabled)
                 .omitNullValues()
                 .toString();
     }
