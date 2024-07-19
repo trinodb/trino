@@ -158,7 +158,7 @@ jobs:
           && ! (contains(matrix.modules, 'trino-filesystem-gcs') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-hdfs') && contains(matrix.profile, 'cloud-tests'))
-        run: $MAVEN test -Dsurefire.runOrder.random.seed=382749377773 -Dtest=io.trino.plugin.exasol.TestExasolConnectorTest ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
+        run: $MAVEN test -Dsurefire.runOrder.random.seed=382749377773 ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
         env:
           TESTCONTAINERS_REUSE_ENABLE: true
       - name: Print disk space after tests
