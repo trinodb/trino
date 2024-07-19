@@ -99,11 +99,9 @@ final class FixJsonDataUtils
     {
         private final ColumnTypeHandler elementHandler;
 
-        private ArrayClientTypeHandler(ClientTypeSignature signature)
+        private ArrayClientTypeHandler(ColumnTypeHandler elementHandler)
         {
-            requireNonNull(signature, "signature is null");
-            checkArgument(signature.getRawType().equals(ARRAY), "not an array type signature: %s", signature);
-            this.elementHandler = createTypeHandler(signature.getArgumentsAsTypeSignatures().get(0));
+            this.elementHandler = requireNonNull(elementHandler, "elementHandler is null");
         }
 
         @Override
@@ -204,7 +202,7 @@ final class FixJsonDataUtils
     {
         switch (signature.getRawType()) {
             case ARRAY:
-                return new ArrayClientTypeHandler(signature);
+                return new ArrayClientTypeHandler(createTypeHandler(signature.getArgumentsAsTypeSignatures().get(0)));
             case MAP:
                 return new MapClientTypeHandler(createTypeHandler(signature.getArgumentsAsTypeSignatures().get(0)), createTypeHandler(signature.getArgumentsAsTypeSignatures().get(1)));
             case ROW:
