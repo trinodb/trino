@@ -85,6 +85,7 @@ public class IcebergConfig
     private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors() * 2;
     private boolean incrementalRefreshEnabled = true;
+    private boolean metadataCacheEnabled = true;
 
     public CatalogType getCatalogType()
     {
@@ -468,5 +469,18 @@ public class IcebergConfig
     public boolean isStorageSchemaSetWhenHidingIsEnabled()
     {
         return hideMaterializedViewStorageTable && materializedViewsStorageSchema.isPresent();
+    }
+
+    public boolean isMetadataCacheEnabled()
+    {
+        return metadataCacheEnabled;
+    }
+
+    @Config("iceberg.metadata-cache.enabled")
+    @ConfigDescription("Enables in-memory caching of metadata files on coordinator if fs.cache.enabled is not set to true")
+    public IcebergConfig setMetadataCacheEnabled(boolean metadataCacheEnabled)
+    {
+        this.metadataCacheEnabled = metadataCacheEnabled;
+        return this;
     }
 }

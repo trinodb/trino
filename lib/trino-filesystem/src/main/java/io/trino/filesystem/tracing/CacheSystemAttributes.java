@@ -24,6 +24,7 @@ public class CacheSystemAttributes
 
     public static final AttributeKey<String> CACHE_KEY = stringKey("trino.cache.key");
     public static final AttributeKey<String> CACHE_FILE_LOCATION = stringKey("trino.cache.file.location");
+    public static final AttributeKey<Long> CACHE_FILE_LOCATION_COUNT = longKey("trino.cache.file.location_count");
     public static final AttributeKey<Long> CACHE_FILE_READ_SIZE = longKey("trino.cache.read_size");
     public static final AttributeKey<Long> CACHE_FILE_READ_POSITION = longKey("trino.cache.read_position");
     public static final AttributeKey<Long> CACHE_FILE_WRITE_SIZE = longKey("trino.cache.write_size");

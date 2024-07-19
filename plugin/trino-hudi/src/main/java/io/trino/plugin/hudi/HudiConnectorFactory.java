@@ -80,7 +80,7 @@ public class HudiConnectorFactory
                     new JsonModule(),
                     new HudiModule(),
                     new HiveMetastoreModule(Optional.empty()),
-                    new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry()),
+                    new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry(), false),
                     new MBeanServerModule(),
                     module.orElse(EMPTY_MODULE),
                     binder -> {

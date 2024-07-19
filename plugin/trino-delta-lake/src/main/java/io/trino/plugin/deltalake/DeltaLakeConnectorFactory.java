@@ -101,7 +101,7 @@ public class DeltaLakeConnectorFactory
                     new DeltaLakeModule(),
                     new DeltaLakeSecurityModule(),
                     new DeltaLakeSynchronizerModule(),
-                    new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry()),
+                    new FileSystemModule(catalogName, context.getNodeManager(), context.getOpenTelemetry(), false),
                     binder -> {
                         binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                         binder.bind(Tracer.class).toInstance(context.getTracer());
