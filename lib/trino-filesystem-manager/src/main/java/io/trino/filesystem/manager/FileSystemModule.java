@@ -34,6 +34,8 @@ import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
 import io.trino.filesystem.gcs.GcsFileSystemFactory;
 import io.trino.filesystem.gcs.GcsFileSystemModule;
+import io.trino.filesystem.memory.MemoryFileSystemCache;
+import io.trino.filesystem.memory.MemoryFileSystemCacheModule;
 import io.trino.filesystem.s3.FileSystemS3;
 import io.trino.filesystem.s3.S3FileSystemModule;
 import io.trino.filesystem.switching.SwitchingFileSystemFactory;
@@ -54,12 +56,14 @@ public class FileSystemModule
     private final String catalogName;
     private final NodeManager nodeManager;
     private final OpenTelemetry openTelemetry;
+    private final boolean coordinatorFileCaching;
 
-    public FileSystemModule(String catalogName, NodeManager nodeManager, OpenTelemetry openTelemetry)
+    public FileSystemModule(String catalogName, NodeManager nodeManager, OpenTelemetry openTelemetry, boolean coordinatorFileCaching)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
+        this.coordinatorFileCaching = coordinatorFileCaching;
     }
 
     @Override
@@ -107,9 +111,14 @@ public class FileSystemModule
         newOptionalBinder(binder, CacheKeyProvider.class).setDefault().to(DefaultCacheKeyProvider.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, TrinoFileSystemCache.class);
+        newOptionalBinder(binder, MemoryFileSystemCache.class);
 
+        boolean isCoordinator = nodeManager.getCurrentNode().isCoordinator();
         if (config.isCacheEnabled()) {
-            install(new AlluxioFileSystemCacheModule(nodeManager.getCurrentNode().isCoordinator()));
+            install(new AlluxioFileSystemCacheModule(isCoordinator));
+        }
+        if (coordinatorFileCaching) {
+            install(new MemoryFileSystemCacheModule(isCoordinator));
         }
     }
 
@@ -119,6 +128,7 @@ public class FileSystemModule
             Optional<HdfsFileSystemLoader> hdfsFileSystemLoader,
             Map<String, TrinoFileSystemFactory> factories,
             Optional<TrinoFileSystemCache> fileSystemCache,
+            Optional<MemoryFileSystemCache> memoryFileSystemCache,
             Optional<CacheKeyProvider> keyProvider,
             Tracer tracer)
     {
@@ -132,6 +142,10 @@ public class FileSystemModule
         TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(loader);
         if (fileSystemCache.isPresent()) {
             delegate = new CacheFileSystemFactory(tracer, delegate, fileSystemCache.orElseThrow(), keyProvider.orElseThrow());
+        }
+        // use MemoryFileSystemCache only when no other TrinoFileSystemCache is configured
+        else if (memoryFileSystemCache.isPresent()) {
+            delegate = new CacheFileSystemFactory(tracer, delegate, memoryFileSystemCache.orElseThrow(), keyProvider.orElseThrow());
         }
         return new TracingFileSystemFactory(tracer, delegate);
     }
