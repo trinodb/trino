@@ -142,6 +142,8 @@ jobs:
           $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${{ matrix.modules }}"
       - name: Create dir for Exasol JDBC driver logs
         run: mkdir -p /tmp/exasol-jdbc-log/
+      - name: Enable testcontainer reuse
+        run: echo 'testcontainers.reuse.enable=true' > "$HOME/.testcontainers.properties"
       - name: Maven Tests
         id: tests
         if: >-
@@ -157,6 +159,8 @@ jobs:
           && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-hdfs') && contains(matrix.profile, 'cloud-tests'))
         run: $MAVEN test -Dsurefire.runOrder.random.seed=382749377773 -Dtest=io.trino.plugin.exasol.TestExasolConnectorTest ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
+        env:
+          TESTCONTAINERS_REUSE_ENABLE: true
       - name: Print disk space after tests
         if: ${{ always() }}
         run: df -h
