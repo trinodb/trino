@@ -217,61 +217,19 @@ final class FixJsonDataUtils
             case ROW:
                 return new RowClientTypeHandler(signature);
             case BIGINT:
-                return (value) -> {
-                    if (value instanceof String) {
-                        return Long.parseLong((String) value);
-                    }
-                    return ((Number) value).longValue();
-                };
-
+                return BigintTypeHandler.INSTANCE;
             case INTEGER:
-                return (value) -> {
-                    if (value instanceof String) {
-                        return Integer.parseInt((String) value);
-                    }
-                    return ((Number) value).intValue();
-                };
-
+                return IntegerTypeHandler.INSTANCE;
             case SMALLINT:
-                return (value) -> {
-                    if (value instanceof String) {
-                        return Short.parseShort((String) value);
-                    }
-                    return ((Number) value).shortValue();
-                };
-
+                return SmallintTypeHandler.INSTANCE;
             case TINYINT:
-                return (value) -> {
-                    if (value instanceof String) {
-                        return Byte.parseByte((String) value);
-                    }
-                    return ((Number) value).byteValue();
-                };
-
+                return TinyintTypeHandler.INSTANCE;
             case DOUBLE:
-                return (value) -> {
-                    if (value instanceof String) {
-                        return Double.parseDouble((String) value);
-                    }
-                    return ((Number) value).doubleValue();
-                };
-
+                return DoubleTypeHandler.INSTANCE;
             case REAL:
-                return (value) -> {
-                    if (value instanceof String) {
-                        return Float.parseFloat((String) value);
-                    }
-                    return ((Number) value).floatValue();
-                };
-
+                return RealTypeHandler.INSTANCE;
             case BOOLEAN:
-                return (value) -> {
-                    if (value instanceof String) {
-                        return Boolean.parseBoolean((String) value);
-                    }
-                    return (Boolean) value;
-                };
-
+                return BooleanTypeHandler.INSTANCE;
             case VARCHAR:
             case JSON:
             case TIME:
@@ -287,20 +245,147 @@ final class FixJsonDataUtils
             case CHAR:
             case GEOMETRY:
             case SPHERICAL_GEOGRAPHY:
-                return (value) -> (String) value;
+                return NoopTypeHandler.INSTANCE;
             case BING_TILE:
                 // Bing tiles are serialized as strings when used as map keys,
                 // they are serialized as json otherwise (value will be a LinkedHashMap).
-                return value -> value;
+                return NoopTypeHandler.INSTANCE;
             default:
                 // for now we assume that only the explicit types above are passed
                 // as a plain text and everything else is base64 encoded binary
-                return (value) -> {
-                    if (value instanceof String) {
-                        return Base64.getDecoder().decode((String) value);
-                    }
-                    return value;
-                };
+                return BinaryTypeHandler.INSTANCE;
+        }
+    }
+
+    private static class BigintTypeHandler
+            implements ColumnTypeHandler
+    {
+        static final BigintTypeHandler INSTANCE = new BigintTypeHandler();
+
+        @Override
+        public Object fixValue(Object value)
+        {
+            if (value instanceof String) {
+                return Long.parseLong((String) value);
+            }
+            return ((Number) value).longValue();
+        }
+    }
+
+    private static class IntegerTypeHandler
+            implements ColumnTypeHandler
+    {
+        static final IntegerTypeHandler INSTANCE = new IntegerTypeHandler();
+
+        @Override
+        public Object fixValue(Object value)
+        {
+            if (value instanceof String) {
+                return Integer.parseInt((String) value);
+            }
+            return ((Number) value).intValue();
+        }
+    }
+
+    private static class SmallintTypeHandler
+            implements ColumnTypeHandler
+    {
+        static final SmallintTypeHandler INSTANCE = new SmallintTypeHandler();
+
+        @Override
+        public Object fixValue(Object value)
+        {
+            if (value instanceof String) {
+                return Short.parseShort((String) value);
+            }
+            return ((Number) value).shortValue();
+        }
+    }
+
+    private static class TinyintTypeHandler
+            implements ColumnTypeHandler
+    {
+        static final TinyintTypeHandler INSTANCE = new TinyintTypeHandler();
+
+        @Override
+        public Object fixValue(Object value)
+        {
+            if (value instanceof String) {
+                return Byte.parseByte((String) value);
+            }
+            return ((Number) value).byteValue();
+        }
+    }
+
+    private static class DoubleTypeHandler
+            implements ColumnTypeHandler
+    {
+        static final DoubleTypeHandler INSTANCE = new DoubleTypeHandler();
+
+        @Override
+        public Object fixValue(Object value)
+        {
+            if (value instanceof String) {
+                return Double.parseDouble((String) value);
+            }
+            return ((Number) value).doubleValue();
+        }
+    }
+
+    private static class RealTypeHandler
+            implements ColumnTypeHandler
+    {
+        static final RealTypeHandler INSTANCE = new RealTypeHandler();
+
+        @Override
+        public Object fixValue(Object value)
+        {
+            if (value instanceof String) {
+                return Float.parseFloat((String) value);
+            }
+            return ((Number) value).floatValue();
+        }
+    }
+
+    private static class BooleanTypeHandler
+            implements ColumnTypeHandler
+    {
+        static final BooleanTypeHandler INSTANCE = new BooleanTypeHandler();
+
+        @Override
+        public Object fixValue(Object value)
+        {
+            if (value instanceof String) {
+                return Boolean.parseBoolean((String) value);
+            }
+            return value;
+        }
+    }
+
+    private static class NoopTypeHandler
+            implements ColumnTypeHandler
+    {
+        private static final NoopTypeHandler INSTANCE = new NoopTypeHandler();
+
+        @Override
+        public Object fixValue(Object value)
+        {
+            return value;
+        }
+    }
+
+    private static class BinaryTypeHandler
+            implements ColumnTypeHandler
+    {
+        static final BinaryTypeHandler INSTANCE = new BinaryTypeHandler();
+
+        @Override
+        public Object fixValue(Object value)
+        {
+            if (value instanceof String) {
+                return Base64.getDecoder().decode((String) value);
+            }
+            return value;
         }
     }
 }
