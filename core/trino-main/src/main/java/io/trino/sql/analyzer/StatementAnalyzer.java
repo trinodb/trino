@@ -3673,13 +3673,11 @@ class StatementAnalyzer
             Optional<TableLayout> insertLayout = metadata.getInsertLayout(session, handle);
 
             ImmutableList.Builder<ColumnHandle> dataColumnHandlesBuilder = ImmutableList.builder();
-            ImmutableSet.Builder<String> dataColumnNamesBuilder = ImmutableSet.builder();
             ImmutableList.Builder<ColumnHandle> redistributionColumnHandlesBuilder = ImmutableList.builder();
             Set<String> partitioningColumnNames = ImmutableSet.copyOf(insertLayout.map(TableLayout::getPartitionColumns).orElse(ImmutableList.of()));
             for (ColumnSchema columnSchema : dataColumnSchemas) {
                 String name = columnSchema.getName();
                 ColumnHandle columnHandle = allColumnHandles.get(name);
-                dataColumnNamesBuilder.add(name);
                 dataColumnHandlesBuilder.add(columnHandle);
                 if (partitioningColumnNames.contains(name)) {
                     redistributionColumnHandlesBuilder.add(columnHandle);
