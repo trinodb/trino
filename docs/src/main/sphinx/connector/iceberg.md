@@ -183,6 +183,11 @@ implementation is used:
     creation of more data files, since it uses the append operation to insert
     the new records.
   - `true`
+* - `iceberg.metadata-cache.enabled`
+  - Set to `false` to disable in-memory caching of metadata files on the 
+    coordinator. This cache is not used when `fs.cache.enabled` is set to true.
+  - `true`
+
 :::
 
 (iceberg-fte-support)=
