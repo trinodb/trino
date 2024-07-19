@@ -244,7 +244,6 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.de
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.generateColumnMetadata;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnComments;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnIdentities;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnMappingMode;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getExactColumnNames;
@@ -1629,12 +1628,6 @@ public class DeltaLakeMetadata
                 case ID, NAME -> new AtomicInteger(getMaxColumnId(handle.getMetadataEntry()));
                 default -> throw new IllegalArgumentException("Unexpected column mapping mode: " + columnMappingMode);
             };
-
-            ImmutableMap.Builder<String, String> columnComments = ImmutableMap.builder();
-            columnComments.putAll(getColumnComments(handle.getMetadataEntry()));
-            if (newColumnMetadata.getComment() != null) {
-                columnComments.put(newColumnMetadata.getName(), newColumnMetadata.getComment());
-            }
 
             DeltaLakeTable deltaTable = DeltaLakeTable.builder(handle.getMetadataEntry(), handle.getProtocolEntry())
                     .addColumn(
