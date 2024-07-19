@@ -1607,6 +1607,46 @@ public class TestCassandraConnectorTest
                 .hasStackTraceContaining("no viable alternative at input 'some'");
     }
 
+    @Test
+    void testExecuteProcedure()
+    {
+        try (TestCassandraTable table = testTable(
+                "execute_procedure",
+                ImmutableList.of(partitionColumn("key", "int")),
+                ImmutableList.of())) {
+            String keyspaceAndTable = table.getTableName();
+            assertUpdate("CALL system.execute('INSERT INTO " + keyspaceAndTable + " (key) VALUES (1)')");
+            assertQuery("SELECT * FROM " + keyspaceAndTable, "VALUES 1");
+
+            assertUpdate("CALL system.execute('DELETE FROM " + keyspaceAndTable + " WHERE key=1')");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + keyspaceAndTable);
+        }
+    }
+
+    @Test
+    void testExecuteProcedureWithNamedArgument()
+    {
+        String tableName = "execute_procedure" + randomNameSuffix();
+        String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
+
+        assertUpdate("CREATE TABLE " + schemaTableName + "(a int)");
+        try {
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
+            assertUpdate("CALL system.execute(query => 'DROP TABLE " + schemaTableName + "')");
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
+        }
+    }
+
+    @Test
+    void testExecuteProcedureWithInvalidQuery()
+    {
+        assertQueryFails("CALL system.execute('SELECT 1')", "(?s).*no viable alternative at input.*");
+        assertQueryFails("CALL system.execute('invalid')", "(?s).*no viable alternative at input.*");
+    }
+
     @Override
     protected OptionalInt maxColumnNameLength()
     {
