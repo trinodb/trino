@@ -178,6 +178,17 @@ jobs:
         if: ${{ always() }}
         run: |
           docker ps
+          CONTAINER_NAME=$(docker ps --filter "ancestor=exasol/docker-db:8.27.0" --format "{{.Names}}")
+          mkdir -p /tmp/db-log/
+          docker cp "$CONTAINER_NAME:/exa/logs/" /tmp/db-log/
+      - name: "Upload Exasol JDBC driver logs"
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          path: /tmp/db-log/
+          name: exasol-db-log-${{ env.UNIQUE_NAME }}
+          retention-days: 3
+
       # Additional tests for selected modules
       - name: HDFS file system cache isolated JVM tests
         id: tests-hdfs-isolated
@@ -406,7 +417,7 @@ jobs:
           # Generate a valid artifact name and make it available to next steps as
           # an environment variable ARTIFACT_NAME
           # ", :, <, >, |, *, ?, \, / are not allowed in artifact names, replace it with an underscore
-          name=$(echo -n "$RANDOM, ${{ matrix.modules }}, ${{ matrix.profile }}, ${{ matrix.jdk }}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
+          name=$(echo -n "${{ env.UNIQUE_NAME }}, ${{ matrix.modules }}, ${{ matrix.profile }}, ${{ matrix.jdk }}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
           # final artifact name can't be longer than 128 characters
           echo "ARTIFACT_NAME=${name:0:100}" >> $GITHUB_ENV
       - name: Upload test results
