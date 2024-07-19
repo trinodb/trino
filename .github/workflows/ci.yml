@@ -121,7 +121,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
-    timeout-minutes: 60
+    timeout-minutes: 20 # Fail faster when Exasol hang
     steps:
       - uses: actions/checkout@v4
         with:
