@@ -140,6 +140,8 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${{ matrix.modules }}"
+      - name: Create dir for Exasol JDBC driver logs
+        run: mkdir -p /tmp/exasol-jdbc-log/
       - name: Maven Tests
         id: tests
         if: >-
@@ -155,6 +157,17 @@ jobs:
           && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-hdfs') && contains(matrix.profile, 'cloud-tests'))
         run: $MAVEN test -Dsurefire.runOrder.random.seed=382749377773 ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
+      - name: Print disk space after tests
+        if: ${{ always() }}
+        run: df -h
+      - name: "Generate Unique Artifact Name"
+        run: echo "UNIQUE_NAME=$RANDOM" >> $GITHUB_ENV
+      - name: "Upload Exasol JDBC driver logs"
+        uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          path: /tmp/exasol-jdbc-log/
+          name: exasol-jdbc-log-${{ env.UNIQUE_NAME }}
       # Additional tests for selected modules
       - name: HDFS file system cache isolated JVM tests
         id: tests-hdfs-isolated
