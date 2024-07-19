@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Key;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -23,6 +24,7 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.trino.client.QueryData;
 import io.trino.client.QueryResults;
 import io.trino.execution.QueryInfo;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -124,10 +126,28 @@ public class TestQueryResource
                             .build(),
                     createJsonResponseHandler(jsonCodec(QueryResults.class)));
 
-            assertThat(attempt2.getData()).isEqualTo(attempt1.getData());
-
+            assertDataEquals(attempt1, attempt2);
             uri = attempt1.getNextUri();
         }
+    }
+
+    private void assertDataEquals(QueryData left, QueryData right)
+    {
+        if (left == null) {
+            assertThat(right).isNull();
+            return;
+        }
+
+        if (left.getData() == null) {
+            assertThat(right.getData()).isNull();
+            return;
+        }
+
+        if (right.getData() == null) {
+            throw new AssertionError("Expected right data to be non-null");
+        }
+
+        assertThat(ImmutableList.copyOf(left.getData())).isEqualTo(ImmutableList.copyOf(right.getData()));
     }
 
     @Test

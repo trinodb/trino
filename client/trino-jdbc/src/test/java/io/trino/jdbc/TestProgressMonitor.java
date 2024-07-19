@@ -14,6 +14,7 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import io.airlift.json.JsonCodec;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
@@ -79,7 +80,7 @@ public class TestProgressMonitor
                 .add(newQueryResults(null, 1, null, null, "QUEUED"))
                 .add(newQueryResults(1, 2, columns, null, "RUNNING"))
                 .add(newQueryResults(1, 3, columns, null, "RUNNING"))
-                .add(newQueryResults(0, 4, columns, ImmutableList.of(ImmutableList.of(253161)), "RUNNING"))
+                .add(newQueryResults(0, 4, columns, Lists.<List<Object>>newArrayList(Lists.newArrayList(253161)), "RUNNING"))
                 .add(newQueryResults(null, null, columns, null, "FINISHED"))
                 .build();
     }

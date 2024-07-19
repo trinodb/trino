@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import io.trino.client.ClientTypeSignatureParameter.ParameterKind;
 
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -68,16 +67,13 @@ final class FixJsonDataUtils
             if (row.size() != typeHandlers.length) {
                 throw new IllegalArgumentException("row/column size mismatch");
             }
-            ArrayList<Object> newRow = new ArrayList<>(typeHandlers.length);
-            int column = 0;
-            for (Object value : row) {
+            for (int i = 0; i < row.size(); i++) {
+                Object value = row.get(i);
                 if (value != null) {
-                    value = typeHandlers[column].fixValue(value);
+                    row.set(i, typeHandlers[i].fixValue(value)); // update value in-place
                 }
-                newRow.add(value);
-                column++;
             }
-            newRows.add(unmodifiableList(newRow)); // allow nulls in list
+            newRows.add(unmodifiableList(row)); // allow nulls in list
         }
         return newRows.build();
     }
@@ -113,15 +109,14 @@ final class FixJsonDataUtils
         @Override
         public List<Object> fixValue(Object value)
         {
-            List<?> listValue = (List<?>) value;
-            ArrayList<Object> fixedValues = new ArrayList<>(listValue.size());
-            for (Object element : listValue) {
+            List<Object> listValue = (List<Object>) value;
+            for (int i = 0; i < listValue.size(); i++) {
+                Object element = listValue.get(i);
                 if (element != null) {
-                    element = elementHandler.fixValue(element);
+                    listValue.set(i, elementHandler.fixValue(element));
                 }
-                fixedValues.add(element);
             }
-            return fixedValues;
+            return unmodifiableList(listValue);
         }
     }
 

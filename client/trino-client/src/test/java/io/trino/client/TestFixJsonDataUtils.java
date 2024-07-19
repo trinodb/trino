@@ -13,8 +13,8 @@
  */
 package io.trino.client;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
@@ -75,15 +75,15 @@ public class TestFixJsonDataUtils
         assertQueryResult(VARCHAR.getTypeSignature(), "teststring", "teststring");
         assertQueryResult(createCharType(3).getTypeSignature(), "abc", "abc");
         assertQueryResult(
-                RowType.from(ImmutableList.of(
+                RowType.from(Lists.newArrayList(
                         field("foo", BIGINT),
                         field("bar", BIGINT))).getTypeSignature(),
-                ImmutableList.of(1, 2),
+                Lists.newArrayList(1, 2),
                 Row.builder()
                         .addField("foo", 1L)
                         .addField("bar", 2L)
                         .build());
-        assertQueryResult(arrayType(BIGINT.getTypeSignature()), ImmutableList.of(1, 2, 4), ImmutableList.of(1L, 2L, 4L));
+        assertQueryResult(arrayType(BIGINT.getTypeSignature()), Lists.newArrayList(1, 2, 4), Lists.newArrayList(1L, 2L, 4L));
         assertQueryResult(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()), ImmutableMap.of(1, 3, 2, 4), ImmutableMap.of(1L, 3L, 2L, 4L));
         assertQueryResult(new TypeSignature(JSON), "{\"json\": {\"a\": 1}}", "{\"json\": {\"a\": 1}}");
         assertQueryResult(new TypeSignature(IPADDRESS), "1.2.3.4", "1.2.3.4");
@@ -98,8 +98,8 @@ public class TestFixJsonDataUtils
     private void assertQueryResult(TypeSignature type, Object data, Object expected)
     {
         List<List<Object>> rows = newArrayList(fixData(
-                ImmutableList.of(new Column("test", type.toString(), toClientTypeSignature(type))),
-                ImmutableList.of(ImmutableList.of(data))));
+                Lists.newArrayList(new Column("test", type.toString(), toClientTypeSignature(type))),
+                Lists.<List<Object>>newArrayList(Lists.newArrayList(data))));
         assertThat(rows.size()).isEqualTo(1);
         assertThat(rows.get(0).size()).isEqualTo(1);
         assertThat(rows.get(0).get(0)).isEqualTo(expected);
