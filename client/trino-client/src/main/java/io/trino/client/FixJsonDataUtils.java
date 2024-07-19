@@ -57,14 +57,14 @@ final class FixJsonDataUtils
 {
     private FixJsonDataUtils() {}
 
-    public static Iterable<List<Object>> fixData(List<Column> columns, List<List<Object>> data)
+    public static Iterable<List<Object>> fixData(List<Column> columns, List<List<Object>> rows)
     {
-        if (data == null) {
+        if (rows == null) {
             return null;
         }
         ColumnTypeHandler[] typeHandlers = createTypeHandlers(columns);
-        ImmutableList.Builder<List<Object>> rows = ImmutableList.builderWithExpectedSize(data.size());
-        for (List<Object> row : data) {
+        ImmutableList.Builder<List<Object>> newRows = ImmutableList.builderWithExpectedSize(rows.size());
+        for (List<Object> row : rows) {
             if (row.size() != typeHandlers.length) {
                 throw new IllegalArgumentException("row/column size mismatch");
             }
@@ -77,9 +77,9 @@ final class FixJsonDataUtils
                 newRow.add(value);
                 column++;
             }
-            rows.add(unmodifiableList(newRow)); // allow nulls in list
+            newRows.add(unmodifiableList(newRow)); // allow nulls in list
         }
-        return rows.build();
+        return newRows.build();
     }
 
     private static ColumnTypeHandler[] createTypeHandlers(List<Column> columns)
