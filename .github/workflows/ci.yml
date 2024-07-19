@@ -142,8 +142,8 @@ jobs:
           $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -am -pl "${{ matrix.modules }}"
       - name: Create dir for Exasol JDBC driver logs
         run: mkdir -p /tmp/exasol-jdbc-log/
-      - name: Enable testcontainer reuse
-        run: echo 'testcontainers.reuse.enable=true' > "$HOME/.testcontainers.properties"
+      #- name: Enable testcontainer reuse
+      #  run: echo 'testcontainers.reuse.enable=true' > "$HOME/.testcontainers.properties"
       - name: Maven Tests
         id: tests
         if: >-
