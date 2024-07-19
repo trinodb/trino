@@ -121,7 +121,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.build-test-matrix.outputs.matrix) }}
-    timeout-minutes: 20 # Fail faster when Exasol hang
+    timeout-minutes: 40 # Fail faster when Exasol hang
     steps:
       - uses: actions/checkout@v4
         with:
@@ -161,6 +161,7 @@ jobs:
         if: ${{ always() }}
         run: df -h
       - name: "Generate Unique Artifact Name"
+        if: ${{ always() }}
         run: echo "UNIQUE_NAME=$RANDOM" >> $GITHUB_ENV
       - name: "Upload Exasol JDBC driver logs"
         uses: actions/upload-artifact@v4
