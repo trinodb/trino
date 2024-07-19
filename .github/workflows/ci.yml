@@ -56,8 +56,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { java-version: 22, cache: 'true' }
-          - { java-version: 23-ea, cache: 'restore' }
+          - { java-version: 23-ea, cache: 'restore', cleanup-node: true }
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -530,7 +529,7 @@ jobs:
         with:
           cache: restore
           cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore' || matrix.modules == 'plugin/trino-exasol') }}
-          java-version: ${{ matrix.jdk != '' && matrix.jdk || '22' }}
+          java-version: ${{ matrix.jdk != '' && matrix.jdk || '23-ea' }}
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
