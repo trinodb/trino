@@ -2741,6 +2741,7 @@
                                     -Xep:MissingOverride:ERROR \
                                     <!-- Sometimes our javadoc contains just a @see directive -->
                                     -Xep:MissingSummary:OFF \
+                                    -Xep:ModifiedButNotUsed:ERROR \
                                     -Xep:MutablePublicArray:ERROR \
                                     -Xep:NarrowCalculation:ERROR \
                                     -Xep:NarrowingCompoundAssignment:ERROR \
