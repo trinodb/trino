@@ -63,17 +63,19 @@ final class FixJsonDataUtils
         }
         ColumnTypeHandler[] typeHandlers = createTypeHandlers(columns);
         ImmutableList.Builder<List<Object>> newRows = ImmutableList.builderWithExpectedSize(rows.size());
-        for (List<Object> row : rows) {
-            if (row.size() != typeHandlers.length) {
-                throw new IllegalArgumentException("row/column size mismatch");
-            }
-            for (int i = 0; i < row.size(); i++) {
-                Object value = row.get(i);
-                if (value != null) {
-                    row.set(i, typeHandlers[i].fixValue(value)); // update value in-place
+        try {
+            for (List<Object> row : rows) {
+                for (int i = 0; i < typeHandlers.length; i++) { // This will fail if row is smaller than expected number of columns
+                    Object value = row.get(i);
+                    if (value != null) {
+                        row.set(i, typeHandlers[i].fixValue(value)); // update value in-place
+                    }
+                    newRows.add(unmodifiableList(row)); // allow nulls in list
                 }
             }
-            newRows.add(unmodifiableList(row)); // allow nulls in list
+        }
+        catch (IndexOutOfBoundsException e) {
+            throw new IllegalArgumentException("row/column size mismatch");
         }
         return newRows.build();
     }
