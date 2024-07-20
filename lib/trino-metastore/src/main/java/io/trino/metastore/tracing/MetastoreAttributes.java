@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.tracing;
+package io.trino.metastore.tracing;
 
 import io.opentelemetry.api.common.AttributeKey;
 

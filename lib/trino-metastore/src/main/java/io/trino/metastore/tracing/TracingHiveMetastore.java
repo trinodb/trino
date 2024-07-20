@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.tracing;
+package io.trino.metastore.tracing;
 
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
@@ -43,17 +43,17 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
-import static io.trino.plugin.hive.metastore.tracing.MetastoreAttributes.ACID_TRANSACTION;
-import static io.trino.plugin.hive.metastore.tracing.MetastoreAttributes.FUNCTION;
-import static io.trino.plugin.hive.metastore.tracing.MetastoreAttributes.FUNCTION_RESPONSE_COUNT;
-import static io.trino.plugin.hive.metastore.tracing.MetastoreAttributes.PARTITION;
-import static io.trino.plugin.hive.metastore.tracing.MetastoreAttributes.PARTITION_REQUEST_COUNT;
-import static io.trino.plugin.hive.metastore.tracing.MetastoreAttributes.PARTITION_RESPONSE_COUNT;
-import static io.trino.plugin.hive.metastore.tracing.MetastoreAttributes.SCHEMA;
-import static io.trino.plugin.hive.metastore.tracing.MetastoreAttributes.SCHEMA_RESPONSE_COUNT;
-import static io.trino.plugin.hive.metastore.tracing.MetastoreAttributes.TABLE;
-import static io.trino.plugin.hive.metastore.tracing.MetastoreAttributes.TABLE_RESPONSE_COUNT;
-import static io.trino.plugin.hive.metastore.tracing.Tracing.withTracing;
+import static io.trino.metastore.tracing.MetastoreAttributes.ACID_TRANSACTION;
+import static io.trino.metastore.tracing.MetastoreAttributes.FUNCTION;
+import static io.trino.metastore.tracing.MetastoreAttributes.FUNCTION_RESPONSE_COUNT;
+import static io.trino.metastore.tracing.MetastoreAttributes.PARTITION;
+import static io.trino.metastore.tracing.MetastoreAttributes.PARTITION_REQUEST_COUNT;
+import static io.trino.metastore.tracing.MetastoreAttributes.PARTITION_RESPONSE_COUNT;
+import static io.trino.metastore.tracing.MetastoreAttributes.SCHEMA;
+import static io.trino.metastore.tracing.MetastoreAttributes.SCHEMA_RESPONSE_COUNT;
+import static io.trino.metastore.tracing.MetastoreAttributes.TABLE;
+import static io.trino.metastore.tracing.MetastoreAttributes.TABLE_RESPONSE_COUNT;
+import static io.trino.metastore.tracing.Tracing.withTracing;
 import static java.util.Objects.requireNonNull;
 
 public class TracingHiveMetastore
