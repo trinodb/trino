@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
-import io.airlift.jmx.CacheStatsMBean;
+import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
