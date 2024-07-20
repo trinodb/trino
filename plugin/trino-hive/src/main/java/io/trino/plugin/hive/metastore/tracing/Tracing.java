@@ -17,7 +17,7 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
 
 import static io.opentelemetry.api.trace.StatusCode.ERROR;
-import static io.opentelemetry.semconv.SemanticAttributes.EXCEPTION_ESCAPED;
+import static io.opentelemetry.semconv.ExceptionAttributes.EXCEPTION_ESCAPED;
 
 final class Tracing
 {
