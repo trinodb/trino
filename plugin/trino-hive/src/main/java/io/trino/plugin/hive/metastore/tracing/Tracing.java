@@ -16,6 +16,8 @@ package io.trino.plugin.hive.metastore.tracing;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
 
+import java.util.function.Supplier;
+
 import static io.opentelemetry.api.trace.StatusCode.ERROR;
 import static io.opentelemetry.semconv.ExceptionAttributes.EXCEPTION_ESCAPED;
 
@@ -23,8 +25,7 @@ final class Tracing
 {
     private Tracing() {}
 
-    public static <E extends Exception> void withTracing(Span span, CheckedRunnable<E> runnable)
-            throws E
+    public static void withTracing(Span span, Runnable runnable)
     {
         withTracing(span, () -> {
             runnable.run();
@@ -32,8 +33,7 @@ final class Tracing
         });
     }
 
-    public static <T, E extends Exception> T withTracing(Span span, CheckedSupplier<T, E> supplier)
-            throws E
+    public static <T> T withTracing(Span span, Supplier<T> supplier)
     {
         try (var _ = span.makeCurrent()) {
             return supplier.get();
@@ -46,17 +46,5 @@ final class Tracing
         finally {
             span.end();
         }
-    }
-
-    public interface CheckedRunnable<E extends Exception>
-    {
-        void run()
-                throws E;
-    }
-
-    public interface CheckedSupplier<T, E extends Exception>
-    {
-        T get()
-                throws E;
     }
 }
