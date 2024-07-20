@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.util;
+package io.trino.plugin.hive.metastore.glue.v1.converter;
 
 import java.util.Objects;
 import java.util.function.BiFunction;
