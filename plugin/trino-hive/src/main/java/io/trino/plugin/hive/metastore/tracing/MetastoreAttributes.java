@@ -23,13 +23,13 @@ final class MetastoreAttributes
     private MetastoreAttributes() {}
 
     public static final AttributeKey<String> SCHEMA = stringKey("trino.schema");
-    public static final AttributeKey<Long> SCHEMA_RESPONSE_COUNT = longKey("trino.hive.response.schema_count");
+    public static final AttributeKey<Long> SCHEMA_RESPONSE_COUNT = longKey("trino.metastore.response.schema_count");
     public static final AttributeKey<String> TABLE = stringKey("trino.table");
-    public static final AttributeKey<Long> TABLE_RESPONSE_COUNT = longKey("trino.hive.response.table_count");
+    public static final AttributeKey<Long> TABLE_RESPONSE_COUNT = longKey("trino.metastore.response.table_count");
     public static final AttributeKey<String> PARTITION = stringKey("trino.partition");
     public static final AttributeKey<String> FUNCTION = stringKey("trino.function");
-    public static final AttributeKey<Long> FUNCTION_RESPONSE_COUNT = longKey("trino.hive.response.function_count");
-    public static final AttributeKey<Long> ACID_TRANSACTION = longKey("trino.hive.acid_transaction");
-    public static final AttributeKey<Long> PARTITION_REQUEST_COUNT = longKey("trino.hive.request.partition_count");
-    public static final AttributeKey<Long> PARTITION_RESPONSE_COUNT = longKey("trino.hive.response.partition_count");
+    public static final AttributeKey<Long> FUNCTION_RESPONSE_COUNT = longKey("trino.metastore.response.function_count");
+    public static final AttributeKey<Long> ACID_TRANSACTION = longKey("trino.metastore.acid_transaction");
+    public static final AttributeKey<Long> PARTITION_REQUEST_COUNT = longKey("trino.metastore.request.partition_count");
+    public static final AttributeKey<Long> PARTITION_RESPONSE_COUNT = longKey("trino.metastore.response.partition_count");
 }
