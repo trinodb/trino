@@ -69,11 +69,21 @@ public abstract class BaseHsqlDbFailureRecoveryTest
         // which has no ability to recover from errors. This test simply verifies that's still the case.
         Optional<String> setupQuery = Optional.of("CREATE TABLE <table> AS SELECT * FROM orders");
         String testQuery = "UPDATE <table> SET shippriority = 101 WHERE custkey = 1";
-        Optional<String> cleanupQuery = Optional.of("DROP TABLE <table> CASCADE");
+        Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
 
         assertThatQuery(testQuery)
                 .withSetupQuery(setupQuery)
                 .withCleanupQuery(cleanupQuery)
                 .isCoordinatorOnly();
+    }
+
+    @Test
+    @Override
+    protected void testDeleteWithSubquery()
+    {
+        testTableModification(
+                Optional.of("CREATE TABLE <table> AS (SELECT * FROM orders) WITH DATA"),
+                "DELETE FROM <table> WHERE custkey IN (SELECT custkey FROM customer WHERE nationkey = 1)",
+                Optional.of("DROP TABLE <table>"));
     }
 }

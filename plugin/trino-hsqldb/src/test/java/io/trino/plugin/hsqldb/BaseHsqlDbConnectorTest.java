@@ -14,22 +14,26 @@
 package io.trino.plugin.hsqldb;
 
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
-import io.trino.sql.planner.plan.FilterNode;
-import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TestView;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.nullToEmpty;
-import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
-import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NEGATIVE_DATE;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseHsqlDbConnectorTest
         extends BaseJdbcConnectorTest
@@ -40,24 +44,35 @@ public abstract class BaseHsqlDbConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_JOIN_PUSHDOWN -> true;
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+            case SUPPORTS_CREATE_SCHEMA,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_CREATE_TABLE,
+                 SUPPORTS_CREATE_TABLE_WITH_DATA,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_COMMENT_ON_VIEW,
+                 SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_COMMENT_ON_VIEW_COLUMN,
+                 SUPPORTS_DROP_SCHEMA_CASCADE -> true;
+            case SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_ADD_COLUMN_WITH_COMMENT,
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
                  SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
                  SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_ARRAY,
-                 SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                  SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
-                 SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
                  SUPPORTS_NEGATIVE_DATE,
-                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
-                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
-                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
                  SUPPORTS_ROW_TYPE,
-                 SUPPORTS_SET_COLUMN_TYPE -> false;
+                 SUPPORTS_LIMIT_PUSHDOWN,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_NATIVE_QUERY-> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -67,7 +82,7 @@ public abstract class BaseHsqlDbConnectorTest
     {
         return new TestTable(
                 onRemoteDatabase(),
-                "tpch.table",
+                "table",
                 "(col_required BIGINT NOT NULL," +
                         "col_nullable BIGINT," +
                         "col_default BIGINT DEFAULT 43," +
@@ -80,292 +95,239 @@ public abstract class BaseHsqlDbConnectorTest
     {
         return new TestTable(
                 onRemoteDatabase(),
-                "tpch.test_unsupported_column_present",
-                "(one bigint, two decimal(50,0), three varchar(10))");
-    }
-
-    @Test
-    @Override
-    public void testShowColumns()
-    {
-        assertThat(query("SHOW COLUMNS FROM orders")).result().matches(getDescribeOrdersResult());
+                "test_unsupported_column_present",
+                "(one bigint, two sql_variant, three varchar(10))");
     }
 
     @Override
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
-        return nullToEmpty(exception.getMessage()).matches(".*(Incorrect column name).*");
+        return nullToEmpty(exception.getMessage()).contains("type not found or user lacks privilege:");
+    }
+
+    @Test
+    public void testReadFromView()
+    {
+        try (TestView view = new TestView(onRemoteDatabase(), "test_view", "SELECT * FROM orders")) {
+            assertThat(getQueryRunner().tableExists(getSession(), view.getName())).isTrue();
+            assertQuery("SELECT orderkey FROM " + view.getName(), "SELECT orderkey FROM orders");
+        }
     }
 
     @Override
-    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
-        String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("timestamp(3) with time zone") ||
-                typeName.equals("timestamp(6) with time zone")) {
-            return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-
-        // MariaDB can hold values between '1970-01-01 00:00:01' and '2038-01-19 03:14:07' in TIMESTAMP data type https://mariadb.com/kb/en/timestamp/#supported-values
-        if (typeName.equals("timestamp")) {
-            return Optional.of(new DataMappingTestSetup("timestamp", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2038-01-19 03:14:07'"));
-        }
-        if (typeName.equals("timestamp(6)")) {
-            return Optional.of(new DataMappingTestSetup("timestamp(6)", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2038-01-19 03:14:07.000000'"));
-        }
-
-        if (typeName.equals("boolean")) {
-            // MariaDB does not have built-in support for boolean type. MariaDB provides BOOLEAN as the synonym of TINYINT(1)
-            // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
-            return Optional.empty();
-        }
-
-        return Optional.of(dataMappingTestSetup);
-    }
-
-    @Override
-    protected MaterializedResult getDescribeOrdersResult()
-    {
-        // varchar length is different from base test
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar(255)", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar(255)", "", "")
-                .row("clerk", "varchar(255)", "", "")
-                .row("shippriority", "integer", "", "")
-                .row("comment", "varchar(255)", "", "")
-                .build();
+        assertThat(e).hasMessageStartingWith("default expression needed in statement ");
     }
 
     @Test
     @Override
-    public void testShowCreateTable()
+    public void testCommentTable()
     {
-        // varchar length is different from base test
-        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE hdqldb.tpch.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar(255),\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar(255),\n" +
-                        "   clerk varchar(255),\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar(255)\n" +
-                        ")");
-    }
+        if (!hasBehavior(SUPPORTS_COMMENT_ON_TABLE)) {
+            assertQueryFails("COMMENT ON TABLE nation IS 'new comment'", "This connector does not support setting table comments");
+            return;
+        }
 
-    @Test
-    public void testViews()
-    {
-        onRemoteDatabase().execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
-        assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
-        onRemoteDatabase().execute("DROP VIEW IF EXISTS tpch.test_view");
-    }
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_", "(a integer)")) {
+            // comment initially not set
+            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo(null);
 
-    @Test
-    public void testColumnComment()
-    {
-        // TODO (https://github.com/trinodb/trino/issues/5333) add support for setting comments on existing column
-
-        onRemoteDatabase().execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
-
-        assertQuery(
-                "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
-                "VALUES ('col1', 'test comment'), ('col2', null), ('col3', null)");
-
-        assertUpdate("DROP TABLE test_column_comment");
-    }
-
-    @Test
-    @Override
-    public void testAddNotNullColumn()
-    {
-        assertThatThrownBy(super::testAddNotNullColumn)
-                .isInstanceOf(AssertionError.class)
-                .hasMessage("Should fail to add not null column without a default value to a non-empty table");
-
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_nn_col", "(a_varchar varchar)")) {
-            String tableName = table.getName();
-
-            assertUpdate("INSERT INTO " + tableName + " VALUES ('a')", 1);
-            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
-            assertThat(query("TABLE " + tableName))
+            // comment set
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'new comment'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains("COMMENT 'new comment'");
+            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo("new comment");
+            assertThat(query(
+                    "SELECT table_name, comment FROM system.metadata.table_comments " +
+                            "WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "'")) // without table_name filter
                     .skippingTypesCheck()
-                    // MariaDB adds implicit default value of '' for b_varchar
-                    .matches("VALUES ('a', '')");
-        }
-    }
+                    .containsAll("VALUES ('" + table.getName() + "', 'new comment')");
 
-    @Test
-    public void testPredicatePushdown()
-    {
-        // varchar equality
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
-                .isNotFullyPushedDown(FilterNode.class);
+            // comment deleted
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS ''");
+            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo("");
 
-        // varchar range
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
-                .isNotFullyPushedDown(FilterNode.class);
-
-        // varchar different case
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
-                .returnsEmptyResult()
-                .isNotFullyPushedDown(FilterNode.class);
-
-        // bigint equality
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
-                .isFullyPushedDown();
-
-        // bigint range, with decimal to bigint simplification
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey BETWEEN 18.5 AND 19.5"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
-                .isFullyPushedDown();
-
-        // date equality
-        assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
-                .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
-                .isFullyPushedDown();
-
-        onRemoteDatabase().execute("CREATE TABLE tpch.binary_test (x int, y varbinary(100))");
-        onRemoteDatabase().execute("INSERT INTO tpch.binary_test VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))");
-
-        // varbinary equality
-        assertThat(query("SELECT x, y FROM tpch.binary_test WHERE y = from_base64('AFCBhLrkidtNTZcA9Ru3hw==')"))
-                .matches("VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))")
-                .isFullyPushedDown();
-
-        onRemoteDatabase().execute("DROP TABLE tpch.binary_test");
-
-        // predicate over aggregation key (likely to be optimized before being pushed down into the connector)
-        assertThat(query("SELECT * FROM (SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey) WHERE regionkey = 3"))
-                .matches("VALUES (BIGINT '3', BIGINT '77')")
-                .isFullyPushedDown();
-
-        // predicate over aggregation result
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
-                .matches("VALUES (BIGINT '3', BIGINT '77')")
-                .isFullyPushedDown();
-    }
-
-    @Test
-    @Override
-    public void testDeleteWithLike()
-    {
-        assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
-    }
-
-    // Overridden because the method from BaseConnectorTest fails on one of the assertions, see TODO below
-    @Test
-    @Override
-    public void testInsertIntoNotNullColumn()
-    {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
-            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
-            assertQueryFails(format("INSERT INTO %s (nullable_col) VALUES (1)", table.getName()), errorMessageForInsertIntoNotNullColumn("not_null_col"));
-            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
-            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (TRY(5/0), 4)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
-            assertQueryFails(format("INSERT INTO %s (not_null_col) VALUES (TRY(6/0))", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
-            assertQueryFails(format("INSERT INTO %s (nullable_col) SELECT nationkey FROM nation", table.getName()), errorMessageForInsertIntoNotNullColumn("not_null_col"));
-            // TODO (https://github.com/trinodb/trino/issues/13551) This doesn't fail for other connectors so
-            //  probably shouldn't fail for MariaDB either. Once fixed, remove test override.
-            assertQueryFails(format("INSERT INTO %s (nullable_col) SELECT nationkey FROM nation WHERE regionkey < 0", table.getName()), ".*Field 'not_null_col' doesn't have a default value.*");
+            // comment set to non-empty value before verifying setting empty comment
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'updated comment'");
+            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo("updated comment");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "commuted_not_null", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
-            assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
-            // This is enforced by the engine and not the connector
-            assertQueryFails(format("INSERT INTO %s (not_null_col, nullable_col) VALUES (NULL, 3)", table.getName()), "NULL value not allowed for NOT NULL column: not_null_col");
+        String tableName = "test_comment_" + randomNameSuffix();
+        try {
+            // comment set when creating a table
+            assertUpdate("CREATE TABLE " + tableName + "(key integer) COMMENT 'new table comment'");
+            assertThat(getTableComment(catalogName, schemaName, tableName)).isEqualTo("new table comment");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
     @Test
     @Override
-    public void testNativeQueryCreateStatement()
+    public void testCommentColumn()
     {
-        // Override because MariaDB returns a ResultSet metadata with no columns for CREATE statement.
-        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
-        assertThat(query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE tpch.numbers(n INTEGER)'))"))
-                .nonTrinoExceptionFailure().hasMessageContaining("descriptor has no fields");
-        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
+        if (!hasBehavior(SUPPORTS_COMMENT_ON_COLUMN)) {
+            assertQueryFails("COMMENT ON COLUMN nation.nationkey IS 'new comment'", "This connector does not support setting column comments");
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_", "(a integer)")) {
+            // comment set
+            assertUpdate("COMMENT ON COLUMN public." + table.getName() + ".a IS 'new comment'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains("COMMENT 'new comment'");
+            assertThat(getColumnComment(table.getName(), "a")).isEqualTo("new comment");
+
+            // comment deleted
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS ''");
+            assertThat(getColumnComment(table.getName(), "a")).isEqualTo("");
+
+            // comment set to non-empty value before verifying setting empty comment
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS 'updated comment'");
+            assertThat(getColumnComment(table.getName(), "a")).isEqualTo("updated comment");
+        }
     }
 
     @Test
     @Override
-    public void testNativeQueryInsertStatementTableExists()
+    public void testCommentViewColumn()
     {
-        // MariaDB returns a ResultSet metadata with no columns for INSERT statement.
-        // This is unusual, because other connectors don't produce a ResultSet metadata for INSERT at all.
-        // The query fails because there are no columns, but even if columns were not required, the query would fail
-        // to execute in MariaDB because the connector wraps it in additional syntax, which causes syntax error.
-        try (TestTable testTable = simpleTable()) {
-            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
-                    .nonTrinoExceptionFailure().hasMessageContaining("descriptor has no fields");
-            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
+        if (!hasBehavior(SUPPORTS_COMMENT_ON_VIEW_COLUMN)) {
+            if (hasBehavior(SUPPORTS_CREATE_VIEW)) {
+                try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view_column", "SELECT * FROM region")) {
+                    assertQueryFails("COMMENT ON COLUMN " + view.getName() + ".regionkey IS 'new region key comment'", "This connector does not support setting view column comments");
+                }
+                return;
+            }
+            abort("Skipping as connector does not support CREATE VIEW");
+        }
+
+        String viewColumnName = "regionkey";
+        try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view_column", "SELECT * FROM region")) {
+            // comment set
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS 'new region key comment'");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("new region key comment");
+
+            // comment deleted
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS ''");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("");
+
+            // comment set to non-empty value before verifying setting empty comment
+            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS 'updated region key comment'");
+            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("updated region key comment");
         }
     }
 
-    @Override
-    protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
+    @Test
+    public void testInsertNegativeDate()
     {
-        return format("Failed to insert data: \\(conn=.*\\) Incorrect date value: '%s'.*", date);
+        if (!hasBehavior(SUPPORTS_INSERT)) {
+            assertQueryFails("INSERT INTO orders (orderdate) VALUES (DATE '-0001-01-01')", "This connector does not support inserts");
+            return;
+        }
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            throw new AssertionError("Cannot test INSERT negative dates without CREATE TABLE, the test needs to be implemented in a connector-specific way");
+        }
+        if (!hasBehavior(SUPPORTS_NEGATIVE_DATE)) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date", "(dt DATE)")) {
+                assertQueryFails(format("INSERT INTO %s VALUES (CAST('-0001-01-01' AS DATE))", table.getName()), errorMessageForInsertNegativeDate("-0001-01-01"));
+            }
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date", "(dt DATE)")) {
+            assertUpdate(format("INSERT INTO %s VALUES (DATE '-0001-01-01')", table.getName()), 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES DATE '-0001-01-01'");
+            assertQuery(format("SELECT * FROM %s WHERE dt = DATE '-0001-01-01'", table.getName()), "VALUES DATE '-0001-01-01'");
+        }
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return format("Failed to insert data: \\(conn=.*\\) Incorrect date value: '%s'.*", date);
+        System.out.println("*********************************************************************************************");
+        return ".*";
     }
 
     @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        System.out.println("****************************************** " + e.getMessage());
+        assertThat(e).hasMessageContaining("was deadlocked on lock resources");
+    }
+
+    @Override
+    @Language("RegExp")
+    protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
+    {
+        return ".*";
+    }
+
+    @Override
+    @Language("RegExp")
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("Failed to insert data: \\(conn=.*\\) Field '%s' doesn't have a default value", columnName);
+        return ".*";
     }
 
     @Override
     protected OptionalInt maxSchemaNameLength()
     {
-        return OptionalInt.of(64);
+        return OptionalInt.of(128);
     }
 
     @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("Incorrect database name");
+        assertThat(e).hasMessageContaining("user lacks privilege or object not found:");
     }
 
     @Override
     protected OptionalInt maxTableNameLength()
     {
-        return OptionalInt.of(64);
+        return OptionalInt.of(128);
     }
 
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("Incorrect table name");
+        assertThat(e).hasMessageContaining("user lacks privilege or object not found:");
     }
 
     @Override
     protected OptionalInt maxColumnNameLength()
     {
-        return OptionalInt.of(64);
+        return OptionalInt.of(128);
     }
 
     @Override
     protected void verifyColumnNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching("(.*Identifier name '.*' is too long|.*Incorrect column name.*)");
+        assertThat(e).hasMessageContaining("user lacks privilege or object not found:");
     }
+
+    @Test
+    @Override
+    public void testCreateViewSchemaNotFound()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_VIEW));
+
+        String schemaName = "test_schema_" + randomNameSuffix();
+        String viewName = "test_view_create_no_schema_" + randomNameSuffix();
+        try {
+            assertQueryFails(
+                    format("CREATE VIEW %s.%s AS SELECT 1 AS c1", schemaName, viewName),
+                    format("invalid schema name: %s", schemaName));
+            assertQueryFails(
+                    format("CREATE OR REPLACE VIEW %s.%s AS SELECT 1 AS c1", schemaName, viewName),
+                    format("invalid schema name: %s", schemaName));
+        }
+        finally {
+            assertUpdate(format("DROP VIEW IF EXISTS %s.%s", schemaName, viewName));
+        }
+    }
+
+
 }

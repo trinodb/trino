@@ -14,7 +14,9 @@
 package io.trino.plugin.hsqldb;
 
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 
 public class TestHsqlDbConnectorTest
         extends BaseHsqlDbConnectorTest
@@ -30,8 +32,44 @@ public class TestHsqlDbConnectorTest
     }
 
     @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        return switch (connectorBehavior) {
+            case SUPPORTS_ADD_COLUMN,
+                 SUPPORTS_AGGREGATION_PUSHDOWN,
+                 SUPPORTS_COMMENT_ON_COLUMN,
+                 SUPPORTS_COMMENT_ON_TABLE,
+                 SUPPORTS_CREATE_SCHEMA,
+                 SUPPORTS_CREATE_TABLE,
+                 SUPPORTS_DELETE,
+                 SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_INSERT,
+                 SUPPORTS_RENAME_COLUMN,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_UPDATE -> true;
+            default -> super.hasBehavior(connectorBehavior);
+        };
+    }
+
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return server::execute;
     }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        // FIXME: HsqlDB requires declaring the default value before the NOT NULL constraint
+        return new TestTable(
+                onRemoteDatabase(),
+                "tpch.table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT DEFAULT 42 NOT NULL," +
+                        "col_required2 BIGINT NOT NULL)");
+    }
+
 }

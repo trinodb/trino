@@ -24,19 +24,26 @@ import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.CaseSensitivity;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcProcedureHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.ObjectReadFunction;
+import io.trino.plugin.jdbc.ObjectWriteFunction;
+import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
@@ -56,88 +63,107 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.statistics.ColumnStatistics;
-import io.trino.spi.statistics.Estimate;
-import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.jdbi.v3.core.Handle;
-import org.jdbi.v3.core.Jdbi;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
 import java.sql.Types;
-import java.time.LocalDate;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.OffsetTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.emptyToNull;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
+import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
+import static io.trino.plugin.jdbc.PredicatePushdownController.CASE_INSENSITIVE_CHARACTER_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.charReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.dateReadFunctionUsingLocalDate;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateColumnMappingUsingLocalDate;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateWriteFunctionUsingLocalDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.longTimestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryReadFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackOffsetMinutes;
+import static io.trino.spi.type.DateTimeEncoding.unpackTimeNanos;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -145,15 +171,32 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.Float.floatToRawIntBits;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.String.join;
-import static java.util.Map.entry;
+import static java.sql.DatabaseMetaData.columnNoNulls;
+import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -162,15 +205,14 @@ public class HsqlDbClient
 {
     private static final Logger log = Logger.get(HsqlDbClient.class);
 
-    private static final int MAX_SUPPORTED_DATE_TIME_PRECISION = 6;
-    // MariaDB driver returns width of time types instead of precision.
-    private static final int ZERO_PRECISION_TIME_COLUMN_SIZE = 10;
+    private static final int MAX_SUPPORTED_DATE_TIME_PRECISION = 9;
+    // HsqlDB driver returns width of time types instead of precision.
+    private static final int ZERO_PRECISION_TIME_COLUMN_SIZE = 8;
+    private static final int ZERO_PRECISION_TIME_WITH_TIME_ZONE_COLUMN_SIZE = 14;
     private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 19;
+    private static final int ZERO_PRECISION_TIMESTAMP_WITH_TIME_ZONE_COLUMN_SIZE = 25;
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
-
-    // An empty character means that the table doesn't have a comment in MariaDB
-    private static final String NO_COMMENT = "";
+    private static final int DEFAULT_VARCHAR_LENGTH = 2_000_000_000;
 
     // MariaDB Error Codes https://mariadb.com/kb/en/mariadb-error-codes/
     private static final int PARSE_ERROR = 1064;
@@ -178,6 +220,73 @@ public class HsqlDbClient
     private final boolean statisticsEnabled;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
+
+    private static final PredicatePushdownController HSQLDB_CHARACTER_PUSHDOWN = (session, domain) -> {
+        if (domain.isNullableSingleValue()) {
+            return FULL_PUSHDOWN.apply(session, domain);
+        }
+
+        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        if (!simplifiedDomain.getValues().isDiscreteSet()) {
+            // Push down inequality predicate
+            ValueSet complement = simplifiedDomain.getValues().complement();
+            if (complement.isDiscreteSet()) {
+                return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+            }
+            // Domain#simplify can turn a discrete set into a range predicate
+            // Push down of range predicate for varchar/char types could lead to incorrect results
+            // when the remote database is case insensitive
+            return DISABLE_PUSHDOWN.apply(session, domain);
+        }
+        return FULL_PUSHDOWN.apply(session, simplifiedDomain);
+    };
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
+
+    private static final DateTimeFormatter TIME_OFFSET_FORMATTER= new DateTimeFormatterBuilder()
+            .appendPattern("HH:mm:ss")
+            .appendFraction(NANO_OF_SECOND, 0, MAX_SUPPORTED_DATE_TIME_PRECISION, true)
+            .appendPattern(" ")
+            .appendZoneId()
+            .toFormatter();
+
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
+            .appendPattern("yyyy-MM-dd HH:mm:ss")
+            .appendFraction(NANO_OF_SECOND, 0, MAX_SUPPORTED_DATE_TIME_PRECISION, true)
+            .toFormatter();
+
+    private static final DateTimeFormatter DATE_TIME_OFFSET_FORMATTER = new DateTimeFormatterBuilder()
+            .appendPattern("yyyy-MM-dd HH:mm:ss")
+            .appendFraction(NANO_OF_SECOND, 0, MAX_SUPPORTED_DATE_TIME_PRECISION, true)
+            .appendPattern(" ")
+            .appendZoneId()
+            .toFormatter();
+
+    // Dates prior to the Gregorian calendar switch in 1582 can cause incorrect results when pushed down,
+    // so we disable predicate push down when the domain contains values prior to 1583
+    private static final Instant GREGORIAN_SWITCH_INSTANT = Instant.parse("1583-01-01T00:00:00Z");
+    private static final OffsetDateTime GREGORIAN_SWITCH_DATETIMEOFFSET = OffsetDateTime.ofInstant(GREGORIAN_SWITCH_INSTANT, ZoneId.of("Z"));
+    private static final LongTimestampWithTimeZone LONG_DATETIMEOFFSET_DISABLE_VALUE =
+            LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
+                    GREGORIAN_SWITCH_INSTANT.getEpochSecond(),
+                    (long) GREGORIAN_SWITCH_INSTANT.getNano() * PICOSECONDS_PER_NANOSECOND,
+                    UTC_KEY);
+    private static final long SHORT_DATETIMEOFFSET_DISABLE_VALUE = GREGORIAN_SWITCH_INSTANT.toEpochMilli();
+
+    private static final PredicatePushdownController HSQLDB_DATE_TIME_PUSHDOWN = (session, domain) -> {
+        Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
+        for (Range range : simplifiedDomain.getValues().getRanges().getOrderedRanges()) {
+            Range disableRange = range.getType().getJavaType().equals(LongTimestampWithTimeZone.class)
+                    ? Range.lessThan(range.getType(), LONG_DATETIMEOFFSET_DISABLE_VALUE)
+                    : Range.lessThan(range.getType(), SHORT_DATETIMEOFFSET_DISABLE_VALUE);
+
+            // If there is any overlap of any predicate range and (-inf, 1583), disable push down
+            if (range.overlaps(disableRange)) {
+                return DISABLE_PUSHDOWN.apply(session, domain);
+            }
+        }
+
+        return FULL_PUSHDOWN.apply(session, domain);
+    };
 
     @Inject
     public HsqlDbClient(
@@ -222,6 +331,43 @@ public class HsqlDbClient
     }
 
     @Override
+    protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, JdbcTableHandle tableHandle)
+    {
+        if (tableHandle.isSynthetic()) {
+            return ImmutableMap.of();
+        }
+        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * FROM %s", quoted(tableHandle.asPlainTable().getRemoteTableName())), ImmutableList.of());
+
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
+            ResultSetMetaData metadata = preparedStatement.getMetaData();
+            ImmutableMap.Builder<String, CaseSensitivity> columns = ImmutableMap.builder();
+            for (int column = 1; column <= metadata.getColumnCount(); column++) {
+                String name = metadata.getColumnName(column);
+                columns.put(name, metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE);
+            }
+            return columns.buildOrThrow();
+        }
+        catch (SQLException e) {
+            if (e.getErrorCode() == 1004) {
+                throw new TableNotFoundException(tableHandle.asPlainTable().getSchemaTableName());
+            }
+            throw new TrinoException(JDBC_ERROR, "Failed to get case sensitivity for columns. " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
+    @Override
+    public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        // Oracle doesn't support prepared statement for COMMENT statement
+        String sql = format(
+                "COMMENT ON COLUMN %s.%s IS %s",
+                quoted(handle.asPlainTable().getRemoteTableName()),
+                quoted(column.getColumnName()),
+                comment.map(BaseJdbcClient::varcharLiteral).orElse("NULL"));
+        execute(session, sql);
+    }
+
+    @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
         // TODO support complex ConnectorExpressions
@@ -247,105 +393,29 @@ public class HsqlDbClient
     }
 
     @Override
-    public Collection<String> listSchemas(Connection connection)
-    {
-        // for MariaDB, we need to list catalogs instead of schemas
-        try (ResultSet resultSet = connection.getMetaData().getSchemas()) {
-            ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
-            while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_SCHEM");
-                if (filterSchema(schemaName)) {
-                    schemaNames.add(schemaName);
-                }
-            }
-            return schemaNames.build();
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
-    }
-
-    @Override
-    protected boolean filterSchema(String schemaName)
-    {
-        // MariaDB has 'mysql' schema
-        //if (schemaName.equalsIgnoreCase("mysql")
-        //        || schemaName.equalsIgnoreCase("performance_schema")) {
-        //    return false;
-        //}
-        return super.filterSchema(schemaName);
-    }
-
-    @Override
-    public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
-    }
-
-    @Override
-    protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName, boolean cascade)
-            throws SQLException
-    {
-        // HsqlDB need the CASCADE option to drop a schema with tables http://hsqldb.org/doc/2.0/guide/guide.html#N10EA8
-        if (!cascade) {
-            try (ResultSet tables = getTables(connection, Optional.of(remoteSchemaName), Optional.empty())) {
-                if (tables.next()) {
-                    throw new TrinoException(SCHEMA_NOT_EMPTY, "Cannot drop non-empty schema '%s' without 'CASCADE' drop behavior".formatted(remoteSchemaName));
-                }
-            }
-        }
-        String query = "DROP SCHEMA " + quoted(remoteSchemaName);
-        execute(session, connection, cascade ? query + " CASCADE" : query + " RESTRICT");
-    }
-
-    @Override
-    public ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
-            throws SQLException
-    {
-        DatabaseMetaData metadata = connection.getMetaData();
-        return metadata.getTables(
-                null,
-                schemaName.orElse(null),
-                escapeObjectNameForMetadataQuery(tableName, metadata.getSearchStringEscape()).orElse(null),
-                getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
-    }
-
-    @Override
     protected ResultSet getAllTableColumns(Connection connection, Optional<String> remoteSchemaName)
             throws SQLException
     {
-        // MariaDB maps their "database" to SQL catalogs and does not have schemas
         DatabaseMetaData metadata = connection.getMetaData();
         return metadata.getColumns(
-                null,
+                metadata.getConnection().getCatalog(),
                 remoteSchemaName.orElse(null),
                 null,
                 null);
     }
 
     @Override
-    protected String getTableSchemaName(ResultSet resultSet)
-            throws SQLException
-    {
-        return resultSet.getString("TABLE_SCHEM");
-    }
-
-    @Override
-    public Optional<String> getTableComment(ResultSet resultSet)
-            throws SQLException
-    {
-        // Empty remarks means that the table doesn't have a comment in MariaDB
-        return Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
-    }
-
-    @Override
     public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
     {
-        String sql = format(
+        execute(session, buildTableCommentSql(handle.asPlainTable().getRemoteTableName(), comment));
+    }
+
+    private String buildTableCommentSql(RemoteTableName remoteTableName, Optional<String> comment)
+    {
+        return format(
                 "COMMENT ON TABLE %s IS %s",
-                quoted(handle.asPlainTable().getRemoteTableName()),
-                hsqlDbVarcharLiteral(comment.orElse(NO_COMMENT))); // An empty character removes the existing comment in MariaDB
-        execute(session, sql);
+                quoted(remoteTableName),
+                comment.map(BaseJdbcClient::varcharLiteral).orElse("NULL"));
     }
 
     @Override
@@ -355,12 +425,11 @@ public class HsqlDbClient
         if (mapping.isPresent()) {
             return mapping;
         }
-        Optional<ColumnMapping> unsignedMapping = getUnsignedMapping(typeHandle);
-        if (unsignedMapping.isPresent()) {
-            return unsignedMapping;
-        }
 
         switch (typeHandle.jdbcType()) {
+            case Types.BOOLEAN:
+                return Optional.of(booleanColumnMapping());
+
             case Types.TINYINT:
                 return Optional.of(tinyintColumnMapping());
             case Types.SMALLINT:
@@ -369,50 +438,53 @@ public class HsqlDbClient
                 return Optional.of(integerColumnMapping());
             case Types.BIGINT:
                 return Optional.of(bigintColumnMapping());
-            case Types.REAL:
-                // Disable pushdown because floating-point values are approximate and not stored as exact values,
-                // attempts to treat them as exact in comparisons may lead to problems
-                return Optional.of(ColumnMapping.longMapping(
-                        REAL,
-                        (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
-                        realWriteFunction(),
-                        DISABLE_PUSHDOWN));
+
             case Types.DOUBLE:
                 return Optional.of(doubleColumnMapping());
             case Types.NUMERIC:
             case Types.DECIMAL:
                 int decimalDigits = typeHandle.requiredDecimalDigits();
-                int precision = typeHandle.requiredColumnSize();
-                if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
+                int decimalPrecision = typeHandle.requiredColumnSize();
+                if (getDecimalRounding(session) == ALLOW_OVERFLOW && decimalPrecision > Decimals.MAX_PRECISION) {
                     int scale = min(decimalDigits, getDecimalDefaultScale(session));
                     return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
                 }
-                precision = precision + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
-                if (precision > Decimals.MAX_PRECISION) {
+                decimalPrecision = decimalPrecision + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                if (decimalPrecision > Decimals.MAX_PRECISION) {
                     break;
                 }
-                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0))));
+                return Optional.of(decimalColumnMapping(createDecimalType(decimalPrecision, max(decimalDigits, 0))));
+
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.requiredColumnSize(), false));
+                return Optional.of(charColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity()));
             case Types.VARCHAR:
             case Types.LONGVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
+                // varchar columns get created as varchar(default_length) in HsqlDB
+                if (typeHandle.requiredColumnSize() == DEFAULT_VARCHAR_LENGTH) {
+                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), typeHandle.caseSensitivity()));
+                }
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), true));
+
             case Types.BINARY:
             case Types.VARBINARY:
             case Types.LONGVARBINARY:
-                return Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
+                return Optional.of(varbinaryColumnMapping());
+
             case Types.DATE:
-                return Optional.of(ColumnMapping.longMapping(
-                        DATE,
-                        dateReadFunctionUsingLocalDate(),
-                        dateWriteFunction()));
+                return Optional.of(dateColumnMappingUsingLocalDate());
+
             case Types.TIME:
                 TimeType timeType = createTimeType(getTimePrecision(typeHandle.requiredColumnSize()));
                 return Optional.of(timeColumnMapping(timeType));
+            case Types.TIME_WITH_TIMEZONE:
+                int timePrecision = getTimeWithTimeZonePrecision(typeHandle.requiredColumnSize());
+                return Optional.of(timeWithTimeZoneColumnMapping(timePrecision));
+
             case Types.TIMESTAMP:
-                // This jdbcType maps both MariaDB TIMESTAMP and DATETIME types to Trino TIMESTAMP type
                 TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.requiredColumnSize()));
                 return Optional.of(timestampColumnMapping(timestampType));
+            case Types.TIMESTAMP_WITH_TIMEZONE:
+                return Optional.of(timestampWithTimeZoneColumnMapping(getTimestampWithTimeZonePrecision(typeHandle.requiredColumnSize())));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
@@ -421,32 +493,13 @@ public class HsqlDbClient
         return Optional.empty();
     }
 
-    private static int getTimestampPrecision(int timestampColumnSize)
-    {
-        if (timestampColumnSize == ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE) {
-            return 0;
-        }
-        int timestampPrecision = timestampColumnSize - ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE - 1;
-        verify(1 <= timestampPrecision && timestampPrecision <= MAX_SUPPORTED_DATE_TIME_PRECISION, "Unexpected timestamp precision %s calculated from timestamp column size %s", timestampPrecision, timestampColumnSize);
-        return timestampPrecision;
-    }
-
-    private static int getTimePrecision(int timeColumnSize)
-    {
-        if (timeColumnSize == ZERO_PRECISION_TIME_COLUMN_SIZE) {
-            return 0;
-        }
-        int timePrecision = timeColumnSize - ZERO_PRECISION_TIME_COLUMN_SIZE - 1;
-        verify(1 <= timePrecision && timePrecision <= MAX_SUPPORTED_DATE_TIME_PRECISION, "Unexpected time precision %s calculated from time column size %s", timePrecision, timeColumnSize);
-        return timePrecision;
-    }
-
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (type == BOOLEAN) {
             return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
         }
+
         if (type == TINYINT) {
             return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
         }
@@ -459,6 +512,7 @@ public class HsqlDbClient
         if (type == BIGINT) {
             return WriteMapping.longMapping("bigint", bigintWriteFunction());
         }
+
         if (type == REAL) {
             return WriteMapping.longMapping("float", realWriteFunction());
         }
@@ -473,48 +527,247 @@ public class HsqlDbClient
             return WriteMapping.objectMapping(dataType, longDecimalWriteFunction(decimalType));
         }
         if (type instanceof CharType charType) {
-            return WriteMapping.sliceMapping("char(" + charType.getLength() + ")", charWriteFunction());
+            String dataType = format("char(%s)", charType.getLength());
+            return WriteMapping.sliceMapping(dataType, charWriteFunction());
         }
         if (type instanceof VarcharType varcharType) {
-            String dataType;
-            if (varcharType.isUnbounded()) {
-                dataType = "longtext";
-            }
-            else if (varcharType.getBoundedLength() <= 255) {
-                dataType = "tinytext";
-            }
-            else if (varcharType.getBoundedLength() <= 65535) {
-                dataType = "text";
-            }
-            else if (varcharType.getBoundedLength() <= 16777215) {
-                dataType = "mediumtext";
-            }
-            else {
-                dataType = "longtext";
-            }
+            String dataType = varcharType.isUnbounded() ? "varchar(32768)" : format("varchar(%s)", varcharType.getBoundedLength());
             return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
         if (type == VARBINARY) {
-            return WriteMapping.sliceMapping("mediumblob", varbinaryWriteFunction());
+            return WriteMapping.sliceMapping("varbinary", varbinaryWriteFunction());
         }
         if (type == DATE) {
-            return WriteMapping.longMapping("date", dateWriteFunction());
+            return WriteMapping.longMapping("date", dateWriteFunctionUsingLocalDate());
         }
+
         if (type instanceof TimeType timeType) {
             if (timeType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
                 return WriteMapping.longMapping(format("time(%s)", timeType.getPrecision()), timeWriteFunction(timeType.getPrecision()));
             }
             return WriteMapping.longMapping(format("time(%s)", MAX_SUPPORTED_DATE_TIME_PRECISION), timeWriteFunction(MAX_SUPPORTED_DATE_TIME_PRECISION));
         }
-        if (type instanceof TimestampType timestampType) {
-            if (timestampType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
-                verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
-                return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
+        if (type instanceof TimeWithTimeZoneType timeWithZoneType) {
+            if (timeWithZoneType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
+                return WriteMapping.longMapping(format("time(%s) with time zone", timeWithZoneType.getPrecision()), timeWithTimeZoneWriteFunction());
             }
-            return WriteMapping.objectMapping(format("timestamp(%s)", MAX_SUPPORTED_DATE_TIME_PRECISION), longTimestampWriteFunction(timestampType, MAX_SUPPORTED_DATE_TIME_PRECISION));
+            return WriteMapping.longMapping(format("time(%s) with time zone", MAX_SUPPORTED_DATE_TIME_PRECISION), timeWithTimeZoneWriteFunction());
+        }
+
+        if (type instanceof TimestampType timestampType) {
+            int timestampPrecision = min(timestampType.getPrecision(), MAX_SUPPORTED_DATE_TIME_PRECISION);
+            String dataType = format("timestamp(%s)", timestampPrecision);
+            if (timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION) {
+                return WriteMapping.longMapping(dataType, timestampWriteFunction(timestampType));
+            }
+            return WriteMapping.objectMapping(dataType, longTimestampWriteFunction(timestampType, timestampPrecision));
+        }
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            int timestampPrecision = min(timestampWithTimeZoneType.getPrecision(), MAX_SUPPORTED_DATE_TIME_PRECISION);
+            String dataType = format("timestamp(%d) with time zone", timestampPrecision);
+            if (timestampPrecision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
+                return WriteMapping.longMapping(dataType, shortTimestampWithTimeZoneWriteFunction());
+            }
+            return WriteMapping.objectMapping(dataType, longTimestampWithTimeZoneWriteFunction());
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    private static ColumnMapping charColumnMapping(int columnSize, Optional<CaseSensitivity> caseSensitivity)
+    {
+        if (columnSize > CharType.MAX_LENGTH) {
+            return varcharColumnMapping(columnSize, caseSensitivity);
+        }
+        return charColumnMapping(createCharType(columnSize), caseSensitivity);
+    }
+
+    private static ColumnMapping timestampColumnMapping(TimestampType timestampType)
+    {
+        if (timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION) {
+            return ColumnMapping.longMapping(
+                    timestampType,
+                    timestampReadFunction(timestampType),
+                    timestampWriteFunction(timestampType));
+        }
+        checkArgument(timestampType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        return ColumnMapping.objectMapping(
+                timestampType,
+                longTimestampReadFunction(timestampType),
+                longTimestampWriteFunction(timestampType, timestampType.getPrecision()));
+    }
+
+    private static LongReadFunction timestampReadFunction(TimestampType timestampType)
+    {
+        return (resultSet, columnIndex) -> {
+            LocalDateTime localDateTime = resultSet.getObject(columnIndex, LocalDateTime.class);
+            return toTrinoTimestamp(timestampType, localDateTime);
+        };
+    }
+
+    public static long toTrinoTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
+    {
+        long precision = timestampType.getPrecision();
+        checkArgument(precision <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", precision);
+        long epochMicros = localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
+                + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
+        verify(
+                epochMicros == round(epochMicros, TimestampType.MAX_SHORT_PRECISION - timestampType.getPrecision()),
+                "Invalid value of epochMicros for precision %s: %s",
+                precision,
+                epochMicros);
+        return epochMicros;
+    }
+
+    private static LongWriteFunction timestampWriteFunction(TimestampType timestampType)
+    {
+        checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        return LongWriteFunction.of(
+                Types.TIMESTAMP,
+                (statement, index, value) -> statement.setObject(index, fromTrinoTimestamp(value)));
+    }
+
+    private static LocalDateTime fromTrinoTimestamp(long epochMicros)
+    {
+        long epochSecond = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+        int nanoFraction = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+        return LocalDateTime.ofEpochSecond(epochSecond, nanoFraction, UTC);
+    }
+
+    private static ObjectReadFunction longTimestampReadFunction(TimestampType timestampType)
+    {
+        return ObjectReadFunction.of(
+                LongTimestamp.class,
+                (resultSet, columnIndex) -> {
+                    LocalDateTime localDateTime = resultSet.getObject(columnIndex, LocalDateTime.class);
+                    return toLongTrinoTimestamp(timestampType, localDateTime);
+                });
+    }
+
+    public static LongTimestamp toLongTrinoTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
+    {
+        long precision = timestampType.getPrecision();
+        checkArgument(precision > TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", precision);
+        long epochMicros = localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
+                + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
+        int picosOfMicro = (localDateTime.getNano() % NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND;
+        verify(
+                picosOfMicro == round(picosOfMicro, TimestampType.MAX_PRECISION - timestampType.getPrecision()),
+                "Invalid value of picosOfMicro for precision %s: %s",
+                precision,
+                picosOfMicro);
+        return new LongTimestamp(epochMicros, picosOfMicro);
+    }
+
+    private static ObjectWriteFunction longTimestampWriteFunction(TimestampType timestampType, int roundToPrecision)
+    {
+        checkArgument(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        checkArgument(
+                6 <= roundToPrecision && roundToPrecision <= 9 && roundToPrecision <= timestampType.getPrecision(),
+                "Invalid roundToPrecision for %s: %s",
+                timestampType,
+                roundToPrecision);
+
+        return ObjectWriteFunction.of(
+                LongTimestamp.class,
+                (statement, index, value) -> statement.setObject(index, fromLongTrinoTimestamp(value, roundToPrecision)));
+    }
+
+    private static LocalDateTime fromLongTrinoTimestamp(LongTimestamp timestamp, int precision)
+    {
+        // The code below assumes precision is not less than microseconds and not more than picoseconds.
+        checkArgument(6 <= precision && precision <= 9, "Unsupported precision: %s", precision);
+        long epochSeconds = floorDiv(timestamp.getEpochMicros(), MICROSECONDS_PER_SECOND);
+        int microsOfSecond = floorMod(timestamp.getEpochMicros(), MICROSECONDS_PER_SECOND);
+        long picosOfMicro = round(timestamp.getPicosOfMicro(), TimestampType.MAX_PRECISION - precision);
+        int nanosOfSecond = (microsOfSecond * NANOSECONDS_PER_MICROSECOND) + toIntExact(picosOfMicro / PICOSECONDS_PER_NANOSECOND);
+        return LocalDateTime.ofEpochSecond(epochSeconds, nanosOfSecond, UTC);
+    }
+
+    public static ColumnMapping timestampWithTimeZoneColumnMapping(int precision)
+    {
+        checkArgument(precision <= MAX_SUPPORTED_DATE_TIME_PRECISION, "Precision is out of range: %s", precision);
+        if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
+            return ColumnMapping.longMapping(
+                    createTimestampWithTimeZoneType(precision),
+                    shortTimestampWithTimeZoneReadFunction(),
+                    shortTimestampWithTimeZoneWriteFunction());
+        }
+        return ColumnMapping.objectMapping(
+                createTimestampWithTimeZoneType(precision),
+                longTimestampWithTimeZoneReadFunction(),
+                longTimestampWithTimeZoneWriteFunction());
+    }
+
+    private static LongReadFunction shortTimestampWithTimeZoneReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            OffsetDateTime offsetDateTime = resultSet.getObject(columnIndex, OffsetDateTime.class);
+            ZonedDateTime zonedDateTime = offsetDateTime.toZonedDateTime();
+            return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), zonedDateTime.getZone().getId());
+        };
+    }
+
+    private static LongWriteFunction shortTimestampWithTimeZoneWriteFunction()
+    {
+        return (statement, index, value) -> {
+            long millisUtc = unpackMillisUtc(value);
+            TimeZoneKey timeZoneKey = unpackZoneKey(value);
+            statement.setObject(index, OffsetDateTime.ofInstant(Instant.ofEpochMilli(millisUtc), timeZoneKey.getZoneId()));
+        };
+    }
+
+    private static ObjectReadFunction longTimestampWithTimeZoneReadFunction()
+    {
+        return ObjectReadFunction.of(
+                LongTimestampWithTimeZone.class,
+                (resultSet, columnIndex) -> {
+                    OffsetDateTime offsetDateTime = resultSet.getObject(columnIndex, OffsetDateTime.class);
+
+                    return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
+                            offsetDateTime.toEpochSecond(),
+                            (long) offsetDateTime.getNano() * PICOSECONDS_PER_NANOSECOND,
+                            TimeZoneKey.getTimeZoneKey(offsetDateTime.toZonedDateTime().getZone().getId()));
+                });
+    }
+
+    private static ObjectWriteFunction longTimestampWithTimeZoneWriteFunction()
+    {
+        return ObjectWriteFunction.of(
+                LongTimestampWithTimeZone.class,
+                (statement, index, value) -> {
+                    long epochMillis = value.getEpochMillis();
+                    long epochSeconds = floorDiv(epochMillis, MILLISECONDS_PER_SECOND);
+                    int nanoAdjustment = floorMod(epochMillis, MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
+                    ZoneId zoneId = getTimeZoneKey(value.getTimeZoneKey()).getZoneId();
+                    Instant instant = Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
+                    statement.setObject(index, OffsetDateTime.ofInstant(instant, zoneId));
+                });
+    }
+
+    private static ColumnMapping charColumnMapping(CharType charType, Optional<CaseSensitivity> caseSensitivity)
+    {
+        requireNonNull(charType, "charType is null");
+        PredicatePushdownController pushdownController = caseSensitivity.orElse(CASE_INSENSITIVE) == CASE_SENSITIVE
+                ? HSQLDB_CHARACTER_PUSHDOWN
+                : CASE_INSENSITIVE_CHARACTER_PUSHDOWN;
+        return ColumnMapping.sliceMapping(charType, charReadFunction(charType), charWriteFunction(), pushdownController);
+    }
+
+    private static ColumnMapping varcharColumnMapping(int columnSize, Optional<CaseSensitivity> caseSensitivity)
+    {
+        if (columnSize > VarcharType.MAX_LENGTH) {
+            return varcharColumnMapping(createUnboundedVarcharType(), caseSensitivity);
+        }
+        return varcharColumnMapping(createVarcharType(columnSize), caseSensitivity);
+    }
+
+    private static ColumnMapping varcharColumnMapping(VarcharType varcharType, Optional<CaseSensitivity> caseSensitivity)
+    {
+        PredicatePushdownController pushdownController = caseSensitivity.orElse(CASE_INSENSITIVE) == CASE_SENSITIVE
+                ? HSQLDB_CHARACTER_PUSHDOWN
+                : CASE_INSENSITIVE_CHARACTER_PUSHDOWN;
+        return ColumnMapping.sliceMapping(varcharType, varcharReadFunction(varcharType), varcharWriteFunction(), pushdownController);
     }
 
     @Override
@@ -522,8 +775,6 @@ public class HsqlDbClient
             throws SQLException
     {
         try {
-            // MariaDB versions earlier than 10.5.2 do not support the RENAME COLUMN syntax
-            // ALTER TABLE ... CHANGE statement exists in th old versions, but it requires providing all attributes of the column
             String sql = format(
                     "ALTER TABLE %s ALTER COLUMN %s RENAME TO %s",
                     quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
@@ -532,10 +783,6 @@ public class HsqlDbClient
             execute(session, connection, sql);
         }
         catch (SQLSyntaxErrorException syntaxError) {
-            // Note: SQLSyntaxErrorException can be thrown also when column name is invalid
-            if (syntaxError.getErrorCode() == PARSE_ERROR) {
-                throw new TrinoException(NOT_SUPPORTED, "Rename column not supported for the MariaDB server version", syntaxError);
-            }
             throw syntaxError;
         }
     }
@@ -556,10 +803,13 @@ public class HsqlDbClient
     protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
         // Copy all columns for enforcing NOT NULL option in the temp table
-        String tableCopyFormat = "CREATE TABLE %s AS SELECT * FROM %s WHERE 0 = 1";
+        String tableCopyFormat = "CREATE TABLE %s AS (SELECT %s FROM %s) WITH NO DATA";
         String sql = format(
                 tableCopyFormat,
                 quoted(catalogName, schemaName, newTableName),
+                columnNames.stream()
+                        .map(this::quoted)
+                        .collect(joining(", ")),
                 quoted(catalogName, schemaName, tableName));
         try {
             execute(session, connection, sql);
@@ -573,25 +823,22 @@ public class HsqlDbClient
     protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
         checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
-        List<String> queries = new ArrayList<>();
-        queries.add(format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns)));
-        if (tableMetadata.getComment().isPresent()) {
-            queries.add(format("COMMENT ON TABLE %s IS %s", quoted(remoteTableName), hsqlDbVarcharLiteral(tableMetadata.getComment().get())));
+        ImmutableList.Builder<String> createTableSqlsBuilder = ImmutableList.builder();
+        createTableSqlsBuilder.add(format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns)));
+        Optional<String> tableComment = tableMetadata.getComment();
+        if (tableComment.isPresent()) {
+            createTableSqlsBuilder.add(buildTableCommentSql(remoteTableName, tableComment));
         }
-        return ImmutableList.copyOf(queries);
-    }
-
-    private static String hsqlDbVarcharLiteral(String value)
-    {
-        requireNonNull(value, "value is null");
-        return "'" + value.replace("'", "''").replace("\\", "\\\\") + "'";
+        return createTableSqlsBuilder.build();
     }
 
     @Override
-    public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
+    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
-        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
-        renameTable(session, remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName(), newTableName);
+        if (!schemaName.equalsIgnoreCase(newTable.getSchemaName())) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
+        }
+        super.renameTable(session, catalogName, schemaName, tableName, newTable);
     }
 
     @Override
@@ -685,235 +932,160 @@ public class HsqlDbClient
     @Override
     protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
-        if (joinCondition.getOperator() == JoinCondition.Operator.IDENTICAL) {
-            // Not supported in MariaDB
-            return false;
-        }
-
         // Remote database can be case insensitive.
         return Stream.of(joinCondition.getLeftColumn(), joinCondition.getRightColumn())
                 .map(JdbcColumnHandle::getColumnType)
                 .noneMatch(type -> type instanceof CharType || type instanceof VarcharType);
     }
 
+    private static int getTimePrecision(int timeColumnSize)
+    {
+        return getTimePrecision(timeColumnSize, ZERO_PRECISION_TIME_COLUMN_SIZE);
+    }
+
+    private static int getTimeWithTimeZonePrecision(int timeColumnSize)
+    {
+        return getTimePrecision(timeColumnSize, ZERO_PRECISION_TIME_WITH_TIME_ZONE_COLUMN_SIZE) ;
+    }
+
+    private static int getTimestampPrecision(int timeColumnSize)
+    {
+        return getTimePrecision(timeColumnSize, ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE);
+    }
+
+    private static int getTimestampWithTimeZonePrecision(int timeColumnSize)
+    {
+        return getTimePrecision(timeColumnSize, ZERO_PRECISION_TIMESTAMP_WITH_TIME_ZONE_COLUMN_SIZE) ;
+    }
+
+    private static int getTimePrecision(int timeColumnSize, int zeroPrecisionColumnSize)
+    {
+        if (timeColumnSize == zeroPrecisionColumnSize) {
+            return 0;
+        }
+        int timePrecision = timeColumnSize - zeroPrecisionColumnSize - 1;
+        verify(1 <= timePrecision && timePrecision <= MAX_SUPPORTED_DATE_TIME_PRECISION, "Unexpected time precision %s calculated from time column size %s", timePrecision, timeColumnSize);
+        return timePrecision;
+    }
+
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle)
-    {
-        if (!statisticsEnabled) {
-            return TableStatistics.empty();
-        }
-        if (!handle.isNamedRelation()) {
-            return TableStatistics.empty();
-        }
-        try {
-            return readTableStatistics(session, handle);
-        }
-        catch (SQLException | RuntimeException e) {
-            throwIfInstanceOf(e, TrinoException.class);
-            throw new TrinoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
-        }
-    }
+    public JdbcProcedureHandle getProcedureHandle(ConnectorSession session, JdbcProcedureHandle.ProcedureQuery procedureQuery)
 
-    private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
-            throws SQLException
     {
-        checkArgument(table.isNamedRelation(), "Relation is not a table: %s", table);
-
-        log.debug("Reading statistics for %s", table);
         try (Connection connection = connectionFactory.openConnection(session);
-                Handle handle = Jdbi.open(connection)) {
-            StatisticsDao statisticsDao = new StatisticsDao(handle);
-
-            Long rowCount = statisticsDao.getTableRowCount(table);
-            Long indexMaxCardinality = statisticsDao.getTableMaxColumnIndexCardinality(table);
-            log.debug("Estimated row count of table %s is %s, and max index cardinality is %s", table, rowCount, indexMaxCardinality);
-
-            if (rowCount != null && rowCount == 0) {
-                // MariaDB may report 0 row count until a table is analyzed for the first time.
-                rowCount = null;
+                CallableStatement statement = queryBuilder.callProcedure(this, session, connection, procedureQuery);
+                ResultSet resultSet = statement.executeQuery()) {
+            ResultSetMetaData metadata = resultSet.getMetaData();
+            if (metadata == null) {
+                throw new TrinoException(NOT_SUPPORTED, "Procedure not supported: ResultSetMetaData not available for query: " + procedureQuery.query());
             }
-
-            if (rowCount == null && indexMaxCardinality == null) {
-                // Table not found, or is a view, or has no usable statistics
-                return TableStatistics.empty();
+            JdbcProcedureHandle procedureHandle = new JdbcProcedureHandle(procedureQuery, getColumns(session, connection, metadata));
+            if (statement.getMoreResults()) {
+                throw new TrinoException(NOT_SUPPORTED, "Procedure has multiple ResultSets for query: " + procedureQuery.query());
             }
-            rowCount = max(firstNonNull(rowCount, 0L), firstNonNull(indexMaxCardinality, 0L));
+            return procedureHandle;
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, "Failed to get table handle for procedure query. " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
 
-            TableStatistics.Builder tableStatistics = TableStatistics.builder();
-            tableStatistics.setRowCount(Estimate.of(rowCount));
+    private static ColumnMapping timeWithTimeZoneColumnMapping(int precision)
+    {
+        // HsqlDB supports timestamp with time zone precision up to nanoseconds
+        checkArgument(precision <= MAX_SUPPORTED_DATE_TIME_PRECISION, "unsupported precision value %s", precision);
+        return ColumnMapping.longMapping(
+                createTimeWithTimeZoneType(precision),
+                timeWithTimeZoneReadFunction(),
+                timeWithTimeZoneWriteFunction());
+    }
 
-            // TODO statistics from ANALYZE TABLE (https://mariadb.com/kb/en/engine-independent-table-statistics/)
-            // Map<String, AnalyzeColumnStatistics> columnStatistics = statisticsDao.getColumnStatistics(table);
-            Map<String, AnalyzeColumnStatistics> columnStatistics = ImmutableMap.of();
+    public static LongReadFunction timeWithTimeZoneReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            OffsetTime time = resultSet.getObject(columnIndex, OffsetTime.class);
+            long nanosOfDay = time.toLocalTime().toNanoOfDay();
+            verify(nanosOfDay < NANOSECONDS_PER_DAY, "Invalid value of nanosOfDay: %s", nanosOfDay);
+            int offset = time.getOffset().getTotalSeconds() / 60;
+            return packTimeWithTimeZone(nanosOfDay, offset);
+        };
+    }
 
-            // TODO add support for histograms https://mariadb.com/kb/en/histogram-based-statistics/
+    public static LongWriteFunction timeWithTimeZoneWriteFunction()
+    {
+        return LongWriteFunction.of(Types.TIME_WITH_TIMEZONE, (statement, index, packedTime) -> {
+            long nanosOfDay = unpackTimeNanos(packedTime);
+            verify(nanosOfDay < NANOSECONDS_PER_DAY, "Invalid value of nanosOfDay: %s", nanosOfDay);
+            ZoneOffset offset = ZoneOffset.ofTotalSeconds(unpackOffsetMinutes(packedTime) * 60);
+            statement.setObject(index, OffsetTime.of(LocalTime.ofNanoOfDay(nanosOfDay), offset));
+        });
+    }
 
-            // statistics based on existing indexes
-            Map<String, ColumnIndexStatistics> columnStatisticsFromIndexes = statisticsDao.getColumnIndexStatistics(table);
+    @Override
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        if (tableHandle.getColumns().isPresent()) {
+            return tableHandle.getColumns().get();
+        }
+        checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
+        SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
+        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
+        String table = remoteTableName.getTableName();
 
-            if (columnStatistics.isEmpty() && columnStatisticsFromIndexes.isEmpty()) {
-                log.debug("No column and index statistics read");
-                // No more information to work on
-                return tableStatistics.build();
-            }
-
-            for (JdbcColumnHandle column : getColumns(session, table)) {
-                ColumnStatistics.Builder columnStatisticsBuilder = ColumnStatistics.builder();
-
-                String columnName = column.getColumnName();
-                AnalyzeColumnStatistics analyzeColumnStatistics = columnStatistics.get(columnName);
-                if (analyzeColumnStatistics != null) {
-                    log.debug("Reading column statistics for %s, %s from analayze's column statistics: %s", table, columnName, analyzeColumnStatistics);
-                    columnStatisticsBuilder.setNullsFraction(Estimate.of(analyzeColumnStatistics.nullsRatio()));
-                }
-
-                ColumnIndexStatistics columnIndexStatistics = columnStatisticsFromIndexes.get(columnName);
-                if (columnIndexStatistics != null) {
-                    log.debug("Reading column statistics for %s, %s from index statistics: %s", table, columnName, columnIndexStatistics);
-                    columnStatisticsBuilder.setDistinctValuesCount(Estimate.of(columnIndexStatistics.cardinality()));
-
-                    if (!columnIndexStatistics.nullable()) {
-                        double knownNullFraction = columnStatisticsBuilder.build().getNullsFraction().getValue();
-                        if (knownNullFraction > 0) {
-                            log.warn("Inconsistent statistics, null fraction for a column %s, %s, that is not nullable according to index statistics: %s", table, columnName, knownNullFraction);
-                        }
-                        columnStatisticsBuilder.setNullsFraction(Estimate.zero());
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+                int allColumns = 0;
+                List<JdbcColumnHandle> columns = new ArrayList<>();
+                while (resultSet.next()) {
+                    allColumns++;
+                    String columnName = resultSet.getString("COLUMN_NAME");
+                    int dataType = getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null"));
+                    String typeName = resultSet.getString("TYPE_NAME");
+                    Optional<Integer> columnSize = getInteger(resultSet, "COLUMN_SIZE");
+                    log.info("Mapping data type of Table: %s on Column: '%s' Column  size: %s *****************************************************************", table, columnName, columnSize.orElse(0));
+                    Optional<Integer> decimalDigits = getInteger(resultSet, "DECIMAL_DIGITS");
+                    JdbcTypeHandle typeHandle = new JdbcTypeHandle(
+                            dataType,
+                            Optional.of(typeName),
+                            columnSize,
+                            decimalDigits,
+                            Optional.empty(),
+                            Optional.empty());
+                    Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
+                    log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
+                    // skip unsupported column types
+                    if (columnMapping.isPresent()) {
+                        boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                        Optional<String> comment = Optional.ofNullable(resultSet.getString("REMARKS"));
+                        columns.add(JdbcColumnHandle.builder()
+                                .setColumnName(columnName)
+                                .setJdbcTypeHandle(typeHandle)
+                                .setColumnType(columnMapping.get().getType())
+                                .setNullable(nullable)
+                                .setComment(comment)
+                                .build());
                     }
-
-                    // row count from INFORMATION_SCHEMA.TABLES may be very inaccurate
-                    rowCount = max(rowCount, columnIndexStatistics.cardinality());
+                    if (columnMapping.isEmpty()) {
+                        UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
+                        verify(
+                                unsupportedTypeHandling == IGNORE,
+                                "Unsupported type handling is set to %s, but toColumnMapping() returned empty for %s",
+                                unsupportedTypeHandling,
+                                typeHandle);
+                    }
                 }
-
-                tableStatistics.setColumnStatistics(column, columnStatisticsBuilder.build());
+                if (columns.isEmpty()) {
+                    // A table may have no supported columns. In rare cases a table might have no columns at all.
+                    throw new TableNotFoundException(
+                            schemaTableName,
+                            format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
+                }
+                return ImmutableList.copyOf(columns);
             }
-
-            tableStatistics.setRowCount(Estimate.of(rowCount));
-            return tableStatistics.build();
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
-    private static LongWriteFunction dateWriteFunction()
-    {
-        return (statement, index, day) -> statement.setString(index, DATE_FORMATTER.format(LocalDate.ofEpochDay(day)));
-    }
-
-    private static Optional<ColumnMapping> getUnsignedMapping(JdbcTypeHandle typeHandle)
-    {
-        if (typeHandle.jdbcTypeName().isEmpty()) {
-            return Optional.empty();
-        }
-
-        String typeName = typeHandle.jdbcTypeName().get();
-        if (typeName.equalsIgnoreCase("tinyint unsigned")) {
-            return Optional.of(smallintColumnMapping());
-        }
-        if (typeName.equalsIgnoreCase("smallint unsigned")) {
-            return Optional.of(integerColumnMapping());
-        }
-        if (typeName.equalsIgnoreCase("int unsigned")) {
-            return Optional.of(bigintColumnMapping());
-        }
-        if (typeName.equalsIgnoreCase("bigint unsigned")) {
-            return Optional.of(decimalColumnMapping(createDecimalType(20)));
-        }
-
-        return Optional.empty();
-    }
-
-    private static class StatisticsDao
-    {
-        private final Handle handle;
-
-        public StatisticsDao(Handle handle)
-        {
-            this.handle = requireNonNull(handle, "handle is null");
-        }
-
-        Long getTableRowCount(JdbcTableHandle table)
-        {
-            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
-            return handle.createQuery("""
-                        SELECT TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES
-                        WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
-                        AND TABLE_TYPE = 'TABLE'
-                        """)
-                    .bind("schema", remoteTableName.getSchemaName().orElse(null))
-                    .bind("table_name", remoteTableName.getTableName())
-                    .mapTo(Long.class)
-                    .findOne()
-                    .orElse(null);
-        }
-
-        Long getTableMaxColumnIndexCardinality(JdbcTableHandle table)
-        {
-            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
-            return handle.createQuery("""
-                        SELECT max(CARDINALITY) AS row_count FROM INFORMATION_SCHEMA.STATISTICS
-                        WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
-                        """)
-                    .bind("schema", remoteTableName.getSchemaName().orElse(null))
-                    .bind("table_name", remoteTableName.getTableName())
-                    .mapTo(Long.class)
-                    .findOne()
-                    .orElse(null);
-        }
-
-        Map<String, AnalyzeColumnStatistics> getColumnStatistics(JdbcTableHandle table)
-        {
-            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
-            return handle.createQuery("""
-                                SELECT
-                                    column_name,
-                                    -- TODO min_value, max_value,
-                                    nulls_ratio
-                                FROM mysql.column_stats
-                                WHERE db_name = :database AND TABLE_NAME = :table_name
-                                AND nulls_ratio IS NOT NULL
-                            """)
-                    .bind("database", remoteTableName.getCatalogName().orElse(null))
-                    .bind("table_name", remoteTableName.getTableName())
-                    .map((rs, ctx) -> {
-                        String columnName = rs.getString("column_name");
-                        double nullsRatio = rs.getDouble("nulls_ratio");
-                        return entry(columnName, new AnalyzeColumnStatistics(nullsRatio));
-                    })
-                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
-        }
-
-        Map<String, ColumnIndexStatistics> getColumnIndexStatistics(JdbcTableHandle table)
-        {
-            RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
-            return handle.createQuery("""
-                                SELECT
-                                    COLUMN_NAME,
-                                    MAX(NULLABLE) AS NULLABLE,
-                                    MAX(CARDINALITY) AS CARDINALITY
-                                FROM INFORMATION_SCHEMA.STATISTICS
-                                WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
-                                AND SEQ_IN_INDEX = 1 -- first column in the index
-                                AND SUB_PART IS NULL -- ignore cases where only a column prefix is indexed
-                                AND CARDINALITY IS NOT NULL -- CARDINALITY might be null (https://stackoverflow.com/a/42242729/65458)
-                                AND CARDINALITY != 0 -- CARDINALITY is initially 0 until analyzed
-                                GROUP BY COLUMN_NAME -- there might be multiple indexes on a column
-                            """)
-                    .bind("schema", remoteTableName.getCatalogName().orElse(null))
-                    .bind("table_name", remoteTableName.getTableName())
-                    .map((rs, ctx) -> {
-                        String columnName = rs.getString("COLUMN_NAME");
-
-                        boolean nullable = rs.getString("NULLABLE").equalsIgnoreCase("YES");
-                        checkState(!rs.wasNull(), "NULLABLE is null");
-
-                        long cardinality = rs.getLong("CARDINALITY");
-                        checkState(!rs.wasNull(), "CARDINALITY is null");
-
-                        return entry(columnName, new ColumnIndexStatistics(nullable, cardinality));
-                    })
-                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
-        }
-    }
-
-    private record AnalyzeColumnStatistics(double nullsRatio) {}
-
-    private record ColumnIndexStatistics(boolean nullable, long cardinality) {}
 }
