@@ -53,6 +53,8 @@ public class QueryResult {
 
     private String resultType;
 
+    // TODO: support matrix result type as well.
+    // See https://grafana.com/docs/loki/latest/reference/loki-http-api/#step-versus-interval
     public List<Stream> getStreams() {
       return streams;
     }
