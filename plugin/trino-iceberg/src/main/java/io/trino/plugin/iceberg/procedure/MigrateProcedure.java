@@ -19,35 +19,22 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.airlift.log.Logger;
-import io.trino.filesystem.FileEntry;
-import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Partition;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Storage;
-import io.trino.parquet.ParquetDataSource;
-import io.trino.parquet.ParquetReaderOptions;
-import io.trino.parquet.metadata.ParquetMetadata;
-import io.trino.parquet.reader.MetadataReader;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
-import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.IcebergSecurityConfig;
-import io.trino.plugin.iceberg.PartitionData;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
-import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
-import io.trino.plugin.iceberg.util.OrcMetrics;
-import io.trino.plugin.iceberg.util.ParquetUtil;
+import io.trino.plugin.iceberg.procedure.MigrationUtils.RecursiveDirectory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorSession;
@@ -60,21 +47,16 @@ import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
-import org.apache.iceberg.Metrics;
-import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
-import org.apache.iceberg.avro.Avro;
 import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -82,9 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Stream;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.concat;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -100,6 +80,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYSTEM;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
+import static io.trino.plugin.iceberg.procedure.MigrationUtils.buildDataFiles;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -125,7 +106,6 @@ public class MigrateProcedure
 
     public static final String PROVIDER_PROPERTY_KEY = "provider";
     public static final String PROVIDER_PROPERTY_VALUE = "iceberg";
-    private static final MetricsConfig METRICS_CONFIG = MetricsConfig.getDefault();
 
     private final TrinoCatalogFactory catalogFactory;
     private final HiveMetastoreFactory metastoreFactory;
@@ -133,14 +113,6 @@ public class MigrateProcedure
     private final TypeManager typeManager;
     private final int formatVersion;
     private final boolean isUsingSystemSecurity;
-
-    private enum RecursiveDirectory
-    {
-        TRUE,
-        FALSE,
-        FAIL,
-        /**/
-    }
 
     private static final MethodHandle MIGRATE;
 
@@ -227,10 +199,11 @@ public class MigrateProcedure
         Map<String, String> properties = icebergTableProperties(location, hiveTable.getParameters(), nameMapping, toIcebergFileFormat(storageFormat));
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitionColumnNames(hiveTable));
         try {
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
             if (hiveTable.getPartitionColumns().isEmpty()) {
                 log.debug("Building data files from %s", location);
-                dataFilesBuilder.addAll(buildDataFiles(session, recursive, storageFormat, location, partitionSpec, new PartitionData(new Object[0]), schema));
+                dataFilesBuilder.addAll(buildDataFiles(fileSystem, recursive, storageFormat, location, partitionSpec, Optional.empty(), schema));
             }
             else {
                 Map<String, Optional<Partition>> partitions = listAllPartitions(metastore, hiveTable);
@@ -240,7 +213,7 @@ public class MigrateProcedure
                     log.debug("Building data files from '%s' for partition %d of %d", storage.getLocation(), fileCount++, partitions.size());
                     HiveStorageFormat partitionStorageFormat = extractHiveStorageFormat(storage.getStorageFormat());
                     StructLike partitionData = DataFiles.data(partitionSpec, partition.getKey());
-                    dataFilesBuilder.addAll(buildDataFiles(session, recursive, partitionStorageFormat, storage.getLocation(), partitionSpec, partitionData, schema));
+                    dataFilesBuilder.addAll(buildDataFiles(fileSystem, recursive, partitionStorageFormat, storage.getLocation(), partitionSpec, Optional.of(partitionData), schema));
                 }
             }
 
@@ -333,50 +306,6 @@ public class MigrateProcedure
         return metastore.getPartitionsByNames(table, partitions.get());
     }
 
-    private List<DataFile> buildDataFiles(
-            ConnectorSession session,
-            RecursiveDirectory recursive,
-            HiveStorageFormat format,
-            String location,
-            PartitionSpec partitionSpec,
-            StructLike partition,
-            Schema schema)
-            throws IOException
-    {
-        // TODO: Introduce parallelism
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        FileIterator files = fileSystem.listFiles(Location.of(location));
-        ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
-        while (files.hasNext()) {
-            FileEntry file = files.next();
-            String fileLocation = file.location().toString();
-            String relativePath = fileLocation.substring(location.length());
-            if (relativePath.contains("/_") || relativePath.contains("/.")) {
-                continue;
-            }
-            if (recursive == RecursiveDirectory.FALSE && isRecursive(location, fileLocation)) {
-                continue;
-            }
-            if (recursive == RecursiveDirectory.FAIL && isRecursive(location, fileLocation)) {
-                throw new TrinoException(NOT_SUPPORTED, "Recursive directory must not exist when recursive_directory argument is 'fail': " + file.location());
-            }
-
-            Metrics metrics = loadMetrics(fileSystem.newInputFile(file.location()), format, schema);
-            DataFile dataFile = buildDataFile(file, partition, partitionSpec, format.name(), metrics);
-            dataFilesBuilder.add(dataFile);
-        }
-        List<DataFile> dataFiles = dataFilesBuilder.build();
-        log.debug("Found %d files in '%s'", dataFiles.size(), location);
-        return dataFiles;
-    }
-
-    private static boolean isRecursive(String baseLocation, String location)
-    {
-        verify(location.startsWith(baseLocation), "%s should start with %s", location, baseLocation);
-        String suffix = location.substring(baseLocation.length() + 1).replaceFirst("^/+", "");
-        return suffix.contains("/");
-    }
-
     private static IcebergFileFormat toIcebergFileFormat(HiveStorageFormat storageFormat)
     {
         return switch (storageFormat) {
@@ -385,27 +314,6 @@ public class MigrateProcedure
             case AVRO -> IcebergFileFormat.AVRO;
             default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported storage format: " + storageFormat);
         };
-    }
-
-    private static Metrics loadMetrics(TrinoInputFile file, HiveStorageFormat storageFormat, Schema schema)
-    {
-        return switch (storageFormat) {
-            case ORC -> OrcMetrics.fileMetrics(file, METRICS_CONFIG, schema);
-            case PARQUET -> parquetMetrics(file, METRICS_CONFIG, MappingUtil.create(schema));
-            case AVRO -> new Metrics(Avro.rowCount(new ForwardingInputFile(file)), null, null, null, null);
-            default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported storage format: " + storageFormat);
-        };
-    }
-
-    private static Metrics parquetMetrics(TrinoInputFile file, MetricsConfig metricsConfig, NameMapping nameMapping)
-    {
-        try (ParquetDataSource dataSource = new TrinoParquetDataSource(file, new ParquetReaderOptions(), new FileFormatDataSourceStats())) {
-            ParquetMetadata metadata = MetadataReader.readFooter(dataSource, Optional.empty());
-            return ParquetUtil.footerMetrics(metadata, Stream.empty(), metricsConfig, nameMapping);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Failed to read file footer: " + file.location(), e);
-        }
     }
 
     private static List<String> toPartitionFields(io.trino.metastore.Table table)
@@ -420,16 +328,5 @@ public class MigrateProcedure
         return table.getPartitionColumns().stream()
                 .map(Column::getName)
                 .collect(toImmutableList());
-    }
-
-    private static DataFile buildDataFile(FileEntry file, StructLike partition, PartitionSpec spec, String format, Metrics metrics)
-    {
-        return DataFiles.builder(spec)
-                .withPath(file.location().toString())
-                .withFormat(format)
-                .withFileSizeInBytes(file.length())
-                .withMetrics(metrics)
-                .withPartition(partition)
-                .build();
     }
 }
