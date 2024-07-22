@@ -32,26 +32,6 @@ public class TestHsqlDbConnectorTest
     }
 
     @Override
-    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
-    {
-        return switch (connectorBehavior) {
-            case SUPPORTS_ADD_COLUMN,
-                 SUPPORTS_AGGREGATION_PUSHDOWN,
-                 SUPPORTS_COMMENT_ON_COLUMN,
-                 SUPPORTS_COMMENT_ON_TABLE,
-                 SUPPORTS_CREATE_SCHEMA,
-                 SUPPORTS_CREATE_TABLE,
-                 SUPPORTS_DELETE,
-                 SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
-                 SUPPORTS_INSERT,
-                 SUPPORTS_RENAME_COLUMN,
-                 SUPPORTS_RENAME_TABLE,
-                 SUPPORTS_UPDATE -> true;
-            default -> super.hasBehavior(connectorBehavior);
-        };
-    }
-
-    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return server::execute;
