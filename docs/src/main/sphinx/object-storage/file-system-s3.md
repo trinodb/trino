@@ -2,7 +2,10 @@
 
 Trino includes a native implementation to access [Amazon
 S3](https://aws.amazon.com/s3/) and compatible storage systems with a catalog
-using the Delta Lake, Hive, Hudi, or Iceberg connectors.
+using the Delta Lake, Hive, Hudi, or Iceberg connectors. While Trino is designed
+to support S3-compatible storage systems, only AWS S3 and MinIO are tested for
+compatibility. For other storage systems, perform your own testing and consult
+your vendor for more information.
 
 Enable the native implementation with `fs.native-s3.enabled=true` in your
 catalog properties file.
