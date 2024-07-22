@@ -460,7 +460,7 @@
             <dependency>
                 <groupId>com.clickhouse</groupId>
                 <artifactId>clickhouse-jdbc</artifactId>
-                <version>0.6.2</version>
+                <version>0.6.3</version>
                 <classifier>all</classifier>
             </dependency>
 
