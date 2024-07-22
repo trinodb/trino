@@ -538,7 +538,7 @@ public abstract class BaseConnectorTest
         assertQuery("" +
                 "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
                 "FROM orders " +
-                "WHERE orderkey BETWEEN 10 AND 50");
+                "WHERE orderkey BETWEEN 10 AND 50 OR orderkey BETWEEN 100 AND 150");
     }
 
     @Test
