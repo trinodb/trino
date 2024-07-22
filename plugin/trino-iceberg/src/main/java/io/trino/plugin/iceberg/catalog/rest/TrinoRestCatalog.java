@@ -219,6 +219,21 @@ public class TrinoRestCatalog
         return tables.build();
     }
 
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
+    {
+        SessionContext sessionContext = convert(session);
+        List<Namespace> namespaces = listNamespaces(session, namespace);
+
+        ImmutableList.Builder<SchemaTableName> viewNames = ImmutableList.builder();
+        for (Namespace restNamespace : namespaces) {
+            listTableIdentifiers(restNamespace, () -> restSessionCatalog.listViews(sessionContext, restNamespace)).stream()
+                    .map(id -> SchemaTableName.schemaTableName(id.namespace().toString(), id.name()))
+                    .forEach(viewNames::add);
+        }
+        return viewNames.build();
+    }
+
     private static List<TableIdentifier> listTableIdentifiers(Namespace restNamespace, Supplier<List<TableIdentifier>> tableIdentifiersProvider)
     {
         try {
