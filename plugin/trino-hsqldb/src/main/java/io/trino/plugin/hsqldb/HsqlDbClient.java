@@ -794,12 +794,6 @@ public class HsqlDbClient
     }
 
     @Override
-    public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping a not null constraint");
-    }
-
-    @Override
     protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
         // Copy all columns for enforcing NOT NULL option in the temp table

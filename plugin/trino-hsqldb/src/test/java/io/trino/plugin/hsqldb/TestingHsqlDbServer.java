@@ -23,8 +23,6 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import static java.lang.String.format;
-
 public class TestingHsqlDbServer
         implements AutoCloseable
 {
@@ -32,7 +30,6 @@ public class TestingHsqlDbServer
     public static final String LATEST_VERSION = "2.7.3";
     private static final String HSQLDB_ARCHIVE = "hsqldb-%s.jar";
     private static final String DOWNLOAD_LOCATION = "https://repo1.maven.org/maven2/org/hsqldb/hsqldb/%s/%s";
-    private static final String URL_CONNECTION_PROPERTIES = ";hsqldb.default_table_type=cached";
     private static final int HSQLDB_PORT = 9001;
     private static class HsqldbContainer
             extends GenericContainer<HsqldbContainer>
@@ -92,9 +89,7 @@ public class TestingHsqlDbServer
 
     public String getJdbcUrl()
     {
-        String url = String.format("jdbc:hsqldb:hsql://localhost:%s/%s",
-                container.getMappedPort(HSQLDB_PORT),
-                URL_CONNECTION_PROPERTIES);
+        String url = String.format("jdbc:hsqldb:hsql://localhost:%s/", container.getMappedPort(HSQLDB_PORT));
         System.out.println(url);
         return url;
     }

@@ -28,8 +28,10 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABL
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NEGATIVE_DATE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,13 +82,14 @@ public abstract class BaseHsqlDbConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
+        // FIXME: HsqlDB requires declaring the default value before the NOT NULL constraint
         return new TestTable(
                 onRemoteDatabase(),
                 "table",
                 "(col_required BIGINT NOT NULL," +
                         "col_nullable BIGINT," +
                         "col_default BIGINT DEFAULT 43," +
-                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_nonnull_default BIGINT DEFAULT 42 NOT NULL," +
                         "col_required2 BIGINT NOT NULL)");
     }
 
@@ -328,6 +331,5 @@ public abstract class BaseHsqlDbConnectorTest
             assertUpdate(format("DROP VIEW IF EXISTS %s.%s", schemaName, viewName));
         }
     }
-
 
 }

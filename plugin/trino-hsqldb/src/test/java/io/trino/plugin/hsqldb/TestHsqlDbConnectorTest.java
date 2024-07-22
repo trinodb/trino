@@ -46,7 +46,6 @@ public class TestHsqlDbConnectorTest
                  SUPPORTS_INSERT,
                  SUPPORTS_RENAME_COLUMN,
                  SUPPORTS_RENAME_TABLE,
-                 SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_UPDATE -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
@@ -56,20 +55,6 @@ public class TestHsqlDbConnectorTest
     protected SqlExecutor onRemoteDatabase()
     {
         return server::execute;
-    }
-
-    @Override
-    protected TestTable createTableWithDefaultColumns()
-    {
-        // FIXME: HsqlDB requires declaring the default value before the NOT NULL constraint
-        return new TestTable(
-                onRemoteDatabase(),
-                "tpch.table",
-                "(col_required BIGINT NOT NULL," +
-                        "col_nullable BIGINT," +
-                        "col_default BIGINT DEFAULT 43," +
-                        "col_nonnull_default BIGINT DEFAULT 42 NOT NULL," +
-                        "col_required2 BIGINT NOT NULL)");
     }
 
 }

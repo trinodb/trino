@@ -19,6 +19,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.opentelemetry.api.OpenTelemetry;
+import io.trino.plugin.base.classloader.ForClassLoaderSafe;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
@@ -29,6 +30,7 @@ import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
+import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import org.hsqldb.jdbcDriver;
 
@@ -65,7 +67,7 @@ public class HsqlDbClientModule
     private static Properties getConnectionProperties()
     {
         Properties connectionProperties = new Properties();
-        //connectionProperties.setProperty("tinyInt1isBit", "false");
+        connectionProperties.setProperty("hsqldb.default_table_type", "cached");
         return connectionProperties;
     }
 }
