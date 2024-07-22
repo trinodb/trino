@@ -16,7 +16,6 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
@@ -27,6 +26,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.CreateTableRequest;
 import software.amazon.awssdk.services.glue.model.TableInput;
@@ -124,7 +124,7 @@ public class TestHiveGlueMetadataListing
     {
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
                 .setDefaultWarehouseDir(dataDirectory.toString());
-        try (GlueClient glueClient = createGlueClient(glueConfig, OpenTelemetry.noop())) {
+        try (GlueClient glueClient = createGlueClient(glueConfig, ImmutableSet.of())) {
             TableInput tableInput = TableInput.builder()
                     .name(FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME)
                     .tableType("HIVE")

@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import io.opentelemetry.api.OpenTelemetry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.retries.api.RefreshRetryTokenRequest;
@@ -36,7 +36,7 @@ public class TestHiveConcurrentModificationGlueMetastore
     @Test
     public void testGlueClientShouldRetryConcurrentModificationException()
     {
-        try (GlueClient glueClient = createGlueClient(new GlueHiveMetastoreConfig(), OpenTelemetry.noop())) {
+        try (GlueClient glueClient = createGlueClient(new GlueHiveMetastoreConfig(), ImmutableSet.of())) {
             ClientOverrideConfiguration clientOverrideConfiguration = glueClient.serviceClientConfiguration().overrideConfiguration();
             RetryStrategy retryStrategy = clientOverrideConfiguration.retryStrategy().orElseThrow();
 
