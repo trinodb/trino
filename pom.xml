@@ -174,8 +174,6 @@
             -XX:+UnlockDiagnosticVMOptions
             <!-- # Allow loading dynamic agent used by JOL -->
             -XX:+EnableDynamicAgentLoading
-            <!-- workaround for JDK-8329528 -->
-            -XX:G1NumCollectionsKeepPinned=10000000
             ${extraJavaVectorArgs}
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>

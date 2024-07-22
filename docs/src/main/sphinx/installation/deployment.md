@@ -138,9 +138,6 @@ The following provides a good starting point for creating `etc/jvm.config`:
 -Dfile.encoding=UTF-8
 # Allow loading dynamic agent used by JOL
 -XX:+EnableDynamicAgentLoading
-# https://bugs.openjdk.org/browse/JDK-8329528
--XX:+UnlockDiagnosticVMOptions
--XX:G1NumCollectionsKeepPinned=10000000
 ```
 
 You must adjust the value for the memory used by Trino, specified with `-Xmx`
