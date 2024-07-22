@@ -2552,10 +2552,7 @@ public class IcebergMetadata
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return catalog.listTables(session, schemaName).stream()
-                .filter(info -> info.extendedRelationType() == TableInfo.ExtendedRelationType.TRINO_VIEW)
-                .map(TableInfo::tableName)
-                .toList();
+        return catalog.listViews(session, schemaName);
     }
 
     @Override
