@@ -367,10 +367,6 @@ properties:
   - AWS region of the STS service to authenticate with. This is required when
     running in a GovCloud region. Example: `us-gov-east-1`
   -
-* - `hive.metastore.glue.proxy-api-id`
-  - The ID of the Glue Proxy API, when accessing Glue via an VPC endpoint in API
-    Gateway.
-  -
 * - `hive.metastore.glue.sts.endpoint`
   - STS endpoint URL to use when authenticating to Glue (optional). Example:
     `https://sts.us-gov-east-1.amazonaws.com`
@@ -388,10 +384,6 @@ properties:
 * - `hive.metastore.glue.default-warehouse-dir`
   - Default warehouse directory for schemas created without an explicit
     `location` property.
-  -
-* - `hive.metastore.glue.aws-credentials-provider`
-  - Fully qualified name of the Java class to use for obtaining AWS credentials.
-    Can be used to supply a custom credentials provider.
   -
 * - `hive.metastore.glue.use-web-identity-token-credentials-provider`
   - If you are running Trino on Amazon EKS, and authenticate using a Kubernetes
@@ -421,15 +413,6 @@ properties:
   -
 * - `hive.metastore.glue.partitions-segments`
   - Number of segments for partitioned Glue tables.
-  - `5`
-* - `hive.metastore.glue.get-partition-threads`
-  - Number of threads for parallel partition fetches from Glue.
-  - `20`
-* - `hive.metastore.glue.read-statistics-threads`
-  - Number of threads for parallel statistic fetches from Glue.
-  - `5`
-* - `hive.metastore.glue.write-statistics-threads`
-  - Number of threads for parallel statistic writes to Glue.
   - `5`
 :::
 
