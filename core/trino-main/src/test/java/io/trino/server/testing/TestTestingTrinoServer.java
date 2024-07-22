@@ -14,6 +14,7 @@
 package io.trino.server.testing;
 
 import com.google.inject.Key;
+import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.CoordinatorDynamicCatalogManager;
 import io.trino.connector.InMemoryCatalogStore;
 import io.trino.connector.StaticCatalogManager;
@@ -27,28 +28,32 @@ import java.io.IOException;
 import static io.trino.connector.CatalogManagerConfig.CatalogMangerKind.STATIC;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestTestingTrinoServer
+final class TestTestingTrinoServer
 {
     @Test
-    public void testDefaultCatalogManagement()
+    void testDefaultCatalogManagementForCoordinator()
             throws IOException
     {
         try (TestingTrinoServer server = TestingTrinoServer.builder().build()) {
-            if (server.isCoordinator()) {
-                assertThat(server.getInstance(Key.get(CatalogManager.class)))
-                        .isInstanceOf(CoordinatorDynamicCatalogManager.class);
-                assertThat(server.getInstance(Key.get(CatalogStore.class)))
-                        .isInstanceOf(InMemoryCatalogStore.class);
-            }
-            else {
-                assertThat(server.getInstance(Key.get(CatalogManager.class)))
-                        .isInstanceOf(WorkerDynamicCatalogManager.class);
-            }
+            assertThat(server.getInstance(Key.get(CatalogManager.class)))
+                    .isInstanceOf(CoordinatorDynamicCatalogManager.class);
+            assertThat(server.getInstance(Key.get(CatalogStore.class)))
+                    .isInstanceOf(InMemoryCatalogStore.class);
         }
     }
 
     @Test
-    public void testSetCatalogManagementToStatic()
+    void testDefaultCatalogManagementForWorker()
+            throws IOException
+    {
+        try (TestingTrinoServer server = TestingTrinoServer.builder().setCoordinator(false).build()) {
+            assertThat(server.getInstance(Key.get(ConnectorServicesProvider.class)))
+                    .isInstanceOf(WorkerDynamicCatalogManager.class);
+        }
+    }
+
+    @Test
+    void testSetCatalogManagementToStatic()
             throws IOException
     {
         try (TestingTrinoServer server = TestingTrinoServer.builder()
