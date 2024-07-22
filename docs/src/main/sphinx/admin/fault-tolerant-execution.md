@@ -524,9 +524,9 @@ crash.
 The following example `exchange-manager.properties` configuration specifies an
 AWS S3 bucket as the spooling storage destination. Note that the destination
 does not have to be in AWS, but can be any S3-compatible storage system. While
-the exchange manager is designed to support S3-compatible storage systems, not
-all such systems are tested for compatibility. To ensure your storage system is
-compatible, refer to your vendor's documentation.
+the exchange manager is designed to support S3-compatible storage systems, only
+AWS S3 and MinIO are tested for compatibility. For other storage systems,
+perform your own testing and consult your vendor for more information.
 
 ```properties
 exchange-manager.name=filesystem
