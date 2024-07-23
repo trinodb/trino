@@ -126,8 +126,8 @@ public final class SortExpressionExtractor
         {
             // Handle both side of BETWEEN as `GREATER_THAN_OR_EQUAL` expression and `LESS_THAN_OR_EQUAL` expression.
             return ImmutableList.<SortExpressionContext>builder()
-                    .addAll(visitComparison(new Comparison(Comparison.Operator.GREATER_THAN_OR_EQUAL, node.value(), node.min()), context))
-                    .addAll(visitComparison(new Comparison(Comparison.Operator.LESS_THAN_OR_EQUAL, node.value(), node.max()), context))
+                    .addAll(visitComparison(new Comparison(GREATER_THAN_OR_EQUAL, node.value(), node.min()), context))
+                    .addAll(visitComparison(new Comparison(LESS_THAN_OR_EQUAL, node.value(), node.max()), context))
                     .build();
         }
     }
