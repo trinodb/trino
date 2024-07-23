@@ -72,7 +72,6 @@ public class OperatorFactories
             int operatorId,
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
-            boolean hasFilter,
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
