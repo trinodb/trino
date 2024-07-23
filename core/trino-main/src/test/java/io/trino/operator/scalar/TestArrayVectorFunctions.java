@@ -49,6 +49,9 @@ final class TestArrayVectorFunctions
         assertThat(assertions.function("euclidean_distance", "ARRAY[1, 2]", "ARRAY[3, 4]"))
                 .hasType(DOUBLE)
                 .isEqualTo(2.8284271247461903);
+        assertThat(assertions.function("euclidean_distance", "ARRAY[4, 5, 6]", "ARRAY[4, 5, 6]"))
+                .hasType(DOUBLE)
+                .isEqualTo(0.0);
         assertThat(assertions.function("euclidean_distance", "ARRAY[REAL '1.1', REAL '2.2', REAL '3.3']", "ARRAY[REAL '4.4', REAL '5.5', REAL '6.6']"))
                 .hasType(DOUBLE)
                 .isEqualTo(5.715767651212193);
@@ -147,6 +150,9 @@ final class TestArrayVectorFunctions
         assertThat(assertions.function("dot_product", "ARRAY[1, 2]", "ARRAY[3, 4]"))
                 .hasType(DOUBLE)
                 .isEqualTo(11.0);
+        assertThat(assertions.function("dot_product", "ARRAY[4, 5, 6]", "ARRAY[4, 5, 6]"))
+                .hasType(DOUBLE)
+                .isEqualTo(77.0);
         assertThat(assertions.function("dot_product", "ARRAY[REAL '1.1', REAL '2.2', REAL '3.3']", "ARRAY[REAL '4.4', REAL '5.5', REAL '6.6']"))
                 .hasType(DOUBLE)
                 .isEqualTo(38.719999842643745);
