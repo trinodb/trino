@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import io.trino.execution.TaskId;
-import io.trino.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -44,7 +43,7 @@ public class AssignUniqueIdOperator
     }
 
     private static class Factory
-            implements BasicAdapterWorkProcessorOperatorFactory
+            implements WorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
