@@ -30,18 +30,7 @@ import static java.util.Objects.requireNonNull;
 public class BasicWorkProcessorOperatorAdapter
         implements AdapterWorkProcessorOperator
 {
-    public interface BasicAdapterWorkProcessorOperatorFactory
-            extends WorkProcessorOperatorFactory
-    {
-        default WorkProcessorOperator createAdapterOperator(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
-        {
-            return create(processorContext, sourcePages);
-        }
-
-        BasicAdapterWorkProcessorOperatorFactory duplicate();
-    }
-
-    public static OperatorFactory createAdapterOperatorFactory(BasicAdapterWorkProcessorOperatorFactory operatorFactory)
+    public static OperatorFactory createAdapterOperatorFactory(WorkProcessorOperatorFactory operatorFactory)
     {
         return WorkProcessorOperatorAdapter.createAdapterOperatorFactory(new Factory(operatorFactory));
     }
@@ -49,9 +38,9 @@ public class BasicWorkProcessorOperatorAdapter
     private static class Factory
             implements AdapterWorkProcessorOperatorFactory
     {
-        private final BasicAdapterWorkProcessorOperatorFactory operatorFactory;
+        private final WorkProcessorOperatorFactory operatorFactory;
 
-        Factory(BasicAdapterWorkProcessorOperatorFactory operatorFactory)
+        Factory(WorkProcessorOperatorFactory operatorFactory)
         {
             this.operatorFactory = requireNonNull(operatorFactory, "operatorFactory is null");
         }
@@ -104,10 +93,10 @@ public class BasicWorkProcessorOperatorAdapter
 
     private BasicWorkProcessorOperatorAdapter(
             ProcessorContext processorContext,
-            BasicAdapterWorkProcessorOperatorFactory operatorFactory)
+            WorkProcessorOperatorFactory operatorFactory)
     {
         this.pageBuffer = new PageBuffer();
-        this.operator = operatorFactory.createAdapterOperator(processorContext, pageBuffer.pages());
+        this.operator = operatorFactory.create(processorContext, pageBuffer.pages());
     }
 
     @Override
