@@ -245,6 +245,9 @@ final class TestArrayVectorFunctions
         assertThat(assertions.function("cosine_distance", "ARRAY[1, 2]", "ARRAY[3, 4]"))
                 .hasType(DOUBLE)
                 .isEqualTo(0.01613008990009257);
+        assertThat(assertions.function("cosine_distance", "ARRAY[4, 5, 6]", "ARRAY[4, 5, 6]"))
+                .hasType(DOUBLE)
+                .isEqualTo(0.0);
         assertThat(assertions.function("cosine_distance", "ARRAY[REAL '1.1', REAL '2.2', REAL '3.3']", "ARRAY[REAL '4.4', REAL '5.5', REAL '6.6']"))
                 .hasType(DOUBLE)
                 .isEqualTo(0.025368154060122383);
