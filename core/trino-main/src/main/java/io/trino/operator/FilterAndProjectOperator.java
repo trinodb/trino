@@ -32,7 +32,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
+import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static io.trino.operator.project.MergePages.mergePages;
 import static java.util.Objects.requireNonNull;
 

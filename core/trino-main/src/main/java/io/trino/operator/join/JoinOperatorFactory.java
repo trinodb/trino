@@ -18,7 +18,6 @@ import io.trino.operator.OperatorFactory;
 import java.util.Optional;
 
 public interface JoinOperatorFactory
-        extends OperatorFactory
 {
     Optional<OperatorFactory> createOuterOperatorFactory();
 }
