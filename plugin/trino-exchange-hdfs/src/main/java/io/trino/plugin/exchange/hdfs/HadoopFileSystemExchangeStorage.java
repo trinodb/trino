@@ -26,7 +26,6 @@ import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
 import io.trino.plugin.exchange.filesystem.FileStatus;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
-import io.trino.plugin.exchange.filesystem.MetricsBuilder;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -48,7 +47,6 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.plugin.exchange.filesystem.MetricsBuilder.SOURCE_FILES_PROCESSED;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -79,9 +77,9 @@ public class HadoopFileSystemExchangeStorage
     }
 
     @Override
-    public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize, MetricsBuilder metricsBuilder)
+    public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
     {
-        return new HadoopExchangeStorageReader(fileSystem, sourceFiles, metricsBuilder, blockSize);
+        return new HadoopExchangeStorageReader(fileSystem, sourceFiles, blockSize);
     }
 
     @Override
@@ -161,7 +159,6 @@ public class HadoopFileSystemExchangeStorage
         private final FileSystem fileSystem;
         @GuardedBy("this")
         private final Queue<ExchangeSourceFile> sourceFiles;
-        private final MetricsBuilder.CounterMetricBuilder sourceFilesProcessedMetric;
         private final int blockSize;
 
         @GuardedBy("this")
@@ -169,12 +166,10 @@ public class HadoopFileSystemExchangeStorage
         @GuardedBy("this")
         private boolean closed;
 
-        public HadoopExchangeStorageReader(FileSystem fileSystem, List<ExchangeSourceFile> sourceFiles, MetricsBuilder metricsBuilder, int blockSize)
+        public HadoopExchangeStorageReader(FileSystem fileSystem, List<ExchangeSourceFile> sourceFiles, int blockSize)
         {
             this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
             this.sourceFiles = new ArrayDeque<>(requireNonNull(sourceFiles, "sourceFiles is null"));
-            requireNonNull(metricsBuilder, "metricsBuilder is null");
-            sourceFilesProcessedMetric = metricsBuilder.getCounterMetric(SOURCE_FILES_PROCESSED);
             this.blockSize = blockSize;
         }
 
@@ -192,7 +187,6 @@ public class HadoopFileSystemExchangeStorage
                 }
                 else {
                     sliceInput.close();
-                    sourceFilesProcessedMetric.increment();
                 }
             }
 
