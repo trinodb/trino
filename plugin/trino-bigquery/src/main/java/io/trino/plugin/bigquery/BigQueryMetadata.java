@@ -314,7 +314,7 @@ public class BigQueryMetadata
         String remoteSchemaName = client.toRemoteDataset(localDatasetId)
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElse(localDatasetId.getDataset());
-        String remoteTableName = client.toRemoteTable(localDatasetId.getProject(), remoteSchemaName, schemaTableName.getTableName())
+        String remoteTableName = client.toRemoteTable(session, localDatasetId.getProject(), remoteSchemaName, schemaTableName.getTableName())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElse(schemaTableName.getTableName());
         Optional<TableInfo> tableInfo = client.getTable(TableId.of(localDatasetId.getProject(), remoteSchemaName, remoteTableName));
@@ -348,7 +348,7 @@ public class BigQueryMetadata
         String remoteSchemaName = client.toRemoteDataset(localDatasetId)
                 .map(RemoteDatabaseObject::getAnyRemoteName)
                 .orElse(localDatasetId.getDataset());
-        String remoteTableName = client.toRemoteTable(localDatasetId.getProject(), remoteSchemaName, schemaTableName.getTableName())
+        String remoteTableName = client.toRemoteTable(session, localDatasetId.getProject(), remoteSchemaName, schemaTableName.getTableName())
                 .map(RemoteDatabaseObject::getAnyRemoteName)
                 .orElse(schemaTableName.getTableName());
         return client.getTable(TableId.of(localDatasetId.getProject(), remoteSchemaName, remoteTableName));
@@ -383,7 +383,7 @@ public class BigQueryMetadata
         String remoteSchemaName = client.toRemoteDataset(localDatasetId)
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElseThrow(() -> new TableNotFoundException(viewDefinitionTableName));
-        String remoteTableName = client.toRemoteTable(localDatasetId.getProject(), remoteSchemaName, sourceTableName.getTableName())
+        String remoteTableName = client.toRemoteTable(session, localDatasetId.getProject(), remoteSchemaName, sourceTableName.getTableName())
                 .map(RemoteDatabaseObject::getOnlyRemoteName)
                 .orElseThrow(() -> new TableNotFoundException(viewDefinitionTableName));
         TableInfo tableInfo = client.getTable(TableId.of(localDatasetId.getProject(), remoteSchemaName, remoteTableName))

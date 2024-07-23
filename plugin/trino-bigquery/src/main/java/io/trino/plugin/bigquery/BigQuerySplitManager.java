@@ -204,7 +204,7 @@ public class BigQuerySplitManager
 
     private List<BigQuerySplit> createEmptyProjection(ConnectorSession session, TableDefinition.Type tableType, TableId remoteTableId, Optional<String> filter)
     {
-        if (!TABLE_TYPES.contains(tableType)) {
+        if (!TABLE_TYPES.containsKey(tableType)) {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported table type: " + tableType);
         }
 
