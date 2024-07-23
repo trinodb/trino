@@ -15,7 +15,6 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.memory.context.MemoryTrackingContext;
-import io.trino.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
@@ -48,7 +47,7 @@ public class TopNOperator
     }
 
     private static class Factory
-            implements BasicAdapterWorkProcessorOperatorFactory
+            implements WorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;

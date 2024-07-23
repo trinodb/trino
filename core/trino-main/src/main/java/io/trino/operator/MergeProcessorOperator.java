@@ -72,7 +72,7 @@ public class MergeProcessorOperator
     }
 
     public static class Factory
-            implements BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory
+            implements WorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
