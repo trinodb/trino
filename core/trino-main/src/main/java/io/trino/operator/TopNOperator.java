@@ -25,7 +25,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
+import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static java.util.Objects.requireNonNull;
 
 /**
