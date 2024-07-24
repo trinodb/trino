@@ -59,7 +59,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public class TestSetRoleTask
+public class TestRoleTasks
 {
     private static final String CATALOG_NAME = "foo";
     private static final String SYSTEM_ROLE_CATALOG_NAME = "system_role";
