@@ -468,6 +468,32 @@ public final class ValueDecoders
         };
     }
 
+    public ValueDecoder<int[]> getInt96ToLongTimestampWithTimeZoneDecoder(ParquetEncoding encoding)
+    {
+        checkArgument(
+                field.getType() instanceof TimestampWithTimeZoneType timestampType && !timestampType.isShort(),
+                "Trino type %s is not a long timestamp",
+                field.getType());
+        int precision = ((TimestampWithTimeZoneType) field.getType()).getPrecision();
+        return new InlineTransformDecoder<>(
+                getInt96TimestampDecoder(encoding),
+                (values, offset, length) -> {
+                    for (int i = offset; i < offset + length; i++) {
+                        long epochSeconds = decodeFixed12First(values, i);
+                        int nanosOfSecond = decodeFixed12Second(values, i);
+                        if (precision < 9) {
+                            nanosOfSecond = (int) round(nanosOfSecond, 9 - precision);
+                        }
+                        long utcMillis = epochSeconds * MILLISECONDS_PER_SECOND + (nanosOfSecond / NANOSECONDS_PER_MILLISECOND);
+                        encodeFixed12(
+                                packDateTimeWithZone(utcMillis, UTC_KEY),
+                                (nanosOfSecond % NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_NANOSECOND,
+                                values,
+                                i);
+                    }
+                });
+    }
+
     public ValueDecoder<long[]> getInt64TimestampMillsToShortTimestampDecoder(ParquetEncoding encoding)
     {
         checkArgument(

@@ -197,7 +197,7 @@ public final class ColumnReaderFactory
             if (timestampWithTimeZoneType.isShort()) {
                 return createColumnReader(field, valueDecoders::getInt96ToShortTimestampWithTimeZoneDecoder, LONG_ADAPTER, memoryContext);
             }
-            throw unsupportedException(type, field);
+            return createColumnReader(field, valueDecoders::getInt96ToLongTimestampWithTimeZoneDecoder, FIXED12_ADAPTER, memoryContext);
         }
         if (type instanceof TimestampType timestampType && primitiveType == INT64) {
             if (!(annotation instanceof TimestampLogicalTypeAnnotation timestampAnnotation)) {

@@ -8804,19 +8804,35 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testTimestampWithTimeZone()
     {
-        String catalog = getSession().getCatalog().orElseThrow();
+        testTimestampWithTimeZone(HiveTimestampPrecision.MILLISECONDS);
+        testTimestampWithTimeZone(HiveTimestampPrecision.MICROSECONDS);
+        testTimestampWithTimeZone(HiveTimestampPrecision.NANOSECONDS);
+    }
 
-        assertUpdate("CREATE TABLE test_timestamptz_base (t timestamp) WITH (format = 'PARQUET')");
-        assertUpdate("INSERT INTO test_timestamptz_base (t) VALUES" +
-                     "(timestamp '2022-07-26 12:13')", 1);
+    private void testTimestampWithTimeZone(HiveTimestampPrecision timestampPrecision)
+    {
+        assertUpdate(withTimestampPrecision(getSession(), HiveTimestampPrecision.NANOSECONDS), "CREATE TABLE test_timestamptz_base (t timestamp(9)) WITH (format = 'PARQUET')");
+        for (HiveTimestampPrecision precision : HiveTimestampPrecision.values()) {
+            long fractionalPart = switch (precision) {
+                case MILLISECONDS -> 123;
+                case MICROSECONDS -> 123456;
+                case NANOSECONDS -> 123456789;
+            };
+            assertUpdate(
+                    withTimestampPrecision(getSession(), HiveTimestampPrecision.NANOSECONDS),
+                    "INSERT INTO test_timestamptz_base (t) VALUES" +
+                            "(timestamp '2022-07-26 12:13:14." + fractionalPart + "')", 1);
+        }
 
         // Writing TIMESTAMP WITH LOCAL TIME ZONE is not supported, so we first create Parquet object by writing unzoned
         // timestamp (which is converted to UTC using default timezone) and then creating another table that reads from the same file.
         String tableLocation = getTableLocation("test_timestamptz_base");
 
+        Session session = withTimestampPrecision(getSession(), timestampPrecision);
+        String catalog = session.getCatalog().orElseThrow();
         // TIMESTAMP WITH LOCAL TIME ZONE is not mapped to any Trino type, so we need to create the metastore entry manually
         HiveMetastore metastore = getConnectorService(getDistributedQueryRunner(), HiveMetastoreFactory.class)
-                .createMetastore(Optional.of(getSession().getIdentity().toConnectorIdentity(catalog)));
+                .createMetastore(Optional.of(session.getIdentity().toConnectorIdentity(catalog)));
         metastore.createTable(
                 new Table(
                         "tpch",
@@ -8837,10 +8853,23 @@ public abstract class BaseHiveConnectorTest
                         OptionalLong.empty()),
                 PrincipalPrivileges.fromHivePrivilegeInfos(Collections.emptySet()));
 
-        assertThat(query("SELECT * FROM test_timestamptz"))
-                .matches("VALUES TIMESTAMP '2022-07-26 17:13:00.000 UTC'");
+        long microsFraction = switch (timestampPrecision) {
+            case MILLISECONDS -> 123;
+            case MICROSECONDS, NANOSECONDS -> 123456;
+        };
+        long nanosFraction = switch (timestampPrecision) {
+            case MILLISECONDS -> 123;
+            case MICROSECONDS -> 123457;
+            case NANOSECONDS -> 123456789;
+        };
+        assertThat(query(session, "SELECT * FROM test_timestamptz"))
+                .matches("VALUES " +
+                        "(TIMESTAMP '2022-07-26 17:13:14.123 UTC')," +
+                        "(TIMESTAMP '2022-07-26 17:13:14." + microsFraction + " UTC')," +
+                        "(TIMESTAMP '2022-07-26 17:13:14." + nanosFraction + " UTC')");
 
         assertUpdate("DROP TABLE test_timestamptz");
+        assertUpdate("DROP TABLE test_timestamptz_base");
     }
 
     @Test
