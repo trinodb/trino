@@ -16,6 +16,7 @@ package io.trino.plugin.hive.procedure;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.trino.filesystem.Location;
@@ -68,6 +69,7 @@ public class SyncPartitionMetadataProcedure
         ADD, DROP, FULL
     }
 
+    private static final int PARTITION_NAMES_BATCH_SIZE = 1000;
     private static final MethodHandle SYNC_PARTITION_METADATA;
 
     static {
@@ -142,8 +144,8 @@ public class SyncPartitionMetadataProcedure
                     .map(ImmutableSet::copyOf)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
             String tableStorageLocation = table.getStorage().getLocation();
-            Set<String> canonicalPartitionNamesInMetastore = metastore.getPartitionsByNames(schemaName, tableName, ImmutableList.copyOf(partitionNamesInMetastore))
-                    .values().stream()
+            Set<String> canonicalPartitionNamesInMetastore = Lists.partition(ImmutableList.copyOf(partitionNamesInMetastore), PARTITION_NAMES_BATCH_SIZE).stream()
+                    .flatMap(partitionNames -> metastore.getPartitionsByNames(schemaName, tableName, partitionNames).values().stream())
                     .flatMap(Optional::stream) // disregard partitions which disappeared in the meantime since listing the partition names
                     // Disregard the partitions which do not have a canonical Hive location (e.g. `ALTER TABLE ... ADD PARTITION (...) LOCATION '...'`)
                     .flatMap(partition -> getCanonicalPartitionName(partition, table.getPartitionColumns(), tableStorageLocation).stream())
