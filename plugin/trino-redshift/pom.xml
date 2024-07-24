@@ -234,6 +234,7 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/TestRedshiftAutomaticJoinPushdown.java</exclude>
+                                <exclude>**/TestRedshiftCastPushdown.java</exclude>
                                 <exclude>**/TestRedshiftConnectorTest.java</exclude>
                                 <exclude>**/TestRedshiftConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestRedshiftTableStatisticsReader.java</exclude>
@@ -262,6 +263,7 @@
                                 <!-- Run only the smoke tests of the connector on the CI environment due to unpredictable -->
                                 <!-- locations of GitHub runners which can lead to increased client latency on the -->
                                 <!-- JDBC operations performed on the ephemeral AWS Redshift cluster.  -->
+                                <include>**/TestRedshiftCastPushdown.java</include>
                                 <include>**/TestRedshiftConnectorSmokeTest.java</include>
                             </includes>
                         </configuration>
