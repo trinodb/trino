@@ -24,7 +24,6 @@ import io.trino.spi.catalog.CatalogStore;
 
 import java.util.Locale;
 
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class DynamicCatalogManagerModule
@@ -44,7 +43,6 @@ public class DynamicCatalogManagerModule
                 }
                 default -> {
                     binder.bind(CatalogStoreManager.class).in(Scopes.SINGLETON);
-                    newOptionalBinder(binder, CatalogStoreManager.class).setBinding().to(CatalogStoreManager.class).in(Scopes.SINGLETON);
                     binder.bind(CatalogStore.class).to(CatalogStoreManager.class).in(Scopes.SINGLETON);
                 }
             }
