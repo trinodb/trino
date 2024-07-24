@@ -464,6 +464,12 @@ public class ServerMainModule
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
         binder.bind(BlockEncodingSerde.class).to(InternalBlockEncodingSerde.class).in(Scopes.SINGLETON);
 
+//        // plugin-toolkit metrics
+//        jsonBinder(binder).addSerializerBinding(TDigest.class).toInstance(
+//                new StdDelegatingSerializer(new TDigestHistogram.Base64ToTDigestConverter()));
+//        jsonBinder(binder).addDeserializerBinding(TDigest.class).toInstance(
+//                new StdDelegatingDeserializer<>(new TDigestHistogram.TDigestToBase64Converter()));
+
         // thread visualizer
         jaxrsBinder(binder).bind(ThreadResource.class);
 

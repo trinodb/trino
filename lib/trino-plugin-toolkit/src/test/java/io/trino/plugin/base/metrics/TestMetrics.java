@@ -16,7 +16,6 @@ package io.trino.plugin.base.metrics;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
-import io.airlift.stats.TDigest;
 import io.airlift.units.Duration;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;

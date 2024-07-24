@@ -20,8 +20,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
-import io.airlift.stats.TDigest;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.plugin.base.metrics.TDigest;
 import jakarta.annotation.Nullable;
 
 import java.util.concurrent.Executor;

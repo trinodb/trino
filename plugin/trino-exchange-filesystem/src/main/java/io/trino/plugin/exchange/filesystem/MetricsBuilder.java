@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.exchange.filesystem;
 
-import io.airlift.stats.TDigest;
 import io.trino.plugin.base.metrics.LongCount;
+import io.trino.plugin.base.metrics.TDigest;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
