@@ -17,8 +17,8 @@
   "dependencies": {
     "d3": "^5.7.0",
     "dagre-d3": "^0.6.1",
-    "react": "^16.4.1",
-    "react-dom": "^16.4.1",
+    "react": "^16.4.2",
+    "react-dom": "^16.4.2",
     "reactable": "^1.0.2"
   },
   "babel": {
