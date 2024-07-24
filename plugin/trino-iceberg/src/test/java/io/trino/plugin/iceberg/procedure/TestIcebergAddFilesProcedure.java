@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
@@ -112,11 +113,21 @@ final class TestIcebergAddFilesProcedure
     @Test
     void testAddFilesDifferentFileFormat()
     {
+        testAddFilesDifferentFileFormat("PARQUET", "ORC");
+        testAddFilesDifferentFileFormat("PARQUET", "AVRO");
+        testAddFilesDifferentFileFormat("ORC", "PARQUET");
+        testAddFilesDifferentFileFormat("ORC", "AVRO");
+        testAddFilesDifferentFileFormat("AVRO", "PARQUET");
+        testAddFilesDifferentFileFormat("AVRO", "ORC");
+    }
+
+    private void testAddFilesDifferentFileFormat(String hiveFormat, String icebergFormat)
+    {
         String hiveTableName = "test_add_files_" + randomNameSuffix();
         String icebergTableName = "test_add_files_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (format = 'PARQUET') AS SELECT 1 x", 1);
-        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = 'ORC') AS SELECT 2 x", 1);
+        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (format = '" + icebergFormat + "') AS SELECT 1 x", 1);
+        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = '" + hiveFormat + "') AS SELECT 2 x", 1);
 
         assertUpdate("CALL iceberg.system.add_files('tpch', '" + icebergTableName + "', 'tpch', '" + hiveTableName + "')");
 
@@ -147,51 +158,53 @@ final class TestIcebergAddFilesProcedure
     }
 
     @Test
-    void testAddFilesOrcDifferentColumnDefinitions()
+    void testAddFilesTypeMismatch()
     {
         String hiveTableName = "test_add_files_" + randomNameSuffix();
         String icebergTableName = "test_add_files_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = 'ORC') AS SELECT 1 x", 1);
-        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (format = 'ORC') AS SELECT 2 y", 1);
+        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (format = 'ORC') AS SELECT '1' x", 1);
+        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = 'ORC') AS SELECT 2 x", 1);
 
         assertQueryFails(
                 "CALL iceberg.system.add_files('tpch', '" + icebergTableName + "', 'tpch', '" + hiveTableName + "')",
-                "Column 'x' does not exist");
+                "Expected target 'string' type, but got source 'int' type");
 
         assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
         assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
     }
 
     @Test
-    void testAddFilesParquetDifferentColumnDefinitions()
+    void testAddFilesDifferentDataColumnDefinitions()
     {
-        String hiveTableName = "test_add_files_" + randomNameSuffix();
-        String icebergTableName = "test_add_files_" + randomNameSuffix();
+        for (String format : List.of("ORC", "PARQUET", "AVRO")) {
+            String hiveTableName = "test_add_files_" + randomNameSuffix();
+            String icebergTableName = "test_add_files_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = 'PARQUET') AS SELECT 1 x", 1);
-        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (format = 'PARQUET') AS SELECT 2 y", 1);
+            assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = '" + format + "') AS SELECT 1 x", 1);
+            assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (format = '" + format + "') AS SELECT 2 y", 1);
 
-        assertQueryFails(
-                "CALL iceberg.system.add_files('tpch', '" + icebergTableName + "', 'tpch', '" + hiveTableName + "')",
-                "Column 'x' does not exist");
+            assertQueryFails(
+                    "CALL iceberg.system.add_files('tpch', '" + icebergTableName + "', 'tpch', '" + hiveTableName + "')",
+                    "Column 'x' does not exist");
 
-        assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
-        assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
+            assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
+            assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
+        }
     }
 
     @Test
-    void testAddFilesAvroDifferentColumnDefinitions()
+    void testAddFilesDifferentPartitionColumnDefinitions()
     {
         String hiveTableName = "test_add_files_" + randomNameSuffix();
         String icebergTableName = "test_add_files_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = 'AVRO') AS SELECT 1 x", 1);
-        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (format = 'AVRO') AS SELECT 2 y", 1);
+        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (partitioned_by = ARRAY['hive_part']) AS SELECT 1 x, 10 hive_part", 1);
+        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (partitioning = ARRAY['iceberg_part']) AS SELECT 2 x, 20 iceberg_part", 1);
 
         assertQueryFails(
                 "CALL iceberg.system.add_files('tpch', '" + icebergTableName + "', 'tpch', '" + hiveTableName + "')",
-                "Column 'x' does not exist");
+                "Column 'hive_part' does not exist");
 
         assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
         assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
@@ -438,23 +451,6 @@ final class TestIcebergAddFilesProcedure
 
         assertUpdate("DROP TABLE hive.tpch." + sourceHiveTableName);
         assertUpdate("DROP TABLE hive.tpch." + targetHiveTableName);
-    }
-
-    @Test
-    void testAddFilesTypeMismatch()
-    {
-        String hiveTableName = "test_add_files_" + randomNameSuffix();
-        String icebergTableName = "test_add_files_" + randomNameSuffix();
-
-        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (format = 'ORC') AS SELECT '1' x", 1);
-        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = 'ORC') AS SELECT 2 x", 1);
-
-        assertQueryFails(
-                "CALL iceberg.system.add_files('tpch', '" + icebergTableName + "', 'tpch', '" + hiveTableName + "')",
-                "Expected target 'string' type, but got source 'int' type");
-
-        assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
-        assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
     }
 
     @Test

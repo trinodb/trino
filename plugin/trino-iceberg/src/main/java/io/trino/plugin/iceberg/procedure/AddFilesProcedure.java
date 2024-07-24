@@ -256,7 +256,7 @@ public class AddFilesProcedure
             checkProcedureArgument(
                     table.schemas().size() == sourceTable.getDataColumns().size(),
                     "Data column count mismatch: %d vs %d", table.schemas().size(), sourceTable.getDataColumns().size());
-            for (Column sourceColumn : sourceTable.getDataColumns()) {
+            for (Column sourceColumn : Stream.concat(sourceTable.getDataColumns().stream(), sourceTable.getPartitionColumns().stream()).toList()) {
                 Types.NestedField targetColumn = schema.caseInsensitiveFindField(sourceColumn.getName());
                 if (targetColumn == null) {
                     throw new TrinoException(COLUMN_NOT_FOUND, "Column '%s' does not exist".formatted(sourceColumn.getName()));
@@ -308,7 +308,7 @@ public class AddFilesProcedure
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
-            if (!partitionSpec.isPartitioned()) {
+            if (partitionSpec.isUnpartitioned()) {
                 log.debug("Building data files from %s", sourceLocation);
                 dataFilesBuilder.addAll(buildDataFiles(fileSystem, sourceType, recursive, storageFormat, sourceLocation, partitionSpec, Optional.empty(), schema, requiredFields));
             }
