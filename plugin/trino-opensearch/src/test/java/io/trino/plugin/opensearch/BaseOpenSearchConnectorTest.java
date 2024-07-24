@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.trino.Session;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.BaseConnectorTest;
@@ -1075,7 +1076,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM " + indexName + " " +
                 "WHERE keyword_column LIKE 's_.m%ex\\t'"))
                 .matches("VALUES VARCHAR 'so.me tex\\t'")
-                .isFullyPushedDown();
+                .isNotFullyPushedDown(FilterNode.class);
 
         assertThat(query("" +
                  "SELECT " +
@@ -1090,7 +1091,7 @@ public abstract class BaseOpenSearchConnectorTest
                 "FROM " + indexName + " " +
                 "WHERE keyword_column LIKE 'soome$%%' ESCAPE '$'"))
                 .matches("VALUES VARCHAR 'soome%text'")
-                .isFullyPushedDown();
+                .isNotFullyPushedDown(FilterNode.class);
 
         assertThat(query("" +
                 "SELECT " +

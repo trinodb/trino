@@ -64,8 +64,15 @@ import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
@@ -242,33 +249,10 @@ public class OpenSearchMetadata
                     field.name(),
                     converted.type(),
                     converted.decoderDescriptor(),
-                    supportsPredicates(field.type())));
+                    supportsPredicates(converted.type)));
         }
 
         return result.buildOrThrow();
-    }
-
-    private static boolean supportsPredicates(IndexMetadata.Type type)
-    {
-        if (type instanceof DateTimeType) {
-            return true;
-        }
-
-        if (type instanceof PrimitiveType) {
-            switch (((PrimitiveType) type).name().toLowerCase(ENGLISH)) {
-                case "boolean":
-                case "byte":
-                case "short":
-                case "integer":
-                case "long":
-                case "double":
-                case "float":
-                case "keyword":
-                    return true;
-            }
-        }
-
-        return false;
     }
 
     private TypeAndDecoder toTrino(IndexMetadata.Field field)
@@ -670,6 +654,20 @@ public class OpenSearchMetadata
         ConnectorTableHandle tableHandle = ((RawQueryFunctionHandle) handle).getTableHandle();
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(getColumnHandles(session, tableHandle).values());
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
+    }
+
+    private static boolean supportsPredicates(Type type)
+    {
+        return switch (type) {
+            case TimestampType ignore -> true;
+            case BooleanType ignore -> true;
+            case TinyintType ignore -> true;
+            case SmallintType ignore -> true;
+            case IntegerType ignore -> true;
+            case BigintType ignore -> true;
+            case RealType ignore -> true;
+            default -> false;
+        };
     }
 
     private record InternalTableMetadata(SchemaTableName tableName, List<ColumnMetadata> columnMetadata, Map<String, ColumnHandle> columnHandles) {}
