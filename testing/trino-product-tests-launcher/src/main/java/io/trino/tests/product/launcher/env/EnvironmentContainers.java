@@ -44,6 +44,11 @@ public final class EnvironmentContainers
         return name.startsWith(TRINO);
     }
 
+    public static boolean isTrinoWorker(String name)
+    {
+        return name.startsWith(WORKER);
+    }
+
     /**
      * Use this method only when you place `tempto-configuration.yaml' in environment configuration directory.
      */
