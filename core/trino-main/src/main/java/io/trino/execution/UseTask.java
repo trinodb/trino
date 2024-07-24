@@ -72,21 +72,23 @@ public class UseTask
                         semanticException(MISSING_CATALOG_NAME, statement, "Catalog must be specified when session catalog is not set")));
 
         SecurityContext securityContext = session.toSecurityContext();
-        if (metadata.getCatalogHandle(session, catalog).isEmpty()) {
-            throw new TrinoException(CATALOG_NOT_FOUND, "Catalog '%s' not found".formatted(catalog));
-        }
+
+        String schema = statement.getSchema().getValue().toLowerCase(ENGLISH);
+        CatalogSchemaName name = new CatalogSchemaName(catalog, schema);
+
+        // Always check access before metadata.
         if (!hasCatalogAccess(securityContext, catalog)) {
             denyCatalogAccess(catalog);
         }
-
-        String schema = statement.getSchema().getValue().toLowerCase(ENGLISH);
-
-        CatalogSchemaName name = new CatalogSchemaName(catalog, schema);
-        if (!metadata.schemaExists(session, name)) {
-            throw new TrinoException(NOT_FOUND, "Schema does not exist: " + name);
-        }
         if (!hasSchemaAccess(securityContext, catalog, schema)) {
             throw new AccessDeniedException("Cannot access schema: " + name);
+        }
+
+        if (metadata.getCatalogHandle(session, catalog).isEmpty()) {
+            throw new TrinoException(CATALOG_NOT_FOUND, "Catalog '%s' not found".formatted(catalog));
+        }
+        if (!metadata.schemaExists(session, name)) {
+            throw new TrinoException(NOT_FOUND, "Schema does not exist: " + name);
         }
 
         if (statement.getCatalog().isPresent()) {

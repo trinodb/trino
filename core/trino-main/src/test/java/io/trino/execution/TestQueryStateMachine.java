@@ -128,7 +128,8 @@ public class TestQueryStateMachine
     private static final List<String> RESET_SESSION_PROPERTIES = ImmutableList.of("candy");
     private static final Optional<QueryType> QUERY_TYPE = Optional.of(QueryType.SELECT);
 
-    private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "=%s"));
+    private static ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(
+            TestQueryStateMachine.class.getSimpleName() + "=%s"));
 
     @AfterAll
     public void tearDown()
@@ -742,17 +743,17 @@ public class TestQueryStateMachine
         }
     }
 
-    private QueryStateMachine createQueryStateMachine()
+    protected static QueryStateMachine createQueryStateMachine()
     {
         return queryStateMachine().build();
     }
 
-    private QueryStateMachineBuilder queryStateMachine()
+    private static QueryStateMachineBuilder queryStateMachine()
     {
         return new QueryStateMachineBuilder();
     }
 
-    private class QueryStateMachineBuilder
+    private static class QueryStateMachineBuilder
     {
         private Ticker ticker = Ticker.systemTicker();
         private Metadata metadata;
