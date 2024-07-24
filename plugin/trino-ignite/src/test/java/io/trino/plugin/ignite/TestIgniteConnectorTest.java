@@ -518,4 +518,30 @@ public class TestIgniteConnectorTest
         // Isolate this test to avoid problem described in https://github.com/trinodb/trino/issues/16671
         executeExclusively(super::testSelectInformationSchemaColumns);
     }
+
+    @Test
+    @Override // Override because Ignite requires primary keys
+    public void testExecuteProcedure()
+    {
+        String tableName = "test_execute" + randomNameSuffix();
+        String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
+
+        assertUpdate("CREATE TABLE " + schemaTableName + "(id int, data int) WITH (primary_key = ARRAY['id'])");
+        try {
+            assertUpdate("CALL system.execute('INSERT INTO " + schemaTableName + " VALUES (1, 10)')");
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 10)");
+
+            assertUpdate("CALL system.execute('UPDATE " + schemaTableName + " SET data = 100')");
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 100)");
+
+            assertUpdate("CALL system.execute('DELETE FROM " + schemaTableName + "')");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
+
+            assertUpdate("CALL system.execute('DROP TABLE " + schemaTableName + "')");
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
+        }
+    }
 }

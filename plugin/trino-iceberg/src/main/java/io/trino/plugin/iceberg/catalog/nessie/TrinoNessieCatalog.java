@@ -19,7 +19,7 @@ import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.hive.metastore.TableInfo;
+import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
@@ -77,7 +77,6 @@ public class TrinoNessieCatalog
 
     private final String warehouseLocation;
     private final NessieIcebergClient nessieClient;
-    private final TrinoFileSystemFactory fileSystemFactory;
 
     private final Cache<SchemaTableName, TableMetadata> tableMetadataCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHE_SIZE)
@@ -93,7 +92,6 @@ public class TrinoNessieCatalog
             boolean useUniqueTableLocation)
     {
         super(catalogName, typeManager, tableOperationsProvider, fileSystemFactory, useUniqueTableLocation);
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.warehouseLocation = requireNonNull(warehouseLocation, "warehouseLocation is null");
         this.nessieClient = requireNonNull(nessieClient, "nessieClient is null");
     }
@@ -237,7 +235,8 @@ public class TrinoNessieCatalog
         BaseTable table = (BaseTable) loadTable(session, schemaTableName);
         validateTableCanBeDropped(table);
         nessieClient.dropTable(toIdentifier(schemaTableName), true);
-        deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.location());
+        // The table folder may be referenced by other branches. Therefore, dropping the table should not delete the data.
+        // Nessie GC tool can be used to clean up the expired data.
         invalidateTableCache(schemaTableName);
     }
 
@@ -249,8 +248,8 @@ public class TrinoNessieCatalog
             throw new TableNotFoundException(schemaTableName);
         }
         nessieClient.dropTable(toIdentifier(schemaTableName), true);
-        String tableLocation = table.getMetadataLocation().replaceFirst("/metadata/[^/]*$", "");
-        deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, tableLocation);
+        // The table folder may be referenced by other branches. Therefore, dropping the table should not delete the data.
+        // Nessie GC tool can be used to clean up the expired data.
         invalidateTableCache(schemaTableName);
     }
 

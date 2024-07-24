@@ -280,6 +280,7 @@ public class PhoenixClient
         return Optional.empty();
     }
 
+    @Override
     public Connection getConnection(ConnectorSession session)
             throws SQLException
     {

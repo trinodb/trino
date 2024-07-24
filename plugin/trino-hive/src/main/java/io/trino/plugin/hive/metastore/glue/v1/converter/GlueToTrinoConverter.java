@@ -20,17 +20,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.hive.thrift.metastore.ResourceType;
 import io.trino.hive.thrift.metastore.ResourceUri;
-import io.trino.plugin.hive.HiveBucketProperty;
+import io.trino.metastore.Column;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveBucketProperty;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.Partition;
+import io.trino.metastore.SortingColumn;
+import io.trino.metastore.SortingColumn.Order;
+import io.trino.metastore.Storage;
+import io.trino.metastore.StorageFormat;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveStorageFormat;
-import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.SortingColumn;
-import io.trino.plugin.hive.metastore.SortingColumn.Order;
-import io.trino.plugin.hive.metastore.Storage;
-import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
@@ -49,10 +49,10 @@ import java.util.function.UnaryOperator;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.trino.metastore.HiveType.HIVE_INT;
+import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
-import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.decodeFunction;
@@ -153,7 +153,7 @@ public final class GlueToTrinoConverter
             // Delta Lake tables only need to provide a dummy properties if a StorageDescriptor was not explicitly configured.
             // Materialized views do not need to read the StorageDescriptor, but we still need to return dummy properties for compatibility
             tableBuilder.setDataColumns(ImmutableList.of(new Column("dummy", HIVE_INT, Optional.empty(), ImmutableMap.of())));
-            tableBuilder.getStorageBuilder().setStorageFormat(StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET));
+            tableBuilder.getStorageBuilder().setStorageFormat(HiveStorageFormat.PARQUET.toStorageFormat());
         }
         else {
             if (sd == null) {
@@ -194,7 +194,7 @@ public final class GlueToTrinoConverter
             return HiveType.valueOf(column.getType().toLowerCase(Locale.ENGLISH));
         }
         catch (IllegalArgumentException e) {
-            throw new TrinoException(HIVE_INVALID_METADATA, "Glue table '%s' column '%s' has invalid data type: %s".formatted(table, column.getName(), column.getType()));
+            throw new TrinoException(HIVE_INVALID_METADATA, "Glue table '%s' column '%s' has invalid data type: %s".formatted(table, column.getName(), column.getType()), e);
         }
     }
 

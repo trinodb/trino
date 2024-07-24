@@ -14,9 +14,9 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.metastore.HiveType;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
-import io.trino.plugin.hive.HiveType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RowType;
 import org.apache.parquet.schema.GroupType;
@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.type.RowType.rowType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;

@@ -33,6 +33,12 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.Column;
+import io.trino.metastore.Database;
+import io.trino.metastore.HivePrincipal;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.StorageFormat;
+import io.trino.metastore.Table;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.base.filter.UtcConstraintExtractor;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
@@ -70,14 +76,7 @@ import io.trino.plugin.deltalake.transactionlog.writer.TransactionConflictExcept
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionFailedException;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriter;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
-import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
@@ -189,6 +188,7 @@ import static io.trino.filesystem.Locations.areDirectoryLocationsEquivalent;
 import static io.trino.hive.formats.HiveClassNames.HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
 import static io.trino.hive.formats.HiveClassNames.SEQUENCEFILE_INPUT_FORMAT_CLASS;
+import static io.trino.metastore.StorageFormat.create;
 import static io.trino.plugin.base.filter.UtcConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
@@ -244,7 +244,6 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.de
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.generateColumnMetadata;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnComments;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnIdentities;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnMappingMode;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getExactColumnNames;
@@ -272,7 +271,7 @@ import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
-import static io.trino.plugin.hive.metastore.StorageFormat.create;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
@@ -367,7 +366,7 @@ public class DeltaLakeMetadata
 
     // Matches the dummy column Databricks stores in the metastore
     private static final List<Column> DUMMY_DATA_COLUMNS = ImmutableList.of(
-            new Column("col", HiveType.toHiveType(new ArrayType(VarcharType.createUnboundedVarcharType())), Optional.empty(), Map.of()));
+            new Column("col", toHiveType(new ArrayType(VarcharType.createUnboundedVarcharType())), Optional.empty(), Map.of()));
     private static final Set<ColumnStatisticType> SUPPORTED_STATISTICS_TYPE = ImmutableSet.<ColumnStatisticType>builder()
             .add(TOTAL_SIZE_IN_BYTES)
             .add(NUMBER_OF_DISTINCT_VALUES_SUMMARY)
@@ -1463,7 +1462,7 @@ public class DeltaLakeMetadata
                         .map(DataFileInfo::creationTime)
                         .max(Long::compare)
                         .map(Instant::ofEpochMilli);
-                Map<String, String> physicalColumnMapping = DeltaLakeSchemaSupport.getColumnMetadata(schemaString, typeManager, columnMappingMode).stream()
+                Map<String, String> physicalColumnMapping = DeltaLakeSchemaSupport.getColumnMetadata(schemaString, typeManager, columnMappingMode, handle.partitionedBy()).stream()
                         .map(e -> Map.entry(e.name(), e.physicalName()))
                         .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
@@ -1629,12 +1628,6 @@ public class DeltaLakeMetadata
                 case ID, NAME -> new AtomicInteger(getMaxColumnId(handle.getMetadataEntry()));
                 default -> throw new IllegalArgumentException("Unexpected column mapping mode: " + columnMappingMode);
             };
-
-            ImmutableMap.Builder<String, String> columnComments = ImmutableMap.builder();
-            columnComments.putAll(getColumnComments(handle.getMetadataEntry()));
-            if (newColumnMetadata.getComment() != null) {
-                columnComments.put(newColumnMetadata.getName(), newColumnMetadata.getComment());
-            }
 
             DeltaLakeTable deltaTable = DeltaLakeTable.builder(handle.getMetadataEntry(), handle.getProtocolEntry())
                     .addColumn(

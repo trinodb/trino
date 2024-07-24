@@ -33,12 +33,12 @@ import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.metastore.TableInfo;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.base.filter.UtcConstraintExtractor;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import io.trino.plugin.hive.HiveWrittenPartitions;
-import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.iceberg.aggregation.DataSketchStateSerializer;
 import io.trino.plugin.iceberg.aggregation.IcebergThetaSketchForStats;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -650,7 +650,7 @@ public class IcebergMetadata
                                             partitionColumnValueStrings.get(columnId).orElse(null),
                                             column.getName());
 
-                                    return NullableValue.of(column.getType(), prestoValue);
+                                    return new NullableValue(column.getType(), prestoValue);
                                 }));
 
                 return TupleDomain.fromFixedValues(partitionValues);
@@ -1931,9 +1931,8 @@ public class IcebergMetadata
             difference(existingPartitionFields, partitionFields).stream()
                     .map(PartitionField::name)
                     .forEach(updatePartitionSpec::removeField);
-            difference(partitionFields, existingPartitionFields).stream()
-                    .map(partitionField -> toIcebergTerm(schema, partitionField))
-                    .forEach(updatePartitionSpec::addField);
+            difference(partitionFields, existingPartitionFields)
+                    .forEach(partitionField -> updatePartitionSpec.addField(partitionField.name(), toIcebergTerm(schema, partitionField)));
         }
 
         try {
@@ -2415,7 +2414,7 @@ public class IcebergMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         IcebergMergeTableHandle mergeHandle = (IcebergMergeTableHandle) mergeTableHandle;
         IcebergTableHandle handle = mergeHandle.getTableHandle();
@@ -2553,10 +2552,7 @@ public class IcebergMetadata
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return catalog.listTables(session, schemaName).stream()
-                .filter(info -> info.extendedRelationType() == TableInfo.ExtendedRelationType.TRINO_VIEW)
-                .map(TableInfo::tableName)
-                .toList();
+        return catalog.listViews(session, schemaName);
     }
 
     @Override

@@ -14,10 +14,10 @@
 package io.trino.plugin.hive;
 
 import io.trino.filesystem.Location;
+import io.trino.metastore.Partition;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.LocationHandle.WriteMode;
-import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Optional;

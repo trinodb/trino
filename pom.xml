@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>157</version>
+        <version>158</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>452-SNAPSHOT</version>
+    <version>453-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -52,6 +52,7 @@
         <module>lib/trino-hive-formats</module>
         <module>lib/trino-matching</module>
         <module>lib/trino-memory-context</module>
+        <module>lib/trino-metastore</module>
         <module>lib/trino-orc</module>
         <module>lib/trino-parquet</module>
         <module>lib/trino-plugin-toolkit</module>
@@ -69,6 +70,7 @@
         <module>plugin/trino-elasticsearch</module>
         <module>plugin/trino-example-http</module>
         <module>plugin/trino-example-jdbc</module>
+        <module>plugin/trino-exasol</module>
         <module>plugin/trino-exchange-filesystem</module>
         <module>plugin/trino-exchange-hdfs</module>
         <module>plugin/trino-geospatial</module>
@@ -143,7 +145,7 @@
     <properties>
         <project.build.targetJdk>22</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
-        <project.build.outputTimestamp>2024-06-27T23:13:07Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2024-07-12T02:16:11Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
@@ -172,8 +174,6 @@
             -XX:+UnlockDiagnosticVMOptions
             <!-- # Allow loading dynamic agent used by JOL -->
             -XX:+EnableDynamicAgentLoading
-            <!-- workaround for JDK-8329528 -->
-            -XX:G1NumCollectionsKeepPinned=10000000
             ${extraJavaVectorArgs}
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
@@ -181,33 +181,31 @@
         <!-- keep dependency properties sorted -->
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.accumulo.version>3.0.0</dep.accumulo.version>
-        <dep.airlift.version>249</dep.airlift.version>
-        <dep.alluxio.version>2.9.5</dep.alluxio.version>
+        <dep.airlift.version>251</dep.airlift.version>
+        <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
         <dep.avro.version>1.11.3</dep.avro.version>
-        <dep.aws-sdk.version>1.12.749</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.761</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.5.1</dep.confluent.version>
-        <dep.docker.images.version>97</dep.docker.images.version>
+        <dep.docker.images.version>98</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
-        <dep.errorprone.version>2.28.0</dep.errorprone.version>
-        <dep.flyway.version>10.15.0</dep.flyway.version>
+        <dep.errorprone.version>2.29.2</dep.errorprone.version>
+        <dep.flyway.version>10.16.0</dep.flyway.version>
         <dep.google.http.client.version>1.44.2</dep.google.http.client.version>
-        <dep.guava.version>33.2.0-jre</dep.guava.version>
         <dep.iceberg.version>1.5.2</dep.iceberg.version>
-        <dep.jackson.version>2.17.1</dep.jackson.version>
         <dep.jna.version>5.14.0</dep.jna.version>
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
-        <dep.kafka-clients.version>3.7.0</dep.kafka-clients.version>
+        <dep.kafka-clients.version>3.7.1</dep.kafka-clients.version>
         <dep.okio.version>3.9.0</dep.okio.version>
         <!-- temporary: required to be in sync with version pulled by libraries-bom -->
-        <dep.opentelemetry.version>1.38.0</dep.opentelemetry.version>
+        <dep.opentelemetry.version>1.39.0</dep.opentelemetry.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.14.1</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.3</dep.protobuf.version>
-        <dep.snowflake.version>3.16.1</dep.snowflake.version>
+        <dep.snowflake.version>3.17.0</dep.snowflake.version>
         <dep.swagger.version>2.2.22</dep.swagger.version>
         <dep.takari.version>2.1.5</dep.takari.version>
         <dep.tcnative.version>2.0.65.Final</dep.tcnative.version>
@@ -222,7 +220,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.24</version>
+                <version>1.2.25</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -230,7 +228,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.41.0</version>
+                <version>26.43.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -262,7 +260,7 @@
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-bom</artifactId>
-                <version>1.64.0</version>
+                <version>1.65.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -270,7 +268,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.1.111.Final</version>
+                <version>4.1.112.Final</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -278,7 +276,7 @@
             <dependency>
                 <groupId>org.apache.arrow</groupId>
                 <artifactId>arrow-bom</artifactId>
-                <version>16.1.0</version>
+                <version>17.0.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -286,7 +284,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.45.1</version>
+                <version>3.45.2</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -302,7 +300,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.19.8</version>
+                <version>1.20.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -310,7 +308,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.26.8</version>
+                <version>2.26.20</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -460,7 +458,7 @@
             <dependency>
                 <groupId>com.clickhouse</groupId>
                 <artifactId>clickhouse-jdbc</artifactId>
-                <version>0.6.2</version>
+                <version>0.6.3</version>
                 <classifier>all</classifier>
             </dependency>
 
@@ -474,6 +472,12 @@
                 <groupId>com.esri.geometry</groupId>
                 <artifactId>esri-geometry-api</artifactId>
                 <version>2.2.4</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.exasol</groupId>
+                <artifactId>exasol-jdbc</artifactId>
+                <version>24.1.0</version>
             </dependency>
 
             <dependency>
@@ -491,19 +495,19 @@
             <dependency>
                 <groupId>com.github.docker-java</groupId>
                 <artifactId>docker-java-api</artifactId>
-                <version>3.3.6</version>
+                <version>3.4.0</version>
             </dependency>
 
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.5.6-3</version>
+                <version>1.5.6-4</version>
             </dependency>
 
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.6.1</version>
+                <version>6.6.2</version>
             </dependency>
 
             <dependency>
@@ -515,7 +519,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>hadoop3-2.2.23</version>
+                <version>hadoop3-2.2.24</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -577,13 +581,13 @@
             <dependency>
                 <groupId>com.h2database</groupId>
                 <artifactId>h2</artifactId>
-                <version>2.2.224</version>
+                <version>2.3.230</version>
             </dependency>
 
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>12.6.2.jre11</version>
+                <version>12.6.3.jre11</version>
             </dependency>
 
             <dependency>
@@ -644,7 +648,7 @@
             <dependency>
                 <groupId>commons-codec</groupId>
                 <artifactId>commons-codec</artifactId>
-                <version>1.17.0</version>
+                <version>1.17.1</version>
             </dependency>
 
             <dependency>
@@ -921,7 +925,7 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
-                <version>3.6.7</version>
+                <version>3.6.8</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
@@ -1229,6 +1233,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-memory-context</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-metastore</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1780,7 +1790,7 @@
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-lang3</artifactId>
-                <version>3.14.0</version>
+                <version>3.15.0</version>
             </dependency>
 
             <dependency>
@@ -1901,7 +1911,7 @@
             <dependency>
                 <groupId>org.apache.maven</groupId>
                 <artifactId>maven-model</artifactId>
-                <version>3.9.7</version>
+                <version>3.9.8</version>
             </dependency>
 
             <dependency>
@@ -2177,7 +2187,7 @@
             <dependency>
                 <groupId>org.roaringbitmap</groupId>
                 <artifactId>RoaringBitmap</artifactId>
-                <version>1.1.0</version>
+                <version>1.2.1</version>
             </dependency>
 
             <dependency>
@@ -2736,6 +2746,7 @@
                                     -Xep:MissingOverride:ERROR \
                                     <!-- Sometimes our javadoc contains just a @see directive -->
                                     -Xep:MissingSummary:OFF \
+                                    -Xep:ModifiedButNotUsed:ERROR \
                                     -Xep:MutablePublicArray:ERROR \
                                     -Xep:NarrowCalculation:ERROR \
                                     -Xep:NarrowingCompoundAssignment:ERROR \

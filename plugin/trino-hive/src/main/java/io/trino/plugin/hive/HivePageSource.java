@@ -15,11 +15,12 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.Location;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.type.TypeInfo;
 import io.trino.plugin.hive.HivePageSourceProvider.BucketAdaptation;
 import io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.plugin.hive.coercions.TypeCoercer;
-import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -54,6 +55,7 @@ import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.EMPT
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucket;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveTypeForDereferences;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -111,7 +113,7 @@ public class HivePageSource
                 List<Integer> dereferenceIndices = column.getHiveColumnProjectionInfo()
                         .map(HiveColumnProjectionInfo::getDereferenceIndices)
                         .orElse(ImmutableList.of());
-                HiveType fromType = columnMapping.getBaseTypeCoercionFrom().get().getHiveTypeForDereferences(dereferenceIndices).get();
+                HiveType fromType = getHiveTypeForDereferences(columnMapping.getBaseTypeCoercionFrom().get(), dereferenceIndices).get();
                 HiveType toType = columnMapping.getHiveColumnHandle().getHiveType();
                 coercers.add(createCoercer(typeManager, fromType, toType, coercionContext));
             }

@@ -19,12 +19,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.filesystem.Location;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.HiveTypeName;
+import io.trino.metastore.type.TypeInfo;
 import io.trino.plugin.hive.HivePageSource.BucketValidator;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
-import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -69,6 +71,7 @@ import static io.trino.plugin.hive.coercions.CoercionUtils.createTypeFromCoercer
 import static io.trino.plugin.hive.coercions.CoercionUtils.extractHiveStorageFormat;
 import static io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveTypeForDereferences;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormatName;
 import static io.trino.plugin.hive.util.HiveUtil.getPrefilledColumnValue;
@@ -464,7 +467,7 @@ public class HivePageSourceProvider
         private static boolean projectionValidForType(HiveType baseType, Optional<HiveColumnProjectionInfo> projection)
         {
             List<Integer> dereferences = projection.map(HiveColumnProjectionInfo::getDereferenceIndices).orElse(ImmutableList.of());
-            Optional<HiveType> targetType = baseType.getHiveTypeForDereferences(dereferences);
+            Optional<HiveType> targetType = getHiveTypeForDereferences(baseType, dereferences);
             return targetType.isPresent();
         }
 
@@ -486,7 +489,7 @@ public class HivePageSourceProvider
                         HiveType fromHiveTypeBase = columnMapping.getBaseTypeCoercionFrom().get();
 
                         Optional<HiveColumnProjectionInfo> newColumnProjectionInfo = columnHandle.getHiveColumnProjectionInfo().map(projectedColumn -> {
-                            HiveType fromHiveType = fromHiveTypeBase.getHiveTypeForDereferences(projectedColumn.getDereferenceIndices()).get();
+                            HiveType fromHiveType = getHiveTypeForDereferences(fromHiveTypeBase, projectedColumn.getDereferenceIndices()).get();
                             return new HiveColumnProjectionInfo(
                                     projectedColumn.getDereferenceIndices(),
                                     projectedColumn.getDereferenceNames(),

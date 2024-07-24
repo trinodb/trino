@@ -76,7 +76,7 @@ public class LocalFileMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         LocalFileTableHandle tableHandle = (LocalFileTableHandle) table;
-        return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), localFileTables.getColumns(tableHandle));
+        return new ConnectorTableMetadata(tableHandle.schemaTableName(), localFileTables.getColumns(tableHandle));
     }
 
     @Override
@@ -143,16 +143,16 @@ public class LocalFileMetadata
     {
         LocalFileTableHandle handle = (LocalFileTableHandle) table;
 
-        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> oldDomain = handle.constraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
         if (oldDomain.equals(newDomain)) {
             return Optional.empty();
         }
 
         handle = new LocalFileTableHandle(
-                handle.getSchemaTableName(),
-                handle.getTimestampColumn(),
-                handle.getServerAddressColumn(),
+                handle.schemaTableName(),
+                handle.timestampColumn(),
+                handle.serverAddressColumn(),
                 newDomain);
 
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), constraint.getExpression(), false));

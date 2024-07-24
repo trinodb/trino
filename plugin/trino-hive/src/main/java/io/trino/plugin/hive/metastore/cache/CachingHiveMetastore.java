@@ -27,28 +27,26 @@ import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
 import io.trino.cache.EvictableCacheBuilder;
-import io.trino.hive.thrift.metastore.DataOperationType;
-import io.trino.plugin.hive.HivePartition;
-import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.PartitionStatistics;
-import io.trino.plugin.hive.acid.AcidOperation;
-import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.metastore.AcidTransactionOwner;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.metastore.AcidOperation;
+import io.trino.metastore.AcidTransactionOwner;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HivePartition;
+import io.trino.metastore.HivePrincipal;
+import io.trino.metastore.HivePrivilegeInfo;
+import io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.Partition;
+import io.trino.metastore.PartitionStatistics;
+import io.trino.metastore.PartitionWithStatistics;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.StatisticsUpdateMode;
+import io.trino.metastore.Table;
+import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.metastore.HivePartitionName;
-import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.HiveTableName;
-import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionFilter;
-import io.trino.plugin.hive.metastore.PartitionWithStatistics;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
-import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
@@ -525,10 +523,10 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         try {
-            delegate.updateTableStatistics(databaseName, tableName, transaction, mode, statisticsUpdate);
+            delegate.updateTableStatistics(databaseName, tableName, acidWriteId, mode, statisticsUpdate);
         }
         finally {
             HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
@@ -1032,7 +1030,7 @@ public final class CachingHiveMetastore
             long transactionId,
             String dbName,
             String tableName,
-            DataOperationType operation,
+            AcidOperation operation,
             boolean isDynamicPartitionWrite)
     {
         delegate.acquireTableWriteLock(transactionOwner, queryId, transactionId, dbName, tableName, operation, isDynamicPartitionWrite);

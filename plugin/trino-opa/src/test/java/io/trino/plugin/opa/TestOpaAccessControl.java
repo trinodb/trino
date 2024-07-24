@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.opa;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -26,6 +27,7 @@ import io.trino.plugin.opa.schema.OpaViewExpression;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.SystemAccessControlFactory;
@@ -41,23 +43,36 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.opa.RequestTestUtilities.assertStringRequestsEqual;
 import static io.trino.plugin.opa.RequestTestUtilities.buildValidatingRequestHandler;
+import static io.trino.plugin.opa.TestConstants.BAD_REQUEST_RESPONSE;
+import static io.trino.plugin.opa.TestConstants.MALFORMED_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.NO_ACCESS_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.OK_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.OPA_COLUMN_MASKING_URI;
 import static io.trino.plugin.opa.TestConstants.OPA_ROW_FILTERING_URI;
 import static io.trino.plugin.opa.TestConstants.OPA_SERVER_URI;
+import static io.trino.plugin.opa.TestConstants.SERVER_ERROR_RESPONSE;
+import static io.trino.plugin.opa.TestConstants.TEST_COLUMN_MASKING_TABLE_NAME;
 import static io.trino.plugin.opa.TestConstants.TEST_IDENTITY;
 import static io.trino.plugin.opa.TestConstants.TEST_SECURITY_CONTEXT;
+import static io.trino.plugin.opa.TestConstants.UNDEFINED_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.columnMaskingOpaConfig;
 import static io.trino.plugin.opa.TestConstants.rowFilteringOpaConfig;
 import static io.trino.plugin.opa.TestConstants.simpleOpaConfig;
 import static io.trino.plugin.opa.TestHelpers.assertAccessControlMethodThrowsForIllegalResponses;
 import static io.trino.plugin.opa.TestHelpers.assertAccessControlMethodThrowsForResponse;
+import static io.trino.plugin.opa.TestHelpers.assertAccessControlMethodThrowsForResponseHandler;
+import static io.trino.plugin.opa.TestHelpers.createColumnSchema;
 import static io.trino.plugin.opa.TestHelpers.createMockHttpClient;
 import static io.trino.plugin.opa.TestHelpers.createOpaAuthorizer;
+import static io.trino.plugin.opa.TestHelpers.createResponseHandlerForParallelColumnMasking;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOpaAccessControl
@@ -642,8 +657,7 @@ public class TestOpaAccessControl
     @Test
     public void testGetRowFiltersThrowsForIllegalResponse()
     {
-        CatalogSchemaTableName tableName = new CatalogSchemaTableName("some_catalog", "some_schema", "some_table");
-        Consumer<OpaAccessControl> methodUnderTest = authorizer -> authorizer.getRowFilters(TEST_SECURITY_CONTEXT, tableName);
+        Consumer<OpaAccessControl> methodUnderTest = authorizer -> authorizer.getRowFilters(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME);
         assertAccessControlMethodThrowsForIllegalResponses(methodUnderTest, rowFilteringOpaConfig(), OPA_ROW_FILTERING_URI);
 
         // Also test a valid JSON response, but containing invalid fields for a row filters request
@@ -707,9 +721,8 @@ public class TestOpaAccessControl
     {
         InstrumentedHttpClient httpClient = createMockHttpClient(OPA_ROW_FILTERING_URI, buildValidatingRequestHandler(TEST_IDENTITY, new MockResponse(responseContent, 200)));
         OpaAccessControl authorizer = createOpaAuthorizer(rowFilteringOpaConfig(), httpClient);
-        CatalogSchemaTableName tableName = new CatalogSchemaTableName("some_catalog", "some_schema", "some_table");
 
-        List<ViewExpression> result = authorizer.getRowFilters(TEST_SECURITY_CONTEXT, tableName);
+        List<ViewExpression> result = authorizer.getRowFilters(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME);
         assertThat(result).allSatisfy(expression -> {
             assertThat(expression.getCatalog()).contains("some_catalog");
             assertThat(expression.getSchema()).contains("some_schema");
@@ -720,17 +733,20 @@ public class TestOpaAccessControl
                         viewExpression.getSecurityIdentity()))
                 .containsExactlyInAnyOrderElementsOf(expectedExpressions);
 
-        String expectedRequest = """
+        String expectedRequest = String.format("""
                 {
                     "operation": "GetRowFilters",
                     "resource": {
                         "table": {
-                            "catalogName": "some_catalog",
-                            "schemaName": "some_schema",
-                            "tableName": "some_table"
+                            "catalogName": "%s",
+                            "schemaName": "%s",
+                            "tableName": "%s"
                         }
                     }
-                }""";
+                }""",
+                TEST_COLUMN_MASKING_TABLE_NAME.getCatalogName(),
+                TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getSchemaName(),
+                TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getTableName());
         assertStringRequestsEqual(ImmutableSet.of(expectedRequest), httpClient.getRequests(), "/input/action");
     }
 
@@ -743,21 +759,129 @@ public class TestOpaAccessControl
                     throw new AssertionError("Should not have been called");
                 });
         OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), httpClient);
-        CatalogSchemaTableName tableName = new CatalogSchemaTableName("some_catalog", "some_schema", "some_table");
 
-        List<ViewExpression> result = authorizer.getRowFilters(TEST_SECURITY_CONTEXT, tableName);
+        List<ViewExpression> result = authorizer.getRowFilters(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME);
+        assertThat(result).isEmpty();
+        assertThat(httpClient.getRequests()).isEmpty();
+    }
+
+    /**
+     * `SystemAccessControl#getColumnMask` is deprecated in favour of `getColumnMasks`.
+     * We don't implement this function, it is provided as a default by the interface.
+     * We test that it is a no-op if called.
+     */
+    @Test
+    public void testGetColumnMaskDoesNothing()
+    {
+        InstrumentedHttpClient httpClient = createMockHttpClient(
+                OPA_SERVER_URI,
+                _ -> {
+                    throw new AssertionError("Should not have been called");
+                });
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), httpClient);
+
+        Optional<ViewExpression> result = authorizer.getColumnMask(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME, "some_column", VarcharType.VARCHAR);
         assertThat(result).isEmpty();
         assertThat(httpClient.getRequests()).isEmpty();
     }
 
     @Test
-    public void testGetColumnMaskThrowsForIllegalResponse()
+    public void testGetColumnMasks()
     {
-        CatalogSchemaTableName tableName = new CatalogSchemaTableName("some_catalog", "some_schema", "some_table");
-        Consumer<OpaAccessControl> methodUnderTest = authorizer -> authorizer.getColumnMask(TEST_SECURITY_CONTEXT, tableName, "some_column", VarcharType.VARCHAR);
-        assertAccessControlMethodThrowsForIllegalResponses(methodUnderTest, columnMaskingOpaConfig(), OPA_COLUMN_MASKING_URI);
+        testGetColumnMasks(ImmutableMap.of(createColumnSchema("some-column"), "{}"), ImmutableMap.of());
 
-        // Also test a valid JSON response, but containing invalid fields for a row filters request
+        String nullResponse = """
+                {
+                    "result": null
+                }""";
+        testGetColumnMasks(ImmutableMap.of(createColumnSchema("some-column"), nullResponse), ImmutableMap.of());
+
+        Map<ColumnSchema, String> expressionWithoutIdentityResponses = IntStream.range(1, 10)
+                .mapToObj(index -> Map.entry(
+                        createColumnSchema(String.format("some-column-%d", index)),
+                        String.format("""
+                        {
+                            "result": {"expression": "expression-%d"}
+                        }""", index)))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        testGetColumnMasks(
+                expressionWithoutIdentityResponses,
+                IntStream.range(1, 10).mapToObj(index -> Map.entry(
+                        createColumnSchema(String.format("some-column-%d", index)),
+                        new OpaViewExpression(String.format("expression-%d", index), Optional.empty())
+                )).collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+
+        Map<ColumnSchema, String> expressionWithIdentityResponses = IntStream.range(1, 10)
+                .mapToObj(index -> Map.entry(
+                        createColumnSchema(String.format("some-column-%d", index)),
+                        String.format("""
+                        {
+                            "result": {"expression": "expression-%1$d", "identity": "some_identity-%1$d"}
+                        }""", index)))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        testGetColumnMasks(
+                expressionWithIdentityResponses,
+                IntStream.range(1, 10).mapToObj(index -> Map.entry(
+                        createColumnSchema(String.format("some-column-%d", index)),
+                        new OpaViewExpression(String.format("expression-%d", index), Optional.of(String.format("some_identity-%d", index)))
+                )).collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+
+        Map<ColumnSchema, String> mixedExpressions = ImmutableMap.of(
+                createColumnSchema("some-column-1"), "{}",
+                createColumnSchema("some-column-2"), nullResponse,
+                createColumnSchema("some-column-3"), """
+                        {
+                            "result": {"expression": "expression-1"}
+                        }""",
+                createColumnSchema("some-column-4"), """
+                        {
+                            "result": {"expression": "expression-2", "identity": "some_identity-1"}
+                        }""");
+        testGetColumnMasks(
+                mixedExpressions,
+                ImmutableMap.of(
+                        createColumnSchema("some-column-3"), new OpaViewExpression("expression-1", Optional.empty()),
+                        createColumnSchema("some-column-4"), new OpaViewExpression("expression-2", Optional.of("some_identity-1"))));
+    }
+
+    @Test
+    public void testGetColumnMasksDoesNothingIfNotConfigured()
+    {
+        InstrumentedHttpClient httpClient = createMockHttpClient(
+                OPA_SERVER_URI,
+                request -> {
+                    throw new AssertionError("Should not have been called");
+                });
+
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), httpClient);
+
+        Map<ColumnSchema, ViewExpression> result = authorizer.getColumnMasks(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME,
+                Stream.of("some_column_1", "another_column_2").map(TestHelpers::createColumnSchema).collect(toImmutableList()));
+        assertThat(result).isEmpty();
+        assertThat(httpClient.getRequests()).isEmpty();
+    }
+
+    @Test
+    public void testGetColumnMasksThrowsForIllegalResponse()
+    {
+        OpaConfig opaConfig = columnMaskingOpaConfig();
+
+        List<ColumnSchema> tableColumnSchemas = Stream.of("some_column_1", "other_column_2", "illegal_response_column").map(TestHelpers::createColumnSchema).collect(toImmutableList());
+        Consumer<OpaAccessControl> methodUnderTest = authorizer -> authorizer.getColumnMasks(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME, tableColumnSchemas);
+        assertAccessControlMethodThrowsForIllegalResponses(methodUnderTest, opaConfig, OPA_COLUMN_MASKING_URI);
+
+        // Test invalid JSON response for just one of the columns
+        assertAccessControlMethodThrowsForResponseHandler(
+                createResponseHandlerForParallelColumnMasking(ImmutableMap.of(createColumnSchema("illegal_response_column"), UNDEFINED_RESPONSE)),
+                OPA_COLUMN_MASKING_URI, opaConfig, methodUnderTest, OpaQueryException.OpaServerError.PolicyNotFound.class, "did not return a value");
+        assertAccessControlMethodThrowsForResponseHandler(
+                createResponseHandlerForParallelColumnMasking(ImmutableMap.of(createColumnSchema("illegal_response_column"), BAD_REQUEST_RESPONSE)), OPA_COLUMN_MASKING_URI, opaConfig, methodUnderTest, OpaQueryException.OpaServerError.class, "returned status 400");
+        assertAccessControlMethodThrowsForResponseHandler(
+                createResponseHandlerForParallelColumnMasking(ImmutableMap.of(createColumnSchema("illegal_response_column"), SERVER_ERROR_RESPONSE)), OPA_COLUMN_MASKING_URI, opaConfig, methodUnderTest, OpaQueryException.OpaServerError.class, "returned status 500");
+        assertAccessControlMethodThrowsForResponseHandler(
+                createResponseHandlerForParallelColumnMasking(ImmutableMap.of(createColumnSchema("illegal_response_column"), MALFORMED_RESPONSE)), OPA_COLUMN_MASKING_URI, opaConfig, methodUnderTest, OpaQueryException.class, "Failed to deserialize");
+
+        // Also test a valid JSON response that contains invalid fields
         String validJsonButIllegalSchemaResponseContents = """
                 {
                     "result": {"expression": {"foo": "bar"}}
@@ -770,88 +894,57 @@ public class TestOpaAccessControl
                 methodUnderTest,
                 OpaQueryException.class,
                 "Failed to deserialize");
+
+        // Same test with only one column having the valid but illegal JSON response
+        assertAccessControlMethodThrowsForResponseHandler(
+                createResponseHandlerForParallelColumnMasking(ImmutableMap.of(createColumnSchema("illegal_response_column"), response)),
+                OPA_COLUMN_MASKING_URI,
+                opaConfig,
+                methodUnderTest,
+                OpaQueryException.class,
+                "Failed to deserialize");
     }
 
-    @Test
-    public void testGetColumnMask()
-    {
-        // Similar note to the test for row level filtering:
-        // This example is a bit strange - an undefined policy would in most cases
-        // result in an access denied situation. However, since this is column masking,
-        // we will accept this as meaning there are no masks to be applied.
-        testGetColumnMask("{}", Optional.empty());
-
-        String nullResponse = """
-                {
-                    "result": null
-                }""";
-        testGetColumnMask(nullResponse, Optional.empty());
-
-        String expressionWithoutIdentityResponse = """
-                {
-                    "result": {"expression": "expr1"}
-                }""";
-        testGetColumnMask(
-                expressionWithoutIdentityResponse,
-                Optional.of(new OpaViewExpression("expr1", Optional.empty())));
-
-        String expressionWithIdentityResponse = """
-                {
-                    "result": {"expression": "expr1", "identity": "some_identity"}
-                }""";
-        testGetColumnMask(
-                expressionWithIdentityResponse,
-                Optional.of(new OpaViewExpression("expr1", Optional.of("some_identity"))));
-    }
-
-    private void testGetColumnMask(String responseContent, Optional<OpaViewExpression> expectedExpression)
+    private void testGetColumnMasks(Map<ColumnSchema, String> columnResponseContent, Map<ColumnSchema, OpaViewExpression> expectedResult)
     {
         InstrumentedHttpClient httpClient = createMockHttpClient(
                 OPA_COLUMN_MASKING_URI,
-                buildValidatingRequestHandler(TEST_IDENTITY, new MockResponse(responseContent, 200)));
+                buildValidatingRequestHandler(TEST_IDENTITY, createResponseHandlerForParallelColumnMasking(columnResponseContent.entrySet().stream()
+                                .collect(toImmutableMap(Map.Entry::getKey, entry -> new MockResponse(entry.getValue(), 200))))));
         OpaAccessControl authorizer = createOpaAuthorizer(columnMaskingOpaConfig(), httpClient);
 
-        CatalogSchemaTableName tableName = new CatalogSchemaTableName("some_catalog", "some_schema", "some_table");
+        Map<ColumnSchema, ViewExpression> result = authorizer.getColumnMasks(TEST_SECURITY_CONTEXT, TEST_COLUMN_MASKING_TABLE_NAME, ImmutableList.copyOf(columnResponseContent.keySet()));
 
-        Optional<ViewExpression> result = authorizer.getColumnMask(TEST_SECURITY_CONTEXT, tableName, "some_column", VarcharType.VARCHAR);
+        assertColumnMaskBehaviour(columnResponseContent.keySet().stream().map(ColumnSchema::getName).collect(toImmutableList()), result, expectedResult, httpClient.getRequests());
+    }
 
-        assertThat(result.isEmpty()).isEqualTo(expectedExpression.isEmpty());
-        assertThat(result.map(viewExpression -> {
-            assertThat(viewExpression.getCatalog()).contains("some_catalog");
-            assertThat(viewExpression.getSchema()).contains("some_schema");
-            return new OpaViewExpression(viewExpression.getExpression(), viewExpression.getSecurityIdentity());
-        })).isEqualTo(expectedExpression);
+    private void assertColumnMaskBehaviour(List<String> columnNames, Map<ColumnSchema, ViewExpression> actualResult, Map<ColumnSchema, OpaViewExpression> expectedResult, List<JsonNode> requests)
+    {
+        assertThat(actualResult.entrySet().stream().map(entry -> {
+            ViewExpression viewExpression = entry.getValue();
+            assertThat(viewExpression.getCatalog()).contains(TEST_COLUMN_MASKING_TABLE_NAME.getCatalogName());
+            assertThat(viewExpression.getSchema()).contains(TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getSchemaName());
+            return Map.entry(entry.getKey(), new OpaViewExpression(viewExpression.getExpression(), viewExpression.getSecurityIdentity()));
+        })).containsExactlyInAnyOrderElementsOf(expectedResult.entrySet());
 
-        String expectedRequest = """
+        Set<String> expectedRequests = columnNames.stream().map(columnName -> String.format("""
                 {
                     "operation": "GetColumnMask",
                     "resource": {
                         "column": {
-                            "catalogName": "some_catalog",
-                            "schemaName": "some_schema",
-                            "tableName": "some_table",
-                            "columnName": "some_column",
+                            "catalogName": "%s",
+                            "schemaName": "%s",
+                            "tableName": "%s",
+                            "columnName": "%s",
                             "columnType": "varchar"
                         }
                     }
-                }""";
-        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), httpClient.getRequests(), "/input/action");
-    }
-
-    @Test
-    public void testGetColumnMaskDoesNothingIfNotConfigured()
-    {
-        InstrumentedHttpClient httpClient = createMockHttpClient(
-                OPA_SERVER_URI,
-                request -> {
-                    throw new AssertionError("Should not have been called");
-                });
-        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), httpClient);
-        CatalogSchemaTableName tableName = new CatalogSchemaTableName("some_catalog", "some_schema", "some_table");
-
-        Optional<ViewExpression> result = authorizer.getColumnMask(TEST_SECURITY_CONTEXT, tableName, "some_column", VarcharType.VARCHAR);
-        assertThat(result).isEmpty();
-        assertThat(httpClient.getRequests()).isEmpty();
+                }""",
+                TEST_COLUMN_MASKING_TABLE_NAME.getCatalogName(),
+                TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getSchemaName(),
+                TEST_COLUMN_MASKING_TABLE_NAME.getSchemaTableName().getTableName(),
+                columnName)).collect(toImmutableSet());
+        assertStringRequestsEqual(expectedRequests, requests, "/input/action");
     }
 
     private static void assertAccessControlMethodBehaviour(MethodWrapper method, Set<String> expectedRequests)

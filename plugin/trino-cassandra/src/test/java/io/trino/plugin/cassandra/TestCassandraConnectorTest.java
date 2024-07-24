@@ -540,6 +540,63 @@ public class TestCassandraConnectorTest
     }
 
     @Test
+    void testInsertIntoTupleType()
+    {
+        try (TestCassandraTable table = testTable(
+                "insert_tuple_table",
+                ImmutableList.of(partitionColumn("key", "int"), generalColumn("value", "frozen<tuple<int, text, float>>")),
+                ImmutableList.of())) {
+            assertQueryFails(
+                    format("INSERT INTO %s (key, value) VALUES (1, ROW(1, 'text-1', 1.11))", table.getTableName()),
+                    "\\QUnsupported column type: row(integer, varchar, real)");
+        }
+    }
+
+    @Test
+    void testInsertIntoValuesToCassandraMaterializedView()
+    {
+        String materializedViewName = "test_insert_into_mv" + randomNameSuffix();
+        onCassandra("CREATE MATERIALIZED VIEW tpch." + materializedViewName + " AS " +
+                "SELECT * FROM tpch.nation " +
+                "WHERE nationkey IS NOT NULL " +
+                "PRIMARY KEY (id, nationkey)");
+
+        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), VARCHAR)
+                .row(materializedViewName)
+                .build(), new Duration(1, MINUTES));
+
+        assertQueryFails(
+                "INSERT INTO tpch.%s (nationkey) VALUES (null)".formatted(materializedViewName),
+                "Inserting into materialized views not yet supported");
+        assertQueryFails(
+                "DROP TABLE tpch." + materializedViewName,
+                "Dropping materialized views not yet supported");
+
+        onCassandra("DROP MATERIALIZED VIEW tpch." + materializedViewName);
+    }
+
+    @Test
+    void testInvalidTable()
+    {
+        String tableName = "cassandra.tpch.bogus";
+        assertQueryFails("SELECT * FROM " + tableName, ".* Table '%s' does not exist".formatted(tableName));
+    }
+
+    @Test
+    void testInvalidSchema()
+    {
+        assertQueryFails(
+                "SELECT * FROM cassandra.does_not_exist.bogus",
+                ".* Schema 'does_not_exist' does not exist");
+    }
+
+    @Test
+    void testInvalidColumn()
+    {
+        assertQueryFails("SELECT bogus FROM nation", ".* Column 'bogus' cannot be resolved");
+    }
+
+    @Test
     public void testCreateTableAs()
     {
         try (TestCassandraTable testCassandraTable = testTable(
@@ -1354,9 +1411,9 @@ public class TestCassandraConnectorTest
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(12);
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + wherePartitionKey).getRowCount()).isEqualTo(0);
 
-            String whereMultiplePartitionKey = " WHERE (partition_one=1 AND partition_two=1) OR (partition_one=1 AND partition_two=2)";
+            String whereMultiplePartitionKey = " WHERE (partition_one=1 AND partition_two=1) OR (partition_one=1 AND partition_two=3)";
             assertUpdate("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKey);
-            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(6);
+            assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(9);
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + whereMultiplePartitionKey).getRowCount()).isEqualTo(0);
         }
     }
@@ -1481,20 +1538,23 @@ public class TestCassandraConnectorTest
     @Test
     public void testNativeQueryCaseSensitivity()
     {
-        String tableName = "test_case" + randomNameSuffix();
-        onCassandra("CREATE TABLE tpch." + tableName + "(col_case BIGINT PRIMARY KEY, \"COL_CASE\" BIGINT)");
-        onCassandra("INSERT INTO tpch." + tableName + "(col_case, \"COL_CASE\") VALUES (1, 2)");
-        assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), createUnboundedVarcharType())
-                .row(tableName)
-                .build(), new Duration(1, MINUTES));
+        // This test creates columns with names that collide in a way not supported by the connector. Run it exclusively to prevent other tests from failing.
+        executeExclusively(() -> {
+            String tableName = "test_case" + randomNameSuffix();
+            onCassandra("CREATE TABLE tpch." + tableName + "(col_case BIGINT PRIMARY KEY, \"COL_CASE\" BIGINT)");
+            onCassandra("INSERT INTO tpch." + tableName + "(col_case, \"COL_CASE\") VALUES (1, 2)");
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row(tableName)
+                    .build(), new Duration(1, MINUTES));
 
-        assertQuery(
-                "SELECT * FROM TABLE(cassandra.system.query(query => 'SELECT * FROM tpch." + tableName + "'))",
-                "VALUES (1, 2)");
+            assertQuery(
+                    "SELECT * FROM TABLE(cassandra.system.query(query => 'SELECT * FROM tpch." + tableName + "'))",
+                    "VALUES (1, 2)");
 
-        onCassandra("DROP TABLE tpch." + tableName);
-        // Wait until the table becomes invisible to Trino. Otherwise, testSelectInformationSchemaColumns may fail due to ambiguous column names.
-        assertEventually(() -> assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse());
+            onCassandra("DROP TABLE tpch." + tableName);
+            // Wait until the table becomes invisible to Trino. Otherwise, testSelectInformationSchemaColumns may fail due to ambiguous column names.
+            assertEventually(() -> assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse());
+        });
     }
 
     @Test
@@ -1545,6 +1605,46 @@ public class TestCassandraConnectorTest
                 .failure()
                 .hasMessage("Cannot get column definition")
                 .hasStackTraceContaining("no viable alternative at input 'some'");
+    }
+
+    @Test
+    void testExecuteProcedure()
+    {
+        try (TestCassandraTable table = testTable(
+                "execute_procedure",
+                ImmutableList.of(partitionColumn("key", "int")),
+                ImmutableList.of())) {
+            String keyspaceAndTable = table.getTableName();
+            assertUpdate("CALL system.execute('INSERT INTO " + keyspaceAndTable + " (key) VALUES (1)')");
+            assertQuery("SELECT * FROM " + keyspaceAndTable, "VALUES 1");
+
+            assertUpdate("CALL system.execute('DELETE FROM " + keyspaceAndTable + " WHERE key=1')");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + keyspaceAndTable);
+        }
+    }
+
+    @Test
+    void testExecuteProcedureWithNamedArgument()
+    {
+        String tableName = "execute_procedure" + randomNameSuffix();
+        String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
+
+        assertUpdate("CREATE TABLE " + schemaTableName + "(a int)");
+        try {
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
+            assertUpdate("CALL system.execute(query => 'DROP TABLE " + schemaTableName + "')");
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
+        }
+    }
+
+    @Test
+    void testExecuteProcedureWithInvalidQuery()
+    {
+        assertQueryFails("CALL system.execute('SELECT 1')", "(?s).*no viable alternative at input.*");
+        assertQueryFails("CALL system.execute('invalid')", "(?s).*no viable alternative at input.*");
     }
 
     @Override

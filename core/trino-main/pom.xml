@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>452-SNAPSHOT</version>
+        <version>453-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -342,7 +342,7 @@
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-analysis-common</artifactId>
-            <version>9.11.0</version>
+            <version>9.11.1</version>
         </dependency>
 
         <dependency>

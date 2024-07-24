@@ -184,7 +184,7 @@ public final class WorkProcessorUtils
 
     static <T> WorkProcessor<T> blocking(WorkProcessor<T> processor, Supplier<ListenableFuture<Void>> futureSupplier)
     {
-        return WorkProcessor.create(new BlockingProcess<>(processor, futureSupplier));
+        return create(new BlockingProcess<>(processor, futureSupplier), ProcessState.blocked(futureSupplier.get()));
     }
 
     private static class BlockingProcess<T>
@@ -387,6 +387,11 @@ public final class WorkProcessorUtils
         return new ProcessWorkProcessor<>(process);
     }
 
+    static <T> WorkProcessor<T> create(WorkProcessor.Process<T> process, ProcessState<T> initialState)
+    {
+        return new ProcessWorkProcessor<>(process, initialState);
+    }
+
     private static class ProcessWorkProcessor<T>
             implements WorkProcessor<T>
     {
@@ -397,7 +402,13 @@ public final class WorkProcessorUtils
 
         ProcessWorkProcessor(WorkProcessor.Process<T> process)
         {
+            this(process, ProcessState.yielded());
+        }
+
+        ProcessWorkProcessor(WorkProcessor.Process<T> process, ProcessState<T> initialState)
+        {
             this.process = requireNonNull(process, "process is null");
+            this.state = requireNonNull(initialState, "initialState is null");
         }
 
         @Override

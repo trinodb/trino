@@ -3374,6 +3374,12 @@ public class TestSqlParser
                         new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u")),
                         false));
+        assertStatement("GRANT EXECUTE ON t TO u",
+                new Grant(
+                        Optional.of(ImmutableList.of("EXECUTE")),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u")),
+                        false));
         assertStatement("GRANT SELECT ON t TO ROLE PUBLIC WITH GRANT OPTION",
                 new Grant(
                         Optional.of(ImmutableList.of("SELECT")),
@@ -3438,6 +3444,12 @@ public class TestSqlParser
                 new Revoke(
                         false,
                         Optional.of(ImmutableList.of("UPDATE")),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u"))));
+        assertStatement("REVOKE EXECUTE ON t FROM u",
+                new Revoke(
+                        false,
+                        Optional.of(ImmutableList.of("EXECUTE")),
                         new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u"))));
         assertStatement("REVOKE GRANT OPTION FOR SELECT ON t FROM ROLE PUBLIC",

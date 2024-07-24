@@ -53,6 +53,7 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
@@ -102,9 +103,9 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.parquet.writer.ParquetWriter.SUPPORTED_BLOOM_FILTER_TYPES;
 import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnMetadata;
@@ -591,6 +592,7 @@ public final class IcebergUtil
         }
     }
 
+    @Nullable
     public static Object deserializePartitionValue(Type type, String valueString, String name)
     {
         if (valueString == null) {

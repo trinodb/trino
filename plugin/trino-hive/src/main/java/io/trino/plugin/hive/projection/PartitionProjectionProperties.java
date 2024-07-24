@@ -17,8 +17,8 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Table;
+import io.trino.metastore.Column;
+import io.trino.metastore.Table;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.type.Type;
@@ -37,6 +37,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.hive.HiveTableProperties.getPartitionedBy;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
 import static java.util.Locale.ROOT;
@@ -198,7 +199,7 @@ public final class PartitionProjectionProperties
                         .filter(partitionColumnNames::contains)
                         .collect(toImmutableList()),
                 table.getPartitionColumns().stream()
-                        .collect(toImmutableMap(Column::getName, column -> column.getType().getType(typeManager, DEFAULT_PRECISION))),
+                        .collect(toImmutableMap(Column::getName, column -> getType(column.getType(), typeManager, DEFAULT_PRECISION))),
                 tableProperties);
     }
 

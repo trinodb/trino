@@ -19,12 +19,12 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryListerFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
 import io.trino.spi.catalog.CatalogName;
@@ -221,13 +221,14 @@ public class HiveMetadataFactory
     @Override
     public TransactionalMetadata create(ConnectorIdentity identity, boolean autoCommit)
     {
-        CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastoreFactory.createMetastore(Optional.of(identity)), perTransactionCacheMaximumSize);
-        HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(cachingHiveMetastore, typeManager, partitionProjectionEnabled);
+        HiveMetastore hiveMetastore = createPerTransactionCache(metastoreFactory.createMetastore(Optional.of(identity)), perTransactionCacheMaximumSize);
 
         DirectoryLister directoryLister = transactionScopeCachingDirectoryListerFactory.get(this.directoryLister);
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
+                typeManager,
+                partitionProjectionEnabled,
                 fileSystemFactory,
-                hiveMetastoreClosure,
+                hiveMetastore,
                 fileSystemExecutor,
                 dropExecutor,
                 updateExecutor,

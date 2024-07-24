@@ -19,6 +19,9 @@ import io.airlift.slice.Slice;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.OperatorInfo;
 import io.trino.spi.exchange.ExchangeSource;
+import io.trino.spi.metrics.Metrics;
+
+import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
@@ -109,6 +112,16 @@ public class SpoolingExchangeDataSource
     public OperatorInfo getInfo()
     {
         return null;
+    }
+
+    @Override
+    public Optional<Metrics> getMetrics()
+    {
+        ExchangeSource exchangeSource = this.exchangeSource;
+        if (exchangeSource == null) {
+            return Optional.empty();
+        }
+        return exchangeSource.getMetrics();
     }
 
     @Override

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HiveType;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -35,6 +34,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.parquet.ParquetUtil.createPageSource;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.predicate.Domain.notNull;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -53,7 +53,7 @@ public class TestOnlyNulls
         String columnName = "x";
         Type columnType = INTEGER;
 
-        HiveColumnHandle column = createBaseColumn(columnName, 0, HiveType.toHiveType(columnType), columnType, REGULAR, Optional.empty());
+        HiveColumnHandle column = createBaseColumn(columnName, 0, toHiveType(columnType), columnType, REGULAR, Optional.empty());
 
         // match not null
         try (ConnectorPageSource pageSource = createPageSource(SESSION, parquetFile, ImmutableList.of(column), TupleDomain.withColumnDomains(Map.of(column, notNull(columnType))))) {

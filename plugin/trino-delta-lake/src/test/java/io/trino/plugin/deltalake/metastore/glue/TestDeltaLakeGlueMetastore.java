@@ -25,18 +25,18 @@ import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.manager.FileSystemModule;
+import io.trino.metastore.Column;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.Table;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.DeltaLakeModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
@@ -70,15 +70,14 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Closeables.closeAll;
+import static io.trino.metastore.HiveType.HIVE_STRING;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.DELTA_STORAGE_FORMAT;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
-import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
-import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -291,7 +290,7 @@ public class TestDeltaLakeGlueMetastore
                 .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty(), Map.of())));
 
         table.getStorageBuilder()
-                .setStorageFormat(fromHiveStorageFormat(PARQUET))
+                .setStorageFormat(PARQUET.toStorageFormat())
                 .setLocation(tableLocation);
 
         tableConfiguration.accept(table);
@@ -310,7 +309,7 @@ public class TestDeltaLakeGlueMetastore
                 .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty(), Map.of())));
 
         table.getStorageBuilder()
-                .setStorageFormat(fromHiveStorageFormat(PARQUET))
+                .setStorageFormat(PARQUET.toStorageFormat())
                 .setLocation(tableLocation);
 
         tableConfiguration.accept(table);

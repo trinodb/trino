@@ -240,6 +240,15 @@ Hive connector documentation.
     `query_partition_filter_required` catalog session property for temporary,
     catalog specific use.
   - `false`
+* - `hive.query-partition-filter-required-schemas`
+  - Allow specifying the list of schemas for which Trino will enforce that
+    queries use a filter on partition keys for source tables. The list can be
+    specified using the `hive.query-partition-filter-required-schemas`,
+    or the `query_partition_filter_required_schemas` session property. The list
+    is taken into consideration only if the `hive.query-partition-filter-required`
+    configuration property or the `query_partition_filter_required` session
+    property is set to `true`.
+  - `[]`
 * - `hive.table-statistics-enabled`
   - Enables [](/optimizer/statistics). The equivalent [catalog session
     property](/sql/set-session) is `statistics_enabled` for session specific

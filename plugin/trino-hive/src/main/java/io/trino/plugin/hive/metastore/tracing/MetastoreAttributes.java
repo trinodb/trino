@@ -29,7 +29,7 @@ final class MetastoreAttributes
     public static final AttributeKey<String> PARTITION = stringKey("trino.partition");
     public static final AttributeKey<String> FUNCTION = stringKey("trino.function");
     public static final AttributeKey<Long> FUNCTION_RESPONSE_COUNT = longKey("trino.hive.response.function_count");
-    public static final AttributeKey<String> ACID_TRANSACTION = stringKey("trino.hive.acid_transaction");
+    public static final AttributeKey<Long> ACID_TRANSACTION = longKey("trino.hive.acid_transaction");
     public static final AttributeKey<Long> PARTITION_REQUEST_COUNT = longKey("trino.hive.request.partition_count");
     public static final AttributeKey<Long> PARTITION_RESPONSE_COUNT = longKey("trino.hive.response.partition_count");
 }

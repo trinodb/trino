@@ -22,12 +22,15 @@ import io.trino.client.auth.kerberos.DelegatedUnconstrainedContextProvider;
 import io.trino.client.auth.kerberos.GSSContextProvider;
 import io.trino.client.auth.kerberos.LoginBasedUnconstrainedContextProvider;
 import io.trino.client.auth.kerberos.SpnegoHandler;
+import io.trino.client.uri.LoggingLevel;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
 import okhttp3.internal.tls.LegacyHostnameVerifier;
+import okhttp3.logging.HttpLoggingInterceptor;
+import okhttp3.logging.HttpLoggingInterceptor.Level;
 import org.ietf.jgss.GSSCredential;
 
 import javax.net.ssl.KeyManager;
@@ -134,6 +137,30 @@ public final class OkHttpUtil
         proxy.map(OkHttpUtil::toUnresolvedAddress)
                 .map(address -> new Proxy(type, address))
                 .ifPresent(clientBuilder::proxy);
+    }
+
+    public static void setupHttpLogging(OkHttpClient.Builder clientBuilder, LoggingLevel level)
+    {
+        switch (level) {
+            case NONE:
+                return;
+
+            case BODY:
+                clientBuilder.addNetworkInterceptor(
+                        new HttpLoggingInterceptor(System.err::println)
+                                .setLevel(Level.BODY));
+                break;
+            case BASIC:
+                clientBuilder.addNetworkInterceptor(
+                        new HttpLoggingInterceptor(System.err::println)
+                                .setLevel(Level.BASIC));
+                break;
+            case HEADERS:
+                clientBuilder.addNetworkInterceptor(
+                        new HttpLoggingInterceptor(System.err::println)
+                                .setLevel(Level.HEADERS));
+                break;
+        }
     }
 
     private static InetSocketAddress toUnresolvedAddress(HostAndPort address)

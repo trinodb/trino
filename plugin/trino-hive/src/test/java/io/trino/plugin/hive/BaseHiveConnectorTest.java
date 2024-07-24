@@ -32,13 +32,13 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.metastore.Column;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.Storage;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.Storage;
-import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Constraint;
@@ -130,13 +130,13 @@ import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
 import static io.trino.SystemSessionProperties.WRITER_SCALING_MIN_DATA_PROCESSED;
+import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PARTITION_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_CREATED_BY;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
@@ -151,9 +151,10 @@ import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
-import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.spi.security.Identity.ofUser;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
@@ -341,6 +342,14 @@ public abstract class BaseHiveConnectorTest
     public void testUpdate()
     {
         assertThatThrownBy(super::testUpdate)
+                .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
+    }
+
+    @Test
+    @Override
+    public void testUpdateMultipleCondition()
+    {
+        assertThatThrownBy(super::testUpdateMultipleCondition)
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
@@ -546,6 +555,26 @@ public abstract class BaseHiveConnectorTest
             assertUpdate(session, format("DROP TABLE %s.%s_right", schemaName, table.getName()));
         }
         getQueryRunner().execute("DROP SCHEMA " + schemaName);
+    }
+
+    @Test
+    public void testIgnoreQueryPartitionFilterRequiredSchemas()
+    {
+        String schemaName = "test_partition_filter_" + randomNameSuffix();
+        String tableName = schemaName + ".test_partition_filter" + randomNameSuffix();
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "query_partition_filter_required", "false")
+                .setCatalogSessionProperty("hive", "query_partition_filter_required_schemas", format("[\"%s\"]", schemaName))
+                .build();
+
+        assertUpdate(session, "CREATE SCHEMA " + schemaName);
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, part varchar) WITH (partitioned_by = ARRAY['part'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, 'test')", 1);
+
+        assertQuerySucceeds(session, "SELECT * FROM " + tableName + " WHERE id = 1");
+
+        assertUpdate(session, "DROP SCHEMA " + schemaName + " CASCADE");
     }
 
     @Test
@@ -8795,7 +8824,7 @@ public abstract class BaseHiveConnectorTest
                         Optional.of("hive"),
                         "EXTERNAL_TABLE",
                         new Storage(
-                                StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET),
+                                HiveStorageFormat.PARQUET.toStorageFormat(),
                                 Optional.of(tableLocation),
                                 Optional.empty(),
                                 false,
@@ -9298,7 +9327,7 @@ public abstract class BaseHiveConnectorTest
 
     private Type canonicalizeType(Type type)
     {
-        return TESTING_TYPE_MANAGER.getType(toHiveType(type).getTypeSignature());
+        return TESTING_TYPE_MANAGER.getType(getTypeSignature(toHiveType(type)));
     }
 
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)

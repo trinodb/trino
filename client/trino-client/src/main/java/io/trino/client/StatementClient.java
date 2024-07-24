@@ -17,6 +17,7 @@ import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -48,7 +49,7 @@ public interface StatementClient
 
     Optional<String> getSetSchema();
 
-    Optional<String> getSetPath();
+    Optional<List<String>> getSetPath();
 
     Optional<String> getSetAuthorizationUser();
 

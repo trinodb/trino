@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>452-SNAPSHOT</version>
+        <version>453-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -61,7 +61,7 @@
         <dependency>
             <groupId>io.openlineage</groupId>
             <artifactId>openlineage-java</artifactId>
-            <version>1.17.1</version>
+            <version>1.18.0</version>
             <!-- the reason for exclusion is issue while building plugin manifesting -->
             <!-- in following error: -->
             <!-- Found duplicate and different classes in -->

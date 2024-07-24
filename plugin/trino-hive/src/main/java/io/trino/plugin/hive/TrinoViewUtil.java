@@ -21,8 +21,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_VIEW_COMMENT;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.metastore.Table.TABLE_COMMENT;
+import static io.trino.metastore.TableInfo.PRESTO_VIEW_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_CREATED_BY;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;

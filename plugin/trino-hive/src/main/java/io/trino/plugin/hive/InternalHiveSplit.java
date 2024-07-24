@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.annotation.NotThreadSafe;
+import io.trino.metastore.HiveTypeName;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.spi.HostAddress;

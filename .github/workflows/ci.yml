@@ -56,8 +56,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { java-version: 22, cache: 'true', cleanup-node: false }
-          - { java-version: 23-ea, cache: 'restore', cleanup-node: true }
+          - { java-version: 22, cache: 'true' }
+          - { java-version: 23-ea, cache: 'restore' }
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -72,7 +72,7 @@ jobs:
         with:
           cache: ${{ matrix.cache }}
           java-version: ${{ matrix.java-version }}
-          cleanup-node: ${{ matrix.cleanup-node }}
+          cleanup-node: true
       - name: Check SPI backward compatibility
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -355,6 +355,7 @@ jobs:
             !:trino-docs,
             !:trino-druid,
             !:trino-elasticsearch,
+            !:trino-exasol,
             !:trino-faulttolerant-tests,
             !:trino-filesystem,
             !:trino-filesystem-azure,
@@ -466,6 +467,7 @@ jobs:
             - { modules: plugin/trino-delta-lake, profile: fte-tests }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-elasticsearch }
+            - { modules: plugin/trino-exasol }
             - { modules: plugin/trino-google-sheets }
             - { modules: plugin/trino-hive }
             - { modules: plugin/trino-hive, profile: fte-tests }
@@ -527,7 +529,7 @@ jobs:
         timeout-minutes: 10
         with:
           cache: restore
-          cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore') }}
+          cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore' || matrix.modules == 'plugin/trino-exasol') }}
           java-version: ${{ matrix.jdk != '' && matrix.jdk || '22' }}
       - name: Maven Install
         run: |

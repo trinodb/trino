@@ -29,15 +29,18 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.Column;
+import io.trino.metastore.HiveBucketProperty;
+import io.trino.metastore.HivePartition;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.Partition;
+import io.trino.metastore.StorageFormat;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.HiveFileIterator;
 import io.trino.plugin.hive.fs.TrinoFileStatus;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.AcidTables.AcidState;
 import io.trino.plugin.hive.util.AcidTables.ParsedDelta;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
@@ -110,6 +113,7 @@ import static io.trino.plugin.hive.util.AcidTables.isFullAcidTable;
 import static io.trino.plugin.hive.util.AcidTables.isTransactionalTable;
 import static io.trino.plugin.hive.util.AcidTables.readAcidVersionFile;
 import static io.trino.plugin.hive.util.HiveBucketing.getBucketingVersion;
+import static io.trino.plugin.hive.util.HiveTypeUtil.typeSupported;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.getFooterCount;
@@ -878,7 +882,7 @@ public class BackgroundHiveSplitLoader
         for (int i = 0; i < keys.size(); i++) {
             String name = keys.get(i).getName();
             HiveType hiveType = keys.get(i).getType();
-            if (!hiveType.isSupportedType(table.getStorage().getStorageFormat())) {
+            if (!typeSupported(hiveType.getTypeInfo(), table.getStorage().getStorageFormat())) {
                 throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
             String value = values.get(i);

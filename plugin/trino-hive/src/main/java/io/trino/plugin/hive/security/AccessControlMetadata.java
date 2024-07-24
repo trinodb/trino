@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.security;
 
-import io.trino.plugin.hive.metastore.HivePrincipal;
+import io.trino.metastore.HivePrincipal;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;

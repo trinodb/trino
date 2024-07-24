@@ -743,6 +743,15 @@ public abstract class BaseSqlServerTypeMapping
     }
 
     @Test
+    public void testSqlServerSmallDatetime()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("SMALLDATETIME", "'1960-01-01 00:00:00'", createTimestampType(0), "TIMESTAMP '1960-01-01 00:00:00'")
+                .addRoundTrip("SMALLDATETIME", "'2079-06-05 23:59:59'", createTimestampType(0), "TIMESTAMP '2079-06-06 00:00:00'")
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_sqlserver_timestamp"));
+    }
+
+    @Test
     public void testSqlServerDatetimeOffset()
     {
         testSqlServerDatetimeOffset(UTC);

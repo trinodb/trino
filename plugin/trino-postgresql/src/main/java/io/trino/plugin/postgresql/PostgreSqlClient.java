@@ -571,6 +571,12 @@ public class PostgreSqlClient
                 return Optional.of(timestampWithTimeZoneColumnMapping(decimalDigits));
             case "hstore":
                 return Optional.of(hstoreColumnMapping(session));
+            case "vector":
+                return Optional.of(vectorColumnMapping());
+        }
+        if (jdbcTypeName.endsWith("\"vector\"")) {
+            // TODO: Find more reliable way to detect vector type. The type name can be "schema-name"."vector"
+            return Optional.of(vectorColumnMapping());
         }
 
         switch (typeHandle.jdbcType()) {
@@ -1447,7 +1453,7 @@ public class PostgreSqlClient
         return ColumnMapping.sliceMapping(
                 jsonType,
                 arrayAsJsonReadFunction(session, baseElementMapping),
-                (statement, index, block) -> { throw new UnsupportedOperationException(); },
+                (statement, index, block) -> { throw new TrinoException(NOT_SUPPORTED, "Writing to array type is unsupported"); },
                 DISABLE_PUSHDOWN);
     }
 
@@ -1590,6 +1596,42 @@ public class PostgreSqlClient
                 uuidType,
                 (resultSet, columnIndex) -> javaUuidToTrinoUuid((UUID) resultSet.getObject(columnIndex)),
                 uuidWriteFunction());
+    }
+
+    private static ColumnMapping vectorColumnMapping()
+    {
+        return ColumnMapping.objectMapping(
+                new ArrayType(REAL),
+                vectorReadFunction(),
+                vectorWriteFunction(),
+                DISABLE_PUSHDOWN);
+    }
+
+    private static ObjectReadFunction vectorReadFunction()
+    {
+        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
+            // getArray is unsupported for vectors type
+            String result = resultSet.getString(columnIndex);
+            if (result == null) {
+                BlockBuilder builder = REAL.createBlockBuilder(null, 1);
+                builder.appendNull();
+                return builder.build();
+            }
+            verify(result.charAt(0) == '[' && result.charAt(result.length() - 1) == ']', "vector must be enclosed in square brackets: %s", result);
+            String[] vectors = result.substring(1, result.length() - 1).split(",");
+            BlockBuilder builder = REAL.createBlockBuilder(null, vectors.length);
+            for (String vector : vectors) {
+                REAL.writeFloat(builder, Float.parseFloat(vector));
+            }
+            return builder.build();
+        });
+    }
+
+    private static ObjectWriteFunction vectorWriteFunction()
+    {
+        return ObjectWriteFunction.of(Block.class, (_, _, _) -> {
+            throw new TrinoException(NOT_SUPPORTED, "Writing to vector type is unsupported");
+        });
     }
 
     private static class StatisticsDao

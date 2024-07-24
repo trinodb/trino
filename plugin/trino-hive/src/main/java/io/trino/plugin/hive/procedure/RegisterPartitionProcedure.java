@@ -20,14 +20,14 @@ import com.google.inject.Provider;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.Partition;
+import io.trino.metastore.PartitionStatistics;
+import io.trino.metastore.Table;
 import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
-import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -130,7 +130,7 @@ public class RegisterPartitionProcedure
             checkIsPartitionedTable(table);
             checkPartitionColumns(table, partitionColumns);
 
-            Optional<Partition> partition = metastore.unsafeGetRawHiveMetastoreClosure().getPartition(schemaName, tableName, partitionValues);
+            Optional<Partition> partition = metastore.unsafeGetRawHiveMetastore().getPartition(table, partitionValues);
             if (partition.isPresent()) {
                 String partitionName = makePartName(partitionColumns, partitionValues);
                 throw new TrinoException(ALREADY_EXISTS, format("Partition [%s] is already registered with location %s", partitionName, partition.get().getStorage().getLocation()));
