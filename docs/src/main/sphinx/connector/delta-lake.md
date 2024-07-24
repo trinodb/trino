@@ -1162,8 +1162,7 @@ keep a backup of the original values if you change them.
   - `Integer.MAX_VALUE`
 * - `delta.max-split-size`
   - Sets the largest [](prop-type-data-size) for a single read section
-    assigned to a worker after `max-initial-splits` have been processed. You can
-    also use the corresponding catalog session property
+    assigned to a worker. You can also use the corresponding catalog session property
     `<catalog-name>.max_split_size`.
   - `64MB`
 * - `delta.minimum-assigned-split-weight`
