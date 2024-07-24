@@ -45,6 +45,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
@@ -447,6 +448,21 @@ public class TestJdbcConnection
             assertThat(getSingleStringColumn(connection, "select current_user")).isEqualTo(impersonatedUser);
             trinoConnection.clearSessionUser();
             assertThat(getSingleStringColumn(connection, "select current_user")).isEqualTo("admin");
+        }
+    }
+
+    @Test
+    public void testPreparedStatementCreationOption()
+            throws SQLException
+    {
+        String sql = "SELECT 123";
+        try (Connection connection = createConnection()) {
+            try (PreparedStatement statement = connection.prepareStatement(sql, Statement.NO_GENERATED_KEYS)) {
+                assertThat(statement).isNotNull();
+            }
+            assertThatThrownBy(() -> connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS))
+                    .isInstanceOf(SQLFeatureNotSupportedException.class)
+                    .hasMessage("Auto generated keys must be NO_GENERATED_KEYS");
         }
     }
 
