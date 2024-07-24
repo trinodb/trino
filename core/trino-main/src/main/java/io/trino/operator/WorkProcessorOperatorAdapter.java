@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.join.JoinOperatorFactory;
+import io.trino.operator.join.LookupJoinOperatorFactory;
 import io.trino.spi.Page;
 
 import java.util.Optional;
@@ -38,6 +39,9 @@ public class WorkProcessorOperatorAdapter
 
     /**
      * Provides {@link OperatorFactory} implementation for {@link WorkProcessorSourceOperator}.
+     * This class implements {@link JoinOperatorFactory} interface because it's required to
+     * propagate {@link LookupJoinOperatorFactory} implementation of {@link JoinOperatorFactory#createOuterOperatorFactory()}.
+     * For non-join operators {@link Factory#createOuterOperatorFactory()} returns {@link Optional#empty()}.
      */
     @VisibleForTesting
     public static class Factory
