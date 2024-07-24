@@ -839,11 +839,11 @@ directly or used in conditional statements.
 - `$file_size`
   : Size of the file for this row.
 
-## Table functions
+### Table functions
 
 The connector provides the following table functions:
 
-### table_changes
+#### table_changes
 
 Allows reading Change Data Feed (CDF) entries to expose row-level changes
 between two versions of a Delta Lake table. When the `change_data_feed_enabled`
