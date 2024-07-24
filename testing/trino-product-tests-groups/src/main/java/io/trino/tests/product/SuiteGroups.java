@@ -19,6 +19,7 @@ import java.util.Set;
 
 import static io.trino.tests.product.TestGroups.AZURE;
 import static io.trino.tests.product.TestGroups.CLI;
+import static io.trino.tests.product.TestGroups.FAULT_TOLERANT;
 import static io.trino.tests.product.TestGroups.FUNCTIONS;
 import static io.trino.tests.product.TestGroups.HIVE_COMPRESSION;
 import static io.trino.tests.product.TestGroups.JDBC;
@@ -41,6 +42,7 @@ public abstract class SuiteGroups
             JDBC,
             TRINO_JDBC,
             JDBC_KERBEROS_CONSTRAINED_DELEGATION,
+            FAULT_TOLERANT,
             FUNCTIONS,
             HIVE_COMPRESSION,
             LARGE_QUERY,
