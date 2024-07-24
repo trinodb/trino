@@ -178,6 +178,13 @@ implementation is used:
   - `true`
 :::
 
+(iceberg-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
+
 (iceberg-file-system-configuration)=
 ## File system access configuration
 
@@ -1533,12 +1540,6 @@ use the data from the storage tables, even after the grace period expired.
 
 Dropping a materialized view with {doc}`/sql/drop-materialized-view` removes
 the definition and the storage table.
-
-(iceberg-fte-support)=
-## Fault-tolerant execution support
-
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
 
 ## Table functions
 

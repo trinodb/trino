@@ -55,6 +55,12 @@ properties files.
 ```{include} non-transactional-insert.fragment
 ```
 
+(mariadb-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 ## Querying MariaDB
 
 The MariaDB connector provides a schema for every MariaDB *database*.
@@ -298,12 +304,6 @@ statements, the connector supports the following features:
 
 ```{include} sql-delete-limitation.fragment
 ```
-
-(mariadb-fte-support)=
-## Fault-tolerant execution support
-
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
 
 ### Procedures
 

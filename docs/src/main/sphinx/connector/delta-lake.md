@@ -218,6 +218,13 @@ The following table describes {ref}`catalog session properties
   - `true`
 :::
 
+(delta-lake-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
+
 (delta-lake-type-mapping)=
 ## Type mapping
 
@@ -831,12 +838,6 @@ directly or used in conditional statements.
   : Date and time of the last modification of the file for this row.
 - `$file_size`
   : Size of the file for this row.
-
-(delta-lake-fte-support)=
-## Fault-tolerant execution support
-
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
 
 ## Table functions
 

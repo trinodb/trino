@@ -287,6 +287,17 @@ You must enable and configure the specific native file system access. If none is
 activated, the [legacy support](file-system-legacy) is used and must be
 configured.
 
+(hive-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy
+on non-transactional tables.
+
+Read operations are supported with any retry policy on transactional tables.
+Write operations and `CREATE TABLE ... AS` operations are not supported with
+any retry policy on transactional tables.
+
 (hive-security)=
 ## Security
 
@@ -641,7 +652,7 @@ type conversions.
 * - `TIMESTAMP`
   - `VARCHAR`, `DATE`
 * - `VARBINARY`
-  - `VARCHAR` 
+  - `VARCHAR`
 :::
 
 Any conversion failure results in null, which is the same behavior
@@ -1103,16 +1114,6 @@ functionality:
 - Support all Hive data types and correct mapping to Trino types
 - Ability to process custom UDFs
 
-(hive-fte-support)=
-## Fault-tolerant execution support
-
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy
-on non-transactional tables.
-
-Read operations are supported with any retry policy on transactional tables.
-Write operations and `CREATE TABLE ... AS` operations are not supported with
-any retry policy on transactional tables.
 
 ## Performance
 

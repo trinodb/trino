@@ -364,6 +364,12 @@ FROM collection
 WHERE _id > timestamp_objectid(TIMESTAMP '2021-08-07 17:51:36 +00:00');
 ```
 
+(mongodb-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 (mongodb-type-mapping)=
 ## Type mapping
 
@@ -483,12 +489,6 @@ statements, the connector supports the following features:
 The connector supports `ALTER TABLE RENAME TO`, `ALTER TABLE ADD COLUMN`
 and `ALTER TABLE DROP COLUMN` operations.
 Other uses of `ALTER TABLE` are not supported.
-
-(mongodb-fte-support)=
-## Fault-tolerant execution support
-
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
 
 ## Table functions
 
