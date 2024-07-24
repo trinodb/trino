@@ -127,13 +127,13 @@ metadata in the Druid database.
 ```{include} jdbc-procedures-execute.fragment
 ```
 
-## Table functions
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access Druid.
 
 (druid-query-function)=
-### `query(varchar) -> table`
+#### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It
 requires syntax native to Druid, because the full query is pushed down and

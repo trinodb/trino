@@ -361,13 +361,13 @@ the following statements:
 ```{include} jdbc-procedures-execute.fragment
 ```
 
-## Table functions
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access MySQL.
 
 (mysql-query-function)=
-### `query(varchar) -> table`
+#### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It
 requires syntax native to MySQL, because the full query is pushed down and

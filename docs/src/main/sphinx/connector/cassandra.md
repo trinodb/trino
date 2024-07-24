@@ -313,13 +313,13 @@ statements, the connector supports the following features:
 - {doc}`/sql/create-table-as`
 - {doc}`/sql/drop-table`
 
-## Table functions
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access Cassandra.
 .. \_cassandra-query-function:
 
-### `query(varchar) -> table`
+#### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying Cassandra directly. It
 requires syntax native to Cassandra, because the full query is pushed down and
@@ -377,8 +377,8 @@ cassandra.allow-drop-table=true
 
   The query text is not parsed by Trino, only passed through, and therefore only
   subject to any security or access control of the underlying data source.
-  
-  For example, the following system call adds the `your_column` to the `your_table` 
+
+  For example, the following system call adds the `your_column` to the `your_table`
   table in the `example` catalog.
 
   ```sql

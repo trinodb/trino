@@ -1541,11 +1541,11 @@ use the data from the storage tables, even after the grace period expired.
 Dropping a materialized view with {doc}`/sql/drop-materialized-view` removes
 the definition and the storage table.
 
-## Table functions
+### Table functions
 
 The connector supports the table functions described in the following sections.
 
-### table_changes
+#### table_changes
 
 Allows reading row-level changes between two versions of an Iceberg table.
 The following query shows an example of displaying the changes of the `t1`

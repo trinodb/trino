@@ -386,13 +386,13 @@ the following features:
 ```{include} sql-delete-limitation.fragment
 ```
 
-## Table functions
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access BigQuery.
 
 (bigquery-query-function)=
-### `query(varchar) -> table`
+#### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying BigQuery directly. It
 requires syntax native to BigQuery, because the full query is pushed down and

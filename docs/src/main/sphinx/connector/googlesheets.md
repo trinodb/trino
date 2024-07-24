@@ -141,12 +141,12 @@ this connector supports the following features:
 
 - {doc}`/sql/insert`
 
-## Table functions
+### Table functions
 
 The connector provides specific {doc}`/functions/table` to access Google Sheets.
 
 (google-sheets-sheet-function)=
-### `sheet(id, range) -> table`
+#### `sheet(id, range) -> table`
 
 The `sheet` function allows you to query a Google Sheet directly without
 specifying it as a named table in the metadata sheet.

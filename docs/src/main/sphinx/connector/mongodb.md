@@ -490,13 +490,13 @@ The connector supports `ALTER TABLE RENAME TO`, `ALTER TABLE ADD COLUMN`
 and `ALTER TABLE DROP COLUMN` operations.
 Other uses of `ALTER TABLE` are not supported.
 
-## Table functions
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access MongoDB.
 
 (mongodb-query-function)=
-### `query(database, collection, filter) -> table`
+#### `query(database, collection, filter) -> table`
 
 The `query` function allows you to query the underlying MongoDB directly. It
 requires syntax native to MongoDB, because the full query is pushed down and
