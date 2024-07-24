@@ -114,6 +114,13 @@ behavior of the connector and the issues queries to the database.
 ```{include} non-transactional-insert.fragment
 ```
 
+(sqlserver-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
+
 ## Querying SQL Server
 
 The SQL Server connector provides access to all schemas visible to the specified
@@ -343,12 +350,6 @@ supports the following features:
 ```
 ```{include} jdbc-procedures-execute.fragment
 ```
-
-(sqlserver-fte-support)=
-## Fault-tolerant execution support
-
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
 
 ## Table functions
 
