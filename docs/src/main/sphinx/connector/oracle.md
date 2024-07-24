@@ -101,6 +101,12 @@ you name the property file `sales.properties`, Trino creates a catalog named
 ```{include} non-transactional-insert.fragment
 ```
 
+(oracle-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 ## Querying Oracle
 
 The Oracle connector provides a schema for every Oracle database.
@@ -421,12 +427,6 @@ supports the following statements:
 
 ```{include} alter-table-limitation.fragment
 ```
-
-(oracle-fte-support)=
-## Fault-tolerant execution support
-
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
 
 ### Procedures
 

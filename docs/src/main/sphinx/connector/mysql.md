@@ -102,6 +102,12 @@ creates a catalog named `sales` using the configured connector.
 ```{include} non-transactional-insert.fragment
 ```
 
+(mysql-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 (mysql-type-mapping)=
 ## Type mapping
 
@@ -347,12 +353,6 @@ the following statements:
 
 ```{include} sql-delete-limitation.fragment
 ```
-
-(mysql-fte-support)=
-## Fault-tolerant execution support
-
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
 
 ### Procedures
 
