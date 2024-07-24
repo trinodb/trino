@@ -582,6 +582,18 @@
                             <installDirectory>src/main/resources/webapp/dist</installDirectory>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>flow check</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>verify</phase>
+                        <configuration>
+                            <arguments>run flow</arguments>
+                            <workingDirectory>src/main/resources/webapp/src</workingDirectory>
+                            <installDirectory>src/main/resources/webapp/dist</installDirectory>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
         </plugins>
