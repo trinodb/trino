@@ -183,7 +183,6 @@ public class TestTopNOperator
 
     @Test
     public void testExceedMemoryLimit()
-            throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT)
                 .row(1L)
