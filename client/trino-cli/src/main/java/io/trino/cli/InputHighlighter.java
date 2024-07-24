@@ -13,8 +13,8 @@
  */
 package io.trino.cli;
 
-import io.trino.cli.lexer.StatementSplitter;
 import io.trino.grammar.sql.SqlBaseLexer;
+import io.trino.grammar.sql.lexer.StatementSplitter;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.TokenSource;
 import org.jline.reader.Highlighter;

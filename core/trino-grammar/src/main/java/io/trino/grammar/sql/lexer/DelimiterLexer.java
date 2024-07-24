@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.cli.lexer;
+package io.trino.grammar.sql.lexer;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.grammar.sql.SqlBaseLexer;

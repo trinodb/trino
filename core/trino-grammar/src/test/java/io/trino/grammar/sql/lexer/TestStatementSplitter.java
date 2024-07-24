@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.cli.lexer;
+package io.trino.grammar.sql.lexer;
 
 import com.google.common.collect.ImmutableSet;
-import io.trino.cli.lexer.StatementSplitter.Statement;
+import io.trino.grammar.sql.lexer.StatementSplitter.Statement;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.cli.lexer.StatementSplitter.isEmptyStatement;
-import static io.trino.cli.lexer.StatementSplitter.squeezeStatement;
+import static io.trino.grammar.sql.lexer.StatementSplitter.isEmptyStatement;
+import static io.trino.grammar.sql.lexer.StatementSplitter.squeezeStatement;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStatementSplitter
