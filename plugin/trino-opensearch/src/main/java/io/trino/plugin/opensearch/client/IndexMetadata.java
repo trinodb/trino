@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.opensearch.client;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -39,6 +41,15 @@ public record IndexMetadata(ObjectType schema)
         }
     }
 
+    @JsonTypeInfo(
+            use = JsonTypeInfo.Id.NAME,
+            property = "@type")
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = DateTimeType.class, name = "date_time_type"),
+            @JsonSubTypes.Type(value = ObjectType.class, name = "object_type"),
+            @JsonSubTypes.Type(value = PrimitiveType.class, name = "primitive_type"),
+            @JsonSubTypes.Type(value = ScaledFloatType.class, name = "scaled_float_type"),
+    })
     public interface Type {}
 
     public record PrimitiveType(String name)

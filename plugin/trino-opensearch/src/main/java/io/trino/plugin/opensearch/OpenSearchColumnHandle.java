@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.opensearch;
 
+import io.trino.plugin.opensearch.client.IndexMetadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 
@@ -21,6 +22,7 @@ import static java.util.Objects.requireNonNull;
 public record OpenSearchColumnHandle(
         String name,
         Type type,
+        IndexMetadata.Type opensearchType,
         DecoderDescriptor decoderDescriptor,
         boolean supportsPredicates)
         implements ColumnHandle
@@ -29,6 +31,7 @@ public record OpenSearchColumnHandle(
     {
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
+        requireNonNull(opensearchType, "opensearchType is null");
         requireNonNull(decoderDescriptor, "decoderDescriptor is null");
     }
 
