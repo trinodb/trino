@@ -1,4 +1,9 @@
+const TerserPlugin = require("terser-webpack-plugin");
+
 module.exports = {
+    cache: {
+        type: 'filesystem',
+    },
     entry: {
         'index': __dirname +'/index.jsx',
         'query': __dirname +'/query.jsx',
@@ -25,5 +30,19 @@ module.exports = {
     output: {
         path: __dirname + '/../dist',
         filename: '[name].js'
+    },
+    optimization: {
+        minimize: true,
+        chunkIds: 'deterministic',
+        minimizer: [
+            new TerserPlugin({
+                terserOptions: {
+                    format: {
+                        comments: false,
+                    },
+                },
+                extractComments: false,
+            }),
+        ],
     }
 };
