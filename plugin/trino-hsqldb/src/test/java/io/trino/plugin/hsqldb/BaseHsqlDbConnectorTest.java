@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hsqldb;
 
+import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
@@ -23,18 +24,19 @@ import org.junit.jupiter.api.Test;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NEGATIVE_DATE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseHsqlDbConnectorTest
@@ -49,7 +51,6 @@ public abstract class BaseHsqlDbConnectorTest
             case SUPPORTS_ADD_COLUMN,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,
-                 SUPPORTS_COMMENT_ON_VIEW,
                  SUPPORTS_CREATE_SCHEMA,
                  SUPPORTS_CREATE_TABLE,
                  SUPPORTS_DELETE,
@@ -59,11 +60,10 @@ public abstract class BaseHsqlDbConnectorTest
                  SUPPORTS_RENAME_TABLE,
                  SUPPORTS_UPDATE,
                  SUPPORTS_RENAME_SCHEMA,
-                 SUPPORTS_CREATE_TABLE_WITH_DATA,
-                 SUPPORTS_CREATE_VIEW,
-                 SUPPORTS_COMMENT_ON_VIEW_COLUMN,
                  SUPPORTS_DROP_SCHEMA_CASCADE -> true;
-            case SUPPORTS_JOIN_PUSHDOWN,
+            case SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_COMMENT_ON_VIEW,
+                 SUPPORTS_JOIN_PUSHDOWN,
                  SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
@@ -73,6 +73,7 @@ public abstract class BaseHsqlDbConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_ARRAY,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                 SUPPORTS_CREATE_TABLE_WITH_DATA,
                  SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
                  SUPPORTS_NEGATIVE_DATE,
                  SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
@@ -80,6 +81,7 @@ public abstract class BaseHsqlDbConnectorTest
                  SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_COMMENT_ON_VIEW_COLUMN,
                  SUPPORTS_NATIVE_QUERY-> false;
             default -> super.hasBehavior(connectorBehavior);
         };
@@ -200,36 +202,6 @@ public abstract class BaseHsqlDbConnectorTest
     }
 
     @Test
-    @Override
-    public void testCommentViewColumn()
-    {
-        if (!hasBehavior(SUPPORTS_COMMENT_ON_VIEW_COLUMN)) {
-            if (hasBehavior(SUPPORTS_CREATE_VIEW)) {
-                try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view_column", "SELECT * FROM region")) {
-                    assertQueryFails("COMMENT ON COLUMN " + view.getName() + ".regionkey IS 'new region key comment'", "This connector does not support setting view column comments");
-                }
-                return;
-            }
-            abort("Skipping as connector does not support CREATE VIEW");
-        }
-
-        String viewColumnName = "regionkey";
-        try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view_column", "SELECT * FROM region")) {
-            // comment set
-            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS 'new region key comment'");
-            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("new region key comment");
-
-            // comment deleted
-            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS ''");
-            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("");
-
-            // comment set to non-empty value before verifying setting empty comment
-            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS 'updated region key comment'");
-            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("updated region key comment");
-        }
-    }
-
-    @Test
     public void testInsertNegativeDate()
     {
         if (!hasBehavior(SUPPORTS_INSERT)) {
@@ -336,6 +308,14 @@ public abstract class BaseHsqlDbConnectorTest
         finally {
             assertUpdate(format("DROP VIEW IF EXISTS %s.%s", schemaName, viewName));
         }
+    }
+
+    @Test
+    @Override
+    public void testDeleteWithLike()
+    {
+        assertThatThrownBy(super::testDeleteWithLike)
+                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
 }

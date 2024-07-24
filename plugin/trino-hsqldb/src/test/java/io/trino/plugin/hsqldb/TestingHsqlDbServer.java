@@ -29,6 +29,7 @@ public class TestingHsqlDbServer
     public static final String DEFAULT_VERSION = "2.7.3";
     public static final String LATEST_VERSION = "2.7.3";
     private static final String HSQLDB_ARCHIVE = "hsqldb-%s.jar";
+    private static final String HSQLDB_URL = "jdbc:hsqldb:hsql://%s:%s/";
     private static final String DOWNLOAD_LOCATION = "https://repo1.maven.org/maven2/org/hsqldb/hsqldb/%s/%s";
     private static final int HSQLDB_PORT = 9001;
     private static class HsqldbContainer
@@ -63,7 +64,7 @@ public class TestingHsqlDbServer
         container = new HsqldbContainer(image).withExposedPorts(HSQLDB_PORT);
         container.start();
         container.followOutput(new PrintingLogConsumer("HsqlDB"));
-        System.out.println("***************************************** Listening on port: " + container.getMappedPort(HSQLDB_PORT));
+        System.out.println("***************************************** Listening on : " + getJdbcUrl());
     }
 
     public void execute(String sql)
@@ -89,9 +90,7 @@ public class TestingHsqlDbServer
 
     public String getJdbcUrl()
     {
-        String url = String.format("jdbc:hsqldb:hsql://localhost:%s/", container.getMappedPort(HSQLDB_PORT));
-        System.out.println(url);
-        return url;
+        return String.format(HSQLDB_URL, container.getHost(), container.getMappedPort(HSQLDB_PORT));
     }
 
     @Override

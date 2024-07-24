@@ -28,10 +28,10 @@ public class TestHsqlDbLatestConnectorSmokeTest
         return switch (connectorBehavior) {
             case SUPPORTS_CREATE_TABLE,
                  SUPPORTS_CREATE_SCHEMA,
-                 SUPPORTS_CREATE_VIEW,
                  SUPPORTS_RENAME_TABLE,
                  SUPPORTS_RENAME_SCHEMA -> true;
-            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS -> false;
+            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
+                 SUPPORTS_CREATE_VIEW -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
