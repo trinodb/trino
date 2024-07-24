@@ -58,7 +58,7 @@ public class InternalHiveSplitFactory
     private final BooleanSupplier partitionMatchSupplier;
     private final Optional<BucketConversion> bucketConversion;
     private final Optional<HiveSplit.BucketValidation> bucketValidation;
-    private final long minimumTargetSplitSizeInBytes;
+    private final long maxSplitSizeInBytes;
     private final Optional<Long> maxSplitFileSize;
     private final boolean forceLocalScheduling;
 
@@ -72,7 +72,7 @@ public class InternalHiveSplitFactory
             Map<Integer, HiveTypeName> hiveColumnCoercions,
             Optional<BucketConversion> bucketConversion,
             Optional<HiveSplit.BucketValidation> bucketValidation,
-            DataSize minimumTargetSplitSize,
+            DataSize maxSplitSize,
             boolean forceLocalScheduling,
             Optional<Long> maxSplitFileSize)
     {
@@ -86,9 +86,9 @@ public class InternalHiveSplitFactory
         this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
         this.bucketValidation = requireNonNull(bucketValidation, "bucketValidation is null");
         this.forceLocalScheduling = forceLocalScheduling;
-        this.minimumTargetSplitSizeInBytes = minimumTargetSplitSize.toBytes();
+        this.maxSplitSizeInBytes = maxSplitSize.toBytes();
         this.maxSplitFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
-        checkArgument(minimumTargetSplitSizeInBytes > 0, "minimumTargetSplitSize must be > 0, found: %s", minimumTargetSplitSize);
+        checkArgument(this.maxSplitSizeInBytes > 0, "maxTargetSplitSize must be > 0, found: %s", maxSplitSize);
     }
 
     private static Map<String, String> stripUnnecessaryProperties(Map<String, String> schema)
@@ -108,7 +108,11 @@ public class InternalHiveSplitFactory
     public Optional<InternalHiveSplit> createInternalHiveSplit(TrinoFileStatus status, OptionalInt readBucketNumber, OptionalInt tableBucketNumber, boolean splittable, Optional<AcidInfo> acidInfo)
     {
         splittable = splittable &&
-                status.getLength() > minimumTargetSplitSizeInBytes &&
+                // For some input formats, the isSplittable check is non-trivial and can
+                // add a significant amount of time to split generation when handling a
+                // large number of very small files. If file is smaller or equal to the
+                // maxSplitSizeInBytes, then this check can be skipped.
+                status.getLength() > maxSplitSizeInBytes &&
                 storageFormat.isSplittable(status.getPath());
         return createInternalHiveSplit(
                 status.getPath(),

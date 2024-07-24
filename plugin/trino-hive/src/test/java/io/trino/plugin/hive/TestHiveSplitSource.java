@@ -35,7 +35,7 @@ import java.util.function.BooleanSupplier;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT;
-import static io.trino.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
+import static io.trino.plugin.hive.HiveSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.Math.toIntExact;
@@ -51,7 +51,6 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                10,
                 10,
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
@@ -88,7 +87,6 @@ public class TestHiveSplitSource
                 "database",
                 "table",
                 10,
-                10,
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
@@ -110,12 +108,11 @@ public class TestHiveSplitSource
     @Test
     public void testEvenlySizedSplitRemainder()
     {
-        DataSize initialSplitSize = getMaxInitialSplitSize(SESSION);
+        DataSize maxSplitSize = getMaxSplitSize(SESSION);
         HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
                 SESSION,
                 "database",
                 "table",
-                10,
                 10,
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
@@ -125,8 +122,8 @@ public class TestHiveSplitSource
                 new DefaultCachingHostAddressProvider(),
                 false);
 
-        // One byte larger than the initial split max size
-        DataSize fileSize = DataSize.ofBytes(initialSplitSize.toBytes() + 1);
+        // One byte larger than the max split size
+        DataSize fileSize = DataSize.ofBytes(maxSplitSize.toBytes() + 1);
         long halfOfSize = fileSize.toBytes() / 2;
         hiveSplitSource.addToQueue(new TestSplit(1, OptionalInt.empty(), fileSize));
 
@@ -144,7 +141,6 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                10,
                 10,
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
@@ -196,7 +192,6 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                10,
                 10,
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
@@ -252,7 +247,6 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                10,
                 10000,
                 maxOutstandingSplitsSize,
                 Integer.MAX_VALUE,

@@ -50,7 +50,6 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
-import static io.trino.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getMinimumAssignedSplitWeight;
 import static io.trino.plugin.hive.HiveSessionProperties.isSizeBasedSplitWeightsEnabled;
@@ -73,9 +72,7 @@ class HiveSplitSource
     private final AtomicInteger bufferedInternalSplitCount = new AtomicInteger();
     private final long maxOutstandingSplitsBytes;
 
-    private final DataSize maxSplitSize;
-    private final DataSize maxInitialSplitSize;
-    private final AtomicInteger remainingInitialSplits;
+    private final long maxSplitBytes;
 
     private final HiveSplitLoader splitLoader;
     private final AtomicReference<State> stateReference;
@@ -95,7 +92,6 @@ class HiveSplitSource
             String databaseName,
             String tableName,
             PerBucket queues,
-            int maxInitialSplits,
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
             AtomicReference<State> stateReference,
@@ -113,10 +109,8 @@ class HiveSplitSource
         this.stateReference = requireNonNull(stateReference, "stateReference is null");
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
 
-        this.maxSplitSize = getMaxSplitSize(session);
-        this.maxInitialSplitSize = getMaxInitialSplitSize(session);
-        this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
-        this.splitWeightProvider = isSizeBasedSplitWeightsEnabled(session) ? new SizeBasedSplitWeightProvider(getMinimumAssignedSplitWeight(session), maxSplitSize) : HiveSplitWeightProvider.uniformStandardWeightProvider();
+        this.maxSplitBytes = getMaxSplitSize(session).toBytes();
+        this.splitWeightProvider = isSizeBasedSplitWeightsEnabled(session) ? new SizeBasedSplitWeightProvider(getMinimumAssignedSplitWeight(session), getMaxSplitSize(session)) : HiveSplitWeightProvider.uniformStandardWeightProvider();
         this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
         this.recordScannedFiles = recordScannedFiles;
     }
@@ -125,7 +119,6 @@ class HiveSplitSource
             ConnectorSession session,
             String databaseName,
             String tableName,
-            int maxInitialSplits,
             int maxOutstandingSplits,
             DataSize maxOutstandingSplitsSize,
             int maxSplitsPerSecond,
@@ -168,7 +161,6 @@ class HiveSplitSource
                         return queue.isFinished();
                     }
                 },
-                maxInitialSplits,
                 maxOutstandingSplitsSize,
                 splitLoader,
                 stateReference,
@@ -277,12 +269,6 @@ class HiveSplitSource
                     continue;
                 }
 
-                long maxSplitBytes = maxSplitSize.toBytes();
-                if (remainingInitialSplits.get() > 0) {
-                    if (remainingInitialSplits.getAndDecrement() > 0) {
-                        maxSplitBytes = maxInitialSplitSize.toBytes();
-                    }
-                }
                 InternalHiveBlock block = internalSplit.currentBlock();
                 long splitBytes;
                 if (internalSplit.isSplittable()) {

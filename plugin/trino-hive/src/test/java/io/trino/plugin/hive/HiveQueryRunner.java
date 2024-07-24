@@ -241,7 +241,6 @@ public final class HiveQueryRunner
                 if (tpchBucketedCatalogEnabled) {
                     Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
                             .putAll(hiveProperties)
-                            .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
                             .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
                             .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
                             .buildOrThrow();

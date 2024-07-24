@@ -63,6 +63,8 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.s3select-pushdown.enabled",
         "hive.s3select-pushdown.experimental-textfile-pushdown-enabled",
         "hive.s3select-pushdown.max-connections",
+        "hive.max-initial-splits",
+        "hive.max-initial-split-size"
 })
 public class HiveConfig
 {
@@ -78,10 +80,8 @@ public class HiveConfig
     private int maxSplitIteratorThreads = 1_000;
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
-    private int maxInitialSplits = 200;
     private int splitLoaderConcurrency = 64;
     private Integer maxSplitsPerSecond;
-    private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 1000;
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
@@ -186,33 +186,6 @@ public class HiveConfig
     public HiveConfig setSingleStatementWritesOnly(boolean singleStatementWritesOnly)
     {
         this.singleStatementWritesOnly = singleStatementWritesOnly;
-        return this;
-    }
-
-    public int getMaxInitialSplits()
-    {
-        return maxInitialSplits;
-    }
-
-    @Config("hive.max-initial-splits")
-    public HiveConfig setMaxInitialSplits(int maxInitialSplits)
-    {
-        this.maxInitialSplits = maxInitialSplits;
-        return this;
-    }
-
-    public DataSize getMaxInitialSplitSize()
-    {
-        if (maxInitialSplitSize == null) {
-            return DataSize.ofBytes(maxSplitSize.toBytes() / 2).to(maxSplitSize.getUnit());
-        }
-        return maxInitialSplitSize;
-    }
-
-    @Config("hive.max-initial-split-size")
-    public HiveConfig setMaxInitialSplitSize(DataSize maxInitialSplitSize)
-    {
-        this.maxInitialSplitSize = maxInitialSplitSize;
         return this;
     }
 

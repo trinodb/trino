@@ -1293,16 +1293,6 @@ cause instability and performance degradation.
     be used to reduce the load on the storage system. By default, there is no
     limit, which results in Trino maximizing the parallelization of data access.
   -
-* - `hive.max-initial-splits`
-  - For each table scan, the coordinator first assigns file sections of up to
-    `max-initial-split-size`. After `max-initial-splits` have been assigned,
-    `max-split-size` is used for the remaining splits.
-  - `200`
-* - `hive.max-initial-split-size`
-  - The size of a single file section assigned to a worker until
-    `max-initial-splits` have been assigned. Smaller splits results in more
-    parallelism, which gives a boost to smaller queries.
-  - `32 MB`
 * - `hive.max-split-size`
   - The largest size of a single file section assigned to a worker. Smaller
         splits result in more parallelism and thus can decrease latency, but

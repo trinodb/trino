@@ -167,8 +167,8 @@ public class TestBackgroundHiveSplitLoader
             throws Exception
     {
         FileEntry file = new FileEntry(LOCATION, DataSize.of(2, GIGABYTE).toBytes(), Instant.now(), Optional.empty());
-        assertCsvSplitCount(file, Map.of(), 33);
-        assertCsvSplitCount(file, Map.of(HEADER_COUNT, "1"), 33);
+        assertCsvSplitCount(file, Map.of(), 32);
+        assertCsvSplitCount(file, Map.of(HEADER_COUNT, "1"), 32);
         assertCsvSplitCount(file, Map.of(HEADER_COUNT, "2"), 1);
         assertCsvSplitCount(file, Map.of(FOOTER_COUNT, "1"), 1);
         assertCsvSplitCount(file, Map.of(HEADER_COUNT, "1", FOOTER_COUNT, "1"), 1);
@@ -517,7 +517,7 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
-        assertThat(drainSplits(hiveSplitSource).size()).isEqualTo(17);
+        assertThat(drainSplits(hiveSplitSource).size()).isEqualTo(16);
     }
 
     @Test
@@ -1279,7 +1279,6 @@ public class TestBackgroundHiveSplitLoader
                 SESSION,
                 SIMPLE_TABLE.getDatabaseName(),
                 SIMPLE_TABLE.getTableName(),
-                1,
                 1,
                 DataSize.of(32, MEGABYTE),
                 Integer.MAX_VALUE,
