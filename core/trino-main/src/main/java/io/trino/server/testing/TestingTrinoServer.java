@@ -137,6 +137,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -276,7 +277,8 @@ public class TestingTrinoServer
 
         if (coordinator) {
             if (catalogMangerKind == CatalogMangerKind.DYNAMIC) {
-                serverProperties.put("catalog.store", "memory");
+                Optional<String> catalogStore = Optional.ofNullable(properties.get("catalog.store"));
+                verify(catalogStore.isPresent(), "catalog.store must be set when dynamic catalogs are used");
             }
             serverProperties.put("failure-detector.enabled", "false");
 
