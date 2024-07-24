@@ -74,7 +74,4 @@ FROM orders
 
 ## See also
 
-* [](/sql/alter-view)
-* [](/sql/drop-view)
-* [](/sql/show-create-view)
-* [](/sql/show-tables)
+{doc}`drop-view`, {doc}`show-create-view`

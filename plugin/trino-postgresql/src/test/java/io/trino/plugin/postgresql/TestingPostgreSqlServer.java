@@ -77,12 +77,7 @@ public class TestingPostgreSqlServer
     public TestingPostgreSqlServer(boolean shouldExposeFixedPorts)
     {
         // Use the oldest supported PostgreSQL version
-        this("postgres:11", shouldExposeFixedPorts);
-    }
-
-    public TestingPostgreSqlServer(String dockerImageName, boolean shouldExposeFixedPorts)
-    {
-        dockerContainer = new PostgreSQLContainer<>(dockerImageName)
+        dockerContainer = new PostgreSQLContainer<>("postgres:11")
                 .withStartupAttempts(3)
                 .withDatabaseName(DATABASE)
                 .withUsername(USER)

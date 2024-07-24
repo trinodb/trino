@@ -28,7 +28,6 @@ import io.trino.execution.TaskId;
 import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
-import io.trino.spi.metrics.Metrics;
 import org.joda.time.DateTime;
 
 import java.util.Iterator;
@@ -104,8 +103,6 @@ public class PipelineContext
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
     private final ConcurrentMap<Integer, OperatorStats> operatorSummaries = new ConcurrentHashMap<>();
-    // pre-merged metrics which are shared among instances of given operator within pipeline
-    private final ConcurrentMap<Integer, Metrics> pipelineOperatorMetrics = new ConcurrentHashMap<>();
 
     private final MemoryTrackingContext pipelineMemoryContext;
 
@@ -182,11 +179,6 @@ public class PipelineContext
         }
     }
 
-    public void setPipelineOperatorMetrics(int operatorId, Metrics metrics)
-    {
-        pipelineOperatorMetrics.put(operatorId, metrics);
-    }
-
     public void driverFinished(DriverContext driverContext)
     {
         requireNonNull(driverContext, "driverContext is null");
@@ -216,8 +208,7 @@ public class PipelineContext
         // merge the operator stats into the operator summary
         List<OperatorStats> operators = driverStats.getOperatorStats();
         for (OperatorStats operator : operators) {
-            Metrics pipelineLevelMetrics = pipelineOperatorMetrics.getOrDefault(operator.getOperatorId(), Metrics.EMPTY);
-            operatorSummaries.merge(operator.getOperatorId(), operator, (first, second) -> first.addFillingPipelineMetrics(second, pipelineLevelMetrics));
+            operatorSummaries.merge(operator.getOperatorId(), operator, OperatorStats::add);
         }
 
         physicalInputDataSize.update(driverStats.getPhysicalInputDataSize().toBytes());
@@ -467,17 +458,13 @@ public class PipelineContext
             if (runningStats.isEmpty()) {
                 return current;
             }
-            Metrics pipelineLevelMetrics = pipelineOperatorMetrics.getOrDefault(operatorId, Metrics.EMPTY);
             if (current != null) {
-                return current.addFillingPipelineMetrics(runningStats, pipelineLevelMetrics);
+                return current.add(runningStats);
             }
             else {
                 OperatorStats combined = runningStats.get(0);
                 if (runningStats.size() > 1) {
-                    combined = combined.addFillingPipelineMetrics(runningStats.subList(1, runningStats.size()), pipelineLevelMetrics);
-                }
-                else if (pipelineLevelMetrics != Metrics.EMPTY) {
-                    combined = combined.withPipelineMetrics(pipelineLevelMetrics);
+                    combined = combined.add(runningStats.subList(1, runningStats.size()));
                 }
                 return combined;
             }

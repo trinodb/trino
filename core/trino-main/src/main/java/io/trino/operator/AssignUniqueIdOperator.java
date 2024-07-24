@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import io.trino.execution.TaskId;
+import io.trino.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -25,9 +26,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.trino.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static io.trino.operator.WorkProcessor.TransformationState.finished;
 import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
-import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
@@ -43,7 +44,7 @@ public class AssignUniqueIdOperator
     }
 
     private static class Factory
-            implements WorkProcessorOperatorFactory
+            implements BasicAdapterWorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;

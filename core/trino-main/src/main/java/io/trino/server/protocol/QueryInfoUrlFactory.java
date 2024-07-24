@@ -14,9 +14,9 @@
 package io.trino.server.protocol;
 
 import com.google.inject.Inject;
-import io.trino.server.ExternalUriInfo;
 import io.trino.server.ServerConfig;
 import io.trino.spi.QueryId;
+import jakarta.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -49,11 +49,11 @@ public class QueryInfoUrlFactory
                 .map(URI::create);
     }
 
-    public static URI getQueryInfoUri(Optional<URI> queryInfoUrl, QueryId queryId, ExternalUriInfo externalUriInfo)
+    public static URI getQueryInfoUri(Optional<URI> queryInfoUrl, QueryId queryId, UriInfo uriInfo)
     {
         return queryInfoUrl.orElseGet(() ->
-                externalUriInfo.baseUriBuilder()
-                        .path("ui/query.html")
+                uriInfo.getRequestUriBuilder()
+                        .replacePath("ui/query.html")
                         .replaceQuery(queryId.toString())
                         .build());
     }

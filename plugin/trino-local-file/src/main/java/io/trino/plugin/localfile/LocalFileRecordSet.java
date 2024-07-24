@@ -43,13 +43,13 @@ public class LocalFileRecordSet
 
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (LocalFileColumnHandle column : columns) {
-            types.add(column.columnType());
+            types.add(column.getColumnType());
         }
         this.columnTypes = types.build();
         this.address = Iterables.getOnlyElement(split.getAddresses());
-        this.effectivePredicate = table.constraint()
+        this.effectivePredicate = table.getConstraint()
                 .transformKeys(LocalFileColumnHandle.class::cast);
-        this.tableName = table.schemaTableName();
+        this.tableName = table.getSchemaTableName();
 
         this.localFileTables = requireNonNull(localFileTables, "localFileTables is null");
     }

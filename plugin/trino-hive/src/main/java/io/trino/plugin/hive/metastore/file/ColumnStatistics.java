@@ -14,8 +14,8 @@
 package io.trino.plugin.hive.metastore.file;
 
 import com.google.errorprone.annotations.Immutable;
-import io.trino.metastore.HiveBasicStatistics;
-import io.trino.metastore.HiveColumnStatistics;
+import io.trino.plugin.hive.HiveBasicStatistics;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -89,11 +89,11 @@ public record ColumnStatistics(
             }
         }
         return new HiveColumnStatistics(
-                integerStatistics.map(stat -> new io.trino.metastore.IntegerStatistics(stat.min(), stat.max())),
-                doubleStatistics.map(stat -> new io.trino.metastore.DoubleStatistics(stat.min(), stat.max())),
-                decimalStatistics.map(stat -> new io.trino.metastore.DecimalStatistics(stat.min(), stat.max())),
-                dateStatistics.map(stat -> new io.trino.metastore.DateStatistics(stat.min(), stat.max())),
-                booleanStatistics.map(stat -> new io.trino.metastore.BooleanStatistics(stat.trueCount(), stat.falseCount())),
+                integerStatistics.map(stat -> new io.trino.plugin.hive.metastore.IntegerStatistics(stat.min(), stat.max())),
+                doubleStatistics.map(stat -> new io.trino.plugin.hive.metastore.DoubleStatistics(stat.min(), stat.max())),
+                decimalStatistics.map(stat -> new io.trino.plugin.hive.metastore.DecimalStatistics(stat.min(), stat.max())),
+                dateStatistics.map(stat -> new io.trino.plugin.hive.metastore.DateStatistics(stat.min(), stat.max())),
+                booleanStatistics.map(stat -> new io.trino.plugin.hive.metastore.BooleanStatistics(stat.trueCount(), stat.falseCount())),
                 maxValueSizeInBytes,
                 averageColumnLength,
                 nullsCount,

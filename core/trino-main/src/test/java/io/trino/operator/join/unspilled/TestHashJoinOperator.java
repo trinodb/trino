@@ -36,7 +36,6 @@ import io.trino.operator.ProcessorContext;
 import io.trino.operator.TaskContext;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessorOperator;
-import io.trino.operator.WorkProcessorOperatorAdapter;
 import io.trino.operator.WorkProcessorOperatorFactory;
 import io.trino.operator.join.InternalJoinFilterFunction;
 import io.trino.operator.join.JoinBridgeManager;
@@ -1554,8 +1553,7 @@ public class TestHashJoinOperator
         List<Type> probeTypes = ImmutableList.of(VARCHAR, INTEGER, INTEGER);
         RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), probeTypes);
         probePages.row("a", 1L, 2L);
-        WorkProcessorOperatorFactory joinOperatorFactory = ((WorkProcessorOperatorAdapter.Factory) innerJoinOperatorFactory(lookupSourceFactory, probePages, false))
-                .getWorkProcessorOperatorFactory();
+        WorkProcessorOperatorFactory joinOperatorFactory = (WorkProcessorOperatorFactory) innerJoinOperatorFactory(lookupSourceFactory, probePages, false);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);

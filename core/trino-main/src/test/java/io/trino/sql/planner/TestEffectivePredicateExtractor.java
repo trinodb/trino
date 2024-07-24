@@ -532,8 +532,8 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Symbol(BIGINT, "a")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1))),
-                                new Row(ImmutableList.of(bigintLiteral(3)))))
-        )).isEqualTo(new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(3))));
+                                new Row(ImmutableList.of(bigintLiteral(2)))))
+        )).isEqualTo(new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(2))));
 
         // one column with null
         assertThat(effectivePredicateExtractor.extract(
@@ -543,11 +543,11 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Symbol(BIGINT, "a")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1))),
-                                new Row(ImmutableList.of(bigintLiteral(3))),
+                                new Row(ImmutableList.of(bigintLiteral(2))),
                                 new Row(ImmutableList.of(new Constant(BIGINT, null)))))))
                 .isEqualTo(or(
                         new IsNull(new Reference(BIGINT, "a")),
-                        new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(3)))));
+                        new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(2)))));
 
         // all nulls
         assertThat(effectivePredicateExtractor.extract(
@@ -629,9 +629,9 @@ public class TestEffectivePredicateExtractor
                         ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b")),
                         ImmutableList.of(
                                 new Row(ImmutableList.of(bigintLiteral(1), bigintLiteral(100))),
-                                new Row(ImmutableList.of(bigintLiteral(3), bigintLiteral(200)))))))
+                                new Row(ImmutableList.of(bigintLiteral(2), bigintLiteral(200)))))))
                 .isEqualTo(and(
-                        new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(3))),
+                        new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(2))),
                         new In(new Reference(BIGINT, "b"), ImmutableList.of(bigintLiteral(100), bigintLiteral(200)))));
 
         // multiple columns with null

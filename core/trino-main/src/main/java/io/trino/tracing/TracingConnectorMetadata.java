@@ -800,6 +800,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        Span span = startSpan("finishMerge", tableHandle.getTableHandle());
+        try (var _ = scopedSpan(span)) {
+            delegate.finishMerge(session, tableHandle, fragments, computedStatistics);
+        }
+    }
+
+    @Override
     public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         Span span = startSpan("finishMerge", tableHandle.getTableHandle());

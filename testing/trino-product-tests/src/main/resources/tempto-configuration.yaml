@@ -191,14 +191,6 @@ databases:
       jdbc_user: hive
       jdbc_password: na
 
-  exasol:
-    jdbc_driver_class: com.exasol.jdbc.EXADriver
-    jdbc_url: jdbc:exa:exasol:8563;validateservercertificate=0
-    jdbc_user: sys
-    jdbc_password: exasol
-    jdbc_pooling: true
-    table_manager_type: jdbc
-
 tests:
   hdfs:
     path: /tmp/product-test

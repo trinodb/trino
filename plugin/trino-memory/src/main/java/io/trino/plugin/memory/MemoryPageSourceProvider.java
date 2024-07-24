@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.memory;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.plugin.base.metrics.LongCount;
@@ -30,7 +29,6 @@ import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeUtils;
 
 import java.util.List;
@@ -71,20 +69,15 @@ public final class MemoryPageSourceProvider
         MemoryTableHandle memoryTable = (MemoryTableHandle) table;
         OptionalDouble sampleRatio = memoryTable.sampleRatio();
 
-        int[] columnIndexes = new int[columns.size()];
-        ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
-        for (int i = 0; i < columns.size(); i++) {
-            MemoryColumnHandle column = (MemoryColumnHandle) columns.get(i);
-            columnIndexes[i] = column.columnIndex();
-            columnTypes.add(column.type());
-        }
-
+        int[] columnIndexes = columns.stream()
+                .map(MemoryColumnHandle.class::cast)
+                .mapToInt(MemoryColumnHandle::columnIndex)
+                .toArray();
         List<Page> pages = pagesStore.getPages(
                 tableId,
                 partNumber,
                 totalParts,
                 columnIndexes,
-                columnTypes.build(),
                 expectedRows,
                 memorySplit.limit(),
                 sampleRatio);

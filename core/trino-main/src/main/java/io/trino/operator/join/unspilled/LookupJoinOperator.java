@@ -14,11 +14,13 @@
 package io.trino.operator.join.unspilled;
 
 import com.google.common.io.Closer;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.OperatorInfo;
+import io.trino.operator.PageBuffer;
 import io.trino.operator.ProcessorContext;
 import io.trino.operator.WorkProcessor;
-import io.trino.operator.WorkProcessorOperator;
+import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
 import io.trino.operator.join.JoinStatisticsCounter;
 import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
 import io.trino.operator.join.LookupSource;
@@ -30,8 +32,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.trino.operator.WorkProcessor.flatten;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -39,13 +41,17 @@ import static java.util.Objects.requireNonNull;
  * without spill support.
  */
 public class LookupJoinOperator
-        implements WorkProcessorOperator
+        implements AdapterWorkProcessorOperator
 {
     private final ListenableFuture<LookupSource> lookupSourceFuture;
+    private final boolean waitForBuild;
+    private final PageBuffer pageBuffer;
     private final WorkProcessor<Page> pages;
     private final JoinStatisticsCounter statisticsCounter;
+
     private final Runnable afterClose;
     private final PageJoiner sourcePagesJoiner;
+    private final WorkProcessor<Page> joinedSourcePages;
 
     private boolean closed;
 
@@ -58,10 +64,12 @@ public class LookupJoinOperator
             JoinProbeFactory joinProbeFactory,
             Runnable afterClose,
             ProcessorContext processorContext,
-            WorkProcessor<Page> sourcePages)
+            Optional<WorkProcessor<Page>> sourcePages)
     {
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
+        this.waitForBuild = waitForBuild;
         lookupSourceFuture = lookupSourceFactory.createLookupSource();
+        pageBuffer = new PageBuffer();
         this.afterClose = requireNonNull(afterClose, "afterClose is null");
         sourcePagesJoiner = new PageJoiner(
                 processorContext,
@@ -71,12 +79,33 @@ public class LookupJoinOperator
                 joinProbeFactory,
                 lookupSourceFuture,
                 statisticsCounter);
-        WorkProcessor<Page> pages = sourcePages.transform(sourcePagesJoiner);
-        if (waitForBuild) {
-            // wait for build side before fetching any probe pages
-            pages = pages.blocking(() -> transform(lookupSourceFuture, ignored -> null, directExecutor()));
-        }
-        this.pages = pages;
+        joinedSourcePages = sourcePages.orElse(pageBuffer.pages()).transform(sourcePagesJoiner);
+
+        pages = flatten(WorkProcessor.create(this::process));
+    }
+
+    @Override
+    public Optional<OperatorInfo> getOperatorInfo()
+    {
+        return Optional.of(statisticsCounter.get());
+    }
+
+    @Override
+    public boolean needsInput()
+    {
+        return (!waitForBuild || lookupSourceFuture.isDone()) && pageBuffer.isEmpty() && !pageBuffer.isFinished();
+    }
+
+    @Override
+    public void addInput(Page page)
+    {
+        pageBuffer.add(page);
+    }
+
+    @Override
+    public void finish()
+    {
+        pageBuffer.finish();
     }
 
     @Override
@@ -85,10 +114,25 @@ public class LookupJoinOperator
         return pages;
     }
 
-    @Override
-    public Optional<OperatorInfo> getOperatorInfo()
+    public WorkProcessor.ProcessState<WorkProcessor<Page>> process()
     {
-        return Optional.of(statisticsCounter.get());
+        // wait for build side to be completed before fetching any probe data
+        // TODO: fix support for probe short-circuit: https://github.com/trinodb/trino/issues/3957
+        if (waitForBuild && !lookupSourceFuture.isDone()) {
+            return WorkProcessor.ProcessState.blocked(asVoid(lookupSourceFuture));
+        }
+
+        if (!joinedSourcePages.isFinished()) {
+            return WorkProcessor.ProcessState.ofResult(joinedSourcePages);
+        }
+
+        close();
+        return WorkProcessor.ProcessState.finished();
+    }
+
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
+    {
+        return Futures.transform(future, v -> null, directExecutor());
     }
 
     @Override

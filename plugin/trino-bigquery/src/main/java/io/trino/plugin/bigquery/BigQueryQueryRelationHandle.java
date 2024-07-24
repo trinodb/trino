@@ -19,21 +19,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class BigQueryQueryRelationHandle
         extends BigQueryRelationHandle
 {
     private final String query;
-    private final RemoteTableName destinationTableName;
-    private final boolean useStorageApi;
 
     @JsonCreator
-    public BigQueryQueryRelationHandle(String query, RemoteTableName destinationTableName, boolean useStorageApi)
+    public BigQueryQueryRelationHandle(String query)
     {
         this.query = query;
-        this.destinationTableName = requireNonNull(destinationTableName, "destinationTableName is null");
-        this.useStorageApi = useStorageApi;
     }
 
     @JsonProperty
@@ -42,22 +37,10 @@ public class BigQueryQueryRelationHandle
         return query;
     }
 
-    @JsonProperty
-    public RemoteTableName getDestinationTableName()
-    {
-        return destinationTableName;
-    }
-
-    @JsonProperty
-    public boolean isUseStorageApi()
-    {
-        return useStorageApi;
-    }
-
     @Override
     public String toString()
     {
-        return format("Query[%s], Destination table[%s], Api[%s]", query, destinationTableName, useStorageApi ? "Storage" : "Rest");
+        return format("Query[%s]", query);
     }
 
     @Override
@@ -70,14 +53,12 @@ public class BigQueryQueryRelationHandle
             return false;
         }
         BigQueryQueryRelationHandle that = (BigQueryQueryRelationHandle) o;
-        return query.equals(that.query)
-                && destinationTableName.equals(that.destinationTableName)
-                && useStorageApi == that.useStorageApi;
+        return query.equals(that.query);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(query, destinationTableName, useStorageApi);
+        return Objects.hash(query);
     }
 }

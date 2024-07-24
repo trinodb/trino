@@ -430,13 +430,6 @@ public class CachingJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session)
-            throws SQLException
-    {
-        return delegate.getConnection(session);
-    }
-
-    @Override
     public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException
     {

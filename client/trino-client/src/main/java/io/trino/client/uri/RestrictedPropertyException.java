@@ -13,8 +13,10 @@
  */
 package io.trino.client.uri;
 
+import java.sql.SQLException;
+
 public class RestrictedPropertyException
-        extends RuntimeException
+        extends SQLException
 {
     private final PropertyName name;
 

@@ -68,7 +68,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.spi.ErrorType.USER_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.SqlFormatter.formatSql;
@@ -454,9 +453,6 @@ public class LanguageFunctionManager
                 catch (TrinoException e) {
                     if (originalAst() || (e instanceof LanguageFunctionAnalysisException)) {
                         throw e;
-                    }
-                    if (e.getErrorCode().getType() == USER_ERROR) {
-                        throw new TrinoException(e::getErrorCode, e.getRawMessage(), e);
                     }
                     throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Error analyzing stored function: " + nameSignature(), e);
                 }

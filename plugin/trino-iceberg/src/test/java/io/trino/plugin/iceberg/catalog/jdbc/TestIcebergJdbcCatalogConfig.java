@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg.catalog.jdbc;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.iceberg.catalog.jdbc.IcebergJdbcCatalogConfig.SchemaVersion;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -34,8 +33,7 @@ public class TestIcebergJdbcCatalogConfig
                 .setConnectionUser(null)
                 .setConnectionPassword(null)
                 .setCatalogName(null)
-                .setDefaultWarehouseDir(null)
-                .setSchemaVersion(SchemaVersion.V1));
+                .setDefaultWarehouseDir(null));
     }
 
     @Test
@@ -48,7 +46,6 @@ public class TestIcebergJdbcCatalogConfig
                 .put("iceberg.jdbc-catalog.connection-password", "bar")
                 .put("iceberg.jdbc-catalog.catalog-name", "test")
                 .put("iceberg.jdbc-catalog.default-warehouse-dir", "s3://bucket")
-                .put("iceberg.jdbc-catalog.schema-version", "V0")
                 .buildOrThrow();
 
         IcebergJdbcCatalogConfig expected = new IcebergJdbcCatalogConfig()
@@ -57,8 +54,7 @@ public class TestIcebergJdbcCatalogConfig
                 .setConnectionUser("foo")
                 .setConnectionPassword("bar")
                 .setCatalogName("test")
-                .setDefaultWarehouseDir("s3://bucket")
-                .setSchemaVersion(SchemaVersion.V0);
+                .setDefaultWarehouseDir("s3://bucket");
 
         assertFullMapping(properties, expected);
     }

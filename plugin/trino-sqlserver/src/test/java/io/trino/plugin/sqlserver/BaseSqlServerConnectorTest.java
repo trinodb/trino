@@ -838,47 +838,6 @@ public abstract class BaseSqlServerConnectorTest
         }
     }
 
-    @Test
-    void testInvalidTable()
-    {
-        String tableName = "sqlserver.dbo.bogus";
-        assertQueryFails("SELECT * FROM " + tableName, ".* Table '%s' does not exist".formatted(tableName));
-    }
-
-    @Test
-    void testInvalidSchema()
-    {
-        assertQueryFails(
-                "SELECT * FROM sqlserver.does_not_exist.bogus",
-                ".* Schema 'does_not_exist' does not exist");
-    }
-
-    @Test
-    void testNationJoinRegion()
-    {
-        assertQuery(
-                "SELECT c.name, t.name FROM nation c JOIN " +
-                        "tpch.tiny.region t ON c.regionkey = t.regionkey " +
-                        "WHERE c.nationkey = 3",
-                "VALUES ('CANADA', 'AMERICA')");
-    }
-
-    @Test
-    void testNationSelfInnerJoin()
-    {
-        assertQuery(
-                "SELECT n1.name, n2.regionkey FROM nation n1 JOIN " +
-                        "nation n2 ON n1.nationkey = n2.regionkey " +
-                        "WHERE n1.nationkey = 3",
-                "VALUES ('CANADA', 3), ('CANADA', 3), ('CANADA', 3), ('CANADA', 3), ('CANADA', 3)");
-    }
-
-    @Test
-    void testInvalidColumn()
-    {
-        assertQueryFails("SELECT bogus FROM nation", ".* Column 'bogus' cannot be resolved");
-    }
-
     private TestProcedure createTestingProcedure(String baseQuery)
     {
         return createTestingProcedure("", baseQuery);

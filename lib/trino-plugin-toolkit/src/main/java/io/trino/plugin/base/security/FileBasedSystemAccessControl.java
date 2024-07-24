@@ -14,7 +14,6 @@
 package io.trino.plugin.base.security;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
@@ -26,7 +25,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
-import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.connector.EntityPrivilege;
 import io.trino.spi.connector.SchemaTableName;
@@ -50,7 +48,6 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
@@ -1090,31 +1087,6 @@ public class FileBasedSystemAccessControl
         }
 
         return masks.stream().findFirst();
-    }
-
-    @Override
-    public Map<ColumnSchema, ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName table, List<ColumnSchema> columns)
-    {
-        SchemaTableName tableName = table.getSchemaTableName();
-        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
-            return ImmutableMap.of();
-        }
-
-        Identity identity = context.getIdentity();
-        try {
-            return columns.stream()
-                    .flatMap(columnSchema -> tableRules.stream()
-                            .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
-                            .map(rule -> rule.getColumnMask(table.getCatalogName(), tableName.getSchemaName(), columnSchema.getName()))
-                            .findFirst()
-                            .stream()
-                            .flatMap(Optional::stream)
-                            .map(viewExpression -> Map.entry(columnSchema, viewExpression)))
-                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-        }
-        catch (IllegalArgumentException exception) {
-            throw new TrinoException(INVALID_COLUMN_MASK, "Multiple column masks defined for the same column", exception);
-        }
     }
 
     private boolean checkAnyCatalogAccess(SystemSecurityContext context, String catalogName)

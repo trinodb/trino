@@ -22,13 +22,13 @@ yarn --cwd ${WEBUI_ROOT}/src/ install
 
 if ! diff -u ${WEBUI_ROOT}/src/yarn.lock yarn.lock; then
     echo "Generated lockfile did not match checked-in version"
-    echo "Refer to the DEVELOPMENT.md for instructions"
+    echo "Refer to the root README.md for instructions"
     exit 1
 fi
 
 if ! diff -u ${WEBUI_ROOT}/dist dist; then
     echo "ERROR: Generated dist folder did not match checked-in version"
-    echo "Refer to the DEVELOPMENT.md for instructions on generating Web UI"
+    echo "Refer to the root README.md for instructions on generating Web UI"
     exit 1
 fi
 

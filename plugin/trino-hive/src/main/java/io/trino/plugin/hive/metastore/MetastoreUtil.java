@@ -25,15 +25,7 @@ import io.airlift.compress.zstd.ZstdCompressor;
 import io.airlift.slice.Slice;
 import io.trino.hive.thrift.metastore.ResourceType;
 import io.trino.hive.thrift.metastore.ResourceUri;
-import io.trino.metastore.Column;
-import io.trino.metastore.HiveBasicStatistics;
-import io.trino.metastore.HiveMetastore;
-import io.trino.metastore.HivePrincipal;
-import io.trino.metastore.HivePrivilegeInfo;
-import io.trino.metastore.Partition;
-import io.trino.metastore.PrincipalPrivileges;
-import io.trino.metastore.Storage;
-import io.trino.metastore.Table;
+import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.PartitionOfflineException;
 import io.trino.plugin.hive.TableOfflineException;
@@ -512,6 +504,12 @@ public final class MetastoreUtil
         statistics.getRowCount().ifPresent(count -> result.put(NUM_ROWS, Long.toString(count)));
         statistics.getInMemoryDataSizeInBytes().ifPresent(size -> result.put(RAW_DATA_SIZE, Long.toString(size)));
         statistics.getOnDiskDataSizeInBytes().ifPresent(size -> result.put(TOTAL_SIZE, Long.toString(size)));
+
+        // CDH 5.16 metastore ignores stats unless STATS_GENERATED_VIA_STATS_TASK is set
+        // https://github.com/cloudera/hive/blob/cdh5.16.2-release/metastore/src/java/org/apache/hadoop/hive/metastore/MetaStoreUtils.java#L227-L231
+        if (!parameters.containsKey("STATS_GENERATED_VIA_STATS_TASK")) {
+            result.put("STATS_GENERATED_VIA_STATS_TASK", "workaround for potential lack of HIVE-12730");
+        }
 
         return result.buildOrThrow();
     }

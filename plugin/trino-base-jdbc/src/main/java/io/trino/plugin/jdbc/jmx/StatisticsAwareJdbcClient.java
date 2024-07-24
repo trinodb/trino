@@ -390,13 +390,6 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session)
-            throws SQLException
-    {
-        return stats.getGetConnectionWithHandle().wrap(() -> delegate().getConnection(session));
-    }
-
-    @Override
     public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException
     {

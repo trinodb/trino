@@ -13,7 +13,6 @@
  */
 package io.trino.client;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
@@ -21,7 +20,6 @@ import io.airlift.units.Duration;
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
 import java.time.ZoneId;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -45,7 +43,7 @@ public class ClientSession
     private final String clientInfo;
     private final Optional<String> catalog;
     private final Optional<String> schema;
-    private final List<String> path;
+    private final String path;
     private final ZoneId timeZone;
     private final Locale locale;
     private final Map<String, String> resourceEstimates;
@@ -85,7 +83,7 @@ public class ClientSession
             String clientInfo,
             Optional<String> catalog,
             Optional<String> schema,
-            List<String> path,
+            String path,
             ZoneId timeZone,
             Locale locale,
             Map<String, String> resourceEstimates,
@@ -101,13 +99,13 @@ public class ClientSession
         this.principal = requireNonNull(principal, "principal is null");
         this.user = requireNonNull(user, "user is null");
         this.authorizationUser = requireNonNull(authorizationUser, "authorizationUser is null");
-        this.source = requireNonNull(source, "source is null");
+        this.source = source;
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
         this.clientInfo = clientInfo;
         this.catalog = catalog;
         this.schema = schema;
-        this.path = ImmutableList.copyOf(requireNonNull(path, "path is null"));
+        this.path = path;
         this.locale = locale;
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.transactionId = transactionId;
@@ -198,7 +196,7 @@ public class ClientSession
         return schema;
     }
 
-    public List<String> getPath()
+    public String getPath()
     {
         return path;
     }
@@ -279,10 +277,6 @@ public class ClientSession
                 .add("locale", locale)
                 .add("properties", properties)
                 .add("transactionId", transactionId)
-                .add("source", source)
-                .add("resourceEstimates", resourceEstimates)
-                .add("clientRequestTimeout", clientRequestTimeout)
-                .add("compressionDisabled", compressionDisabled)
                 .omitNullValues()
                 .toString();
     }
@@ -299,7 +293,7 @@ public class ClientSession
         private String clientInfo;
         private String catalog;
         private String schema;
-        private List<String> path = ImmutableList.of();
+        private String path;
         private ZoneId timeZone;
         private Locale locale;
         private Map<String, String> resourceEstimates = ImmutableMap.of();
@@ -399,7 +393,7 @@ public class ClientSession
             return this;
         }
 
-        public Builder path(List<String> path)
+        public Builder path(String path)
         {
             this.path = path;
             return this;

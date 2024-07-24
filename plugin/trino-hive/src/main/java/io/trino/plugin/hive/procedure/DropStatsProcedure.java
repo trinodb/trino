@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
-import io.trino.metastore.HiveMetastore;
-import io.trino.metastore.PartitionStatistics;
 import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveTableHandle;
+import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
 import io.trino.spi.TrinoException;
@@ -30,7 +30,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
@@ -40,11 +39,11 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metastore.StatisticsUpdateMode.CLEAR_ALL;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.trino.plugin.hive.metastore.StatisticsUpdateMode.CLEAR_ALL;
 import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -121,7 +120,7 @@ public class DropStatsProcedure
                     .map(HiveColumnHandle::getName)
                     .collect(toImmutableList());
 
-            HiveMetastore metastore = hiveMetadata.getMetastore().unsafeGetRawHiveMetastore();
+            HiveMetastoreClosure metastore = hiveMetadata.getMetastore().unsafeGetRawHiveMetastoreClosure();
             if (partitionValues != null) {
                 // drop stats for specified partitions
                 List<List<String>> partitionStringValues = partitionValues.stream()
@@ -130,8 +129,8 @@ public class DropStatsProcedure
                 validatePartitions(partitionStringValues, partitionColumns);
 
                 partitionStringValues.forEach(values -> metastore.updatePartitionStatistics(
-                        metastore.getTable(schema, table)
-                                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(schema, table))),
+                        schema,
+                        table,
                         CLEAR_ALL,
                         ImmutableMap.of(
                                 makePartName(partitionColumns, values),
@@ -144,16 +143,16 @@ public class DropStatsProcedure
                     metastore.updateTableStatistics(
                             schema,
                             table,
-                            OptionalLong.empty(),
+                            NO_ACID_TRANSACTION,
                             CLEAR_ALL,
                             PartitionStatistics.empty());
                 }
                 else {
                     // the table is partitioned; remove stats for every partition
-                    hiveMetadata.getMetastore().getPartitionNamesByFilter(handle.getSchemaName(), handle.getTableName(), partitionColumns, TupleDomain.all())
+                    metastore.getPartitionNamesByFilter(handle.getSchemaName(), handle.getTableName(), partitionColumns, TupleDomain.all())
                             .ifPresent(partitions -> partitions.forEach(partitionName -> metastore.updatePartitionStatistics(
-                                    metastore.getTable(schema, table)
-                                            .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(schema, table))),
+                                    schema,
+                                    table,
                                     CLEAR_ALL,
                                     ImmutableMap.of(
                                             partitionName,

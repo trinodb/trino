@@ -16,12 +16,12 @@ package io.trino.plugin.hive.procedure;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
-import io.trino.metastore.Partition;
-import io.trino.metastore.Table;
 import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
+import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -111,7 +111,7 @@ public class UnregisterPartitionProcedure
 
             String partitionName = makePartName(partitionColumns, partitionValues);
 
-            Partition partition = metastore.unsafeGetRawHiveMetastore().getPartition(table, partitionValues)
+            Partition partition = metastore.unsafeGetRawHiveMetastoreClosure().getPartition(schemaName, tableName, partitionValues)
                     .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Partition '%s' does not exist", partitionName)));
 
             metastore.dropPartition(

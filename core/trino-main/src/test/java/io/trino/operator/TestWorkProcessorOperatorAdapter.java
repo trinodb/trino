@@ -15,6 +15,8 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.MoreExecutors;
+import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
+import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.metrics.Metrics;
@@ -79,16 +81,22 @@ public class TestWorkProcessorOperatorAdapter
     }
 
     private static class TestWorkProcessorOperatorFactory
-            implements WorkProcessorOperatorFactory
+            implements AdapterWorkProcessorOperatorFactory
     {
         @Override
         public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext)
         {
             return new TestWorkProcessorOperator();
         }
 
         @Override
-        public WorkProcessorOperatorFactory duplicate()
+        public AdapterWorkProcessorOperatorFactory duplicate()
         {
             return new TestWorkProcessorOperatorFactory();
         }
@@ -113,7 +121,7 @@ public class TestWorkProcessorOperatorAdapter
     }
 
     private static class TestWorkProcessorOperator
-            implements WorkProcessorOperator
+            implements AdapterWorkProcessorOperator
     {
         private long count;
 
@@ -128,6 +136,23 @@ public class TestWorkProcessorOperatorAdapter
         {
             return WorkProcessor.of(new Page(0))
                     .withProcessEntryMonitor(() -> count++);
+        }
+
+        @Override
+        public boolean needsInput()
+        {
+            return false;
+        }
+
+        @Override
+        public void addInput(Page page)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void finish()
+        {
         }
     }
 }

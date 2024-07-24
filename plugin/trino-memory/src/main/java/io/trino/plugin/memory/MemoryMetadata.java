@@ -302,7 +302,7 @@ public class MemoryMetadata
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
             ColumnMetadata column = tableMetadata.getColumns().get(i);
-            columns.add(new ColumnInfo(new MemoryColumnHandle(i, column.getType()), column.getName(), column.getType(), column.isNullable(), Optional.ofNullable(column.getComment())));
+            columns.add(new ColumnInfo(new MemoryColumnHandle(i), column.getName(), column.getType(), Optional.ofNullable(column.getComment())));
         }
 
         tableIds.put(tableMetadata.getTable(), tableId);
@@ -375,55 +375,6 @@ public class MemoryMetadata
         long tableId = handle.id();
         TableInfo info = tables.get(handle.id());
         tables.put(tableId, new TableInfo(tableId, info.schemaName(), info.tableName(), info.columns(), ImmutableMap.of(), info.comment()));
-    }
-
-    @Override
-    public synchronized void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
-    {
-        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        long tableId = handle.id();
-        TableInfo table = tables.get(handle.id());
-
-        if (!column.isNullable() && !table.dataFragments().isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, format("Unable to add NOT NULL column '%s' for non-empty table: %s", column.getName(), table.getSchemaTableName()));
-        }
-
-        List<ColumnInfo> columns = ImmutableList.<ColumnInfo>builderWithExpectedSize(table.columns().size() + 1)
-                .addAll(table.columns())
-                .add(new ColumnInfo(new MemoryColumnHandle(table.columns().size(), column.getType()), column.getName(), column.getType(), column.isNullable(), Optional.ofNullable(column.getComment())))
-                .build();
-
-        tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), columns, table.dataFragments(), table.comment()));
-    }
-
-    @Override
-    public synchronized void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, String target)
-    {
-        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        MemoryColumnHandle column = (MemoryColumnHandle) columnHandle;
-        long tableId = handle.id();
-        TableInfo table = tables.get(handle.id());
-
-        List<ColumnInfo> columns = new ArrayList<>(table.columns());
-        ColumnInfo columnInfo = columns.get(column.columnIndex());
-        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), target, columnInfo.type(), columnInfo.nullable(), columnInfo.comment()));
-
-        tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.dataFragments(), table.comment()));
-    }
-
-    @Override
-    public synchronized void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
-    {
-        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
-        MemoryColumnHandle column = (MemoryColumnHandle) columnHandle;
-        long tableId = handle.id();
-        TableInfo table = tables.get(handle.id());
-
-        List<ColumnInfo> columns = new ArrayList<>(table.columns());
-        ColumnInfo columnInfo = columns.get(column.columnIndex());
-        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), columnInfo.name(), columnInfo.type(), true, columnInfo.comment()));
-
-        tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.dataFragments(), table.comment()));
     }
 
     @Override
@@ -609,7 +560,7 @@ public class MemoryMetadata
                         info.schemaName(),
                         info.tableName(),
                         info.columns().stream()
-                                .map(tableColumn -> Objects.equals(tableColumn.handle(), columnHandle) ? new ColumnInfo(tableColumn.handle(), tableColumn.name(), tableColumn.getMetadata().getType(), tableColumn.nullable(), comment) : tableColumn)
+                                .map(tableColumn -> Objects.equals(tableColumn.handle(), columnHandle) ? new ColumnInfo(tableColumn.handle(), tableColumn.name(), tableColumn.getMetadata().getType(), comment) : tableColumn)
                                 .collect(toImmutableList()),
                         info.dataFragments(),
                         info.comment()));

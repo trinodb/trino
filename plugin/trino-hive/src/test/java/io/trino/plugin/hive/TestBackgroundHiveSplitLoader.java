@@ -31,15 +31,13 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.cache.DefaultCachingHostAddressProvider;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
-import io.trino.metastore.Column;
-import io.trino.metastore.HiveBucketProperty;
-import io.trino.metastore.HivePartition;
-import io.trino.metastore.StorageFormat;
-import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.plugin.hive.fs.CachingDirectoryLister;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TrinoFileStatus;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.plugin.hive.util.InternalHiveSplitFactory;
 import io.trino.plugin.hive.util.ValidWriteIdList;
@@ -87,8 +85,6 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.hive.formats.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static io.trino.metastore.HiveType.HIVE_INT;
-import static io.trino.metastore.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.getBucketNumber;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
@@ -102,6 +98,8 @@ import static io.trino.plugin.hive.HiveTableProperties.TRANSACTIONAL;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
+import static io.trino.plugin.hive.HiveType.HIVE_INT;
+import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
@@ -182,7 +180,7 @@ public class TestBackgroundHiveSplitLoader
                 List.of(),
                 Optional.empty(),
                 Map.copyOf(tableProperties),
-                CSV.toStorageFormat());
+                StorageFormat.fromHiveStorageFormat(CSV));
 
         TrinoFileSystemFactory fileSystemFactory = new ListSingleFileFileSystemFactory(file);
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
@@ -1300,7 +1298,7 @@ public class TestBackgroundHiveSplitLoader
                 partitionColumns,
                 bucketProperty,
                 tableParameters,
-                ORC.toStorageFormat());
+                StorageFormat.fromHiveStorageFormat(ORC));
     }
 
     private static Table table(

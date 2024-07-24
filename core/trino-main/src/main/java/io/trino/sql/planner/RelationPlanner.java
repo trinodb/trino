@@ -1664,12 +1664,12 @@ class RelationPlanner
         if (columnDefinition instanceof OrdinalityColumn) {
             return new JsonTableOrdinalityColumn(index);
         }
-        Optional<ResolvedFunction> columnFunction = analysis.getResolvedFunction(columnDefinition);
+        ResolvedFunction columnFunction = analysis.getResolvedFunction(columnDefinition);
         IrJsonPath columnPath = new JsonPathTranslator(session, plannerContext).rewriteToIr(analysis.getJsonPathAnalysis(columnDefinition), ImmutableList.of());
         if (columnDefinition instanceof QueryColumn queryColumn) {
             return new JsonTableQueryColumn(
                     index,
-                    columnFunction.get(),
+                    columnFunction,
                     columnPath,
                     queryColumn.getWrapperBehavior().ordinal(),
                     queryColumn.getEmptyBehavior().ordinal(),
@@ -1684,7 +1684,7 @@ class RelationPlanner
                     .orElse(-1);
             return new JsonTableValueColumn(
                     index,
-                    columnFunction.get(),
+                    columnFunction,
                     columnPath,
                     valueColumn.getEmptyBehavior().ordinal(),
                     emptyDefault,

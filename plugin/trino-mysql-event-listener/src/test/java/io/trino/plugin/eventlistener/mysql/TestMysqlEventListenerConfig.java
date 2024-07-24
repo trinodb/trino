@@ -21,17 +21,17 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-final class TestMysqlEventListenerConfig
+public class TestMysqlEventListenerConfig
 {
     @Test
-    void testDefaults()
+    public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(MysqlEventListenerConfig.class)
                 .setUrl(null));
     }
 
     @Test
-    void testExplicitPropertyMappings()
+    public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = Map.of(
                 "mysql-event-listener.db.url", "abc");

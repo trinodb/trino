@@ -238,6 +238,7 @@ public class BenchmarkHashBuildAndJoinOperators
                     HASH_JOIN_OPERATOR_ID,
                     TEST_PLAN_NODE_ID,
                     lookupSourceFactory,
+                    false,
                     types,
                     hashChannels,
                     hashChannel,

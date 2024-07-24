@@ -62,7 +62,6 @@ public final class TestGroups
     public static final String HIVE_FILE_HEADER = "hive_file_header";
     public static final String AUTHORIZATION = "authorization";
     public static final String AZURE = "azure";
-    public static final String EXASOL = "exasol";
     public static final String CASSANDRA = "cassandra";
     public static final String POSTGRESQL = "postgresql";
     public static final String SQLSERVER = "sqlserver";

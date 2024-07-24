@@ -21,7 +21,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
-import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
@@ -43,9 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Files.copy;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -1355,47 +1352,6 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         .schema("bobschema")
                         .expression("'mask-with-user'")
                         .build());
-    }
-
-    @Test
-    public void testGetColumnMasks()
-    {
-        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
-        ImmutableList<ColumnSchema> columns = Stream.of("private", "restricted", "masked", "masked_with_user")
-                .map(BaseFileBasedSystemAccessControlTest::createColumnSchema)
-                .collect(toImmutableList());
-
-        assertThat(accessControl.getColumnMasks(
-                 ALICE,
-                 new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
-                 columns)).isEmpty();
-
-        Map<ColumnSchema, ViewExpression> charlieColumnMasks = accessControl.getColumnMasks(
-                 CHARLIE,
-                 new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
-                 columns);
-        assertThat(charlieColumnMasks).doesNotContainKey(createColumnSchema("private"));
-        assertThat(charlieColumnMasks).doesNotContainKey(createColumnSchema("restricted"));
-        assertViewExpressionEquals(
-                charlieColumnMasks.get(createColumnSchema("masked")),
-                ViewExpression.builder()
-                        .catalog("some-catalog")
-                        .schema("bobschema")
-                        .expression("'mask'")
-                        .build());
-        assertViewExpressionEquals(
-                charlieColumnMasks.get(createColumnSchema("masked_with_user")),
-                 ViewExpression.builder()
-                        .identity("mask-user")
-                        .catalog("some-catalog")
-                        .schema("bobschema")
-                        .expression("'mask-with-user'")
-                        .build());
-    }
-
-    public static ColumnSchema createColumnSchema(String columnName)
-    {
-        return ColumnSchema.builder().setName(columnName).setType(VARCHAR).build();
     }
 
     @Test

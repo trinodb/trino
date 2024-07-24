@@ -16,9 +16,10 @@ package io.trino.operator.join;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.OperatorInfo;
+import io.trino.operator.PageBuffer;
 import io.trino.operator.ProcessorContext;
 import io.trino.operator.WorkProcessor;
-import io.trino.operator.WorkProcessorOperator;
+import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
 import io.trino.operator.join.JoinProbe.JoinProbeFactory;
 import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
 import io.trino.operator.join.PageJoiner.PageJoinerFactory;
@@ -30,14 +31,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.google.common.util.concurrent.Futures.transform;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.operator.WorkProcessor.flatten;
 
 public class LookupJoinOperator
-        implements WorkProcessorOperator
+        implements AdapterWorkProcessorOperator
 {
     private final ListenableFuture<LookupSourceProvider> lookupSourceProviderFuture;
+    private final boolean waitForBuild;
+    private final PageBuffer pageBuffer;
     private final WorkProcessor<Page> pages;
     private final SpillingJoinProcessor joinProcessor;
     private final JoinStatisticsCounter statisticsCounter;
@@ -55,10 +56,12 @@ public class LookupJoinOperator
             HashGenerator hashGenerator,
             PartitioningSpillerFactory partitioningSpillerFactory,
             ProcessorContext processorContext,
-            WorkProcessor<Page> sourcePages)
+            Optional<WorkProcessor<Page>> sourcePages)
     {
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
+        this.waitForBuild = waitForBuild;
         lookupSourceProviderFuture = lookupSourceFactory.createLookupSourceProvider();
+        pageBuffer = new PageBuffer();
         PageJoinerFactory pageJoinerFactory = (lookupSourceProvider, joinerPartitioningSpillerFactory, savedRows) ->
                 new DefaultPageJoiner(
                         processorContext,
@@ -81,25 +84,38 @@ public class LookupJoinOperator
                 lookupSourceProviderFuture,
                 partitioningSpillerFactory,
                 pageJoinerFactory,
-                sourcePages);
-        WorkProcessor<Page> pages = flatten(WorkProcessor.create(joinProcessor));
-        if (waitForBuild) {
-            // wait for build side before fetching any probe pages
-            pages = pages.blocking(() -> transform(lookupSourceProviderFuture, ignored -> null, directExecutor()));
-        }
-        this.pages = pages;
-    }
-
-    @Override
-    public WorkProcessor<Page> getOutputPages()
-    {
-        return pages;
+                sourcePages.orElse(pageBuffer.pages()));
+        pages = flatten(WorkProcessor.create(joinProcessor));
     }
 
     @Override
     public Optional<OperatorInfo> getOperatorInfo()
     {
         return Optional.of(statisticsCounter.get());
+    }
+
+    @Override
+    public boolean needsInput()
+    {
+        return (!waitForBuild || lookupSourceProviderFuture.isDone()) && pageBuffer.isEmpty() && !pageBuffer.isFinished();
+    }
+
+    @Override
+    public void addInput(Page page)
+    {
+        pageBuffer.add(page);
+    }
+
+    @Override
+    public void finish()
+    {
+        pageBuffer.finish();
+    }
+
+    @Override
+    public WorkProcessor<Page> getOutputPages()
+    {
+        return pages;
     }
 
     @Override

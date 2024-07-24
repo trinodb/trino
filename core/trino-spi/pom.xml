@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>453-SNAPSHOT</version>
+        <version>452-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -243,13 +243,6 @@
                                     <old>method io.trino.spi.connector.ConnectorInsertTableHandle io.trino.spi.connector.ConnectorMetadata::beginRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, io.trino.spi.connector.RetryMode)</old>
                                     <new>method io.trino.spi.connector.ConnectorInsertTableHandle io.trino.spi.connector.ConnectorMetadata::beginRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, io.trino.spi.connector.RetryMode, io.trino.spi.RefreshType)</new>
                                 </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.connector.ConnectorMetadata::finishMerge(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;)</old>
-                                    <new>method void io.trino.spi.connector.ConnectorMetadata::finishMerge(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorMergeTableHandle, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;)</new>
-                                </item>
-
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.field.removed</code>
@@ -566,12 +559,6 @@
                                     <attribute>value</attribute>
                                     <oldValue>{@com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.predicate.EquatableValueSet.class, name = "equatable"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.predicate.SortedRangeSet.class, name = "sortable"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.predicate.AllOrNoneValueSet.class, name = "allOrNone")}</oldValue>
                                     <newValue>{@com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.predicate.AllOrNoneValueSet.class, name = "allOrNone"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.predicate.EquatableValueSet.class, name = "equatable"), @com.fasterxml.jackson.annotation.JsonSubTypes.Type(value = io.trino.spi.predicate.SortedRangeSet.class, name = "sortable")}</newValue>
-                                    <justification>cleanup</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.class.removed</code>
-                                    <old>interface io.trino.spi.exchange.ExchangeManagerHandleResolver</old>
                                     <justification>cleanup</justification>
                                 </item>
                             </differences>

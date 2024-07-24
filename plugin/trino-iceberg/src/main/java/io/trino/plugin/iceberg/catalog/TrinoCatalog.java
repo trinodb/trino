@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
-import io.trino.metastore.TableInfo;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -40,8 +40,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 /**
  * An interface to allow different Iceberg catalog implementations in IcebergMetadata.
@@ -77,14 +75,6 @@ public interface TrinoCatalog
     void renameNamespace(ConnectorSession session, String source, String target);
 
     List<TableInfo> listTables(ConnectorSession session, Optional<String> namespace);
-
-    default List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
-    {
-        return listTables(session, namespace).stream()
-                .filter(info -> info.extendedRelationType() == TableInfo.ExtendedRelationType.TRINO_VIEW)
-                .map(TableInfo::tableName)
-                .collect(toImmutableList());
-    }
 
     Optional<Iterator<RelationColumnsMetadata>> streamRelationColumns(
             ConnectorSession session,

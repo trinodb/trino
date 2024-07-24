@@ -15,7 +15,6 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
-import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.EnvironmentContext;
 import io.trino.hive.thrift.metastore.FieldSchema;
@@ -32,6 +31,7 @@ import io.trino.hive.thrift.metastore.RolePrincipalGrant;
 import io.trino.hive.thrift.metastore.Table;
 import io.trino.hive.thrift.metastore.TableMeta;
 import io.trino.hive.thrift.metastore.TxnToWriteId;
+import io.trino.plugin.hive.acid.AcidOperation;
 import org.apache.thrift.TException;
 
 import java.util.Collection;
@@ -401,7 +401,7 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, DataOperationType operation)
+    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
             throws TException
     {
         runWithHandle(() -> delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation));

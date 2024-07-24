@@ -75,10 +75,12 @@ public class IcebergPageSource
 
                 Map<Integer, Integer> fieldIdToColumnIndex = mapFieldIdsToIndex(requiredColumns);
                 List<ColumnIdentity> rowIdFields = expectedColumn.getColumnIdentity().getChildren();
+                ImmutableMap.Builder<Integer, Integer> fieldIdToRowIdIndex = ImmutableMap.builder();
                 this.rowIdChildColumnIndexes = new int[rowIdFields.size()];
                 for (int columnIndex = 0; columnIndex < rowIdFields.size(); columnIndex++) {
                     int fieldId = rowIdFields.get(columnIndex).getId();
                     rowIdChildColumnIndexes[columnIndex] = requireNonNull(fieldIdToColumnIndex.get(fieldId), () -> format("Column %s not found in requiredColumns", fieldId));
+                    fieldIdToRowIdIndex.put(fieldId, columnIndex);
                 }
             }
         }

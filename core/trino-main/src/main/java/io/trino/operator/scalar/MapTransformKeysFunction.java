@@ -96,6 +96,7 @@ public final class MapTransformKeysFunction
                         .argumentType(mapType(new TypeSignature("K1"), new TypeSignature("V")))
                         .argumentType(functionType(new TypeSignature("K1"), new TypeSignature("V"), new TypeSignature("K2")))
                         .build())
+                .nondeterministic()
                 .description("Apply lambda to each entry of the map and transform the key")
                 .build());
     }

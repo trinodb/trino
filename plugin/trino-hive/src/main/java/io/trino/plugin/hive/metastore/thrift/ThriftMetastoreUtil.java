@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
@@ -26,7 +25,6 @@ import io.airlift.json.JsonCodec;
 import io.trino.hive.thrift.metastore.BinaryColumnStatsData;
 import io.trino.hive.thrift.metastore.BooleanColumnStatsData;
 import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
-import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.hive.thrift.metastore.Date;
 import io.trino.hive.thrift.metastore.DateColumnStatsData;
 import io.trino.hive.thrift.metastore.Decimal;
@@ -43,24 +41,22 @@ import io.trino.hive.thrift.metastore.RolePrincipalGrant;
 import io.trino.hive.thrift.metastore.SerDeInfo;
 import io.trino.hive.thrift.metastore.StorageDescriptor;
 import io.trino.hive.thrift.metastore.StringColumnStatsData;
-import io.trino.metastore.AcidOperation;
-import io.trino.metastore.Column;
-import io.trino.metastore.Database;
-import io.trino.metastore.HiveBucketProperty;
-import io.trino.metastore.HiveColumnStatistics;
-import io.trino.metastore.HivePrincipal;
-import io.trino.metastore.HivePrivilegeInfo;
-import io.trino.metastore.HiveType;
-import io.trino.metastore.Partition;
-import io.trino.metastore.PartitionWithStatistics;
-import io.trino.metastore.PrincipalPrivileges;
-import io.trino.metastore.SortingColumn;
-import io.trino.metastore.Storage;
-import io.trino.metastore.StorageFormat;
-import io.trino.metastore.Table;
-import io.trino.metastore.type.PrimitiveTypeInfo;
-import io.trino.metastore.type.TypeInfo;
+import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.HiveColumnStatisticType;
+import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
+import io.trino.plugin.hive.metastore.HivePrincipal;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.PartitionWithStatistics;
+import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.Storage;
+import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.type.PrimitiveTypeInfo;
+import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.security.ConnectorIdentity;
@@ -111,19 +107,6 @@ import static io.trino.hive.thrift.metastore.ColumnStatisticsData.decimalStats;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.doubleStats;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.longStats;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.stringStats;
-import static io.trino.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
-import static io.trino.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
-import static io.trino.metastore.HiveColumnStatistics.createDateColumnStatistics;
-import static io.trino.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
-import static io.trino.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
-import static io.trino.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
-import static io.trino.metastore.HiveColumnStatistics.createStringColumnStatistics;
-import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
-import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
-import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
-import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
-import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
-import static io.trino.metastore.type.Category.PRIMITIVE;
 import static io.trino.plugin.hive.HiveColumnStatisticType.MAX_VALUE;
 import static io.trino.plugin.hive.HiveColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
 import static io.trino.plugin.hive.HiveColumnStatisticType.MIN_VALUE;
@@ -136,9 +119,22 @@ import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_LITERAL_KEY;
 import static io.trino.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.CSV;
+import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
+import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
+import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
+import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDecimalColumnStatistics;
+import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
+import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
+import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
+import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
+import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
+import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
+import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toResourceUris;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
+import static io.trino.plugin.hive.type.Category.PRIMITIVE;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -674,7 +670,7 @@ public final class ThriftMetastoreUtil
 
         builder.setStorageFormat(StorageFormat.createNullable(serdeInfo.getSerializationLib(), storageDescriptor.getInputFormat(), storageDescriptor.getOutputFormat()))
                 .setLocation(nullToEmpty(storageDescriptor.getLocation()))
-                .setBucketProperty(createBucketProperty(storageDescriptor, tablePartitionName))
+                .setBucketProperty(HiveBucketProperty.fromStorageDescriptor(storageDescriptor, tablePartitionName))
                 .setSkewed(storageDescriptor.isSetSkewedInfo() && storageDescriptor.getSkewedInfo().isSetSkewedColNames() && !storageDescriptor.getSkewedInfo().getSkewedColNames().isEmpty())
                 .setSerdeParameters(serdeInfo.getParameters() == null ? ImmutableMap.of() : serdeInfo.getParameters());
     }
@@ -703,38 +699,12 @@ public final class ThriftMetastoreUtil
             sd.setBucketCols(bucketProperty.get().bucketedBy());
             if (!bucketProperty.get().sortedBy().isEmpty()) {
                 sd.setSortCols(bucketProperty.get().sortedBy().stream()
-                        .map(column -> new Order(column.columnName(), column.order().getHiveOrder()))
+                        .map(column -> new Order(column.getColumnName(), column.getOrder().getHiveOrder()))
                         .collect(toImmutableList()));
             }
         }
 
         return sd;
-    }
-
-    private static Optional<HiveBucketProperty> createBucketProperty(StorageDescriptor storageDescriptor, String tablePartitionName)
-    {
-        boolean bucketColsSet = storageDescriptor.isSetBucketCols() && !storageDescriptor.getBucketCols().isEmpty();
-        boolean numBucketsSet = storageDescriptor.isSetNumBuckets() && storageDescriptor.getNumBuckets() > 0;
-        if (!numBucketsSet) {
-            // In Hive, a table is considered as not bucketed when its bucketCols is set but its numBucket is not set.
-            return Optional.empty();
-        }
-        if (!bucketColsSet) {
-            throw new TrinoException(HIVE_INVALID_METADATA, "Table/partition metadata has 'numBuckets' set, but 'bucketCols' is not set: " + tablePartitionName);
-        }
-        // Ensure that the names used for columns are specified in lower case to match the names of the table columns
-        List<SortingColumn> sortedBy = ImmutableList.of();
-        if (storageDescriptor.isSetSortCols()) {
-            sortedBy = storageDescriptor.getSortCols().stream()
-                    .map(order -> new SortingColumn(
-                            order.getCol().toLowerCase(ENGLISH),
-                            SortingColumn.Order.fromMetastoreApiOrder(order.getOrder(), tablePartitionName)))
-                    .collect(toImmutableList());
-        }
-        List<String> bucketColumnNames = storageDescriptor.getBucketCols().stream()
-                .map(name -> name.toLowerCase(ENGLISH))
-                .collect(toImmutableList());
-        return Optional.of(new HiveBucketProperty(bucketColumnNames, storageDescriptor.getNumBuckets(), sortedBy));
     }
 
     public static Set<HivePrivilegeInfo> parsePrivilege(PrivilegeGrantInfo userGrant, Optional<HivePrincipal> grantee)
@@ -959,14 +929,5 @@ public final class ThriftMetastoreUtil
         catch (RuntimeException e) {
             throw new TrinoException(HIVE_INVALID_METADATA, "Failed to decode function: " + name, e);
         }
-    }
-
-    public static DataOperationType toDataOperationType(AcidOperation acidOperation)
-    {
-        return switch (acidOperation) {
-            case INSERT -> DataOperationType.INSERT;
-            case MERGE -> DataOperationType.UPDATE;
-            default -> throw new IllegalStateException("No metastore operation for ACID operation " + acidOperation);
-        };
     }
 }

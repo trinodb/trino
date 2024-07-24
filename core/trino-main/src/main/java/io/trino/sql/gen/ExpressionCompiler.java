@@ -29,7 +29,6 @@ import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
 import io.trino.spi.TrinoException;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
-import io.trino.sql.gen.columnar.DynamicPageFilter;
 import io.trino.sql.gen.columnar.FilterEvaluator;
 import io.trino.sql.gen.columnar.PageFilterEvaluator;
 import io.trino.sql.relational.RowExpression;
@@ -106,10 +105,14 @@ public class ExpressionCompiler
         };
     }
 
-    public Supplier<PageProcessor> compilePageProcessor(
+    public Supplier<PageProcessor> compilePageProcessor(boolean columnarFilterEvaluationEnabled, Optional<RowExpression> filter, List<? extends RowExpression> projections, Optional<String> classNameSuffix)
+    {
+        return compilePageProcessor(columnarFilterEvaluationEnabled, filter, projections, classNameSuffix, OptionalInt.empty());
+    }
+
+    private Supplier<PageProcessor> compilePageProcessor(
             boolean columnarFilterEvaluationEnabled,
             Optional<RowExpression> filter,
-            Optional<DynamicPageFilter> dynamicPageFilter,
             List<? extends RowExpression> projections,
             Optional<String> classNameSuffix,
             OptionalInt initialBatchSize)
@@ -135,23 +138,20 @@ public class ExpressionCompiler
             List<PageProjection> pageProjections = pageProjectionSuppliers.stream()
                     .map(Supplier::get)
                     .collect(toImmutableList());
-            Optional<FilterEvaluator> dynamicFilterEvaluator = dynamicPageFilter
-                    .map(dynamicFilter -> dynamicFilter.createDynamicPageFilterEvaluator(columnarFilterCompiler))
-                    .map(Supplier::get);
-            return new PageProcessor(filterEvaluator, dynamicFilterEvaluator, pageProjections, initialBatchSize);
+            return new PageProcessor(filterEvaluator, pageProjections, initialBatchSize);
         };
     }
 
     @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections)
     {
-        return compilePageProcessor(true, filter, Optional.empty(), projections, Optional.empty(), OptionalInt.empty());
+        return compilePageProcessor(true, filter, projections, Optional.empty());
     }
 
     @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, int initialBatchSize)
     {
-        return compilePageProcessor(true, filter, Optional.empty(), projections, Optional.empty(), OptionalInt.of(initialBatchSize));
+        return compilePageProcessor(true, filter, projections, Optional.empty(), OptionalInt.of(initialBatchSize));
     }
 
     private <T> Class<? extends T> compile(Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler bodyCompiler, Class<? extends T> superType)

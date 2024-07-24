@@ -9,16 +9,3 @@
   USE example.example_schema;
   CALL system.flush_metadata_cache();
   ```
-
-- `system.execute('query')`
-
-  The `execute` procedure allows you to query the underlying database directly.
-  This can be useful for accessing native features which are not available in Trino
-  or for executing DDL or DML that `query` pass-through table function doesn't support.
-  For example, the following system call drops the default value from `your_column`
-  on `your_table` table in the `example` catalog
-
-  ```sql
-  USE example.example_schema;
-  CALL system.execute(query => 'ALTER TABLE your_table ALTER COLUMN your_column DROP DEFAULT')
-  ```

@@ -176,7 +176,8 @@ public class Console
         try (QueryRunner queryRunner = new QueryRunner(
                 uri,
                 session,
-                clientOptions.debug)) {
+                clientOptions.debug,
+                clientOptions.networkLogging)) {
             if (hasQuery) {
                 return executeCommand(
                         queryRunner,

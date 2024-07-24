@@ -19,9 +19,9 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.metastore.Partition;
-import io.trino.metastore.Storage;
-import io.trino.metastore.Table;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.Storage;
+import io.trino.plugin.hive.metastore.Table;
 import jakarta.annotation.Nullable;
 
 import java.io.IOException;

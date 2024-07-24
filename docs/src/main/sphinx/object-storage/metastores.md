@@ -393,12 +393,6 @@ properties:
   - Fully qualified name of the Java class to use for obtaining AWS credentials.
     Can be used to supply a custom credentials provider.
   -
-* - `hive.metastore.glue.use-web-identity-token-credentials-provider`
-  - If you are running Trino on Amazon EKS, and authenticate using a Kubernetes
-    service account, you can set this property to `true`. Setting to `true` forces
-    Trino to not try using different credential providers from the default credential
-    provider chain, and instead directly use credentials from the service account.
-  - `false`
 * - `hive.metastore.glue.aws-access-key`
   - AWS access key to use to connect to the Glue Catalog. If specified along
     with `hive.metastore.glue.aws-secret-key`, this parameter takes precedence
@@ -550,7 +544,8 @@ iceberg.jdbc-catalog.connection-password=test
 iceberg.jdbc-catalog.default-warehouse-dir=s3://bucket
 ```
 
-The JDBC catalog does not support [materialized view management](sql-materialized-view-management).
+The JDBC catalog does not support [view management](sql-view-management) or
+[materialized view management](sql-materialized-view-management).
 
 (iceberg-nessie-catalog)=
 ### Nessie catalog

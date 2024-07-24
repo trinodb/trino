@@ -21,7 +21,6 @@ import jakarta.annotation.Nullable;
 
 import java.util.List;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -107,19 +106,5 @@ public class FailureInfo
     public RuntimeException toException()
     {
         return new FailureException(this);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("type", type)
-                .add("message", message)
-                .add("cause", cause)
-                .add("suppressed", suppressed)
-                .add("stack", stack)
-                .add("errorInfo", errorInfo)
-                .add("errorLocation", errorLocation)
-                .toString();
     }
 }

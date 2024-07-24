@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.execution.Failure;
-import io.trino.metastore.Database;
+import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.iceberg.TestingIcebergPlugin;
 import io.trino.spi.security.PrincipalType;

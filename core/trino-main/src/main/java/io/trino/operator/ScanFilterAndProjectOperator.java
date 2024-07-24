@@ -87,7 +87,7 @@ public class ScanFilterAndProjectOperator
             Session session,
             MemoryTrackingContext memoryTrackingContext,
             DriverYieldSignal yieldSignal,
-            WorkProcessor<Split> split,
+            WorkProcessor<Split> splits,
             PageSourceProvider pageSourceProvider,
             CursorProcessor cursorProcessor,
             PageProcessor pageProcessor,
@@ -98,7 +98,7 @@ public class ScanFilterAndProjectOperator
             DataSize minOutputPageSize,
             int minOutputPageRowCount)
     {
-        pages = split.flatTransform(
+        pages = splits.flatTransform(
                 new SplitToPages(
                         session,
                         yieldSignal,
@@ -487,13 +487,13 @@ public class ScanFilterAndProjectOperator
                 OperatorContext operatorContext,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
-                WorkProcessor<Split> split)
+                WorkProcessor<Split> splits)
         {
             return new ScanFilterAndProjectOperator(
                     operatorContext.getSession(),
                     memoryTrackingContext,
                     yieldSignal,
-                    split,
+                    splits,
                     pageSourceProvider,
                     cursorProcessor.get(),
                     pageProcessor.get(),

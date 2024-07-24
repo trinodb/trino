@@ -106,10 +106,7 @@ public class TestDeltaLakeBasic
             new ResourceTable("uniform_iceberg_v2", "databricks143/uniform_iceberg_v2"),
             new ResourceTable("unsupported_writer_feature", "deltalake/unsupported_writer_feature"),
             new ResourceTable("unsupported_writer_version", "deltalake/unsupported_writer_version"),
-            new ResourceTable("variant", "databricks153/variant"),
-            new ResourceTable("type_widening", "databricks153/type_widening"),
-            new ResourceTable("type_widening_partition", "databricks153/type_widening_partition"),
-            new ResourceTable("type_widening_nested", "databricks153/type_widening_nested"));
+            new ResourceTable("variant", "databricks153/variant"));
 
     // The col-{uuid} pattern for delta.columnMapping.physicalName
     private static final Pattern PHYSICAL_COLUMN_NAME_PATTERN = Pattern.compile("^col-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
@@ -1578,131 +1575,6 @@ public class TestDeltaLakeBasic
                 .matches("VALUES integer '127', integer '32767', integer '2147483647'");
     }
 
-    /**
-     * @see databricks153.type_widening_partition
-     */
-    @Test
-    public void testTypeWideningNotSkippingUnsupportedPartitionColumns()
-    {
-        assertThat(query("DESCRIBE type_widening_partition")).result().projected("Column", "Type")
-                .skippingTypesCheck()
-                .matches("VALUES ('col', 'tinyint'), " +
-                        "('byte_to_short', 'smallint'), " +
-                        "('byte_to_int', 'integer'), " +
-                        "('byte_to_long', 'bigint'), " +
-                        "('byte_to_decimal', 'decimal(10,0)'), " +
-                        "('byte_to_double', 'double'), " +
-                        "('short_to_int', 'integer'), " +
-                        "('short_to_long', 'bigint'), " +
-                        "('short_to_decimal', 'decimal(10,0)'), " +
-                        "('short_to_double', 'double'), " +
-                        "('int_to_long', 'bigint'), " +
-                        "('int_to_decimal', 'decimal(10,0)'), " +
-                        "('int_to_double', 'double'), " +
-                        "('long_to_decimal', 'decimal(20,0)'), " +
-                        "('float_to_double', 'double'), " +
-                        "('decimal_to_decimal', 'decimal(12,2)'), " +
-                        "('date_to_timestamp', 'timestamp(6)')");
-        assertThat(query("SELECT * FROM type_widening_partition FOR VERSION AS OF 0"))
-                .returnsEmptyResult();
-        assertThat(query("SELECT * FROM type_widening_partition FOR VERSION AS OF 1"))
-                .matches("VALUES (tinyint '1', " +
-                        "tinyint '1', " +
-                        "tinyint '1', " +
-                        "tinyint '1', " +
-                        "tinyint '1', " +
-                        "tinyint '1', " +
-                        "smallint '1', " +
-                        "smallint '1', " +
-                        "smallint '1', " +
-                        "smallint '1', " +
-                        "integer '1', " +
-                        "integer '1', " +
-                        "integer '1', " +
-                        "bigint '1', " +
-                        "real '1', " +
-                        "CAST('1' AS decimal(10,0)), " +
-                        "DATE '2024-06-19')");
-        assertThat(query("SELECT * FROM type_widening_partition FOR VERSION AS OF 18"))
-                .matches("VALUES (tinyint '1', " +
-                        "smallint '1', " +
-                        "integer '1', " +
-                        "bigint '1', " +
-                        "CAST('1' AS decimal(10,0)), " +
-                        "double '1', " +
-                        "integer '1', " +
-                        "bigint '1', " +
-                        "CAST('1' AS decimal(10,0)), " +
-                        "double '1', " +
-                        "bigint '1', " +
-                        "CAST('1' AS decimal(10,0)), " +
-                        "double '1', " +
-                        "CAST('1' AS decimal(20,0)), " +
-                        "double '1', " +
-                        "CAST('1' AS decimal(12,2)), " +
-                        "CAST('2024-06-19' AS timestamp(6))), " +
-                        "(tinyint '2', " +
-                        "smallint '256', " +
-                        "integer '35000', " +
-                        "bigint '2147483650', " +
-                        "CAST('9223372036' AS decimal(10,0)), " +
-                        "double '9.323372040456E9', " +
-                        "integer '35000', " +
-                        "bigint '2147483650', " +
-                        "CAST('9223372036' AS decimal(10,0)), " +
-                        "double '9.323372040456E9', " +
-                        "bigint '2147483650', " +
-                        "CAST('9223372036' AS decimal(10,0)), " +
-                        "double '9.323372040456E9', " +
-                        "CAST('92233720368547758073' AS decimal(20,0)), " +
-                        "double '3.403E38', " +
-                        "CAST('9223372036.25' AS decimal(12,2)), " +
-                        "TIMESTAMP '2021-07-01 08:43:28.123456')");
-    }
-
-    /**
-     * @see databricks153.type_widening
-     */
-    @Test
-    public void testTypeWideningSkippingUnsupportedColumns()
-    {
-        assertQuery("SELECT * FROM type_widening FOR VERSION AS OF 1", "VALUES (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.0, 1, DATE '2024-06-19')");
-        assertThat(query("DESCRIBE type_widening")).result().projected("Column", "Type")
-                .skippingTypesCheck()
-                .matches("VALUES ('byte_to_short', 'smallint'), ('byte_to_int', 'integer'), ('short_to_int', 'integer')");
-        assertQuery("SELECT * FROM type_widening", "VALUES (1, 1, 1), (2, 2, 2)");
-    }
-
-    /**
-     * @see databricks153.type_widening_nested
-     */
-    @Test
-    public void testTypeWideningSkippingUnsupportedNested()
-    {
-        assertThat(query("DESCRIBE type_widening_nested")).result().projected("Column", "Type")
-                .skippingTypesCheck()
-                .isEmpty();
-        assertQueryFails("SELECT s FROM type_widening_nested", "(.*)Column 's' cannot be resolved");
-        assertQueryFails("SELECT * FROM type_widening_nested", "(.*)SELECT \\* not allowed from relation that has no columns");
-
-        assertThat(query("SELECT * FROM type_widening_nested FOR VERSION AS OF 0"))
-                .returnsEmptyResult();
-        assertThat(query("SELECT * FROM type_widening_nested FOR VERSION AS OF 1"))
-                .matches("VALUES (CAST(ROW(127) AS ROW (field tinyint)), CAST(ROW(127, ROW(15)) AS ROW (field tinyint, field2 ROW(inner_field tinyint))), MAP(ARRAY[tinyint '-128'], ARRAY[tinyint '127']), ARRAY[tinyint '127'])");
-
-        // 2,3,4,5,6 versions changed nested fields from byte to short
-        assertThat(query("SELECT * FROM type_widening_nested FOR VERSION AS OF 7"))
-                .matches("VALUES (CAST(ROW(127) AS ROW (field smallint)), CAST(ROW(127, ROW(15)) AS ROW (field smallint, field2 ROW(inner_field smallint))), MAP(ARRAY[smallint '-128'], ARRAY[smallint '127']), ARRAY[smallint '127'])");
-
-        assertThat(query("SELECT * FROM type_widening_nested FOR VERSION AS OF 8"))
-                .matches("VALUES " +
-                        "(CAST(ROW(127) AS ROW (field smallint)), CAST(ROW(127, ROW(15)) AS ROW (field smallint, field2 ROW(inner_field smallint))), MAP(ARRAY[smallint '-128'], ARRAY[smallint '127']), ARRAY[smallint '127'])," +
-                        "(CAST(ROW(32767) AS ROW (field smallint)), CAST(ROW(32767, ROW(32767)) AS ROW (field smallint, field2 ROW(inner_field smallint))), MAP(ARRAY[smallint '-32768'], ARRAY[smallint '32767']), ARRAY[smallint '32767'])");
-
-        // 9,10,11,12 versions changed nested fields from short to integer/double
-        assertQueryFails("SELECT * FROM type_widening_nested FOR VERSION AS OF 13", "(.*)SELECT \\* not allowed from relation that has no columns");
-    }
-
     @Test
     public void testTypeWideningNested()
             throws Exception
@@ -1757,8 +1629,7 @@ public class TestDeltaLakeBasic
         copyDirectoryContents(new File(Resources.getResource("deltalake/type_widening_unsupported").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
 
-        assertQueryFails("SELECT * FROM " + tableName, "(.*)SELECT \\* not allowed from relation that has no columns");
-        assertQueryFails("SELECT col FROM " + tableName, "(.*)Column 'col' cannot be resolved");
+        assertQueryFails("SELECT * FROM " + tableName, "Type change from 'byte' to 'unsupported' is not supported");
     }
 
     /**

@@ -74,12 +74,11 @@
 
 ## Hive connector
 
-* Add support for changing a column's type from `integer` to `varchar` and
-  `decimal` to `varchar`, respectively, in unpartitioned tables. ({issue}`22246`, {issue}`22293`)
-* Add support for changing a column's type from `double` to `varchar` in
-  unpartitioned tables
+* Add support for `integer` to `varchar` and `decimal` to `varchar` type 
+  coercion in unpartitioned tables. ({issue}`22246`, {issue}`22293`)
+* Add support for `double` to `varchar` type coercion in unpartitioned tables
   using Parquet files. ({issue}`22277`)
-* Add support for changing a column's type from `float` to `varchar`. ({issue}`22291`)
+* Add support for `float` to `varchar` type coercion. ({issue}`22291`)
 * Set the default value for the `s3.max-connections` configuration property
   to 500. ({issue}`22209`)
 

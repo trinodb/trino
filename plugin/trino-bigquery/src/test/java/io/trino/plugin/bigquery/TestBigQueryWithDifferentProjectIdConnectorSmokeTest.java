@@ -13,9 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
-import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingConnectorBehavior;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -25,7 +23,7 @@ import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
-        extends BaseConnectorSmokeTest
+        extends BaseBigQueryConnectorSmokeTest
 {
     private static final String ALTERNATE_PROJECT_CATALOG = "bigquery";
     private static final String SERVICE_ACCOUNT_CATALOG = "service_account_bigquery";
@@ -44,21 +42,6 @@ public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
                 .build();
         queryRunner.createCatalog(SERVICE_ACCOUNT_CATALOG, "bigquery", Map.of());
         return queryRunner;
-    }
-
-    @Override
-    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
-    {
-        return switch (connectorBehavior) {
-            case SUPPORTS_TRUNCATE -> true;
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                 SUPPORTS_CREATE_VIEW,
-                 SUPPORTS_MERGE,
-                 SUPPORTS_RENAME_SCHEMA,
-                 SUPPORTS_RENAME_TABLE,
-                 SUPPORTS_UPDATE -> false;
-            default -> super.hasBehavior(connectorBehavior);
-        };
     }
 
     @Test

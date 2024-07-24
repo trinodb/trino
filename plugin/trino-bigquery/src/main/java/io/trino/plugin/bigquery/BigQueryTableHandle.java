@@ -49,13 +49,6 @@ public record BigQueryTableHandle(
     }
 
     @JsonIgnore
-    public BigQueryQueryRelationHandle getRequiredQueryRelation()
-    {
-        checkState(isQueryRelation(), "The table handle does not represent a query relation: %s", this);
-        return (BigQueryQueryRelationHandle) relationHandle;
-    }
-
-    @JsonIgnore
     public boolean isSynthetic()
     {
         return !isNamedRelation();
@@ -65,12 +58,6 @@ public record BigQueryTableHandle(
     public boolean isNamedRelation()
     {
         return relationHandle instanceof BigQueryNamedRelationHandle;
-    }
-
-    @JsonIgnore
-    public boolean isQueryRelation()
-    {
-        return relationHandle instanceof BigQueryQueryRelationHandle;
     }
 
     public BigQueryNamedRelationHandle asPlainTable()

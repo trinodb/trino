@@ -19,6 +19,7 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
+import io.trino.tempto.fulfillment.ldap.LdapObjectRequirement;
 import io.trino.tempto.query.QueryResult;
 
 import java.sql.Connection;
@@ -26,9 +27,21 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.tests.product.ImmutableLdapObjectDefinitions.getLdapRequirement;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.AMERICA_ORG;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.ASIA_ORG;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.CHILD_GROUP;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.CHILD_GROUP_USER;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.DEFAULT_GROUP;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.DEFAULT_GROUP_USER;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.EUROPE_ORG;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.ORPHAN_USER;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.PARENT_GROUP;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.PARENT_GROUP_USER;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.USER_IN_AMERICA;
+import static io.trino.tests.product.ImmutableLdapObjectDefinitions.USER_IN_EUROPE;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -63,7 +76,11 @@ public abstract class BaseLdapJdbcTest
     @Override
     public Requirement getRequirements(Configuration configuration)
     {
-        return getLdapRequirement();
+        return new LdapObjectRequirement(
+                Arrays.asList(
+                        AMERICA_ORG, ASIA_ORG, EUROPE_ORG,
+                        DEFAULT_GROUP, PARENT_GROUP, CHILD_GROUP,
+                        DEFAULT_GROUP_USER, PARENT_GROUP_USER, CHILD_GROUP_USER, ORPHAN_USER, USER_IN_AMERICA, USER_IN_EUROPE));
     }
 
     protected void expectQueryToFail(String user, String password, String message)

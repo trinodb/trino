@@ -13,10 +13,11 @@
  */
 package io.trino.dispatcher;
 
-import io.trino.server.ExternalUriInfo;
-import io.trino.server.ExternalUriInfo.ExternalUriBuilder;
+import jakarta.ws.rs.core.UriInfo;
+
+import java.net.URI;
 
 public interface CoordinatorLocation
 {
-    ExternalUriBuilder getUri(ExternalUriInfo externalUriInfo);
+    URI getUri(UriInfo uriInfo);
 }

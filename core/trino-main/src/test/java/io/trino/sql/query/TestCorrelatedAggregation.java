@@ -489,16 +489,6 @@ public class TestCorrelatedAggregation
                 LATERAL (SELECT bool_or(distinct value), true FROM (VALUES (2, null), (3, false), (4, true)) t2(key, value) WHERE t2.key <= t.key)
                 ON TRUE"""))
                 .matches("VALUES (1, null, true), (2, null, true), (3, false, true), (4, true, true)");
-
-        // with aggregation and filter
-        assertThat(assertions.query("""
-                SELECT * FROM
-                  (SELECT key, BOOL_OR(value) AS bool_or_value
-                   FROM (VALUES (2, null), (3, false), (4, true)) t2(key, value)
-                   GROUP BY key)
-                WHERE bool_or_value = true
-                """))
-                .matches("VALUES (4, true)");
     }
 
     @Test

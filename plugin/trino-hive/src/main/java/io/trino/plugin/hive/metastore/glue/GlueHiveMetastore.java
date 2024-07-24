@@ -27,25 +27,26 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.metastore.Column;
-import io.trino.metastore.Database;
-import io.trino.metastore.HiveBasicStatistics;
-import io.trino.metastore.HiveColumnStatistics;
-import io.trino.metastore.HiveMetastore;
-import io.trino.metastore.HivePrincipal;
-import io.trino.metastore.HivePrivilegeInfo;
-import io.trino.metastore.HiveType;
-import io.trino.metastore.Partition;
-import io.trino.metastore.PartitionStatistics;
-import io.trino.metastore.PartitionWithStatistics;
-import io.trino.metastore.PrincipalPrivileges;
-import io.trino.metastore.StatisticsUpdateMode;
-import io.trino.metastore.Table;
-import io.trino.metastore.TableInfo;
+import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HivePartitionManager;
+import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
+import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
+import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HivePrincipal;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.PartitionWithStatistics;
+import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -114,9 +115,9 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.opentelemetry.context.Context.taskWrapping;
-import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
@@ -730,9 +731,9 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
-        verify(acidWriteId.isEmpty(), "Glue metastore does not support Hive Acid tables");
+        verify(!transaction.isTransactional(), "Glue metastore does not support Hive Acid tables");
 
         // adding zero rows does not change stats
         if (mode == StatisticsUpdateMode.MERGE_INCREMENTAL && statisticsUpdate.basicStatistics().getRowCount().equals(OptionalLong.of(0))) {

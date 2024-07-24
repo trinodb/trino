@@ -23,7 +23,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public record ColumnInfo(ColumnHandle handle, String name, Type type, boolean nullable, Optional<String> comment)
+public record ColumnInfo(ColumnHandle handle, String name, Type type, Optional<String> comment)
 {
     public ColumnInfo
     {
@@ -39,7 +39,6 @@ public record ColumnInfo(ColumnHandle handle, String name, Type type, boolean nu
         return ColumnMetadata.builder()
                 .setName(name)
                 .setType(type)
-                .setNullable(nullable)
                 .setComment(comment)
                 .build();
     }
@@ -50,7 +49,6 @@ public record ColumnInfo(ColumnHandle handle, String name, Type type, boolean nu
         return toStringHelper(this)
                 .add("name", name)
                 .add("type", type)
-                .add("nullable", nullable)
                 .add("comment", comment)
                 .toString();
     }

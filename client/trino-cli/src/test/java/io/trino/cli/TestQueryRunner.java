@@ -23,6 +23,7 @@ import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
 import io.trino.client.uri.PropertyName;
 import io.trino.client.uri.TrinoUri;
+import okhttp3.logging.HttpLoggingInterceptor;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.AfterEach;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.sql.SQLException;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
@@ -104,6 +106,7 @@ public class TestQueryRunner
     }
 
     static TrinoUri createTrinoUri(MockWebServer server, boolean insecureSsl)
+            throws SQLException
     {
         Properties properties = new Properties();
         properties.setProperty(PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS.toString(), PRINT.name());
@@ -155,7 +158,8 @@ public class TestQueryRunner
         return new QueryRunner(
                 uri,
                 clientSession,
-                false);
+                false,
+                HttpLoggingInterceptor.Level.NONE);
     }
 
     static PrintStream nullPrintStream()

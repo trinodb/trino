@@ -1259,7 +1259,7 @@ class QueryPlanner
             //   which requires that ORDER BY be a subset of arguments
             //   What can happen currently is that if the argument requires a coercion, the argument will take a different input that the ORDER BY clause, which is undefined behavior
             Aggregation aggregation = new Aggregation(
-                    analysis.getResolvedFunction(function).get(),
+                    analysis.getResolvedFunction(function),
                     function.getArguments().stream()
                             .map(argument -> {
                                 if (argument instanceof LambdaExpression) {
@@ -1769,7 +1769,7 @@ class QueryPlanner
                     .orElse(NullTreatment.RESPECT);
 
             WindowNode.Function function = new WindowNode.Function(
-                    analysis.getResolvedFunction(windowFunction).get(),
+                    analysis.getResolvedFunction(windowFunction),
                     windowFunction.getArguments().stream()
                             .map(argument -> {
                                 if (argument instanceof LambdaExpression) {
@@ -1850,7 +1850,7 @@ class QueryPlanner
                     .orElse(NullTreatment.RESPECT);
 
             WindowNode.Function function = new WindowNode.Function(
-                    analysis.getResolvedFunction(windowFunction).get(),
+                    analysis.getResolvedFunction(windowFunction),
                     windowFunction.getArguments().stream()
                             .map(argument -> {
                                 if (argument instanceof LambdaExpression) {

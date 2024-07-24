@@ -15,7 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
-import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;

@@ -58,21 +58,19 @@ public class PageProcessor
     private final ExpressionProfiler expressionProfiler;
     private final DictionarySourceIdFunction dictionarySourceIdFunction = new DictionarySourceIdFunction();
     private final Optional<FilterEvaluator> filterEvaluator;
-    private final Optional<FilterEvaluator> dynamicFilterEvaluator;
     private final List<PageProjection> projections;
 
     private int projectBatchSize;
 
-    public PageProcessor(Optional<FilterEvaluator> filterEvaluator, Optional<FilterEvaluator> dynamicFilterEvaluator, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
+    public PageProcessor(Optional<FilterEvaluator> filterEvaluator, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
     {
-        this(filterEvaluator, dynamicFilterEvaluator, projections, initialBatchSize, new ExpressionProfiler());
+        this(filterEvaluator, projections, initialBatchSize, new ExpressionProfiler());
     }
 
     @VisibleForTesting
-    public PageProcessor(Optional<FilterEvaluator> filterEvaluator, Optional<FilterEvaluator> dynamicFilterEvaluator, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
+    public PageProcessor(Optional<FilterEvaluator> filterEvaluator, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
     {
-        this.filterEvaluator = requireNonNull(filterEvaluator, "filterEvaluator is null");
-        this.dynamicFilterEvaluator = requireNonNull(dynamicFilterEvaluator, "dynamicFilterEvaluator is null");
+        this.filterEvaluator = requireNonNull(filterEvaluator, "columnarFilterEvaluator is null");
         this.projections = projections.stream()
                 .map(projection -> {
                     if (projection.getInputChannels().size() == 1 && projection.isDeterministic()) {
@@ -88,7 +86,7 @@ public class PageProcessor
     @VisibleForTesting
     public PageProcessor(Optional<FilterEvaluator> filterEvaluator, List<? extends PageProjection> projections)
     {
-        this(filterEvaluator, Optional.empty(), projections, OptionalInt.of(1));
+        this(filterEvaluator, projections, OptionalInt.of(1));
     }
 
     @VisibleForTesting
@@ -112,30 +110,31 @@ public class PageProcessor
             return WorkProcessor.of();
         }
 
-        SelectedPositions activePositions = positionsRange(0, page.getPositionCount());
-        FilterEvaluator.SelectionResult staticFilterResult = new FilterEvaluator.SelectionResult(activePositions, 0);
         if (filterEvaluator.isPresent()) {
-            staticFilterResult = filterEvaluator.get().evaluate(session, activePositions, page);
-            metrics.recordFilterTime(staticFilterResult.filterTimeNanos());
-        }
+            SelectedPositions activePositions = SelectedPositions.positionsRange(0, page.getPositionCount());
+            FilterEvaluator.SelectionResult result = filterEvaluator.get().evaluate(session, activePositions, page);
+            SelectedPositions selectedPositions = result.selectedPositions();
+            metrics.recordFilterTime(result.filterTimeNanos());
 
-        FilterEvaluator.SelectionResult result = staticFilterResult;
-        if (dynamicFilterEvaluator.isPresent()) {
-            result = dynamicFilterEvaluator.get().evaluate(session, staticFilterResult.selectedPositions(), page);
-            metrics.recordDynamicFilterMetrics(result.filterTimeNanos(), staticFilterResult.selectedPositions().size());
-        }
-        SelectedPositions selectedPositions = result.selectedPositions();
+            if (selectedPositions.isEmpty()) {
+                return WorkProcessor.of();
+            }
 
-        if (selectedPositions.isEmpty()) {
-            return WorkProcessor.of();
-        }
+            if (projections.isEmpty()) {
+                // retained memory for empty page is negligible
+                return WorkProcessor.of(new Page(selectedPositions.size()));
+            }
 
-        if (projections.isEmpty()) {
+            if (selectedPositions.size() != page.getPositionCount()) {
+                return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, selectedPositions));
+            }
+        }
+        else if (projections.isEmpty()) {
             // retained memory for empty page is negligible
-            return WorkProcessor.of(new Page(selectedPositions.size()));
+            return WorkProcessor.of(new Page(page.getPositionCount()));
         }
 
-        return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, selectedPositions));
+        return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, positionsRange(0, page.getPositionCount())));
     }
 
     private class ProjectSelectedPositions

@@ -99,7 +99,7 @@ public class TestWorkProcessorSourceOperatorAdapter
                 OperatorContext operatorContext,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
-                WorkProcessor<Split> split)
+                WorkProcessor<Split> splits)
         {
             return new TestWorkProcessorOperator();
         }

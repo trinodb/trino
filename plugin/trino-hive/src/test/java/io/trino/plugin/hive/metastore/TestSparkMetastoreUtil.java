@@ -13,13 +13,7 @@
  */
 package io.trino.plugin.hive.metastore;
 
-import io.trino.metastore.BooleanStatistics;
-import io.trino.metastore.DateStatistics;
-import io.trino.metastore.DecimalStatistics;
-import io.trino.metastore.DoubleStatistics;
-import io.trino.metastore.HiveColumnStatistics;
-import io.trino.metastore.HiveType;
-import io.trino.metastore.IntegerStatistics;
+import io.trino.plugin.hive.HiveType;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -29,8 +23,8 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
-import static io.trino.metastore.type.TypeConstants.DECIMAL_TYPE_NAME;
 import static io.trino.plugin.hive.metastore.SparkMetastoreUtil.fromMetastoreColumnStatistics;
+import static io.trino.plugin.hive.util.SerdeConstants.DECIMAL_TYPE_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSparkMetastoreUtil

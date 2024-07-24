@@ -76,7 +76,7 @@ public class ViewMaterializationCache
         return TableId.of(project, dataset, name);
     }
 
-    public static class DestinationTableBuilder
+    private static class DestinationTableBuilder
             implements Supplier<TableInfo>
     {
         private final BigQueryClient bigQueryClient;

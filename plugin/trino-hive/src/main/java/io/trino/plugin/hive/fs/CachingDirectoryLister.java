@@ -23,10 +23,10 @@ import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.metastore.Partition;
-import io.trino.metastore.Storage;
-import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveConfig;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.Storage;
+import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import org.weakref.jmx.Managed;
@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -52,29 +53,18 @@ public class CachingDirectoryLister
     //TODO use a cache key based on Path & SchemaTableName and iterate over the cache keys
     // to deal more efficiently with cache invalidation scenarios for partitioned tables.
     private final Cache<Location, ValueHolder> cache;
-    private final Predicate<SchemaTableName> tablePredicate;
+    private final List<SchemaTablePrefix> tablePrefixes;
     private final Predicate<FileEntry> filterPredicate;
 
     @Inject
     public CachingDirectoryLister(HiveConfig hiveClientConfig)
     {
-        this(
-                hiveClientConfig.getFileStatusCacheExpireAfterWrite(),
-                hiveClientConfig.getFileStatusCacheMaxRetainedSize(),
-                hiveClientConfig.getFileStatusCacheTables(),
-                hiveClientConfig.getS3StorageClassFilter().toFileEntryPredicate());
+        this(hiveClientConfig.getFileStatusCacheExpireAfterWrite(), hiveClientConfig.getFileStatusCacheMaxRetainedSize(),
+                hiveClientConfig.getFileStatusCacheTables(), hiveClientConfig.getS3StorageClassFilter().toFileEntryPredicate());
     }
 
-    public CachingDirectoryLister(
-            Duration expireAfterWrite,
-            DataSize maxSize,
-            List<String> tables,
-            Predicate<FileEntry> filterPredicate)
+    public CachingDirectoryLister(Duration expireAfterWrite, DataSize maxSize, List<String> tables, Predicate<FileEntry> filterPredicate)
     {
-        requireNonNull(expireAfterWrite, "expireAfterWrite is null");
-        requireNonNull(maxSize, "maxSize is null");
-        requireNonNull(tables, "tables is null");
-        requireNonNull(filterPredicate, "filterPredicate is null");
         this.cache = EvictableCacheBuilder.newBuilder()
                 .maximumWeight(maxSize.toBytes())
                 .weigher((Weigher<Location, ValueHolder>) (key, value) -> toIntExact(estimatedSizeOf(key.toString()) + value.getRetainedSizeInBytes()))
@@ -82,17 +72,10 @@ public class CachingDirectoryLister
                 .shareNothingWhenDisabled()
                 .recordStats()
                 .build();
-        this.tablePredicate = matches(tables);
-        this.filterPredicate = filterPredicate;
-    }
-
-    private static Predicate<SchemaTableName> matches(List<String> tables)
-    {
-        return tables.stream()
+        this.tablePrefixes = tables.stream()
                 .map(CachingDirectoryLister::parseTableName)
-                .map(prefix -> (Predicate<SchemaTableName>) prefix::matches)
-                .reduce(Predicate::or)
-                .orElse(_ -> false);
+                .collect(toImmutableList());
+        this.filterPredicate = filterPredicate;
     }
 
     private static SchemaTablePrefix parseTableName(String tableName)
@@ -241,7 +224,7 @@ public class CachingDirectoryLister
 
     private boolean isCacheEnabledFor(SchemaTableName schemaTableName)
     {
-        return tablePredicate.test(schemaTableName);
+        return tablePrefixes.stream().anyMatch(prefix -> prefix.matches(schemaTableName));
     }
 
     private static boolean isLocationPresent(Storage storage)

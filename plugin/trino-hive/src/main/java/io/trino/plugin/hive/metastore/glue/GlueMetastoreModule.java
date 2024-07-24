@@ -40,11 +40,9 @@ import software.amazon.awssdk.services.glue.GlueClientBuilder;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
-import software.amazon.awssdk.services.sts.auth.StsWebIdentityTokenFileCredentialsProvider;
 
 import java.net.URI;
 import java.util.EnumSet;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -125,26 +123,35 @@ public class GlueMetastoreModule
                 .retryPolicy(retry -> retry
                         .numRetries(config.getMaxGlueErrorRetries())));
 
-        Optional<StaticCredentialsProvider> staticCredentialsProvider = getStaticCredentialsProvider(config);
+        if (config.getIamRole().isPresent()) {
+            StsClientBuilder sts = StsClient.builder();
 
-        if (config.isUseWebIdentityTokenCredentialsProvider()) {
-            glue.credentialsProvider(StsWebIdentityTokenFileCredentialsProvider.builder()
-                    .stsClient(getStsClient(config, staticCredentialsProvider))
-                    .asyncCredentialUpdateEnabled(true)
-                    .build());
-        }
-        else if (config.getIamRole().isPresent()) {
+            if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
+                sts.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(config.getAwsAccessKey().get(), config.getAwsSecretKey().get())));
+            }
+
+            if (config.getGlueStsEndpointUrl().isPresent() && config.getGlueStsRegion().isPresent()) {
+                sts.endpointOverride(URI.create(config.getGlueStsEndpointUrl().get()))
+                        .region(Region.of(config.getGlueStsRegion().get()));
+            }
+            else if (config.getGlueStsRegion().isPresent()) {
+                sts.region(Region.of(config.getGlueStsRegion().get()));
+            }
+            else if (config.getPinGlueClientToCurrentRegion()) {
+                sts.region(DefaultAwsRegionProviderChain.builder().build().getRegion());
+            }
+
             glue.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
                     .refreshRequest(request -> request
                             .roleArn(config.getIamRole().get())
                             .roleSessionName("trino-session")
                             .externalId(config.getExternalId().orElse(null)))
-                    .stsClient(getStsClient(config, staticCredentialsProvider))
+                    .stsClient(sts.build())
                     .asyncCredentialUpdateEnabled(true)
                     .build());
         }
-        else {
-            staticCredentialsProvider.ifPresent(glue::credentialsProvider);
+        else if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
+            glue.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(config.getAwsAccessKey().get(), config.getAwsSecretKey().get())));
         }
 
         ApacheHttpClient.Builder httpClient = ApacheHttpClient.builder()
@@ -167,33 +174,5 @@ public class GlueMetastoreModule
         glue.httpClientBuilder(httpClient);
 
         return glue.build();
-    }
-
-    private static Optional<StaticCredentialsProvider> getStaticCredentialsProvider(GlueHiveMetastoreConfig config)
-    {
-        if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
-            return Optional.of(StaticCredentialsProvider.create(
-                    AwsBasicCredentials.create(config.getAwsAccessKey().get(), config.getAwsSecretKey().get())));
-        }
-        return Optional.empty();
-    }
-
-    private static StsClient getStsClient(GlueHiveMetastoreConfig config, Optional<StaticCredentialsProvider> staticCredentialsProvider)
-    {
-        StsClientBuilder sts = StsClient.builder();
-        staticCredentialsProvider.ifPresent(sts::credentialsProvider);
-
-        if (config.getGlueStsEndpointUrl().isPresent() && config.getGlueStsRegion().isPresent()) {
-            sts.endpointOverride(URI.create(config.getGlueStsEndpointUrl().get()))
-                    .region(Region.of(config.getGlueStsRegion().get()));
-        }
-        else if (config.getGlueStsRegion().isPresent()) {
-            sts.region(Region.of(config.getGlueStsRegion().get()));
-        }
-        else if (config.getPinGlueClientToCurrentRegion()) {
-            sts.region(DefaultAwsRegionProviderChain.builder().build().getRegion());
-        }
-
-        return sts.build();
     }
 }

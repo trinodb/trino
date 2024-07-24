@@ -23,7 +23,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.dispatcher.DispatchExecutor;
 import io.trino.server.DisconnectionAwareAsyncResponse;
-import io.trino.server.ExternalUriInfo;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.server.security.oauth2.OAuth2TokenExchange.TokenPoll;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,6 +37,7 @@ import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 
 import java.util.Map;
 import java.util.Optional;
@@ -74,9 +74,9 @@ public class OAuth2TokenExchangeResource
     @Path("initiate/{authIdHash}")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public Response initiateTokenExchange(@PathParam("authIdHash") String authIdHash, @BeanParam ExternalUriInfo externalUriInfo)
+    public Response initiateTokenExchange(@PathParam("authIdHash") String authIdHash, @Context UriInfo uriInfo)
     {
-        return service.startOAuth2Challenge(externalUriInfo.absolutePath(CALLBACK_ENDPOINT), Optional.ofNullable(authIdHash));
+        return service.startOAuth2Challenge(uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT), Optional.ofNullable(authIdHash));
     }
 
     @ResourceSecurity(PUBLIC)

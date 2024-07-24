@@ -16,7 +16,6 @@ package io.trino.operator.project;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.metrics.DurationTiming;
-import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 
@@ -26,26 +25,16 @@ public class PageProcessorMetrics
 {
     private static final String FILTER_TIME = "Filter CPU time";
     private static final String PROJECTION_TIME = "Projection CPU time";
-    public static final String DYNAMIC_FILTER_TIME = "Dynamic Filter CPU time";
-    public static final String DYNAMIC_FILTER_INPUT_POSITIONS = "Dynamic Filter input positions";
 
     private long filterTimeNanos;
     private boolean hasFilter;
     private long projectionTimeNanos;
     private boolean hasProjection;
-    private long dynamicFilterTimeNanos;
-    private long dynamicFilterInputPositions;
 
     public void recordFilterTime(long filterTimeNanos)
     {
         this.filterTimeNanos += filterTimeNanos;
         hasFilter = true;
-    }
-
-    public void recordDynamicFilterMetrics(long filterTimeNanos, long inputPositions)
-    {
-        dynamicFilterTimeNanos += filterTimeNanos;
-        dynamicFilterInputPositions += inputPositions;
     }
 
     public void recordProjectionTime(long projectionTimeNanos)
@@ -59,10 +48,6 @@ public class PageProcessorMetrics
         ImmutableMap.Builder<String, Metric<?>> builder = ImmutableMap.builder();
         if (hasFilter) {
             builder.put(FILTER_TIME, new DurationTiming(new Duration(filterTimeNanos, NANOSECONDS)));
-        }
-        if (dynamicFilterInputPositions > 0) {
-            builder.put(DYNAMIC_FILTER_TIME, new DurationTiming(new Duration(dynamicFilterTimeNanos, NANOSECONDS)));
-            builder.put(DYNAMIC_FILTER_INPUT_POSITIONS, new LongCount(dynamicFilterInputPositions));
         }
         if (hasProjection) {
             builder.put(PROJECTION_TIME, new DurationTiming(new Duration(projectionTimeNanos, NANOSECONDS)));

@@ -279,7 +279,7 @@ public class TestServer
                     String.join(" || ", Collections.nCopies(10, array)) +
                     "FROM " + tableName;
 
-            checkVersionOnError(query, "TrinoException: Query exceeded maximum columns(?s:.*)at io.trino.sql.gen.PageFunctionCompiler.compileProjectionInternal");
+            checkVersionOnError(query, "TrinoException: Compiler failed(?s:.*)at io.trino.sql.gen.ExpressionCompiler.compile");
         }
     }
 

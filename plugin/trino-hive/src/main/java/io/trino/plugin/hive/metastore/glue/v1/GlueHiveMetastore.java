@@ -77,31 +77,33 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.metastore.Column;
-import io.trino.metastore.Database;
-import io.trino.metastore.HiveBasicStatistics;
-import io.trino.metastore.HiveColumnStatistics;
-import io.trino.metastore.HiveMetastore;
-import io.trino.metastore.HivePrincipal;
-import io.trino.metastore.HivePrivilegeInfo;
-import io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
-import io.trino.metastore.HiveType;
-import io.trino.metastore.Partition;
-import io.trino.metastore.PartitionStatistics;
-import io.trino.metastore.PartitionWithStatistics;
-import io.trino.metastore.PrincipalPrivileges;
-import io.trino.metastore.StatisticsUpdateMode;
-import io.trino.metastore.Table;
-import io.trino.metastore.TableInfo;
+import io.trino.plugin.hive.HiveBasicStatistics;
+import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
+import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
+import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HivePrincipal;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.PartitionWithStatistics;
+import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.hive.metastore.glue.AwsApiCallStats;
 import io.trino.plugin.hive.metastore.glue.GlueExpressionUtil;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter;
 import io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter;
 import io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.GluePartitionConverter;
+import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -141,11 +143,10 @@ import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.metastore.Partition.toPartitionValues;
-import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
@@ -161,6 +162,7 @@ import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConver
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
+import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -595,17 +597,17 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
-                .run(() -> updateTableStatisticsInternal(databaseName, tableName, acidWriteId, mode, statisticsUpdate));
+                .run(() -> updateTableStatisticsInternal(databaseName, tableName, transaction, mode, statisticsUpdate));
     }
 
-    private void updateTableStatisticsInternal(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    private void updateTableStatisticsInternal(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Table table = getExistingTable(databaseName, tableName);
-        if (acidWriteId.isPresent()) {
-            table = Table.builder(table).setWriteId(acidWriteId).build();
+        if (transaction.isAcidTransactionRunning()) {
+            table = Table.builder(table).setWriteId(OptionalLong.of(transaction.getWriteId())).build();
         }
         // load current statistics
         HiveBasicStatistics currentBasicStatistics = getHiveBasicStatistics(table.getParameters());
@@ -874,7 +876,7 @@ public class GlueHiveMetastore
         List<Partition> partitions = batchGetPartition(table, partitionNames);
 
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
-                .collect(toMap(identity(), Partition::toPartitionValues));
+                .collect(toMap(identity(), HiveUtil::toPartitionValues));
         Map<List<String>, Partition> partitionValuesToPartitionMap = partitions.stream()
                 .collect(toMap(Partition::getValues, identity()));
 

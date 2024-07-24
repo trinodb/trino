@@ -486,7 +486,7 @@ class TestSqlFunctions
     @Test
     void testLambda()
     {
-        testSingleExpression(INTEGER, 3L, INTEGER, 9L, "(transform(ARRAY [5, 6], x -> x + p)[2])", true);
+        testSingleExpression(INTEGER, 3L, INTEGER, 9L, "(transform(ARRAY [5, 6], x -> x + p)[2])", false);
     }
 
     @Test

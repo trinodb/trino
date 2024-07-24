@@ -18,6 +18,7 @@ import io.airlift.units.DataSize;
 import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.rcfile.RcFileReader;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveType;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -71,11 +72,13 @@ public class RcFilePageSource
 
         ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<HiveType> hiveTypesBuilder = ImmutableList.builder();
         for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
             HiveColumnHandle column = columns.get(columnIndex);
 
             namesBuilder.add(column.getName());
             typesBuilder.add(column.getType());
+            hiveTypesBuilder.add(column.getHiveType());
 
             hiveColumnIndexes[columnIndex] = column.getBaseHiveColumnIndex();
 

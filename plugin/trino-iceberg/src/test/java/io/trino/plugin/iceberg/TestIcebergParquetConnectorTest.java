@@ -70,7 +70,7 @@ public class TestIcebergParquetConnectorTest
                     .collect(Collectors.joining(", "));
             assertUpdate(withSmallRowGroups(getSession()), "INSERT INTO " + tableName + " VALUES " + values, 100);
 
-            MaterializedResult result = getDistributedQueryRunner().execute("SELECT * FROM " + tableName);
+            MaterializedResult result = getDistributedQueryRunner().execute(String.format("SELECT * FROM %s", tableName));
             assertThat(result.getRowCount()).isEqualTo(100);
         }
     }

@@ -15,14 +15,19 @@ package io.trino.operator.join.unspilled;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import io.trino.operator.DriverContext;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.JoinOperatorType;
+import io.trino.operator.Operator;
+import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.operator.ProcessorContext;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessorOperator;
-import io.trino.operator.WorkProcessorOperatorFactory;
+import io.trino.operator.WorkProcessorOperatorAdapter;
+import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
+import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
 import io.trino.operator.join.JoinBridgeManager;
 import io.trino.operator.join.JoinOperatorFactory;
 import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
@@ -46,7 +51,7 @@ import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.PROBE_OU
 import static java.util.Objects.requireNonNull;
 
 public class LookupJoinOperatorFactory
-        implements JoinOperatorFactory, WorkProcessorOperatorFactory
+        implements JoinOperatorFactory, AdapterWorkProcessorOperatorFactory
 {
     private final int operatorId;
     private final PlanNodeId planNodeId;
@@ -139,6 +144,23 @@ public class LookupJoinOperatorFactory
         return outerOperatorFactory;
     }
 
+    // Methods from OperatorFactory
+
+    @Override
+    public Operator createOperator(DriverContext driverContext)
+    {
+        OperatorContext operatorContext = driverContext.addOperatorContext(getOperatorId(), getPlanNodeId(), getOperatorType());
+        return new WorkProcessorOperatorAdapter(operatorContext, this);
+    }
+
+    @Override
+    public void noMoreOperators()
+    {
+        close();
+    }
+
+    // Methods from AdapterWorkProcessorOperatorFactory
+
     @Override
     public int getOperatorId()
     {
@@ -173,7 +195,26 @@ public class LookupJoinOperatorFactory
                 joinProbeFactory,
                 joinBridgeManager::probeOperatorClosed,
                 processorContext,
-                sourcePages);
+                Optional.of(sourcePages));
+    }
+
+    @Override
+    public AdapterWorkProcessorOperator createAdapterOperator(ProcessorContext processorContext)
+    {
+        checkState(!closed, "Factory is already closed");
+        PartitionedLookupSourceFactory lookupSourceFactory = joinBridgeManager.getJoinBridge();
+
+        joinBridgeManager.probeOperatorCreated();
+        return new LookupJoinOperator(
+                buildOutputTypes,
+                joinType,
+                outputSingleMatch,
+                waitForBuild,
+                lookupSourceFactory,
+                joinProbeFactory,
+                joinBridgeManager::probeOperatorClosed,
+                processorContext,
+                Optional.empty());
     }
 
     @Override

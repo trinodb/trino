@@ -87,16 +87,16 @@ public class TestMemoryConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_TRUNCATE -> true;
-            case SUPPORTS_ADD_FIELD,
+            case SUPPORTS_ADD_COLUMN,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_DELETE,
                  SUPPORTS_DEREFERENCE_PUSHDOWN,
-                 SUPPORTS_DROP_COLUMN,
                  SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_MERGE,
+                 SUPPORTS_NOT_NULL_CONSTRAINT,
                  SUPPORTS_PREDICATE_PUSHDOWN,
-                 SUPPORTS_RENAME_FIELD,
+                 SUPPORTS_RENAME_COLUMN,
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN,
@@ -603,17 +603,5 @@ public class TestMemoryConnectorTest
 
         assertUpdate("DROP VIEW test_different_schema.test_view_renamed");
         assertUpdate("DROP SCHEMA test_different_schema");
-    }
-
-    @Override
-    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
-    {
-        return "NULL value not allowed for NOT NULL column: " + columnName;
-    }
-
-    @Override
-    protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
-    {
-        assertThat(e).hasMessageMatching("Unable to add NOT NULL column '.*' for non-empty table: .*");
     }
 }

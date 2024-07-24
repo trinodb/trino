@@ -15,22 +15,24 @@ package io.trino.plugin.hive.metastore.tracing;
 
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.metastore.AcidOperation;
-import io.trino.metastore.AcidTransactionOwner;
-import io.trino.metastore.Database;
-import io.trino.metastore.HiveColumnStatistics;
-import io.trino.metastore.HiveMetastore;
-import io.trino.metastore.HivePartition;
-import io.trino.metastore.HivePrincipal;
-import io.trino.metastore.HivePrivilegeInfo;
-import io.trino.metastore.HiveType;
-import io.trino.metastore.Partition;
-import io.trino.metastore.PartitionStatistics;
-import io.trino.metastore.PartitionWithStatistics;
-import io.trino.metastore.PrincipalPrivileges;
-import io.trino.metastore.StatisticsUpdateMode;
-import io.trino.metastore.Table;
-import io.trino.metastore.TableInfo;
+import io.trino.hive.thrift.metastore.DataOperationType;
+import io.trino.plugin.hive.HivePartition;
+import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.PartitionStatistics;
+import io.trino.plugin.hive.acid.AcidOperation;
+import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.metastore.AcidTransactionOwner;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HivePrincipal;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.PartitionWithStatistics;
+import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
@@ -131,14 +133,17 @@ public class TracingHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Span span = tracer.spanBuilder("HiveMetastore.updateTableStatistics")
                 .setAttribute(SCHEMA, databaseName)
                 .setAttribute(TABLE, tableName)
                 .startSpan();
-        acidWriteId.ifPresent(id -> span.setAttribute(ACID_TRANSACTION, id));
-        withTracing(span, () -> delegate.updateTableStatistics(databaseName, tableName, acidWriteId, mode, statisticsUpdate));
+        if (transaction.isAcidTransactionRunning()) {
+            span.setAttribute(ACID_TRANSACTION, String.valueOf(transaction.getAcidTransactionId()));
+        }
+
+        withTracing(span, () -> delegate.updateTableStatistics(databaseName, tableName, transaction, mode, statisticsUpdate));
     }
 
     @Override
@@ -477,7 +482,7 @@ public class TracingHiveMetastore
                 .startSpan();
         return withTracing(span, () -> {
             long transactionId = delegate.openTransaction(transactionOwner);
-            span.setAttribute(ACID_TRANSACTION, transactionId);
+            span.setAttribute(ACID_TRANSACTION, String.valueOf(transactionId));
             return transactionId;
         });
     }
@@ -486,7 +491,7 @@ public class TracingHiveMetastore
     public void commitTransaction(long transactionId)
     {
         Span span = tracer.spanBuilder("HiveMetastore.commitTransaction")
-                .setAttribute(ACID_TRANSACTION, transactionId)
+                .setAttribute(ACID_TRANSACTION, String.valueOf(transactionId))
                 .startSpan();
         withTracing(span, () -> delegate.commitTransaction(transactionId));
     }
@@ -495,7 +500,7 @@ public class TracingHiveMetastore
     public void abortTransaction(long transactionId)
     {
         Span span = tracer.spanBuilder("HiveMetastore.abortTransaction")
-                .setAttribute(ACID_TRANSACTION, transactionId)
+                .setAttribute(ACID_TRANSACTION, String.valueOf(transactionId))
                 .startSpan();
         withTracing(span, () -> delegate.abortTransaction(transactionId));
     }
@@ -504,7 +509,7 @@ public class TracingHiveMetastore
     public void sendTransactionHeartbeat(long transactionId)
     {
         Span span = tracer.spanBuilder("HiveMetastore.sendTransactionHeartbeat")
-                .setAttribute(ACID_TRANSACTION, transactionId)
+                .setAttribute(ACID_TRANSACTION, String.valueOf(transactionId))
                 .startSpan();
         withTracing(span, () -> delegate.sendTransactionHeartbeat(transactionId));
     }
@@ -518,7 +523,7 @@ public class TracingHiveMetastore
             List<HivePartition> partitions)
     {
         Span span = tracer.spanBuilder("HiveMetastore.acquireSharedReadLock")
-                .setAttribute(ACID_TRANSACTION, transactionId)
+                .setAttribute(ACID_TRANSACTION, String.valueOf(transactionId))
                 .startSpan();
         withTracing(span, () -> delegate.acquireSharedReadLock(transactionOwner, queryId, transactionId, fullTables, partitions));
     }
@@ -527,7 +532,7 @@ public class TracingHiveMetastore
     public String getValidWriteIds(List<SchemaTableName> tables, long currentTransactionId)
     {
         Span span = tracer.spanBuilder("HiveMetastore.getValidWriteIds")
-                .setAttribute(ACID_TRANSACTION, currentTransactionId)
+                .setAttribute(ACID_TRANSACTION, String.valueOf(currentTransactionId))
                 .startSpan();
         return withTracing(span, () -> delegate.getValidWriteIds(tables, currentTransactionId));
     }
@@ -546,18 +551,19 @@ public class TracingHiveMetastore
         Span span = tracer.spanBuilder("HiveMetastore.allocateWriteId")
                 .setAttribute(SCHEMA, dbName)
                 .setAttribute(TABLE, tableName)
-                .setAttribute(ACID_TRANSACTION, transactionId)
+                .setAttribute(ACID_TRANSACTION, String.valueOf(transactionId))
                 .startSpan();
         return withTracing(span, () -> delegate.allocateWriteId(dbName, tableName, transactionId));
     }
 
     @Override
-    public void acquireTableWriteLock(AcidTransactionOwner transactionOwner, String queryId, long transactionId, String dbName, String tableName, AcidOperation operation, boolean isDynamicPartitionWrite)
+    public void acquireTableWriteLock(AcidTransactionOwner transactionOwner, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation,
+            boolean isDynamicPartitionWrite)
     {
         Span span = tracer.spanBuilder("HiveMetastore.acquireTableWriteLock")
                 .setAttribute(SCHEMA, dbName)
                 .setAttribute(TABLE, tableName)
-                .setAttribute(ACID_TRANSACTION, transactionId)
+                .setAttribute(ACID_TRANSACTION, String.valueOf(transactionId))
                 .startSpan();
         withTracing(span, () -> delegate.acquireTableWriteLock(transactionOwner, queryId, transactionId, dbName, tableName, operation, isDynamicPartitionWrite));
     }
@@ -568,7 +574,7 @@ public class TracingHiveMetastore
         Span span = tracer.spanBuilder("HiveMetastore.updateTableWriteId")
                 .setAttribute(SCHEMA, dbName)
                 .setAttribute(TABLE, tableName)
-                .setAttribute(ACID_TRANSACTION, transactionId)
+                .setAttribute(ACID_TRANSACTION, String.valueOf(transactionId))
                 .startSpan();
         withTracing(span, () -> delegate.updateTableWriteId(dbName, tableName, transactionId, writeId, rowCountChange));
     }
@@ -579,7 +585,7 @@ public class TracingHiveMetastore
         Span span = tracer.spanBuilder("HiveMetastore.addDynamicPartitions")
                 .setAttribute(SCHEMA, dbName)
                 .setAttribute(TABLE, tableName)
-                .setAttribute(ACID_TRANSACTION, transactionId)
+                .setAttribute(ACID_TRANSACTION, String.valueOf(transactionId))
                 .setAttribute(PARTITION_REQUEST_COUNT, (long) partitionNames.size())
                 .startSpan();
         withTracing(span, () -> delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation));
@@ -591,7 +597,7 @@ public class TracingHiveMetastore
         Span span = tracer.spanBuilder("HiveMetastore.alterTransactionalTable")
                 .setAttribute(SCHEMA, table.getDatabaseName())
                 .setAttribute(TABLE, table.getTableName())
-                .setAttribute(ACID_TRANSACTION, transactionId)
+                .setAttribute(ACID_TRANSACTION, String.valueOf(transactionId))
                 .startSpan();
         withTracing(span, () -> delegate.alterTransactionalTable(table, transactionId, writeId, principalPrivileges));
     }

@@ -66,7 +66,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-final class TestMysqlEventListener
+public class TestMysqlEventListener
 {
     private static final QueryMetadata FULL_QUERY_METADATA = new QueryMetadata(
             "full_query",
@@ -339,7 +339,7 @@ final class TestMysqlEventListener
     private JsonCodecFactory jsonCodecFactory;
 
     @BeforeAll
-    void setup()
+    public void setup()
     {
         mysqlContainer = new MySQLContainer<>("mysql:8.0.36");
         mysqlContainer.start();
@@ -350,7 +350,7 @@ final class TestMysqlEventListener
     }
 
     @AfterAll
-    void teardown()
+    public void teardown()
     {
         if (mysqlContainer != null) {
             mysqlContainer.close();
@@ -370,7 +370,7 @@ final class TestMysqlEventListener
     }
 
     @Test
-    void testFull()
+    public void testFull()
             throws SQLException
     {
         eventListener.queryCompleted(FULL_QUERY_COMPLETED_EVENT);
@@ -454,7 +454,7 @@ final class TestMysqlEventListener
     }
 
     @Test
-    void testMinimal()
+    public void testMinimal()
             throws SQLException
     {
         eventListener.queryCompleted(MINIMAL_QUERY_COMPLETED_EVENT);

@@ -16,14 +16,14 @@ package io.trino.plugin.hive.metastore.glue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
-import io.trino.metastore.Column;
-import io.trino.metastore.Database;
-import io.trino.metastore.HiveBucketProperty;
-import io.trino.metastore.Partition;
-import io.trino.metastore.Storage;
-import io.trino.metastore.StorageFormat;
-import io.trino.metastore.Table;
+import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.TableType;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.Storage;
+import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.security.PrincipalType;
 import org.junit.jupiter.api.Test;
@@ -42,10 +42,10 @@ import java.util.Optional;
 import java.util.Random;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.metastore.HiveType.HIVE_STRING;
-import static io.trino.metastore.Table.TABLE_COMMENT;
-import static io.trino.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
+import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.PUBLIC_OWNER;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
@@ -232,7 +232,7 @@ class TestGlueConverter
     @Test
     void testConvertDatabase()
     {
-        io.trino.metastore.Database trinoDatabase = GlueConverter.fromGlueDatabase(glueDatabase);
+        io.trino.plugin.hive.metastore.Database trinoDatabase = GlueConverter.fromGlueDatabase(glueDatabase);
         assertThat(trinoDatabase.getDatabaseName()).isEqualTo(glueDatabase.name());
         assertThat(trinoDatabase.getLocation()).hasValue(glueDatabase.locationUri());
         assertThat(trinoDatabase.getComment()).hasValue(glueDatabase.description());
@@ -244,7 +244,7 @@ class TestGlueConverter
     @Test
     void testConvertTable()
     {
-        io.trino.metastore.Table trinoTable = GlueConverter.fromGlueTable(glueTable, glueDatabase.name());
+        io.trino.plugin.hive.metastore.Table trinoTable = GlueConverter.fromGlueTable(glueTable, glueDatabase.name());
         assertThat(trinoTable.getTableName()).isEqualTo(glueTable.name());
         assertThat(trinoTable.getDatabaseName()).isEqualTo(glueDatabase.name());
         assertThat(trinoTable.getTableType()).isEqualTo(glueTable.tableType());
@@ -275,7 +275,7 @@ class TestGlueConverter
                                 .build())
                         .build())
                 .build();
-        io.trino.metastore.Table trinoTable = GlueConverter.fromGlueTable(glueTable, glueTable.databaseName());
+        io.trino.plugin.hive.metastore.Table trinoTable = GlueConverter.fromGlueTable(glueTable, glueTable.databaseName());
 
         assertThat(trinoTable.getTableName()).isEqualTo(glueTable.name());
         assertThat(trinoTable.getDatabaseName()).isEqualTo(glueDatabase.name());
@@ -297,7 +297,7 @@ class TestGlueConverter
         software.amazon.awssdk.services.glue.model.Table table = glueTable.toBuilder()
                 .tableType(null)
                 .build();
-        io.trino.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, table.databaseName());
+        io.trino.plugin.hive.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, table.databaseName());
         assertThat(trinoTable.getTableType()).isEqualTo(EXTERNAL_TABLE.name());
     }
 
@@ -307,7 +307,7 @@ class TestGlueConverter
         software.amazon.awssdk.services.glue.model.Table table = glueTable.toBuilder()
                 .partitionKeys(ImmutableList.of())
                 .build();
-        io.trino.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, table.databaseName());
+        io.trino.plugin.hive.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, table.databaseName());
         assertThat(trinoTable.getPartitionColumns().isEmpty()).isTrue();
     }
 
@@ -328,7 +328,7 @@ class TestGlueConverter
     @Test
     void testConvertPartition()
     {
-        io.trino.metastore.Partition trinoPartition = GlueConverter.fromGluePartition(gluePartition.databaseName(), gluePartition.tableName(), gluePartition);
+        io.trino.plugin.hive.metastore.Partition trinoPartition = GlueConverter.fromGluePartition(gluePartition.databaseName(), gluePartition.tableName(), gluePartition);
         assertThat(trinoPartition.getDatabaseName()).isEqualTo(gluePartition.databaseName());
         assertThat(trinoPartition.getTableName()).isEqualTo(gluePartition.tableName());
         assertColumnList(gluePartition.storageDescriptor().columns(), trinoPartition.getColumns());
@@ -357,7 +357,7 @@ class TestGlueConverter
                                 .build())
                         .build())
                 .build();
-        io.trino.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, glueTable.databaseName());
+        io.trino.plugin.hive.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, glueTable.databaseName());
         assertThat(trinoTable.getParameters()).isNotNull();
         assertThat(trinoTable.getStorage().getSerdeParameters()).isNotNull();
     }
@@ -369,7 +369,7 @@ class TestGlueConverter
                 .parameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE))
                 .storageDescriptor((StorageDescriptor) null)
                 .build();
-        io.trino.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, table.databaseName());
+        io.trino.plugin.hive.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, table.databaseName());
         assertThat(trinoTable.getDataColumns().size()).isEqualTo(1);
     }
 
@@ -380,7 +380,7 @@ class TestGlueConverter
                 .parameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE))
                 .build();
         assertThat(table.storageDescriptor()).isNotNull();
-        io.trino.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, table.databaseName());
+        io.trino.plugin.hive.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, table.databaseName());
         assertThat(trinoTable.getDataColumns().size()).isEqualTo(1);
     }
 
@@ -391,7 +391,7 @@ class TestGlueConverter
                 .parameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER))
                 .storageDescriptor((StorageDescriptor) null)
                 .build();
-        io.trino.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, table.databaseName());
+        io.trino.plugin.hive.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, table.databaseName());
         assertThat(trinoTable.getDataColumns().size()).isEqualTo(1);
     }
 
@@ -402,7 +402,7 @@ class TestGlueConverter
                 .parameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER))
                 .build();
         assertThat(table.storageDescriptor()).isNotNull();
-        io.trino.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, table.databaseName());
+        io.trino.plugin.hive.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, table.databaseName());
         assertThat(trinoTable.getDataColumns().stream()
                 .map(Column::getName)
                 .collect(toImmutableSet())).isEqualTo(glueTable.storageDescriptor().columns().stream()

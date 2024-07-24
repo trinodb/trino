@@ -44,7 +44,6 @@ import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.DirectExchangeClientSupplier;
-import io.trino.server.ExternalUriInfo;
 import io.trino.server.ResultQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.Page;
@@ -57,6 +56,7 @@ import io.trino.transaction.TransactionId;
 import io.trino.util.Ciphers;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.List;
@@ -278,7 +278,7 @@ class Query
         return queryManager.getFullQueryInfo(queryId);
     }
 
-    public ListenableFuture<QueryResultsResponse> waitForResults(long token, ExternalUriInfo externalUriInfo, Duration wait, DataSize targetResultSize)
+    public ListenableFuture<QueryResultsResponse> waitForResults(long token, UriInfo uriInfo, Duration wait, DataSize targetResultSize)
     {
         ListenableFuture<Void> futureStateChange;
         synchronized (this) {
@@ -296,7 +296,7 @@ class Query
             futureStateChange = addTimeout(futureStateChange, () -> null, wait, timeoutExecutor);
         }
         // when state changes, fetch the next result
-        return Futures.transform(futureStateChange, _ -> getNextResult(token, externalUriInfo, targetResultSize), resultsProcessorExecutor);
+        return Futures.transform(futureStateChange, _ -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
     }
 
     public void markResultsConsumedIfReady()
@@ -399,7 +399,7 @@ class Query
         return Optional.empty();
     }
 
-    private synchronized QueryResultsResponse getNextResult(long token, ExternalUriInfo externalUriInfo, DataSize targetResultSize)
+    private synchronized QueryResultsResponse getNextResult(long token, UriInfo uriInfo, DataSize targetResultSize)
     {
         // check if the result for the token have already been created
         Optional<QueryResults> cachedResult = getCachedResult(token);
@@ -459,9 +459,9 @@ class Query
         URI partialCancelUri = null;
         if (nextToken.isPresent()) {
             long nextToken = this.nextToken.getAsLong();
-            nextResultsUri = createNextResultsUri(externalUriInfo, nextToken);
+            nextResultsUri = createNextResultsUri(uriInfo, nextToken);
             partialCancelUri = findCancelableLeafStage(queryInfo)
-                    .map(stage -> createPartialCancelUri(stage, externalUriInfo, nextToken))
+                    .map(stage -> createPartialCancelUri(stage, uriInfo, nextToken))
                     .orElse(null);
         }
 
@@ -492,7 +492,7 @@ class Query
         // first time through, self is null
         QueryResults queryResults = new QueryResults(
                 queryId.toString(),
-                getQueryInfoUri(queryInfoUrl, queryId, externalUriInfo),
+                getQueryInfoUri(queryInfoUrl, queryId, uriInfo),
                 partialCancelUri,
                 nextResultsUri,
                 resultRows.getColumns().orElse(null),
@@ -631,24 +631,26 @@ class Query
         return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
     }
 
-    private URI createNextResultsUri(ExternalUriInfo externalUriInfo, long nextToken)
+    private URI createNextResultsUri(UriInfo uriInfo, long nextToken)
     {
-        return externalUriInfo.baseUriBuilder()
-                .path("/v1/statement/executing")
+        return uriInfo.getBaseUriBuilder()
+                .replacePath("/v1/statement/executing")
                 .path(queryId.toString())
                 .path(slug.makeSlug(EXECUTING_QUERY, nextToken))
                 .path(String.valueOf(nextToken))
+                .replaceQuery("")
                 .build();
     }
 
-    private URI createPartialCancelUri(int stage, ExternalUriInfo externalUriInfo, long nextToken)
+    private URI createPartialCancelUri(int stage, UriInfo uriInfo, long nextToken)
     {
-        return externalUriInfo.baseUriBuilder()
-                .path("/v1/statement/executing/partialCancel")
+        return uriInfo.getBaseUriBuilder()
+                .replacePath("/v1/statement/executing/partialCancel")
                 .path(queryId.toString())
                 .path(String.valueOf(stage))
                 .path(slug.makeSlug(EXECUTING_QUERY, nextToken))
                 .path(String.valueOf(nextToken))
+                .replaceQuery("")
                 .build();
     }
 

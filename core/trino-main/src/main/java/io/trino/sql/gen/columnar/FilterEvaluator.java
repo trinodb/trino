@@ -34,7 +34,6 @@ import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.columnar.AndFilterEvaluator.createAndExpressionEvaluator;
-import static io.trino.sql.gen.columnar.DynamicPageFilter.DynamicFilterEvaluator;
 import static io.trino.sql.gen.columnar.OrFilterEvaluator.createOrExpressionEvaluator;
 import static io.trino.sql.relational.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.relational.Expressions.call;
@@ -51,14 +50,7 @@ import static io.trino.type.UnknownType.UNKNOWN;
  * Implementations handle dictionary aware processing through {@link DictionaryAwareColumnarFilter}.
  */
 public sealed interface FilterEvaluator
-        permits
-        AndFilterEvaluator,
-        ColumnarFilterEvaluator,
-        OrFilterEvaluator,
-        PageFilterEvaluator,
-        SelectAllEvaluator,
-        SelectNoneEvaluator,
-        DynamicFilterEvaluator
+        permits AndFilterEvaluator, ColumnarFilterEvaluator, OrFilterEvaluator, PageFilterEvaluator
 {
     SelectionResult evaluate(ConnectorSession session, SelectedPositions activePositions, Page page);
 
@@ -78,11 +70,6 @@ public sealed interface FilterEvaluator
     static Optional<Supplier<FilterEvaluator>> createColumnarFilterEvaluator(RowExpression rowExpression, ColumnarFilterCompiler compiler)
     {
         // Eventually this should use RowExpressionVisitor when we handle nested RowExpressions
-        if (rowExpression instanceof ConstantExpression constantExpression) {
-            if (constantExpression.value() instanceof Boolean booleanValue) {
-                return booleanValue ? Optional.of(SelectAllEvaluator::new) : Optional.of(SelectNoneEvaluator::new);
-            }
-        }
         if (rowExpression instanceof CallExpression callExpression) {
             if (isNotExpression(callExpression)) {
                 // "not(is_null(input_reference))" is handled explicitly as it is easy.

@@ -90,7 +90,7 @@ public class LocalFileRecordCursor
         fieldToColumnIndex = new int[columns.size()];
         for (int i = 0; i < columns.size(); i++) {
             LocalFileColumnHandle columnHandle = columns.get(i);
-            fieldToColumnIndex[i] = columnHandle.ordinalPosition();
+            fieldToColumnIndex[i] = columnHandle.getOrdinalPosition();
         }
         this.includeServer = isThisServerIncluded(address, predicate, localFileTables.getTable(tableName));
         this.reader = includeServer ? getFilesReader(localFileTables, predicate, tableName) : null;
@@ -98,7 +98,7 @@ public class LocalFileRecordCursor
 
     private static boolean isThisServerIncluded(HostAddress address, TupleDomain<LocalFileColumnHandle> predicate, LocalFileTableHandle table)
     {
-        if (table.serverAddressColumn().isEmpty()) {
+        if (table.getServerAddressColumn().isEmpty()) {
             return true;
         }
 
@@ -108,7 +108,7 @@ public class LocalFileRecordCursor
         }
 
         Set<Domain> serverAddressDomain = domains.get().entrySet().stream()
-                .filter(entry -> entry.getKey().ordinalPosition() == table.serverAddressColumn().getAsInt())
+                .filter(entry -> entry.getKey().getOrdinalPosition() == table.getServerAddressColumn().getAsInt())
                 .map(Map.Entry::getValue)
                 .collect(toSet());
 
@@ -129,7 +129,7 @@ public class LocalFileRecordCursor
         LocalFileTableHandle table = localFileTables.getTable(tableName);
         List<File> fileNames = localFileTables.getFiles(tableName);
         try {
-            return new FilesReader(table.timestampColumn(), fileNames.iterator(), predicate);
+            return new FilesReader(table.getTimestampColumn(), fileNames.iterator(), predicate);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -152,7 +152,7 @@ public class LocalFileRecordCursor
     public Type getType(int field)
     {
         checkArgument(field < columns.size(), "Invalid field index");
-        return columns.get(field).columnType();
+        return columns.get(field).getColumnType();
     }
 
     @Override
@@ -287,7 +287,7 @@ public class LocalFileRecordCursor
             if (domains.isPresent() && timestampOrdinalPosition.isPresent()) {
                 Map<LocalFileColumnHandle, Domain> domainMap = domains.get();
                 Set<Domain> timestampDomain = domainMap.entrySet().stream()
-                        .filter(entry -> entry.getKey().ordinalPosition() == timestampOrdinalPosition.getAsInt())
+                        .filter(entry -> entry.getKey().getOrdinalPosition() == timestampOrdinalPosition.getAsInt())
                         .map(Map.Entry::getValue)
                         .collect(toSet());
 

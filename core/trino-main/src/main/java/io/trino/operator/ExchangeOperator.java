@@ -248,13 +248,7 @@ public class ExchangeOperator
     @Override
     public void close()
     {
-        updateExchangeDataSourceMetrics();
         exchangeDataSource.close();
-    }
-
-    private void updateExchangeDataSourceMetrics()
-    {
-        exchangeDataSource.getMetrics().ifPresent(operatorContext::setPipelineOperatorMetrics);
     }
 
     @ThreadSafe

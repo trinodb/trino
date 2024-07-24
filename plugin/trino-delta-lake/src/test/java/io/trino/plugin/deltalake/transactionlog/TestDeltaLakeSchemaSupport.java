@@ -111,7 +111,7 @@ public class TestDeltaLakeSchemaSupport
 
     private void testSinglePrimitiveFieldSchema(String json, ColumnMetadata metadata)
     {
-        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE, List.of()).stream()
+        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE).stream()
                 .map(DeltaLakeColumnMetadata::columnMetadata)
                 .collect(toImmutableList());
         assertThat(schema.size()).isEqualTo(1);
@@ -141,7 +141,7 @@ public class TestDeltaLakeSchemaSupport
         URL expected = getResource("io/trino/plugin/deltalake/transactionlog/schema/complex_schema.json");
         String json = Files.readString(Path.of(expected.toURI()));
 
-        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE, List.of()).stream()
+        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE).stream()
                 .map(DeltaLakeColumnMetadata::columnMetadata)
                 .collect(toImmutableList());
         assertThat(schema.size()).isEqualTo(5);
@@ -252,7 +252,7 @@ public class TestDeltaLakeSchemaSupport
         URL expected = getResource("io/trino/plugin/deltalake/transactionlog/schema/complex_schema.json");
         String json = Files.readString(Path.of(expected.toURI()));
 
-        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE, List.of()).stream()
+        List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE).stream()
                 .map(DeltaLakeColumnMetadata::columnMetadata)
                 .collect(toImmutableList());
 

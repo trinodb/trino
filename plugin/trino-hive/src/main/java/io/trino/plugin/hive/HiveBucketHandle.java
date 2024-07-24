@@ -14,8 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metastore.HiveBucketProperty;
-import io.trino.metastore.SortingColumn;
+import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 
 import java.util.List;

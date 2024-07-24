@@ -301,6 +301,10 @@ public class QueryMonitor
     private QueryStatistics createQueryStatistics(QueryInfo queryInfo)
     {
         List<OperatorStats> operatorStats = queryInfo.getQueryStats().getOperatorSummaries();
+        ImmutableList.Builder<String> operatorSummaries = ImmutableList.builderWithExpectedSize(operatorStats.size());
+        for (OperatorStats summary : operatorStats) {
+            operatorSummaries.add(operatorStatsCodec.toJson(summary));
+        }
 
         Optional<StatsAndCosts> planNodeStatsAndCosts = queryInfo.getOutputStage().map(StatsAndCosts::create);
         Optional<String> serializedPlanNodeStatsAndCosts = planNodeStatsAndCosts.map(statsAndCostsCodec::toJson);

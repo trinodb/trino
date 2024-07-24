@@ -180,9 +180,11 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitBind(Bind node, Void context)
         {
+            ImmutableList.Builder<Type> valueTypesBuilder = ImmutableList.builder();
             ImmutableList.Builder<RowExpression> argumentsBuilder = ImmutableList.builder();
             for (Expression value : node.values()) {
                 RowExpression valueRowExpression = process(value, context);
+                valueTypesBuilder.add(valueRowExpression.type());
                 argumentsBuilder.add(valueRowExpression);
             }
             RowExpression function = process(node.function(), context);

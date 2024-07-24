@@ -117,7 +117,6 @@ import io.trino.operator.scalar.ArraySortFunction;
 import io.trino.operator.scalar.ArrayToArrayCast;
 import io.trino.operator.scalar.ArrayTrimFunction;
 import io.trino.operator.scalar.ArrayUnionFunction;
-import io.trino.operator.scalar.ArrayVectorFunctions;
 import io.trino.operator.scalar.ArraysOverlapFunction;
 import io.trino.operator.scalar.BitwiseFunctions;
 import io.trino.operator.scalar.CharacterStringCasts;
@@ -477,7 +476,6 @@ public final class SystemFunctionBundle
                 .scalar(ArrayContainsSequence.class)
                 .scalar(ArrayFilterFunction.class)
                 .scalar(ArrayPositionFunction.class)
-                .scalars(ArrayVectorFunctions.class)
                 .scalars(CombineHashFunction.class)
                 .scalars(JsonOperators.class)
                 .scalars(FailureFunction.class)

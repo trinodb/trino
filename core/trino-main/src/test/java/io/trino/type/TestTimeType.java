@@ -16,13 +16,9 @@ package io.trino.type;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.SqlTime;
-import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
-
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTimeType
@@ -59,48 +55,21 @@ public class TestTimeType
     @Test
     public void testRange()
     {
-        Type.Range range = type.getRange().orElseThrow();
-        assertThat(range.getMin()).isEqualTo(0);
-        assertThat(range.getMax()).isEqualTo(PICOSECONDS_PER_DAY);
+        assertThat(type.getRange())
+                .isEmpty();
     }
 
     @Test
     public void testPreviousValue()
     {
-        long minValue = 0;
-        long maxValue = PICOSECONDS_PER_DAY;
-
-        assertThat(type.getPreviousValue(minValue))
-                .isEqualTo(Optional.empty());
-        assertThat(type.getPreviousValue(minValue + 1_000_000_000))
-                .isEqualTo(Optional.of(minValue));
-
         assertThat(type.getPreviousValue(getSampleValue()))
-                .isEqualTo(Optional.of(1110_000_000_000L));
-
-        assertThat(type.getPreviousValue(maxValue - 1_000_000_000))
-                .isEqualTo(Optional.of(maxValue - 2_000_000_000));
-        assertThat(type.getPreviousValue(maxValue))
-                .isEqualTo(Optional.of(maxValue - 1_000_000_000));
+                .isEmpty();
     }
 
     @Test
     public void testNextValue()
     {
-        long minValue = 0;
-        long maxValue = PICOSECONDS_PER_DAY;
-
-        assertThat(type.getNextValue(minValue))
-                .isEqualTo(Optional.of(minValue + 1_000_000_000));
-        assertThat(type.getNextValue(minValue + 1_000_000_000))
-                .isEqualTo(Optional.of(minValue + 2_000_000_000));
-
         assertThat(type.getNextValue(getSampleValue()))
-                .isEqualTo(Optional.of(1112_000_000_000L));
-
-        assertThat(type.getNextValue(maxValue - 1_000_000_000))
-                .isEqualTo(Optional.of(maxValue));
-        assertThat(type.getNextValue(maxValue))
-                .isEqualTo(Optional.empty());
+                .isEmpty();
     }
 }

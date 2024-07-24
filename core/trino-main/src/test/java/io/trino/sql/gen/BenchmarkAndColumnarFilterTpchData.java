@@ -43,7 +43,6 @@ import org.openjdk.jmh.runner.RunnerException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -89,13 +88,7 @@ public class BenchmarkAndColumnarFilterTpchData
         RowExpression filterExpression = createFilterExpression(FUNCTION_RESOLUTION);
         ExpressionCompiler expressionCompiler = FUNCTION_RESOLUTION.getExpressionCompiler();
         List<? extends RowExpression> projections = ImmutableList.of(new InputReferenceExpression(EXTENDED_PRICE, DOUBLE));
-        processor = expressionCompiler.compilePageProcessor(
-                        columnarEvaluationEnabled,
-                        Optional.of(filterExpression),
-                        Optional.empty(),
-                        projections,
-                        Optional.empty(),
-                        OptionalInt.empty())
+        processor = expressionCompiler.compilePageProcessor(columnarEvaluationEnabled, Optional.of(filterExpression), projections, Optional.empty())
                 .get();
     }
 

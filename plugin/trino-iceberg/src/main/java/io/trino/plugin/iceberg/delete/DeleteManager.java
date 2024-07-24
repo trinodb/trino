@@ -31,11 +31,13 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.types.Conversions;
 import org.roaringbitmap.longlong.LongBitmapDataProvider;
 import org.roaringbitmap.longlong.Roaring64Bitmap;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -162,8 +164,14 @@ public class DeleteManager
             return true;
         }
 
-        Optional<Long> positionLowerBound = deleteFile.rowPositionLowerBound();
-        Optional<Long> positionUpperBound = deleteFile.rowPositionUpperBound();
+        byte[] lowerBoundBytes = deleteFile.lowerBounds().get(DELETE_FILE_POS.fieldId());
+        Optional<Long> positionLowerBound = Optional.ofNullable(lowerBoundBytes)
+                .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
+
+        byte[] upperBoundBytes = deleteFile.upperBounds().get(DELETE_FILE_POS.fieldId());
+        Optional<Long> positionUpperBound = Optional.ofNullable(upperBoundBytes)
+                .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
+
         return (positionLowerBound.isEmpty() || positionLowerBound.get() <= endRowPosition.orElseThrow()) &&
                 (positionUpperBound.isEmpty() || positionUpperBound.get() >= startRowPosition.get());
     }

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.execution.QueryIdGenerator;
-import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.security.SystemSecurityContext;
@@ -57,7 +56,6 @@ public final class TestConstants
     public static final URI OPA_COLUMN_MASKING_URI = URI.create("http://my-column-masking-uri/");
     public static final Identity TEST_IDENTITY = Identity.forUser("source-user").withGroups(ImmutableSet.of("some-group")).build();
     public static final SystemSecurityContext TEST_SECURITY_CONTEXT = new SystemSecurityContext(TEST_IDENTITY, new QueryIdGenerator().createNextQueryId(), Instant.now());
-    public static final CatalogSchemaTableName TEST_COLUMN_MASKING_TABLE_NAME = new CatalogSchemaTableName("some_catalog", "some_schema", "some_table");
 
     public static OpaConfig simpleOpaConfig()
     {
@@ -98,13 +96,13 @@ public final class TestConstants
         @Override
         public OpenTelemetry getOpenTelemetry()
         {
-            return OpenTelemetry.noop();
+            return null;
         }
 
         @Override
         public Tracer getTracer()
         {
-            return OpenTelemetry.noop().getTracer("TEST_TRACER");
+            return null;
         }
     }
 }

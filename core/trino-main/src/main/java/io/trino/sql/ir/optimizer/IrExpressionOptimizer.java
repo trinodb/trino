@@ -62,7 +62,6 @@ import io.trino.sql.ir.optimizer.rule.RemoveRedundantInItems;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantLogicalTerms;
 import io.trino.sql.ir.optimizer.rule.RemoveRedundantSwitchClauses;
 import io.trino.sql.ir.optimizer.rule.SimplifyComplementaryLogicalTerms;
-import io.trino.sql.ir.optimizer.rule.SimplifyContinuousInValues;
 import io.trino.sql.ir.optimizer.rule.SimplifyRedundantCase;
 import io.trino.sql.ir.optimizer.rule.SimplifyRedundantCast;
 import io.trino.sql.ir.optimizer.rule.SimplifyStackedArithmeticNegation;
@@ -111,7 +110,6 @@ public class IrExpressionOptimizer
                 new RemoveRedundantSwitchClauses(context),
                 new RemoveRedundantCaseClauses(),
                 new RemoveRedundantInItems(context),
-                new SimplifyContinuousInValues(),
                 new SimplifyRedundantCast(),
                 new SimplifyStackedNot(),
                 new SimplifyStackedArithmeticNegation(),

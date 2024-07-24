@@ -188,7 +188,6 @@ import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
-import io.trino.sql.gen.columnar.DynamicPageFilter;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
@@ -301,7 +300,6 @@ import static com.google.common.collect.Range.closedOpen;
 import static com.google.common.collect.Sets.difference;
 import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationUniqueRowsRatioThreshold;
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
-import static io.trino.SystemSessionProperties.getDynamicRowFilterSelectivityThreshold;
 import static io.trino.SystemSessionProperties.getExchangeCompressionCodec;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
@@ -313,7 +311,6 @@ import static io.trino.SystemSessionProperties.getTaskMinWriterCount;
 import static io.trino.SystemSessionProperties.getWriterScalingMinDataProcessed;
 import static io.trino.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
 import static io.trino.SystemSessionProperties.isColumnarFilterEvaluationEnabled;
-import static io.trino.SystemSessionProperties.isEnableDynamicRowFiltering;
 import static io.trino.SystemSessionProperties.isEnableLargeDynamicFilters;
 import static io.trino.SystemSessionProperties.isForceSpillingOperator;
 import static io.trino.SystemSessionProperties.isSpillEnabled;
@@ -1024,6 +1021,16 @@ public class LocalExecutionPlanner
                 outputChannels.add(i);
             }
 
+            // compute the layout of the output from the window operator
+            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
+            outputMappings.putAll(source.getLayout());
+
+            if (!node.isPartial() || !partitionChannels.isEmpty()) {
+                // ranking function goes in the last channel
+                int channel = source.getTypes().size();
+                outputMappings.put(node.getRankingSymbol(), channel);
+            }
+
             Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
             boolean isPartial = node.isPartial();
             Optional<DataSize> maxPartialTopNMemorySize = isPartial ? Optional.of(SystemSessionProperties.getMaxPartialTopNMemory(session)).filter(
@@ -1436,13 +1443,22 @@ public class LocalExecutionPlanner
         {
             Expression rewritten = expressionAndValuePointers.getExpression();
 
-            // prepare input layout for compilation
+            // prepare input layout and type provider for compilation
+            ImmutableMap.Builder<Symbol, Type> inputTypes = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, Integer> inputLayout = ImmutableMap.builder();
 
             List<ExpressionAndValuePointers.Assignment> assignments = expressionAndValuePointers.getAssignments();
             for (int i = 0; i < assignments.size(); i++) {
                 ExpressionAndValuePointers.Assignment assignment = assignments.get(i);
                 inputLayout.put(assignment.symbol(), i);
+                inputTypes.put(
+                        assignment.symbol(),
+                        switch (assignment.valuePointer()) {
+                            case AggregationValuePointer pointer -> pointer.getFunction().signature().getReturnType();
+                            case ClassifierValuePointer pointer -> VARCHAR;
+                            case MatchNumberValuePointer pointer -> BIGINT;
+                            case ScalarValuePointer pointer -> pointer.getInputSymbol().type();
+                        });
             }
 
             // compile expression using input layout and input types
@@ -1880,18 +1896,15 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitFilter(FilterNode node, LocalExecutionPlanContext context)
         {
             PlanNode sourceNode = node.getSource();
-            Expression filterExpression = node.getPredicate();
 
-            if (node.getSource() instanceof TableScanNode tableScanNode) {
-                DynamicFilters.ExtractResult extractDynamicFilterResult = extractDynamicFilters(filterExpression);
-                Expression staticFilter = combineConjuncts(extractDynamicFilterResult.getStaticConjuncts());
-                if (staticFilter.equals(TRUE) && extractDynamicFilterResult.getDynamicConjuncts().isEmpty()) {
-                    // filter node contains only empty dynamic filter, fallback to normal table scan
-                    return visitTableScan(node.getId(), tableScanNode, filterExpression, context);
-                }
+            if (node.getSource() instanceof TableScanNode && getStaticFilter(node.getPredicate()).isEmpty()) {
+                // filter node contains only dynamic filter, fallback to normal table scan
+                return visitTableScan(node.getId(), (TableScanNode) node.getSource(), node.getPredicate(), context);
             }
 
+            Expression filterExpression = node.getPredicate();
             List<Symbol> outputSymbols = node.getOutputSymbols();
+
             return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), Assignments.identity(outputSymbols), outputSymbols);
         }
 
@@ -1987,26 +2000,9 @@ public class LocalExecutionPlanner
 
             try {
                 boolean columnarFilterEvaluationEnabled = isColumnarFilterEvaluationEnabled(session);
-                Optional<DynamicPageFilter> dynamicPageFilterFactory = Optional.empty();
-                if (dynamicFilter != DynamicFilter.EMPTY && isEnableDynamicRowFiltering(session)) {
-                    dynamicPageFilterFactory = Optional.of(new DynamicPageFilter(
-                            plannerContext,
-                            session,
-                            dynamicFilter,
-                            ((TableScanNode) sourceNode).getAssignments(),
-                            sourceLayout,
-                            getDynamicRowFilterSelectivityThreshold(session)));
-                }
-                Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
-                        columnarFilterEvaluationEnabled,
-                        translatedFilter,
-                        dynamicPageFilterFactory,
-                        translatedProjections,
-                        Optional.of(context.getStageId() + "_" + planNodeId),
-                        OptionalInt.empty());
-
                 if (columns != null) {
                     Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(translatedFilter, translatedProjections, sourceNode.getId());
+                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(columnarFilterEvaluationEnabled, translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
 
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -2024,6 +2020,7 @@ public class LocalExecutionPlanner
 
                     return new PhysicalOperation(operatorFactory, outputMappings);
                 }
+                Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(columnarFilterEvaluationEnabled, translatedFilter, translatedProjections, Optional.of(context.getStageId() + "_" + planNodeId));
 
                 OperatorFactory operatorFactory = FilterAndProjectOperator.createOperatorFactory(
                         context.getNextOperatorId(),
@@ -2390,6 +2387,7 @@ public class LocalExecutionPlanner
                         context.getNextOperatorId(),
                         node.getId(),
                         lookupSourceFactoryManager,
+                        false,
                         probeSource.getTypes(),
                         probeChannels,
                         probeHashChannel,
@@ -2402,6 +2400,7 @@ public class LocalExecutionPlanner
                         context.getNextOperatorId(),
                         node.getId(),
                         lookupSourceFactoryManager,
+                        false,
                         probeSource.getTypes(),
                         probeChannels,
                         probeHashChannel,
@@ -2893,6 +2892,7 @@ public class LocalExecutionPlanner
                         context.getNextOperatorId(),
                         node.getId(),
                         lookupSourceFactory,
+                        node.getFilter().isPresent(),
                         probeTypes,
                         probeJoinChannels,
                         probeHashChannel,
@@ -3848,6 +3848,12 @@ public class LocalExecutionPlanner
                     // TODO: Once the final aggregation function call representation is fixed,
                     // the same mechanism in project and filter expression should be used here.
                     verify(lambdaExpression.arguments().size() == functionType.getArgumentTypes().size());
+                    Map<Symbol, Type> lambdaArgumentSymbolTypes = new HashMap<>();
+                    for (int j = 0; j < lambdaExpression.arguments().size(); j++) {
+                        lambdaArgumentSymbolTypes.put(
+                                lambdaExpression.arguments().get(j),
+                                functionType.getArgumentTypes().get(j));
+                    }
 
                     LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) toRowExpression(lambdaExpression, ImmutableMap.of());
                     Class<? extends Supplier<Object>> lambdaProviderClass = compileLambdaProvider(lambda, plannerContext.getFunctionManager(), lambdaInterfaces.get(i));

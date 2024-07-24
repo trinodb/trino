@@ -28,8 +28,6 @@ public interface WorkProcessorOperatorFactory
             ProcessorContext processorContext,
             WorkProcessor<Page> sourcePages);
 
-    WorkProcessorOperatorFactory duplicate();
-
     default void close()
     {
         //do nothing

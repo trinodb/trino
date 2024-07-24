@@ -114,9 +114,7 @@ public class TestHashBuilderOperator
                 ImmutableList.of(),
                 10_000,
                 new PagesIndex.TestingFactory(false),
-                defaultHashArraySizeSupplier(),
-                // sync memory usage to delegate memory pool more frequently
-                4096)) {
+                defaultHashArraySizeSupplier())) {
             assertThat(operator.getState()).isEqualTo(CONSUMING_INPUT);
 
             ListenableFuture<Void> whenBuildFinishes = lookupSourceFactory.whenBuildFinishes();

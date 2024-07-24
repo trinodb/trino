@@ -18,11 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.airlift.log.Logger;
 import io.jsonwebtoken.impl.DefaultJwtBuilder;
 import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.trino.cache.EvictableCacheBuilder;
-import io.trino.metastore.TableInfo;
+import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergSchemaProperties;
 import io.trino.plugin.iceberg.IcebergUtil;
@@ -54,7 +53,6 @@ import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.SessionCatalog;
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext;
 import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.exceptions.ForbiddenException;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
@@ -76,14 +74,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
-import static io.trino.metastore.Table.TABLE_COMMENT;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_DIALECT;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
@@ -97,8 +94,6 @@ import static org.apache.iceberg.view.ViewProperties.COMMENT;
 public class TrinoRestCatalog
         implements TrinoCatalog
 {
-    private static final Logger log = Logger.get(TrinoRestCatalog.class);
-
     private static final int PER_QUERY_CACHE_SIZE = 1000;
 
     private final RESTSessionCatalog restSessionCatalog;
@@ -209,46 +204,22 @@ public class TrinoRestCatalog
 
         ImmutableList.Builder<TableInfo> tables = ImmutableList.builder();
         for (Namespace restNamespace : namespaces) {
-            listTableIdentifiers(restNamespace, () -> restSessionCatalog.listTables(sessionContext, restNamespace)).stream()
-                    .map(id -> new TableInfo(SchemaTableName.schemaTableName(id.namespace().toString(), id.name()), TableInfo.ExtendedRelationType.TABLE))
-                    .forEach(tables::add);
-            listTableIdentifiers(restNamespace, () -> restSessionCatalog.listViews(sessionContext, restNamespace)).stream()
-                    .map(id -> new TableInfo(SchemaTableName.schemaTableName(id.namespace().toString(), id.name()), TableInfo.ExtendedRelationType.OTHER_VIEW))
-                    .forEach(tables::add);
+            try {
+                restSessionCatalog.listTables(sessionContext, restNamespace).stream()
+                        .map(id -> new TableInfo(SchemaTableName.schemaTableName(id.namespace().toString(), id.name()), TableInfo.ExtendedRelationType.TABLE))
+                        .forEach(tables::add);
+                restSessionCatalog.listViews(sessionContext, restNamespace).stream()
+                        .map(id -> new TableInfo(SchemaTableName.schemaTableName(id.namespace().toString(), id.name()), TableInfo.ExtendedRelationType.OTHER_VIEW))
+                        .forEach(tables::add);
+            }
+            catch (NoSuchNamespaceException e) {
+                // Namespace may have been deleted during listing
+            }
+            catch (RESTException e) {
+                throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to list tables from namespace: %s", restNamespace), e);
+            }
         }
         return tables.build();
-    }
-
-    @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
-    {
-        SessionContext sessionContext = convert(session);
-        List<Namespace> namespaces = listNamespaces(session, namespace);
-
-        ImmutableList.Builder<SchemaTableName> viewNames = ImmutableList.builder();
-        for (Namespace restNamespace : namespaces) {
-            listTableIdentifiers(restNamespace, () -> restSessionCatalog.listViews(sessionContext, restNamespace)).stream()
-                    .map(id -> SchemaTableName.schemaTableName(id.namespace().toString(), id.name()))
-                    .forEach(viewNames::add);
-        }
-        return viewNames.build();
-    }
-
-    private static List<TableIdentifier> listTableIdentifiers(Namespace restNamespace, Supplier<List<TableIdentifier>> tableIdentifiersProvider)
-    {
-        try {
-            return tableIdentifiersProvider.get();
-        }
-        catch (NoSuchNamespaceException e) {
-            // Namespace may have been deleted during listing
-        }
-        catch (ForbiddenException e) {
-            log.debug(e, "Failed to list tables from %s namespace because of insufficient permissions", restNamespace);
-        }
-        catch (RESTException e) {
-            throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to list tables from namespace: %s", restNamespace), e);
-        }
-        return ImmutableList.of();
     }
 
     @Override
@@ -467,16 +438,7 @@ public class TrinoRestCatalog
         for (Namespace restNamespace : listNamespaces(session, namespace)) {
             for (TableIdentifier restView : restSessionCatalog.listViews(sessionContext, restNamespace)) {
                 SchemaTableName schemaTableName = SchemaTableName.schemaTableName(restView.namespace().toString(), restView.name());
-                try {
-                    getView(session, schemaTableName).ifPresent(view -> views.put(schemaTableName, view));
-                }
-                catch (TrinoException e) {
-                    if (e.getErrorCode().equals(ICEBERG_UNSUPPORTED_VIEW_DIALECT.toErrorCode())) {
-                        log.debug(e, "Skip unsupported view dialect: %s", schemaTableName);
-                        continue;
-                    }
-                    throw e;
-                }
+                getView(session, schemaTableName).ifPresent(view -> views.put(schemaTableName, view));
             }
         }
 

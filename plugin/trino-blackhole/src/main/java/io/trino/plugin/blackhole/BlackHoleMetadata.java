@@ -188,44 +188,6 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
-    {
-        BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
-        List<BlackHoleColumnHandle> columns = ImmutableList.<BlackHoleColumnHandle>builderWithExpectedSize(table.columnHandles().size() + 1)
-                .addAll(table.columnHandles())
-                .add(new BlackHoleColumnHandle(column.getName(), column.getType()))
-                .build();
-
-        tables.put(table.toSchemaTableName(), table.withColumnHandles(columns));
-    }
-
-    @Override
-    public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
-    {
-        BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
-        BlackHoleColumnHandle column = (BlackHoleColumnHandle) columnHandle;
-
-        List<BlackHoleColumnHandle> columns = table.columnHandles().stream()
-                .filter(c -> !c.name().equals(column.name()))
-                .collect(toImmutableList());
-
-        tables.put(table.toSchemaTableName(), table.withColumnHandles(columns));
-    }
-
-    @Override
-    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, String target)
-    {
-        BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
-        BlackHoleColumnHandle column = (BlackHoleColumnHandle) columnHandle;
-
-        List<BlackHoleColumnHandle> columns = table.columnHandles().stream()
-                .map(c -> c.name().equals(column.name()) ? new BlackHoleColumnHandle(target, c.columnType()) : c)
-                .collect(toImmutableList());
-
-        tables.put(table.toSchemaTableName(), table.withColumnHandles(columns));
-    }
-
-    @Override
     public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Type type)
     {
         BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
@@ -233,7 +195,15 @@ public class BlackHoleMetadata
         List<BlackHoleColumnHandle> columns = new ArrayList<>(table.columnHandles());
         columns.set(columns.indexOf(column), new BlackHoleColumnHandle(column.name(), type));
 
-        tables.put(table.toSchemaTableName(), table.withColumnHandles(ImmutableList.copyOf(columns)));
+        tables.put(table.toSchemaTableName(), new BlackHoleTableHandle(
+                table.schemaName(),
+                table.tableName(),
+                ImmutableList.copyOf(columns),
+                table.splitCount(),
+                table.pagesPerSplit(),
+                table.rowsPerPage(),
+                table.fieldsLength(),
+                table.pageProcessingDelay()));
     }
 
     @Override
@@ -392,7 +362,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics) {}
+    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics) {}
 
     @Override
     public void truncateTable(ConnectorSession session, ConnectorTableHandle tableHandle) {}

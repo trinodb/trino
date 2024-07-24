@@ -4,11 +4,10 @@
 
 - **Type:** {ref}`prop-type-string`
 
-An optional properties file that contains annotations to include with each log
-message for TCP output or file output in JSON format, defined with `log.path`
-and `log.format`. This can be used to include machine-specific or
-environment-specific information into logs which are centrally aggregated. The
-annotation values can contain references to environment variables.
+An optional properties file that contains annotations to be included with
+each log message. This can be used to include machine-specific or
+environment-specific information into logs which are centrally aggregated.
+The annotation values can contain references to environment variables.
 
 ```properties
 environment=production

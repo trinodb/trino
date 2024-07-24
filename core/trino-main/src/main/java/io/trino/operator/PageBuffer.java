@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import io.trino.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
 import io.trino.spi.Page;
 import jakarta.annotation.Nullable;
 
@@ -24,7 +25,8 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Provides a bridge between classic {@link Operator} push input model
- * and {@link WorkProcessorOperator} pull model.
+ * and {@link WorkProcessorOperator} pull model. {@link AdapterWorkProcessorOperator}
+ * can use {@link PageBuffer} to convert from push input model to pull model.
  */
 public class PageBuffer
 {

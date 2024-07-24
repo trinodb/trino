@@ -17,8 +17,8 @@ import com.google.inject.Inject;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveConfig;
+import io.trino.plugin.hive.metastore.Table;
 
 import java.io.IOException;
 import java.util.function.Predicate;

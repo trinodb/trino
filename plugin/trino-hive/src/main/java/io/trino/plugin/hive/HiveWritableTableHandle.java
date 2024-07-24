@@ -16,11 +16,10 @@ package io.trino.plugin.hive;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.metastore.HiveBucketProperty;
-import io.trino.metastore.SortingColumn;
-import io.trino.metastore.Table;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
+import io.trino.plugin.hive.metastore.SortingColumn;
+import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.connector.SchemaTableName;
 

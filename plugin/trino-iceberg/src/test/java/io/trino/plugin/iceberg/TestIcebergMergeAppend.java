@@ -14,8 +14,8 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;

@@ -46,12 +46,6 @@ The following table lists the configuration properties for the OPA access contro
 * - `opa.policy.uri`
   - The **required** URI for the OPA endpoint, for example,
     `https://opa.example.com/v1/data/allow`.
-* - `opa.policy.row-filters-uri`
-  - The **optional** URI for fetching row filters - if not set no row filtering
-    is applied. For example, `https://opa.example.com/v1/data/rowFilters`.
-* - `opa.policy.column-masking-uri`
-  - The **optional** URI for fetching column masks - if not set no masking
-    is applied. For example, `https://opa.example.com/v1/data/columnMask`.
 * - `opa.policy.batched-uri`
   - The **optional** URI for activating batch mode for certain authorization
     queries where batching is applicable, for example
@@ -218,91 +212,6 @@ The `targetResource` is used in cases where a new resource, distinct from the on
   }
 }
 ```
-## Row filtering
-
-Row filtering allows Trino to remove some rows from the result before returning
-it to the caller, controlling what data different users can see. The plugin
-supports retrieving filter definitions from OPA by configuring the OPA endpoint
-for row filter processing with `opa.policy.row-filters-uri`.
-
-For example, an OPA policy for row filtering may be defined by the following
-rego script:
-
-```text
-  package trino
-  import future.keywords.in
-  import future.keywords.if
-  import future.keywords.contains
-
-  default allow := true
-
-  table_resource := input.action.resource.table
-  is_admin {
-    input.context.identity.user == "admin"
-  }
-
-  rowFilters contains {"expression": "user_type <> 'customer'"} if {
-      not is_admin
-      table_resource.catalogName == "sample_catalog"
-      table_resource.schemaName == "sample_schema"
-      table_resource.tableName == "restricted_table"
-  }
-```
-
-The response expected by the plugin is an array of objects, each of them in the
-format `{"expression":"clause"}`. Each expression essentially behaves like an
-additional `WHERE` clause. The script can also return multiple row filters for a
-single OPA request, and all filters are subsequently applied.
-
-Each object may contain an identity field. The identity field allows Trino to
-evaluate these row filters under a **different** identity - such that a filter
-can target a column the requesting user cannot see.
-
-## Column masking
-
-Column masking allows Trino to obscure data in one or more columns of the result
-set for specific users, without outright denying access. The plugin supports
-fetching column masks from OPA by configuring the OPA endpoint for columns mask
-processing with `opa.policy.column-masking-uri` in the opa-plugin configuration.
-
-For example, a policy configuring column masking may be defined by the following
-rego script:
-
-```text
-  package trino
-  import future.keywords.in
-  import future.keywords.if
-  import future.keywords.contains
-
-  default allow := true
-
-  column_resource := input.action.resource.column
-  is_admin {
-    input.context.identity.user == "admin"
-  }
-
-  columnMask := {"expression": "NULL"} if {
-      not is_admin
-      column_resource.catalogName == "sample_catalog"
-      column_resource.schemaName == "sample_schema"
-      column_resource.tableName == "restricted_table"
-      column_resource.columnName == "user_phone"
-  }
-
-  columnMask := {"expression": "'****' || substring(user_name, -3)"} if {
-      not is_admin
-      column_resource.catalogName == "sample_catalog"
-      column_resource.schemaName == "sample_schema"
-      column_resource.tableName == "restricted_table"
-      column_resource.columnName == "user_name"
-  }
-```
-
-Unlike row filtering, only a **single column mask** may be returned for a given
-column.
-
-The same "identity" field may be returned to evaluate column masks under a
-different identity.
 
 (opa-batch-mode)=
 ## Batch mode

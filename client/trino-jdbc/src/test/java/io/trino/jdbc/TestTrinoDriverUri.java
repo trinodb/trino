@@ -13,8 +13,6 @@
  */
 package io.trino.jdbc;
 
-import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -56,9 +54,8 @@ public class TestTrinoDriverUri
         // invalid scheme
         assertInvalid("jdbc:http://localhost", "Invalid JDBC URL: jdbc:http://localhost");
 
-        // invalid port
-        assertInvalid("jdbc:trino://localhost:0/", "Invalid port number:");
-        assertInvalid("jdbc:trino://localhost:70000/", "Invalid port number:");
+        // missing port
+        assertInvalid("jdbc:trino://localhost/", "No port number specified:");
 
         // extra path segments
         assertInvalid("jdbc:trino://localhost:8080/hive/default/abc", "Invalid path segments in URL:");
@@ -88,7 +85,7 @@ public class TestTrinoDriverUri
         assertInvalid("jdbc:trino://localhost:8080/blackhole?password&user=abc", "Connection argument is not a valid connection property: 'password'");
 
         // property in both url and arguments
-        assertInvalid("jdbc:trino://localhost:8080/blackhole?user=test123", "Connection property user is passed both by URL and properties");
+        assertInvalid("jdbc:trino://localhost:8080/blackhole?user=test123", "Connection property user is both in the URL and an argument");
 
         // setting both socks and http proxy
         assertInvalid("jdbc:trino://localhost:8080?socksProxy=localhost:1080&httpProxy=localhost:8888", "Connection property socksProxy cannot be used when httpProxy is set");
@@ -107,8 +104,8 @@ public class TestTrinoDriverUri
         // ssl verification without ssl
         assertInvalid("jdbc:trino://localhost:8080?SSLVerification=FULL", "Connection property SSLVerification requires TLS/SSL to be enabled");
 
-        // ssl verification using port 8080 without ssl
-        assertInvalid("jdbc:trino://localhost:8080?SSLVerification=FULL", "Connection property SSLVerification requires TLS/SSL to be enabled");
+        // ssl verification using port 443 without ssl
+        assertInvalid("jdbc:trino://localhost:443?SSLVerification=FULL", "Connection property SSLVerification requires TLS/SSL to be enabled");
 
         // ssl key store password without path
         assertInvalid("jdbc:trino://localhost:8080?SSL=true&SSLKeyStorePassword=password", "Connection property SSLKeyStorePassword requires SSLKeyStorePath to be set");
@@ -125,14 +122,14 @@ public class TestTrinoDriverUri
         // key store path without ssl
         assertInvalid("jdbc:trino://localhost:8080?SSLKeyStorePath=keystore.jks", "Connection property SSLKeyStorePath cannot be set if SSLVerification is set to NONE");
 
-        // key store path using port 8080 without ssl
-        assertInvalid("jdbc:trino://localhost:8080?SSLKeyStorePath=keystore.jks", "Connection property SSLKeyStorePath cannot be set if SSLVerification is set to NONE");
+        // key store path using port 443 without ssl
+        assertInvalid("jdbc:trino://localhost:443?SSLKeyStorePath=keystore.jks", "Connection property SSLKeyStorePath cannot be set if SSLVerification is set to NONE");
 
         // trust store path without ssl
         assertInvalid("jdbc:trino://localhost:8080?SSLTrustStorePath=truststore.jks", "Connection property SSLTrustStorePath cannot be set if SSLVerification is set to NONE");
 
-        // trust store path using port 8080 without ssl
-        assertInvalid("jdbc:trino://localhost:8080?SSLTrustStorePath=truststore.jks", "Connection property SSLTrustStorePath cannot be set if SSLVerification is set to NONE");
+        // trust store path using port 443 without ssl
+        assertInvalid("jdbc:trino://localhost:443?SSLTrustStorePath=truststore.jks", "Connection property SSLTrustStorePath cannot be set if SSLVerification is set to NONE");
 
         // key store password without ssl
         assertInvalid("jdbc:trino://localhost:8080?SSLKeyStorePassword=password", "Connection property SSLKeyStorePassword requires SSLKeyStorePath to be set");
@@ -192,7 +189,7 @@ public class TestTrinoDriverUri
     @Test
     public void testEmptyUser()
     {
-        assertThatThrownBy(() -> TrinoDriverUri.createDriverUri("jdbc:trino://localhost:8080?user=", new Properties()))
+        assertThatThrownBy(() -> TrinoDriverUri.create("jdbc:trino://localhost:8080?user=", new Properties()))
                 .isInstanceOf(SQLException.class)
                 .hasMessage("Connection property user value is empty");
     }
@@ -209,7 +206,7 @@ public class TestTrinoDriverUri
     public void testNonEmptyPassword()
             throws SQLException
     {
-        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:443?password=secret");
+        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080?password=secret");
         assertThat(parameters.getProperties().getProperty("password")).isEqualTo("secret");
     }
 
@@ -255,14 +252,6 @@ public class TestTrinoDriverUri
     }
 
     @Test
-    public void testUriWithTimeout()
-            throws SQLException
-    {
-        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080/?timeout=10s");
-        assertThat(parameters.getTimeout()).isEqualTo(Duration.valueOf("10s"));
-    }
-
-    @Test
     public void testUriWithSslDisabled()
             throws SQLException
     {
@@ -280,20 +269,6 @@ public class TestTrinoDriverUri
         Properties properties = parameters.getProperties();
         assertThat(properties.getProperty(SSL_TRUST_STORE_PATH.toString())).isNull();
         assertThat(properties.getProperty(SSL_TRUST_STORE_PASSWORD.toString())).isNull();
-    }
-
-    @Test
-    public void testSqlPath()
-            throws SQLException
-    {
-        assertInvalid("jdbc:trino://localhost:8080?path=catalog.schema.whatever", "Connection property 'path' has invalid syntax, should be [catalog].[schema] or [schema]");
-        assertInvalid("jdbc:trino://localhost:8080", properties("path", "catalog.schema.whatever"), "Connection property 'path' has invalid syntax, should be [catalog].[schema] or [schema]");
-
-        assertThat(createDriverUri("jdbc:trino://localhost:8080?path=catalog.schema").getPath()).hasValue(ImmutableList.of("catalog.schema"));
-        assertThat(createDriverUri("jdbc:trino://localhost:8080?path=schema,schema2").getPath()).hasValue(ImmutableList.of("schema", "schema2"));
-
-        assertThat(createDriverUri("jdbc:trino://localhost:8080", properties("path", "catalog.schema,schema2")).getPath()).hasValue(ImmutableList.of("catalog.schema", "schema2"));
-        assertThat(createDriverUri("jdbc:trino://localhost:8080", properties("path", "schema")).getPath()).hasValue(ImmutableList.of("schema"));
     }
 
     @Test
@@ -468,17 +443,6 @@ public class TestTrinoDriverUri
                 .hasRootCauseMessage("Unknown time-zone ID: Asia/NOT_FOUND");
     }
 
-    @Test
-    public void testDefaultPorts()
-            throws SQLException
-    {
-        TrinoDriverUri uri = createDriverUri("jdbc:trino://localhost");
-        assertThat(uri.getHttpUri()).isEqualTo(URI.create("http://localhost:80"));
-
-        TrinoDriverUri secureUri = createDriverUri("jdbc:trino://localhost?SSL=true");
-        assertThat(secureUri.getHttpUri()).isEqualTo(URI.create("https://localhost:443"));
-    }
-
     private static void assertUriPortScheme(TrinoDriverUri parameters, int port, String scheme)
     {
         URI uri = parameters.getHttpUri();
@@ -489,33 +453,16 @@ public class TestTrinoDriverUri
     private static TrinoDriverUri createDriverUri(String url)
             throws SQLException
     {
-        return createDriverUri(url, properties("user", "test"));
-    }
-
-    private static TrinoDriverUri createDriverUri(String url, Properties properties)
-            throws SQLException
-    {
-        return TrinoDriverUri.createDriverUri(url, properties);
-    }
-
-    private static Properties properties(String key, String value)
-    {
         Properties properties = new Properties();
-        properties.setProperty(key, value);
-        return properties;
+        properties.setProperty("user", "test");
+
+        return TrinoDriverUri.create(url, properties);
     }
 
     private static void assertInvalid(String url, String prefix)
     {
         assertThatThrownBy(() -> createDriverUri(url))
                 .isInstanceOf(SQLException.class)
-                .hasMessageContaining(prefix);
-    }
-
-    private static void assertInvalid(String url, Properties properties, String prefix)
-    {
-        assertThatThrownBy(() -> createDriverUri(url, properties))
-                .isInstanceOf(SQLException.class)
-                .hasMessageContaining(prefix);
+                .hasMessageStartingWith(prefix);
     }
 }

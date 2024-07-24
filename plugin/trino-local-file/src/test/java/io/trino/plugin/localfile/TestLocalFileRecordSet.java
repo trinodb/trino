@@ -62,7 +62,7 @@ public class TestLocalFileRecordSet
         RecordCursor cursor = recordSet.cursor();
 
         for (int i = 0; i < columnHandles.size(); i++) {
-            assertThat(cursor.getType(i)).isEqualTo(columnHandles.get(i).columnType());
+            assertThat(cursor.getType(i)).isEqualTo(columnHandles.get(i).getColumnType());
         }
 
         // test one row

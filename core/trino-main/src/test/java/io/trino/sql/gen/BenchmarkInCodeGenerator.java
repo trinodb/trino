@@ -46,7 +46,6 @@ import org.openjdk.jmh.runner.RunnerException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -189,14 +188,7 @@ public class BenchmarkInCodeGenerator
                     functionManager,
                     new PageFunctionCompiler(functionManager, 0),
                     new ColumnarFilterCompiler(functionManager, 0))
-                    .compilePageProcessor(
-                            columnarEvaluationEnabled,
-                            Optional.of(filter),
-                            Optional.empty(),
-                            ImmutableList.of(project),
-                            Optional.empty(),
-                            OptionalInt.empty())
-                    .get();
+                    .compilePageProcessor(columnarEvaluationEnabled, Optional.of(filter), ImmutableList.of(project), Optional.empty()).get();
         }
     }
 

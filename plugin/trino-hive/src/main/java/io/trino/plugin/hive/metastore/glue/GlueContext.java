@@ -21,13 +21,11 @@ import software.amazon.awssdk.services.glue.model.BatchGetPartitionRequest;
 import software.amazon.awssdk.services.glue.model.BatchUpdatePartitionRequest;
 import software.amazon.awssdk.services.glue.model.CreateDatabaseRequest;
 import software.amazon.awssdk.services.glue.model.CreateTableRequest;
-import software.amazon.awssdk.services.glue.model.CreateUserDefinedFunctionRequest;
 import software.amazon.awssdk.services.glue.model.DeleteColumnStatisticsForPartitionRequest;
 import software.amazon.awssdk.services.glue.model.DeleteColumnStatisticsForTableRequest;
 import software.amazon.awssdk.services.glue.model.DeleteDatabaseRequest;
 import software.amazon.awssdk.services.glue.model.DeletePartitionRequest;
 import software.amazon.awssdk.services.glue.model.DeleteTableRequest;
-import software.amazon.awssdk.services.glue.model.DeleteUserDefinedFunctionRequest;
 import software.amazon.awssdk.services.glue.model.GetColumnStatisticsForPartitionRequest;
 import software.amazon.awssdk.services.glue.model.GetColumnStatisticsForTableRequest;
 import software.amazon.awssdk.services.glue.model.GetDatabaseRequest;
@@ -36,14 +34,11 @@ import software.amazon.awssdk.services.glue.model.GetPartitionRequest;
 import software.amazon.awssdk.services.glue.model.GetPartitionsRequest;
 import software.amazon.awssdk.services.glue.model.GetTableRequest;
 import software.amazon.awssdk.services.glue.model.GetTablesRequest;
-import software.amazon.awssdk.services.glue.model.GetUserDefinedFunctionRequest;
-import software.amazon.awssdk.services.glue.model.GetUserDefinedFunctionsRequest;
 import software.amazon.awssdk.services.glue.model.UpdateColumnStatisticsForPartitionRequest;
 import software.amazon.awssdk.services.glue.model.UpdateColumnStatisticsForTableRequest;
 import software.amazon.awssdk.services.glue.model.UpdateDatabaseRequest;
 import software.amazon.awssdk.services.glue.model.UpdatePartitionRequest;
 import software.amazon.awssdk.services.glue.model.UpdateTableRequest;
-import software.amazon.awssdk.services.glue.model.UpdateUserDefinedFunctionRequest;
 
 import java.util.Optional;
 
@@ -97,11 +92,6 @@ public class GlueContext
             case GetColumnStatisticsForPartitionRequest.Builder builder -> builder.catalogId(catalogId);
             case UpdateColumnStatisticsForPartitionRequest.Builder builder -> builder.catalogId(catalogId);
             case DeleteColumnStatisticsForPartitionRequest.Builder builder -> builder.catalogId(catalogId);
-            case GetUserDefinedFunctionsRequest.Builder builder -> builder.catalogId(catalogId);
-            case GetUserDefinedFunctionRequest.Builder builder -> builder.catalogId(catalogId);
-            case CreateUserDefinedFunctionRequest.Builder builder -> builder.catalogId(catalogId);
-            case UpdateUserDefinedFunctionRequest.Builder builder -> builder.catalogId(catalogId);
-            case DeleteUserDefinedFunctionRequest.Builder builder -> builder.catalogId(catalogId);
             default -> throw new IllegalArgumentException("Unsupported request: " + request);
         }
     }

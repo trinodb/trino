@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
-import io.trino.metastore.Database;
-import io.trino.metastore.PrincipalPrivileges;
-import io.trino.metastore.Table;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;

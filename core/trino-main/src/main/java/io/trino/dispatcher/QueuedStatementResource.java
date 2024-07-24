@@ -32,7 +32,6 @@ import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryState;
 import io.trino.server.DisconnectionAwareAsyncResponse;
-import io.trino.server.ExternalUriInfo;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionContext;
@@ -63,6 +62,8 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.core.UriBuilder;
+import jakarta.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.Optional;
@@ -161,7 +162,7 @@ public class QueuedStatementResource
             String statement,
             @Context HttpServletRequest servletRequest,
             @Context HttpHeaders httpHeaders,
-            @BeanParam ExternalUriInfo externalUriInfo)
+            @Context UriInfo uriInfo)
     {
         if (isNullOrEmpty(statement)) {
             throw badRequest(BAD_REQUEST, "SQL statement is empty");
@@ -169,7 +170,7 @@ public class QueuedStatementResource
 
         Query query = registerQuery(statement, servletRequest, httpHeaders);
 
-        return createQueryResultsResponse(query.getQueryResults(query.getLastToken(), externalUriInfo));
+        return createQueryResultsResponse(query.getQueryResults(query.getLastToken(), uriInfo));
     }
 
     private Query registerQuery(String statement, HttpServletRequest servletRequest, HttpHeaders httpHeaders)
@@ -201,16 +202,16 @@ public class QueuedStatementResource
             @PathParam("slug") String slug,
             @PathParam("token") long token,
             @QueryParam("maxWait") Duration maxWait,
-            @BeanParam ExternalUriInfo externalUriInfo,
+            @Context UriInfo uriInfo,
             @Suspended @BeanParam DisconnectionAwareAsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
 
-        ListenableFuture<Response> future = getStatus(query, token, maxWait, externalUriInfo);
+        ListenableFuture<Response> future = getStatus(query, token, maxWait, uriInfo);
         bindDisconnectionAwareAsyncResponse(asyncResponse, future, responseExecutor);
     }
 
-    private ListenableFuture<Response> getStatus(Query query, long token, Duration maxWait, ExternalUriInfo externalUriInfo)
+    private ListenableFuture<Response> getStatus(Query query, long token, Duration maxWait, UriInfo uriInfo)
     {
         long waitMillis = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait).toMillis();
 
@@ -219,7 +220,7 @@ public class QueuedStatementResource
                 .withTimeout(waitMillis, MILLISECONDS, timeoutExecutor)
                 .catching(TimeoutException.class, _ -> null, directExecutor())
                 // when state changes, fetch the next result
-                .transform(_ -> query.getQueryResults(token, externalUriInfo), responseExecutor)
+                .transform(_ -> query.getQueryResults(token, uriInfo), responseExecutor)
                 .transform(this::createQueryResultsResponse, directExecutor());
     }
 
@@ -255,13 +256,14 @@ public class QueuedStatementResource
         return builder.build();
     }
 
-    private static URI getQueuedUri(QueryId queryId, Slug slug, long token, ExternalUriInfo externalUriInfo)
+    private static URI getQueuedUri(QueryId queryId, Slug slug, long token, UriInfo uriInfo)
     {
-        return externalUriInfo.baseUriBuilder()
-                .path("/v1/statement/queued/")
+        return uriInfo.getBaseUriBuilder()
+                .replacePath("/v1/statement/queued/")
                 .path(queryId.toString())
                 .path(slug.makeSlug(QUEUED_QUERY, token))
                 .path(String.valueOf(token))
+                .replaceQuery("")
                 .build();
     }
 
@@ -269,7 +271,7 @@ public class QueuedStatementResource
             QueryId queryId,
             URI nextUri,
             Optional<QueryError> queryError,
-            ExternalUriInfo externalUriInfo,
+            UriInfo uriInfo,
             Optional<URI> queryInfoUrl,
             Duration elapsedTime,
             Duration queuedTime)
@@ -277,7 +279,7 @@ public class QueuedStatementResource
         QueryState state = queryError.map(error -> FAILED).orElse(QUEUED);
         return new QueryResults(
                 queryId.toString(),
-                getQueryInfoUri(queryInfoUrl, queryId, externalUriInfo),
+                getQueryInfoUri(queryInfoUrl, queryId, uriInfo),
                 null,
                 nextUri,
                 null,
@@ -382,7 +384,7 @@ public class QueuedStatementResource
             }
         }
 
-        public QueryResults getQueryResults(long token, ExternalUriInfo externalUriInfo)
+        public QueryResults getQueryResults(long token, UriInfo uriInfo)
         {
             long lastToken = this.lastToken.get();
             // token should be the last token or the next token
@@ -396,7 +398,7 @@ public class QueuedStatementResource
             if (!creationFuture.isDone()) {
                 return createQueryResults(
                         token + 1,
-                        externalUriInfo,
+                        uriInfo,
                         DispatchInfo.queued(NO_DURATION, NO_DURATION));
             }
 
@@ -406,7 +408,7 @@ public class QueuedStatementResource
                             .status(NOT_FOUND)
                             .build()));
 
-            return createQueryResults(token + 1, externalUriInfo, dispatchInfo);
+            return createQueryResults(token + 1, uriInfo, dispatchInfo);
         }
 
         public void cancel()
@@ -420,9 +422,9 @@ public class QueuedStatementResource
             sessionContext.getIdentity().destroy();
         }
 
-        private QueryResults createQueryResults(long token, ExternalUriInfo externalUriInfo, DispatchInfo dispatchInfo)
+        private QueryResults createQueryResults(long token, UriInfo uriInfo, DispatchInfo dispatchInfo)
         {
-            URI nextUri = getNextUri(token, externalUriInfo, dispatchInfo);
+            URI nextUri = getNextUri(token, uriInfo, dispatchInfo);
 
             Optional<QueryError> queryError = dispatchInfo.getFailureInfo()
                     .map(this::toQueryError);
@@ -431,13 +433,13 @@ public class QueuedStatementResource
                     queryId,
                     nextUri,
                     queryError,
-                    externalUriInfo,
+                    uriInfo,
                     queryInfoUrl,
                     dispatchInfo.getElapsedTime(),
                     dispatchInfo.getQueuedTime());
         }
 
-        private URI getNextUri(long token, ExternalUriInfo externalUriInfo, DispatchInfo dispatchInfo)
+        private URI getNextUri(long token, UriInfo uriInfo, DispatchInfo dispatchInfo)
         {
             // if failed, query is complete
             if (dispatchInfo.getFailureInfo().isPresent()) {
@@ -445,14 +447,15 @@ public class QueuedStatementResource
             }
             // if dispatched, redirect to new uri
             return dispatchInfo.getCoordinatorLocation()
-                    .map(coordinatorLocation -> getRedirectUri(coordinatorLocation, externalUriInfo))
-                    .orElseGet(() -> getQueuedUri(queryId, slug, token, externalUriInfo));
+                    .map(coordinatorLocation -> getRedirectUri(coordinatorLocation, uriInfo))
+                    .orElseGet(() -> getQueuedUri(queryId, slug, token, uriInfo));
         }
 
-        private URI getRedirectUri(CoordinatorLocation coordinatorLocation, ExternalUriInfo externalUriInfo)
+        private URI getRedirectUri(CoordinatorLocation coordinatorLocation, UriInfo uriInfo)
         {
-            return coordinatorLocation.getUri(externalUriInfo)
-                    .path("/v1/statement/executing")
+            URI coordinatorUri = coordinatorLocation.getUri(uriInfo);
+            return UriBuilder.fromUri(coordinatorUri)
+                    .replacePath("/v1/statement/executing")
                     .path(queryId.toString())
                     .path(slug.makeSlug(EXECUTING_QUERY, 0))
                     .path("0")

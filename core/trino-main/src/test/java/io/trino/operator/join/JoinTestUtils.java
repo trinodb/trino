@@ -77,22 +77,25 @@ public final class JoinTestUtils
     public static OperatorFactory innerJoinOperatorFactory(
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
             RowPagesBuilder probePages,
-            PartitioningSpillerFactory partitioningSpillerFactory)
+            PartitioningSpillerFactory partitioningSpillerFactory,
+            boolean hasFilter)
     {
-        return innerJoinOperatorFactory(lookupSourceFactoryManager, probePages, partitioningSpillerFactory, false);
+        return innerJoinOperatorFactory(lookupSourceFactoryManager, probePages, partitioningSpillerFactory, false, hasFilter);
     }
 
     public static OperatorFactory innerJoinOperatorFactory(
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactoryManager,
             RowPagesBuilder probePages,
             PartitioningSpillerFactory partitioningSpillerFactory,
-            boolean outputSingleMatch)
+            boolean outputSingleMatch,
+            boolean hasFilter)
     {
         return spillingJoin(
                 innerJoin(outputSingleMatch, false),
                 0,
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
+                hasFilter,
                 probePages.getTypes(),
                 probePages.getHashChannels().orElseThrow(),
                 getHashChannelAsInt(probePages),

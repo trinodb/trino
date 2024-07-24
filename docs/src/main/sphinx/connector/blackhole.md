@@ -117,7 +117,6 @@ additional features:
 - {doc}`/sql/create-table-as`
 - {doc}`/sql/show-create-table`
 - {doc}`/sql/drop-table`
-- {doc}`/sql/alter-table`
 - {doc}`/sql/comment`
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`

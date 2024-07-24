@@ -96,6 +96,7 @@ public final class ArrayTransformFunction
                         .argumentType(arrayType(new TypeSignature("T")))
                         .argumentType(functionType(new TypeSignature("T"), new TypeSignature("U")))
                         .build())
+                .nondeterministic()
                 .description("Apply lambda to each element of the array")
                 .build());
     }

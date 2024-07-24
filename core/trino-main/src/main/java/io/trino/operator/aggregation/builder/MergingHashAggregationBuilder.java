@@ -63,7 +63,7 @@ public class MergingHashAggregationBuilder
             int overwriteIntermediateChannelOffset,
             FlatHashStrategyCompiler hashStrategyCompiler)
     {
-        ImmutableList.Builder<Integer> groupByPartialChannels = ImmutableList.builderWithExpectedSize(groupByTypes.size());
+        ImmutableList.Builder<Integer> groupByPartialChannels = ImmutableList.builder();
         for (int i = 0; i < groupByTypes.size(); i++) {
             groupByPartialChannels.add(i);
         }

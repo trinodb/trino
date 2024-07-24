@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.memory.context.MemoryTrackingContext;
+import io.trino.operator.BasicWorkProcessorOperatorAdapter.BasicAdapterWorkProcessorOperatorFactory;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
@@ -25,7 +26,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
+import static io.trino.operator.BasicWorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -47,7 +48,7 @@ public class TopNOperator
     }
 
     private static class Factory
-            implements WorkProcessorOperatorFactory
+            implements BasicAdapterWorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;

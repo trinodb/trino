@@ -85,15 +85,18 @@ public class BenchmarkGroupByHash
     public Object writeData(WriteMultiChannelBenchmarkData data)
     {
         GroupByHash groupByHash = data.getPrefilledHash();
+        ImmutableList.Builder<Page> pages = ImmutableList.builder();
         PageBuilder pageBuilder = new PageBuilder(POSITIONS, data.getOutputTypes());
         int[] groupIdsByPhysicalOrder = data.getGroupIdsByPhysicalOrder();
         for (int groupId : groupIdsByPhysicalOrder) {
             pageBuilder.declarePosition();
             groupByHash.appendValuesTo(groupId, pageBuilder);
             if (pageBuilder.isFull()) {
+                pages.add(pageBuilder.build());
                 pageBuilder.reset();
             }
         }
+        pages.add(pageBuilder.build());
         return pageBuilder.build();
     }
 

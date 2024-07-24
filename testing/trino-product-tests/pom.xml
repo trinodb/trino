@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>453-SNAPSHOT</version>
+        <version>452-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -236,12 +236,6 @@
             <groupId>com.clickhouse</groupId>
             <artifactId>clickhouse-jdbc</artifactId>
             <classifier>all</classifier>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.exasol</groupId>
-            <artifactId>exasol-jdbc</artifactId>
             <scope>runtime</scope>
         </dependency>
 

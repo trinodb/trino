@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.trino.metastore.HiveType;
-import io.trino.metastore.type.TypeInfo;
+import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -40,12 +40,11 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.newArrayList;
-import static io.trino.metastore.HiveType.HIVE_TIMESTAMP;
 import static io.trino.plugin.hive.HiveTestUtils.toNativeContainerValue;
+import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBuckets;
-import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -233,7 +232,7 @@ public class TestHiveBucketing
                 .map(HiveType::getTypeInfo)
                 .collect(toImmutableList());
         List<Type> trinoTypes = hiveTypes.stream()
-                .map(type -> TESTING_TYPE_MANAGER.getType(getTypeSignature(type)))
+                .map(type -> TESTING_TYPE_MANAGER.getType(type.getTypeSignature()))
                 .collect(toImmutableList());
 
         ImmutableList.Builder<List<NullableValue>> values = ImmutableList.builder();
@@ -309,7 +308,7 @@ public class TestHiveBucketing
         Object[] nativeContainerValues = new Object[hiveValues.size()];
         for (int i = 0; i < hiveTypeStrings.size(); i++) {
             Object hiveValue = hiveValues.get(i);
-            Type type = TESTING_TYPE_MANAGER.getType(getTypeSignature(hiveTypes.get(i)));
+            Type type = TESTING_TYPE_MANAGER.getType(hiveTypes.get(i).getTypeSignature());
 
             BlockBuilder blockBuilder = type.createBlockBuilder(null, 3);
             // prepend 2 nulls to make sure position is respected when HiveBucketing function

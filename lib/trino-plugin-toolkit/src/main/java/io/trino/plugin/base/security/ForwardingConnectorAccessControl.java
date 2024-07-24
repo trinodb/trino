@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.base.security;
 
-import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaRoutineName;
@@ -446,11 +445,5 @@ public abstract class ForwardingConnectorAccessControl
     public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
         return delegate().getColumnMask(context, tableName, columnName, type);
-    }
-
-    @Override
-    public Map<ColumnSchema, ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnSchema> columns)
-    {
-        return delegate().getColumnMasks(context, tableName, columns);
     }
 }

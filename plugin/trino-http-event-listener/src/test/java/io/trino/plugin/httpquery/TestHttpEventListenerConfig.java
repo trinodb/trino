@@ -24,10 +24,10 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-final class TestHttpEventListenerConfig
+public class TestHttpEventListenerConfig
 {
     @Test
-    void testDefaults()
+    public void testDefaults()
             throws Exception
     {
         assertRecordedDefaults(recordDefaults(HttpEventListenerConfig.class)
@@ -43,7 +43,7 @@ final class TestHttpEventListenerConfig
     }
 
     @Test
-    void testExplicitPropertyMappings()
+    public void testExplicitPropertyMappings()
             throws Exception
     {
         Map<String, String> properties = Map.of(

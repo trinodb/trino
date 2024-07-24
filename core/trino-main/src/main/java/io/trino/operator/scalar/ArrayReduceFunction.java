@@ -60,6 +60,7 @@ public final class ArrayReduceFunction
                         .build())
                 .nullable()
                 .argumentNullability(false, true, false, false)
+                .nondeterministic()
                 .description("Reduce elements of the array into a single value")
                 .build());
     }

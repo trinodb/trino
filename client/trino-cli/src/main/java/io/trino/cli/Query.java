@@ -86,7 +86,7 @@ public class Query
         return client.getSetSchema();
     }
 
-    public Optional<List<String>> getSetPath()
+    public Optional<String> getSetPath()
     {
         return client.getSetPath();
     }

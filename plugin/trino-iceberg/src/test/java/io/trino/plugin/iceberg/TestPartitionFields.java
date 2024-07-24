@@ -13,12 +13,9 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
-import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.exceptions.ValidationException;
-import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.DoubleType;
 import org.apache.iceberg.types.Types.ListType;
@@ -28,12 +25,10 @@ import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.types.Types.TimestampType;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionField;
-import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -110,35 +105,6 @@ public class TestPartitionFields
         assertInvalid("\"nested.list\"", "Cannot partition by non-primitive source field: list<string>");
     }
 
-    @Test
-    public void testConflicts()
-    {
-        assertParseName(List.of("col", "col_year"), TimestampType.withZone(), List.of("year(col)"), List.of("col_year_2"));
-        assertParseName(List.of("col", "col_month"), TimestampType.withZone(), List.of("month(col)"), List.of("col_month_2"));
-        assertParseName(List.of("col", "col_day"), TimestampType.withZone(), List.of("day(col)"), List.of("col_day_2"));
-        assertParseName(List.of("col", "col_hour"), TimestampType.withZone(), List.of("hour(col)"), List.of("col_hour_2"));
-        assertParseName(List.of("col", "col_bucket"), TimestampType.withZone(), List.of("bucket(col,10)"), List.of("col_bucket_2"));
-        assertParseName(List.of("col", "col_trunc"), StringType.get(), List.of("truncate(col,10)"), List.of("col_trunc_2"));
-        assertParseName(List.of("col", "col_null"), TimestampType.withZone(), List.of("void(col)"), List.of("col_null_2"));
-
-        assertParseName(List.of("col", "col_year", "col_year_2"), TimestampType.withZone(), List.of("year(col)"), List.of("col_year_3"));
-        assertParseName(List.of("col", "col_year", "col_year_3"), TimestampType.withZone(), List.of("year(col)"), List.of("col_year_2"));
-
-        assertParseName(List.of("col", "col_year", "col_year_2"), TimestampType.withZone(), List.of("year(col)", "col_year_2"), List.of("col_year_3", "col_year_2"));
-    }
-
-    private static void assertParseName(List<String> columnNames, Type type, List<String> partitions, List<String> expected)
-    {
-        ImmutableList.Builder<NestedField> columns = ImmutableList.builderWithExpectedSize(columnNames.size());
-        int i = 1;
-        for (String name : columnNames) {
-            columns.add(NestedField.required(i++, name, type));
-        }
-        PartitionSpec spec = parsePartitionFields(new Schema(columns.build()), partitions);
-        assertThat(spec.fields()).extracting(PartitionField::name)
-                .containsExactlyElementsOf(expected);
-    }
-
     private static void assertParse(String value, PartitionSpec expected, String canonicalRepresentation)
     {
         assertThat(expected.fields().size()).isEqualTo(1);
@@ -163,7 +129,7 @@ public class TestPartitionFields
 
     private static PartitionSpec parseField(String value)
     {
-        return partitionSpec(builder -> parsePartitionField(builder, value, ""));
+        return partitionSpec(builder -> parsePartitionField(builder, value));
     }
 
     private static PartitionSpec partitionSpec(Consumer<PartitionSpec.Builder> consumer)

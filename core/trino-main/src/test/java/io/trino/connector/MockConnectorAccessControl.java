@@ -15,23 +15,21 @@ package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.base.security.AllowAllAccessControl;
-import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.Type;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -132,12 +130,9 @@ class MockConnectorAccessControl
     }
 
     @Override
-    public Map<ColumnSchema, ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnSchema> columns)
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
-        return columns.stream()
-                .map(column -> Map.entry(column, Optional.ofNullable(columnMasks.apply(tableName, column.getName()))))
-                .filter(entry -> entry.getValue().isPresent())
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().orElseThrow()));
+        return Optional.ofNullable(columnMasks.apply(tableName, columnName));
     }
 
     public void grantSchemaPrivileges(String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)

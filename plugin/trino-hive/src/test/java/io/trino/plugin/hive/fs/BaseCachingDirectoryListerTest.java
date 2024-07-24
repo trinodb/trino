@@ -15,11 +15,11 @@ package io.trino.plugin.hive.fs;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.Location;
-import io.trino.metastore.HiveMetastore;
-import io.trino.metastore.PrincipalPrivileges;
-import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveQueryRunner;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.Table;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;

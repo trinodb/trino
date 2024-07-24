@@ -20,10 +20,10 @@ import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 
-final class TestHttpServerListenerPlugin
+public class TestHttpServerListenerPlugin
 {
     @Test
-    void testCreateEventListener()
+    public void testCreateConnector()
     {
         HttpServerEventListenerPlugin plugin = new HttpServerEventListenerPlugin();
         EventListenerFactory factory = getOnlyElement(plugin.getEventListenerFactories());

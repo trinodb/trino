@@ -43,7 +43,7 @@ public class CompositeRedirectHandler
                 handler.redirectTo(uri);
                 return;
             }
-            catch (Throwable e) {
+            catch (RedirectException e) {
                 redirectException.addSuppressed(e);
             }
         }
