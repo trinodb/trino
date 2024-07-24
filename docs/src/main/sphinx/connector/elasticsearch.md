@@ -403,13 +403,13 @@ The connector provides [globally available](sql-globally-available) and [read
 operation](sql-read-operations) statements to access data and metadata in the
 Elasticsearch catalog.
 
-## Table functions
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access Elasticsearch.
 
 (elasticsearch-raw-query-function)=
-### `raw_query(varchar) -> table`
+#### `raw_query(varchar) -> table`
 
 The `raw_query` function allows you to query the underlying database directly.
 This function requires [Elastic Query
