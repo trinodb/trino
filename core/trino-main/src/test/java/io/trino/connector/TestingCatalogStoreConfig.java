@@ -14,8 +14,10 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.connector.CatalogStoreConfig.CatalogStoreKind;
 import org.junit.jupiter.api.Test;
 
+import java.util.Locale;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -28,16 +30,22 @@ public class TestingCatalogStoreConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(CatalogStoreConfig.class)
-                .setCatalogStoreKind("file"));
+                .setCatalogStoreKind(CatalogStoreKind.FILE));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.of("catalog.store", "other");
+        testExplicitPropertyMappings("memory");
+        testExplicitPropertyMappings("custom");
+    }
+
+    private void testExplicitPropertyMappings(String catalogStore)
+    {
+        Map<String, String> properties = ImmutableMap.of("catalog.store", catalogStore);
 
         CatalogStoreConfig expected = new CatalogStoreConfig()
-                .setCatalogStoreKind("other");
+                .setCatalogStoreKind(CatalogStoreKind.valueOf(catalogStore.toUpperCase(Locale.ROOT)));
 
         assertFullMapping(properties, expected);
     }

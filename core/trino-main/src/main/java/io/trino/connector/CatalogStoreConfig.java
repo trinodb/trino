@@ -18,16 +18,21 @@ import jakarta.validation.constraints.NotNull;
 
 public class CatalogStoreConfig
 {
-    private String catalogStoreKind = "file";
+    public enum CatalogStoreKind
+    {
+        MEMORY, FILE, CUSTOM
+    }
+
+    private CatalogStoreKind catalogStoreKind = CatalogStoreKind.FILE;
 
     @NotNull
-    public String getCatalogStoreKind()
+    public CatalogStoreKind getCatalogStoreKind()
     {
         return catalogStoreKind;
     }
 
     @Config("catalog.store")
-    public CatalogStoreConfig setCatalogStoreKind(String catalogStoreKind)
+    public CatalogStoreConfig setCatalogStoreKind(CatalogStoreKind catalogStoreKind)
     {
         this.catalogStoreKind = catalogStoreKind;
         return this;

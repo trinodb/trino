@@ -17,14 +17,17 @@ import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.connector.CatalogStoreConfig.CatalogStoreKind;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.CatalogManager;
 import io.trino.server.ServerConfig;
 import io.trino.spi.catalog.CatalogStore;
 
+import java.util.Arrays;
 import java.util.Locale;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.stream.Collectors.joining;
 
 public class DynamicCatalogManagerModule
         extends AbstractConfigurationAwareModule
@@ -35,16 +38,20 @@ public class DynamicCatalogManagerModule
         if (buildConfigObject(ServerConfig.class).isCoordinator()) {
             binder.bind(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
             CatalogStoreConfig config = buildConfigObject(CatalogStoreConfig.class);
-            switch (config.getCatalogStoreKind().toLowerCase(Locale.ROOT)) {
-                case "memory" -> binder.bind(CatalogStore.class).to(InMemoryCatalogStore.class).in(Scopes.SINGLETON);
-                case "file" -> {
+            switch (config.getCatalogStoreKind()) {
+                case MEMORY -> binder.bind(CatalogStore.class).to(InMemoryCatalogStore.class).in(Scopes.SINGLETON);
+                case FILE -> {
                     configBinder(binder).bindConfig(FileCatalogStoreConfig.class);
                     binder.bind(CatalogStore.class).to(FileCatalogStore.class).in(Scopes.SINGLETON);
                 }
-                default -> {
+                case CUSTOM -> {
                     binder.bind(CatalogStoreManager.class).in(Scopes.SINGLETON);
                     binder.bind(CatalogStore.class).to(CatalogStoreManager.class).in(Scopes.SINGLETON);
                 }
+                default -> binder.addError("Invalid catalog store value provided, must be one of %s",
+                        Arrays.stream(CatalogStoreKind.values())
+                                .map(catalogStoreKind -> catalogStoreKind.name().toLowerCase(Locale.ROOT))
+                                .collect(joining(", ")));
             }
             binder.bind(ConnectorServicesProvider.class).to(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
             binder.bind(CatalogManager.class).to(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
