@@ -278,6 +278,16 @@
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
+            <artifactId>retries</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>retries-spi</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
             <artifactId>sdk-core</artifactId>
         </dependency>
 
@@ -608,6 +618,18 @@
                         <version>${dep.plugin.surefire.version}</version>
                     </dependency>
                 </dependencies>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <!-- dependency plugin fails to recognize software.amazon.awssdk.retries as a compile-time dependency, because
+                             we use it as part of builder, without explicit import in GlueMetastoreModule -->
+                        <ignoredNonTestScopedDependency>software.amazon.awssdk:retries</ignoredNonTestScopedDependency>
+                    </ignoredNonTestScopedDependencies>
+                </configuration>
             </plugin>
         </plugins>
     </build>

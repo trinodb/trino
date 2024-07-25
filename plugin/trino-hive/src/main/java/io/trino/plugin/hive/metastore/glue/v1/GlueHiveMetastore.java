@@ -26,7 +26,6 @@ import com.amazonaws.services.glue.model.BatchGetPartitionResult;
 import com.amazonaws.services.glue.model.BatchUpdatePartitionRequest;
 import com.amazonaws.services.glue.model.BatchUpdatePartitionRequestEntry;
 import com.amazonaws.services.glue.model.BatchUpdatePartitionResult;
-import com.amazonaws.services.glue.model.ConcurrentModificationException;
 import com.amazonaws.services.glue.model.CreateDatabaseRequest;
 import com.amazonaws.services.glue.model.CreateTableRequest;
 import com.amazonaws.services.glue.model.CreateUserDefinedFunctionRequest;
@@ -63,15 +62,12 @@ import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.amazonaws.services.glue.model.UpdateUserDefinedFunctionRequest;
 import com.amazonaws.services.glue.model.UserDefinedFunctionInput;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
-import dev.failsafe.Failsafe;
-import dev.failsafe.RetryPolicy;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
@@ -116,7 +112,6 @@ import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -187,11 +182,6 @@ public class GlueHiveMetastore
     private static final int AWS_GLUE_GET_FUNCTIONS_MAX_RESULTS = 100;
     private static final int AWS_GLUE_GET_TABLES_MAX_RESULTS = 100;
     private static final Comparator<Iterable<String>> PARTITION_VALUE_COMPARATOR = lexicographical(String.CASE_INSENSITIVE_ORDER);
-    private static final RetryPolicy<?> CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY = RetryPolicy.builder()
-            .handleIf(throwable -> Throwables.getRootCause(throwable) instanceof ConcurrentModificationException)
-            .withDelay(Duration.ofMillis(100))
-            .withMaxRetries(3)
-            .build();
 
     private final TrinoFileSystem fileSystem;
     private final AWSGlueAsync glueClient;
@@ -450,9 +440,7 @@ public class GlueHiveMetastore
                 .withDatabaseName(databaseName)
                 .withName(tableName);
         try {
-            Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
-                    .run(() -> stats.getDeleteTable().call(() ->
-                            glueClient.deleteTable(deleteTableRequest)));
+            stats.getDeleteTable().call(() -> glueClient.deleteTable(deleteTableRequest));
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -578,12 +566,6 @@ public class GlueHiveMetastore
 
     @Override
     public void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
-    {
-        Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
-                .run(() -> updateTableStatisticsInternal(databaseName, tableName, acidWriteId, mode, statisticsUpdate));
-    }
-
-    private void updateTableStatisticsInternal(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         Table table = getExistingTable(databaseName, tableName);
         if (acidWriteId.isPresent()) {
