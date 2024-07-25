@@ -667,7 +667,7 @@ public class GlueHiveMetastore
         }
     }
 
-    private static TableInput.Builder asTableInputBuilder(software.amazon.awssdk.services.glue.model.Table table)
+    public static TableInput.Builder asTableInputBuilder(software.amazon.awssdk.services.glue.model.Table table)
     {
         return TableInput.builder()
                 .name(table.name())

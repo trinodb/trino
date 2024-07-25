@@ -75,6 +75,7 @@ public final class DeltaLakeSessionProperties
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String CHECKPOINT_FILTERING_ENABLED = "checkpoint_filtering_enabled";
+    private static final String STORE_TABLE_METADATA = "store_table_metadata";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -230,7 +231,12 @@ public final class DeltaLakeSessionProperties
                         CHECKPOINT_FILTERING_ENABLED,
                         "Use filter in checkpoint reader",
                         deltaLakeConfig.isCheckpointFilteringEnabled(),
-                        false));
+                        false),
+                booleanProperty(
+                        STORE_TABLE_METADATA,
+                        "Store table metadata in metastore",
+                        deltaLakeConfig.isStoreTableMetadataEnabled(),
+                        true));
     }
 
     @Override
@@ -347,5 +353,10 @@ public final class DeltaLakeSessionProperties
     public static boolean isCheckpointFilteringEnabled(ConnectorSession session)
     {
         return session.getProperty(CHECKPOINT_FILTERING_ENABLED, Boolean.class);
+    }
+
+    public static boolean isStoreTableMetadataInMetastoreEnabled(ConnectorSession session)
+    {
+        return session.getProperty(STORE_TABLE_METADATA, Boolean.class);
     }
 }
