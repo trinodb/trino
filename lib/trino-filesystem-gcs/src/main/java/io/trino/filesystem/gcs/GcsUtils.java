@@ -13,11 +13,13 @@
  */
 package io.trino.filesystem.gcs;
 
+import com.google.cloud.BaseServiceException;
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemException;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -36,12 +38,18 @@ public class GcsUtils
     public static IOException handleGcsException(RuntimeException exception, String action, GcsLocation location)
             throws IOException
     {
+        if (exception instanceof BaseServiceException) {
+            throw new TrinoFileSystemException("GCS service error %s: %s".formatted(action, location), exception);
+        }
         throw new IOException("Error %s: %s".formatted(action, location), exception);
     }
 
     public static IOException handleGcsException(RuntimeException exception, String action, Collection<Location> locations)
             throws IOException
     {
+        if (exception instanceof BaseServiceException) {
+            throw new TrinoFileSystemException("GCS service error %s: %s".formatted(action, locations), exception);
+        }
         throw new IOException("Error %s: %s".formatted(action, locations), exception);
     }
 

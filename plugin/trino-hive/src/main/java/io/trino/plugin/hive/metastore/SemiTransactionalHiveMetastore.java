@@ -164,6 +164,7 @@ public class SemiTransactionalHiveMetastore
             .withDelay(java.time.Duration.ofSeconds(1))
             .withMaxDuration(java.time.Duration.ofSeconds(30))
             .withMaxAttempts(3)
+            .abortOn(TrinoFileSystem::isUnrecoverableException)
             .build();
 
     private static final Map<AcidOperation, ActionType> ACID_OPERATION_ACTION_TYPES = ImmutableMap.of(
