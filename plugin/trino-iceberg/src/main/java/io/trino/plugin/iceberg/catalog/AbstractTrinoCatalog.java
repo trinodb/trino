@@ -198,7 +198,8 @@ public abstract class AbstractTrinoCatalog
                             .withMaxAttempts(10)
                             .withBackoff(1, 5_000, ChronoUnit.MILLIS, 4)
                             .withMaxDuration(Duration.ofSeconds(30))
-                            .abortOn(failure -> !(failure instanceof MaterializedViewMayBeBeingRemovedException))
+                            .handleIf(failure -> failure instanceof MaterializedViewMayBeBeingRemovedException)
+                            .abortOn(TrinoFileSystem::isUnrecoverableException)
                             .build())
                     .get(() -> doGetMaterializedView(session, schemaViewName));
         }
