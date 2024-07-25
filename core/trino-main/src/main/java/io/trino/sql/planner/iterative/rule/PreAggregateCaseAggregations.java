@@ -161,6 +161,11 @@ public class PreAggregateCaseAggregations
         }
 
         Map<PreAggregationKey, PreAggregation> preAggregations = getPreAggregations(aggregations, context);
+        if (preAggregations.size() == aggregations.size()) {
+            // Prevent rule execution if number of pre-aggregations is equal to number of case aggregations.
+            // In such case there is no gain in performance, and it could lead to infinite rule execution loop.
+            return Result.empty();
+        }
 
         Assignments.Builder preGroupingExpressionsBuilder = Assignments.builder();
         preGroupingExpressionsBuilder.putIdentities(extraGroupingKeys);
