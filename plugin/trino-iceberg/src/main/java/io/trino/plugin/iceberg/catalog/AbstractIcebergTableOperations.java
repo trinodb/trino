@@ -258,9 +258,9 @@ public abstract class AbstractIcebergTableOperations
         TableMetadata newMetadata;
         try {
             newMetadata = Failsafe.with(RetryPolicy.builder()
-                            .withMaxRetries(20)
+                            .withMaxRetries(3)
                             .withBackoff(100, 5000, MILLIS, 4.0)
-                            .withMaxDuration(Duration.ofMinutes(10))
+                            .withMaxDuration(Duration.ofMinutes(3))
                             .handleIf(failure -> !(failure instanceof ValidationException) && !isNotFoundException(failure))
                             .abortOn(TrinoFileSystem::isUnrecoverableException)
                             .build())
