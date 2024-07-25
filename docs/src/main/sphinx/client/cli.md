@@ -169,6 +169,10 @@ mode:
     selected set of options.
 * - `--no-progress`
   - Do not show query processing progress.
+* - `--path`
+  - Set the default [SQL path](/sql/set-path) for the session. Useful for
+    setting a catalog and schema location for [catalog
+    routines](routine-catalog).
 * - `--password`
   - Prompts for a password. Use if your Trino server requires password
     authentication. You can set the `TRINO_PASSWORD` environment variable with
