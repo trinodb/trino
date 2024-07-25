@@ -288,6 +288,7 @@ public class TestPreAggregateCaseAggregations
                 "SELECT " +
                 "col_varchar, " +
                 "sum(CASE WHEN col_bigint = 1 THEN col_bigint ELSE BIGINT '0' END), " +
+                "sum(CASE WHEN col_bigint = 2 THEN col_bigint ELSE BIGINT '0' END), " +
                 "sum(CASE WHEN col_bigint = 2 THEN col_tinyint ELSE TINYINT '0' END), " +
                 "sum(CASE WHEN col_bigint = 3 THEN col_double ELSE DOUBLE '0' END), " +
                 "sum(CASE WHEN col_bigint = 4 THEN col_decimal ELSE DECIMAL '0.0' END), " +
@@ -422,6 +423,19 @@ public class TestPreAggregateCaseAggregations
                         "sum(col_decimal) " +
                         "FROM t " +
                         "GROUP BY col_varchar");
+    }
+
+    @Test
+    public void testDoesNotFireIfAggregationsAreNotReduced()
+    {
+        assertThatDoesNotFire("""
+                SELECT
+                    SUM(IF(col_varchar != 'V', col_bigint + col_decimal)),
+                    SUM(IF(col_varchar != 'V', col_decimal + col_tinyint)),
+                    SUM(IF(col_varchar != 'V', col_tinyint + col_double)),
+                    SUM(IF(col_varchar != 'V', col_double + col_bigint))
+                FROM t
+                """);
     }
 
     private void assertFires(@Language("SQL") String query)
