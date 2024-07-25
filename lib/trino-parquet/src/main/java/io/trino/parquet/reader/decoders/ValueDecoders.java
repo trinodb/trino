@@ -416,17 +416,16 @@ public final class ValueDecoders
                 (values, offset, length) -> {
                     for (int i = offset; i < offset + length; i++) {
                         long epochSeconds = decodeFixed12First(values, i);
-                        long nanosOfSecond = decodeFixed12Second(values, i);
+                        int nanosOfSecond = decodeFixed12Second(values, i);
                         if (timeZone != DateTimeZone.UTC) {
                             epochSeconds = timeZone.convertUTCToLocal(epochSeconds * MILLISECONDS_PER_SECOND) / MILLISECONDS_PER_SECOND;
                         }
                         if (precision < 9) {
                             nanosOfSecond = (int) round(nanosOfSecond, 9 - precision);
                         }
-                        // epochMicros
                         encodeFixed12(
-                                epochSeconds * MICROSECONDS_PER_SECOND + (nanosOfSecond / NANOSECONDS_PER_MICROSECOND),
-                                (int) ((nanosOfSecond * PICOSECONDS_PER_NANOSECOND) % PICOSECONDS_PER_MICROSECOND),
+                                epochSeconds * MICROSECONDS_PER_SECOND + (nanosOfSecond / NANOSECONDS_PER_MICROSECOND), // epochMicros
+                                (nanosOfSecond % NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND, // picosOfMicro
                                 values,
                                 i);
                     }
