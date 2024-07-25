@@ -180,7 +180,7 @@ public class PrometheusClient
     {
         return bearerTokenFile.map(tokenFileName -> {
             try {
-                return readString(tokenFileName.toPath(), UTF_8);
+                return readString(tokenFileName.toPath(), UTF_8).replace("\n", "").replace("\r", "");
             }
             catch (IOException e) {
                 throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Failed to read bearer token file: " + tokenFileName, e);
