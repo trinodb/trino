@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.json.JsonCodec;
@@ -50,6 +51,7 @@ import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.TableUpdateInfo;
 import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
+import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.NotADeltaLakeTableException;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId;
@@ -80,6 +82,7 @@ import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriter;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadata;
+import io.trino.spi.ErrorCode;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -107,6 +110,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SaveMode;
@@ -162,6 +166,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -170,6 +175,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -191,6 +197,7 @@ import static io.trino.hive.formats.HiveClassNames.HIVE_SEQUENCEFILE_OUTPUT_FORM
 import static io.trino.hive.formats.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
 import static io.trino.hive.formats.HiveClassNames.SEQUENCEFILE_INPUT_FORMAT_CLASS;
 import static io.trino.metastore.StorageFormat.create;
+import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.base.filter.UtcConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
@@ -219,6 +226,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isCollectExte
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isQueryPartitionFilterRequired;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isStoreTableMetadataInMetastoreEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isTableStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHANGE_DATA_FEED_ENABLED_PROPERTY;
@@ -230,11 +238,14 @@ import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getChangeDataFe
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getCheckpointInterval;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getLocation;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getPartitionedBy;
+import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.containsSchemaString;
+import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.getLastTransactionVersion;
 import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.isSameTransactionVersion;
 import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.tableMetadataParameters;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.convertToDeltaMetastoreTable;
+import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.verifyDeltaLakeTable;
 import static io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId.OPTIMIZE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.APPEND_ONLY_CONFIGURATION_KEY;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.COLUMN_MAPPING_PHYSICAL_NAME_CONFIGURATION_KEY;
@@ -280,13 +291,17 @@ import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
+import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
+import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
@@ -324,7 +339,9 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
+import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.partitioningBy;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 
 public class DeltaLakeMetadata
         implements ConnectorMetadata
@@ -836,6 +853,93 @@ public class DeltaLakeMetadata
     }
 
     @Override
+    public Iterator<RelationCommentMetadata> streamRelationComments(ConnectorSession session, Optional<String> schemaName, UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        Map<SchemaTableName, ConnectorViewDefinition> viewDefinitions = getViews(session, schemaName);
+        ImmutableList.Builder<RelationCommentMetadata> commentMetadataBuilder = ImmutableList.builderWithExpectedSize(viewDefinitions.size());
+        ImmutableSet.Builder<SchemaTableName> viewNamesBuilder = ImmutableSet.builderWithExpectedSize(viewDefinitions.size());
+        for (Entry<SchemaTableName, ConnectorViewDefinition> viewDefinitionEntry : viewDefinitions.entrySet()) {
+            RelationCommentMetadata relationCommentMetadata = RelationCommentMetadata.forRelation(viewDefinitionEntry.getKey(), viewDefinitionEntry.getValue().getComment());
+            commentMetadataBuilder.add(relationCommentMetadata);
+            viewNamesBuilder.add(relationCommentMetadata.name());
+        }
+        List<RelationCommentMetadata> views = commentMetadataBuilder.build();
+        Set<SchemaTableName> viewNames = viewNamesBuilder.build();
+
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+
+        Stream<RelationCommentMetadata> tables = listTables(session, schemaName).stream()
+                .filter(tableName -> !viewNames.contains(tableName))
+                .collect(collectingAndThen(toUnmodifiableSet(), relationFilter)).stream()
+                .map(tableName -> getRelationCommentMetadata(session, fileSystem, tableName))
+                .filter(Objects::nonNull);
+
+        Set<SchemaTableName> availableViews = relationFilter.apply(viewNames);
+        return Streams.concat(views.stream().filter(commentMetadata -> availableViews.contains(commentMetadata.name())), tables)
+                .iterator();
+    }
+
+    private RelationCommentMetadata getRelationCommentMetadata(ConnectorSession session, TrinoFileSystem fileSystem, SchemaTableName tableName)
+    {
+        if (redirectTable(session, tableName).isPresent()) {
+            return RelationCommentMetadata.forRedirectedTable(tableName);
+        }
+
+        try {
+            Optional<Table> metastoreTable = metastore.getRawMetastoreTable(tableName.getSchemaName(), tableName.getTableName());
+            if (metastoreTable.isEmpty()) {
+                // this may happen when table is being deleted concurrently
+                return null;
+            }
+
+            Table table = metastoreTable.get();
+            verifyDeltaLakeTable(table);
+
+            String tableLocation = HiveMetastoreBackedDeltaLakeMetastore.getTableLocation(table);
+            if (canUseTableParametersFromMetastore(session, fileSystem, table, tableLocation)) {
+                // Don't check TABLE_COMMENT existence because it's not stored in case of null comment
+                return RelationCommentMetadata.forRelation(tableName, Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)));
+            }
+
+            TableSnapshot snapshot = getSnapshot(session, tableName, tableLocation, Optional.empty());
+            MetadataEntry metadata = transactionLogAccess.getMetadataEntry(session, snapshot);
+            return RelationCommentMetadata.forRelation(tableName, Optional.ofNullable(metadata.getDescription()));
+        }
+        catch (RuntimeException e) {
+            boolean suppressed = false;
+            if (e instanceof TrinoException trinoException) {
+                ErrorCode errorCode = trinoException.getErrorCode();
+                suppressed = errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode()) ||
+                        // e.g. table deleted concurrently
+                        errorCode.equals(TABLE_NOT_FOUND.toErrorCode()) ||
+                        errorCode.equals(NOT_FOUND.toErrorCode()) ||
+                        // e.g. Delta table being deleted concurrently resulting in failure to load metadata from filesystem
+                        errorCode.getType() == EXTERNAL;
+            }
+            if (suppressed) {
+                LOG.debug("Failed to get metadata for table: %s", tableName);
+            }
+            else {
+                // getTableHandle or getTableMetadata failed call may fail if table disappeared during listing or is unsupported
+                LOG.warn("Failed to get metadata for table: %s", tableName);
+            }
+            // Since the getTableHandle did not return null (i.e. succeeded or failed), we assume the table would be returned by listTables
+            return RelationCommentMetadata.forRelation(tableName, Optional.empty());
+        }
+    }
+
+    private static boolean canUseTableParametersFromMetastore(ConnectorSession session, TrinoFileSystem fileSystem, Table table, String tableLocation)
+    {
+        if (!isStoreTableMetadataInMetastoreEnabled(session)) {
+            return false;
+        }
+
+        return getLastTransactionVersion(table)
+                .map(version -> isLatestVersion(fileSystem, tableLocation, version))
+                .orElse(false);
+    }
+
+    @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         throw new UnsupportedOperationException("The deprecated listTableColumns is not supported because streamTableColumns is implemented instead");
@@ -848,25 +952,37 @@ public class DeltaLakeMetadata
                 .map(_ -> singletonList(prefix.toSchemaTableName()))
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
 
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+
         return tables.stream()
-                .flatMap(table -> {
+                .flatMap(tableName -> {
                     try {
-                        if (redirectTable(session, table).isPresent()) {
+                        if (redirectTable(session, tableName).isPresent()) {
                             // put "redirect marker" for current table
-                            return Stream.of(TableColumnsMetadata.forRedirectedTable(table));
+                            return Stream.of(TableColumnsMetadata.forRedirectedTable(tableName));
                         }
 
-                        Optional<DeltaMetastoreTable> metastoreTable = metastore.getTable(table.getSchemaName(), table.getTableName());
+                        Optional<Table> metastoreTable = metastore.getRawMetastoreTable(tableName.getSchemaName(), tableName.getTableName());
                         if (metastoreTable.isEmpty()) {
                             // this may happen when table is being deleted concurrently,
                             return Stream.of();
                         }
-                        String tableLocation = metastoreTable.get().location();
-                        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, table, tableLocation, Optional.empty());
+
+                        Table table = metastoreTable.get();
+                        verifyDeltaLakeTable(table);
+
+                        String tableLocation = HiveMetastoreBackedDeltaLakeMetastore.getTableLocation(table);
+                        if (containsSchemaString(table) && canUseTableParametersFromMetastore(session, fileSystem, table, tableLocation)) {
+                            List<ColumnMetadata> columnsMetadata = metadataScheduler.getColumnsMetadata(table);
+                            return Stream.of(TableColumnsMetadata.forTable(tableName, columnsMetadata));
+                        }
+                        // Don't store cache in streamTableColumns method for avoiding too many update calls
+
+                        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, tableName, tableLocation, Optional.empty());
                         MetadataEntry metadata = transactionLogAccess.getMetadataEntry(session, snapshot);
                         ProtocolEntry protocol = transactionLogAccess.getProtocolEntry(session, snapshot);
                         List<ColumnMetadata> columnMetadata = getTableColumnMetadata(metadata, protocol);
-                        return Stream.of(TableColumnsMetadata.forTable(table, columnMetadata));
+                        return Stream.of(TableColumnsMetadata.forTable(tableName, columnMetadata));
                     }
                     catch (NotADeltaLakeTableException | IOException e) {
                         return Stream.empty();
@@ -874,11 +990,26 @@ public class DeltaLakeMetadata
                     catch (RuntimeException e) {
                         // this may happen when table is being deleted concurrently, it still exists in metastore but TL is no longer present
                         // there can be several different exceptions thrown this is why all RTE are caught and ignored here
-                        LOG.debug(e, "Ignored exception when trying to list columns from %s", table);
+                        LOG.debug(e, "Ignored exception when trying to list columns from %s", tableName);
                         return Stream.empty();
                     }
                 })
                 .iterator();
+    }
+
+    private static boolean isLatestVersion(TrinoFileSystem fileSystem, String tableLocation, long version)
+    {
+        String transactionLogDir = getTransactionLogDir(tableLocation);
+        Location transactionLogJsonEntryPath = getTransactionLogJsonEntryPath(transactionLogDir, version);
+        Location nextTransactionLogJsonEntryPath = getTransactionLogJsonEntryPath(transactionLogDir, version + 1);
+        try {
+            return !fileSystem.newInputFile(nextTransactionLogJsonEntryPath).exists() &&
+                    fileSystem.newInputFile(transactionLogJsonEntryPath).exists();
+        }
+        catch (IOException e) {
+            LOG.debug(e, "Failed to check table location: %s", tableLocation);
+            return false;
+        }
     }
 
     private List<DeltaLakeColumnHandle> getColumns(MetadataEntry deltaMetadata, ProtocolEntry protocolEntry)
