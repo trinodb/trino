@@ -17,6 +17,7 @@ import com.azure.core.exception.AzureException;
 import com.azure.storage.blob.models.BlobErrorCode;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.file.datalake.models.DataLakeStorageException;
+import io.trino.filesystem.TrinoFileSystemException;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -32,7 +33,7 @@ final class AzureUtils
             throw withCause(new FileNotFoundException(location.toString()), exception);
         }
         if (exception instanceof AzureException) {
-            throw new IOException("Azure service error %s file: %s".formatted(action, location), exception);
+            throw new TrinoFileSystemException("Azure service error %s file: %s".formatted(action, location), exception);
         }
         throw new IOException("Error %s file: %s".formatted(action, location), exception);
     }
