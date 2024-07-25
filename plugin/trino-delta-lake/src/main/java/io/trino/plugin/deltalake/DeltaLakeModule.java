@@ -27,6 +27,7 @@ import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.cache.DeltaLakeCacheKeyProvider;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesFunctionProvider;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesProcessorProvider;
+import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
 import io.trino.plugin.deltalake.procedure.DropExtendedStatsProcedure;
 import io.trino.plugin.deltalake.procedure.FlushMetadataCacheProcedure;
 import io.trino.plugin.deltalake.procedure.OptimizeTableProcedure;
@@ -117,6 +118,9 @@ public class DeltaLakeModule
         binder.bind(TransactionLogAccess.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TransactionLogAccess.class)
                 .as(generator -> generator.generatedNameOf(TransactionLogAccess.class, catalogName.get().toString()));
+        binder.bind(DeltaLakeTableMetadataScheduler.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(DeltaLakeTableMetadataScheduler.class)
+                .as(generator -> generator.generatedNameOf(DeltaLakeTableMetadataScheduler.class, catalogName.get().toString()));
 
         binder.bind(TransactionLogWriterFactory.class).in(Scopes.SINGLETON);
         binder.bind(TransactionLogSynchronizerManager.class).in(Scopes.SINGLETON);
