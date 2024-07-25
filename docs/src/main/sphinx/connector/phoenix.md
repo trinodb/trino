@@ -282,5 +282,5 @@ statements, the connector supports the following features:
 
 ### Procedures
 
-```{include} jdbc-procedures-execute.fragment
+```{include} procedures-execute.fragment
 ```
