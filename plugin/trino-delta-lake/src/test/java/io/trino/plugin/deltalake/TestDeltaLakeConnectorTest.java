@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import com.google.common.io.Resources;
 import io.airlift.units.DataSize;
 import io.trino.Session;
@@ -3192,6 +3193,50 @@ public class TestDeltaLakeConnectorTest
                             ('url1', 'domain1', 1, 'insert', BIGINT '0'),
                             ('url2', 'domain2', 2, 'insert', BIGINT '0')
                         """);
+    }
+
+    @Test
+    public void testVacuumTableUsingVersionDeletedCheckpoints()
+            throws Exception
+    {
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
+
+        String tableName = "test_vacuum_deleted_version_" + randomNameSuffix();
+        String tableLocation = "s3://%s/%s/%s".formatted(bucketName, SCHEMA, tableName);
+        String deltaLog = "%s/%s/_delta_log".formatted(SCHEMA, tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " WITH (location = '" + tableLocation + "', checkpoint_interval = 1) AS SELECT 1 id", 1);
+        Set<String> initialFiles = getActiveFiles(tableName);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+        assertUpdate("UPDATE " + tableName + " SET id = 3 WHERE id = 1", 1);
+        Stopwatch timeSinceUpdate = Stopwatch.createStarted();
+
+        // Remove 0 and 1 versions
+        assertThat(minioClient.listObjects(bucketName, deltaLog)).hasSize(7);
+        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000000.json");
+        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000001.json");
+        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000001.checkpoint.parquet");
+        assertThat(minioClient.listObjects(bucketName, deltaLog)).hasSize(4);
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES 2, 3");
+        Set<String> updatedFiles = getActiveFiles(tableName);
+
+        assertUpdate("CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '7d')");
+
+        // Verify VACUUM disregards updated file because it still fits during the retention time
+        assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(Sets.union(initialFiles, updatedFiles));
+        assertQuery("SELECT * FROM " + tableName, "VALUES 2, 3");
+
+        MILLISECONDS.sleep(1_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
+        assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '1s')");
+
+        assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(updatedFiles);
+        assertQuery("SELECT * FROM " + tableName, "VALUES 2, 3");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
