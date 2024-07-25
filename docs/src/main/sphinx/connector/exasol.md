@@ -141,7 +141,7 @@ metadata in the Exasol database.
 
 ```{include} jdbc-procedures-flush.fragment
 ```
-```{include} jdbc-procedures-execute.fragment
+```{include} procedures-execute.fragment
 ```
 
 ### Table functions

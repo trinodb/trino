@@ -313,6 +313,11 @@ statements, the connector supports the following features:
 - {doc}`/sql/create-table-as`
 - {doc}`/sql/drop-table`
 
+### Procedures
+
+```{include} procedures-execute.fragment
+```
+
 ### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
@@ -360,31 +365,6 @@ cassandra.allow-drop-table=true
 ### SQL delete limitation
 
 `DELETE` is only supported if the `WHERE` clause matches entire partitions.
-
-(cassandra-procedures)=
-### Procedures
-
-- `system.execute('query')`
-
-  The `execute` procedure allows you to execute a query in the underlying data
-  source directly. The query must use supported syntax of the connected data
-  source. Use the procedure to access features which are not available in Trino
-  or to execute queries that return no result set and therefore can not be used
-  with the `query` or `raw_query` pass-through table function. Typical use cases
-  are statements that create or alter objects.
-  Queries can also invoke statements that insert, update, or delete data, and do
-  not return any data as a result.
-
-  The query text is not parsed by Trino, only passed through, and therefore only
-  subject to any security or access control of the underlying data source.
-
-  For example, the following system call adds the `your_column` to the `your_table`
-  table in the `example` catalog.
-
-  ```sql
-  USE example.example_schema;
-  CALL system.execute(query => 'ALTER TABLE your_table ADD your_column text');
-  ```
 
 [cassandra consistency]: https://docs.datastax.com/en/cassandra-oss/2.2/cassandra/dml/dmlConfigConsistency.html
 [getting started]: https://cassandra.apache.org/doc/latest/cassandra/getting_started/index.html
