@@ -16,16 +16,20 @@ package io.trino.plugin.deltalake;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.io.Resources;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.QueryInfo;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.Table;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
@@ -40,6 +44,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.minio.MinioClient;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TestView;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -64,10 +69,13 @@ import static io.trino.plugin.deltalake.DeltaLakeMetadata.CREATE_OR_REPLACE_TABL
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CREATE_OR_REPLACE_TABLE_OPERATION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CREATE_TABLE_OPERATION;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnMetadata;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -79,11 +87,14 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Map.entry;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -130,9 +141,12 @@ public class TestDeltaLakeConnectorTest
                     .put("s3.endpoint", minio.getMinioAddress())
                     .put("s3.path-style-access", "true")
                     .put("s3.streaming.part-size", "5MB") // minimize memory usage
+                    .put("delta.metastore.store-table-metadata", "true")
                     .put("delta.enable-non-concurrent-writes", "true")
                     .put("delta.register-table-procedure.enabled", "true")
                     .buildOrThrow());
+            metastore = TestingDeltaLakeUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class)
+                    .createMetastore(Optional.empty());
 
             queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + bucketName + "/" + SCHEMA + "')");
             queryRunner.execute("CREATE SCHEMA schemawithoutunderscore WITH (location = 's3://" + bucketName + "/schemawithoutunderscore')");
@@ -4755,6 +4769,282 @@ public class TestDeltaLakeConnectorTest
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col.x int", "line 1:1: Field 'x' already exists");
 
             assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE row(x int, \"X\" int)", "This connector does not support setting column types");
+        }
+    }
+
+    @Test
+    public void testMetastoreAfterCreateTable()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int) COMMENT 'test comment'")) {
+            assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(
+                            entry("comment", "test comment"),
+                            entry("trino_last_transaction_version", "0"),
+                            entry("trino_metadata_schema_string", "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}"));
+        }
+    }
+
+    @Test
+    public void testMetastoreAfterCreateOrReplaceTable()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int) COMMENT 'test comment'")) {
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + "(new_col varchar) COMMENT 'new comment'");
+            assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(
+                            entry("comment", "new comment"),
+                            entry("trino_last_transaction_version", "1"),
+                            entry("trino_metadata_schema_string", "{\"type\":\"struct\",\"fields\":[{\"name\":\"new_col\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]}"));
+        }
+    }
+
+    @Test
+    public void testMetastoreAfterCreateTableAsSelect()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "COMMENT 'test comment' AS SELECT 1 col")) {
+            assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(
+                            entry("comment", "test comment"),
+                            entry("trino_last_transaction_version", "0"),
+                            entry("trino_metadata_schema_string", "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}"));
+        }
+    }
+
+    @Test
+    public void testMetastoreAfterCreateOrReplaceTableAsSelect()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "COMMENT 'test comment' AS SELECT 1 col")) {
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " COMMENT 'new comment' AS SELECT 'test' new_col", 1);
+            assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(
+                            entry("comment", "new comment"),
+                            entry("trino_last_transaction_version", "1"),
+                            entry("trino_metadata_schema_string", "{\"type\":\"struct\",\"fields\":[{\"name\":\"new_col\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]}"));
+        }
+    }
+
+    @Test
+    public void testMetastoreAfterCommentTable()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+            assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .doesNotContainKey("comment")
+                    .contains(
+                            entry("trino_last_transaction_version", "0"),
+                            entry("trino_metadata_schema_string", "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}"));
+
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'test comment'");
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(
+                            entry("comment", "test comment"),
+                            entry("trino_last_transaction_version", "1"),
+                            entry("trino_metadata_schema_string", "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}")));
+        }
+    }
+
+    @Test
+    public void testMetastoreAfterCommentColumn()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int COMMENT 'test comment')")) {
+            assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .doesNotContainKey("comment")
+                    .contains(
+                            entry("trino_last_transaction_version", "0"),
+                            entry("trino_metadata_schema_string", "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{\"comment\":\"test comment\"}}]}"));
+
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".col IS 'new test comment'");
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .doesNotContainKey("comment")
+                    .contains(
+                            entry("trino_last_transaction_version", "1"),
+                            entry("trino_metadata_schema_string", "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{\"comment\":\"new test comment\"}}]}")));
+        }
+    }
+
+    @Test
+    public void testMetastoreAfterAlterColumn()
+    {
+        // Use 'name' column mapping mode to allow renaming columns
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int NOT NULL) WITH (column_mapping_mode = 'name')")) {
+            Map<String, String> initialParameters = metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters();
+            assertThat(initialParameters)
+                    .doesNotContainKey("comment")
+                    .contains(entry("trino_last_transaction_version", "0"));
+            List<DeltaLakeColumnMetadata> initialColumns = getColumnMetadata(initialParameters.get("trino_metadata_schema_string"), TESTING_TYPE_MANAGER, ColumnMappingMode.NAME, ImmutableList.of());
+            assertThat(initialColumns).extracting(DeltaLakeColumnMetadata::columnMetadata)
+                    .containsExactly(ColumnMetadata.builder().setName("col").setType(INTEGER).setNullable(false).build());
+
+            // Drop not null constraints
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col DROP NOT NULL");
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .doesNotContainKey("comment")
+                    .contains(entry("trino_last_transaction_version", "1")));
+            Map<String, String> dropNotNullParameters = metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters();
+            List<DeltaLakeColumnMetadata> dropNotNullColumns = getColumnMetadata(dropNotNullParameters.get("trino_metadata_schema_string"), TESTING_TYPE_MANAGER, ColumnMappingMode.NAME, ImmutableList.of());
+            assertThat(dropNotNullColumns).extracting(DeltaLakeColumnMetadata::columnMetadata)
+                    .containsExactly(ColumnMetadata.builder().setName("col").setType(INTEGER).build());
+
+            // Add a new column
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN new_col int COMMENT 'test comment'");
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .doesNotContainKey("comment")
+                    .contains(entry("trino_last_transaction_version", "2")));
+            Map<String, String> addColumnParameters = metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters();
+            List<DeltaLakeColumnMetadata> columnsAfterAddColumn = getColumnMetadata(addColumnParameters.get("trino_metadata_schema_string"), TESTING_TYPE_MANAGER, ColumnMappingMode.NAME, ImmutableList.of());
+            assertThat(columnsAfterAddColumn).extracting(DeltaLakeColumnMetadata::columnMetadata)
+                    .containsExactly(
+                            ColumnMetadata.builder().setName("col").setType(INTEGER).build(),
+                            ColumnMetadata.builder().setName("new_col").setType(INTEGER).setComment(Optional.of("test comment")).build());
+
+            // Rename a column
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN new_col TO renamed_col");
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .doesNotContainKey("comment")
+                    .contains(entry("trino_last_transaction_version", "3")));
+            Map<String, String> renameColumnParameters = metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters();
+            List<DeltaLakeColumnMetadata> columnsAfterRenameColumn = getColumnMetadata(renameColumnParameters.get("trino_metadata_schema_string"), TESTING_TYPE_MANAGER, ColumnMappingMode.NAME, ImmutableList.of());
+            assertThat(columnsAfterRenameColumn).extracting(DeltaLakeColumnMetadata::columnMetadata)
+                    .containsExactly(
+                            ColumnMetadata.builder().setName("col").setType(INTEGER).build(),
+                            ColumnMetadata.builder().setName("renamed_col").setType(INTEGER).setComment(Optional.of("test comment")).build());
+
+            // Drop a column
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN renamed_col");
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .doesNotContainKey("comment")
+                    .contains(entry("trino_last_transaction_version", "4")));
+            Map<String, String> dropColumnParameters = metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters();
+            List<DeltaLakeColumnMetadata> columnsAfterDropColumn = getColumnMetadata(dropColumnParameters.get("trino_metadata_schema_string"), TESTING_TYPE_MANAGER, ColumnMappingMode.NAME, ImmutableList.of());
+            assertThat(columnsAfterDropColumn).extracting(DeltaLakeColumnMetadata::columnMetadata)
+                    .containsExactly(ColumnMetadata.builder().setName("col").setType(INTEGER).build());
+
+            // Update the following test once the connector supports changing column types
+            assertQueryFails("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint", "This connector does not support setting column types");
+        }
+    }
+
+    @Test
+    public void testMetastoreAfterSetTableProperties()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES change_data_feed_enabled = true");
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(
+                            entry("trino_last_transaction_version", "1"),
+                            entry("trino_metadata_schema_string", "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}")));
+        }
+    }
+
+    @Test
+    public void testMetastoreAfterOptimize()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize");
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(
+                            entry("trino_last_transaction_version", "1"),
+                            entry("trino_metadata_schema_string", "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}")));
+        }
+    }
+
+    @Test
+    public void testMetastoreAfterRegisterTable()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int) COMMENT 'test comment'")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            String tableLocation = metastore.getTable(SCHEMA, table.getName()).orElseThrow().getStorage().getLocation();
+            metastore.dropTable(SCHEMA, table.getName(), false);
+
+            assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(SCHEMA, table.getName(), tableLocation));
+            assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(
+                            entry("comment", "test comment"),
+                            entry("trino_last_transaction_version", "1"),
+                            entry("trino_metadata_schema_string", "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}"));
+        }
+    }
+
+    @Test
+    public void testMetastoreAfterCreateTableRemotely()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int) COMMENT 'test comment'")) {
+            Table metastoreTable = metastore.getTable(SCHEMA, table.getName()).orElseThrow();
+            metastore.dropTable(SCHEMA, table.getName(), false);
+
+            // Create a table on metastore directly to avoid cache during the creation
+            Set<String> filterKeys = ImmutableSet.of("comment", "trino_last_transaction_version", "trino_metadata_schema_string");
+            Table newMetastoreTable = Table.builder(metastoreTable)
+                    .setParameters(Maps.filterKeys(metastoreTable.getParameters(), key -> !filterKeys.contains(key)))
+                    .build();
+            metastore.createTable(newMetastoreTable, buildInitialPrivilegeSet(metastoreTable.getOwner().orElseThrow()));
+            assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .doesNotContainKeys("comment", "trino_last_transaction_version", "trino_metadata_schema_string");
+
+            // The parameters should contain the cache after the 1st access
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(
+                            entry("comment", "test comment"),
+                            entry("trino_last_transaction_version", "0"),
+                            entry("trino_metadata_schema_string", "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}")));
+        }
+    }
+
+    @Test
+    public void testMetastoreAfterDataManipulation()
+    {
+        String schemaString = "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}";
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "(col int)")) {
+            assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(entry("trino_last_transaction_version", "0"), entry("trino_metadata_schema_string", schemaString));
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(entry("trino_last_transaction_version", "1"), entry("trino_metadata_schema_string", schemaString)));
+
+            assertUpdate("UPDATE " + table.getName() + " SET col = 2", 1);
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(entry("trino_last_transaction_version", "2"), entry("trino_metadata_schema_string", schemaString)));
+
+            assertUpdate("MERGE INTO " + table.getName() + " t " +
+                    "USING (SELECT * FROM (VALUES 2)) AS s(col) " +
+                    "ON (t.col = s.col) " +
+                    "WHEN MATCHED THEN UPDATE SET col = 3", 1);
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(entry("trino_last_transaction_version", "3"), entry("trino_metadata_schema_string", schemaString)));
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE col = 3", 1); // row level delete
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(entry("trino_last_transaction_version", "4"), entry("trino_metadata_schema_string", schemaString)));
+
+            assertUpdate("DELETE FROM " + table.getName(), 0); // metadata delete
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(entry("trino_last_transaction_version", "5"), entry("trino_metadata_schema_string", schemaString)));
+        }
+    }
+
+    @Test
+    public void testMetastoreAfterTruncateTable()
+    {
+        String schemaString = "{\"type\":\"struct\",\"fields\":[{\"name\":\"col\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}";
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cache_metastore", "AS SELECT 1 col")) {
+            assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(entry("trino_last_transaction_version", "0"), entry("trino_metadata_schema_string", schemaString));
+
+            assertUpdate("TRUNCATE TABLE " + table.getName());
+            assertEventually(() -> assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .contains(entry("trino_last_transaction_version", "1"), entry("trino_metadata_schema_string", schemaString)));
+        }
+    }
+
+    @Test
+    public void testMetastoreAfterCreateView()
+    {
+        try (TestView table = new TestView(getQueryRunner()::execute, "test_cache_metastore", "SELECT 1 col")) {
+            assertThat(metastore.getTable(SCHEMA, table.getName()).orElseThrow().getParameters())
+                    .doesNotContainKeys("trino_last_transaction_version", "trino_metadata_schema_string")
+                    .contains(entry("comment", "Presto View"));
         }
     }
 }

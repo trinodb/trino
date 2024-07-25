@@ -27,6 +27,7 @@ import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
+import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.TrinoException;
@@ -44,7 +45,6 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_TABLE;
-import static io.trino.plugin.deltalake.DeltaLakeMetadata.buildTable;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -158,15 +158,14 @@ public class RegisterTableProcedure
                 throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed checking table location %s", tableLocation), e);
             }
 
-            Table table = buildTable(session, schemaTableName, tableLocation, true);
-
-            PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
             statisticsAccess.invalidateCache(schemaTableName, Optional.of(tableLocation));
             transactionLogAccess.invalidateCache(schemaTableName, Optional.of(tableLocation));
             // Verify we're registering a location with a valid table
+            TableSnapshot tableSnapshot;
+            MetadataEntry metadataEntry;
             try {
-                TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table.getSchemaTableName(), tableLocation, Optional.empty());
-                transactionLogAccess.getMetadataEntry(session, tableSnapshot); // verify metadata exists
+                tableSnapshot = transactionLogAccess.loadSnapshot(session, schemaTableName, tableLocation, Optional.empty());
+                metadataEntry = transactionLogAccess.getMetadataEntry(session, tableSnapshot);
             }
             catch (TrinoException e) {
                 throw e;
@@ -175,6 +174,15 @@ public class RegisterTableProcedure
                 throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Failed to access table location: " + tableLocation, e);
             }
 
+            Table table = metadata.buildTable(
+                    session,
+                    schemaTableName,
+                    tableLocation,
+                    true,
+                    Optional.ofNullable(metadataEntry.getDescription()),
+                    tableSnapshot.getVersion(),
+                    metadataEntry.getSchemaString());
+            PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
             metastore.createTable(table, principalPrivileges);
         }
     }

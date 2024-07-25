@@ -74,6 +74,8 @@ public class DeltaLakeConfig
     private boolean collectExtendedStatisticsOnWrite = true;
     private HiveCompressionCodec compressionCodec = HiveCompressionCodec.SNAPPY;
     private long perTransactionMetastoreCacheMaximumSize = 1000;
+    private boolean storeTableMetadataEnabled;
+    private int storeTableMetadataThreads = 5;
     private boolean deleteSchemaLocationsFallback;
     private String parquetTimeZone = TimeZone.getDefault().getID();
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
@@ -374,6 +376,33 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setPerTransactionMetastoreCacheMaximumSize(long perTransactionMetastoreCacheMaximumSize)
     {
         this.perTransactionMetastoreCacheMaximumSize = perTransactionMetastoreCacheMaximumSize;
+        return this;
+    }
+
+    public boolean isStoreTableMetadataEnabled()
+    {
+        return storeTableMetadataEnabled;
+    }
+
+    @Config("delta.metastore.store-table-metadata")
+    @ConfigDescription("Store table metadata in metastore")
+    public DeltaLakeConfig setStoreTableMetadataEnabled(boolean storeTableMetadataEnabled)
+    {
+        this.storeTableMetadataEnabled = storeTableMetadataEnabled;
+        return this;
+    }
+
+    @Min(0) // Allow 0 to use the same thread for testing purpose
+    public int getStoreTableMetadataThreads()
+    {
+        return storeTableMetadataThreads;
+    }
+
+    @Config("delta.metastore.store-table-metadata-threads")
+    @ConfigDescription("Number of threads used for storing table metadata in metastore")
+    public DeltaLakeConfig setStoreTableMetadataThreads(int storeTableMetadataThreads)
+    {
+        this.storeTableMetadataThreads = storeTableMetadataThreads;
         return this;
     }
 

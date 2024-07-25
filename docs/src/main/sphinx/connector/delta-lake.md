@@ -161,6 +161,13 @@ values. Typical usage does not require you to configure them.
   - Maximum number of metastore data objects per transaction in the Hive
     metastore cache.
   - `1000`
+* - `delta.metastore.store-table-metadata`
+  - Store table comments and colum definitions in the metastore. The write
+    permission is required to update the metastore.
+  - `false`
+* - `delta.metastore.store-table-metadata-threads`
+  - Number of threads used for storing table metadata in metastore.
+  - `5`
 * - `delta.delete-schema-locations-fallback`
   - Whether schema locations are deleted when Trino can't determine whether they
     contain external files.
