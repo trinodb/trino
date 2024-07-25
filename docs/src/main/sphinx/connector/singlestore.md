@@ -339,7 +339,7 @@ statements, the connector supports the following features:
 
 ```{include} jdbc-procedures-flush.fragment
 ```
-```{include} jdbc-procedures-execute.fragment
+```{include} procedures-execute.fragment
 ```
 
 ## Performance

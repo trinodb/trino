@@ -124,7 +124,7 @@ metadata in the Druid database.
 
 ```{include} jdbc-procedures-flush.fragment
 ```
-```{include} jdbc-procedures-execute.fragment
+```{include} procedures-execute.fragment
 ```
 
 ### Table functions
