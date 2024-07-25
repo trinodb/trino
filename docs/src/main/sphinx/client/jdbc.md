@@ -133,6 +133,9 @@ may not be specified using both methods.
   - Extra information about the client.
 * - `clientTags`
   - Client tags for selecting resource groups. Example: `abc,xyz`
+* - `path`
+  - Set the default [SQL path](/sql/set-path) for the session. Useful for
+    setting a catalog and schema location for [catalog routines](routine-catalog).
 * - `traceToken`
   - Trace token for correlating requests across systems.
 * - `source`
