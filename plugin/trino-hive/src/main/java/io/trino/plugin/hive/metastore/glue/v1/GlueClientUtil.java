@@ -18,8 +18,12 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.metrics.RequestMetricCollector;
+import com.amazonaws.retry.PredefinedRetryPolicies;
+import com.amazonaws.retry.RetryPolicy;
+import com.amazonaws.retry.RetryPolicy.RetryCondition;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
+import com.amazonaws.services.glue.model.ConcurrentModificationException;
 
 import java.util.Set;
 
@@ -36,9 +40,23 @@ public final class GlueClientUtil
             Set<RequestHandler2> requestHandlers,
             RequestMetricCollector metricsCollector)
     {
+        RetryPolicy defaultRetryPolicy = PredefinedRetryPolicies.getDefaultRetryPolicy();
+
+        RetryCondition customRetryCondition = (requestContext, exception, retriesAttempted) ->
+                defaultRetryPolicy.getRetryCondition().shouldRetry(requestContext, exception, retriesAttempted)
+                || exception instanceof ConcurrentModificationException;
+
+        RetryPolicy glueRetryPolicy = RetryPolicy.builder()
+                .withRetryMode(defaultRetryPolicy.getRetryMode())
+                .withRetryCondition(customRetryCondition)
+                .withBackoffStrategy(defaultRetryPolicy.getBackoffStrategy())
+                .withFastFailRateLimiting(defaultRetryPolicy.isFastFailRateLimiting())
+                .withMaxErrorRetry(config.getMaxGlueErrorRetries())
+                .build();
+
         ClientConfiguration clientConfig = new ClientConfiguration()
                 .withMaxConnections(config.getMaxGlueConnections())
-                .withMaxErrorRetry(config.getMaxGlueErrorRetries());
+                .withRetryPolicy(glueRetryPolicy);
         AWSGlueAsyncClientBuilder asyncGlueClientBuilder = AWSGlueAsyncClientBuilder.standard()
                 .withMetricsCollector(metricsCollector)
                 .withClientConfiguration(clientConfig);
