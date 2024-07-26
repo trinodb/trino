@@ -69,6 +69,9 @@ import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
+import static io.trino.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
+import static io.trino.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
+import static io.trino.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTION_NAME;
@@ -292,9 +295,18 @@ public final class ConnectorExpressionTranslator
                 return translateInPredicate(call.getArguments().get(0), call.getArguments().get(1));
             }
 
-            ResolvedFunction resolved = plannerContext.getMetadata().resolveBuiltinFunction(
-                    call.getFunctionName().getName(),
-                    fromTypes(call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList())));
+            ResolvedFunction resolved;
+            if (JSON_STRING_TO_MAP_NAME.equals(call.getFunctionName().getName()) ||
+                    JSON_STRING_TO_ARRAY_NAME.equals(call.getFunctionName().getName()) ||
+                    JSON_STRING_TO_ROW_NAME.equals(call.getFunctionName().getName())) {
+                // These are special functions that currently need to be resolved via getCoercion() -- TODO: fix this
+                resolved = plannerContext.getMetadata().getCoercion(builtinFunctionName(call.getFunctionName().getName()), call.getArguments().get(0).getType(), call.getType());
+            }
+            else {
+                resolved = plannerContext.getMetadata().resolveBuiltinFunction(
+                        call.getFunctionName().getName(),
+                        fromTypes(call.getArguments().stream().map(ConnectorExpression::getType).collect(toImmutableList())));
+            }
 
             return translateCall(call.getFunctionName().getName(), resolved, call.getArguments());
         }
