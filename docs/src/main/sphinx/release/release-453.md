@@ -138,3 +138,8 @@
 ## SQL Server connector
 
 * Add support for the `execute` procedure. ({issue}`22556`)
+
+## SPI
+
+* Add `SystemAccessControl.getColumnMasks` as replacement for the deprecated
+  `SystemAccessControl.getColumnMask`. ({issue}`21997`)
