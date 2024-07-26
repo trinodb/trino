@@ -43,6 +43,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -276,7 +277,6 @@ public class TestDynamicPageFilter
         DynamicPageFilter pageFilter = new DynamicPageFilter(
                 PLANNER_CONTEXT,
                 SESSION,
-                dynamicFilter,
                 ImmutableMap.of(symbolA, columnA, symbolB, columnB, symbolC, columnC),
                 ImmutableMap.of(symbolA, 0, symbolB, 1, symbolC, 2),
                 1);
@@ -285,27 +285,71 @@ public class TestDynamicPageFilter
                 createLongSequenceBlock(100, 201),
                 createLongSequenceBlock(200, 301));
 
-        FilterEvaluator filterEvaluator = pageFilter.createDynamicPageFilterEvaluator(COMPILER).get();
+        FilterEvaluator filterEvaluator = pageFilter.createDynamicPageFilterEvaluator(COMPILER, dynamicFilter).get();
         verifySelectedPositions(filterPage(page, filterEvaluator), 101);
 
         dynamicFilter.update(TupleDomain.withColumnDomains(
                 ImmutableMap.of(columnB, multipleValues(BIGINT, ImmutableList.of(131L, 142L)))));
-        filterEvaluator = pageFilter.createDynamicPageFilterEvaluator(COMPILER).get();
+        filterEvaluator = pageFilter.createDynamicPageFilterEvaluator(COMPILER, dynamicFilter).get();
         verifySelectedPositions(filterPage(page, filterEvaluator), new int[] {31, 42});
 
         dynamicFilter.update(TupleDomain.all());
         dynamicFilter.update(TupleDomain.withColumnDomains(
                 ImmutableMap.of(columnC, singleValue(BIGINT, 231L))));
-        filterEvaluator = pageFilter.createDynamicPageFilterEvaluator(COMPILER).get();
+        filterEvaluator = pageFilter.createDynamicPageFilterEvaluator(COMPILER, dynamicFilter).get();
         verifySelectedPositions(filterPage(page, filterEvaluator), new int[] {31});
 
         dynamicFilter.update(TupleDomain.all());
-        Supplier<FilterEvaluator> filterEvaluatorSupplier = pageFilter.createDynamicPageFilterEvaluator(COMPILER);
+        Supplier<FilterEvaluator> filterEvaluatorSupplier = pageFilter.createDynamicPageFilterEvaluator(COMPILER, dynamicFilter);
         verifySelectedPositions(filterPage(page, filterEvaluatorSupplier.get()), new int[] {31});
 
         assertThat(dynamicFilter.isComplete()).isTrue();
         // After dynamic filter is complete, we should get back the same cached FilterEvaluator supplier
-        assertThat(pageFilter.createDynamicPageFilterEvaluator(COMPILER)).isEqualTo(filterEvaluatorSupplier);
+        assertThat(pageFilter.createDynamicPageFilterEvaluator(COMPILER, dynamicFilter)).isEqualTo(filterEvaluatorSupplier);
+    }
+
+    @Test
+    public void testDifferentDynamicFilterInstances()
+    {
+        ColumnHandle columnA = new TestingColumnHandle("columnA");
+        Symbol symbolA = new Symbol(BIGINT, "A");
+        ColumnHandle columnB = new TestingColumnHandle("columnB");
+        Symbol symbolB = new Symbol(BIGINT, "B");
+        ColumnHandle columnC = new TestingColumnHandle("columnC");
+        Symbol symbolC = new Symbol(BIGINT, "C");
+        DynamicPageFilter pageFilter = new DynamicPageFilter(
+                PLANNER_CONTEXT,
+                SESSION,
+                ImmutableMap.of(symbolA, columnA, symbolB, columnB, symbolC, columnC),
+                ImmutableMap.of(symbolA, 0, symbolB, 1, symbolC, 2),
+                1);
+        Page page = new Page(
+                createLongSequenceBlock(0, 101),
+                createLongSequenceBlock(100, 201),
+                createLongSequenceBlock(200, 301));
+
+        TestingDynamicFilter dynamicFilter = new TestingDynamicFilter(1);
+        dynamicFilter.update(TupleDomain.withColumnDomains(
+                ImmutableMap.of(columnB, multipleValues(BIGINT, ImmutableList.of(131L, 142L)))));
+        FilterEvaluator filterEvaluator = pageFilter.createDynamicPageFilterEvaluator(COMPILER, dynamicFilter).get();
+        verifySelectedPositions(filterPage(page, filterEvaluator), new int[] {31, 42});
+
+        dynamicFilter = new TestingDynamicFilter(1);
+        dynamicFilter.update(TupleDomain.all());
+        filterEvaluator = pageFilter.createDynamicPageFilterEvaluator(COMPILER, dynamicFilter).get();
+        verifySelectedPositions(filterPage(page, filterEvaluator), 101);
+
+        dynamicFilter = new TestingDynamicFilter(1);
+        dynamicFilter.update(TupleDomain.withColumnDomains(
+                ImmutableMap.of(columnC, singleValue(BIGINT, 231L))));
+        Supplier<FilterEvaluator> filterEvaluatorSupplier = pageFilter.createDynamicPageFilterEvaluator(COMPILER, dynamicFilter);
+        verifySelectedPositions(filterPage(page, filterEvaluatorSupplier.get()), new int[] {31});
+
+        dynamicFilter = new TestingDynamicFilter(1);
+        dynamicFilter.update(TupleDomain.withColumnDomains(
+                ImmutableMap.of(columnC, singleValue(BIGINT, 231L))));
+        // DynamicFilter instance is different, but the underlying predicate is the same, we should get back the same cached FilterEvaluator supplier
+        assertThat(pageFilter.createDynamicPageFilterEvaluator(COMPILER, dynamicFilter)).isEqualTo(filterEvaluatorSupplier);
     }
 
     @Test
@@ -453,11 +497,10 @@ public class TestDynamicPageFilter
         return new DynamicPageFilter(
                 PLANNER_CONTEXT,
                 SESSION,
-                dynamicFilter,
                 columns.buildOrThrow(),
                 layout.buildOrThrow(),
                 selectivityThreshold)
-                .createDynamicPageFilterEvaluator(COMPILER)
+                .createDynamicPageFilterEvaluator(COMPILER, dynamicFilter)
                 .get();
     }
 
@@ -549,6 +592,27 @@ public class TestDynamicPageFilter
         public TupleDomain<ColumnHandle> getCurrentPredicate()
         {
             return currentPredicate;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestingDynamicFilter that = (TestingDynamicFilter) o;
+            return futuresLeft == that.futuresLeft
+                    && Objects.equals(isBlocked, that.isBlocked)
+                    && Objects.equals(currentPredicate, that.currentPredicate);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(isBlocked, currentPredicate, futuresLeft);
         }
     }
 }
