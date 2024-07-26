@@ -80,6 +80,7 @@ public class TestShowQueries
                                 Optional.empty(),
                                 Optional.empty(),
                                 true,
+                                false,
                                 ImmutableList.of())))
                 .withGetViewProperties(() -> ImmutableList.of(PropertyMetadata.booleanProperty("boolean_property", "sample_property", true, false)))
                 .build()));

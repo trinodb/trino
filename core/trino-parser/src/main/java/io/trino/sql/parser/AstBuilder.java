@@ -895,6 +895,9 @@ class AstBuilder
         else if (context.INVOKER() != null) {
             security = Optional.of(CreateView.Security.INVOKER);
         }
+        else if (context.HYBRID() != null) {
+        	security = Optional.of(CreateView.Security.HYBRID);
+        }
 
         List<Property> properties = ImmutableList.of();
         if (context.properties() != null) {
@@ -3764,9 +3767,16 @@ class AstBuilder
     @Override
     public Node visitSecurityCharacteristic(SqlBaseParser.SecurityCharacteristicContext context)
     {
-        return new SecurityCharacteristic(getLocation(context), (context.INVOKER() != null)
-                ? SecurityCharacteristic.Security.INVOKER
-                : SecurityCharacteristic.Security.DEFINER);
+    	SecurityCharacteristic.Security security = null;
+
+    	if (context.INVOKER() != null) {
+    		security = SecurityCharacteristic.Security.INVOKER;
+    	} else if (context.DEFINER() != null) {
+    		security = SecurityCharacteristic.Security.DEFINER;
+    	} else if (context.HYBRID() != null) {
+    		security = SecurityCharacteristic.Security.HYBRID;
+    	}
+        return new SecurityCharacteristic(getLocation(context), security);
     }
 
     @Override

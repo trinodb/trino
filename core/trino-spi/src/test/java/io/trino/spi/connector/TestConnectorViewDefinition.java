@@ -106,6 +106,7 @@ public class TestConnectorViewDefinition
                 Optional.of("comment"),
                 Optional.of("test_owner"),
                 false,
+                false,
                 ImmutableList.of()));
     }
 

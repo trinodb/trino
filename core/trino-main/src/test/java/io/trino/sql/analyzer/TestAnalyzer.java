@@ -200,8 +200,8 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
@@ -7420,6 +7420,7 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
+                false,
                 ImmutableList.of());
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, ImmutableMap.of(), false));
 
@@ -7431,6 +7432,7 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", VARCHAR.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
+                false,
                 ImmutableList.of());
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, ImmutableMap.of(), false));
 
@@ -7442,6 +7444,7 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
+                false,
                 ImmutableList.of());
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4,ImmutableMap.of(), false));
 
@@ -7453,6 +7456,7 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")),
+                false,
                 ImmutableList.of());
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, ImmutableMap.of(), false));
 
@@ -7543,6 +7547,7 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                 Optional.empty(),
                 Optional.empty(),
+                false,
                 ImmutableList.of());
         inSetupTransaction(session -> metadata.createView(
                 session,

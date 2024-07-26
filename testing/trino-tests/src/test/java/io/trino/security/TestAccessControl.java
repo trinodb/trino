@@ -86,6 +86,7 @@ import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ALTER_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_COLUMN;
@@ -111,7 +112,6 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.TRUNCATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.UPDATE_TABLE;
-import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -189,6 +189,7 @@ public class TestAccessControl
                             Optional.of("comment"),
                             Optional.of("admin"),
                             false,
+                            false,
                             ImmutableList.of());
                     ConnectorViewDefinition definitionRunAsInvoker = new ConnectorViewDefinition(
                             "SELECT 1 AS test",
@@ -198,6 +199,7 @@ public class TestAccessControl
                             Optional.of("comment"),
                             Optional.empty(),
                             true,
+                            false,
                             ImmutableList.of());
                     return ImmutableMap.of(
                             new SchemaTableName("default", "test_view_definer"), definitionRunAsDefiner,

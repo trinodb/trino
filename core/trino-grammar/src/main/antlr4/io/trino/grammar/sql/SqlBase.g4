@@ -104,7 +104,7 @@ statement
         (WITH properties)? AS rootQuery                                #createMaterializedView
     | CREATE (OR REPLACE)? VIEW qualifiedName
         (COMMENT string)?
-        (SECURITY (DEFINER | INVOKER))?
+        (SECURITY (DEFINER | INVOKER | HYBRID))?
         (WITH properties)? AS rootQuery                                #createView
     | REFRESH MATERIALIZED VIEW qualifiedName                          #refreshMaterializedView
     | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView
@@ -881,7 +881,7 @@ routineCharacteristic
     | NOT? DETERMINISTIC                #deterministicCharacteristic
     | RETURNS NULL ON NULL INPUT        #returnsNullOnNullInputCharacteristic
     | CALLED ON NULL INPUT              #calledOnNullInputCharacteristic
-    | SECURITY (DEFINER | INVOKER)      #securityCharacteristic
+    | SECURITY (DEFINER | INVOKER | HYBRID)      #securityCharacteristic
     | COMMENT string                    #commentCharacteristic
     ;
 
@@ -992,7 +992,7 @@ nonReserved
     | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDING | EXECUTE | EXPLAIN
     | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
     | GRACE | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
-    | HOUR
+    | HOUR | HYBRID
     | IF | IGNORE | IMMEDIATE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ITERATE | ISOLATION
     | JSON
     | KEEP | KEY | KEYS
@@ -1114,6 +1114,7 @@ GROUPING: 'GROUPING';
 GROUPS: 'GROUPS';
 HAVING: 'HAVING';
 HOUR: 'HOUR';
+HYBRID: 'HYBRID';
 IF: 'IF';
 IGNORE: 'IGNORE';
 IMMEDIATE: 'IMMEDIATE';

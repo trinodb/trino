@@ -31,6 +31,7 @@ import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateView;
+import io.trino.sql.tree.CreateView.Security;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
@@ -143,6 +144,7 @@ public class CreateViewTask
                 columns,
                 statement.getComment(),
                 owner,
+                statement.getSecurity().orElse(null) == Security.HYBRID,
                 session.getPath().getPath().stream()
                         // system path elements currently are not stored
                         .filter(element -> !element.getCatalogName().equals(GlobalSystemConnector.NAME))

@@ -495,7 +495,7 @@ public class LanguageFunctionManager
                 Session functionSession = createFunctionSession(newIdentity);
 
                 if (!identity.getUser().equals(session.getUser())) {
-                    accessControl = new ViewAccessControl(accessControl);
+                    accessControl = new ViewAccessControl(accessControl, functionSession.toSecurityContext());
                 }
 
                 return new FunctionContext(functionSession, accessControl);

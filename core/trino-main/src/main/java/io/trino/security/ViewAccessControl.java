@@ -30,10 +30,12 @@ public class ViewAccessControl
         extends ForwardingAccessControl
 {
     private final AccessControl delegate;
+	private final SecurityContext viewContext;
 
-    public ViewAccessControl(AccessControl delegate)
+    public ViewAccessControl(AccessControl delegate, SecurityContext viewContext)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.viewContext = requireNonNull(viewContext, "viewContext is null");
     }
 
     @Override
@@ -49,43 +51,43 @@ public class ViewAccessControl
         // In SQL, views are special in that they execute with permissions of the owner.
         // This means that the owner of the view is effectively granting permissions to the user running the query,
         // and thus must have the equivalent of the SQL standard "GRANT ... WITH GRANT OPTION".
-        wrapAccessDeniedException(() -> delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames));
+        wrapAccessDeniedException(() -> delegate.checkCanCreateViewWithSelectFromColumns(viewContext, tableName, columnNames));
     }
 
     @Override
     public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
     {
-        return delegate.filterColumns(context, catalogName, tableColumns);
+        return delegate.filterColumns(viewContext, catalogName, tableColumns);
     }
 
     @Override
     public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
-        wrapAccessDeniedException(() -> delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames));
+        wrapAccessDeniedException(() -> delegate.checkCanCreateViewWithSelectFromColumns(viewContext, tableName, columnNames));
     }
 
     @Override
     public boolean canExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
-        return delegate.canCreateViewWithExecuteFunction(context, functionName);
+        return delegate.canCreateViewWithExecuteFunction(viewContext, functionName);
     }
 
     @Override
     public boolean canCreateViewWithExecuteFunction(SecurityContext context, QualifiedObjectName functionName)
     {
-        return delegate.canCreateViewWithExecuteFunction(context, functionName);
+        return delegate.canCreateViewWithExecuteFunction(viewContext, functionName);
     }
 
     @Override
     public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
-        return delegate.getRowFilters(context, tableName);
+        return delegate.getRowFilters(viewContext, tableName);
     }
 
     @Override
     public Map<ColumnSchema, ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, List<ColumnSchema> columns)
     {
-        return delegate.getColumnMasks(context, tableName, columns);
+        return delegate.getColumnMasks(viewContext, tableName, columns);
     }
 
     private static void wrapAccessDeniedException(Runnable runnable)

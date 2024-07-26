@@ -33,6 +33,7 @@ public class ConnectorViewDefinition
     private final Optional<String> comment;
     private final Optional<String> owner;
     private final boolean runAsInvoker;
+    private final boolean hybrid;
     private final List<CatalogSchemaName> path;
 
     @JsonCreator
@@ -44,6 +45,7 @@ public class ConnectorViewDefinition
             @JsonProperty("comment") Optional<String> comment,
             @JsonProperty("owner") Optional<String> owner,
             @JsonProperty("runAsInvoker") boolean runAsInvoker,
+            @JsonProperty("hybrid") boolean hybrid,
             @JsonProperty("path") List<CatalogSchemaName> path)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
@@ -53,6 +55,7 @@ public class ConnectorViewDefinition
         this.comment = requireNonNull(comment, "comment is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.runAsInvoker = runAsInvoker;
+        this.hybrid = hybrid;
         this.path = path == null ? List.of() : List.copyOf(path);
         if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
@@ -63,6 +66,19 @@ public class ConnectorViewDefinition
         if (columns.isEmpty()) {
             throw new IllegalArgumentException("columns list is empty");
         }
+    }
+
+    public ConnectorViewDefinition(
+            @JsonProperty("originalSql") String originalSql,
+            @JsonProperty("catalog") Optional<String> catalog,
+            @JsonProperty("schema") Optional<String> schema,
+            @JsonProperty("columns") List<ViewColumn> columns,
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("owner") Optional<String> owner,
+            @JsonProperty("runAsInvoker") boolean runAsInvoker,
+            @JsonProperty("path") List<CatalogSchemaName> path)
+    {
+    	this(originalSql, catalog, schema, columns, comment, owner, runAsInvoker, false, path);
     }
 
     @JsonProperty
@@ -107,6 +123,10 @@ public class ConnectorViewDefinition
         return runAsInvoker;
     }
 
+    public boolean isHybrid() {
+		return hybrid;
+	}
+
     @JsonProperty
     public List<CatalogSchemaName> getPath()
     {
@@ -123,6 +143,7 @@ public class ConnectorViewDefinition
                 comment,
                 Optional.empty(),
                 runAsInvoker,
+                hybrid,
                 path);
     }
 
@@ -131,6 +152,7 @@ public class ConnectorViewDefinition
     {
         StringJoiner joiner = new StringJoiner(", ", "[", "]");
         owner.ifPresent(value -> joiner.add("owner=" + value));
+        joiner.add("hybrid=" + hybrid);
         comment.ifPresent(value -> joiner.add("comment=" + value));
         joiner.add("runAsInvoker=" + runAsInvoker);
         joiner.add("columns=" + columns);

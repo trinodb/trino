@@ -90,6 +90,7 @@ public class TestRowFilter
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
                 false,
+                false,
                 ImmutableList.of());
 
         runner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
