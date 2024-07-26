@@ -27,6 +27,7 @@ import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class DropCatalogTask
@@ -59,8 +60,9 @@ public class DropCatalogTask
             throw new TrinoException(NOT_SUPPORTED, "CASCADE is not yet supported for DROP SCHEMA");
         }
 
-        accessControl.checkCanDropCatalog(stateMachine.getSession().toSecurityContext(), statement.getCatalogName().toString());
-        catalogManager.dropCatalog(new CatalogName(statement.getCatalogName().toString()), statement.isExists());
+        String catalogName = statement.getCatalogName().getValue().toLowerCase(ENGLISH);
+        accessControl.checkCanDropCatalog(stateMachine.getSession().toSecurityContext(), catalogName);
+        catalogManager.dropCatalog(new CatalogName(catalogName), statement.isExists());
         return immediateVoidFuture();
     }
 }
