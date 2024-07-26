@@ -340,6 +340,9 @@ export function computeRate(count: number, ms: number): number {
 }
 
 export function precisionRound(n: number): string {
+    if (n === undefined){
+        return "n/a";
+    }
     if (n < 10) {
         return n.toFixed(2);
     }
