@@ -40,6 +40,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.testing.TestingSession.testSession;
 import static java.util.Collections.emptyList;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -94,6 +95,17 @@ public class TestDropCatalogTask
         DropCatalog statement = new DropCatalog(new Identifier(TEST_CATALOG), true, false);
         getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
+        getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
+    }
+
+    @Test
+    void testCaseInsensitiveDropCatalog()
+    {
+        queryRunner.createCatalog(TEST_CATALOG, "tpch", ImmutableMap.of());
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
+
+        DropCatalog statement = new DropCatalog(new Identifier(TEST_CATALOG.toUpperCase(ENGLISH)), false, false);
         getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
     }
