@@ -539,6 +539,9 @@
                     <exclude>**/node_modules/**</exclude>
                     <exclude>**/webapp/src/**</exclude>
                     <exclude>**/webapp/dist/node/**</exclude>
+                    <exclude>**/webapp-preview/public/**</exclude>
+                    <exclude>**/webapp-preview/src/**</exclude>
+                    <exclude>**/webapp-preview/*</exclude>
                 </excludes>
             </resource>
         </resources>
@@ -592,6 +595,29 @@
                             <arguments>run flow</arguments>
                             <workingDirectory>src/main/resources/webapp/src</workingDirectory>
                             <installDirectory>src/main/resources/webapp/dist</installDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>install node and npm (webapp-preview)</id>
+                        <goals>
+                            <goal>install-node-and-npm</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <workingDirectory>src/main/resources/webapp-preview</workingDirectory>
+                            <installDirectory>src/main/resources/webapp-preview/dist</installDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>install dependencies and build (webapp-preview)</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <arguments>run package</arguments>
+                            <workingDirectory>src/main/resources/webapp-preview</workingDirectory>
+                            <installDirectory>src/main/resources/webapp-preview/dist</installDirectory>
                         </configuration>
                     </execution>
                 </executions>
