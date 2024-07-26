@@ -32,7 +32,7 @@ public class TestDynamicFilterConfig
     {
         assertRecordedDefaults(recordDefaults(DynamicFilterConfig.class)
                 .setEnableDynamicFiltering(true)
-                .setEnableLargeDynamicFilters(false)
+                .setEnableLargeDynamicFilters(true)
                 .setEnableDynamicRowFiltering(true)
                 .setDynamicRowFilterSelectivityThreshold(0.7)
                 .setSmallMaxDistinctValuesPerDriver(1_000)
@@ -44,15 +44,15 @@ public class TestDynamicFilterConfig
                 .setSmallPartitionedRangeRowLimitPerDriver(500)
                 .setSmallPartitionedMaxSizePerOperator(DataSize.of(500, KILOBYTE))
                 .setSmallMaxSizePerFilter(DataSize.of(5, MEGABYTE))
-                .setLargeMaxDistinctValuesPerDriver(10_000)
-                .setLargeMaxSizePerDriver(DataSize.of(2, MEGABYTE))
-                .setLargeRangeRowLimitPerDriver(20_000)
+                .setLargeMaxDistinctValuesPerDriver(50_000)
+                .setLargeMaxSizePerDriver(DataSize.of(4, MEGABYTE))
+                .setLargeRangeRowLimitPerDriver(100_000)
                 .setLargeMaxSizePerOperator(DataSize.of(5, MEGABYTE))
-                .setLargePartitionedMaxDistinctValuesPerDriver(1_000)
+                .setLargePartitionedMaxDistinctValuesPerDriver(20_000)
                 .setLargePartitionedMaxSizePerDriver(DataSize.of(200, KILOBYTE))
-                .setLargePartitionedRangeRowLimitPerDriver(2_000)
-                .setLargePartitionedMaxSizePerOperator(DataSize.of(2, MEGABYTE))
-                .setLargeMaxSizePerFilter(DataSize.of(5, MEGABYTE)));
+                .setLargePartitionedRangeRowLimitPerDriver(30_000)
+                .setLargePartitionedMaxSizePerOperator(DataSize.of(5, MEGABYTE))
+                .setLargeMaxSizePerFilter(DataSize.of(10, MEGABYTE)));
     }
 
     @Test
@@ -60,7 +60,7 @@ public class TestDynamicFilterConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("enable-dynamic-filtering", "false")
-                .put("enable-large-dynamic-filters", "true")
+                .put("enable-large-dynamic-filters", "false")
                 .put("enable-dynamic-row-filtering", "false")
                 .put("dynamic-row-filtering.selectivity-threshold", "0.8")
                 .put("dynamic-filtering.small.max-distinct-values-per-driver", "256")
@@ -85,7 +85,7 @@ public class TestDynamicFilterConfig
 
         DynamicFilterConfig expected = new DynamicFilterConfig()
                 .setEnableDynamicFiltering(false)
-                .setEnableLargeDynamicFilters(true)
+                .setEnableLargeDynamicFilters(false)
                 .setEnableDynamicRowFiltering(false)
                 .setDynamicRowFilterSelectivityThreshold(0.8)
                 .setSmallMaxDistinctValuesPerDriver(256)
