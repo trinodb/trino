@@ -106,7 +106,7 @@ public class WebUiStaticResource
         return Response.ok(resource.openStream(), servletContext.getMimeType(resource.toString())).build();
     }
 
-    private static boolean isCanonical(String fullPath)
+    public static boolean isCanonical(String fullPath)
     {
         try {
             return new URI(fullPath).normalize().getPath().equals(fullPath);
