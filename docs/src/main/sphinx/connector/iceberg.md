@@ -162,18 +162,16 @@ implementation is used:
   - Enable to allow user to call [`register_table` procedure](iceberg-register-table).
   - `false`
 * - `iceberg.query-partition-filter-required`
-  - Set to `true` to force a query to use a partition filter. You can use the
-    `query_partition_filter_required` catalog session property for temporary,
-    catalog specific use.
+  - Set to `true` to force a query to use a partition filter for schemas
+    specified with `iceberg.query-partition-filter-required-schemas`. Equivalent
+    catalog session property is `query_partition_filter_required`.
   - `false`
 * - `iceberg.query-partition-filter-required-schemas`
-  - Allow specifying the list of schemas for which Trino will enforce that
-    queries use a filter on partition keys for source tables. The list can be
-    specified using the `iceberg.query-partition-filter-required-schemas`,
-    or the `query_partition_filter_required_schemas` session property. The list
-    is taken into consideration only if the `iceberg.query-partition-filter-required`
-    configuration property or the `query_partition_filter_required` session
-    property is set to `true`.
+  - Specify the list of schemas for which Trino can enforce that queries use a
+    filter on partition keys for source tables. Equivalent session property is
+    `query_partition_filter_required_schemas`. The list is used if the
+    `iceberg.query-partition-filter-required` configuration property or the
+    `query_partition_filter_required` catalog session property is set to `true`.
   - `[]`
 * - `iceberg.incremental-refresh-enabled`
   - Set to `false` to force the materialized view refresh operation to always
