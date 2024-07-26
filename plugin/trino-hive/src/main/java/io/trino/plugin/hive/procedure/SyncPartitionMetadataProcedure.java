@@ -144,13 +144,15 @@ public class SyncPartitionMetadataProcedure
                     .map(ImmutableSet::copyOf)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
             String tableStorageLocation = table.getStorage().getLocation();
-            Set<String> canonicalPartitionNamesInMetastore = Lists.partition(ImmutableList.copyOf(partitionNamesInMetastore), PARTITION_NAMES_BATCH_SIZE).stream()
-                    .flatMap(partitionNames -> metastore.getPartitionsByNames(schemaName, tableName, partitionNames).values().stream())
-                    .flatMap(Optional::stream) // disregard partitions which disappeared in the meantime since listing the partition names
-                    // Disregard the partitions which do not have a canonical Hive location (e.g. `ALTER TABLE ... ADD PARTITION (...) LOCATION '...'`)
-                    .flatMap(partition -> getCanonicalPartitionName(partition, table.getPartitionColumns(), tableStorageLocation).stream())
-                    .collect(toImmutableSet());
-
+            Set<String> canonicalPartitionNamesInMetastore = partitionNamesInMetastore;
+            if (!caseSensitive) {
+                canonicalPartitionNamesInMetastore = Lists.partition(ImmutableList.copyOf(partitionNamesInMetastore), PARTITION_NAMES_BATCH_SIZE).stream()
+                        .flatMap(partitionNames -> metastore.getPartitionsByNames(schemaName, tableName, partitionNames).values().stream())
+                        .flatMap(Optional::stream) // disregard partitions which disappeared in the meantime since listing the partition names
+                        // Disregard the partitions which do not have a canonical Hive location (e.g. `ALTER TABLE ... ADD PARTITION (...) LOCATION '...'`)
+                        .flatMap(partition -> getCanonicalPartitionName(partition, table.getPartitionColumns(), tableStorageLocation).stream())
+                        .collect(toImmutableSet());
+            }
             Set<String> partitionsInFileSystem = listPartitions(fileSystemFactory.create(session), Location.of(tableStorageLocation), table.getPartitionColumns(), caseSensitive);
 
             // partitions in file system but not in metastore
