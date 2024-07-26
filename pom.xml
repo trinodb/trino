@@ -2075,7 +2075,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.44.0</version>
+                <version>3.45.0</version>
             </dependency>
 
             <dependency>
