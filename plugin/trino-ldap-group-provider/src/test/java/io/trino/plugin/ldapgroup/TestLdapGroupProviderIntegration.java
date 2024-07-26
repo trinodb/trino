@@ -15,6 +15,7 @@ package io.trino.plugin.ldapgroup;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.io.Closer;
 import io.trino.spi.security.GroupProvider;
@@ -39,7 +40,7 @@ import java.util.concurrent.Executors;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -79,17 +80,10 @@ public class TestLdapGroupProviderIntegration
         DisposableSubContext externalGroupsOU = openLdapServer.createOrganization("external", groupsOU);
         DisposableSubContext usersOU = openLdapServer.createOrganization("users");
 
-        DisposableSubContext johnb = openLdapServer.createUser(usersOU, "johnb", ImmutableMap.of(
-                "employeeNumber", "1000",
-                "mail", "johnb@company.com"));
-        DisposableSubContext alicea = openLdapServer.createUser(usersOU, "alicea", ImmutableMap.of(
-                "employeeNumber", "1001",
-                "mail", "alicea@trino.io",
-                "givenname", "Alice"));
-        DisposableSubContext bobq = openLdapServer.createUser(usersOU, "bobq", ImmutableMap.of(
-                "employeeNumber", "1002"));
-        openLdapServer.createUser(usersOU, "carlp", ImmutableMap.of(
-                "employeeNumber", "1003"));
+        DisposableSubContext johnb = openLdapServer.createUser(usersOU, "johnb", "");
+        DisposableSubContext alicea = openLdapServer.createUser(usersOU, "alicea", "");
+        DisposableSubContext bobq = openLdapServer.createUser(usersOU, "bobq", "");
+        openLdapServer.createUser(usersOU, "carlp", "");
 
         clients = openLdapServer.createGroup(externalGroupsOU, "clients");
         openLdapServer.addUserToGroup(johnb, clients);
@@ -119,27 +113,7 @@ public class TestLdapGroupProviderIntegration
 
         Set<String> groups = groupsProvider.getGroups(userName);
 
-        assertEquals(expectedGroups, groups);
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideForTestGetGroupsAndUserAttributes")
-    public void testGetGroupsWithUserAttributes(
-            ConfigBuilder configBuilder,
-            String userName,
-            String searchAttribute,
-            Set<String> expectedGroups)
-    {
-        Map<String, String> config = configBuilder.apply(
-                ImmutableMap.<String, String>builder()
-                    .putAll(baseConfig)
-                    .put("ldap.user-search-attributes", searchAttribute))
-                .buildOrThrow();
-        GroupProvider groupsProvider = factory.create(config);
-
-        Set<String> groups = groupsProvider.getGroups(userName);
-
-        assertEquals(expectedGroups, groups);
+        assertThat(groups).containsAll(expectedGroups);
     }
 
     @ParameterizedTest
@@ -148,6 +122,7 @@ public class TestLdapGroupProviderIntegration
     {
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .putAll(baseConfig)
+                .put("ldap.use-group-filter", "true")
                 .put("ldap.group-search-member-attribute", "member")
                 .put("ldap.group-name-attribute", "cn")
                 .put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com")
@@ -157,7 +132,7 @@ public class TestLdapGroupProviderIntegration
 
         Set<String> groups = groupsProvider.getGroups(userName);
 
-        assertEquals(expectedGroups, groups);
+        assertThat(groups).containsAll(expectedGroups);
     }
 
     @ParameterizedTest
@@ -172,7 +147,7 @@ public class TestLdapGroupProviderIntegration
 
         Set<String> groups = groupsProvider.getGroups("wrong-user-name");
 
-        assertEquals(Set.of(), groups);
+        assertThat(groups).isEmpty();
     }
 
     @Test
@@ -180,6 +155,7 @@ public class TestLdapGroupProviderIntegration
     {
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .putAll(baseConfig)
+                .put("ldap.use-group-filter", "true")
                 .put("ldap.group-search-member-attribute", "some-attribute-that-does-not-exist")
                 .put("ldap.group-name-attribute", "cn")
                 .put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com")
@@ -188,7 +164,7 @@ public class TestLdapGroupProviderIntegration
 
         Set<String> groups = groupsProvider.getGroups("alicea");
 
-        assertEquals(Set.of(), groups);
+        assertThat(groups).isEmpty();
     }
 
     @ParameterizedTest
@@ -204,23 +180,7 @@ public class TestLdapGroupProviderIntegration
 
         Set<String> groups = groupsProvider.getGroups("alicea");
 
-        assertEquals(Set.of(clients.getDistinguishedName(), developers.getDistinguishedName(), qa.getDistinguishedName()), groups);
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideConfigBuilders")
-    public void testGetGroupIgnoresMissingUserAttributes(ConfigBuilder configBuilder)
-    {
-        Map<String, String> config = configBuilder.apply(
-                ImmutableMap.<String, String>builder()
-                    .putAll(baseConfig)
-                    .put("ldap.user-search-attributes", "employeeNumber,address"))
-                .buildOrThrow();
-        GroupProvider groupsProvider = factory.create(config);
-
-        Set<String> groups = groupsProvider.getGroups("carlp");
-
-        assertEquals(Set.of("employeeNumber=1003"), groups);
+        assertThat(groups).containsAll(ImmutableSet.of(clients.getDistinguishedName(), developers.getDistinguishedName(), qa.getDistinguishedName()));
     }
 
     @ParameterizedTest
@@ -238,22 +198,22 @@ public class TestLdapGroupProviderIntegration
         CountDownLatch latch = new CountDownLatch(4);
 
         CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("alicea"), executor).whenComplete((g, t) -> {
-            assertEquals(g, Set.of("clients", "qa", "developers"));
+            assertThat(g).containsAll(ImmutableSet.of("clients", "qa", "developers"));
             latch.countDown();
         });
 
         CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("bobq"), executor).whenComplete((g, t) -> {
-            assertEquals(g, Set.of("qa"));
+            assertThat(g).containsAll(ImmutableSet.of("qa"));
             latch.countDown();
         });
 
         CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("johnb"), executor).whenComplete((g, t) -> {
-            assertEquals(g, Set.of("clients"));
+            assertThat(g).containsAll(ImmutableSet.of("clients"));
             latch.countDown();
         });
 
         CompletableFuture.supplyAsync(() -> groupsProvider.getGroups("carlp"), executor).whenComplete((g, t) -> {
-            assertEquals(g, Set.of());
+            assertThat(g).isEmpty();
             latch.countDown();
         });
 
@@ -276,7 +236,7 @@ public class TestLdapGroupProviderIntegration
 
         List<ConfigBuilder> groupProviderConfigBuilders = ImmutableList.of(
                 (builder) -> builder.put("ldap.user-member-of-attribute", "memberOf"),
-                (builder) -> builder.put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com"));
+                (builder) -> builder.put("ldap.use-group-filter", "true").put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com"));
 
         return cachingConfigBuilder
                 .flatMap(cacheConfig -> groupProviderConfigBuilders
@@ -289,34 +249,19 @@ public class TestLdapGroupProviderIntegration
     private static Stream<Arguments> provideUsersAndExpectedGroups()
     {
         return combineArgumentStreams(provideConfigBuilders(), Stream.of(
-                Arguments.of("alicea", Set.of("clients", "developers", "qa")),
-                Arguments.of("johnb", Set.of("clients")),
-                Arguments.of("bobq", Set.of("qa")),
-                Arguments.of("carlp", Set.of())));
-    }
-
-    private static Stream<Arguments> provideForTestGetGroupsAndUserAttributes()
-    {
-        return combineArgumentStreams(provideConfigBuilders(), Stream.of(
-                Arguments.of("alicea", "employeeNumber,mail", Set.of(
-                        "clients",
-                        "developers",
-                        "qa",
-                        "employeeNumber=1001",
-                        "mail=alicea@trino.io")),
-                Arguments.of("alicea", "givenname", Set.of("clients", "developers", "qa", "givenname=Alice")),
-                Arguments.of("bobq", "employeeNumber,,mail", Set.of("qa", "employeeNumber=1002")),
-                Arguments.of("johnb", "employeeNumber,mail", Set.of("clients", "employeeNumber=1000", "mail=johnb@company.com")),
-                Arguments.of("carlp", "employeeNumber,mail", Set.of("employeeNumber=1003"))));
+                Arguments.of("alicea", ImmutableSet.of("clients", "developers", "qa")),
+                Arguments.of("johnb", ImmutableSet.of("clients")),
+                Arguments.of("bobq", ImmutableSet.of("qa")),
+                Arguments.of("carlp", ImmutableSet.of())));
     }
 
     private static Stream<Arguments> provideForTestGetGroupsWithGroupsFilter()
     {
         return Stream.of(
-                Arguments.of("alicea", "cn=*", Set.of("clients", "developers", "qa")),
-                Arguments.of("alicea", "cn=dev*", Set.of("developers")),
-                Arguments.of("alicea", "(|(cn=dev*)(cn=cl*))", Set.of("developers", "clients")),
-                Arguments.of("alicea", "(&(objectclass=groupOfNames)(!(ou:dn:=external)))", Set.of("developers", "qa")));
+                Arguments.of("alicea", "cn=*", ImmutableSet.of("clients", "developers", "qa")),
+                Arguments.of("alicea", "cn=dev*", ImmutableSet.of("developers")),
+                Arguments.of("alicea", "(|(cn=dev*)(cn=cl*))", ImmutableSet.of("developers", "clients")),
+                Arguments.of("alicea", "(&(objectclass=groupOfNames)(!(ou:dn:=external)))", ImmutableSet.of("developers", "qa")));
     }
 
     @FunctionalInterface

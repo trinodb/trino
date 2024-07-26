@@ -19,7 +19,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
-public class LdapGroupProviderFilteringClientConfig
+public class LdapFilteringGroupProviderConfig
 {
     private String ldapGroupBaseDN;
     private String ldapGroupsSearchFilter;
@@ -33,7 +33,7 @@ public class LdapGroupProviderFilteringClientConfig
 
     @Config("ldap.group-base-dn")
     @ConfigDescription("Base distinguished name for groups. Example: dc=example,dc=com")
-    public LdapGroupProviderFilteringClientConfig setLdapGroupBaseDN(String ldapGroupBaseDN)
+    public LdapFilteringGroupProviderConfig setLdapGroupBaseDN(String ldapGroupBaseDN)
     {
         this.ldapGroupBaseDN = ldapGroupBaseDN;
         return this;
@@ -47,7 +47,7 @@ public class LdapGroupProviderFilteringClientConfig
 
     @Config("ldap.group-search-filter")
     @ConfigDescription("Search filter for group documents. Example: (cn=trino_*)")
-    public LdapGroupProviderFilteringClientConfig setLdapGroupsSearchFilter(String ldapGroupsSearchFilter)
+    public LdapFilteringGroupProviderConfig setLdapGroupsSearchFilter(String ldapGroupsSearchFilter)
     {
         this.ldapGroupsSearchFilter = ldapGroupsSearchFilter;
         return this;
@@ -61,7 +61,7 @@ public class LdapGroupProviderFilteringClientConfig
 
     @Config("ldap.group-search-member-attribute")
     @ConfigDescription("Attribute from group documents used for filtering by member. Example: cn")
-    public LdapGroupProviderFilteringClientConfig setLdapGroupsSearchMemberAttribute(String ldapGroupsSearchMemberAttribute)
+    public LdapFilteringGroupProviderConfig setLdapGroupsSearchMemberAttribute(String ldapGroupsSearchMemberAttribute)
     {
         this.ldapGroupsSearchMemberAttribute = ldapGroupsSearchMemberAttribute;
         return this;

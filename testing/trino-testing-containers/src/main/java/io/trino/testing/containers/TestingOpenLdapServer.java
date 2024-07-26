@@ -117,12 +117,6 @@ public class TestingOpenLdapServer
         return createDisposableSubContext(buildLdapUserObject(organization.getDistinguishedName(), userName, password));
     }
 
-    public DisposableSubContext createUser(DisposableSubContext organization, String userName, Map<String, String> extraAttributes)
-            throws Exception
-    {
-        return createDisposableSubContext(buildLdapUserObject(organization.getDistinguishedName(), userName, extraAttributes));
-    }
-
     public DisposableSubContext createDisposableSubContext(LdapObjectDefinition ldapObjectDefinition)
             throws NamingException
     {

@@ -22,12 +22,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestLdapGroupProviderFilteringClientConfig
+public class TestLdapFilteringGroupProviderConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(LdapGroupProviderFilteringClientConfig.class)
+        assertRecordedDefaults(recordDefaults(LdapFilteringGroupProviderConfig.class)
                 .setLdapGroupBaseDN(null)
                 .setLdapGroupsSearchFilter(null)
                 .setLdapGroupsSearchMemberAttribute("member"));
@@ -41,7 +41,7 @@ public class TestLdapGroupProviderFilteringClientConfig
                 "ldap.group-search-filter", "(cn=dev*)",
                 "ldap.group-search-member-attribute", "memberUser");
 
-        LdapGroupProviderFilteringClientConfig expected = new LdapGroupProviderFilteringClientConfig()
+        LdapFilteringGroupProviderConfig expected = new LdapFilteringGroupProviderConfig()
                 .setLdapGroupBaseDN("ou=group,dc=trino,dc=io")
                 .setLdapGroupsSearchFilter("(cn=dev*)")
                 .setLdapGroupsSearchMemberAttribute("memberUser");

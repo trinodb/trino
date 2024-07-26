@@ -13,16 +13,10 @@
  */
 package io.trino.plugin.ldapgroup;
 
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import jakarta.validation.constraints.NotNull;
-
-import java.util.Set;
-
-import static com.google.common.base.Strings.nullToEmpty;
 
 public class LdapGroupProviderConfig
 {
@@ -30,9 +24,8 @@ public class LdapGroupProviderConfig
     private String ldapAdminPassword;
     private String ldapUserBaseDN;
     private String ldapUserSearchFilter = "(uid={0})";
-    private Set<String> ldapUserSearchAttributes = Set.of();
-    private String ldapUserMemberOfAttribute;
     private String ldapGroupsNameAttribute = "cn";
+    private boolean ldapUseGroupFilter;
 
     @NotNull
     public String getLdapAdminUser()
@@ -92,33 +85,6 @@ public class LdapGroupProviderConfig
     }
 
     @NotNull
-    public Set<String> getLdapUserSearchAttributes()
-    {
-        return ldapUserSearchAttributes;
-    }
-
-    @Config("ldap.user-search-attributes")
-    @ConfigDescription("User attributes loaded as groups. Example: cn, uuid")
-    public LdapGroupProviderConfig setLdapUserSearchAttributes(String ldapUserSearchAttributes)
-    {
-        this.ldapUserSearchAttributes = ImmutableSet.copyOf(Splitter.on(",").omitEmptyStrings().trimResults().split(nullToEmpty(ldapUserSearchAttributes)));
-        return this;
-    }
-
-    public String getLdapUserMemberOfAttribute()
-    {
-        return ldapUserMemberOfAttribute;
-    }
-
-    @Config("ldap.user-member-of-attribute")
-    @ConfigDescription("Group membership attribute in user documents. Example: memberOf")
-    public LdapGroupProviderConfig setLdapUserMemberOfAttribute(String ldapUserMemberOfAttribute)
-    {
-        this.ldapUserMemberOfAttribute = ldapUserMemberOfAttribute;
-        return this;
-    }
-
-    @NotNull
     public String getLdapGroupsNameAttribute()
     {
         return ldapGroupsNameAttribute;
@@ -129,6 +95,19 @@ public class LdapGroupProviderConfig
     public LdapGroupProviderConfig setLdapGroupsNameAttribute(String ldapGroupsNameAttribute)
     {
         this.ldapGroupsNameAttribute = ldapGroupsNameAttribute;
+        return this;
+    }
+
+    public boolean getLdapUseGroupFilter()
+    {
+        return ldapUseGroupFilter;
+    }
+
+    @Config("ldap.use-group-filter")
+    @ConfigDescription("Enable group filtering")
+    public LdapGroupProviderConfig setLdapUseGroupFilter(boolean ldapUseGroupFilter)
+    {
+        this.ldapUseGroupFilter = ldapUseGroupFilter;
         return this;
     }
 }

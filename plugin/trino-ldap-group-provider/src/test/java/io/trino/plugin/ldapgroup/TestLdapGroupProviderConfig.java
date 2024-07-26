@@ -31,9 +31,8 @@ class TestLdapGroupProviderConfig
                 .setLdapAdminPassword(null)
                 .setLdapUserBaseDN(null)
                 .setLdapUserSearchFilter("(uid={0})")
-                .setLdapUserSearchAttributes("")
                 .setLdapGroupsNameAttribute("cn")
-                .setLdapUserMemberOfAttribute(null));
+                .setLdapUseGroupFilter(false));
     }
 
     @Test
@@ -44,18 +43,16 @@ class TestLdapGroupProviderConfig
                 "ldap.admin-password", "admin",
                 "ldap.user-base-dn", "dc=trino,dc=io",
                 "ldap.user-search-filter", "(accountName={0})",
-                "ldap.user-search-attributes", "uuid,email",
                 "ldap.group-name-attribute", "groupName",
-                "ldap.user-member-of-attribute", "memberOf");
+                "ldap.use-group-filter", "true");
 
         LdapGroupProviderConfig expected = new LdapGroupProviderConfig()
                 .setLdapAdminUser("cn=admin,dc=trino,dc=io")
                 .setLdapAdminPassword("admin")
                 .setLdapUserBaseDN("dc=trino,dc=io")
                 .setLdapUserSearchFilter("(accountName={0})")
-                .setLdapUserSearchAttributes("uuid,email")
                 .setLdapGroupsNameAttribute("groupName")
-                .setLdapUserMemberOfAttribute("memberOf");
+                .setLdapUseGroupFilter(true);
 
         assertFullMapping(properties, expected);
     }

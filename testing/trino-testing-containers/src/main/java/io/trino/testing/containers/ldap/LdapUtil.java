@@ -104,18 +104,12 @@ public final class LdapUtil
 
     public static LdapObjectDefinition buildLdapUserObject(String organizationName, String userName, String password)
     {
-        return buildLdapUserObject(organizationName, userName, ImmutableMap.of("userPassword", password));
-    }
-
-    public static LdapObjectDefinition buildLdapUserObject(String organizationName, String userName, Map<String, String> extraAttributes)
-    {
         return LdapObjectDefinition.builder(userName)
                 .setDistinguishedName(format("uid=%s,%s", userName, organizationName))
-                .setAttributes(ImmutableMap.<String, String>builder()
-                    .put("cn", userName)
-                    .put("sn", userName)
-                    .putAll(extraAttributes)
-                    .buildOrThrow())
+                .setAttributes(ImmutableMap.of(
+                        "cn", userName,
+                        "sn", userName,
+                        "userPassword", password))
                 .setObjectClasses(Arrays.asList("person", "inetOrgPerson"))
                 .build();
     }
