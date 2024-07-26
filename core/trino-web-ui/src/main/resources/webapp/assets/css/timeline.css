@@ -12,28 +12,28 @@
  * limitations under the License.
  */
 
-.vis.timeline .item {
+.vis-timeline .vis-item {
     padding: 0px;
 }
-.vis.timeline .labelset .vlabel .inner {
+.vis-timeline .vis-labelset .vis-label .vis-inner {
     padding: 0px;
 }
-.vis.timeline .item.range {
-    height: 3px;
+.vis-timeline .vis-item.vis-range {
+    height: 0.6em;
 }
-.vis.timeline .red {
+.vis-timeline .red {
     background-color: #F2DEDE;
     border-color: #F2AEAE;
 }
-.vis.timeline .green {
+.vis-timeline .green {
     background-color: #DFF0DB;
     border-color: #B8F0AA;
 }
-.vis.timeline .blue {
+.vis-timeline .blue {
     background-color: #E3E9FC;
     border-color: #B0C3FC;
 }
-.vis.timeline .orange {
+.vis-timeline .orange {
     background-color: #FFA500;
     border-color: #B0C3FC;
 }
