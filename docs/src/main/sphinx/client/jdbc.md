@@ -70,6 +70,9 @@ jdbc:trino://host:port/catalog
 jdbc:trino://host:port/catalog/schema
 ```
 
+The value for `port` is optional if Trino is available at the default HTTP port
+`80` or with `SSL=true` and the default HTTPS port `443`.
+
 The following is an example of a JDBC URL used to create a connection:
 
 ```text

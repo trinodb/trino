@@ -183,9 +183,10 @@ mode:
     with [](/sql/use).
 * - `--server`
   - The HTTP/HTTPS address and port of the Trino coordinator. The port must be
-    set to the port the Trino coordinator is listening for connections on. Trino
-    server location defaults to `http://localhost:8080`. Can only be set if URL
-    is not specified.
+    set to the port the Trino coordinator is listening for connections on. Port
+    80 for HTTP and Port 443 for HTTPS can be omitted. Trino server location
+    defaults to `http://localhost:8080`. Can only be set if URL is not
+    specified.
 * - `--session`
   - Sets one or more [session properties](session-properties-definition).
     Property can be used multiple times with the format
