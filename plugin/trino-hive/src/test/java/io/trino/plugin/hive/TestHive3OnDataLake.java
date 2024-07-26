@@ -2045,7 +2045,7 @@ public class TestHive3OnDataLake
 
         // Copy whole partition to new location
         MinioClient minioClient = hiveMinioDataLake.getMinioClient();
-        minioClient.listObjects(bucketName, "/")
+        minioClient.listObjects(bucketName, "")
                 .forEach(objectKey -> {
                     if (objectKey.startsWith(partitionS3KeyPrefix)) {
                         String fileName = objectKey.substring(objectKey.lastIndexOf('/'));
