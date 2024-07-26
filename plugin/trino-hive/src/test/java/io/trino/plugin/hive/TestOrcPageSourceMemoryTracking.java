@@ -620,7 +620,7 @@ public class TestOrcPageSourceMemoryTracking
                     new PlanNodeId("0"),
                     (catalog) -> (session, split, table, columnHandles, dynamicFilter) -> pageSource,
                     cursorProcessor,
-                    pageProcessor,
+                    (_) -> pageProcessor.get(),
                     TEST_TABLE_HANDLE,
                     columns.stream().map(ColumnHandle.class::cast).collect(toList()),
                     DynamicFilter.EMPTY,

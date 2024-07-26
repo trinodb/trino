@@ -51,6 +51,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -411,7 +412,7 @@ public class ScanFilterAndProjectOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final Supplier<CursorProcessor> cursorProcessor;
-        private final Supplier<PageProcessor> pageProcessor;
+        private final Function<DynamicFilter, PageProcessor> pageProcessor;
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
         private final TableHandle table;
@@ -428,7 +429,7 @@ public class ScanFilterAndProjectOperator
                 PlanNodeId sourceId,
                 PageSourceProviderFactory pageSourceProvider,
                 Supplier<CursorProcessor> cursorProcessor,
-                Supplier<PageProcessor> pageProcessor,
+                Function<DynamicFilter, PageProcessor> pageProcessor,
                 TableHandle table,
                 Iterable<ColumnHandle> columns,
                 DynamicFilter dynamicFilter,
@@ -496,7 +497,7 @@ public class ScanFilterAndProjectOperator
                     split,
                     pageSourceProvider,
                     cursorProcessor.get(),
-                    pageProcessor.get(),
+                    pageProcessor.apply(dynamicFilter),
                     table,
                     columns,
                     dynamicFilter,
