@@ -1529,7 +1529,9 @@ public class PostgreSqlClient
 
     private static SliceWriteFunction typedVarcharWriteFunction(String jdbcTypeName)
     {
-        String bindExpression = format("CAST(? AS %s)", requireNonNull(jdbcTypeName, "jdbcTypeName is null"));
+        requireNonNull(jdbcTypeName, "jdbcTypeName is null");
+        String quotedJdbcTypeName = jdbcTypeName.startsWith("\"") && jdbcTypeName.endsWith("\"") ? jdbcTypeName : "\"%s\"".formatted(jdbcTypeName.replace("\"", "\"\""));
+        String bindExpression = format("CAST(? AS %s)", quotedJdbcTypeName);
 
         return new SliceWriteFunction()
         {

@@ -963,6 +963,42 @@ public class TestPostgreSqlConnectorTest
         }
     }
 
+    @Test
+    void testNonLowercaseUserDefinedTypeName()
+    {
+        String enumType = "TEST_ENUM_" + randomNameSuffix();
+        onRemoteDatabase().execute("CREATE TYPE public.\"" + enumType + "\" AS ENUM ('A', 'B')");
+        try (TestTable testTable = new TestTable(
+                onRemoteDatabase(),
+                "test_case_sensitive_",
+                "(id int, user_type public.\"" + enumType + "\")",
+                List.of("1, 'A'", "2, 'B'"))) {
+            assertThat(query("SELECT id FROM " + testTable.getName() + " WHERE user_type = 'A'"))
+                    .matches("VALUES 1");
+        }
+        finally {
+            onRemoteDatabase().execute("DROP TYPE public.\"" + enumType + "\"");
+        }
+    }
+
+    @Test
+    void testUserDefinedTypeNameContainsDoubleQuotes()
+    {
+        String enumType = "test_double_\"\"_quotes_" + randomNameSuffix();
+        onRemoteDatabase().execute("CREATE TYPE public.\"" + enumType + "\" AS ENUM ('A', 'B')");
+        try (TestTable testTable = new TestTable(
+                onRemoteDatabase(),
+                "test_case_sensitive_",
+                "(id int, user_type public.\"" + enumType + "\")",
+                List.of("1, 'A'", "2, 'B'"))) {
+            assertThat(query("SELECT id FROM " + testTable.getName() + " WHERE user_type = 'A'"))
+                    .matches("VALUES 1");
+        }
+        finally {
+            onRemoteDatabase().execute("DROP TYPE public.\"" + enumType + "\"");
+        }
+    }
+
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
