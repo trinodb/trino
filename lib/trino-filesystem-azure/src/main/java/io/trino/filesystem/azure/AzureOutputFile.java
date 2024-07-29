@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.azure;
 
+import com.azure.core.util.BinaryData;
 import com.azure.storage.blob.BlobClient;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
@@ -23,7 +24,6 @@ import java.io.OutputStream;
 import java.nio.file.FileAlreadyExistsException;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.util.Objects.requireNonNull;
 
 class AzureOutputFile
@@ -69,9 +69,7 @@ class AzureOutputFile
     public void createOrOverwrite(byte[] data)
             throws IOException
     {
-        try (OutputStream out = createOutputStream(newSimpleAggregatedMemoryContext(), true)) {
-            out.write(data);
-        }
+        blobClient.getBlockBlobClient().upload(BinaryData.fromBytes(data), true);
     }
 
     @Override
