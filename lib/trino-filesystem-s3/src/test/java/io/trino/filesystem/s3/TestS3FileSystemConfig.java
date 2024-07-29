@@ -69,7 +69,9 @@ public class TestS3FileSystemConfig
                 .setNonProxyHosts(null)
                 .setHttpProxyUsername(null)
                 .setHttpProxyPassword(null)
-                .setHttpProxyPreemptiveBasicProxyAuth(false));
+                .setHttpProxyPreemptiveBasicProxyAuth(false)
+                .setTruststorePath(null)
+                .setTruststorePassword(null));
     }
 
     @Test
@@ -107,6 +109,8 @@ public class TestS3FileSystemConfig
                 .put("s3.http-proxy.username", "test")
                 .put("s3.http-proxy.password", "test")
                 .put("s3.http-proxy.preemptive-basic-auth", "true")
+                .put("s3.truststore.path", "file.jks")
+                .put("s3.truststore.password", "password")
                 .buildOrThrow();
 
         S3FileSystemConfig expected = new S3FileSystemConfig()
@@ -140,7 +144,9 @@ public class TestS3FileSystemConfig
                 .setNonProxyHosts("test1, test2, test3")
                 .setHttpProxyUsername("test")
                 .setHttpProxyPassword("test")
-                .setHttpProxyPreemptiveBasicProxyAuth(true);
+                .setHttpProxyPreemptiveBasicProxyAuth(true)
+                .setTruststorePath("file.jks")
+                .setTruststorePassword("password");
 
         assertFullMapping(properties, expected);
     }
@@ -152,6 +158,16 @@ public class TestS3FileSystemConfig
                         .setSseType(S3SseType.CUSTOMER),
                 "sseWithCustomerKeyConfigValid",
                 "s3.sse.customer-key has to be set for server-side encryption with customer-provided key",
+                AssertTrue.class);
+    }
+
+    @Test
+    public void testTrustStoreConfigValidation()
+    {
+        assertFailsValidation(new S3FileSystemConfig()
+                        .setTruststorePath("file.jks"),
+                "trustStoreConfigValid",
+                "Properties s3.truststore.path and s3.truststore.password should be both set altogether or not set at all",
                 AssertTrue.class);
     }
 }
