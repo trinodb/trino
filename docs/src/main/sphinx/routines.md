@@ -1,7 +1,9 @@
 # SQL routines
 
 A SQL routine is a custom, user-defined function authored by a user of Trino in
-a client and written in SQL. More details are available in the following sections:
+a client and written in the SQL routine language. Routines are scalar functions
+that return a single output value. More details are available in the following
+sections:
 
 ```{toctree}
 :maxdepth: 1
