@@ -109,7 +109,8 @@ public final class CachingHiveMetastore
         DISABLED
     }
 
-    public enum ObjectType {
+    public enum ObjectType
+    {
         PARTITION,
         STATS,
         OTHER,
