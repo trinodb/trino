@@ -9,7 +9,7 @@
     "@babel/preset-flow": "^7.24.7",
     "@babel/preset-env": "^7.24.8",
     "@babel/preset-react": "^7.12.10",
-    "flow-bin": "^0.85.0",
+    "flow-bin": "^0.241.0",
     "webpack": "^5.93.0",
     "webpack-cli": "^5.1.4",
     "terser-webpack-plugin": "^5.3.10"
