@@ -36,18 +36,18 @@ type StageNodeInfo = {
 }
 
 class StageStatistics extends React.Component<StageStatisticsProps, StageStatisticsState> {
-    static getStages(queryInfo): Map<string, StageNodeInfo> {
+    static getStages(queryInfo: any): Map<string, StageNodeInfo> {
         const stages: Map<string, StageNodeInfo> = new Map();
         StageStatistics.flattenStage(queryInfo.outputStage, stages);
         return stages;
     }
 
-    static flattenStage(stageInfo, result) {
+    static flattenStage(stageInfo : any, result : any) {
         stageInfo.subStages.forEach(function (stage) {
             StageStatistics.flattenStage(stage, result);
         });
 
-        const nodes = new Map();
+        const nodes = new Map<any, PlanNodeProps>();
         StageStatistics.flattenNode(result, stageInfo.plan.root, JSON.parse(stageInfo.plan.jsonRepresentation), nodes);
 
         result.set(stageInfo.plan.id, {
@@ -61,7 +61,7 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
         });
     }
 
-    static flattenNode(stages, rootNodeInfo, node: any, result: Map<any, PlanNodeProps>) {
+    static flattenNode(stages : any, rootNodeInfo : any, node: any, result: Map<any, PlanNodeProps>) {
         result.set(node.id, {
             id: node.id,
             name: node['name'],
@@ -75,7 +75,7 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
         });
     }
 
-    render() {
+    render() : any {
         const stage = this.props.stage;
         const stats = this.props.stage.stageStats;
         return (
@@ -115,7 +115,7 @@ class PlanNode extends React.Component<PlanNodeProps, PlanNodeState> {
         super(props);
     }
 
-    render() {
+    render() : any {
         // get join distribution type by matching details to a regular expression
         var distribution = "";
         var matchArray = this.props.details.join("\n").match(/Distribution:\s+(\w+)/);
@@ -181,7 +181,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         }
     }
 
-    refreshLoop() {
+    refreshLoop = () => {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         fetch('/ui/api/query/' + this.props.queryId)
             .then(response => response.json())
@@ -314,13 +314,13 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         $('[data-toggle="tooltip"]').tooltip()
     }
 
-    render() {
+    render() : any {
         const query = this.state.query;
 
         if (query === null || this.state.initialized === false) {
             let label = (<div className="loader">Loading...</div>);
             if (this.state.initialized) {
-                label = "Query not found";
+                label = <div className="error-message">Query not found</div>;
             }
             return (
                 <div className="row error-message">

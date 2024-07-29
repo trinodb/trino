@@ -42,7 +42,7 @@ export class PageTitle extends React.Component<Props, State> {
         };
     }
 
-    refreshLoop() {
+    refreshLoop = () => {
         clearTimeout(this.timeoutId);
         fetch("/ui/api/cluster")
             .then(response => {
@@ -87,7 +87,7 @@ export class PageTitle extends React.Component<Props, State> {
         this.refreshLoop.bind(this)();
     }
 
-    renderStatusLight() {
+    renderStatusLight() : any {
         if (this.state.noConnection) {
             if (this.state.lightShown) {
                 return <span className="status-light status-light-red" id="status-indicator"/>;
@@ -99,7 +99,7 @@ export class PageTitle extends React.Component<Props, State> {
         return <span className="status-light status-light-green" id="status-indicator"/>;
     }
 
-    render() {
+    render() : any {
         const info = this.state.info;
         if (!info) {
             return null;
