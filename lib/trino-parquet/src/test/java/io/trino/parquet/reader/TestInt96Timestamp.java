@@ -31,15 +31,13 @@ import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesWriter;
 import org.apache.parquet.schema.Types;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.function.BiFunction;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -80,8 +78,17 @@ public class TestInt96Timestamp
             LocalDateTime.of(2022, 2, 3, 12, 8, 51, 999999999),
             LocalDateTime.of(123456, 1, 2, 3, 4, 5, 678901234)};
 
-    @Test(dataProvider = "testVariousTimestampsDataProvider")
-    public void testVariousTimestamps(TimestampType type, BiFunction<Block, Integer, DecodedTimestamp> actualValuesProvider)
+    @Test
+    public void testVariousTimestamps()
+            throws IOException
+    {
+        testVariousTimestamps(TIMESTAMP_MILLIS);
+        testVariousTimestamps(TIMESTAMP_MICROS);
+        testVariousTimestamps(TIMESTAMP_NANOS);
+        testVariousTimestamps(TIMESTAMP_PICOS);
+    }
+
+    private void testVariousTimestamps(TimestampType type)
             throws IOException
     {
         int valueCount = TIMESTAMPS.length;
@@ -127,31 +134,21 @@ public class TestInt96Timestamp
                 expectedNanos = 0;
             }
 
-            DecodedTimestamp actual = actualValuesProvider.apply(block, i);
+            DecodedTimestamp actual = toDecodedTimestamp(type, block, i);
             assertThat(actual.epochSeconds()).isEqualTo(expectedEpochSeconds);
             assertThat(actual.nanosOfSecond()).isEqualTo(expectedNanos);
         }
     }
 
-    @DataProvider(name = "testVariousTimestampsDataProvider")
-    public Object[][] testVariousTimestampsDataProvider()
+    private static DecodedTimestamp toDecodedTimestamp(TimestampType timestampType, Block block, int position)
     {
-        BiFunction<Block, Integer, DecodedTimestamp> shortTimestamp = (block, i) -> {
-            long value = TIMESTAMP_MICROS.getLong(block, i);
+        if (timestampType.isShort()) {
+            long value = TIMESTAMP_MICROS.getLong(block, position);
             return new DecodedTimestamp(floorDiv(value, MICROSECONDS_PER_SECOND), floorMod(value, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND);
-        };
-        BiFunction<Block, Integer, DecodedTimestamp> longTimestamp = (block, i) ->
-        {
-            Fixed12Block fixed12Block = (Fixed12Block) block;
-            return new DecodedTimestamp(
-                    floorDiv(fixed12Block.getFixed12First(i), MICROSECONDS_PER_SECOND),
-                    floorMod(fixed12Block.getFixed12First(i), MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND + fixed12Block.getFixed12Second(i) / PICOSECONDS_PER_NANOSECOND);
-        };
-
-        return new Object[][] {
-                new Object[] {TIMESTAMP_MILLIS, shortTimestamp},
-                new Object[] {TIMESTAMP_MICROS, shortTimestamp},
-                new Object[] {TIMESTAMP_NANOS, longTimestamp},
-                new Object[] {TIMESTAMP_PICOS, longTimestamp}};
+        }
+        Fixed12Block fixed12Block = (Fixed12Block) block;
+        return new DecodedTimestamp(
+                floorDiv(fixed12Block.getFixed12First(position), MICROSECONDS_PER_SECOND),
+                floorMod(fixed12Block.getFixed12First(position), MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND + fixed12Block.getFixed12Second(position) / PICOSECONDS_PER_NANOSECOND);
     }
 }
