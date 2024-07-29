@@ -22,18 +22,35 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.testing.minio.MinioClient;
+import okhttp3.OkHttpClient;
 import org.testcontainers.containers.Network;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
+
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.cert.CertificateException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.time.temporal.ChronoUnit.SECONDS;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.regex.Matcher.quoteReplacement;
 
 public class Minio
@@ -52,6 +69,9 @@ public class Minio
     public static final String MINIO_SECRET_KEY = "secretkey";
     public static final String MINIO_REGION = "us-east-1";
 
+    private final boolean tls;
+    private final Optional<TrustManager[]> trustManagers;
+
     public static Builder builder()
     {
         return new Builder();
@@ -64,7 +84,9 @@ public class Minio
             Map<String, String> filesToMount,
             Map<String, String> envVars,
             Optional<Network> network,
-            int retryLimit)
+            int retryLimit,
+            boolean tls,
+            Optional<TrustStoreInfo> trustStore)
     {
         super(
                 image,
@@ -74,6 +96,8 @@ public class Minio
                 envVars,
                 network,
                 retryLimit);
+        this.tls = tls;
+        this.trustManagers = trustStore.map(Minio::createTrustManagers);
     }
 
     @Override
@@ -85,6 +109,7 @@ public class Minio
                         "server",
                         "--address", "0.0.0.0:" + MINIO_API_PORT,
                         "--console-address", "0.0.0.0:" + MINIO_CONSOLE_PORT,
+                        "--certs-dir", "/opt/minio/certs",
                         "/data"));
     }
 
@@ -102,6 +127,9 @@ public class Minio
 
     public String getMinioAddress()
     {
+        if (tls) {
+            return "https://" + getMinioApiEndpoint();
+        }
         return "http://" + getMinioApiEndpoint();
     }
 
@@ -149,12 +177,15 @@ public class Minio
 
     public MinioClient createMinioClient()
     {
-        return new MinioClient(getMinioAddress(), MINIO_ACCESS_KEY, MINIO_SECRET_KEY);
+        return new MinioClient(getMinioAddress(), MINIO_ACCESS_KEY, MINIO_SECRET_KEY, createHttpClient());
     }
 
     public static class Builder
             extends BaseTestContainer.Builder<Minio.Builder, Minio>
     {
+        private boolean tls;
+        private Optional<TrustStoreInfo> truststore = Optional.empty();
+
         private Builder()
         {
             this.image = DEFAULT_IMAGE;
@@ -169,10 +200,74 @@ public class Minio
                     .buildOrThrow();
         }
 
+        public Minio.Builder withTLS(String privateKey, String publicCrt)
+        {
+            tls = true;
+            return withFilesToMount(Map.of(
+                    "/opt/minio/certs/private.key", privateKey,
+                    "/opt/minio/certs/public.crt", publicCrt));
+        }
+
         @Override
         public Minio build()
         {
-            return new Minio(image, hostName, exposePorts, filesToMount, envVars, network, startupRetryLimit);
+            return new Minio(image, hostName, exposePorts, filesToMount, envVars, network, startupRetryLimit, tls, truststore);
+        }
+
+        public Minio.Builder withTrustStore(String trustStorePath, String password)
+        {
+            this.truststore = Optional.of(new TrustStoreInfo(trustStorePath, password));
+            return this;
+        }
+    }
+
+    private OkHttpClient createHttpClient()
+    {
+        long fiveMinutes = TimeUnit.MINUTES.toMillis(5);
+        OkHttpClient.Builder okHttpClientBuilder = new OkHttpClient.Builder()
+                .connectTimeout(fiveMinutes, MILLISECONDS)
+                .writeTimeout(fiveMinutes, MILLISECONDS)
+                .readTimeout(fiveMinutes, MILLISECONDS);
+
+        trustManagers.ifPresent(actualTrustManagers -> {
+            try {
+                SSLContext sslContext = SSLContext.getInstance("TLS");
+                sslContext.init(null, actualTrustManagers, new SecureRandom());
+                okHttpClientBuilder.sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager) actualTrustManagers[0]);
+            }
+            catch (KeyManagementException | NoSuchAlgorithmException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        return okHttpClientBuilder.build();
+    }
+
+    private static TrustManager[] createTrustManagers(TrustStoreInfo trustStoreInfo)
+    {
+        try {
+            KeyStore truststore = KeyStore.getInstance("JKS");
+            try (InputStream truststoreStream = new FileInputStream(trustStoreInfo.truststorePath())) {
+                truststore.load(truststoreStream, trustStoreInfo.truststorePassword().toCharArray());
+            }
+            // Set up the trust manager with the custom truststore
+            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            trustManagerFactory.init(truststore);
+
+            return trustManagerFactory.getTrustManagers();
+        }
+
+        catch (CertificateException | IOException | NoSuchAlgorithmException | KeyStoreException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    record TrustStoreInfo(String truststorePath, String truststorePassword)
+    {
+        TrustStoreInfo
+        {
+            requireNonNull(truststorePath, "truststorePath is null");
+            requireNonNull(truststorePassword, "truststorePassword is null");
         }
     }
 }

@@ -30,7 +30,6 @@ import io.minio.MakeBucketArgs;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.Result;
-import io.minio.http.HttpUtils;
 import io.minio.messages.Event;
 import io.minio.messages.NotificationRecords;
 import okhttp3.OkHttpClient;
@@ -49,6 +48,7 @@ import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.minio.http.HttpUtils.newDefaultHttpClient;
 import static io.minio.messages.EventType.OBJECT_ACCESSED_ANY;
 import static io.minio.messages.EventType.OBJECT_CREATED_ANY;
 import static io.minio.messages.EventType.OBJECT_REMOVED_ANY;
@@ -87,7 +87,19 @@ public class MinioClient
     {
         // This is Minio default HTTP client creation code with timeout values copied from MinioClient.builder()
         long fiveMinutes = MINUTES.toMillis(5);
-        httpClient = HttpUtils.newDefaultHttpClient(fiveMinutes, fiveMinutes, fiveMinutes);
+        httpClient = newDefaultHttpClient(fiveMinutes, fiveMinutes, fiveMinutes);
+        client = io.minio.MinioClient.builder()
+                // Pass explicit HTTP client instance to MinioClient builder. This seems the only way
+                // to be able to close the client properly later on.
+                .httpClient(httpClient)
+                .endpoint(endpoint)
+                .credentials(accessKey, secretKey)
+                .build();
+    }
+
+    public MinioClient(String endpoint, String accessKey, String secretKey, OkHttpClient okHttpClient)
+    {
+        this.httpClient = requireNonNull(okHttpClient, "okHttpClient is null");
         client = io.minio.MinioClient.builder()
                 // Pass explicit HTTP client instance to MinioClient builder. This seems the only way
                 // to be able to close the client properly later on.
