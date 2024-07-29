@@ -127,7 +127,7 @@ a few caveats:
   - The project ID Google Cloud Project to bill for the export.
   - Taken from the service account
 * - `bigquery.views-enabled`
-  - Enables the connector to read from views and not only tables. Please read 
+  - Enables the connector to read from views and not only tables. Please read
     [this section](bigquery-reading-from-views) before enabling this feature.
   - `false`
 * - `bigquery.view-expire-duration`
@@ -140,18 +140,18 @@ a few caveats:
   - The dataset where the materialized view is going to be created.
   - The view's project
 * - `bigquery.skip-view-materialization`
-  - Use REST API to access views instead of Storage API. BigQuery `BIGNUMERIC` 
+  - Use REST API to access views instead of Storage API. BigQuery `BIGNUMERIC`
     and `TIMESTAMP` types are unsupported.
   - `false`
 * - `bigquery.view-materialization-with-filter`
   - Use filter conditions when materializing views.
   - `false`
 * - `bigquery.views-cache-ttl`
-  - Duration for which the materialization of a view will be cached and reused. 
+  - Duration for which the materialization of a view will be cached and reused.
     Set to `0ms` to disable the cache.
   - `15m`
 * - `bigquery.metadata.cache-ttl`
-  - Duration for which metadata retrieved from BigQuery is cached and reused. 
+  - Duration for which metadata retrieved from BigQuery is cached and reused.
     Set to `0ms` to disable the cache.
   - `0ms`
 * - `bigquery.max-read-rows-retries`
@@ -174,7 +174,7 @@ a few caveats:
   - Enable [query results cache](https://cloud.google.com/bigquery/docs/cached-results).
   - `false`
 * - `bigquery.arrow-serialization.enabled`
-  - Enable using Apache Arrow serialization when reading data from BigQuery. 
+  - Enable using Apache Arrow serialization when reading data from BigQuery.
     Please read this [section](bigquery-arrow-serialization-support) before using this feature.
   - `true`
 * - `bigquery.rpc-proxy.enabled`
@@ -182,28 +182,35 @@ a few caveats:
   - `false`
 * - `bigquery.rpc-proxy.uri`
   - Proxy URI to use if connecting through a proxy.
-  - 
+  -
 * - `bigquery.rpc-proxy.username`
   - Proxy user name to use if connecting through a proxy.
-  - 
+  -
 * - `bigquery.rpc-proxy.password`
   - Proxy password to use if connecting through a proxy.
-  - 
+  -
 * - `bigquery.rpc-proxy.keystore-path`
-  - Keystore containing client certificates to present to proxy if connecting 
+  - Keystore containing client certificates to present to proxy if connecting
     through a proxy. Only required if proxy uses mutual TLS.
-  - 
+  -
 * - `bigquery.rpc-proxy.keystore-password`
   - Password of the keystore specified by `bigquery.rpc-proxy.keystore-path`.
-  - 
+  -
 * - `bigquery.rpc-proxy.truststore-path`
-  - Truststore containing certificates of the proxy server if connecting 
+  - Truststore containing certificates of the proxy server if connecting
     through a proxy.
-  - 
+  -
 * - `bigquery.rpc-proxy.truststore-password`
   - Password of the truststore specified by `bigquery.rpc-proxy.truststore-path`.
   -
 :::
+
+(bigquery-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 
 (bigquery-type-mapping)=
 ## Type mapping
@@ -379,19 +386,13 @@ the following features:
 ```{include} sql-delete-limitation.fragment
 ```
 
-(bigquery-fte-support)=
-## Fault-tolerant execution support
-
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
-
-## Table functions
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access BigQuery.
 
 (bigquery-query-function)=
-### `query(varchar) -> table`
+#### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying BigQuery directly. It
 requires syntax native to BigQuery, because the full query is pushed down and

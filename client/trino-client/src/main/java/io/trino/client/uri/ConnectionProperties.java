@@ -46,6 +46,7 @@ import static io.trino.client.ClientSelectedRole.Type.NONE;
 import static io.trino.client.uri.AbstractConnectionProperty.Validator;
 import static io.trino.client.uri.AbstractConnectionProperty.validator;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.FULL;
+import static io.trino.client.uri.PropertyName.SSL_USE_SYSTEM_KEY_STORE;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableMap;
@@ -75,6 +76,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, String> SSL_KEY_STORE_PATH = new SslKeyStorePath();
     public static final ConnectionProperty<String, String> SSL_KEY_STORE_PASSWORD = new SslKeyStorePassword();
     public static final ConnectionProperty<String, String> SSL_KEY_STORE_TYPE = new SslKeyStoreType();
+    public static final ConnectionProperty<String, Boolean> SSL_USE_SYSTEM_KEY_STORE = new SslUseSystemKeyStore();
     public static final ConnectionProperty<String, String> SSL_TRUST_STORE_PATH = new SslTrustStorePath();
     public static final ConnectionProperty<String, String> SSL_TRUST_STORE_PASSWORD = new SslTrustStorePassword();
     public static final ConnectionProperty<String, String> SSL_TRUST_STORE_TYPE = new SslTrustStoreType();
@@ -158,6 +160,7 @@ final class ConnectionProperties
             .add(SSL_KEY_STORE_PASSWORD)
             .add(SSL_KEY_STORE_PATH)
             .add(SSL_KEY_STORE_TYPE)
+            .add(SSL_USE_SYSTEM_KEY_STORE)
             .add(SSL_TRUST_STORE_PASSWORD)
             .add(SSL_TRUST_STORE_PATH)
             .add(SSL_TRUST_STORE_TYPE)
@@ -461,9 +464,13 @@ final class ConnectionProperties
     private static class SslKeyStorePath
             extends AbstractConnectionProperty<String, String>
     {
+        private static final Validator<Properties> VALIDATE_SYSTEM_KEY_STORE_NOT_ENABLED = validator(
+                properties -> !SSL_USE_SYSTEM_KEY_STORE.getValue(properties).orElse(false),
+                format("Connection property %s cannot be set if %s is enabled", PropertyName.SSL_KEY_STORE_PATH, PropertyName.SSL_USE_SYSTEM_KEY_STORE));
+
         public SslKeyStorePath()
         {
-            super(PropertyName.SSL_KEY_STORE_PATH, NOT_REQUIRED, SslVerification.validateEnabled(PropertyName.SSL_KEY_STORE_PATH), STRING_CONVERTER);
+            super(PropertyName.SSL_KEY_STORE_PATH, NOT_REQUIRED, VALIDATE_SYSTEM_KEY_STORE_NOT_ENABLED.and(SslVerification.validateEnabled(PropertyName.SSL_KEY_STORE_PATH)), STRING_CONVERTER);
         }
     }
 
@@ -484,12 +491,21 @@ final class ConnectionProperties
             extends AbstractConnectionProperty<String, String>
     {
         private static final Validator<Properties> VALID_KEY_STORE = validator(
-                properties -> SSL_KEY_STORE_PATH.getValue(properties).isPresent(),
-                format("Connection property %s requires %s to be set", PropertyName.SSL_KEY_STORE_TYPE, PropertyName.SSL_KEY_STORE_PATH));
+                properties -> SSL_KEY_STORE_PATH.getValue(properties).isPresent() || SSL_USE_SYSTEM_KEY_STORE.getValue(properties).orElse(false),
+                format("Connection property %s requires %s to be set or %s to be enabled", PropertyName.SSL_KEY_STORE_TYPE, PropertyName.SSL_KEY_STORE_PATH, PropertyName.SSL_USE_SYSTEM_KEY_STORE));
 
         public SslKeyStoreType()
         {
             super(PropertyName.SSL_KEY_STORE_TYPE, NOT_REQUIRED, VALID_KEY_STORE.and(SslVerification.validateEnabled(PropertyName.SSL_KEY_STORE_TYPE)), STRING_CONVERTER);
+        }
+    }
+
+    private static class SslUseSystemKeyStore
+            extends AbstractConnectionProperty<String, Boolean>
+    {
+        public SslUseSystemKeyStore()
+        {
+            super(PropertyName.SSL_USE_SYSTEM_KEY_STORE, NOT_REQUIRED, SslVerification.validateEnabled(PropertyName.SSL_USE_SYSTEM_KEY_STORE), BOOLEAN_CONVERTER);
         }
     }
 

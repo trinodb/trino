@@ -73,11 +73,9 @@ public final class ArrayVectorFunctions
             secondMagnitude += secondValue * secondValue;
             dotProduct += firstValue * secondValue;
         }
-        firstMagnitude = Math.sqrt(firstMagnitude);
-        secondMagnitude = Math.sqrt(secondMagnitude);
 
         checkCondition(firstMagnitude != 0 && secondMagnitude != 0, INVALID_FUNCTION_ARGUMENT, "Vector magnitude cannot be zero");
-        double cosineSimilarity = dotProduct / (firstMagnitude * secondMagnitude);
+        double cosineSimilarity = dotProduct / Math.sqrt(firstMagnitude * secondMagnitude);
         return 1.0 - cosineSimilarity;
     }
 }

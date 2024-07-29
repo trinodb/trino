@@ -401,7 +401,7 @@ public class LocalExecutionPlanner
     private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final Optional<ExplainAnalyzeContext> explainAnalyzeContext;
-    private final PageSourceManager pageSourceProvider;
+    private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
@@ -456,7 +456,7 @@ public class LocalExecutionPlanner
     public LocalExecutionPlanner(
             PlannerContext plannerContext,
             Optional<ExplainAnalyzeContext> explainAnalyzeContext,
-            PageSourceManager pageSourceProvider,
+            PageSourceManager pageSourceManager,
             IndexManager indexManager,
             NodePartitioningManager nodePartitioningManager,
             PageSinkManager pageSinkManager,
@@ -484,7 +484,7 @@ public class LocalExecutionPlanner
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.metadata = plannerContext.getMetadata();
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
-        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
         this.indexManager = requireNonNull(indexManager, "indexManager is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.directExchangeClientSupplier = directExchangeClientSupplier;
@@ -1024,16 +1024,6 @@ public class LocalExecutionPlanner
                 outputChannels.add(i);
             }
 
-            // compute the layout of the output from the window operator
-            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
-            outputMappings.putAll(source.getLayout());
-
-            if (!node.isPartial() || !partitionChannels.isEmpty()) {
-                // ranking function goes in the last channel
-                int channel = source.getTypes().size();
-                outputMappings.put(node.getRankingSymbol(), channel);
-            }
-
             Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
             boolean isPartial = node.isPartial();
             Optional<DataSize> maxPartialTopNMemorySize = isPartial ? Optional.of(SystemSessionProperties.getMaxPartialTopNMemory(session)).filter(
@@ -1446,22 +1436,13 @@ public class LocalExecutionPlanner
         {
             Expression rewritten = expressionAndValuePointers.getExpression();
 
-            // prepare input layout and type provider for compilation
-            ImmutableMap.Builder<Symbol, Type> inputTypes = ImmutableMap.builder();
+            // prepare input layout for compilation
             ImmutableMap.Builder<Symbol, Integer> inputLayout = ImmutableMap.builder();
 
             List<ExpressionAndValuePointers.Assignment> assignments = expressionAndValuePointers.getAssignments();
             for (int i = 0; i < assignments.size(); i++) {
                 ExpressionAndValuePointers.Assignment assignment = assignments.get(i);
                 inputLayout.put(assignment.symbol(), i);
-                inputTypes.put(
-                        assignment.symbol(),
-                        switch (assignment.valuePointer()) {
-                            case AggregationValuePointer pointer -> pointer.getFunction().signature().getReturnType();
-                            case ClassifierValuePointer pointer -> VARCHAR;
-                            case MatchNumberValuePointer pointer -> BIGINT;
-                            case ScalarValuePointer pointer -> pointer.getInputSymbol().type();
-                        });
             }
 
             // compile expression using input layout and input types
@@ -2031,7 +2012,7 @@ public class LocalExecutionPlanner
                             context.getNextOperatorId(),
                             planNodeId,
                             sourceNode.getId(),
-                            pageSourceProvider,
+                            pageSourceManager,
                             cursorProcessor,
                             pageProcessor,
                             table,
@@ -2085,7 +2066,7 @@ public class LocalExecutionPlanner
             }
 
             DynamicFilter dynamicFilter = getDynamicFilter(node, filterExpression, context);
-            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceProvider, node.getTable(), columns, dynamicFilter);
+            OperatorFactory operatorFactory = new TableScanOperatorFactory(context.getNextOperatorId(), planNodeId, node.getId(), pageSourceManager, node.getTable(), columns, dynamicFilter);
             return new PhysicalOperation(operatorFactory, makeLayout(node));
         }
 
@@ -2409,7 +2390,6 @@ public class LocalExecutionPlanner
                         context.getNextOperatorId(),
                         node.getId(),
                         lookupSourceFactoryManager,
-                        false,
                         probeSource.getTypes(),
                         probeChannels,
                         probeHashChannel,
@@ -2422,7 +2402,6 @@ public class LocalExecutionPlanner
                         context.getNextOperatorId(),
                         node.getId(),
                         lookupSourceFactoryManager,
-                        false,
                         probeSource.getTypes(),
                         probeChannels,
                         probeHashChannel,
@@ -2914,7 +2893,6 @@ public class LocalExecutionPlanner
                         context.getNextOperatorId(),
                         node.getId(),
                         lookupSourceFactory,
-                        node.getFilter().isPresent(),
                         probeTypes,
                         probeJoinChannels,
                         probeHashChannel,
@@ -3870,12 +3848,6 @@ public class LocalExecutionPlanner
                     // TODO: Once the final aggregation function call representation is fixed,
                     // the same mechanism in project and filter expression should be used here.
                     verify(lambdaExpression.arguments().size() == functionType.getArgumentTypes().size());
-                    Map<Symbol, Type> lambdaArgumentSymbolTypes = new HashMap<>();
-                    for (int j = 0; j < lambdaExpression.arguments().size(); j++) {
-                        lambdaArgumentSymbolTypes.put(
-                                lambdaExpression.arguments().get(j),
-                                functionType.getArgumentTypes().get(j));
-                    }
 
                     LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) toRowExpression(lambdaExpression, ImmutableMap.of());
                     Class<? extends Supplier<Object>> lambdaProviderClass = compileLambdaProvider(lambda, plannerContext.getFunctionManager(), lambdaInterfaces.get(i));

@@ -596,7 +596,7 @@ public class TransactionLogAccess
             }
             catch (FileNotFoundException e) {
                 // no longer exists, break iteration
-                return null;
+                break;
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);

@@ -21,10 +21,15 @@ import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.Column;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.Storage;
 import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.blackhole.BlackHolePlugin;
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.predicate.Domain;
@@ -56,6 +61,7 @@ import org.apache.iceberg.data.parquet.GenericParquetWriter;
 import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -69,6 +75,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
@@ -98,7 +105,9 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.FileFormat.PARQUET;
+import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
+import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -953,6 +962,69 @@ public class TestIcebergV2
                     fileSystemFactory.create(SESSION));
             assertThat(withUnenforcedFilter.getRowCount().getValue()).isEqualTo(2.0);
         }
+    }
+
+    @Test
+    public void testInt96TimestampWithTimeZone()
+    {
+        assertUpdate("CREATE TABLE hive.tpch.test_timestamptz_base (t timestamp) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO hive.tpch.test_timestamptz_base (t) VALUES (timestamp '2022-07-26 12:13')", 1);
+
+        // Writing TIMESTAMP WITH LOCAL TIME ZONE is not supported, so we first create Parquet object by writing unzoned
+        // timestamp (which is converted to UTC using default timezone) and then creating another table that reads from the same file.
+        String tableLocation = metastore.getTable("tpch", "test_timestamptz_base").orElseThrow().getStorage().getLocation();
+
+        // TIMESTAMP WITH LOCAL TIME ZONE is not mapped to any Trino type, so we need to create the metastore entry manually
+        metastore.createTable(
+                new io.trino.metastore.Table(
+                        "tpch",
+                        "test_timestamptz",
+                        Optional.of("hive"),
+                        "EXTERNAL_TABLE",
+                        new Storage(
+                                HiveStorageFormat.PARQUET.toStorageFormat(),
+                                Optional.of(tableLocation),
+                                Optional.empty(),
+                                false,
+                                ImmutableMap.of()),
+                        List.of(new Column("t", HiveType.HIVE_TIMESTAMPLOCALTZ, Optional.empty(), Map.of())),
+                        List.of(),
+                        ImmutableMap.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        OptionalLong.empty()),
+                PrincipalPrivileges.fromHivePrivilegeInfos(ImmutableSet.of()));
+
+        assertThat(query("SELECT * FROM hive.tpch.test_timestamptz"))
+                .matches("VALUES TIMESTAMP '2022-07-26 17:13:00.000 UTC'");
+
+        String path = (String) computeScalar("SELECT \"$path\" FROM hive.tpch.test_timestamptz_base");
+        long size = (long) computeScalar("SELECT \"$file_size\" FROM hive.tpch.test_timestamptz_base");
+
+        // Read a Parquet file from Iceberg connector
+        assertUpdate("CREATE TABLE iceberg.tpch.test_timestamptz_migrated(t TIMESTAMP(6) WITH TIME ZONE)");
+
+        BaseTable table = loadTable("test_timestamptz_migrated");
+
+        table.updateProperties()
+                .set(DEFAULT_NAME_MAPPING, toJson(MappingUtil.create(table.schema())))
+                .commit();
+
+        table.newAppend()
+                .appendFile(DataFiles.builder(table.spec())
+                        .withPath(path)
+                        .withFormat(PARQUET)
+                        .withFileSizeInBytes(size)
+                        .withRecordCount(1)
+                        .build())
+                .commit();
+
+        assertThat(query("SELECT * FROM iceberg.tpch.test_timestamptz_migrated"))
+                .matches("VALUES TIMESTAMP '2022-07-26 17:13:00.000000 UTC'");
+
+        assertUpdate("DROP TABLE hive.tpch.test_timestamptz_base");
+        assertUpdate("DROP TABLE hive.tpch.test_timestamptz");
+        assertUpdate("DROP TABLE iceberg.tpch.test_timestamptz_migrated");
     }
 
     @Test

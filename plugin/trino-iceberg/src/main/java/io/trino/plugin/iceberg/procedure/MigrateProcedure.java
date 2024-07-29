@@ -25,19 +25,19 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.metastore.Column;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.Partition;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.Storage;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveStorageFormat;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileFormat;
@@ -88,10 +88,11 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.concat;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.HiveMetadata.TRANSACTIONAL;
 import static io.trino.plugin.hive.HiveMetadata.extractHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
-import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
@@ -200,7 +201,7 @@ public class MigrateProcedure
         RecursiveDirectory recursive = Enums.getIfPresent(RecursiveDirectory.class, recursiveDirectory.toUpperCase(ENGLISH)).toJavaUtil()
                 .orElseThrow(() -> new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Invalid recursive_directory: " + recursiveDirectory));
 
-        io.trino.plugin.hive.metastore.Table hiveTable = metastore.getTable(schemaName, tableName).orElseThrow(() -> new TableNotFoundException(sourceTableName));
+        io.trino.metastore.Table hiveTable = metastore.getTable(schemaName, tableName).orElseThrow(() -> new TableNotFoundException(sourceTableName));
         String transactionalProperty = hiveTable.getParameters().get(TRANSACTIONAL);
         if (parseBoolean(transactionalProperty)) {
             throw new TrinoException(NOT_SUPPORTED, "Migrating transactional tables is unsupported");
@@ -262,7 +263,7 @@ public class MigrateProcedure
 
             log.debug("Set preparatory table properties in a metastore for migrations");
             PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
-            io.trino.plugin.hive.metastore.Table newTable = io.trino.plugin.hive.metastore.Table.builder(hiveTable)
+            io.trino.metastore.Table newTable = io.trino.metastore.Table.builder(hiveTable)
                     .setParameter(METADATA_LOCATION_PROP, location)
                     .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
                     .build();
@@ -303,7 +304,7 @@ public class MigrateProcedure
         List<Types.NestedField> icebergColumns = new ArrayList<>();
         for (Column column : columns) {
             int index = icebergColumns.size();
-            org.apache.iceberg.types.Type type = toIcebergType(typeManager.getType(column.getType().getTypeSignature()), nextFieldId);
+            org.apache.iceberg.types.Type type = toIcebergType(typeManager.getType(getTypeSignature(column.getType())), nextFieldId);
             Types.NestedField field = Types.NestedField.of(index, false, column.getName(), type, column.getComment().orElse(null));
             icebergColumns.add(field);
         }
@@ -322,7 +323,7 @@ public class MigrateProcedure
         return toIcebergTypeForNewColumn(type, nextFieldId);
     }
 
-    public Map<String, Optional<Partition>> listAllPartitions(HiveMetastore metastore, io.trino.plugin.hive.metastore.Table table)
+    public Map<String, Optional<Partition>> listAllPartitions(HiveMetastore metastore, io.trino.metastore.Table table)
     {
         List<String> partitionNames = table.getPartitionColumns().stream().map(Column::getName).collect(toImmutableList());
         Optional<List<String>> partitions = metastore.getPartitionNamesByFilter(table.getDatabaseName(), table.getTableName(), partitionNames, TupleDomain.all());
@@ -407,14 +408,14 @@ public class MigrateProcedure
         }
     }
 
-    private static List<String> toPartitionFields(io.trino.plugin.hive.metastore.Table table)
+    private static List<String> toPartitionFields(io.trino.metastore.Table table)
     {
         ImmutableList.Builder<String> fields = ImmutableList.builder();
         fields.addAll(getPartitionColumnNames(table));
         return fields.build();
     }
 
-    private static List<String> getPartitionColumnNames(io.trino.plugin.hive.metastore.Table table)
+    private static List<String> getPartitionColumnNames(io.trino.metastore.Table table)
     {
         return table.getPartitionColumns().stream()
                 .map(Column::getName)

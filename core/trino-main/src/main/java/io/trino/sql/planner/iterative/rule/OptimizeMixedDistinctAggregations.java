@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -83,18 +82,25 @@ public class OptimizeMixedDistinctAggregations
     private static final CatalogSchemaFunctionName APPROX_DISTINCT_NAME = builtinFunctionName("approx_distinct");
 
     private static final Pattern<AggregationNode> PATTERN = aggregation()
-            .matching(Predicates.and(
-                    Predicates.or(
-                            // single distinct can be supported in this rule, but it is already supported by SingleDistinctAggregationToGroupBy, which produces simpler plans (without group-id)
-                            OptimizeMixedDistinctAggregations::hasMultipleDistincts,
-                            OptimizeMixedDistinctAggregations::hasMixedDistinctAndNonDistincts),
-                    OptimizeMixedDistinctAggregations::allDistinctAggregationsHaveSingleArgument,
-                    OptimizeMixedDistinctAggregations::noFilters,
-                    OptimizeMixedDistinctAggregations::noMasks,
-                    aggregation -> !aggregation.hasOrderings(),
-                    aggregation -> aggregation.getStep().equals(SINGLE)));
+            .matching(OptimizeMixedDistinctAggregations::canUsePreAggregate);
 
-    private static boolean hasMultipleDistincts(AggregationNode aggregationNode)
+    public static boolean canUsePreAggregate(AggregationNode aggregationNode)
+    {
+        // single distinct can be supported in this rule, but it is already supported by SingleDistinctAggregationToGroupBy, which produces simpler plans (without group-id)
+        return (hasMultipleDistincts(aggregationNode) || hasMixedDistinctAndNonDistincts(aggregationNode)) &&
+               allDistinctAggregationsHaveSingleArgument(aggregationNode) &&
+               noFilters(aggregationNode) &&
+               noMasks(aggregationNode) &&
+               !aggregationNode.hasOrderings() &&
+               aggregationNode.getStep().equals(SINGLE);
+    }
+
+    public static boolean hasMultipleDistincts(AggregationNode aggregationNode)
+    {
+        return distinctAggregationsUniqueArgumentCount(aggregationNode) > 1;
+    }
+
+    public static long distinctAggregationsUniqueArgumentCount(AggregationNode aggregationNode)
     {
         return aggregationNode.getAggregations()
                        .values().stream()
@@ -102,7 +108,7 @@ public class OptimizeMixedDistinctAggregations
                        .map(Aggregation::getArguments)
                        .map(HashSet::new)
                        .distinct()
-                       .count() > 1;
+                       .count();
     }
 
     private static boolean hasMixedDistinctAndNonDistincts(AggregationNode aggregationNode)
@@ -143,7 +149,7 @@ public class OptimizeMixedDistinctAggregations
     public OptimizeMixedDistinctAggregations(PlannerContext plannerContext, TaskCountEstimator taskCountEstimator)
     {
         this.functionResolver = plannerContext.getFunctionResolver();
-        this.distinctAggregationStrategyChooser = createDistinctAggregationStrategyChooser(taskCountEstimator);
+        this.distinctAggregationStrategyChooser = createDistinctAggregationStrategyChooser(taskCountEstimator, plannerContext.getMetadata());
     }
 
     @Override
@@ -158,7 +164,7 @@ public class OptimizeMixedDistinctAggregations
         DistinctAggregationsStrategy distinctAggregationsStrategy = distinctAggregationsStrategy(context.getSession());
 
         if (!(distinctAggregationsStrategy.equals(PRE_AGGREGATE) ||
-                (distinctAggregationsStrategy.equals(AUTOMATIC) && distinctAggregationStrategyChooser.shouldUsePreAggregate(node, context.getSession(), context.getStatsProvider())))) {
+                (distinctAggregationsStrategy.equals(AUTOMATIC) && distinctAggregationStrategyChooser.shouldUsePreAggregate(node, context.getSession(), context.getStatsProvider(), context.getLookup())))) {
             return Result.empty();
         }
 
@@ -209,9 +215,9 @@ public class OptimizeMixedDistinctAggregations
             Aggregation originalAggregation = entry.getValue();
             if (originalAggregation.isDistinct()) {
                 // for the outer aggregation node, replace distinct aggregation with non-distinct aggregation with FILTER (WHERE group_id=X)
-                Symbol aggregationInput = Symbol.from(originalAggregation.getArguments().get(0));
+                Symbol aggregationInput = Symbol.from(originalAggregation.getArguments().getFirst());
                 Integer groupId = distinctAggregationArgumentToGroupIdMap.get(aggregationInput);
-                Symbol groupIdFilterSymbol = groupIdFilterSymbolByGroupId.computeIfAbsent(groupId, id -> {
+                Symbol groupIdFilterSymbol = groupIdFilterSymbolByGroupId.computeIfAbsent(groupId, _ -> {
                     Symbol filterSymbol = symbolAllocator.newSymbol("gid-filter-" + groupId, BOOLEAN);
                     groupIdFilters.put(filterSymbol, new Comparison(
                             EQUAL,

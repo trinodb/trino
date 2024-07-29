@@ -101,7 +101,7 @@ public class ClientSession
         this.principal = requireNonNull(principal, "principal is null");
         this.user = requireNonNull(user, "user is null");
         this.authorizationUser = requireNonNull(authorizationUser, "authorizationUser is null");
-        this.source = source;
+        this.source = requireNonNull(source, "source is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
         this.clientInfo = clientInfo;
@@ -279,6 +279,10 @@ public class ClientSession
                 .add("locale", locale)
                 .add("properties", properties)
                 .add("transactionId", transactionId)
+                .add("source", source)
+                .add("resourceEstimates", resourceEstimates)
+                .add("clientRequestTimeout", clientRequestTimeout)
+                .add("compressionDisabled", compressionDisabled)
                 .omitNullValues()
                 .toString();
     }

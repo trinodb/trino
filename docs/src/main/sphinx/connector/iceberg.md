@@ -162,10 +162,17 @@ implementation is used:
   - Enable to allow user to call [`register_table` procedure](iceberg-register-table).
   - `false`
 * - `iceberg.query-partition-filter-required`
-  - Set to `true` to force a query to use a partition filter. You can use the
-    `query_partition_filter_required` catalog session property for temporary,
-    catalog specific use.
+  - Set to `true` to force a query to use a partition filter for schemas
+    specified with `iceberg.query-partition-filter-required-schemas`. Equivalent
+    catalog session property is `query_partition_filter_required`.
   - `false`
+* - `iceberg.query-partition-filter-required-schemas`
+  - Specify the list of schemas for which Trino can enforce that queries use a
+    filter on partition keys for source tables. Equivalent session property is
+    `query_partition_filter_required_schemas`. The list is used if the
+    `iceberg.query-partition-filter-required` configuration property or the
+    `query_partition_filter_required` catalog session property is set to `true`.
+  - `[]`
 * - `iceberg.incremental-refresh-enabled`
   - Set to `false` to force the materialized view refresh operation to always
     perform a full refresh. You can use the `incremental_refresh_enabled`
@@ -177,6 +184,13 @@ implementation is used:
     the new records.
   - `true`
 :::
+
+(iceberg-fte-support)=
+### Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 
 (iceberg-file-system-configuration)=
 ## File system access configuration
@@ -1534,17 +1548,11 @@ use the data from the storage tables, even after the grace period expired.
 Dropping a materialized view with {doc}`/sql/drop-materialized-view` removes
 the definition and the storage table.
 
-(iceberg-fte-support)=
-## Fault-tolerant execution support
-
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
-
-## Table functions
+### Table functions
 
 The connector supports the table functions described in the following sections.
 
-### table_changes
+#### table_changes
 
 Allows reading row-level changes between two versions of an Iceberg table.
 The following query shows an example of displaying the changes of the `t1`

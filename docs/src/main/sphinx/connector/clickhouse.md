@@ -90,9 +90,6 @@ configured connector to create a catalog named `sales`.
 ```{include} jdbc-domain-compaction-threshold.fragment
 ```
 
-```{include} jdbc-procedures.fragment
-```
-
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
@@ -332,13 +329,20 @@ statements, the connector supports the following features:
 ```{include} alter-schema-limitation.fragment
 ```
 
-## Table functions
+### Procedures
+
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} jdbc-procedures-execute.fragment
+```
+
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access ClickHouse.
 
 (clickhouse-query-function)=
-### `query(varchar) -> table`
+#### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It
 requires syntax native to ClickHouse, because the full query is pushed down and

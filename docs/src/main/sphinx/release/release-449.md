@@ -26,8 +26,8 @@
 * Add support for configuring the request retry policy on the native S3
   filesystem with the `s3.retry-mode` and `s3.max-error-retries` configuration
   properties. ({issue}`21900`)
-* Automatically use `varchar` in struct types as a type during table creation
-  when `char` is specified. ({issue}`21511`)
+* Automatically use `timestamp(6)` in struct types as a type during table creation
+  when `timestamp` is specified. ({issue}`21511`)
 * Improve performance of writing data files. ({issue}`22089`)
 * Fix query failure when the `hive.metastore.glue.catalogid` configuration
   property is set. ({issue}`22048`)

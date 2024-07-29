@@ -14,8 +14,8 @@
 package io.trino.plugin.hive;
 
 import io.trino.filesystem.Location;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.Table;
+import io.trino.metastore.Partition;
+import io.trino.metastore.Table;
 
 public interface TableInvalidationCallback
 {

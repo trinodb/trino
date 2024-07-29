@@ -85,14 +85,17 @@ catalog named `sales` using the configured connector.
 ```{include} jdbc-domain-compaction-threshold.fragment
 ```
 
-```{include} jdbc-procedures.fragment
-```
-
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
 ```{include} non-transactional-insert.fragment
 ```
+
+(redshift-fte-support)=
+## Fault-tolerant execution support
+
+The connector supports {doc}`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
 
 ## Querying Redshift
 
@@ -159,19 +162,20 @@ statements, the connector supports the following features:
 ```{include} alter-schema-limitation.fragment
 ```
 
-(redshift-fte-support)=
-## Fault-tolerant execution support
+### Procedures
 
-The connector supports {doc}`/admin/fault-tolerant-execution` of query
-processing. Read and write operations are both supported with any retry policy.
+```{include} jdbc-procedures-flush.fragment
+```
+```{include} jdbc-procedures-execute.fragment
+```
 
-## Table functions
+### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
 access Redshift.
 
 (redshift-query-function)=
-### `query(varchar) -> table`
+#### `query(varchar) -> table`
 
 The `query` function allows you to query the underlying database directly. It
 requires syntax native to Redshift, because the full query is pushed down and

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>453-SNAPSHOT</version>
+        <version>454-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,7 +15,7 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <dep.hbase.version>2.5.9-hadoop3</dep.hbase.version>
+        <dep.hbase.version>2.5.10-hadoop3</dep.hbase.version>
         <dep.phoenix5.version>5.2.0</dep.phoenix5.version>
 
         <!-- This is required for JDK 17 to start HBase server due to illegal reflective access -->

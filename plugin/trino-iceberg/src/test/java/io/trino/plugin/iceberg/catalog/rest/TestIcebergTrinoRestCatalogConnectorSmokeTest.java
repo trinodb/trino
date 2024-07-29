@@ -114,6 +114,38 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     }
 
     @Test
+    void testDropSchemaCascadeWithViews()
+    {
+        String schemaName = "test_drop_schema_cascade" + randomNameSuffix();
+
+        assertUpdate("CREATE SCHEMA " + schemaName);
+
+        TableIdentifier sparkViewIdentifier = TableIdentifier.of(schemaName, "test_spark_views" + randomNameSuffix());
+        backend.buildView(sparkViewIdentifier)
+                .withDefaultNamespace(Namespace.of(schemaName))
+                .withDefaultCatalog("iceberg")
+                .withQuery("spark", "SELECT 1 x")
+                .withSchema(new Schema(required(1, "x", Types.LongType.get())))
+                .create();
+
+        TableIdentifier trinoViewIdentifier = TableIdentifier.of(schemaName, "test_trino_views" + randomNameSuffix());
+        backend.buildView(trinoViewIdentifier)
+                .withDefaultNamespace(Namespace.of(schemaName))
+                .withDefaultCatalog("iceberg")
+                .withQuery("trino", "SELECT 1 x")
+                .withSchema(new Schema(required(1, "x", Types.LongType.get())))
+                .create();
+
+        assertThat(backend.viewExists(sparkViewIdentifier)).isTrue();
+        assertThat(backend.viewExists(trinoViewIdentifier)).isTrue();
+
+        assertUpdate("DROP SCHEMA " + schemaName + " CASCADE");
+
+        assertThat(backend.viewExists(sparkViewIdentifier)).isFalse();
+        assertThat(backend.viewExists(trinoViewIdentifier)).isFalse();
+    }
+
+    @Test
     void testUnsupportedViewDialect()
     {
         String viewName = "test_unsupported_dialect" + randomNameSuffix();

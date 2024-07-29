@@ -31,5 +31,5 @@ public interface WorkProcessorSourceOperatorFactory
             OperatorContext operatorContext,
             MemoryTrackingContext memoryTrackingContext,
             DriverYieldSignal yieldSignal,
-            WorkProcessor<Split> splits);
+            WorkProcessor<Split> split);
 }

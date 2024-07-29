@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.TableInfo;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.Partition;
+import io.trino.metastore.Table;
+import io.trino.metastore.TableInfo;
 import io.trino.spi.function.LanguageFunction;
 
 import java.util.Collection;

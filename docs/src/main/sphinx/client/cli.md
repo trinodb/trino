@@ -169,6 +169,10 @@ mode:
     selected set of options.
 * - `--no-progress`
   - Do not show query processing progress.
+* - `--path`
+  - Set the default [SQL path](/sql/set-path) for the session. Useful for
+    setting a catalog and schema location for [catalog
+    routines](routine-catalog).
 * - `--password`
   - Prompts for a password. Use if your Trino server requires password
     authentication. You can set the `TRINO_PASSWORD` environment variable with
@@ -179,9 +183,10 @@ mode:
     with [](/sql/use).
 * - `--server`
   - The HTTP/HTTPS address and port of the Trino coordinator. The port must be
-    set to the port the Trino coordinator is listening for connections on. Trino
-    server location defaults to `http://localhost:8080`. Can only be set if URL
-    is not specified.
+    set to the port the Trino coordinator is listening for connections on. Port
+    80 for HTTP and Port 443 for HTTPS can be omitted. Trino server location
+    defaults to `http://localhost:8080`. Can only be set if URL is not
+    specified.
 * - `--session`
   - Sets one or more [session properties](session-properties-definition).
     Property can be used multiple times with the format
@@ -252,6 +257,11 @@ certificate usage:
   - Determined by the keystore file format. The default keystore type is JKS.
     This advanced option is only necessary if you use a custom Java Cryptography
     Architecture (JCA) provider implementation.
+* - `--use-system-keystore`
+  - Use a client certificate obtained from the system keystore of the operating
+    system. Windows and macOS are supported. For other operating systems, the
+    default Java keystore is used. The keystore type can be overriden using
+    `--keystore-type`.
 * - `--truststore-password`
   - The password for the truststore. This must match the password you specified
     when creating the truststore.

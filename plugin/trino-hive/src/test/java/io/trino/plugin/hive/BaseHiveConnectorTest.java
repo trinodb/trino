@@ -32,13 +32,13 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.metastore.Column;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.Storage;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.Storage;
-import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Constraint;
@@ -130,13 +130,13 @@ import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
 import static io.trino.SystemSessionProperties.WRITER_SCALING_MIN_DATA_PROCESSED;
+import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PARTITION_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_CREATED_BY;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
@@ -151,9 +151,10 @@ import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
-import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
+import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.spi.security.Identity.ofUser;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
@@ -8803,19 +8804,35 @@ public abstract class BaseHiveConnectorTest
     @Test
     public void testTimestampWithTimeZone()
     {
-        String catalog = getSession().getCatalog().orElseThrow();
+        testTimestampWithTimeZone(HiveTimestampPrecision.MILLISECONDS);
+        testTimestampWithTimeZone(HiveTimestampPrecision.MICROSECONDS);
+        testTimestampWithTimeZone(HiveTimestampPrecision.NANOSECONDS);
+    }
 
-        assertUpdate("CREATE TABLE test_timestamptz_base (t timestamp) WITH (format = 'PARQUET')");
-        assertUpdate("INSERT INTO test_timestamptz_base (t) VALUES" +
-                     "(timestamp '2022-07-26 12:13')", 1);
+    private void testTimestampWithTimeZone(HiveTimestampPrecision timestampPrecision)
+    {
+        assertUpdate(withTimestampPrecision(getSession(), HiveTimestampPrecision.NANOSECONDS), "CREATE TABLE test_timestamptz_base (t timestamp(9)) WITH (format = 'PARQUET')");
+        for (HiveTimestampPrecision precision : HiveTimestampPrecision.values()) {
+            long fractionalPart = switch (precision) {
+                case MILLISECONDS -> 123;
+                case MICROSECONDS -> 123456;
+                case NANOSECONDS -> 123456789;
+            };
+            assertUpdate(
+                    withTimestampPrecision(getSession(), HiveTimestampPrecision.NANOSECONDS),
+                    "INSERT INTO test_timestamptz_base (t) VALUES" +
+                            "(timestamp '2022-07-26 12:13:14." + fractionalPart + "')", 1);
+        }
 
         // Writing TIMESTAMP WITH LOCAL TIME ZONE is not supported, so we first create Parquet object by writing unzoned
         // timestamp (which is converted to UTC using default timezone) and then creating another table that reads from the same file.
         String tableLocation = getTableLocation("test_timestamptz_base");
 
+        Session session = withTimestampPrecision(getSession(), timestampPrecision);
+        String catalog = session.getCatalog().orElseThrow();
         // TIMESTAMP WITH LOCAL TIME ZONE is not mapped to any Trino type, so we need to create the metastore entry manually
         HiveMetastore metastore = getConnectorService(getDistributedQueryRunner(), HiveMetastoreFactory.class)
-                .createMetastore(Optional.of(getSession().getIdentity().toConnectorIdentity(catalog)));
+                .createMetastore(Optional.of(session.getIdentity().toConnectorIdentity(catalog)));
         metastore.createTable(
                 new Table(
                         "tpch",
@@ -8823,7 +8840,7 @@ public abstract class BaseHiveConnectorTest
                         Optional.of("hive"),
                         "EXTERNAL_TABLE",
                         new Storage(
-                                StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET),
+                                HiveStorageFormat.PARQUET.toStorageFormat(),
                                 Optional.of(tableLocation),
                                 Optional.empty(),
                                 false,
@@ -8836,10 +8853,23 @@ public abstract class BaseHiveConnectorTest
                         OptionalLong.empty()),
                 PrincipalPrivileges.fromHivePrivilegeInfos(Collections.emptySet()));
 
-        assertThat(query("SELECT * FROM test_timestamptz"))
-                .matches("VALUES TIMESTAMP '2022-07-26 17:13:00.000 UTC'");
+        long microsFraction = switch (timestampPrecision) {
+            case MILLISECONDS -> 123;
+            case MICROSECONDS, NANOSECONDS -> 123456;
+        };
+        long nanosFraction = switch (timestampPrecision) {
+            case MILLISECONDS -> 123;
+            case MICROSECONDS -> 123457;
+            case NANOSECONDS -> 123456789;
+        };
+        assertThat(query(session, "SELECT * FROM test_timestamptz"))
+                .matches("VALUES " +
+                        "(TIMESTAMP '2022-07-26 17:13:14.123 UTC')," +
+                        "(TIMESTAMP '2022-07-26 17:13:14." + microsFraction + " UTC')," +
+                        "(TIMESTAMP '2022-07-26 17:13:14." + nanosFraction + " UTC')");
 
         assertUpdate("DROP TABLE test_timestamptz");
+        assertUpdate("DROP TABLE test_timestamptz_base");
     }
 
     @Test
@@ -9326,7 +9356,7 @@ public abstract class BaseHiveConnectorTest
 
     private Type canonicalizeType(Type type)
     {
-        return TESTING_TYPE_MANAGER.getType(toHiveType(type).getTypeSignature());
+        return TESTING_TYPE_MANAGER.getType(getTypeSignature(toHiveType(type)));
     }
 
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)

@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.inject.Inject;
+import io.trino.metastore.HiveType;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;

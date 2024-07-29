@@ -22,9 +22,9 @@ import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadataProvider;
-import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
@@ -172,7 +172,7 @@ public class HivePageSinkProvider
                 handle.getLocationHandle(),
                 locationService,
                 session.getQueryId(),
-                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), new HiveMetastoreClosure(cachingHiveMetastore, typeManager, false)),
+                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), cachingHiveMetastore),
                 typeManager,
                 pageSorter,
                 writerSortBufferSize,

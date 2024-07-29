@@ -13,31 +13,28 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.hive.thrift.metastore.DataOperationType;
-import io.trino.plugin.hive.acid.AcidOperation;
-import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.metastore.AcidTransactionOwner;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveColumnStatistics;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
-import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.PartitionWithStatistics;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
-import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.TableInfo;
-import io.trino.plugin.hive.projection.PartitionProjection;
-import io.trino.spi.TrinoException;
+import io.trino.metastore.AcidOperation;
+import io.trino.metastore.AcidTransactionOwner;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveColumnStatistics;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HivePartition;
+import io.trino.metastore.HivePrincipal;
+import io.trino.metastore.HivePrivilegeInfo;
+import io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.Partition;
+import io.trino.metastore.PartitionStatistics;
+import io.trino.metastore.PartitionWithStatistics;
+import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.StatisticsUpdateMode;
+import io.trino.metastore.Table;
+import io.trino.metastore.TableInfo;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
-import io.trino.spi.type.TypeManager;
 
 import java.util.Collection;
 import java.util.List;
@@ -46,26 +43,19 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
-import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionFromTable;
 import static java.util.Objects.requireNonNull;
 
 public class HiveMetastoreClosure
 {
     private final HiveMetastore delegate;
-    private final TypeManager typeManager;
-    private final boolean partitionProjectionEnabled;
 
     /**
      * Do not use this directly.  Instead, the closure should be fetched from the current SemiTransactionalHiveMetastore,
      * which can be fetched from the current HiveMetadata.
      */
-    public HiveMetastoreClosure(HiveMetastore delegate, TypeManager typeManager, boolean partitionProjectionEnabled)
+    public HiveMetastoreClosure(HiveMetastore delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.partitionProjectionEnabled = partitionProjectionEnabled;
     }
 
     public Optional<Database> getDatabase(String databaseName)
@@ -76,12 +66,6 @@ public class HiveMetastoreClosure
     public List<String> getAllDatabases()
     {
         return delegate.getAllDatabases();
-    }
-
-    private Table getExistingTable(String databaseName, String tableName)
-    {
-        return delegate.getTable(databaseName, tableName)
-                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
     }
 
     public Optional<Table> getTable(String databaseName, String tableName)
@@ -108,14 +92,13 @@ public class HiveMetastoreClosure
         return delegate.useSparkTableStatistics();
     }
 
-    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
+    public void updateTableStatistics(String databaseName, String tableName, OptionalLong acidWriteId, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
-        delegate.updateTableStatistics(databaseName, tableName, transaction, mode, statisticsUpdate);
+        delegate.updateTableStatistics(databaseName, tableName, acidWriteId, mode, statisticsUpdate);
     }
 
-    public void updatePartitionStatistics(String databaseName, String tableName, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
+    public void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
-        Table table = getExistingTable(databaseName, tableName);
         delegate.updatePartitionStatistics(table, mode, partitionUpdates);
     }
 
@@ -206,34 +189,11 @@ public class HiveMetastoreClosure
             List<String> columnNames,
             TupleDomain<String> partitionKeysFilter)
     {
-        if (partitionProjectionEnabled) {
-            Table table = getTable(databaseName, tableName)
-                    .orElseThrow(() -> new TrinoException(HIVE_TABLE_DROPPED_DURING_QUERY, "Table does not exists: " + tableName));
-
-            Optional<PartitionProjection> projection = getPartitionProjectionFromTable(table, typeManager);
-            if (projection.isPresent()) {
-                return projection.get().getProjectedPartitionNamesByFilter(columnNames, partitionKeysFilter);
-            }
-        }
         return delegate.getPartitionNamesByFilter(databaseName, tableName, columnNames, partitionKeysFilter);
     }
 
-    public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames)
     {
-        return delegate.getTable(databaseName, tableName)
-                .map(table -> getPartitionsByNames(table, partitionNames))
-                .orElseGet(() -> partitionNames.stream()
-                        .collect(toImmutableMap(name -> name, name -> Optional.empty())));
-    }
-
-    private Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames)
-    {
-        if (partitionProjectionEnabled) {
-            Optional<PartitionProjection> projection = getPartitionProjectionFromTable(table, typeManager);
-            if (projection.isPresent()) {
-                return projection.get().getProjectedPartitionsByNames(table, partitionNames);
-            }
-        }
         return delegate.getPartitionsByNames(table, partitionNames);
     }
 
@@ -354,7 +314,7 @@ public class HiveMetastoreClosure
             long transactionId,
             String dbName,
             String tableName,
-            DataOperationType operation,
+            AcidOperation operation,
             boolean isPartitioned)
     {
         delegate.acquireTableWriteLock(transactionOwner, queryId, transactionId, dbName, tableName, operation, isPartitioned);

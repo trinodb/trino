@@ -14,9 +14,9 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import io.opentelemetry.api.OpenTelemetry;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.TableInfo;
 import io.trino.plugin.base.util.AutoCloseableCloser;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.TestingNodeManager;
 import org.junit.jupiter.api.Test;

@@ -22,7 +22,7 @@ import io.airlift.log.Logger;
 import io.jsonwebtoken.impl.DefaultJwtBuilder;
 import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.trino.cache.EvictableCacheBuilder;
-import io.trino.plugin.hive.metastore.TableInfo;
+import io.trino.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergSchemaProperties;
 import io.trino.plugin.iceberg.IcebergUtil;
@@ -83,7 +83,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
-import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_DIALECT;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
@@ -217,6 +217,21 @@ public class TrinoRestCatalog
                     .forEach(tables::add);
         }
         return tables.build();
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
+    {
+        SessionContext sessionContext = convert(session);
+        List<Namespace> namespaces = listNamespaces(session, namespace);
+
+        ImmutableList.Builder<SchemaTableName> viewNames = ImmutableList.builder();
+        for (Namespace restNamespace : namespaces) {
+            listTableIdentifiers(restNamespace, () -> restSessionCatalog.listViews(sessionContext, restNamespace)).stream()
+                    .map(id -> SchemaTableName.schemaTableName(id.namespace().toString(), id.name()))
+                    .forEach(viewNames::add);
+        }
+        return viewNames.build();
     }
 
     private static List<TableIdentifier> listTableIdentifiers(Namespace restNamespace, Supplier<List<TableIdentifier>> tableIdentifiersProvider)

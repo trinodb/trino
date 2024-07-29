@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>453-SNAPSHOT</version>
+    <version>454-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -52,6 +52,7 @@
         <module>lib/trino-hive-formats</module>
         <module>lib/trino-matching</module>
         <module>lib/trino-memory-context</module>
+        <module>lib/trino-metastore</module>
         <module>lib/trino-orc</module>
         <module>lib/trino-parquet</module>
         <module>lib/trino-plugin-toolkit</module>
@@ -144,7 +145,7 @@
     <properties>
         <project.build.targetJdk>22</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
-        <project.build.outputTimestamp>2024-07-12T02:16:11Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2024-07-26T00:21:17Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
@@ -173,8 +174,6 @@
             -XX:+UnlockDiagnosticVMOptions
             <!-- # Allow loading dynamic agent used by JOL -->
             -XX:+EnableDynamicAgentLoading
-            <!-- workaround for JDK-8329528 -->
-            -XX:G1NumCollectionsKeepPinned=10000000
             ${extraJavaVectorArgs}
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
@@ -182,19 +181,22 @@
         <!-- keep dependency properties sorted -->
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.accumulo.version>3.0.0</dep.accumulo.version>
-        <dep.airlift.version>250</dep.airlift.version>
+        <dep.airlift.version>251</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
         <dep.avro.version>1.11.3</dep.avro.version>
-        <dep.aws-sdk.version>1.12.761</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.765</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.5.1</dep.confluent.version>
-        <dep.docker.images.version>98</dep.docker.images.version>
+        <dep.docker.images.version>99</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
-        <dep.errorprone.version>2.29.1</dep.errorprone.version>
-        <dep.flyway.version>10.15.2</dep.flyway.version>
+        <dep.errorprone.version>2.29.2</dep.errorprone.version>
+        <dep.flyway.version>10.16.0</dep.flyway.version>
+        <dep.frontend-maven-plugin.version>1.15.0</dep.frontend-maven-plugin.version>
+        <dep.frontend-node.version>v20.15.1</dep.frontend-node.version>
+        <dep.frontend-npm.version>10.8.2</dep.frontend-npm.version>
         <dep.google.http.client.version>1.44.2</dep.google.http.client.version>
-        <dep.iceberg.version>1.5.2</dep.iceberg.version>
+        <dep.iceberg.version>1.6.0</dep.iceberg.version>
         <dep.jna.version>5.14.0</dep.jna.version>
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
@@ -205,8 +207,8 @@
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.14.1</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
-        <dep.protobuf.version>3.25.3</dep.protobuf.version>
-        <dep.snowflake.version>3.17.0</dep.snowflake.version>
+        <dep.protobuf.version>3.25.4</dep.protobuf.version>
+        <dep.snowflake.version>3.18.0</dep.snowflake.version>
         <dep.swagger.version>2.2.22</dep.swagger.version>
         <dep.takari.version>2.1.5</dep.takari.version>
         <dep.tcnative.version>2.0.65.Final</dep.tcnative.version>
@@ -269,7 +271,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.1.111.Final</version>
+                <version>4.1.112.Final</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -309,7 +311,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.26.20</version>
+                <version>2.26.25</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -459,7 +461,7 @@
             <dependency>
                 <groupId>com.clickhouse</groupId>
                 <artifactId>clickhouse-jdbc</artifactId>
-                <version>0.6.2</version>
+                <version>0.6.3</version>
                 <classifier>all</classifier>
             </dependency>
 
@@ -502,13 +504,13 @@
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.5.6-3</version>
+                <version>1.5.6-4</version>
             </dependency>
 
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.6.1</version>
+                <version>6.6.2</version>
             </dependency>
 
             <dependency>
@@ -1234,6 +1236,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-memory-context</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-metastore</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -2067,7 +2075,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.44.0</version>
+                <version>3.45.0</version>
             </dependency>
 
             <dependency>
@@ -2275,6 +2283,15 @@
     <build>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>com.github.eirslett</groupId>
+                    <artifactId>frontend-maven-plugin</artifactId>
+                    <version>${dep.frontend-maven-plugin.version}</version>
+                    <configuration>
+                        <nodeVersion>${dep.frontend-node.version}</nodeVersion>
+                        <npmVersion>${dep.frontend-npm.version}</npmVersion>
+                    </configuration>
+                </plugin>
                 <plugin>
                     <groupId>org.antlr</groupId>
                     <artifactId>antlr4-maven-plugin</artifactId>
@@ -2741,6 +2758,7 @@
                                     -Xep:MissingOverride:ERROR \
                                     <!-- Sometimes our javadoc contains just a @see directive -->
                                     -Xep:MissingSummary:OFF \
+                                    -Xep:ModifiedButNotUsed:ERROR \
                                     -Xep:MutablePublicArray:ERROR \
                                     -Xep:NarrowCalculation:ERROR \
                                     -Xep:NarrowingCompoundAssignment:ERROR \

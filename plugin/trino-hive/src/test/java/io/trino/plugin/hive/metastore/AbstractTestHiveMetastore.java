@@ -13,6 +13,10 @@
  */
 package io.trino.plugin.hive.metastore;
 
+import io.trino.metastore.Column;
+import io.trino.metastore.Database;
+import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.spi.connector.TableNotFoundException;
@@ -25,12 +29,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static io.trino.metastore.HiveType.HIVE_STRING;
+import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
-import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
-import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
-import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -82,7 +85,7 @@ public abstract class AbstractTestHiveMetastore
                 .setOwner(Optional.empty());
         table.getStorageBuilder()
                 .setLocation(Optional.of("/tmp/location"))
-                .setStorageFormat(fromHiveStorageFormat(PARQUET));
+                .setStorageFormat(PARQUET.toStorageFormat());
         getMetastore().createTable(table.build(), NO_PRIVILEGES);
         // second call with the same query ID succeeds
         getMetastore().createTable(table.build(), NO_PRIVILEGES);

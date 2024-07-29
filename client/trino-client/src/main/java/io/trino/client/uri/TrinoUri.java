@@ -87,6 +87,7 @@ import static io.trino.client.uri.ConnectionProperties.SSL_KEY_STORE_TYPE;
 import static io.trino.client.uri.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static io.trino.client.uri.ConnectionProperties.SSL_TRUST_STORE_PATH;
 import static io.trino.client.uri.ConnectionProperties.SSL_TRUST_STORE_TYPE;
+import static io.trino.client.uri.ConnectionProperties.SSL_USE_SYSTEM_KEY_STORE;
 import static io.trino.client.uri.ConnectionProperties.SSL_USE_SYSTEM_TRUST_STORE;
 import static io.trino.client.uri.ConnectionProperties.SSL_VERIFICATION;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode;
@@ -290,6 +291,11 @@ public class TrinoUri
         return resolveOptional(SSL_KEY_STORE_TYPE);
     }
 
+    public boolean getSslUseSystemKeyStore()
+    {
+        return resolveWithDefault(SSL_USE_SYSTEM_KEY_STORE, false);
+    }
+
     public Optional<String> getSslTrustStorePath()
     {
         return resolveOptional(SSL_TRUST_STORE_PATH);
@@ -476,7 +482,7 @@ public class TrinoUri
         return uri.getScheme().equals("https") || (uri.getScheme().equals("trino") && uri.getPort() == 443);
     }
 
-    public ClientSession toClientSession()
+    public ClientSession.Builder toClientSessionBuilder()
     {
         return ClientSession.builder()
                 .server(getHttpUri())
@@ -496,8 +502,7 @@ public class TrinoUri
                 .credentials(getExtraCredentials())
                 .transactionId(null)
                 .resourceEstimates(getResourceEstimates())
-                .compressionDisabled(isCompressionDisabled())
-                .build();
+                .compressionDisabled(isCompressionDisabled());
     }
 
     protected static Set<ConnectionProperty<?, ?>> allProperties()
@@ -555,14 +560,10 @@ public class TrinoUri
     {
         validatePrefix(url);
         URI uri = parseUrl(url);
-
         if (isNullOrEmpty(uri.getHost())) {
             throw new RuntimeException("No host specified: " + url);
         }
-        if (uri.getPort() == -1) {
-            throw new RuntimeException("No port number specified: " + url);
-        }
-        if ((uri.getPort() < 1) || (uri.getPort() > 65535)) {
+        if (uri.getPort() == 0 || uri.getPort() > 65535) {
             throw new RuntimeException("Invalid port number: " + url);
         }
         return uri;
@@ -823,6 +824,11 @@ public class TrinoUri
         public Builder setSslKeyStoreType(String sslKeyStoreType)
         {
             return setProperty(SSL_KEY_STORE_TYPE, requireNonNull(sslKeyStoreType, "sslKeyStoreType is null"));
+        }
+
+        public Builder setSslUseSystemKeyStore(boolean sslUseSystemKeyStore)
+        {
+            return setProperty(SSL_USE_SYSTEM_KEY_STORE, sslUseSystemKeyStore);
         }
 
         public Builder setSslTrustStorePath(String sslTrustStorePath)
