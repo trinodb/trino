@@ -11,29 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.s3;
+package io.trino.filesystem.s3.ssec;
 
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
+import io.trino.filesystem.s3.S3FileSystemConfig;
+import io.trino.filesystem.s3.S3FileSystemFactory;
+import io.trino.filesystem.s3.S3SseCustomerKey;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.utils.BinaryUtils;
-
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.CUSTOMER;
 import static java.util.Objects.requireNonNull;
 
-public class TestS3FileSystemAwsS3WithSSEC
-        extends AbstractTestS3FileSystem
+public class TestS3FileSystemAwsS3WithSseC
+        extends AbstractTestS3FileSystemWithSseC
 {
     private static final String CUSTOMER_KEY = generateCustomerKey();
 
@@ -103,18 +99,5 @@ public class TestS3FileSystemAwsS3WithSSEC
     private static String environmentVariable(String name)
     {
         return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
-    }
-
-    private static String generateCustomerKey()
-    {
-        try {
-            KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-            keyGenerator.init(256, new SecureRandom());
-            SecretKey secretKey = keyGenerator.generateKey();
-            return BinaryUtils.toBase64(secretKey.getEncoded());
-        }
-        catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
     }
 }
