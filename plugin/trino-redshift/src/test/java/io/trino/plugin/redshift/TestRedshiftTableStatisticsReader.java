@@ -40,11 +40,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static io.trino.plugin.redshift.RedshiftQueryRunner.JDBC_PASSWORD;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.JDBC_URL;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.JDBC_USER;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.TEST_SCHEMA;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.executeInRedshift;
+import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_PASSWORD;
+import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_URL;
+import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_USER;
+import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
