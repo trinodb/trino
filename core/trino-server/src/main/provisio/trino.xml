@@ -183,6 +183,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/kafka-event-listener">
+        <artifact id="${project.groupId}:trino-kafka-event-listener:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/kinesis">
         <artifact id="${project.groupId}:trino-kinesis:zip:${project.version}">
             <unpack />
