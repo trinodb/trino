@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
+import io.trino.client.ClientException;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
@@ -524,7 +525,29 @@ public class TrinoConnection
         if (timeout < 0) {
             throw new SQLException("Timeout is negative");
         }
-        return !isClosed();
+
+        if (isClosed()) {
+            return false;
+        }
+
+        String sql = String.format("select 'probe query from %s.%s'", getClass().getSimpleName(), "isValid");
+
+        ImmutableMap.Builder<String, String> sessionProperties = ImmutableMap.builder();
+        if (timeout > 0) {
+            sessionProperties.put("query_max_run_time", timeout + "s");
+        }
+
+        try (StatementClient client = this.startQuery(sql, sessionProperties.buildOrThrow())) {
+            // No-op
+        }
+        catch (ClientException e) {
+            return false;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+
+        return true;
     }
 
     @Override
