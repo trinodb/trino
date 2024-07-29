@@ -42,6 +42,7 @@ import java.util.function.Function;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.getRetryStrategy;
+import static io.trino.filesystem.s3.TruststoreUtil.createTruststore;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -212,6 +213,10 @@ final class S3FileSystemLoader
         config.getConnectionMaxIdleTime().ifPresent(time -> client.connectionMaxIdleTime(time.toJavaTime()));
         config.getSocketConnectTimeout().ifPresent(timeout -> client.connectionTimeout(timeout.toJavaTime()));
         config.getSocketReadTimeout().ifPresent(timeout -> client.socketTimeout(timeout.toJavaTime()));
+
+        Optional<String> truststorePath = config.getTruststorePath();
+        Optional<String> truststorePassword = config.getTruststorePassword();
+        truststorePath.ifPresent(s -> client.tlsTrustManagersProvider(() -> createTruststore(s, truststorePassword.orElse(null))));
 
         if (config.getHttpProxy() != null) {
             client.proxyConfiguration(ProxyConfiguration.builder()

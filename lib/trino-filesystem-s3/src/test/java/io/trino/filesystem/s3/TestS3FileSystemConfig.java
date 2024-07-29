@@ -70,7 +70,9 @@ public class TestS3FileSystemConfig
                 .setHttpProxyUsername(null)
                 .setHttpProxyPassword(null)
                 .setHttpProxyPreemptiveBasicProxyAuth(false)
-                .setSupportsExclusiveCreate(true));
+                .setSupportsExclusiveCreate(true)
+                .setTruststorePath(null)
+                .setTruststorePassword(null));
     }
 
     @Test
@@ -109,6 +111,8 @@ public class TestS3FileSystemConfig
                 .put("s3.http-proxy.password", "test")
                 .put("s3.http-proxy.preemptive-basic-auth", "true")
                 .put("s3.exclusive-create", "false")
+                .put("s3.truststore-path", "file.jks")
+                .put("s3.truststore-password", "password")
                 .buildOrThrow();
 
         S3FileSystemConfig expected = new S3FileSystemConfig()
@@ -143,7 +147,9 @@ public class TestS3FileSystemConfig
                 .setHttpProxyUsername("test")
                 .setHttpProxyPassword("test")
                 .setHttpProxyPreemptiveBasicProxyAuth(true)
-                .setSupportsExclusiveCreate(false);
+                .setSupportsExclusiveCreate(false)
+                .setTruststorePath("file.jks")
+                .setTruststorePassword("password");
 
         assertFullMapping(properties, expected);
     }
