@@ -180,6 +180,11 @@ public class HivePageSource
                     return null;
                 }
             }
+            else {
+                // bucket adaptation already validates that data is in the right bucket
+                final Page dataPageRef = dataPage;
+                bucketValidator.ifPresent(validator -> validator.validate(dataPageRef));
+            }
 
             int batchSize = dataPage.getPositionCount();
             List<Block> blocks = new ArrayList<>();
@@ -207,14 +212,7 @@ public class HivePageSource
                 }
             }
 
-            Page page = new Page(batchSize, blocks.toArray(new Block[0]));
-
-            // bucket adaptation already validates that data is in the right bucket
-            if (bucketAdapter.isEmpty()) {
-                bucketValidator.ifPresent(validator -> validator.validate(page));
-            }
-
-            return page;
+            return new Page(batchSize, blocks.toArray(new Block[0]));
         }
         catch (TrinoException e) {
             closeAllSuppress(e, this);
