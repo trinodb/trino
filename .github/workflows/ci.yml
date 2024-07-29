@@ -179,7 +179,7 @@ jobs:
         if: ${{ always() && contains(matrix.modules, 'plugin/trino-exasol') }}
         run: |
           docker ps
-          CONTAINER_NAME=$(docker ps --filter "ancestor=exasol/docker-db:8.29.1" --format "{{.Names}}")
+          CONTAINER_NAME=$(docker ps --filter "ancestor=exasol/docker-db:8.27.0" --format "{{.Names}}")
           mkdir -p /tmp/db-log/
           docker cp "$CONTAINER_NAME:/exa/logs/" /tmp/db-log/
       - name: "Upload Exasol Docker-DB logs"
