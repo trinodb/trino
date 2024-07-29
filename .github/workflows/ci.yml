@@ -169,13 +169,14 @@ jobs:
         run: echo "UNIQUE_NAME=$RANDOM" >> $GITHUB_ENV
       - name: "Upload Exasol JDBC driver logs"
         uses: actions/upload-artifact@v4
-        if: ${{ always() }}
+        if: ${{ always() && contains(matrix.modules, 'plugin/trino-exasol') }}
         with:
           path: /tmp/exasol-jdbc-log/
           name: exasol-jdbc-log-${{ env.UNIQUE_NAME }}
           retention-days: 3
+          if-no-files-found: error
       - name: Extract DB logs from Docker container
-        if: ${{ always() }}
+        if: ${{ always() && contains(matrix.modules, 'plugin/trino-exasol') }}
         run: |
           docker ps
           CONTAINER_NAME=$(docker ps --filter "ancestor=exasol/docker-db:8.27.0" --format "{{.Names}}")
@@ -183,11 +184,12 @@ jobs:
           docker cp "$CONTAINER_NAME:/exa/logs/" /tmp/db-log/
       - name: "Upload Exasol Docker-DB logs"
         uses: actions/upload-artifact@v4
-        if: ${{ always() }}
+        if: ${{ always() && contains(matrix.modules, 'plugin/trino-exasol') }}
         with:
           path: /tmp/db-log/
           name: exasol-db-log-${{ env.UNIQUE_NAME }}
           retention-days: 3
+          if-no-files-found: error
 
       # Additional tests for selected modules
       - name: HDFS file system cache isolated JVM tests
