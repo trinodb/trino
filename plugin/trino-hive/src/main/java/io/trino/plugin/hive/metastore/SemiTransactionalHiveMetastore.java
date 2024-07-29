@@ -18,9 +18,11 @@ import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multiset;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import dev.failsafe.Failsafe;
@@ -808,6 +810,14 @@ public class SemiTransactionalHiveMetastore
             case PRE_EXISTING_TABLE -> getOptionalPartitions(databaseName, tableName, columnNames, partitionKeysFilter)
                     .orElseThrow(() -> new TrinoException(TRANSACTION_CONFLICT, format("Table '%s.%s' was dropped by another transaction", databaseName, tableName)));
         };
+        Set<String> duplicatePartitionNames = ImmutableMultiset.copyOf(partitionNames)
+                .entrySet().stream()
+                .filter(entry -> entry.getCount() > 1)
+                .map(Multiset.Entry::getElement)
+                .collect(toImmutableSet());
+        if (!duplicatePartitionNames.isEmpty()) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, format("Metastore returned duplicate partition names for %s", duplicatePartitionNames));
+        }
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(table.get().getSchemaTableName(), k -> new HashMap<>());
         ImmutableList.Builder<String> resultBuilder = ImmutableList.builder();
         // alter/remove newly altered/dropped partitions from the results from underlying metastore
