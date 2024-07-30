@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>450-SNAPSHOT</version>
+        <version>454-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -31,7 +31,7 @@
         <dependency>
             <groupId>com.lancedb</groupId>
             <artifactId>lance-core</artifactId>
-            <version>0.0.3</version>
+            <version>0.0.5</version>
         </dependency>
 
         <dependency>
