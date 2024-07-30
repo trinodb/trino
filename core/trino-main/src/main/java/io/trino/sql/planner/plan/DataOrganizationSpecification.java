@@ -20,6 +20,7 @@ import io.trino.sql.planner.Symbol;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public record DataOrganizationSpecification(
@@ -30,5 +31,14 @@ public record DataOrganizationSpecification(
     {
         partitionBy = ImmutableList.copyOf(partitionBy);
         requireNonNull(orderingScheme, "orderingScheme is null");
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("partitionBy", partitionBy)
+                .add("orderingScheme", orderingScheme)
+                .toString();
     }
 }
