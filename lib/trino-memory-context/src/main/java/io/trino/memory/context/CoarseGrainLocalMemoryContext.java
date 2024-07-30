@@ -17,6 +17,7 @@ package io.trino.memory.context;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -34,6 +35,7 @@ public class CoarseGrainLocalMemoryContext
     private final LocalMemoryContext delegate;
     private final long granularity;
     private final long mask;
+    @GuardedBy("this")
     private long currentBytes;
 
     public CoarseGrainLocalMemoryContext(LocalMemoryContext delegate)
