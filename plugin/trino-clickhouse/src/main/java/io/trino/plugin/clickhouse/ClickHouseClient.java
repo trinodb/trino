@@ -57,6 +57,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -64,6 +65,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -213,6 +215,10 @@ public class ClickHouseClient
 
         Domain simplifiedDomain = domain.simplify(getDomainCompactionThreshold(session));
         if (!simplifiedDomain.getValues().isDiscreteSet()) {
+            // Push down inequality predicate if domain was not simplified
+            if (domain == simplifiedDomain) {
+                return FULL_PUSHDOWN.apply(session, domain);
+            }
             // Domain#simplify can turn a discrete set into a range predicate
             return DISABLE_PUSHDOWN.apply(session, domain);
         }
@@ -221,6 +227,7 @@ public class ClickHouseClient
     };
 
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriterForJoin;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
     private final Type uuidType;
     private final Type ipAddressType;
@@ -239,8 +246,22 @@ public class ClickHouseClient
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+        JdbcConnectorExpressionRewriterBuilder connectorExpressionRewriterForJoinBuilder = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
+                .map("$equal(left, right)").to("left = right")
+                .add(new RewriteIn())
+                .map("$like(value: varchar, pattern: varchar): boolean").to("value LIKE pattern")
+                .map("$not($is_null(value))").to("value IS NOT NULL")
+                .map("$not(value: boolean)").to("NOT value")
+                .map("$is_null(value)").to("value IS NULL")
+                .map("$nullif(first, second)").to("NULLIF(first, second)");
+        this.connectorExpressionRewriterForJoin = connectorExpressionRewriterForJoinBuilder.build();
+        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder(connectorExpressionRewriterForJoinBuilder)
+                .map("$not_equal(left, right)").to("left <> right")
+                .map("$less_than(left, right)").to("left < right")
+                .map("$less_than_or_equal(left, right)").to("left <= right")
+                .map("$greater_than(left, right)").to("left > right")
+                .map("$greater_than_or_equal(left, right)").to("left >= right")
                 .build();
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this.connectorExpressionRewriter,
@@ -273,15 +294,20 @@ public class ClickHouseClient
     }
 
     @Override
+    public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return connectorExpressionRewriter.rewrite(session, expression, assignments);
+    }
+
+    @Override
+    public Optional<ParameterizedExpression> convertPredicateForJoin(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return connectorExpressionRewriterForJoin.rewrite(session, expression, assignments);
+    }
+
+    @Override
     public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
     {
-        for (JdbcSortItem sortItem : sortOrder) {
-            Type sortItemType = sortItem.column().getColumnType();
-            checkArgument(!(sortItemType instanceof CharType), "Unexpected char type: %s", sortItem.column().getColumnName());
-            if (sortItemType instanceof VarcharType) {
-                return false;
-            }
-        }
         return true;
     }
 

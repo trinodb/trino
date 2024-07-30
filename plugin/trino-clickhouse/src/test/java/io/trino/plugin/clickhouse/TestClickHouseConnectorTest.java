@@ -18,9 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.JoinOperator;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -69,7 +71,12 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
+                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
                  SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
                  SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
@@ -78,7 +85,7 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_DELETE,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                  SUPPORTS_NEGATIVE_DATE,
-                 SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_UPDATE -> false;
@@ -816,6 +823,14 @@ public class TestClickHouseConnectorTest
                 "VALUES('" + propertyName + "','1000', '1000', 'integer', 'Maximum ranges to allow in a tuple domain without simplifying it')");
     }
 
+    @Override
+    protected boolean expectJoinPushdownOnInequalityOperator(JoinOperator joinOperator)
+    {
+        // TODO return false only for Join with inequality conditions for columns from different tables
+        //  https://clickhouse.com/docs/en/sql-reference/statements/select/join#experimental-join-with-inequality-conditions-for-columns-from-different-tables
+        return false;
+    }
+
     @Test
     public void testTextualPredicatePushdown()
     {
@@ -825,9 +840,39 @@ public class TestClickHouseConnectorTest
                 .isFullyPushedDown();
 
         // varchar range
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name < 'ARGENTINA'"))
+                .matches("VALUES (BIGINT '0', BIGINT '0', CAST('ALGERIA' AS varchar))")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name <= 'ARGENTINA'"))
+                .matches("""
+                        VALUES
+                        (BIGINT '0', BIGINT '0', CAST('ALGERIA' AS varchar)),
+                        (BIGINT '1', BIGINT '1', CAST('ARGENTINA' AS varchar))""")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE 'UNITED KINGDOM' <= name"))
+                .matches("""
+                        VALUES
+                        (BIGINT '3', BIGINT '23', CAST('UNITED KINGDOM' AS varchar)),
+                        (BIGINT '1', BIGINT '24', CAST('UNITED STATES' AS varchar)),
+                        (BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar))""")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE 'UNITED KINGDOM' < name"))
+                .matches("""
+                        VALUES
+                        (BIGINT '1', BIGINT '24', CAST('UNITED STATES' AS varchar)),
+                        (BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar))""")
+                .isFullyPushedDown();
+
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar))")
-                .isNotFullyPushedDown(FilterNode.class);
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE 'POLAND' < name AND name < 'RPA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar))")
+                .isFullyPushedDown();
 
         // varchar IN without domain compaction
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name IN ('POLAND', 'ROMANIA', 'VIETNAM')"))
@@ -861,6 +906,144 @@ public class TestClickHouseConnectorTest
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
                 .returnsEmptyResult()
                 .isFullyPushedDown();
+    }
+
+    @Test
+    public void testOrPredicatePushdown()
+    {
+        assertThat(query("SELECT * FROM nation WHERE nationkey != 3 AND regionkey = 4")).isFullyPushedDown();
+        assertThat(query("SELECT * FROM nation WHERE nationkey != 3 OR regionkey = 4")).isFullyPushedDown();
+        assertThat(query("SELECT * FROM nation WHERE nationkey != 3 OR regionkey != 4")).isFullyPushedDown();
+        assertThat(query("SELECT * FROM nation WHERE name = 'ALGERIA' OR regionkey = 4")).isFullyPushedDown();
+        assertThat(query("SELECT * FROM nation WHERE name IS NULL OR regionkey = 4")).isFullyPushedDown();
+        assertThat(query("SELECT * FROM nation WHERE name = NULL OR regionkey = 4")).isFullyPushedDown();
+    }
+
+    @Test
+    public void testLikePredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE name LIKE '%A%'"))
+                .isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_like_predicate_pushdown",
+                // TODO Move to a bounded varchar of length 1. https://starburstdata.atlassian.net/browse/SEP-11316
+                "(id integer, a_varchar varchar)",
+                List.of(
+                        "1, 'A'",
+                        "2, 'a'",
+                        "3, 'B'",
+                        "4, 'ą'",
+                        "5, 'Ą'"))) {
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%A%'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą%'"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testIsNullPredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL")).isFullyPushedDown();
+        assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL OR regionkey = 4")).isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_is_null_predicate_pushdown",
+                "(a_int integer, a_varchar varchar(1))",
+                List.of(
+                        "1, 'A'",
+                        "2, 'B'",
+                        "1, NULL",
+                        "2, NULL"))) {
+            assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE a_varchar IS NULL OR a_int = 1")).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testIsNotNullPredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE name IS NOT NULL OR regionkey = 4")).isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_is_not_null_predicate_pushdown",
+                "(a_int integer, a_varchar varchar(1))",
+                List.of(
+                        "1, 'A'",
+                        "2, 'B'",
+                        "1, NULL",
+                        "2, NULL"))) {
+            assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE a_varchar IS NOT NULL OR a_int = 1")).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testNullIfPredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE NULLIF(name, 'ALGERIA') IS NULL"))
+                .matches("VALUES BIGINT '0'")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT name FROM nation WHERE NULLIF(nationkey, 0) IS NULL"))
+                .matches("VALUES CAST('ALGERIA' AS varchar)")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT nationkey FROM nation WHERE NULLIF(name, 'Algeria') IS NULL"))
+                .returnsEmptyResult()
+                .isFullyPushedDown();
+
+        // NULLIF returns the first argument because arguments aren't the same
+        assertThat(query("SELECT nationkey FROM nation WHERE NULLIF(name, 'Name not found') = name"))
+                .matches("SELECT nationkey FROM nation")
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testNotExpressionPushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE NOT(name LIKE '%A%')")).isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_is_not_predicate_pushdown",
+                "(a_int integer, a_varchar varchar(2))",
+                List.of(
+                        "1, 'Aa'",
+                        "2, 'Bb'",
+                        "1, NULL",
+                        "2, NULL"))) {
+            assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE NOT(a_varchar LIKE 'A%') OR a_int = 2")).isFullyPushedDown();
+            assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE NOT(a_varchar LIKE 'A%' OR a_int = 2)")).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testInPredicatePushdown()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_in_predicate_pushdown",
+                "(id varchar(1), id2 varchar(1))",
+                List.of(
+                        "'a', 'b'",
+                        "'b', 'c'",
+                        "'c', 'c'",
+                        "'d', 'd'",
+                        "'a', 'f'"))) {
+            // IN values cannot be represented as a domain
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE id IN ('a', 'b') OR id2 IN ('c', 'd')"))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE id IN ('a', 'B') OR id2 IN ('c', 'D')"))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE id IN ('a', 'B', NULL) OR id2 IN ('C', 'd')"))
+                    // NULL constant value is currently not pushed down
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
     }
 
     @Test
@@ -902,6 +1085,29 @@ public class TestClickHouseConnectorTest
     {
         // The numeric value depends on file system
         return OptionalInt.of(255 - ".sql.detached".length());
+    }
+
+    /**
+     * Overriden, because
+     * The numeric value of {@link BaseConnectorTest#maxColumnNameLength()} depends on file system
+     * when tested with the default very long maximum for names the `Max query size exceeded` is thrown,
+     * when maxColumnNameLength is Optional.empty() test checks if the remote DB fails with maxColumnNameLength + 1
+     */
+    @Test
+    @Override
+    public void testJoinPushdownWithLongIdentifiers()
+    {
+        String baseColumnName = "col";
+        int maxLength = 1234;
+
+        String validColumnName = baseColumnName + "z".repeat(maxLength - baseColumnName.length());
+        try (TestTable left = new TestTable(getQueryRunner()::execute, "test_long_id_l", format("(%s BIGINT)", validColumnName));
+                TestTable right = new TestTable(getQueryRunner()::execute, "test_long_id_r", format("(%s BIGINT)", validColumnName))) {
+            assertThat(query(joinPushdownEnabled(getSession()), """
+                    SELECT l.%1$s, r.%1$s
+                    FROM %2$s l JOIN %3$s r ON l.%1$s = r.%1$s""".formatted(validColumnName, left.getName(), right.getName())))
+                    .isFullyPushedDown();
+        }
     }
 
     @Override
