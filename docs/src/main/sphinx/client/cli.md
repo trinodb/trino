@@ -146,6 +146,9 @@ mode:
   - Enables display of debug information during CLI usage for
     [](cli-troubleshooting). Displays more information about query
     processing statistics.
+* - `--decimal-data-size`
+  - Show data size and rate in base 10 (KB, MB, etc.) rather than the default 
+    base 2 (KiB, MiB, etc.).
 * - `--disable-auto-suggestion`
   - Disables autocomplete suggestions.
 * - `--disable-compression`
