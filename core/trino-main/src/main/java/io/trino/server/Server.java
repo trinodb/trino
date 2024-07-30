@@ -173,12 +173,15 @@ public class Server
             injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
             injector.getInstance(Key.get(new TypeLiteral<Optional<PasswordAuthenticatorManager>>() {}))
                     .ifPresent(PasswordAuthenticatorManager::loadPasswordAuthenticator);
-            injector.getInstance(EventListenerManager.class).loadEventListeners();
             injector.getInstance(GroupProviderManager.class).loadConfiguredGroupProvider();
             injector.getInstance(ExchangeManagerRegistry.class).loadExchangeManager();
             injector.getInstance(CertificateAuthenticatorManager.class).loadCertificateAuthenticator();
             injector.getInstance(Key.get(new TypeLiteral<Optional<HeaderAuthenticatorManager>>() {}))
                     .ifPresent(HeaderAuthenticatorManager::loadHeaderAuthenticator);
+
+            if (injector.getInstance(ServerConfig.class).isCoordinator()) {
+                injector.getInstance(EventListenerManager.class).loadEventListeners();
+            }
 
             injector.getInstance(Key.get(new TypeLiteral<Optional<OAuth2Client>>() {}))
                     .ifPresent(OAuth2Client::load);
