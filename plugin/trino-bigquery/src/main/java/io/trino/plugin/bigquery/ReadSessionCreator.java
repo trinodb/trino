@@ -113,7 +113,7 @@ public class ReadSessionCreator
                             .withMaxRetries(maxCreateReadSessionRetries)
                             .withBackoff(10, 500, MILLIS)
                             .onRetry(event -> log.debug("Request failed, retrying: %s", event.getLastException()))
-                            .abortOn(failure -> !BigQueryUtil.isRetryable(failure))
+                            .handleIf(BigQueryUtil::isRetryable)
                             .build())
                     .get(() -> {
                         try {
