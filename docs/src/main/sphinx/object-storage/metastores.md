@@ -227,7 +227,7 @@ when the `hive.metastore.uri` uses the `http://` or `https://` protocol.
     `header1:value1,header2:value2` sends two headers `header1` and `header2`
     with the values as `value1` and `value2`. Escape comma (`,`) or colon(`:`)
     characters in a header name or value with a backslash (`\`). Use
-    `X-Databricks-Unity-Catalog-Name=[catalog_name]` to configure the required
+    `X-Databricks-Catalog-Name:[catalog_name]` to configure the required
     header values for Unity catalog.
 :::
 
