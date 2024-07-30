@@ -66,6 +66,8 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
                  SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
+                 SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
                  SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV,
@@ -74,6 +76,7 @@ public class TestClickHouseConnectorTest
                  SUPPORTS_DELETE,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                  SUPPORTS_NEGATIVE_DATE,
+                 SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN,
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_UPDATE -> false;
@@ -901,6 +904,104 @@ public class TestClickHouseConnectorTest
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
                 .returnsEmptyResult()
                 .isFullyPushedDown();
+    }
+
+    @Test
+    public void testOrPredicatePushdown()
+    {
+        assertThat(query("SELECT * FROM nation WHERE name = 'ALGERIA' OR comment = 'comment'")).isFullyPushedDown();
+        assertThat(query("SELECT * FROM nation WHERE name IS NULL OR comment IS NULL")).isFullyPushedDown();
+    }
+
+    @Test
+    public void testLikePredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE name LIKE '%A%'"))
+                .isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_like_predicate_pushdown",
+                "(id integer, a_varchar varchar)",
+                List.of(
+                        "1, 'A'",
+                        "2, 'a'",
+                        "3, 'B'",
+                        "4, 'ą'",
+                        "5, 'Ą'"))) {
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%A%'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE a_varchar LIKE '%ą%'"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testIsNullPredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL")).isFullyPushedDown();
+        assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL OR comment = 'comment'")).isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_is_null_predicate_pushdown",
+                "(a_int integer, a_varchar varchar(1), a_varchar2 varchar(1))",
+                List.of(
+                        "1, 'A', ''",
+                        "2, 'B', NULL",
+                        "1, NULL, 'C'",
+                        "2, NULL, 'D'"))) {
+            assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE a_varchar IS NULL")).isFullyPushedDown();
+            assertThat(query("SELECT a_int FROM " + table.getName() + " WHERE a_varchar IS NULL OR a_varchar2 = 'D'")).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testNullIfPredicatePushdown()
+    {
+        assertThat(query("SELECT nationkey FROM nation WHERE NULLIF(name, 'ALGERIA') IS NULL"))
+                .matches("VALUES BIGINT '0'")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT nationkey FROM nation WHERE NULLIF(name, 'Algeria') IS NULL"))
+                .returnsEmptyResult()
+                .isFullyPushedDown();
+
+        // NULLIF returns the first argument because arguments aren't the same
+        assertThat(query("SELECT nationkey FROM nation WHERE NULLIF(name, 'Name not found') = name"))
+                .matches("SELECT nationkey FROM nation")
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testInPredicatePushdown()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_in_predicate_pushdown",
+                "(id varchar(1), id2 varchar(1), id3 double)",
+                List.of(
+                        "'a', 'b', 1",
+                        "'b', 'c', 2",
+                        "'c', 'c', 3",
+                        "'d', 'd', 4",
+                        "'a', 'f', 5"))) {
+            // IN pushdowns only varchar
+            assertThat(query(
+                    "SELECT id3 FROM " + table.getName() + " WHERE id3 IN (1, 2, 3, 4, 5) or id IN ('a', 'B')"))
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            // IN values cannot be represented as a domain
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE id IN ('a', 'b') OR id2 IN ('c', 'd')"))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE id IN ('a', 'B') OR id2 IN ('c', 'D')"))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE id IN ('a', 'B', NULL) OR id2 IN ('C', 'd')"))
+                    // NULL constant value is currently not pushed down
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
     }
 
     @Test
