@@ -158,6 +158,53 @@ public class TestDeltaLakeChangeDataFeedCompatibility
         }
     }
 
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testCdfReadChangesMadeBySpark()
+    {
+        String targetTable = "test_read_cdf_entries_created_by_spark_target_" + randomNameSuffix();
+        String sourceTable = "test_read_cdf_entries_created_by_spark_source_" + randomNameSuffix();
+
+        onDelta().executeQuery("CREATE TABLE default." + targetTable +
+                "(first_name STRING, age INT)" +
+                "USING delta " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + targetTable + "'" +
+                "TBLPROPERTIES ('delta.enableChangeDataFeed' = true)");
+        onDelta().executeQuery("INSERT INTO default." + targetTable +
+                " VALUES ('firstName1', 1), ('firstName2', 2), ('firstName3', 3)");
+
+        onDelta().executeQuery("CREATE TABLE default." + sourceTable +
+                "(first_name STRING, age INT)" +
+                "USING delta " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + sourceTable + "'" +
+                "TBLPROPERTIES ('delta.enableChangeDataFeed' = true)");
+        onDelta().executeQuery("INSERT INTO default." + sourceTable +
+                " VALUES ('firstName4', 4), ('firstName5', 5), ('firstName6', 6)");
+
+        onDelta().executeQuery("MERGE INTO default." + targetTable + " targetTable USING default." + sourceTable + " sourceTable " +
+                "ON (targetTable.first_name = sourceTable.first_name) " +
+                "WHEN MATCHED AND targetTable.age = 2 " +
+                "THEN DELETE " +
+                "WHEN MATCHED AND targetTable.age > 2 " +
+                "THEN UPDATE SET age = (targetTable.age + sourceTable.age) " +
+                "WHEN NOT MATCHED " +
+                "THEN INSERT (first_name, age) VALUES (sourceTable.first_name, sourceTable.age)");
+
+        List<Row> expectedRows = ImmutableList.<Row>builder()
+                .add(row("firstName1", 1, "insert", 1L))
+                .add(row("firstName2", 2, "insert", 1L))
+                .add(row("firstName3", 3, "insert", 1L))
+                .add(row("firstName4", 4, "insert", 2L))
+                .add(row("firstName5", 5, "insert", 2L))
+                .add(row("firstName6", 6, "insert", 2L))
+                .build();
+        assertThat(onDelta().executeQuery("SELECT first_name, age, _change_type, _commit_version " +
+                "FROM table_changes('default." + targetTable + "', 0)"))
+                .containsOnly(expectedRows);
+        assertThat(onTrino().executeQuery("SELECT first_name, age, _change_type, _commit_version " +
+                "FROM TABLE(delta.system.table_changes('default', '" + targetTable + "'))"))
+                .containsOnly(expectedRows);
+    }
+
     @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
     public void testUpdateCdfTableWithNonLowercaseColumn(String columnMappingMode)
     {
