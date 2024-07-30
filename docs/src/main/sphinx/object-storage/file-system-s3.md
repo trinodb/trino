@@ -123,3 +123,138 @@ and secret keys, STS, or an IAM role:
 * - `s3.external-id`
   - External ID for the IAM role trust policy when connecting to S3.
 :::
+
+## Security mapping
+
+Trino supports flexible security mapping for S3, allowing for separate
+credentials or IAM roles for specific users or buckets/paths. The IAM role
+for a specific query can be selected from a list of allowed roles by providing
+it as an *extra credential*.
+
+Each security mapping entry may specify one or more match criteria. If multiple
+criteria are specified, all criteria must match. Available match criteria:
+
+- `user`: Regular expression to match against username. Example: `alice|bob`
+- `group`: Regular expression to match against any of the groups that the user
+  belongs to. Example: `finance|sales`
+- `prefix`: S3 URL prefix. It can specify an entire bucket or a path within a
+  bucket. The URL must start with `s3://` but will also match `s3a` or `s3n`.
+  Example: `s3://bucket-name/abc/xyz/`
+
+The security mapping must provide one or more configuration settings:
+
+- `accessKey` and `secretKey`: AWS access key and secret key. This overrides
+  any globally configured credentials, such as access key or instance credentials.
+- `iamRole`: IAM role to use if no user provided role is specified as an
+  extra credential. This overrides any globally configured IAM role. This role
+  is allowed to be specified as an extra credential, although specifying it
+  explicitly has no effect, as it would be used anyway.
+- `roleSessionName`: Optional role session name to use with `iamRole`. This can only
+  be used when `iamRole` is specified. If `roleSessionName` includes the string
+  `${USER}`, then the `${USER}` portion of the string will be replaced with the
+  current session's username. If `roleSessionName` is not specified, it defaults
+  to `trino-session`.
+- `allowedIamRoles`: IAM roles that are allowed to be specified as an extra
+  credential. This is useful because a particular AWS account may have permissions
+  to use many roles, but a specific user should only be allowed to use a subset
+  of those roles.
+- `kmsKeyId`: ID of KMS-managed key to be used for client-side encryption.
+- `allowedKmsKeyIds`: KMS-managed key IDs that are allowed to be specified as an extra
+  credential. If list cotains "\*", then any key can be specified via extra credential.
+
+* ``endpoint``: The S3 storage endpoint server. This optional property can be used
+  to override S3 endpoints on a per-bucket basis.
+
+* ``region``: The region S3 client should connect to. This optional property can be used
+  to override S3 regions on a per-bucket basis.
+
+The security mapping entries are processed in the order listed in the configuration
+JSON. More specific mappings should thus be specified before less specific mappings.
+For example, the mapping list might have URL prefix `s3://abc/xyz/` followed by
+`s3://abc/` to allow different configuration for a specific path within a bucket
+than for other paths within the bucket. You can set default configuration by not
+including any match criteria for the last entry in the list.
+
+In addition to the rules above, the default mapping can contain the optional
+`useClusterDefault` boolean property with the following behavior:
+
+- `false` - (is set by default) property is ignored.
+
+- `true` - This causes the default cluster role to be used as a fallback option.
+  It can not be used with the following configuration properties:
+
+    - `accessKey`
+    - `secretKey`
+    - `iamRole`
+    - `allowedIamRoles`
+
+If no mapping entry matches and no default is configured, the access is denied.
+
+The configuration JSON can either be retrieved from a file or REST-endpoint specified via
+`hive.s3.security-mapping.config-file`.
+
+Example JSON configuration:
+
+```json
+{
+  "mappings": [
+    {
+      "prefix": "s3://bucket-name/abc/",
+      "iamRole": "arn:aws:iam::123456789101:role/test_path"
+    },
+    {
+      "user": "bob|charlie",
+      "iamRole": "arn:aws:iam::123456789101:role/test_default",
+      "allowedIamRoles": [
+        "arn:aws:iam::123456789101:role/test1",
+        "arn:aws:iam::123456789101:role/test2",
+        "arn:aws:iam::123456789101:role/test3"
+      ]
+    },
+    {
+      "prefix": "s3://special-bucket/",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret"
+    }, 
+    {
+      "prefix": "s3://regional-bucket/",
+      "iamRole": "arn:aws:iam::123456789101:role/regional-user",
+      "endpoint": "https://bucket.vpce-1a2b3c4d-5e6f.s3.us-east-1.vpce.amazonaws.com",
+      "region": "us-east-1"
+    },
+    {
+      "prefix": "s3://encrypted-bucket/",
+      "kmsKeyId": "kmsKey_10"
+    },
+    {
+      "user": "test.*",
+      "iamRole": "arn:aws:iam::123456789101:role/test_users"
+    },
+    {
+      "group": "finance",
+      "iamRole": "arn:aws:iam::123456789101:role/finance_users"
+    },
+    {
+      "iamRole": "arn:aws:iam::123456789101:role/default"
+    }
+  ]
+}
+```
+
+:::{list-table} Security mapping properties
+:header-rows: 1
+
+* - Property name
+  - Description
+* - `hive.s3.security-mapping.config-file`
+  - The JSON configuration file or REST-endpoint URI containing security mappings.
+* - `hive.s3.security-mapping.json-pointer`
+  - A JSON pointer (RFC 6901) to mappings inside the JSON retrieved from the config file or REST-endpoint. The whole document ("") by default.
+* - `hive.s3.security-mapping.iam-role-credential-name`
+  - The name of the *extra credential* used to provide the IAM role.
+* - `hive.s3.security-mapping.kms-key-id-credential-name`
+  - The name of the *extra credential* used to provide the KMS-managed key ID.
+* - `hive.s3.security-mapping.refresh-period`
+  - How often to refresh the security mapping configuration.
+* - `hive.s3.security-mapping.colon-replacement`
+  - The character or characters to be used in place of the colon (`:`) character when specifying an IAM role name as an extra credential. Any instances of this replacement value in the extra credential value will be converted to a colon. Choose a value that is not used in any of your IAM ARNs.
