@@ -85,6 +85,7 @@ import io.trino.metastore.HiveType;
 import io.trino.metastore.Partition;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.metastore.PartitionWithStatistics;
+import io.trino.metastore.Partitions;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.StatisticsUpdateMode;
 import io.trino.metastore.Table;
@@ -136,7 +137,7 @@ import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.metastore.Partition.toPartitionValues;
+import static io.trino.metastore.Partitions.toPartitionValues;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -857,7 +858,7 @@ public class GlueHiveMetastore
         List<Partition> partitions = batchGetPartition(table, partitionNames);
 
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
-                .collect(toMap(identity(), Partition::toPartitionValues));
+                .collect(toMap(identity(), Partitions::toPartitionValues));
         Map<List<String>, Partition> partitionValuesToPartitionMap = partitions.stream()
                 .collect(toMap(Partition::getValues, identity()));
 

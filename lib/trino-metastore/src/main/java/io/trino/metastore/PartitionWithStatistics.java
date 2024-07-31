@@ -14,7 +14,7 @@
 package io.trino.metastore;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.metastore.Partition.toPartitionValues;
+import static io.trino.metastore.Partitions.toPartitionValues;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionWithStatistics
