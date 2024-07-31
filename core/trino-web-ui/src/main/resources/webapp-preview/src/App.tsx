@@ -11,42 +11,85 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import {
+    Box,
+    Button,
+    Container,
+    CssBaseline,
+    // TODO: update when MUI is updated to version 6
+    Unstable_Grid2 as Grid,
+    Link,
+    ThemeProvider,
+    Typography,
+    useMediaQuery,
+} from '@mui/material'
+import { RootLayout as Layout } from './components/Layout'
+import { SnackbarProvider } from './components/SnackbarProvider'
+import { routers } from './router.tsx'
+import { useConfigStore, Theme as ThemeStore } from './store'
+import { darkTheme, lightTheme } from './theme'
 import trinoLogo from './assets/trino.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+const App = () => {
+    const config = useConfigStore()
+    const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)')
 
-  return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo"/>
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo"/>
-        </a>
-        <a href="https://trino.io" target="_blank">
-          <img src={trinoLogo} className="logo" alt="Trino logo"/>
-        </a>
-      </div>
-      <h1>Vite + React + Trino</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-        <p>
-          <b>This is a placeholder of a potential new Trino Web UI</b>
-        </p>
-    </>
-  )
+    const themeToUse = () => {
+        if (config.theme === ThemeStore.Auto) {
+            return prefersDarkMode ? darkTheme : lightTheme
+        } else if (config.theme === ThemeStore.Dark) {
+            return darkTheme
+        } else {
+            return lightTheme
+        }
+    }
+
+    return (
+        <>
+            <CssBaseline />
+            <ThemeProvider theme={themeToUse()}>
+                <SnackbarProvider>
+                    <Router>
+                        <Screen />
+                    </Router>
+                </SnackbarProvider>
+            </ThemeProvider>
+        </>
+    )
+}
+
+const Screen = () => {
+    return (
+        <Layout>
+            <Routes>
+                {routers.flatMap((router) => {
+                    return [<Route {...router.routeProps} key={router.itemKey} />]
+                })}
+                <Route path="/" element={<Navigate to="/dashboard" />} />
+                <Route path="*" element={<NotFound />} key={'*'} />
+            </Routes>
+        </Layout>
+    )
+}
+
+const NotFound = () => {
+    return (
+        <Container maxWidth="md">
+            <Grid container spacing={2}>
+                <Grid xs={12} md={2}>
+                    <Box component="img" sx={{ height: 140 }} alt="logo" src={trinoLogo} />
+                </Grid>
+                <Grid xs={12} md={10}>
+                    <Typography variant="h3">404</Typography>
+                    <Typography paragraph>The page you’re looking for doesn’t exist.</Typography>
+                    <Button variant="contained" component={Link} href="/">
+                        Back Home
+                    </Button>
+                </Grid>
+            </Grid>
+        </Container>
+    )
 }
 
 export default App

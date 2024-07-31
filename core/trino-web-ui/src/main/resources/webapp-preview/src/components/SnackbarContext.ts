@@ -11,16 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import '@fontsource/roboto/300.css'
-import '@fontsource/roboto/400.css'
-import '@fontsource/roboto/500.css'
-import '@fontsource/roboto/700.css'
-import App from './App.tsx'
+import { createContext, useContext } from 'react';
+import { SnackbarSeverity } from "./SnackbarProvider";
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-        <App />
-    </React.StrictMode>
-)
+interface SnackbarContextProps {
+  showSnackbar: (message: string, severity?: SnackbarSeverity) => void;
+}
+
+export const SnackbarContext = createContext<SnackbarContextProps | undefined>(undefined);
+
+export const useSnackbar = (): SnackbarContextProps => {
+  const context = useContext(SnackbarContext);
+  if (context === undefined) {
+    throw new Error('useSnackbar must be used within a SnackbarProvider');
+  }
+  return context;
+};
