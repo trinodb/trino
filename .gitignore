@@ -32,4 +32,4 @@ product-test-reports
 .github/test-pt-matrix.yaml
 .github/bin/redshift/.cluster-identifier
 **/dependency-reduced-pom.xml
-core/trino-main/src/main/resources/webapp/dist/
+core/trino-web-ui/src/main/resources/webapp/dist/
