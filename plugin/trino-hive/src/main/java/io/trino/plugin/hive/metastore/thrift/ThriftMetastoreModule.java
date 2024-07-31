@@ -25,7 +25,6 @@ import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.base.security.UserNameProvider;
 import io.trino.plugin.hive.AllowHiveTableRename;
-import io.trino.plugin.hive.ForHiveMetastore;
 
 import java.util.concurrent.ExecutorService;
 
