@@ -110,6 +110,17 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>run tests and linters (webapp-preview)</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>test</phase>
+                        <configuration>
+                            <arguments>run check</arguments>
+                            <workingDirectory>src/main/resources/webapp-preview</workingDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>install dependencies and build (webapp-preview)</id>
                         <goals>
                             <goal>npm</goal>
