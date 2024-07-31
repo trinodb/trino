@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore;
+package io.trino.metastore.cache;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.plugin.hive.metastore.HiveTableName.hiveTableName;
+import static io.trino.metastore.cache.HiveTableName.hiveTableName;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.cache;
+package io.trino.metastore.cache;
 
 import io.airlift.configuration.Config;
 import io.airlift.units.Duration;

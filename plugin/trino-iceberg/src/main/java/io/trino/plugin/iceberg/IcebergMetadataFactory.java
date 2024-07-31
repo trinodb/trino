@@ -19,7 +19,7 @@ import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.trino.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
+import io.trino.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.security.ConnectorIdentity;

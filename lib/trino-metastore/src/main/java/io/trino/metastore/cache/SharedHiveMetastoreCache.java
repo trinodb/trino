@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.cache;
+package io.trino.metastore.cache;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -25,7 +25,7 @@ import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.ObjectType;
+import io.trino.metastore.cache.CachingHiveMetastore.ObjectType;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
