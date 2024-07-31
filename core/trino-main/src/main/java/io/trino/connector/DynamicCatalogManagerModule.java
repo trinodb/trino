@@ -15,6 +15,7 @@ package io.trino.connector;
 
 import com.google.inject.Binder;
 import com.google.inject.Inject;
+import com.google.inject.Key;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.connector.system.GlobalSystemConnector;
@@ -24,6 +25,7 @@ import io.trino.spi.catalog.CatalogStore;
 
 import java.util.Locale;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class DynamicCatalogManagerModule
@@ -35,13 +37,15 @@ public class DynamicCatalogManagerModule
         if (buildConfigObject(ServerConfig.class).isCoordinator()) {
             binder.bind(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
             CatalogStoreConfig config = buildConfigObject(CatalogStoreConfig.class);
-            switch (config.getCatalogStoreKind().toLowerCase(Locale.ROOT)) {
+            String catalogStoreKind = config.getCatalogStoreKind().toLowerCase(Locale.ROOT);
+            switch (catalogStoreKind) {
                 case "memory" -> binder.bind(CatalogStore.class).to(InMemoryCatalogStore.class).in(Scopes.SINGLETON);
                 case "file" -> {
                     configBinder(binder).bindConfig(FileCatalogStoreConfig.class);
                     binder.bind(CatalogStore.class).to(FileCatalogStore.class).in(Scopes.SINGLETON);
                 }
                 default -> {
+                    newOptionalBinder(binder, Key.get(String.class, CatalogStoreKind.class)).setBinding().toInstance(catalogStoreKind);
                     binder.bind(CatalogStoreManager.class).in(Scopes.SINGLETON);
                     binder.bind(CatalogStore.class).to(CatalogStoreManager.class).in(Scopes.SINGLETON);
                 }
