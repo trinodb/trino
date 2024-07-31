@@ -11,16 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import '@fontsource/roboto/300.css'
-import '@fontsource/roboto/400.css'
-import '@fontsource/roboto/500.css'
-import '@fontsource/roboto/700.css'
-import App from './App.tsx'
+import { Box, Typography } from '@mui/material'
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-        <App />
-    </React.StrictMode>
-)
+export const QueryHistory = () => {
+    return (
+        <>
+            <Box sx={{ pb: 2 }}>
+                <Typography variant="h4">Query History</Typography>
+            </Box>
+            <Typography paragraph>Placeholder for Query History</Typography>
+        </>
+    )
+}

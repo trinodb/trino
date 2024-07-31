@@ -11,16 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import '@fontsource/roboto/300.css'
-import '@fontsource/roboto/400.css'
-import '@fontsource/roboto/500.css'
-import '@fontsource/roboto/700.css'
-import App from './App.tsx'
+export enum StoreKey {
+    Config = 'app-config',
+}
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-        <App />
-    </React.StrictMode>
-)
+export const Texts = {
+    Error: {
+        NotImplemented: 'This feature is not implemented',
+    },
+    Menu: {
+        Header: {
+            Themes: 'Themes',
+            Settings: 'Settings',
+            Profile: 'Profile',
+            Logout: 'Logout',
+        },
+        Drawer: {
+            Dashboard: 'Dashboard',
+            Workers: 'Workers',
+            QueryHistory: 'Query History',
+        },
+    },
+}

@@ -88,7 +88,7 @@
                         </configuration>
                     </execution>
                     <execution>
-                        <id>package webui</id>
+                        <id>package (webapp)</id>
                         <goals>
                             <goal>npm</goal>
                         </goals>
@@ -99,7 +99,7 @@
                         </configuration>
                     </execution>
                     <execution>
-                        <id>check</id>
+                        <id>check (webapp)</id>
                         <goals>
                             <goal>npm</goal>
                         </goals>
@@ -110,7 +110,18 @@
                         </configuration>
                     </execution>
                     <execution>
-                        <id>install dependencies and build (webapp-preview)</id>
+                        <id>check (webapp-preview)</id>
+                        <goals>
+                            <goal>npm</goal>
+                        </goals>
+                        <phase>verify</phase>
+                        <configuration>
+                            <arguments>run check</arguments>
+                            <workingDirectory>src/main/resources/webapp-preview</workingDirectory>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>package (webapp-preview)</id>
                         <goals>
                             <goal>npm</goal>
                         </goals>
