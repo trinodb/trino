@@ -40,7 +40,7 @@ public class LabelEvaluator
     // by the common base frame in case of pattern recognition in WINDOW clause.
     private final int searchStart;
 
-    // exclusive - the first row after the the partition area available for pattern search.
+    // exclusive - the first row after the partition area available for pattern search.
     // this area is the whole partition in case of MATCH_RECOGNIZE, and the area enclosed
     // by the common base frame in case of pattern recognition in WINDOW clause.
     private final int searchEnd;

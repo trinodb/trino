@@ -14813,7 +14813,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
   /**
-   * this updates all groups, it is used when there is an update the the itemset.
+   * this updates all groups, it is used when there is an update the itemset.
    *
    * @private
    */
@@ -26742,7 +26742,7 @@ return /******/ (function(modules) { // webpackBootstrap
           this._days = +days +
               weeks * 7;
           // It is impossible translate months into days without knowing
-          // which months you are are talking about, so we have to store
+          // which months you are talking about, so we have to store
           // it separately.
           this._months = +months +
               quarters * 3 +
