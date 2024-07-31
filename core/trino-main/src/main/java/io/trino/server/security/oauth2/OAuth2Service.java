@@ -13,7 +13,6 @@
  */
 package io.trino.server.security.oauth2;
 
-import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.jsonwebtoken.Claims;
@@ -45,6 +44,7 @@ import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.security.oauth2.TokenPairSerializer.TokenPair.fromOAuth2Response;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
+import static io.trino.web.ui.WebUiResources.readWebUiResource;
 import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -90,8 +90,8 @@ public class OAuth2Service
             throws IOException
     {
         this.client = requireNonNull(client, "client is null");
-        this.successHtml = Resources.toString(Resources.getResource(getClass(), "/oauth2/success.html"), UTF_8);
-        this.failureHtml = Resources.toString(Resources.getResource(getClass(), "/oauth2/failure.html"), UTF_8);
+        this.successHtml = readWebUiResource("/oauth2/success.html");
+        this.failureHtml = readWebUiResource("/oauth2/failure.html");
         verify(failureHtml.contains(FAILURE_REPLACEMENT_TEXT), "login.html does not contain the replacement text");
 
         this.challengeTimeout = Duration.ofMillis(oauth2Config.getChallengeTimeout().toMillis());

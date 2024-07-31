@@ -15,19 +15,16 @@ package io.trino.server.ui;
 
 import io.trino.server.ExternalUriInfo;
 import io.trino.server.security.ResourceSecurity;
-import jakarta.servlet.ServletContext;
 import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 
 import java.io.IOException;
-import java.net.URL;
 
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
-import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
+import static io.trino.web.ui.WebUiResources.webUiResource;
 
 @Path("/ui/preview")
 public class WebUiPreviewStaticResource
@@ -42,24 +39,12 @@ public class WebUiPreviewStaticResource
     @ResourceSecurity(WEB_UI)
     @GET
     @Path("{path: .*}")
-    public Response getFile(@PathParam("path") String path, @Context ServletContext servletContext)
+    public Response getFile(@PathParam("path") String path)
             throws IOException
     {
         if (path.isEmpty()) {
             path = "index.html";
         }
-
-        String fullPath = "/webapp-preview/dist/" + path;
-        if (!WebUiStaticResource.isCanonical(fullPath)) {
-            // consider redirecting to the absolute path
-            return Response.status(NOT_FOUND).build();
-        }
-
-        URL resource = getClass().getResource(fullPath);
-        if (resource == null) {
-            return Response.status(NOT_FOUND).build();
-        }
-
-        return Response.ok(resource.openStream(), servletContext.getMimeType(resource.toString())).build();
+        return webUiResource("/webapp-preview/dist/" + path);
     }
 }
