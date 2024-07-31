@@ -125,7 +125,7 @@ public class TrinoConnection
         this.httpUri = uri.getHttpUri();
         uri.getSchema().ifPresent(schema::set);
         uri.getCatalog().ifPresent(catalog::set);
-        this.user = Optional.ofNullable(uri.getUser());
+        this.user = uri.getUser();
         this.sessionUser.set(uri.getSessionUser());
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
         this.source = uri.getSource();

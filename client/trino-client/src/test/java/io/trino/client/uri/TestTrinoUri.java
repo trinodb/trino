@@ -202,6 +202,15 @@ public class TestTrinoUri
     }
 
     @Test
+    public void testUser()
+    {
+        assertThat(TrinoUri.create("trino://localhost:8080", new Properties()).getUser()).isEmpty();
+        assertThat(TrinoUri.create("trino://localhost:8080", new Properties()).getProperties().get("user")).isNull();
+        assertThat(TrinoUri.create("trino://localhost:8080?user=trino", new Properties()).getUser()).hasValue("trino");
+        assertThat(TrinoUri.create("trino://localhost:8080?user=trino", new Properties()).getProperties().get("user")).isEqualTo("trino");
+    }
+
+    @Test
     public void testEmptyUser()
     {
         assertThatThrownBy(() -> TrinoUri.create("trino://localhost:8080?user=", new Properties()))
