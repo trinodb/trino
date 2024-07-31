@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.inject.Inject;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -63,6 +64,7 @@ public class DirectExchangeClientFactory
             FeaturesConfig featuresConfig,
             DirectExchangeClientConfig config,
             @ForExchange HttpClient httpClient,
+            @ForExchange HttpClientConfig httpClientConfig,
             @ForExchange ScheduledExecutorService scheduler,
             ExchangeManagerRegistry exchangeManagerRegistry)
     {
@@ -72,6 +74,7 @@ public class DirectExchangeClientFactory
                 config.getMaxBufferSize(),
                 config.getDeduplicationBufferSize(),
                 config.getMaxResponseSize(),
+                httpClientConfig.getMaxContentLength(),
                 config.getConcurrentRequestMultiplier(),
                 config.getMaxErrorDuration(),
                 config.isAcknowledgePages(),
@@ -87,6 +90,7 @@ public class DirectExchangeClientFactory
             DataSize maxBufferedBytes,
             DataSize deduplicationBufferSize,
             DataSize maxResponseSize,
+            DataSize maxClientResponseSize,
             int concurrentRequestMultiplier,
             Duration maxErrorDuration,
             boolean acknowledgePages,
@@ -107,7 +111,7 @@ public class DirectExchangeClientFactory
         // Use only 0.75 of the maxResponseSize to leave room for additional bytes from the encoding
         // TODO figure out a better way to compute the size of data that will be transferred over the network
         requireNonNull(maxResponseSize, "maxResponseSize is null");
-        long maxResponseSizeBytes = (long) (Math.min(httpClient.getMaxContentLength(), maxResponseSize.toBytes()) * 0.75);
+        long maxResponseSizeBytes = (long) (Math.min(maxClientResponseSize.toBytes(), maxResponseSize.toBytes()) * 0.75);
         this.maxResponseSize = DataSize.ofBytes(maxResponseSizeBytes);
 
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
