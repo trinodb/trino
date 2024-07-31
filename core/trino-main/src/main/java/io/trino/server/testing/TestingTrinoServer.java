@@ -276,7 +276,10 @@ public class TestingTrinoServer
 
         if (coordinator) {
             if (catalogMangerKind == CatalogMangerKind.DYNAMIC) {
-                serverProperties.put("catalog.store", "memory");
+                Optional<String> catalogStore = Optional.ofNullable(properties.get("catalog.store"));
+                if (catalogStore.isEmpty()) {
+                    serverProperties.put("catalog.store", "memory");
+                }
             }
             serverProperties.put("failure-detector.enabled", "false");
 
