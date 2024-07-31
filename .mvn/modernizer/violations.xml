@@ -19,18 +19,6 @@
     </violation>
 
     <violation>
-        <name>java/lang/String.toLowerCase:()Ljava/lang/String;</name>
-        <version>1.1</version>
-        <comment>Prefer String.toLowerCase(java.util.Locale)</comment>
-    </violation>
-
-    <violation>
-        <name>java/lang/String.toUpperCase:()Ljava/lang/String;</name>
-        <version>1.1</version>
-        <comment>Prefer String.toUpperCase(java.util.Locale)</comment>
-    </violation>
-
-    <violation>
         <name>java/lang/String.toString:()Ljava/lang/String;</name>
         <version>1.1</version>
         <comment>Call to toString() is redundant</comment>
