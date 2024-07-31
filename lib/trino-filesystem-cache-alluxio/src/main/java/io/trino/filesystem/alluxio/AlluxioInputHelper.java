@@ -27,13 +27,13 @@ import io.trino.filesystem.Location;
 import java.nio.ByteBuffer;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.filesystem.alluxio.AlluxioTracing.withTracing;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_POSITION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_SIZE;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_POSITION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_SIZE;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_KEY;
+import static io.trino.filesystem.tracing.Tracing.withTracing;
 import static java.lang.Integer.max;
 import static java.lang.Math.addExact;
 import static java.lang.Math.min;
