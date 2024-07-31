@@ -55,7 +55,7 @@ public class HiveMetastoreModule
             bindMetastoreModule("glue-v1", new io.trino.plugin.hive.metastore.glue.v1.GlueMetastoreModule());
         }
 
-        install(new CachingHiveMetastoreModule(true));
+        install(new CachingHiveMetastoreModule());
     }
 
     private void bindMetastoreModule(String name, Module module)

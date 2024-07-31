@@ -42,7 +42,7 @@ public class TestingDeltaLakeMetastoreModule
     public void setup(Binder binder)
     {
         binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore));
-        install(new CachingHiveMetastoreModule(false));
+        install(new CachingHiveMetastoreModule());
         binder.bind(DeltaLakeTableOperationsProvider.class).to(DeltaLakeFileMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(false);
