@@ -24,7 +24,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.ObjectType;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;

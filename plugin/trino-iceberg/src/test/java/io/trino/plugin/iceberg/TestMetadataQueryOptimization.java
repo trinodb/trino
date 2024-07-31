@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.spi.security.PrincipalType;
 import io.trino.sql.ir.Constant;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;

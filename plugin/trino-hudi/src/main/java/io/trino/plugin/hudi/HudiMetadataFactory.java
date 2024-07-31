@@ -15,7 +15,7 @@ package io.trino.plugin.hudi;
 
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;

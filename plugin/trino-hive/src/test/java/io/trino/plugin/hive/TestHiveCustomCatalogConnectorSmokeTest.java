@@ -15,9 +15,9 @@ package io.trino.plugin.hive;
 
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;

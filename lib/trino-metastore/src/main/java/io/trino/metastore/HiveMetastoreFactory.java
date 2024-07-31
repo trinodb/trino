@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore;
+package io.trino.metastore;
 
-import io.trino.metastore.HiveMetastore;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Optional;

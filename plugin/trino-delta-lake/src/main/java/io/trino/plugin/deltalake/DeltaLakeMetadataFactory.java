@@ -17,6 +17,7 @@ import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
@@ -26,7 +27,6 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManag
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.spi.NodeManager;

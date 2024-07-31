@@ -31,8 +31,8 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.awssdk.v1_11.AwsSdkTelemetry;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.AllowHiveTableRename;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 
