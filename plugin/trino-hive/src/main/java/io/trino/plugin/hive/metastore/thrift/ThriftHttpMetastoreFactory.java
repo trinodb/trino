@@ -16,7 +16,6 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.hive.util.RetryDriver;
 import io.trino.spi.security.ConnectorIdentity;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
