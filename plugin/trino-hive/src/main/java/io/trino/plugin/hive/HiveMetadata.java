@@ -50,6 +50,7 @@ import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.SortingColumn;
 import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
+import io.trino.metastore.TableAlreadyExistsException;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
