@@ -21,10 +21,10 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.base.security.UserNameProvider;
 import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.ForHiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 
 import java.util.concurrent.ExecutorService;
