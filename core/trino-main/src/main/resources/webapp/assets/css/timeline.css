@@ -11,31 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-.vis.timeline .item {
-    padding: 0px;
-}
-.vis.timeline .labelset .vlabel .inner {
-    padding: 0px;
-}
 .vis.timeline .item.range {
-    height: 3px;
+    height: 0.2em;
 }
-.vis.timeline .red {
-    background-color: #F2DEDE;
-    border-color: #F2AEAE;
+.vis.timeline .red, #legend .red {
+    background-color: #FF3B30;
+    border-color: #C0392B;
 }
-.vis.timeline .green {
-    background-color: #DFF0DB;
-    border-color: #B8F0AA;
+.vis.timeline .green, #legend .green {
+    background-color: #2ECC71;
+    border-color: #16A085;
 }
-.vis.timeline .blue {
-    background-color: #E3E9FC;
-    border-color: #B0C3FC;
+.vis.timeline .blue, #legend .blue {
+    background-color: #3498DB;
+    border-color: #2980B9;
 }
-.vis.timeline .orange {
-    background-color: #FFA500;
-    border-color: #B0C3FC;
+.vis.timeline .orange, #legend .orange {
+    background-color: #F39C12;
+    border-color: #D35400;
 }
 #legend {
     padding: 10px 40px
@@ -44,30 +37,19 @@
     border-style: solid;
     border-width: 1px;
     width: 200px;
-    height: 4px;
+    height: 1em;
 }
 #legend .text {
     margin-left: -20px;
 }
-#legend .red {
-    background-color: #F2DEDE;
-    border-color: #F2AEAE;
-}
-#legend .green {
-    background-color: #DFF0DB;
-    border-color: #B8F0AA;
-}
-#legend .blue {
-    background-color: #E3E9FC;
-    border-color: #B0C3FC;
-}
-#legend .orange {
-    background-color: #FFA500;
-    border-color: #B0C3FC;
-}
+
 #legend .empty {
     border-style: none;
 }
 #legend>div {
     display: inline-block;
+}
+
+.vis.timeline .timeaxis .text {
+    color: white;
 }
