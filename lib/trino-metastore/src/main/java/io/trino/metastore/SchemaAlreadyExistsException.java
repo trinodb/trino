@@ -11,37 +11,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.metastore;
 
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.SchemaTableName;
 
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.lang.String.format;
 
-public class TableAlreadyExistsException
+public class SchemaAlreadyExistsException
         extends TrinoException
 {
-    private final SchemaTableName tableName;
+    private final String schemaName;
 
-    public TableAlreadyExistsException(SchemaTableName tableName)
+    public SchemaAlreadyExistsException(String schemaName)
     {
-        this(tableName, null);
+        this(schemaName, null);
     }
 
-    public TableAlreadyExistsException(SchemaTableName tableName, Throwable cause)
+    public SchemaAlreadyExistsException(String schemaName, Throwable cause)
     {
-        this(tableName, format("Table already exists: '%s'", tableName), cause);
+        this(schemaName, format("Schema already exists: '%s'", schemaName), cause);
     }
 
-    public TableAlreadyExistsException(SchemaTableName tableName, String message, Throwable cause)
+    public SchemaAlreadyExistsException(String schemaName, String message, Throwable cause)
     {
         super(ALREADY_EXISTS, message, cause);
-        this.tableName = tableName;
+        this.schemaName = schemaName;
     }
 
-    public SchemaTableName getTableName()
+    public String getSchemaName()
     {
-        return tableName;
+        return schemaName;
     }
 }
