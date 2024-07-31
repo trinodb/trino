@@ -28,11 +28,11 @@ import java.io.IOException;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.primitives.Ints.saturatedCast;
-import static io.trino.filesystem.alluxio.AlluxioTracing.withTracing;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_POSITION;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_SIZE;
 import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_KEY;
+import static io.trino.filesystem.tracing.Tracing.withTracing;
 import static java.lang.Integer.max;
 import static java.lang.Math.addExact;
 import static java.lang.Math.min;
