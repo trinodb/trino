@@ -269,6 +269,7 @@ Phoenix. In addition to the {ref}`globally available
 statements, the connector supports the following features:
 
 - {doc}`/sql/insert`
+- {doc}`/sql/update`
 - {doc}`/sql/delete`
 - {doc}`/sql/merge`
 - {doc}`/sql/create-table`
