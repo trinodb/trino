@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.cache;
+package io.trino.metastore.cache;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheLoader;
@@ -44,9 +44,6 @@ import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.StatisticsUpdateMode;
 import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
-import io.trino.plugin.hive.metastore.HivePartitionName;
-import io.trino.plugin.hive.metastore.HiveTableName;
-import io.trino.plugin.hive.metastore.PartitionFilter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
@@ -86,12 +83,12 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.metastore.Partitions.makePartName;
-import static io.trino.plugin.hive.metastore.HivePartitionName.hivePartitionName;
-import static io.trino.plugin.hive.metastore.HiveTableName.hiveTableName;
-import static io.trino.plugin.hive.metastore.PartitionFilter.partitionFilter;
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.ObjectType.OTHER;
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.ObjectType.PARTITION;
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.ObjectType.STATS;
+import static io.trino.metastore.cache.CachingHiveMetastore.ObjectType.OTHER;
+import static io.trino.metastore.cache.CachingHiveMetastore.ObjectType.PARTITION;
+import static io.trino.metastore.cache.CachingHiveMetastore.ObjectType.STATS;
+import static io.trino.metastore.cache.HivePartitionName.hivePartitionName;
+import static io.trino.metastore.cache.HiveTableName.hiveTableName;
+import static io.trino.metastore.cache.PartitionFilter.partitionFilter;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

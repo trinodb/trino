@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg.catalog;
 
 import com.google.inject.Inject;
-import io.trino.plugin.hive.metastore.cache.SharedHiveMetastoreCache;
+import io.trino.metastore.cache.SharedHiveMetastoreCache;
 
 public class MetastoreValidator
 {
