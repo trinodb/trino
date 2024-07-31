@@ -15,6 +15,7 @@ package io.trino.hive.formats;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.base.type.DecodedTimestamp;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalConversions;
@@ -44,7 +45,7 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.hive.formats.HiveFormatsErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
@@ -264,18 +265,15 @@ public final class HiveFormatUtils
             char c = property.charAt(position);
             if (c == TIMESTAMP_FORMATS_ESCAPE) {
                 // the next character must be an escape or separator
-                checkArgument(
-                        position + 1 < property.length(),
-                        "Invalid '%s' property value '%s': unterminated escape at end of value",
-                        TIMESTAMP_FORMATS_KEY,
-                        property);
+                if (position + 1 >= property.length()) {
+                    throw new TrinoException(HIVE_INVALID_METADATA,
+                            "Invalid '%s' property value '%s': unterminated escape at end of value".formatted(TIMESTAMP_FORMATS_KEY, property));
+                }
                 char nextCharacter = property.charAt(position + 1);
-                checkArgument(
-                        nextCharacter == TIMESTAMP_FORMATS_SEPARATOR || nextCharacter == TIMESTAMP_FORMATS_ESCAPE,
-                        "Invalid '%s' property value '%s': Illegal escaped character at %s",
-                        TIMESTAMP_FORMATS_KEY,
-                        property,
-                        position);
+                if (nextCharacter != TIMESTAMP_FORMATS_SEPARATOR && nextCharacter != TIMESTAMP_FORMATS_ESCAPE) {
+                    throw new TrinoException(HIVE_INVALID_METADATA,
+                            "Invalid '%s' property value '%s': Illegal escaped character at %s".formatted(TIMESTAMP_FORMATS_KEY, property, position));
+                }
 
                 buffer.append(nextCharacter);
                 position++;

@@ -22,8 +22,9 @@ import java.time.LocalDate;
 import static io.trino.hive.formats.HiveFormatUtils.TIMESTAMP_FORMATS_KEY;
 import static io.trino.hive.formats.HiveFormatUtils.getTimestampFormatsSchemaProperty;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
+import static io.trino.hive.formats.HiveFormatsErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 public class TestHiveFormatUtils
 {
@@ -39,12 +40,12 @@ public class TestHiveFormatUtils
     @Test
     public void testTimestampFormatEscaping()
     {
-        assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() ->
-                        getTimestampFormatsSchemaProperty(ImmutableMap.of(TIMESTAMP_FORMATS_KEY, "\\")))
-                .withMessageContaining("unterminated escape");
-        assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() ->
-                        getTimestampFormatsSchemaProperty(ImmutableMap.of(TIMESTAMP_FORMATS_KEY, "\\neither backslash nor comma")))
-                .withMessageContaining("Illegal escaped character");
+        assertTrinoExceptionThrownBy(() -> getTimestampFormatsSchemaProperty(ImmutableMap.of(TIMESTAMP_FORMATS_KEY, "\\")))
+                .hasErrorCode(HIVE_INVALID_METADATA)
+                .hasMessageContaining("unterminated escape");
+        assertTrinoExceptionThrownBy(() -> getTimestampFormatsSchemaProperty(ImmutableMap.of(TIMESTAMP_FORMATS_KEY, "\\neither backslash nor comma")))
+                .hasErrorCode(HIVE_INVALID_METADATA)
+                .hasMessageContaining("Illegal escaped character");
         assertThat(getTimestampFormatsSchemaProperty(ImmutableMap.of(TIMESTAMP_FORMATS_KEY, "\\\\"))).isEqualTo(ImmutableList.of("\\"));
         assertThat(getTimestampFormatsSchemaProperty(ImmutableMap.of(TIMESTAMP_FORMATS_KEY, "xx\\\\"))).isEqualTo(ImmutableList.of("xx\\"));
         assertThat(getTimestampFormatsSchemaProperty(ImmutableMap.of(TIMESTAMP_FORMATS_KEY, "\\\\yy"))).isEqualTo(ImmutableList.of("\\yy"));
