@@ -45,10 +45,12 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
@@ -92,6 +94,14 @@ public class TrinoPreparedStatement
                     .append(ISO_LOCAL_DATE)
                     .appendLiteral(' ')
                     .append(ISO_LOCAL_TIME)
+                    .toFormatter();
+
+    private static final DateTimeFormatter OFFSET_DATE_TIME_FORMATTER =
+            new DateTimeFormatterBuilder()
+                    .append(ISO_LOCAL_DATE)
+                    .appendLiteral(' ')
+                    .append(ISO_LOCAL_TIME)
+                    .appendOffset("+HH:mm", "+00:00")
                     .toFormatter();
 
     private static final DateTimeFormatter OFFSET_TIME_FORMATTER =
@@ -432,6 +442,9 @@ public class TrinoPreparedStatement
             // TODO validate proper format
             return (String) value;
         }
+        else if (value instanceof Instant) {
+            return OFFSET_DATE_TIME_FORMATTER.format(((Instant) value).atOffset(ZoneOffset.UTC));
+        }
         throw invalidConversion(value, "timestamp with time zone");
     }
 
@@ -597,6 +610,12 @@ public class TrinoPreparedStatement
         }
         else if (x instanceof LocalDate) {
             setAsDate(parameterIndex, x);
+        }
+        else if (x instanceof LocalDateTime) {
+            setAsTimestamp(parameterIndex, x);
+        }
+        else if (x instanceof Instant) {
+            setAsTimestampWithTimeZone(parameterIndex, x);
         }
         else if (x instanceof Time) {
             setTime(parameterIndex, (Time) x);
