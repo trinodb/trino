@@ -29,9 +29,8 @@
     ]
   },
   "scripts": {
-    "install": "webpack --config webpack.config.js",
-    "package": "webpack --config webpack.config.js",
-    "watch": "webpack --config webpack.config.js --watch",
+    "package": "npm install && webpack --config webpack.config.js",
+    "watch": "npm install && webpack --config webpack.config.js --watch",
     "flow": "flow"
   }
 }
