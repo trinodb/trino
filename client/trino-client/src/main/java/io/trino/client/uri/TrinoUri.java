@@ -99,7 +99,6 @@ import static io.trino.client.uri.ConnectionProperties.USER;
 import static io.trino.client.uri.LoggingLevel.NONE;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
-import static java.lang.System.getProperty;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -191,9 +190,9 @@ public class TrinoUri
         return resolveRequired(USER);
     }
 
-    public String getUser()
+    public Optional<String> getUser()
     {
-        return resolveWithDefault(USER, getProperty("user.name"));
+        return resolveOptional(USER);
     }
 
     public boolean hasPassword()
@@ -486,7 +485,7 @@ public class TrinoUri
     {
         return ClientSession.builder()
                 .server(getHttpUri())
-                .principal(Optional.of(getUser()))
+                .principal(getUser())
                 .path(getPath().orElse(ImmutableList.of()))
                 .clientRequestTimeout(getTimeout())
                 .user(getSessionUser())
