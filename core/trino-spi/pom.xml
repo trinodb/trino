@@ -515,6 +515,14 @@
                                 </item>
                                 <item>
                                     <code>java.method.addedToInterface</code>
+                                    <new>method double io.trino.spi.metrics.Distribution&lt;T&gt;::getMax()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method double io.trino.spi.metrics.Distribution&lt;T&gt;::getMin()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
                                     <new>method java.util.Optional&lt;io.trino.spi.block.ByteArrayBlock&gt; io.trino.spi.block.ValueBlock::getNulls()</new>
                                 </item>
                                 <item>
