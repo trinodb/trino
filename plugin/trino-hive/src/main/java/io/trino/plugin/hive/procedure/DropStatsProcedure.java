@@ -43,9 +43,9 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.metastore.StatisticsUpdateMode.CLEAR_ALL;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
-import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;

@@ -111,7 +111,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
-import static io.trino.metastore.Partition.toPartitionValues;
+import static io.trino.metastore.Partitions.makePartName;
+import static io.trino.metastore.Partitions.toPartitionValues;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
 import static io.trino.metastore.StatisticsUpdateMode.OVERWRITE_ALL;
@@ -135,7 +136,6 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistic
 import static io.trino.plugin.hive.metastore.SparkMetastoreUtil.getSparkTableStatistics;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionFromTable;
 import static io.trino.plugin.hive.util.AcidTables.isTransactionalTable;
-import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isFileCreatedByQuery;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;

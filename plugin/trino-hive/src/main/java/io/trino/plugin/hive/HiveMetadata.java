@@ -45,6 +45,7 @@ import io.trino.metastore.HivePrincipal;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.Partition;
 import io.trino.metastore.PartitionStatistics;
+import io.trino.metastore.Partitions;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.SortingColumn;
 import io.trino.metastore.StorageFormat;
@@ -173,7 +174,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metastore.HiveBasicStatistics.createEmptyStatistics;
 import static io.trino.metastore.HiveBasicStatistics.createZeroStatistics;
 import static io.trino.metastore.HiveType.HIVE_STRING;
-import static io.trino.metastore.Partition.toPartitionValues;
+import static io.trino.metastore.Partitions.toPartitionValues;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
 import static io.trino.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
@@ -1694,7 +1695,7 @@ public class HiveMetadata
                         .orElseThrow(() -> new TableNotFoundException(tableName));
                 partitionValuesList = partitionNames
                         .stream()
-                        .map(Partition::toPartitionValues)
+                        .map(Partitions::toPartitionValues)
                         .collect(toImmutableList());
             }
 
