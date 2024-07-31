@@ -2777,6 +2777,7 @@
                                     -Xep:StaticAssignmentOfThrowable:ERROR \
                                     -Xep:StaticGuardedByInstance:ERROR \
                                     -Xep:StreamResourceLeak:ERROR \
+                                    -Xep:StringCaseLocaleUsage:ERROR \
                                     -Xep:SuppressWarningsDeprecated:ERROR \
                                     -Xep:ThreeLetterTimeZoneID:ERROR \
                                     -Xep:UnicodeEscape:ERROR \
