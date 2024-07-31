@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue.v1.converter;
+package io.trino.plugin.hive.metastore.glue.v1;
 
 import com.amazonaws.services.glue.model.SerDeInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
@@ -55,7 +55,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.Memoizers.memoizeLast;
+import static io.trino.plugin.hive.metastore.glue.v1.Memoizers.memoizeLast;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.decodeFunction;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;

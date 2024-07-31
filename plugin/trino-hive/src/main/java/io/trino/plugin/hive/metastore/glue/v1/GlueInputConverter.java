@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue.v1.converter;
+package io.trino.plugin.hive.metastore.glue.v1;
 
 import com.amazonaws.services.glue.model.DatabaseInput;
 import com.amazonaws.services.glue.model.Order;
@@ -48,9 +48,9 @@ import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toResourceUris;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getStorageDescriptor;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableTypeNullable;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getStorageDescriptor;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getTableTypeNullable;
 
 public final class GlueInputConverter
 {
