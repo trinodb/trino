@@ -24,6 +24,7 @@ import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer;
+import io.trino.plugin.iceberg.catalog.rest.TestingPolarisCatalog;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -191,6 +192,37 @@ public final class IcebergQueryRunner
                     .build();
 
             Logger log = Logger.get(IcebergRestQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class IcebergPolarisQueryRunnerMain
+    {
+        private IcebergPolarisQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            File warehouseLocation = Files.newTemporaryFolder();
+            warehouseLocation.deleteOnExit();
+
+            @SuppressWarnings("resource")
+            TestingPolarisCatalog polarisCatalog = new TestingPolarisCatalog(warehouseLocation.getPath());
+
+            @SuppressWarnings("resource")
+            QueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+                    .addIcebergProperty("iceberg.catalog.type", "rest")
+                    .addIcebergProperty("iceberg.rest-catalog.uri", polarisCatalog.restUri() + "/api/catalog")
+                    .addIcebergProperty("iceberg.rest-catalog.warehouse", TestingPolarisCatalog.WAREHOUSE)
+                    .addIcebergProperty("iceberg.rest-catalog.security", "OAUTH2")
+                    .addIcebergProperty("iceberg.rest-catalog.oauth2.token", polarisCatalog.oauth2Token())
+                    .setInitialTables(TpchTable.getTables())
+                    .build();
+
+            Logger log = Logger.get(IcebergPolarisQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
