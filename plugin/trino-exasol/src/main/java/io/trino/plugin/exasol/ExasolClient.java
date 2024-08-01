@@ -184,6 +184,7 @@ public class ExasolClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables");
     }
 
+    @SuppressWarnings("DeprecatedApi")
     @Override
     protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
