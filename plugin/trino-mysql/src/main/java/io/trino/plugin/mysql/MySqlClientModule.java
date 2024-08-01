@@ -40,6 +40,7 @@ import java.util.Properties;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 
 public class MySqlClientModule
         extends AbstractConfigurationAwareModule
@@ -50,6 +51,7 @@ public class MySqlClientModule
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(MySqlClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setBulkListColumns(true));
         newOptionalBinder(binder, TimestampTimeZoneDomain.class).setBinding().toInstance(TimestampTimeZoneDomain.UTC_ONLY);
+        bindTablePropertiesProvider(binder, DorisTableProperties.class);
         configBinder(binder).bindConfig(MySqlJdbcConfig.class);
         configBinder(binder).bindConfig(MySqlConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
@@ -82,8 +84,8 @@ public class MySqlClientModule
         // connectionTimeZone = LOCAL means the JDBC driver uses the JVM zone as the session zone
         // forceConnectionTimeZoneToSession = true means that the server side connection zone is changed to match local JVM zone
         // https://dev.mysql.com/doc/connector-j/8.1/en/connector-j-time-instants.html (Solution 2b)
-        connectionProperties.setProperty("connectionTimeZone", "LOCAL");
-        connectionProperties.setProperty("forceConnectionTimeZoneToSession", "true");
+//        connectionProperties.setProperty("connectionTimeZone", "LOCAL");
+//        connectionProperties.setProperty("forceConnectionTimeZoneToSession", "true");
 
         if (mySqlConfig.isAutoReconnect()) {
             connectionProperties.setProperty("autoReconnect", String.valueOf(mySqlConfig.isAutoReconnect()));
