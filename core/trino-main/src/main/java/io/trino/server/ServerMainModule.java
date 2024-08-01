@@ -322,6 +322,7 @@ public class ServerMainModule
         else {
             jaxrsBinder(binder).bind(TaskExecutorResource.class);
             newExporter(binder).export(TaskExecutorResource.class).withGeneratedName();
+            newExporter(binder).export(TimeSharingTaskExecutor.class).withGeneratedName();
 
             binder.bind(TaskExecutor.class)
                     .to(TimeSharingTaskExecutor.class)
