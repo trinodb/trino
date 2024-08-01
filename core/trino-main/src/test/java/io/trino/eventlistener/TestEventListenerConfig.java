@@ -32,6 +32,7 @@ public class TestEventListenerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(EventListenerConfig.class)
+                .setMaxConcurrentQueryCompletedEvents(100)
                 .setEventListenerFiles(ImmutableList.of()));
     }
 
@@ -42,10 +43,13 @@ public class TestEventListenerConfig
         Path config1 = Files.createTempFile(null, null);
         Path config2 = Files.createTempFile(null, null);
 
-        Map<String, String> properties = ImmutableMap.of("event-listener.config-files", config1.toString() + "," + config2.toString());
+        Map<String, String> properties = ImmutableMap.of(
+                "event-listener.config-files", config1.toString() + "," + config2.toString(),
+                "event-listener.max-concurrent-query-completed-events", "1");
 
         EventListenerConfig expected = new EventListenerConfig()
-                .setEventListenerFiles(ImmutableList.of(config1.toFile().getPath(), config2.toFile().getPath()));
+                .setEventListenerFiles(ImmutableList.of(config1.toFile().getPath(), config2.toFile().getPath()))
+                .setMaxConcurrentQueryCompletedEvents(1);
 
         assertFullMapping(properties, expected);
     }
