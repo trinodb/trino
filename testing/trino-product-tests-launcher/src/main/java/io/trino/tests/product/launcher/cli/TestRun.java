@@ -350,8 +350,11 @@ public final class TestRun
                                 .add(
                                         jdkProvider.getJavaCommand(),
                                         "-Xmx1g",
+                                        "--enable-preview",
                                         "-Djava.util.logging.config.file=/docker/presto-product-tests/conf/tempto/logging.properties",
                                         "-Duser.timezone=Asia/Kathmandu",
+                                        // https://bugs.openjdk.org/browse/JDK-8327134
+                                        "-Djava.security.manager=allow",
                                         // Tempto has progress logging built in
                                         "-DProgressLoggingListener.enabled=false")
                                 .addAll(temptoJavaOptions)

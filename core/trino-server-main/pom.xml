@@ -15,7 +15,6 @@
     <properties>
         <!-- allow dependencies with newer bytecode versions -->
         <air.check.skip-enforcer>true</air.check.skip-enforcer>
-        <project.build.targetJdk>8</project.build.targetJdk>
     </properties>
 
     <dependencies>

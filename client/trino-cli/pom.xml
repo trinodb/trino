@@ -16,6 +16,7 @@
         <project.build.targetJdk>8</project.build.targetJdk>
         <main-class>io.trino.cli.Trino</main-class>
         <dep.jline.version>3.26.3</dep.jline.version>
+        <air.compiler.enable-preview>false</air.compiler.enable-preview>
     </properties>
 
     <dependencies>

@@ -15,6 +15,7 @@
     <properties>
         <released-artifacts.dir>${project.build.directory}/released-artifacts</released-artifacts.dir>
         <trino.check.skip-revapi>${air.check.skip-basic}</trino.check.skip-revapi>
+        <air.compiler.enable-preview>false</air.compiler.enable-preview>
     </properties>
 
     <!-- the SPI should have only minimal dependencies -->
