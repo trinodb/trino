@@ -24,8 +24,8 @@ import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.errorprone.annotations.ThreadSafe;
-import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
+import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.metastore.AcidOperation;
 import io.trino.metastore.AcidTransactionOwner;
@@ -109,7 +109,8 @@ public final class CachingHiveMetastore
         DISABLED
     }
 
-    public enum ObjectType {
+    public enum ObjectType
+    {
         PARTITION,
         STATS,
         OTHER,
@@ -333,7 +334,7 @@ public final class CachingHiveMetastore
     private static <K, V> Map<K, V> getAll(Cache<K, AtomicReference<V>> cache, Iterable<K> keys, Function<Set<K>, Map<K, V>> bulkLoader)
     {
         ImmutableMap.Builder<K, V> result = ImmutableMap.builder();
-        Map<K, AtomicReference<V>> toLoad = new HashMap<>();
+        ImmutableMap.Builder<K, AtomicReference<V>> toLoadBuilder = ImmutableMap.builder();
 
         for (K key : keys) {
             AtomicReference<V> valueHolder = uncheckedCacheGet(cache, key, AtomicReference::new);
@@ -342,10 +343,11 @@ public final class CachingHiveMetastore
                 result.put(key, value);
             }
             else {
-                toLoad.put(key, valueHolder);
+                toLoadBuilder.put(key, valueHolder);
             }
         }
 
+        Map<K, AtomicReference<V>> toLoad = toLoadBuilder.buildOrThrow();
         if (toLoad.isEmpty()) {
             return result.buildOrThrow();
         }

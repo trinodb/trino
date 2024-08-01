@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
-import io.trino.memory.context.ThresholdLocalMemoryContext;
+import io.trino.memory.context.CoarseGrainLocalMemoryContext;
 import io.trino.operator.DriverContext;
 import io.trino.operator.HashArraySizeSupplier;
 import io.trino.operator.Operator;
@@ -38,7 +38,7 @@ import java.util.OptionalInt;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.trino.memory.context.ThresholdLocalMemoryContext.DEFAULT_SYNC_THRESHOLD;
+import static io.trino.memory.context.CoarseGrainLocalMemoryContext.DEFAULT_GRANULARITY;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -160,7 +160,7 @@ public class HashBuilderOperator
     }
 
     private final OperatorContext operatorContext;
-    private final ThresholdLocalMemoryContext localUserMemoryContext;
+    private final CoarseGrainLocalMemoryContext localUserMemoryContext;
     private final PartitionedLookupSourceFactory lookupSourceFactory;
     private final ListenableFuture<Void> lookupSourceFactoryDestroyed;
     private final int partitionIndex;
@@ -194,7 +194,7 @@ public class HashBuilderOperator
             PagesIndex.Factory pagesIndexFactory,
             HashArraySizeSupplier hashArraySizeSupplier)
     {
-        this(operatorContext, lookupSourceFactory, partitionIndex, outputChannels, hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, expectedPositions, pagesIndexFactory, hashArraySizeSupplier, DEFAULT_SYNC_THRESHOLD);
+        this(operatorContext, lookupSourceFactory, partitionIndex, outputChannels, hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, expectedPositions, pagesIndexFactory, hashArraySizeSupplier, DEFAULT_GRANULARITY);
     }
 
     @VisibleForTesting
@@ -220,7 +220,7 @@ public class HashBuilderOperator
         this.filterFunctionFactory = filterFunctionFactory;
         this.sortChannel = sortChannel;
         this.searchFunctionFactories = searchFunctionFactories;
-        this.localUserMemoryContext = new ThresholdLocalMemoryContext(operatorContext.localUserMemoryContext(), memorySyncThreshold);
+        this.localUserMemoryContext = new CoarseGrainLocalMemoryContext(operatorContext.localUserMemoryContext(), memorySyncThreshold);
 
         this.index = pagesIndexFactory.newPagesIndex(lookupSourceFactory.getTypes(), expectedPositions);
         this.lookupSourceFactory = lookupSourceFactory;
@@ -334,7 +334,6 @@ public class HashBuilderOperator
         }
         LookupSourceSupplier partition = buildLookupSource();
         localUserMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
-        localUserMemoryContext.sync();
         lookupSourceNotNeeded = Optional.of(lookupSourceFactory.lendPartitionLookupSource(partitionIndex, partition));
 
         index = null;

@@ -15,6 +15,7 @@ package io.trino.filesystem.azure;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 public class AzureFileSystemModule
@@ -23,6 +24,7 @@ public class AzureFileSystemModule
     @Override
     protected void setup(Binder binder)
     {
+        binder.bind(AzureFileSystemFactory.class).in(Scopes.SINGLETON);
         Module module = switch (buildConfigObject(AzureFileSystemConfig.class).getAuthType()) {
             case ACCESS_KEY -> new AzureAuthAccessKeyModule();
             case OAUTH -> new AzureAuthOAuthModule();

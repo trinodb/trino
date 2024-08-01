@@ -37,6 +37,7 @@ import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
@@ -630,7 +631,7 @@ public class TestColumnarFilters
                         ImmutableList.of(field(ROW_NUM_CHANNEL, BIGINT)),
                         Optional.empty(),
                         OptionalInt.empty())
-                .get();
+                .apply(DynamicFilter.EMPTY);
         LocalMemoryContext context = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
         ImmutableList.Builder<Page> outputPagesBuilder = ImmutableList.builder();
         for (Page inputPage : inputPages) {

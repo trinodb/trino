@@ -305,6 +305,11 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-web-ui</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
         </dependency>
@@ -530,72 +535,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <resources>
-            <resource>
-                <directory>src/main/resources</directory>
-                <excludes>
-                    <exclude>**/node_modules/**</exclude>
-                    <exclude>**/webapp/src/**</exclude>
-                    <exclude>**/webapp/dist/node/**</exclude>
-                </excludes>
-            </resource>
-        </resources>
-        <plugins>
-            <plugin>
-                <groupId>com.github.eirslett</groupId>
-                <artifactId>frontend-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>install node and npm</id>
-                        <goals>
-                            <goal>install-node-and-npm</goal>
-                        </goals>
-                        <phase>generate-resources</phase>
-                        <configuration>
-                            <workingDirectory>src/main/resources/webapp/src</workingDirectory>
-                            <installDirectory>src/main/resources/webapp/dist</installDirectory>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>install dependencies</id>
-                        <goals>
-                            <goal>npm</goal>
-                        </goals>
-                        <phase>generate-resources</phase>
-                        <configuration>
-                            <arguments>install</arguments>
-                            <workingDirectory>src/main/resources/webapp/src</workingDirectory>
-                            <installDirectory>src/main/resources/webapp/dist</installDirectory>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>package webui</id>
-                        <goals>
-                            <goal>npm</goal>
-                        </goals>
-                        <phase>generate-resources</phase>
-                        <configuration>
-                            <arguments>run package</arguments>
-                            <workingDirectory>src/main/resources/webapp/src</workingDirectory>
-                            <installDirectory>src/main/resources/webapp/dist</installDirectory>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>flow check</id>
-                        <goals>
-                            <goal>npm</goal>
-                        </goals>
-                        <phase>verify</phase>
-                        <configuration>
-                            <arguments>run flow</arguments>
-                            <workingDirectory>src/main/resources/webapp/src</workingDirectory>
-                            <installDirectory>src/main/resources/webapp/dist</installDirectory>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
 </project>

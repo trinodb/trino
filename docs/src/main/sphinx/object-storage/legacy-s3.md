@@ -86,7 +86,7 @@ Trino uses its own S3 filesystem for the URI prefixes
     may be expected to be part of the table or partition. Defaults to `false`.
 * - `hive.s3.streaming.enabled`
   - Use S3 multipart upload API to upload file in streaming way, without staging
-    file to be created in the local file system.
+    file to be created in the local file system. Defaults to `true`.
 * - `hive.s3.streaming.part-size`
   - The part size for S3 streaming upload. Defaults to `16MB`.
 * - `hive.s3.proxy.host`

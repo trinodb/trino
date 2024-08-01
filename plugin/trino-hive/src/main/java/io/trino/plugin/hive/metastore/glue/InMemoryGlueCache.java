@@ -18,16 +18,19 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
+import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.SafeCaches;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveColumnStatistics;
 import io.trino.metastore.Partition;
 import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
+import io.trino.plugin.hive.metastore.cache.ReentrantBoundedExecutor;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
+import jakarta.annotation.PreDestroy;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -40,6 +43,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -49,7 +54,10 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.google.common.cache.CacheLoader.asyncReloading;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class InMemoryGlueCache
@@ -66,6 +74,8 @@ class InMemoryGlueCache
 
     private record FunctionKey(String databaseName, String functionName) {}
 
+    private final ExecutorService refreshExecutor;
+
     private final LoadingCache<Global, ValueHolder<List<String>>> databaseNamesCache;
     private final LoadingCache<String, ValueHolder<Optional<Database>>> databaseCache;
     private final LoadingCache<String, ValueHolder<List<TableInfo>>> tableNamesCache;
@@ -81,21 +91,38 @@ class InMemoryGlueCache
     private final AtomicLong tableInvalidationCounter = new AtomicLong();
     private final AtomicLong partitionInvalidationCounter = new AtomicLong();
 
-    public InMemoryGlueCache(Duration metadataCacheTtl, Duration statsCacheTtl, long maximumSize)
+    public InMemoryGlueCache(
+            CatalogName catalogName,
+            Duration metadataCacheTtl,
+            Duration statsCacheTtl,
+            Optional<Duration> refreshInterval,
+            int maxMetastoreRefreshThreads,
+            long maximumSize)
     {
+        this.refreshExecutor = newCachedThreadPool(daemonThreadsNamed("hive-metastore-" + catalogName + "-%s"));
+        Executor boundedRefreshExecutor = new ReentrantBoundedExecutor(refreshExecutor, maxMetastoreRefreshThreads);
+
+        OptionalLong refreshMillis = refreshInterval.stream().mapToLong(Duration::toMillis).findAny();
+
         OptionalLong metadataCacheTtlMillis = OptionalLong.of(metadataCacheTtl.toMillis());
-        this.databaseNamesCache = buildCache(metadataCacheTtlMillis, maximumSize, ValueHolder::new);
-        this.databaseCache = buildCache(metadataCacheTtlMillis, maximumSize, ValueHolder::new);
-        this.tableNamesCache = buildCache(metadataCacheTtlMillis, maximumSize, ValueHolder::new);
-        this.tableCache = buildCache(metadataCacheTtlMillis, maximumSize, ValueHolder::new);
-        this.partitionNamesCache = buildCache(metadataCacheTtlMillis, maximumSize, ValueHolder::new);
-        this.partitionCache = buildCache(metadataCacheTtlMillis, maximumSize, ValueHolder::new);
-        this.allFunctionsCache = buildCache(metadataCacheTtlMillis, maximumSize, ValueHolder::new);
-        this.functionCache = buildCache(metadataCacheTtlMillis, maximumSize, ValueHolder::new);
+        this.databaseNamesCache = buildCache(metadataCacheTtlMillis, refreshMillis, boundedRefreshExecutor, maximumSize, ValueHolder::new);
+        this.databaseCache = buildCache(metadataCacheTtlMillis, refreshMillis, boundedRefreshExecutor, maximumSize, ValueHolder::new);
+        this.tableNamesCache = buildCache(metadataCacheTtlMillis, refreshMillis, boundedRefreshExecutor, maximumSize, ValueHolder::new);
+        this.tableCache = buildCache(metadataCacheTtlMillis, refreshMillis, boundedRefreshExecutor, maximumSize, ValueHolder::new);
+        this.partitionNamesCache = buildCache(metadataCacheTtlMillis, refreshMillis, boundedRefreshExecutor, maximumSize, ValueHolder::new);
+        this.partitionCache = buildCache(metadataCacheTtlMillis, refreshMillis, boundedRefreshExecutor, maximumSize, ValueHolder::new);
+        this.allFunctionsCache = buildCache(metadataCacheTtlMillis, refreshMillis, boundedRefreshExecutor, maximumSize, ValueHolder::new);
+        this.functionCache = buildCache(metadataCacheTtlMillis, refreshMillis, boundedRefreshExecutor, maximumSize, ValueHolder::new);
 
         OptionalLong statsCacheTtlMillis = OptionalLong.of(statsCacheTtl.toMillis());
-        this.tableColumnStatsCache = buildCache(statsCacheTtlMillis, maximumSize, ColumnStatisticsHolder::new);
-        this.partitionColumnStatsCache = buildCache(statsCacheTtlMillis, maximumSize, ColumnStatisticsHolder::new);
+        this.tableColumnStatsCache = buildCache(statsCacheTtlMillis, refreshMillis, boundedRefreshExecutor, maximumSize, ColumnStatisticsHolder::new);
+        this.partitionColumnStatsCache = buildCache(statsCacheTtlMillis, refreshMillis, boundedRefreshExecutor, maximumSize, ColumnStatisticsHolder::new);
+    }
+
+    @PreDestroy
+    public void stop()
+    {
+        refreshExecutor.shutdownNow();
     }
 
     @Override
@@ -384,19 +411,32 @@ class InMemoryGlueCache
     }
 
     @SuppressModernizer
-    private static <K, V> LoadingCache<K, V> buildCache(OptionalLong expiresAfterWriteMillis, long maximumSize, Supplier<V> loader)
+    private static <K, V> LoadingCache<K, V> buildCache(
+            OptionalLong expiresAfterWriteMillis,
+            OptionalLong refreshMillis,
+            Executor refreshExecutor,
+            long maximumSize,
+            Supplier<V> loader)
     {
         if (expiresAfterWriteMillis.isEmpty()) {
             return SafeCaches.emptyLoadingCache(CacheLoader.from(ignores -> loader.get()), true);
         }
 
+        CacheLoader<? super K, V> cacheLoader = CacheLoader.from(loader::get);
+
         // this does not use EvictableCache because we want to inject values directly into the cache,
         // and we want a lock per key, instead of striped locks
-        return CacheBuilder.newBuilder()
+        CacheBuilder<? super K, ? super V> cacheBuilder = CacheBuilder.newBuilder()
                 .expireAfterWrite(expiresAfterWriteMillis.getAsLong(), MILLISECONDS)
                 .maximumSize(maximumSize)
-                .recordStats()
-                .build(CacheLoader.from(loader::get));
+                .recordStats();
+
+        if (refreshMillis.isPresent() && (expiresAfterWriteMillis.getAsLong() > refreshMillis.getAsLong())) {
+            cacheBuilder.refreshAfterWrite(refreshMillis.getAsLong(), MILLISECONDS);
+            cacheLoader = asyncReloading(cacheLoader, refreshExecutor);
+        }
+
+        return cacheBuilder.build(cacheLoader);
     }
 
     private static <K, V> void cacheValue(LoadingCache<K, ValueHolder<V>> cache, K key, V value, BooleanSupplier test)

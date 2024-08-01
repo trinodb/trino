@@ -38,6 +38,7 @@
         <module>core/trino-server-main</module>
         <module>core/trino-server-rpm</module>
         <module>core/trino-spi</module>
+        <module>core/trino-web-ui</module>
         <module>docs</module>
         <module>lib/trino-array</module>
         <module>lib/trino-cache</module>
@@ -181,7 +182,7 @@
         <!-- keep dependency properties sorted -->
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.accumulo.version>3.0.0</dep.accumulo.version>
-        <dep.airlift.version>251</dep.airlift.version>
+        <dep.airlift.version>254</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
         <dep.avro.version>1.11.3</dep.avro.version>
@@ -191,7 +192,7 @@
         <dep.docker.images.version>99</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
         <dep.errorprone.version>2.29.2</dep.errorprone.version>
-        <dep.flyway.version>10.16.0</dep.flyway.version>
+        <dep.flyway.version>10.17.0</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.0</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v20.15.1</dep.frontend-node.version>
         <dep.frontend-npm.version>10.8.2</dep.frontend-npm.version>
@@ -200,7 +201,7 @@
         <dep.jna.version>5.14.0</dep.jna.version>
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
-        <dep.kafka-clients.version>3.7.1</dep.kafka-clients.version>
+        <dep.kafka-clients.version>3.8.0</dep.kafka-clients.version>
         <dep.okio.version>3.9.0</dep.okio.version>
         <!-- temporary: required to be in sync with version pulled by libraries-bom -->
         <dep.opentelemetry.version>1.39.0</dep.opentelemetry.version>
@@ -319,7 +320,7 @@
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
-                <version>3.9.1</version>
+                <version>3.10.0</version>
             </dependency>
 
             <dependency>
@@ -1529,6 +1530,12 @@
             </dependency>
 
             <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-web-ui</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.trino.benchto</groupId>
                 <artifactId>benchto-driver</artifactId>
                 <version>0.29</version>
@@ -1642,7 +1649,7 @@
             <dependency>
                 <groupId>it.unimi.dsi</groupId>
                 <artifactId>fastutil</artifactId>
-                <version>8.5.13</version>
+                <version>8.5.14</version>
             </dependency>
 
             <dependency>
@@ -2777,6 +2784,7 @@
                                     -Xep:StaticAssignmentOfThrowable:ERROR \
                                     -Xep:StaticGuardedByInstance:ERROR \
                                     -Xep:StreamResourceLeak:ERROR \
+                                    -Xep:StringCaseLocaleUsage:ERROR \
                                     -Xep:SuppressWarningsDeprecated:ERROR \
                                     -Xep:ThreeLetterTimeZoneID:ERROR \
                                     -Xep:UnicodeEscape:ERROR \

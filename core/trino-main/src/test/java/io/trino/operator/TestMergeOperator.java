@@ -18,6 +18,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.node.NodeInfo;
 import io.airlift.tracing.Tracing;
@@ -95,6 +96,7 @@ public class TestMergeOperator
                 new FeaturesConfig(),
                 new DirectExchangeClientConfig(),
                 httpClient,
+                new HttpClientConfig(),
                 executor,
                 new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()));
         orderingCompiler = new OrderingCompiler(new TypeOperators());
