@@ -16,6 +16,7 @@ package io.trino.eventlistener;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.validation.FileExists;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
@@ -26,6 +27,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public class EventListenerConfig
 {
     private List<File> eventListenerFiles = ImmutableList.of();
+    private int maxConcurrentQueryCompletedEvents = 100;
 
     @NotNull
     public List<@FileExists File> getEventListenerFiles()
@@ -39,6 +41,19 @@ public class EventListenerConfig
         this.eventListenerFiles = eventListenerFiles.stream()
                 .map(File::new)
                 .collect(toImmutableList());
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxConcurrentQueryCompletedEvents()
+    {
+        return maxConcurrentQueryCompletedEvents;
+    }
+
+    @Config("event-listener.max-concurrent-query-completed-events")
+    public EventListenerConfig setMaxConcurrentQueryCompletedEvents(int maxConcurrentQueryCompletedEvents)
+    {
+        this.maxConcurrentQueryCompletedEvents = maxConcurrentQueryCompletedEvents;
         return this;
     }
 }

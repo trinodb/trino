@@ -17,6 +17,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeStat;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.eventlistener.EventListener;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -55,10 +57,13 @@ public class EventListenerManager
     private static final File CONFIG_FILE = new File("etc/event-listener.properties");
     private static final String EVENT_LISTENER_NAME_PROPERTY = "event-listener.name";
     private final List<File> configFiles;
+    private final int maxConcurrentQueryCompletedEvents;
     private final Map<String, EventListenerFactory> eventListenerFactories = new ConcurrentHashMap<>();
     private final List<EventListener> providedEventListeners = Collections.synchronizedList(new ArrayList<>());
     private final AtomicReference<List<EventListener>> configuredEventListeners = new AtomicReference<>(ImmutableList.of());
     private final AtomicBoolean loading = new AtomicBoolean(false);
+    private final AtomicInteger concurrentQueryCompletedEvents = new AtomicInteger();
+    private final CounterStat skippedQueryCompletedEvents = new CounterStat();
 
     private final TimeStat queryCreatedTime = new TimeStat(MILLISECONDS);
     private final TimeStat queryCompletedTime = new TimeStat(MILLISECONDS);
@@ -68,6 +73,7 @@ public class EventListenerManager
     public EventListenerManager(EventListenerConfig config)
     {
         this.configFiles = ImmutableList.copyOf(config.getEventListenerFiles());
+        this.maxConcurrentQueryCompletedEvents = config.getMaxConcurrentQueryCompletedEvents();
     }
 
     public void addEventListenerFactory(EventListenerFactory eventListenerFactory)
@@ -144,7 +150,13 @@ public class EventListenerManager
     public void queryCompleted(Function<Boolean, QueryCompletedEvent> queryCompletedEventProvider)
     {
         try (TimeStat.BlockTimer _ = queryCompletedTime.time()) {
+            if (concurrentQueryCompletedEvents.incrementAndGet() > maxConcurrentQueryCompletedEvents) {
+                concurrentQueryCompletedEvents.decrementAndGet();
+                skippedQueryCompletedEvents.update(1);
+                return;
+            }
             doQueryCompleted(queryCompletedEventProvider);
+            concurrentQueryCompletedEvents.decrementAndGet();
         }
     }
 
@@ -218,6 +230,19 @@ public class EventListenerManager
     public TimeStat getSplitCompletedTime()
     {
         return splitCompletedTime;
+    }
+
+    @Managed
+    public int getConcurrentQueryCompletedEvents()
+    {
+        return concurrentQueryCompletedEvents.get();
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getSkippedQueryCompletedEvents()
+    {
+        return skippedQueryCompletedEvents;
     }
 
     @PreDestroy
