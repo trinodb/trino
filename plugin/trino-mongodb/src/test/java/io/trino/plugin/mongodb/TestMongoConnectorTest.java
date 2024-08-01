@@ -161,6 +161,17 @@ public class TestMongoConnectorTest
     }
 
     @Test
+    public void testEmptyCollection()
+    {
+        String tableName = "test_empty";
+        MongoDatabase database = client.getDatabase("test");
+        database.createCollection(tableName);
+        database.getCollection(tableName).insertOne(new Document(ImmutableMap.of("k", "v")));
+        MaterializedResult result = getQueryRunner().execute(getSession(), "SELECT * FROM mongodb.test." + tableName);
+        assertThat(result.getRowCount()).isEqualTo(1);
+    }
+
+    @Test
     public void testGuessFieldTypes()
     {
         testGuessFieldTypes("true", "true"); // boolean -> boolean
