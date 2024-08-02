@@ -163,6 +163,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public Optional<ParameterizedExpression> convertPredicateForJoin(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return delegate().convertPredicateForJoin(session, expression, assignments);
+    }
+
+    @Override
     public Optional<JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return delegate().convertProjection(session, handle, expression, assignments);

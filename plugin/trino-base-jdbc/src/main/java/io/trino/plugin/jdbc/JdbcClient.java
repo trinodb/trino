@@ -15,6 +15,7 @@ package io.trino.plugin.jdbc;
 
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.spi.Experimental;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -98,6 +99,12 @@ public interface JdbcClient
     default Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();
+    }
+
+    @Experimental(eta = "2030-01-01")
+    default Optional<ParameterizedExpression> convertPredicateForJoin(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return convertPredicate(session, expression, assignments);
     }
 
     default Optional<JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)

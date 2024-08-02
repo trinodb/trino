@@ -185,6 +185,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public Optional<ParameterizedExpression> convertPredicateForJoin(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return stats.getConvertPredicateForJoin().wrap(() -> delegate.convertPredicateForJoin(session, expression, assignments));
+    }
+
+    @Override
     public Optional<JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return stats.getConvertProjection().wrap(() -> delegate().convertProjection(session, handle, expression, assignments));
