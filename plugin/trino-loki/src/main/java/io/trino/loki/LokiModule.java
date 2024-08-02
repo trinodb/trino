@@ -24,7 +24,7 @@ public class LokiModule implements Module {
     public void configure(Binder binder) {
         binder.bind(LokiConnector.class).in(Scopes.SINGLETON);
         binder.bind(LokiMetadata.class).in(Scopes.SINGLETON);
-        //TODO binder.bind(LokiClient.class).in(Scopes.SINGLETON);
+        binder.bind(LokiClient.class).in(Scopes.SINGLETON);
         binder.bind(LokiSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(LokiRecordSetProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(LokiConnectorConfig.class);

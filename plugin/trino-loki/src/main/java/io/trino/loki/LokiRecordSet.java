@@ -43,9 +43,13 @@ public class LokiRecordSet implements RecordSet {
         }
         this.columnTypes = types.build();
 
+        // TODO: get query and start from table
+        final String query = "{fill=me}";
+        final Long start = 0L; // Start and end should be part of split
+        final Long end = 1L;
         // Actually execute the query
         // TODO: lazily parse
-        this.result = lokiClient.doQuery(); // TODO: pass split
+        this.result = lokiClient.doQuery(query, start, end); // TODO: pass split
     }
 
     @Override

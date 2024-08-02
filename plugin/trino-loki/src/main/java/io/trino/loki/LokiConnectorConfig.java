@@ -16,15 +16,19 @@ package io.trino.loki;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 public class LokiConnectorConfig {
     private URI lokiURI = URI.create("http://localhost:3100");
     private String user;
     private String password;
+    private Duration readTimeout = new Duration(10, TimeUnit.SECONDS);
 
     @NotNull
     public URI getLokiURI()
@@ -64,6 +68,20 @@ public class LokiConnectorConfig {
     public LokiConnectorConfig setPassword(String password)
     {
         this.password = password;
+        return this;
+    }
+
+    @MinDuration("1s")
+    public Duration getReadTimeout()
+    {
+        return readTimeout;
+    }
+
+    @Config("loki.read-timeout")
+    @ConfigDescription("How much time a query to Loki has before timing out")
+    public LokiConnectorConfig setReadTimeout(Duration readTimeout)
+    {
+        this.readTimeout = readTimeout;
         return this;
     }
 }
