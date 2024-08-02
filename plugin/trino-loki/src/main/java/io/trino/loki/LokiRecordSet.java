@@ -44,7 +44,6 @@ public class LokiRecordSet implements RecordSet {
     @Override
     public RecordCursor cursor()
     {
-        throw new UnsupportedOperationException("Loki cursor is not implemented");
-        // TODO: return new PrometheusRecordCursor(columnHandles, byteSource);
+        return new LokiRecordCursor(columnHandles, result);
     }
 }

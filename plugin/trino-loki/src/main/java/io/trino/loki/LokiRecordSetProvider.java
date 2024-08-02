@@ -8,6 +8,7 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
+// TODO: replace with LokiPageSourceProvider eventually.
 public class LokiRecordSetProvider implements ConnectorRecordSetProvider {
 
     private final LokiClient prometheusClient;
