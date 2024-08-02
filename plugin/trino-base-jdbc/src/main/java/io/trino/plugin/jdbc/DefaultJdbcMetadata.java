@@ -675,7 +675,7 @@ public class DefaultJdbcMetadata
 
         ImmutableList.Builder<ParameterizedExpression> joinConditions = ImmutableList.builder();
         for (ConnectorExpression conjunct : extractConjuncts(joinCondition)) {
-            Optional<ParameterizedExpression> converted = jdbcClient.convertPredicate(session, conjunct, assignments);
+            Optional<ParameterizedExpression> converted = jdbcClient.convertPredicateForJoin(session, conjunct, assignments);
             if (converted.isEmpty()) {
                 return Optional.empty();
             }
