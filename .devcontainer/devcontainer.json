@@ -5,7 +5,7 @@
     "build": {
         "dockerfile": "Dockerfile",
         "args": {
-            "BASE_IMAGE_TAG": "420_feature_new-dev-environment"
+            "BASE_IMAGE_TAG": "452_cccs-main_20240801135810_b10708"
         }
     },
     "runArgs": [
