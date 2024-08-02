@@ -21,3 +21,14 @@ Apache Ranger plugin configurations for policy store and audit store should be u
 /etc/trino/ranger-trino-security.xml
 /etc/trino/ranger-trino-audit.xml
 /etc/trino/ranger-trino-policymgr-ssl.xml```
+
+## Required Updates To Ranger
+
+For Apache Ranger versions less than 2.5.0 the Service Definition for Trino needs to be updated to the latest version here: 
+https://github.com/apache/ranger/blob/master/agents-common/src/main/resources/service-defs/ranger-servicedef-trino.json
+
+This is exspected to included in the upcoming Apache Ranger 2.5.0 release.
+
+## Required policies
+* users will need permission to execute queries in Trino. To allow this, please create a policy for queryId=* with permission to execute for user {USER}
+* A policy allowing all users to impersonate themselves will be required, please create a policy for trinouser={USER} with the permission to impersonate for user {USER}. 
