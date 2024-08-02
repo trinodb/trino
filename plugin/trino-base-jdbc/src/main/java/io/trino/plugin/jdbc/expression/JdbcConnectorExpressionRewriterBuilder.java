@@ -36,10 +36,25 @@ public class JdbcConnectorExpressionRewriterBuilder
         return new JdbcConnectorExpressionRewriterBuilder();
     }
 
-    private final ImmutableSet.Builder<ConnectorExpressionRule<?, ParameterizedExpression>> rules = ImmutableSet.builder();
-    private final Map<String, Set<String>> typeClasses = new HashMap<>();
+    public static JdbcConnectorExpressionRewriterBuilder newBuilder(JdbcConnectorExpressionRewriterBuilder other)
+    {
+        return new JdbcConnectorExpressionRewriterBuilder(other);
+    }
 
-    private JdbcConnectorExpressionRewriterBuilder() {}
+    private final ImmutableSet.Builder<ConnectorExpressionRule<?, ParameterizedExpression>> rules;
+    private final Map<String, Set<String>> typeClasses;
+
+    private JdbcConnectorExpressionRewriterBuilder()
+    {
+        rules = ImmutableSet.builder();
+        typeClasses = new HashMap<>();
+    }
+
+    private JdbcConnectorExpressionRewriterBuilder(JdbcConnectorExpressionRewriterBuilder other)
+    {
+        this.rules = ImmutableSet.<ConnectorExpressionRule<?, ParameterizedExpression>>builder().addAll(other.rules.build());
+        this.typeClasses = new HashMap<>(other.typeClasses);
+    }
 
     public JdbcConnectorExpressionRewriterBuilder addStandardRules(Function<String, String> identifierQuote)
     {
