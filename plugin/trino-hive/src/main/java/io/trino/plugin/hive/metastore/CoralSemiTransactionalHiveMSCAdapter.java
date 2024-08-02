@@ -134,7 +134,6 @@ public class CoralSemiTransactionalHiveMSCAdapter
         var result = new com.linkedin.coral.hive.metastore.api.SerDeInfo();
         result.setName(info.getName());
         result.setDescription(info.getDescription());
-        result.setSerializationLib(info.getSerializationLib());
         result.setSerializerClass(info.getSerializerClass());
         result.setDeserializerClass(info.getDeserializerClass());
         result.setParameters(info.getParameters());
