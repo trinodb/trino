@@ -39,8 +39,8 @@ public class ThriftMetastoreConfig
     private HostAndPort socksProxy;
     private int maxRetries = RetryDriver.DEFAULT_MAX_ATTEMPTS - 1;
     private double backoffScaleFactor = RetryDriver.DEFAULT_SCALE_FACTOR;
-    private Duration minBackoffDelay = RetryDriver.DEFAULT_SLEEP_TIME;
-    private Duration maxBackoffDelay = RetryDriver.DEFAULT_SLEEP_TIME;
+    private Duration minBackoffDelay = RetryDriver.DEFAULT_MIN_BACKOFF_DELAY;
+    private Duration maxBackoffDelay = RetryDriver.DEFAULT_MAX_BACKOFF_DELAY;
     private Duration maxRetryTime = RetryDriver.DEFAULT_MAX_RETRY_TIME;
     private boolean impersonationEnabled;
     private boolean useSparkTableStatisticsFallback = true;

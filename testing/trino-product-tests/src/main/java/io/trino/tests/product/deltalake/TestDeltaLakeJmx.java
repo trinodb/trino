@@ -47,6 +47,7 @@ public class TestDeltaLakeJmx
                 row("io.trino.plugin.hive.metastore.cache:name=delta,type=cachinghivemetastore"),
                 row("io.trino.plugin.hive.metastore.thrift:name=delta,type=thrifthivemetastore"),
                 row("io.trino.plugin.hive:catalog=delta,name=delta,type=fileformatdatasourcestats"),
-                row("trino.plugin.deltalake.transactionlog:catalog=delta,name=delta,type=transactionlogaccess"));
+                row("trino.plugin.deltalake.transactionlog:catalog=delta,name=delta,type=transactionlogaccess"),
+                row("io.trino.plugin.hive.metastore.thrift:name=delta,type=thriftmetastorestats"));
     }
 }
