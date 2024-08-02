@@ -30,6 +30,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
@@ -44,6 +45,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 import java.util.stream.Stream;
@@ -54,6 +56,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.predicate.TupleDomain.all;
+import static io.trino.spi.predicate.TupleDomain.none;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
@@ -111,7 +115,8 @@ public class KafkaMetadata
                         getColumnHandles(session, schemaTableName).values().stream()
                                 .map(KafkaColumnHandle.class::cast)
                                 .collect(toImmutableList()),
-                        TupleDomain.all()))
+                        all(),
+                        OptionalLong.empty()))
                 .orElse(null);
     }
 
@@ -263,9 +268,36 @@ public class KafkaMetadata
                 handle.keySubject(),
                 handle.messageSubject(),
                 handle.columns(),
-                newDomain);
+                newDomain,
+                handle.limit());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), constraint.getExpression(), false));
+    }
+
+    @Override
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
+    {
+        KafkaTableHandle handle = (KafkaTableHandle) table;
+
+        if (handle.limit().isPresent() && handle.limit().getAsLong() <= limit) {
+            return Optional.empty();
+        }
+
+        handle = new KafkaTableHandle(
+                handle.schemaName(),
+                handle.tableName(),
+                handle.topicName(),
+                handle.keyDataFormat(),
+                handle.messageDataFormat(),
+                handle.keyDataSchemaLocation(),
+                handle.messageDataSchemaLocation(),
+                handle.keySubject(),
+                handle.messageSubject(),
+                handle.columns(),
+                handle.constraint(),
+                OptionalLong.of(limit));
+
+        return Optional.of(new LimitApplicationResult<>(handle, true, true));
     }
 
     private KafkaTopicDescription getRequiredTopicDescription(ConnectorSession session, SchemaTableName schemaTableName)
@@ -303,7 +335,8 @@ public class KafkaMetadata
                 table.keySubject(),
                 table.messageSubject(),
                 actualColumns,
-                TupleDomain.none());
+                none(),
+                table.limit());
     }
 
     @Override

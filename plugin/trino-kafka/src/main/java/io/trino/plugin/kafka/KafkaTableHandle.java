@@ -22,6 +22,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,6 +31,8 @@ import static java.util.Objects.requireNonNull;
  * using {@link KafkaConfig#getDefaultSchema()}. Usually 'default'.
  * @param tableName The table name used by Trino.
  * @param topicName The topic name that is read from Kafka.
+ * @param limit Represents a handle to a limit value in a Kafka table.
+ * The limit is an optional value indicating the maximum number of records to return in a query.
  */
 public record KafkaTableHandle(
         String schemaName,
@@ -42,7 +45,8 @@ public record KafkaTableHandle(
         Optional<String> keySubject,
         Optional<String> messageSubject,
         List<KafkaColumnHandle> columns,
-        TupleDomain<ColumnHandle> constraint)
+        TupleDomain<ColumnHandle> constraint,
+        OptionalLong limit)
         implements ConnectorTableHandle, ConnectorInsertTableHandle
 {
     public KafkaTableHandle
@@ -58,6 +62,7 @@ public record KafkaTableHandle(
         requireNonNull(messageSubject, "messageSubject is null");
         columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         requireNonNull(constraint, "constraint is null");
+        requireNonNull(limit, "constraint is null");
     }
 
     public SchemaTableName schemaTableName()
