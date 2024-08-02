@@ -62,6 +62,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.jdbc.JoinOperator.JOIN;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -675,7 +676,7 @@ public class TestPostgreSqlConnectorTest
                 assertConditionallyPushedDown(
                         session,
                         format("SELECT n.name, c.name FROM nation n JOIN customer c ON n.nationkey = c.nationkey AND n.regionkey %s c.custkey", operator),
-                        expectJoinPushdown(operator),
+                        expectJoinPushdown(operator) && expectJoinPushdownOnInequalityOperator(JOIN),
                         joinOverTableScans);
             }
 
@@ -685,7 +686,7 @@ public class TestPostgreSqlConnectorTest
                 assertConditionallyPushedDown(
                         session,
                         format("SELECT n.name, nl.name FROM nation n JOIN %s nl ON n.regionkey = nl.regionkey AND n.name %s nl.name", nationLowercaseTable.getName(), operator),
-                        expectJoinPushdown(operator),
+                        expectJoinPushdown(operator) && expectJoinPushdownOnInequalityOperator(JOIN),
                         joinOverTableScans);
             }
 
