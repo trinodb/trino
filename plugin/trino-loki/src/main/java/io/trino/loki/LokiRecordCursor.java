@@ -22,6 +22,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
@@ -32,7 +33,6 @@ public class LokiRecordCursor implements RecordCursor {
     private final int[] fieldToColumnIndex;
 
     private final Iterator<QueryResult.LogEntry> entryItr;
-    private final QueryResult result;
 
     // TODO: include labels
     private QueryResult.LogEntry entry;
@@ -77,6 +77,19 @@ public class LokiRecordCursor implements RecordCursor {
         return true;
     }
 
+    private Object getEntryValue(int field)
+    {
+        checkState(entry != null, "Cursor has not been advanced yet");
+
+        int columnIndex = fieldToColumnIndex[field];
+        return switch (columnIndex) {
+            // TODO: case 0 -> getSqlMapFromMap(columnHandles.get(columnIndex).columnType(), fields.labels());
+            case 1 -> entry.getTs();
+            case 2 -> entry.getLine();
+            default -> null;
+        };
+    }
+
     @Override
     public boolean getBoolean(int field) {
         return false;
@@ -90,24 +103,24 @@ public class LokiRecordCursor implements RecordCursor {
     @Override
     public double getDouble(int field) {
         checkFieldType(field, DOUBLE);
-        return (double) requireNonNull(getFieldValue(field));
+        return (double) requireNonNull(getEntryValue(field));
     }
 
     @Override
     public Slice getSlice(int field) {
         checkFieldType(field, createUnboundedVarcharType());
-        return Slices.utf8Slice((String) requireNonNull(getFieldValue(field)));
+        return Slices.utf8Slice((String) requireNonNull(getEntryValue(field)));
     }
 
     @Override
     public Object getObject(int field) {
-        return getFieldValue(field);
+        return getEntryValue(field);
     }
 
     @Override
     public boolean isNull(int field) {
         checkArgument(field < columnHandles.size(), "Invalid field index");
-        return getFieldValue(field) == null;
+        return getEntryValue(field) == null;
     }
 
     @Override
