@@ -1333,13 +1333,19 @@ public abstract class BaseJdbcConnectorTest
                     assertJoinConditionallyPushedDown(
                             withoutDynamicFiltering,
                             format("SELECT r.name, n.name FROM nation n %s region r ON n.regionkey %s r.regionkey", joinOperator, operator),
-                            expectJoinPushdown(operator) && expectJoinPushdownOnInequalityOperator(joinOperator));
+                            expectJoinPushdown(operator)
+                                    // Currently no pushdown for JOIN as inequality predicate is removed from Join to maintain Cross Join and Filter as separate nodes
+                                    && joinOperator != JOIN
+                                    && expectJoinPushdownOnInequalityOperator(joinOperator));
 
                     // varchar inequality predicate
                     assertJoinConditionallyPushedDown(
                             withoutDynamicFiltering,
                             format("SELECT n.name, nl.name FROM nation n %s %s nl ON n.name %s nl.name", joinOperator, nationLowercaseTable.getName(), operator),
-                            expectVarcharJoinPushdown(operator) && expectJoinPushdownOnInequalityOperator(joinOperator));
+                            expectVarcharJoinPushdown(operator)
+                                    // Currently no pushdown for JOIN as inequality predicate is removed from Join to maintain Cross Join and Filter as separate nodes
+                                    && joinOperator != JOIN
+                                    && expectJoinPushdownOnInequalityOperator(joinOperator));
                 }
 
                 // inequality along with an equality, which constitutes an equi-condition and allows filter to remain as part of the Join
@@ -1348,7 +1354,7 @@ public abstract class BaseJdbcConnectorTest
                     assertJoinConditionallyPushedDown(
                             session,
                             format("SELECT n.name, c.name FROM nation n %s customer c ON n.nationkey = c.nationkey AND n.regionkey %s c.custkey", joinOperator, operator),
-                            expectJoinPushdown(operator));
+                            expectJoinPushdown(operator) && expectJoinPushdownOnInequalityOperator(joinOperator));
                 }
 
                 // varchar inequality along with an equality, which constitutes an equi-condition and allows filter to remain as part of the Join
@@ -1357,7 +1363,7 @@ public abstract class BaseJdbcConnectorTest
                     assertJoinConditionallyPushedDown(
                             session,
                             format("SELECT n.name, nl.name FROM nation n %s %s nl ON n.regionkey = nl.regionkey AND n.name %s nl.name", joinOperator, nationLowercaseTable.getName(), operator),
-                            expectVarcharJoinPushdown(operator));
+                            expectVarcharJoinPushdown(operator) && expectJoinPushdownOnInequalityOperator(joinOperator));
                 }
 
                 // Join over a (double) predicate
@@ -1504,8 +1510,7 @@ public abstract class BaseJdbcConnectorTest
 
     protected boolean expectJoinPushdownOnInequalityOperator(JoinOperator joinOperator)
     {
-        // Currently no pushdown as inequality predicate is removed from Join to maintain Cross Join and Filter as separate nodes
-        return joinOperator != JOIN;
+        return true;
     }
 
     private boolean expectVarcharJoinPushdown(String operator)
