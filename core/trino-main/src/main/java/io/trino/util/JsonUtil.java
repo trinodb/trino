@@ -52,6 +52,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.BigintOperators;
 import io.trino.type.BooleanOperators;
@@ -66,6 +67,7 @@ import java.io.OutputStream;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -163,6 +165,7 @@ public final class JsonUtil
                 type instanceof DoubleType ||
                 type instanceof DecimalType ||
                 type instanceof VarcharType ||
+                type instanceof VarbinaryType ||
                 type instanceof JsonType ||
                 type instanceof TimestampType ||
                 type instanceof DateType) {
@@ -300,6 +303,9 @@ public final class JsonUtil
             }
             if (type instanceof VarcharType) {
                 return new VarcharJsonGeneratorWriter(type);
+            }
+            if (type instanceof VarbinaryType) {
+                return new VarbinaryJsonGeneratorWriter(type);
             }
             if (type instanceof JsonType) {
                 return new JsonJsonGeneratorWriter();
@@ -490,6 +496,30 @@ public final class JsonUtil
             else {
                 Slice value = type.getSlice(block, position);
                 jsonGenerator.writeString(value.toStringUtf8());
+            }
+        }
+    }
+
+    private static class VarbinaryJsonGeneratorWriter
+            implements JsonGeneratorWriter
+    {
+        private final Type type;
+
+        public VarbinaryJsonGeneratorWriter(Type type)
+        {
+            this.type = type;
+        }
+
+        @Override
+        public void writeJsonValue(JsonGenerator jsonGenerator, Block block, int position)
+                throws IOException
+        {
+            if (block.isNull(position)) {
+                jsonGenerator.writeNull();
+            }
+            else {
+                Slice value = type.getSlice(block, position);
+                jsonGenerator.writeString(Base64.getEncoder().encodeToString(value.byteArray()));
             }
         }
     }

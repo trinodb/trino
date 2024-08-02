@@ -28,6 +28,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.util.JsonCastException;
 
 import java.io.IOException;
+import java.util.Base64;
 
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -41,6 +42,7 @@ import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.StandardTypes.REAL;
 import static io.trino.spi.type.StandardTypes.SMALLINT;
 import static io.trino.spi.type.StandardTypes.TINYINT;
+import static io.trino.spi.type.StandardTypes.VARBINARY;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.util.DateTimeUtils.printDate;
 import static io.trino.util.Failures.checkCondition;
@@ -222,6 +224,22 @@ public final class JsonOperators
             SliceOutput output = new DynamicSliceOutput(value.length() + 2);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeString(value.toStringUtf8());
+            }
+            return output.slice();
+        }
+        catch (IOException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value.toStringUtf8(), JSON));
+        }
+    }
+
+    @ScalarOperator(CAST)
+    @SqlType(JSON)
+    public static Slice castFromVarbinary(@SqlType(VARBINARY) Slice value)
+    {
+        try {
+            SliceOutput output = new DynamicSliceOutput(value.length() + 2);
+            try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
+                jsonGenerator.writeString(Base64.getEncoder().encodeToString(value.byteArray()));
             }
             return output.slice();
         }
