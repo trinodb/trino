@@ -72,6 +72,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
 import static io.trino.spi.security.AccessDeniedException.denyDropTable;
 import static io.trino.spi.security.AccessDeniedException.denyDropView;
 import static io.trino.spi.security.AccessDeniedException.denyExecuteProcedure;
+import static io.trino.spi.security.AccessDeniedException.denyExecuteTableProcedure;
 import static io.trino.spi.security.AccessDeniedException.denyGrantRoles;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
@@ -114,6 +115,7 @@ public class FileBasedAccessControl
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
     private final List<FunctionAccessControlRule> functionRules;
     private final List<ProcedureAccessControlRule> procedureRules;
+    private final List<TableProcedureAccessControlRule> tableProcedureRules;
     private final List<AuthorizationRule> authorizationRules;
     private final Set<AnySchemaPermissionsRule> anySchemaPermissionsRules;
 
@@ -128,6 +130,7 @@ public class FileBasedAccessControl
         this.sessionPropertyRules = rules.getSessionPropertyRules();
         this.functionRules = rules.getFunctionRules();
         this.procedureRules = rules.getProcedureRules();
+        this.tableProcedureRules = rules.getTableProcedureRules();
         this.authorizationRules = rules.getAuthorizationRules();
         ImmutableSet.Builder<AnySchemaPermissionsRule> anySchemaPermissionsRules = ImmutableSet.builder();
         schemaRules.stream()
@@ -650,8 +653,17 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
+    public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String tableProcedure)
     {
+        ConnectorIdentity identity = context.getIdentity();
+        boolean allowed = tableProcedureRules.stream()
+                .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), tableProcedure))
+                .findFirst()
+                .filter(TableProcedureAccessControlRule::canExecuteTableProcedure)
+                .isPresent();
+        if (!allowed) {
+            denyExecuteTableProcedure(tableName.toString(), tableProcedure);
+        }
     }
 
     @Override

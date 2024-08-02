@@ -28,6 +28,7 @@ public class AccessControlRules
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
     private final List<FunctionAccessControlRule> functionRules;
     private final List<ProcedureAccessControlRule> procedureRules;
+    private final List<TableProcedureAccessControlRule> tableProcedureRules;
     private final List<AuthorizationRule> authorizationRules;
 
     @JsonCreator
@@ -37,6 +38,7 @@ public class AccessControlRules
             @JsonProperty("session_properties") @JsonAlias("sessionProperties") Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules,
             @JsonProperty("functions") Optional<List<FunctionAccessControlRule>> functionRules,
             @JsonProperty("procedures") Optional<List<ProcedureAccessControlRule>> procedureRules,
+            @JsonProperty("table_procedures") Optional<List<TableProcedureAccessControlRule>> tableProcedureRules,
             @JsonProperty("authorization") Optional<List<AuthorizationRule>> authorizationRules)
     {
         this.schemaRules = schemaRules.orElse(ImmutableList.of(SchemaAccessControlRule.ALLOW_ALL));
@@ -46,6 +48,8 @@ public class AccessControlRules
         this.functionRules = functionRules.orElse(ImmutableList.of());
         // procedures are not allowed by default
         this.procedureRules = procedureRules.orElse(ImmutableList.of());
+        // table procedures are not allowed by default
+        this.tableProcedureRules = tableProcedureRules.orElse(ImmutableList.of());
         this.authorizationRules = authorizationRules.orElse(ImmutableList.of());
     }
 
@@ -74,6 +78,11 @@ public class AccessControlRules
         return procedureRules;
     }
 
+    public List<TableProcedureAccessControlRule> getTableProcedureRules()
+    {
+        return tableProcedureRules;
+    }
+
     public List<AuthorizationRule> getAuthorizationRules()
     {
         return authorizationRules;
@@ -86,6 +95,7 @@ public class AccessControlRules
                 sessionPropertyRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent()) ||
                 functionRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent()) ||
                 procedureRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent()) ||
+                tableProcedureRules.stream().anyMatch(rule -> rule.getRoleRegex().isPresent()) ||
                 authorizationRules.stream().anyMatch(rule -> rule.getOriginalRolePattern().isPresent()) ||
                 authorizationRules.stream().anyMatch(rule -> rule.getNewRolePattern().isPresent());
     }
