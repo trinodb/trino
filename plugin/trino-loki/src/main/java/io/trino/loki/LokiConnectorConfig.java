@@ -38,7 +38,7 @@ public class LokiConnectorConfig {
 
     @Config("loki.uri")
     @ConfigDescription("Loki query endpoint") // TODO: decide if with or without /loki/api/v1/query
-    public LokiConnectorConfig setPrometheusURI(URI lokiURI)
+    public LokiConnectorConfig setLokiURI(URI lokiURI)
     {
         this.lokiURI = lokiURI;
         return this;
