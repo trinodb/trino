@@ -15,6 +15,7 @@ package io.trino.loki;
 
 import io.airlift.http.client.HttpUriBuilder;
 import io.trino.spi.TrinoException;
+import jakarta.inject.Inject;
 import okhttp3.*;
 
 import java.io.IOException;
@@ -32,6 +33,7 @@ public class LokiClient {
     private final OkHttpClient httpClient;
     private final URI lokiEndpoint;
 
+    @Inject
     public LokiClient(LokiConnectorConfig config) {
         this.lokiEndpoint = config.getLokiURI();
 
