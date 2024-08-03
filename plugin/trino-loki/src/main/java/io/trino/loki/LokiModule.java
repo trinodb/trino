@@ -16,7 +16,9 @@ package io.trino.loki;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class LokiModule implements Module {
@@ -27,6 +29,7 @@ public class LokiModule implements Module {
         binder.bind(LokiClient.class).in(Scopes.SINGLETON);
         binder.bind(LokiSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(LokiRecordSetProvider.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(LokiTableFunctionProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(LokiConnectorConfig.class);
     }
 }
