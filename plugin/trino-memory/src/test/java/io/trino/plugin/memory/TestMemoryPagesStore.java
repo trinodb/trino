@@ -16,6 +16,7 @@ package io.trino.plugin.memory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import io.trino.plugin.memory.MemoryInsertTableHandle.InsertMode;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -165,7 +166,7 @@ public class TestMemoryPagesStore
 
     private static ConnectorInsertTableHandle createMemoryInsertTableHandle(long tableId, Long[] activeTableIds)
     {
-        return new MemoryInsertTableHandle(tableId, ImmutableSet.copyOf(activeTableIds));
+        return new MemoryInsertTableHandle(tableId, InsertMode.APPEND, ImmutableSet.copyOf(activeTableIds));
     }
 
     private static Page createPage()

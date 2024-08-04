@@ -20,11 +20,17 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public record MemoryInsertTableHandle(long table, Set<Long> activeTableIds)
+public record MemoryInsertTableHandle(long table, InsertMode mode, Set<Long> activeTableIds)
         implements ConnectorInsertTableHandle
 {
+    public enum InsertMode
+    {
+        APPEND, OVERWRITE
+    }
+
     public MemoryInsertTableHandle
     {
+        requireNonNull(mode, "mode is null");
         activeTableIds = ImmutableSet.copyOf(requireNonNull(activeTableIds, "activeTableIds is null"));
     }
 }
