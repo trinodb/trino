@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
+import io.trino.plugin.memory.MemoryInsertTableHandle.InsertMode;
 import io.trino.spi.HostAddress;
 import io.trino.spi.NodeManager;
 import io.trino.spi.Page;
@@ -74,6 +75,10 @@ public class MemoryPageSinkProvider
         MemoryInsertTableHandle memoryInsertTableHandle = (MemoryInsertTableHandle) insertTableHandle;
         long tableId = memoryInsertTableHandle.table();
         checkState(memoryInsertTableHandle.activeTableIds().contains(tableId));
+
+        if (memoryInsertTableHandle.mode() == InsertMode.OVERWRITE) {
+            pagesStore.purge(tableId);
+        }
 
         pagesStore.cleanUp(memoryInsertTableHandle.activeTableIds());
         pagesStore.initialize(tableId);

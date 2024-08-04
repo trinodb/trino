@@ -134,6 +134,11 @@ public class MemoryPagesStore
         return tables.containsKey(tableId);
     }
 
+    public synchronized void purge(long tableId)
+    {
+        tables.remove(tableId);
+    }
+
     public synchronized void cleanUp(Set<Long> activeTableIds)
     {
         // We have to remember that there might be some race conditions when there are two tables created at once.
