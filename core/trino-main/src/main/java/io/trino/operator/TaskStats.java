@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -553,6 +554,14 @@ public class TaskStats
     public Duration getFullGcTime()
     {
         return fullGcTime;
+    }
+
+    public DataSize getSpilledDataSize()
+    {
+        return succinctBytes(pipelines.stream()
+                .flatMap(pipeline -> pipeline.getOperatorSummaries().stream())
+                .mapToLong(stats -> stats.getSpilledDataSize().toBytes())
+                .sum());
     }
 
     public TaskStats summarize()
