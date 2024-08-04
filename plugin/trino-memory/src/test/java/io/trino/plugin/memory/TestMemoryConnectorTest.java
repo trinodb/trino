@@ -605,6 +605,19 @@ public class TestMemoryConnectorTest
         assertUpdate("DROP SCHEMA test_different_schema");
     }
 
+    @Test
+    void testInsertAfterTruncate()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_truncate", "AS SELECT 1 x")) {
+            assertUpdate("TRUNCATE TABLE " + table.getName());
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES 2");
+        }
+    }
+
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
