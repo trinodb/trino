@@ -165,6 +165,14 @@ export class QueryListItem extends React.Component {
                         </div>
                         <div className="row stat-row">
                             <div className="col-xs-12">
+                                <span data-toggle="tooltip" data-placement="right" title="Client Info">
+                                    <span className="glyphicon glyphicon-info-sign" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
+                                    <span>{truncateString(query.sessionClientInfo, 35)}</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div className="row stat-row">
+                            <div className="col-xs-12">
                                 <span data-toggle="tooltip" data-placement="right" title="Resource Group">
                                     <span className="glyphicon glyphicon-road" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
                                     <span>{truncateString(query.resourceGroupId ? query.resourceGroupId.join(".") : "n/a", 35)}</span>
@@ -187,7 +195,7 @@ export class QueryListItem extends React.Component {
                                 <div className="progress">
                                     <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0"
                                          aria-valuemax="100" style={progressBarStyle}>
-                                        {getProgressBarTitle(query, true)}
+                                    {getProgressBarTitle(query, true)}
                                     </div>
                                 </div>
                             </div>
@@ -317,6 +325,10 @@ export class QueryList extends React.Component {
                 }
 
                 if (query.sessionSource && query.sessionSource.toLowerCase().indexOf(term) !== -1) {
+                    return true;
+                }
+
+                if (query.sessionClientInfo && query.sessionClientInfo.toLowerCase().indexOf(term) !== -1) {
                     return true;
                 }
 

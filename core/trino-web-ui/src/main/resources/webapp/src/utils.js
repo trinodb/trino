@@ -339,6 +339,13 @@ export function computeRate(count: number, ms: number): number {
     return (count / ms) * 1000.0;
 }
 
+export function computedStdDev(sumSquared: number, sum: number, n: number): number {
+    const average = sum / n;
+    const variance = (sumSquared - 2 * sum * average + average * average * n) / n;
+    // variance might be negative because of numeric inaccuracy, therefore we need to use max
+    return Math.sqrt(Math.max(variance, 0));
+}
+
 export function precisionRound(n: number): string {
     if (n === undefined){
         return "n/a";
@@ -486,7 +493,7 @@ export function parseDuration(value: string): ?number {
 
     const match = DURATION_PATTERN.exec(value);
     if (match === null) {
-        return null;
+        return NaN;
     }
     const number = parseFloat(match[1]);
     switch (match[2]) {
@@ -505,7 +512,7 @@ export function parseDuration(value: string): ?number {
         case "d":
             return number * 1000 * 60 * 60 * 24;
         default:
-            return null;
+            return NaN;
     }
 }
 
