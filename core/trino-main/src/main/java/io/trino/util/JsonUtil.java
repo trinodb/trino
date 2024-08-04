@@ -519,7 +519,9 @@ public final class JsonUtil
             }
             else {
                 Slice value = type.getSlice(block, position);
-                jsonGenerator.writeString(Base64.getEncoder().encodeToString(value.byteArray()));
+                byte[] currentValue = new byte[value.length()];
+                System.arraycopy(value.byteArray(), value.byteArrayOffset(), currentValue, 0, value.length());
+                jsonGenerator.writeString(Base64.getEncoder().encodeToString(currentValue));
             }
         }
     }
