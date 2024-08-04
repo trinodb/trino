@@ -18,17 +18,11 @@ import ReactDOMServer from 'react-dom/server'
 import * as dagreD3 from 'dagre-d3'
 import * as d3 from 'd3'
 
-import {
-    formatRows,
-    getStageStateColor,
-    initializeGraph,
-    initializeSvg,
-    parseAndFormatDataSize,
-    truncateString,
-} from '../utils'
-import { QueryHeader } from './QueryHeader'
+import {formatRows, getStageStateColor, initializeGraph, initializeSvg, parseAndFormatDataSize, truncateString, precisionRound, parseDuration, formatPercentage, bracketedString} from "../utils";
+import {QueryHeader} from "./QueryHeader";
 
 type StageStatisticsProps = {
+    query: any,
     stage: any,
 }
 type StageStatisticsState = {}
@@ -82,31 +76,42 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
         })
     }
 
-    render(): any {
-        const stage = this.props.stage
-        const stats = this.props.stage.stageStats
+    render() : any {
+        const query = this.props.query;
+        const stage = this.props.stage;
+        const stats = this.props.stage.stageStats;
+
+        const totalCpuTime = parseDuration(stats?.totalCpuTime);
+        const queryTotalCpuTime = parseDuration(query?.queryStats.totalCpuTime);
+        const totalScheduledTime = parseDuration(stats?.totalScheduledTime);
+        const queryTotalScheduledTime = parseDuration(query?.queryStats.totalScheduledTime);
+
+        const cpuTimePercent = totalCpuTime && queryTotalCpuTime
+                ? 100.0 * totalCpuTime / queryTotalCpuTime
+                : 0;
+        const scheduledTimePercent = totalScheduledTime && queryTotalScheduledTime
+                ? 100.0 * totalScheduledTime / queryTotalScheduledTime
+                : 0;
+
         return (
             <div>
                 <div>
                     <h3 className="margin-top: 0">Stage {stage.id}</h3>
                     {stage.state}
-                    <hr />
-                    CPU: {stats.totalCpuTime}
-                    <br />
-                    Buffered: {parseAndFormatDataSize(stats.bufferedDataSize)}
-                    <br />
-                    {stats.fullyBlocked ? (
-                        <div style={{ color: '#ff0000' }}>Blocked: {stats.totalBlockedTime} </div>
-                    ) : (
+                    <hr/>
+                    Scheduled: {stats.totalScheduledTime + bracketedString(formatPercentage(precisionRound(scheduledTimePercent))) }<br />
+                    CPU: {stats.totalCpuTime + bracketedString(formatPercentage(precisionRound(cpuTimePercent)))}<br />
+                    Buffered: {parseAndFormatDataSize(stats.bufferedDataSize)}<br />
+                    {stats.fullyBlocked ?
+                        <div style={{color: '#ff0000'}}>Blocked: {stats.totalBlockedTime} </div> :
                         <div>Blocked: {stats.totalBlockedTime} </div>
-                    )}
-                    Memory: {parseAndFormatDataSize(stats.userMemoryReservation)}
-                    <br />
-                    Splits:{' '}
-                    {'Q:' + stats.queuedDrivers + ', R:' + stats.runningDrivers + ', F:' + stats.completedDrivers}
-                    <hr />
-                    Input:{' '}
-                    {parseAndFormatDataSize(stats.rawInputDataSize) + ' / ' + formatRows(stats.rawInputPositions)}
+                    }
+                    User Memory: {parseAndFormatDataSize(stats.userMemoryReservation)}<br />
+                    Revocable Memory: {parseAndFormatDataSize(stats.revocableMemoryReservation)}
+                    <br/>
+                    Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers}
+                    <hr/>
+                    Input: {parseAndFormatDataSize(stats.rawInputDataSize) + " / " + formatRows(stats.rawInputPositions)}
                 </div>
             </div>
         )
@@ -238,7 +243,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         })
 
         // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
-        const html = ReactDOMServer.renderToString(<StageStatistics key={stage.id} stage={stage} />)
+        const html = ReactDOMServer.renderToString(<StageStatistics key={stage.id} stage={stage} query={this.state.query}/>);
 
         graph.setNode(stageRootNodeId, {
             class: 'stage-stats',

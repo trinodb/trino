@@ -173,24 +173,11 @@ export class QueryListItem extends React.Component {
                 <div className="row">
                     <div className="col-xs-4">
                         <div className="row stat-row query-header query-header-queryid">
-                            <div
-                                className="col-xs-9"
-                                data-toggle="tooltip"
-                                data-placement="bottom"
-                                data-trigger="hover"
-                                title="Query ID"
-                            >
-                                <a href={'query.html?' + query.queryId} target="_blank">
-                                    {query.queryId}
-                                </a>
+                            <div className="col-xs-9" data-toggle="tooltip" data-placement="bottom" data-trigger="hover"
+                                 title="Query ID"><a href={"query.html?" + query.queryId} target="_blank">{query.queryId}</a>
                             </div>
-                            <div
-                                className="col-xs-3 query-header-timestamp"
-                                data-toggle="tooltip"
-                                data-placement="bottom"
-                                title="Submit time"
-                            >
-                                <span>{formatShortTime(new Date(Date.parse(query.queryStats.createTime)))}</span>
+                            <div className="col-xs-3 query-header-timestamp" data-toggle="tooltip"
+                                 data-placement="bottom" title="Submit time"><span>{formatShortTime(new Date(Date.parse(query.queryStats.createTime)))}</span>
                             </div>
                         </div>
                         <div className="row stat-row">
@@ -208,6 +195,14 @@ export class QueryListItem extends React.Component {
                                     <span className="glyphicon glyphicon-log-in" style={GLYPHICON_DEFAULT} />
                                     &nbsp;&nbsp;
                                     <span>{truncateString(query.sessionSource, 35)}</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div className="row stat-row">
+                            <div className="col-xs-12">
+                                <span data-toggle="tooltip" data-placement="right" title="Client Info">
+                                    <span className="glyphicon glyphicon-info-sign" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
+                                    <span>{truncateString(query.sessionClientInfo, 35)}</span>
                                 </span>
                             </div>
                         </div>
@@ -233,15 +228,9 @@ export class QueryListItem extends React.Component {
                         <div className="row query-header">
                             <div className="col-xs-12 query-progress-container">
                                 <div className="progress">
-                                    <div
-                                        className="progress-bar progress-bar-info"
-                                        role="progressbar"
-                                        aria-valuenow={getProgressBarPercentage(query)}
-                                        aria-valuemin="0"
-                                        aria-valuemax="100"
-                                        style={progressBarStyle}
-                                    >
-                                        {getProgressBarTitle(query, true)}
+                                    <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={getProgressBarPercentage(query)} aria-valuemin="0"
+                                         aria-valuemax="100" style={progressBarStyle}>
+                                    {getProgressBarTitle(query, true)}
                                     </div>
                                 </div>
                             </div>
@@ -403,8 +392,12 @@ export class QueryList extends React.Component {
                     return true
                 }
 
-                if (query.resourceGroupId && query.resourceGroupId.join('.').toLowerCase().indexOf(term) !== -1) {
-                    return true
+                if (query.sessionClientInfo && query.sessionClientInfo.toLowerCase().indexOf(term) !== -1) {
+                    return true;
+                }
+
+                if (query.resourceGroupId && query.resourceGroupId.join(".").toLowerCase().indexOf(term) !== -1) {
+                    return true;
                 }
 
                 if (

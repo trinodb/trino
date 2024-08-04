@@ -36,8 +36,10 @@ import {
     parseDataSize,
     parseDuration,
     precisionRound,
-} from '../utils'
-import { QueryHeader } from './QueryHeader'
+    bracketedString,
+    formatPercentage
+} from "../utils";
+import {QueryHeader} from "./QueryHeader";
 
 const Table = Reactable.Table,
     Thead = Reactable.Thead,
@@ -168,6 +170,9 @@ class TaskList extends React.Component {
                     <Td column="elapsedTime" value={parseDuration(task.stats.elapsedTime)}>
                         {task.stats.elapsedTime}
                     </Td>
+                    <Td column="scheduledTime" value={parseDuration(task.stats.totalScheduledTime)}>
+                        {task.stats.totalScheduledTime}
+                    </Td>
                     <Td column="cpuTime" value={parseDuration(task.stats.totalCpuTime)}>
                         {task.stats.totalCpuTime}
                     </Td>
@@ -180,11 +185,17 @@ class TaskList extends React.Component {
                     <Td column="peakMemory" value={parseDataSize(task.stats.peakUserMemoryReservation)}>
                         {parseAndFormatDataSize(task.stats.peakUserMemoryReservation)}
                     </Td>
-                    {taskRetriesEnabled && (
-                        <Td column="estimatedMemory" value={parseDataSize(task.estimatedMemory)}>
-                            {parseAndFormatDataSize(task.estimatedMemory)}
-                        </Td>
-                    )}
+                    <Td column="revocableMemory" value={parseDataSize(task.stats.revocableMemoryReservation)}>
+                        {parseAndFormatDataSize(task.stats.revocableMemoryReservation)}
+                    </Td>
+                    <Td column="spilledData" value={parseDataSize(task.stats.spilledDataSize)}>
+                        {parseAndFormatDataSize(task.stats.spilledDataSize)}
+                    </Td>
+                    {taskRetriesEnabled &&
+                    <Td column="estimatedMemory" value={parseDataSize(task.estimatedMemory)}>
+                        {parseAndFormatDataSize(task.estimatedMemory)}
+                    </Td>
+                    }
                 </Tr>
             )
         })
@@ -209,63 +220,43 @@ class TaskList extends React.Component {
                     'bytes',
                     'bytesSec',
                     'elapsedTime',
+                    'scheduledTime',
                     'cpuTime',
                     'bufferedBytes',
                     'memory',
                     'peakMemory',
+                    'revocableMemory',
+                    'spilledData',
                     'estimatedMemory',
                 ]}
                 defaultSort={{ column: 'id', direction: 'asc' }}
             >
                 <Thead>
-                    <Th column="id">ID</Th>
-                    <Th column="host">Host</Th>
-                    <Th column="state">State</Th>
-                    <Th column="splitsPending">
-                        <span
-                            className="glyphicon glyphicon-pause"
-                            style={GLYPHICON_HIGHLIGHT}
-                            data-toggle="tooltip"
-                            data-placement="top"
-                            title="Pending splits"
-                        />
-                    </Th>
-                    <Th column="splitsRunning">
-                        <span
-                            className="glyphicon glyphicon-play"
-                            style={GLYPHICON_HIGHLIGHT}
-                            data-toggle="tooltip"
-                            data-placement="top"
-                            title="Running splits"
-                        />
-                    </Th>
-                    <Th column="splitsBlocked">
-                        <span
-                            className="glyphicon glyphicon-bookmark"
-                            style={GLYPHICON_HIGHLIGHT}
-                            data-toggle="tooltip"
-                            data-placement="top"
-                            title="Blocked splits"
-                        />
-                    </Th>
-                    <Th column="splitsDone">
-                        <span
-                            className="glyphicon glyphicon-ok"
-                            style={GLYPHICON_HIGHLIGHT}
-                            data-toggle="tooltip"
-                            data-placement="top"
-                            title="Completed splits"
-                        />
-                    </Th>
-                    <Th column="rows">Rows</Th>
-                    <Th column="rowsSec">Rows/s</Th>
-                    <Th column="bytes">Bytes</Th>
-                    <Th column="bytesSec">Bytes/s</Th>
-                    <Th column="elapsedTime">Elapsed</Th>
-                    <Th column="cpuTime">CPU Time</Th>
-                    <Th column="memory">Mem</Th>
-                    <Th column="peakMemory">Peak Mem</Th>
-                    {taskRetriesEnabled && <Th column="estimatedMemory">Est Mem</Th>}
+                <Th column="id">ID</Th>
+                <Th column="host">Host</Th>
+                <Th column="state">State</Th>
+                <Th column="splitsPending"><span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top"
+                                                 title="Pending splits"/></Th>
+                <Th column="splitsRunning"><span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top"
+                                                 title="Running splits"/></Th>
+                <Th column="splitsBlocked"><span className="glyphicon glyphicon-bookmark" style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top"
+                                                 title="Blocked splits"/></Th>
+                <Th column="splitsDone"><span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top"
+                                              title="Completed splits"/></Th>
+                <Th column="rows">Rows</Th>
+                <Th column="rowsSec">Rows/s</Th>
+                <Th column="bytes">Bytes</Th>
+                <Th column="bytesSec">Bytes/s</Th>
+                <Th column="elapsedTime">Elapsed</Th>
+                <Th column="scheduledTime">Scheduled</Th>
+                <Th column="cpuTime">CPU Time</Th>
+                <Th column="memory">Mem</Th>
+                <Th column="peakMemory">Peak Mem</Th>
+                <Th column="revocableMemory">Revocable Mem</Th>
+                <Th column="spilledData">Spilled Data</Th>
+                {taskRetriesEnabled &&
+                <Th column="estimatedMemory">Est Mem</Th>
+                }
                 </Thead>
                 {renderedTasks}
             </Table>
@@ -369,16 +360,18 @@ class StageSummary extends React.Component {
             (taskA, taskB) => getTaskNumber(taskA.taskStatus.taskId) - getTaskNumber(taskB.taskStatus.taskId)
         )
 
-        const scheduledTimes = stage.tasks.map((task) => parseDuration(task.stats.totalScheduledTime))
-        const cpuTimes = stage.tasks.map((task) => parseDuration(task.stats.totalCpuTime))
+        const scheduledTimes = stage.tasks.map(task => parseDuration(task.stats.totalScheduledTime));
+        const cpuTimes = stage.tasks.map(task => parseDuration(task.stats.totalCpuTime));
+        const physicalInputDataSizes = stage.tasks.map(task => parseDataSize(task.stats.physicalInputDataSize))
 
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
         if (this.state.lastRender === null || Date.now() - this.state.lastRender >= 1000) {
             const renderTimestamp = Date.now()
             const stageId = getStageNumber(stage.stageId)
 
-            StageSummary.renderHistogram('#scheduled-time-histogram-' + stageId, scheduledTimes, formatDuration)
-            StageSummary.renderHistogram('#cpu-time-histogram-' + stageId, cpuTimes, formatDuration)
+            StageSummary.renderHistogram('#scheduled-time-histogram-' + stageId, scheduledTimes, formatDuration);
+            StageSummary.renderHistogram('#cpu-time-histogram-' + stageId, cpuTimes, formatDuration);
+            StageSummary.renderHistogram('#physical-input-data-size-histogram-' + stageId, physicalInputDataSizes, formatDataSize)
 
             if (this.state.expanded) {
                 // this needs to be a string otherwise it will also be passed to numberFormatter
@@ -392,18 +385,9 @@ class StageSummary extends React.Component {
                     tooltipValueLookups: tooltipValueLookups,
                 })
 
-                $('#scheduled-time-bar-chart-' + stageId).sparkline(
-                    scheduledTimes,
-                    $.extend({}, stageBarChartProperties, {
-                        numberFormatter: formatDuration,
-                    })
-                )
-                $('#cpu-time-bar-chart-' + stageId).sparkline(
-                    cpuTimes,
-                    $.extend({}, stageBarChartProperties, {
-                        numberFormatter: formatDuration,
-                    })
-                )
+                $('#scheduled-time-bar-chart-' + stageId).sparkline(scheduledTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
+                $('#cpu-time-bar-chart-' + stageId).sparkline(cpuTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
+                $('#physical-input-data-size-bar-chart-' + stageId).sparkline(physicalInputDataSizes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDataSize}));
             }
 
             this.setState({
@@ -481,8 +465,9 @@ class StageSummary extends React.Component {
     }
 
     render() {
-        const stage = this.props.stage
-        const taskRetriesEnabled = this.props.taskRetriesEnabled
+        const query = this.props.query;
+        const stage = this.props.stage;
+        const taskRetriesEnabled = this.props.taskRetriesEnabled;
 
         if (stage === undefined || !stage.hasOwnProperty('plan')) {
             return (
@@ -496,7 +481,10 @@ class StageSummary extends React.Component {
             .map((task) => task.outputBuffers.totalBufferedBytes)
             .reduce((a, b) => a + b, 0)
 
-        const stageId = getStageNumber(stage.stageId)
+        const cpuTimePercent = 100.0 * parseDuration(stage?.stageStats.totalCpuTime) / parseDuration(query?.queryStats.totalCpuTime);
+        const scheduledTimePercent = 100.0 * parseDuration(stage?.stageStats.totalScheduledTime) / parseDuration(query?.queryStats.totalScheduledTime);
+
+        const stageId = getStageNumber(stage.stageId);
 
         return (
             <tr>
@@ -508,248 +496,328 @@ class StageSummary extends React.Component {
                 <td>
                     <table className="table single-stage-table">
                         <tbody>
-                            <tr>
-                                <td>
-                                    <table className="stage-table stage-table-time">
-                                        <thead>
-                                            <tr>
-                                                <th className="stage-table-stat-title stage-table-stat-header">Time</th>
-                                                <th />
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td className="stage-table-stat-title">Scheduled</td>
-                                                <td className="stage-table-stat-text">
-                                                    {stage.stageStats.totalScheduledTime}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="stage-table-stat-title">Blocked</td>
-                                                <td className="stage-table-stat-text">
-                                                    {stage.stageStats.totalBlockedTime}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="stage-table-stat-title">CPU</td>
-                                                <td className="stage-table-stat-text">
-                                                    {stage.stageStats.totalCpuTime}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="stage-table-stat-title">Failed</td>
-                                                <td className="stage-table-stat-text">
-                                                    {stage.stageStats.failedScheduledTime}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="stage-table-stat-title">CPU Failed</td>
-                                                <td className="stage-table-stat-text">
-                                                    {stage.stageStats.failedCpuTime}
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </td>
-                                <td>
-                                    <table className="stage-table stage-table-memory">
-                                        <thead>
-                                            <tr>
-                                                <th className="stage-table-stat-title stage-table-stat-header">
-                                                    Memory
-                                                </th>
-                                                <th />
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td className="stage-table-stat-title">Cumulative</td>
-                                                <td className="stage-table-stat-text">
-                                                    {formatDataSizeBytes(stage.stageStats.cumulativeUserMemory / 1000)}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="stage-table-stat-title">Current</td>
-                                                <td className="stage-table-stat-text">
-                                                    {parseAndFormatDataSize(stage.stageStats.userMemoryReservation)}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="stage-table-stat-title">Buffers</td>
-                                                <td className="stage-table-stat-text">
-                                                    {formatDataSize(totalBufferedBytes)}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="stage-table-stat-title">Peak</td>
-                                                <td className="stage-table-stat-text">
-                                                    {parseAndFormatDataSize(stage.stageStats.peakUserMemoryReservation)}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="stage-table-stat-title">Failed</td>
-                                                <td className="stage-table-stat-text">
-                                                    {formatDataSizeBytes(
-                                                        stage.stageStats.failedCumulativeUserMemory / 1000
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </td>
-                                <td>
-                                    <table className="stage-table stage-table-tasks">
-                                        <thead>
-                                            <tr>
-                                                <th className="stage-table-stat-title stage-table-stat-header">
-                                                    Tasks
-                                                </th>
-                                                <th />
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td className="stage-table-stat-title">Pending</td>
-                                                <td className="stage-table-stat-text">
-                                                    {
-                                                        stage.tasks.filter(
-                                                            (task) => task.taskStatus.state === 'PLANNED'
-                                                        ).length
-                                                    }
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="stage-table-stat-title">Running</td>
-                                                <td className="stage-table-stat-text">
-                                                    {
-                                                        stage.tasks.filter(
-                                                            (task) => task.taskStatus.state === 'RUNNING'
-                                                        ).length
-                                                    }
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="stage-table-stat-title">Blocked</td>
-                                                <td className="stage-table-stat-text">
-                                                    {stage.tasks.filter((task) => task.stats.fullyBlocked).length}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="stage-table-stat-title">Failed</td>
-                                                <td className="stage-table-stat-text">
-                                                    {
-                                                        stage.tasks.filter((task) => task.taskStatus.state === 'FAILED')
-                                                            .length
-                                                    }
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td className="stage-table-stat-title">Total</td>
-                                                <td className="stage-table-stat-text">{stage.tasks.length}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </td>
-                                <td>
-                                    <table className="stage-table histogram-table">
-                                        <thead>
-                                            <tr>
-                                                <th className="stage-table-stat-title stage-table-chart-header">
-                                                    Scheduled Time Skew
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td className="histogram-container">
-                                                    <span
-                                                        className="histogram"
-                                                        id={'scheduled-time-histogram-' + stageId}
-                                                    >
-                                                        <div className="loader" />
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </td>
-                                <td>
-                                    <table className="stage-table histogram-table">
-                                        <thead>
-                                            <tr>
-                                                <th className="stage-table-stat-title stage-table-chart-header">
-                                                    CPU Time Skew
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td className="histogram-container">
-                                                    <span className="histogram" id={'cpu-time-histogram-' + stageId}>
-                                                        <div className="loader" />
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </td>
-                                <td className="expand-charts-container">
-                                    <a onClick={this.toggleExpanded.bind(this)} className="expand-charts-button">
-                                        <span
-                                            className={'glyphicon ' + this.getExpandedIcon()}
-                                            style={GLYPHICON_HIGHLIGHT}
-                                            data-toggle="tooltip"
-                                            data-placement="top"
-                                            title="More"
-                                        />
-                                    </a>
-                                </td>
-                            </tr>
-                            <tr style={this.getExpandedStyle()}>
-                                <td colSpan="6">
-                                    <table className="expanded-chart">
-                                        <tbody>
-                                            <tr>
-                                                <td className="stage-table-stat-title expanded-chart-title">
-                                                    Task Scheduled Time
-                                                </td>
-                                                <td className="bar-chart-container">
-                                                    <span
-                                                        className="bar-chart"
-                                                        id={'scheduled-time-bar-chart-' + stageId}
-                                                    >
-                                                        <div className="loader" />
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </td>
-                            </tr>
-                            <tr style={this.getExpandedStyle()}>
-                                <td colSpan="6">
-                                    <table className="expanded-chart">
-                                        <tbody>
-                                            <tr>
-                                                <td className="stage-table-stat-title expanded-chart-title">
-                                                    Task CPU Time
-                                                </td>
-                                                <td className="bar-chart-container">
-                                                    <span className="bar-chart" id={'cpu-time-bar-chart-' + stageId}>
-                                                        <div className="loader" />
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </td>
-                            </tr>
-                            <tr style={this.getExpandedStyle()}>
-                                <td colSpan="6">{this.renderTaskFilter()}</td>
-                            </tr>
-                            <tr style={this.getExpandedStyle()}>
-                                <td colSpan="6">{this.renderTaskList(taskRetriesEnabled)}</td>
-                            </tr>
+                        <tr>
+                            <td>
+                                <table className="stage-table stage-table-time">
+                                    <thead>
+                                    <tr>
+                                        <th className="stage-table-stat-title stage-table-stat-header">
+                                            Time
+                                        </th>
+                                        <th/>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Scheduled
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.stageStats.totalScheduledTime + bracketedString(formatPercentage(precisionRound(scheduledTimePercent)))}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Blocked
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.stageStats.totalBlockedTime}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            CPU
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.stageStats.totalCpuTime + bracketedString(formatPercentage(precisionRound(cpuTimePercent)))}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Failed
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.stageStats.failedScheduledTime}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            CPU Failed
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.stageStats.failedCpuTime}
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                            <td>
+                                <table className="stage-table stage-table-memory">
+                                    <thead>
+                                    <tr>
+                                        <th className="stage-table-stat-title stage-table-stat-header">
+                                            Memory
+                                        </th>
+                                        <th/>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Cumulative
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {formatDataSizeBytes(stage.stageStats.cumulativeUserMemory / 1000)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            User
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {parseAndFormatDataSize(stage.stageStats.userMemoryReservation)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Revocable
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {parseAndFormatDataSize(stage.stageStats.revocableMemoryReservation)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Buffers
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {formatDataSize(totalBufferedBytes)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Peak User
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {parseAndFormatDataSize(stage.stageStats.peakUserMemoryReservation)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Peak Revocable
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {parseAndFormatDataSize(stage.stageStats.peakRevocableMemoryReservation)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Failed
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {formatDataSizeBytes(stage.stageStats.failedCumulativeUserMemory / 1000)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Spilled Data
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {parseAndFormatDataSize(stage.stageStats.spilledDataSize)}
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                            <td>
+                                <table className="stage-table stage-table-tasks">
+                                    <thead>
+                                    <tr>
+                                        <th className="stage-table-stat-title stage-table-stat-header">
+                                            Tasks
+                                        </th>
+                                        <th/>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Pending
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.tasks.filter(task => task.taskStatus.state === "PLANNED").length}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Running
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.tasks.filter(task => task.taskStatus.state === "RUNNING").length}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Blocked
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.tasks.filter(task => task.stats.fullyBlocked).length}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Flushing
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.tasks.filter(task => task.taskStatus.state === "FLUSHING").length}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Finished
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.tasks.filter(task => task.taskStatus.state === "FINISHED").length}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Failed
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.tasks.filter(task => task.taskStatus.state === "FAILED").length}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Total
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.tasks.length}
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                            <td>
+                                <table className="stage-table histogram-table">
+                                    <thead>
+                                    <tr>
+                                        <th className="stage-table-stat-title stage-table-chart-header">
+                                            Scheduled Time Skew
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr>
+                                        <td className="histogram-container">
+                                            <span className="histogram" id={"scheduled-time-histogram-" + stageId}><div className="loader"/></span>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                            <td>
+                                <table className="stage-table histogram-table">
+                                    <thead>
+                                    <tr>
+                                        <th className="stage-table-stat-title stage-table-chart-header">
+                                            CPU Time Skew
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr>
+                                        <td className="histogram-container">
+                                            <span className="histogram" id={"cpu-time-histogram-" + stageId}><div className="loader"/></span>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                            <td>
+                                <table className="stage-table histogram-table">
+                                    <thead>
+                                    <tr>
+                                        <th className="stage-table-stat-title stage-table-chart-header">
+                                            Physical Input Data Skew
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr>
+                                        <td className="histogram-container">
+                                            <span className="histogram" id={"physical-input-data-size-histogram-" + stageId}><div
+                                                    className="loader"/></span>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                            <td className="expand-charts-container">
+                                <a onClick={this.toggleExpanded.bind(this)} className="expand-charts-button">
+                                    <span className={"glyphicon " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top" title="More"/>
+                                </a>
+                            </td>
+                        </tr>
+                        <tr style={this.getExpandedStyle()}>
+                            <td colSpan="6">
+                                <table className="expanded-chart">
+                                    <tbody>
+                                    <tr>
+                                        <td className="stage-table-stat-title expanded-chart-title">
+                                            Task Scheduled Time
+                                        </td>
+                                        <td className="bar-chart-container">
+                                            <span className="bar-chart" id={"scheduled-time-bar-chart-" + stageId}><div className="loader"/></span>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr style={this.getExpandedStyle()}>
+                            <td colSpan="6">
+                                <table className="expanded-chart">
+                                    <tbody>
+                                    <tr>
+                                        <td className="stage-table-stat-title expanded-chart-title">
+                                            Task CPU Time
+                                        </td>
+                                        <td className="bar-chart-container">
+                                            <span className="bar-chart" id={"cpu-time-bar-chart-" + stageId}><div className="loader"/></span>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr style={this.getExpandedStyle()}>
+                            <td colSpan="6">
+                                <table className="expanded-chart">
+                                    <tbody>
+                                    <tr>
+                                        <td className="stage-table-stat-title expanded-chart-title">
+                                            Task Physical Input Data Size
+                                        </td>
+                                        <td className="bar-chart-container">
+                                            <span className="bar-chart" id={"physical-input-data-size-bar-chart-" + stageId}><div className="loader"/></span>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr style={this.getExpandedStyle()}>
+                            <td colSpan="6">
+                                {this.renderTaskFilter()}
+                            </td>
+                        </tr>
+                        <tr style={this.getExpandedStyle()}>
+                            <td colSpan="6">
+                                {this.renderTaskList(taskRetriesEnabled)}
+                            </td>
+                        </tr>
                         </tbody>
                     </table>
                 </td>
@@ -773,15 +841,15 @@ class StageList extends React.Component {
 
         if (stages === undefined || stages.length === 0) {
             return (
-                <div className="row">
-                    <div className="col-xs-12">No stage information available.</div>
-                </div>
-            )
+                    <div className="row">
+                        <div className="col-xs-12">
+                            No stage information available.
+                        </div>
+                    </div>
+            );
         }
 
-        const renderedStages = stages.map((stage) => (
-            <StageSummary key={stage.stageId} stage={stage} taskRetriesEnabled={taskRetriesEnabled} />
-        ))
+        const renderedStages = stages.map(stage => <StageSummary key={stage.stageId} stage={stage} taskRetriesEnabled={taskRetriesEnabled} query={this.props.query}/>);
 
         return (
             <div className="row">
@@ -1142,12 +1210,7 @@ export class QueryDetail extends React.Component {
                 </div>
                 <div className="row">
                     <div className="col-xs-12">
-                        <StageList
-                            key={this.state.query.queryId}
-                            outputStage={this.state.lastSnapshotStage}
-                            taskRetriesEnabled={taskRetriesEnabled}
-                        />
-                    </div>
+                        <StageList key={this.state.query.queryId} outputStage={this.state.lastSnapshotStage} taskRetriesEnabled={taskRetriesEnabled} query={this.state.query}/>                    </div>
                 </div>
             </div>
         )
@@ -1457,194 +1520,243 @@ export class QueryDetail extends React.Component {
                                 <hr className="h3-hr" />
                                 <table className="table">
                                     <tbody>
-                                        <tr>
-                                            <td className="info-title">CPU Time</td>
-                                            <td className="info-text">{query.queryStats.totalCpuTime}</td>
-                                            {taskRetriesEnabled && (
-                                                <td className="info-failed">{query.queryStats.failedCpuTime}</td>
-                                            )}
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Planning CPU Time</td>
-                                            <td className="info-text">{query.queryStats.planningCpuTime}</td>
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Scheduled Time</td>
-                                            <td className="info-text">{query.queryStats.totalScheduledTime}</td>
-                                            {taskRetriesEnabled && (
-                                                <td className="info-failed">{query.queryStats.failedScheduledTime}</td>
-                                            )}
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Input Rows</td>
-                                            <td className="info-text">
-                                                {formatCount(query.queryStats.processedInputPositions)}
-                                            </td>
-                                            {taskRetriesEnabled && (
+                                    <tr>
+                                        <td className="info-title">
+                                            CPU Time
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.totalCpuTime}
+                                        </td>
+                                        {taskRetriesEnabled &&
+                                                <td className="info-failed">
+                                                    {query.queryStats.failedCpuTime}
+                                                </td>
+                                        }
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Planning CPU Time
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.planningCpuTime}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Scheduled Time
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.totalScheduledTime}
+                                        </td>
+                                        {taskRetriesEnabled &&
+                                                <td className="info-failed">
+                                                    {query.queryStats.failedScheduledTime}
+                                                </td>
+                                        }
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Total Splits
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.totalDrivers}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Input Rows
+                                        </td>
+                                        <td className="info-text">
+                                            {formatCount(query.queryStats.processedInputPositions)}
+                                        </td>
+                                        {taskRetriesEnabled &&
                                                 <td className="info-failed">
                                                     {query.queryStats.failedProcessedInputPositions}
                                                 </td>
-                                            )}
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Input Data</td>
-                                            <td className="info-text">
-                                                {parseAndFormatDataSize(query.queryStats.processedInputDataSize)}
-                                            </td>
-                                            {taskRetriesEnabled && (
+                                        }
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Input Data
+                                        </td>
+                                        <td className="info-text">
+                                            {parseAndFormatDataSize(query.queryStats.processedInputDataSize)}
+                                        </td>
+                                        {taskRetriesEnabled &&
                                                 <td className="info-failed">
                                                     {query.queryStats.failedProcessedInputDataSize}
                                                 </td>
-                                            )}
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Physical Input Rows</td>
-                                            <td className="info-text">
-                                                {formatCount(query.queryStats.physicalInputPositions)}
-                                            </td>
-                                            {taskRetriesEnabled && (
+                                        }
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Physical Input Rows
+                                        </td>
+                                        <td className="info-text">
+                                            {formatCount(query.queryStats.physicalInputPositions)}
+                                        </td>
+                                        {taskRetriesEnabled &&
                                                 <td className="info-failed">
                                                     {formatCount(query.queryStats.failedPhysicalInputPositions)}
                                                 </td>
-                                            )}
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Physical Input Data</td>
-                                            <td className="info-text">
-                                                {parseAndFormatDataSize(query.queryStats.physicalInputDataSize)}
-                                            </td>
-                                            {taskRetriesEnabled && (
+                                        }
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Physical Input Data
+                                        </td>
+                                        <td className="info-text">
+                                            {parseAndFormatDataSize(query.queryStats.physicalInputDataSize)}
+                                        </td>
+                                        {taskRetriesEnabled &&
                                                 <td className="info-failed">
-                                                    {parseAndFormatDataSize(
-                                                        query.queryStats.failedPhysicalInputDataSize
-                                                    )}
+                                                    {parseAndFormatDataSize(query.queryStats.failedPhysicalInputDataSize)}
                                                 </td>
-                                            )}
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Physical Input Read Time</td>
-                                            <td className="info-text">{query.queryStats.physicalInputReadTime}</td>
-                                            {taskRetriesEnabled && (
+                                        }
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Physical Input Read Time
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.physicalInputReadTime}
+                                        </td>
+                                        {taskRetriesEnabled &&
                                                 <td className="info-failed">
                                                     {query.queryStats.failedPhysicalInputReadTime}
                                                 </td>
-                                            )}
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Internal Network Rows</td>
-                                            <td className="info-text">
-                                                {formatCount(query.queryStats.internalNetworkInputPositions)}
-                                            </td>
-                                            {taskRetriesEnabled && (
+                                        }
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Internal Network Rows
+                                        </td>
+                                        <td className="info-text">
+                                            {formatCount(query.queryStats.internalNetworkInputPositions)}
+                                        </td>
+                                        {taskRetriesEnabled &&
                                                 <td className="info-failed">
                                                     {formatCount(query.queryStats.failedInternalNetworkInputPositions)}
                                                 </td>
-                                            )}
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Internal Network Data</td>
-                                            <td className="info-text">
-                                                {parseAndFormatDataSize(query.queryStats.internalNetworkInputDataSize)}
-                                            </td>
-                                            {taskRetriesEnabled && (
+                                        }
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Internal Network Data
+                                        </td>
+                                        <td className="info-text">
+                                            {parseAndFormatDataSize(query.queryStats.internalNetworkInputDataSize)}
+                                        </td>
+                                        {taskRetriesEnabled &&
                                                 <td className="info-failed">
-                                                    {parseAndFormatDataSize(
-                                                        query.queryStats.failedInternalNetworkInputDataSize
-                                                    )}
+                                                    {parseAndFormatDataSize(query.queryStats.failedInternalNetworkInputDataSize)}
                                                 </td>
-                                            )}
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Peak User Memory</td>
-                                            <td className="info-text">
-                                                {parseAndFormatDataSize(query.queryStats.peakUserMemoryReservation)}
-                                            </td>
-                                        </tr>
-                                        {parseDataSize(query.queryStats.peakRevocableMemoryReservation) > 0 && (
+                                        }
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Peak User Memory
+                                        </td>
+                                        <td className="info-text">
+                                            {parseAndFormatDataSize(query.queryStats.peakUserMemoryReservation)}
+                                        </td>
+                                    </tr>
+                                    {parseDataSize(query.queryStats.peakRevocableMemoryReservation) > 0 &&
                                             <tr>
-                                                <td className="info-title">Peak Revocable Memory</td>
+                                                <td className="info-title">
+                                                    Peak Revocable Memory
+                                                </td>
                                                 <td className="info-text">
-                                                    {parseAndFormatDataSize(
-                                                        query.queryStats.peakRevocableMemoryReservation
-                                                    )}
+                                                    {parseAndFormatDataSize(query.queryStats.peakRevocableMemoryReservation)}
                                                 </td>
                                             </tr>
-                                        )}
-                                        <tr>
-                                            <td className="info-title">Peak Total Memory</td>
-                                            <td className="info-text">
-                                                {parseAndFormatDataSize(query.queryStats.peakTotalMemoryReservation)}
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Cumulative User Memory</td>
-                                            <td className="info-text">
-                                                {formatDataSize(query.queryStats.cumulativeUserMemory / 1000.0) +
-                                                    '*seconds'}
-                                            </td>
-                                            {taskRetriesEnabled && (
+                                    }
+                                    <tr>
+                                        <td className="info-title">
+                                            Peak Total Memory
+                                        </td>
+                                        <td className="info-text">
+                                            {parseAndFormatDataSize(query.queryStats.peakTotalMemoryReservation)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Cumulative User Memory
+                                        </td>
+                                        <td className="info-text">
+                                            {formatDataSize(query.queryStats.cumulativeUserMemory / 1000.0) + "*seconds"}
+                                        </td>
+                                        {taskRetriesEnabled &&
                                                 <td className="info-failed">
-                                                    {formatDataSize(
-                                                        query.queryStats.failedCumulativeUserMemory / 1000.0
-                                                    ) + '*seconds'}
+                                                    {formatDataSize(query.queryStats.failedCumulativeUserMemory / 1000.0) + "*seconds"}
                                                 </td>
-                                            )}
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Output Rows</td>
-                                            <td className="info-text">
-                                                {formatCount(query.queryStats.outputPositions)}
-                                            </td>
-                                            {taskRetriesEnabled && (
+                                        }
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Output Rows
+                                        </td>
+                                        <td className="info-text">
+                                            {formatCount(query.queryStats.outputPositions)}
+                                        </td>
+                                        {taskRetriesEnabled &&
                                                 <td className="info-failed">
                                                     {formatCount(query.queryStats.failedOutputPositions)}
                                                 </td>
-                                            )}
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Output Data</td>
-                                            <td className="info-text">
-                                                {parseAndFormatDataSize(query.queryStats.outputDataSize)}
-                                            </td>
-                                            {taskRetriesEnabled && (
+                                        }
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Output Data
+                                        </td>
+                                        <td className="info-text">
+                                            {parseAndFormatDataSize(query.queryStats.outputDataSize)}
+                                        </td>
+                                        {taskRetriesEnabled &&
                                                 <td className="info-failed">
                                                     {parseAndFormatDataSize(query.queryStats.failedOutputDataSize)}
                                                 </td>
-                                            )}
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Written Rows</td>
-                                            <td className="info-text">
-                                                {formatCount(query.queryStats.writtenPositions)}
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Logical Written Data</td>
-                                            <td className="info-text">
-                                                {parseAndFormatDataSize(query.queryStats.logicalWrittenDataSize)}
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td className="info-title">Physical Written Data</td>
-                                            <td className="info-text">
-                                                {parseAndFormatDataSize(query.queryStats.physicalWrittenDataSize)}
-                                            </td>
-                                            {taskRetriesEnabled && (
+                                        }
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Written Rows
+                                        </td>
+                                        <td className="info-text">
+                                            {formatCount(query.queryStats.writtenPositions)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Logical Written Data
+                                        </td>
+                                        <td className="info-text">
+                                            {parseAndFormatDataSize(query.queryStats.logicalWrittenDataSize)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Physical Written Data
+                                        </td>
+                                        <td className="info-text">
+                                            {parseAndFormatDataSize(query.queryStats.physicalWrittenDataSize)}
+                                        </td>
+                                        {taskRetriesEnabled &&
                                                 <td className="info-failed">
-                                                    {parseAndFormatDataSize(
-                                                        query.queryStats.failedPhysicalWrittenDataSize
-                                                    )}
+                                                    {parseAndFormatDataSize(query.queryStats.failedPhysicalWrittenDataSize)}
                                                 </td>
-                                            )}
-                                        </tr>
-                                        {parseDataSize(query.queryStats.spilledDataSize) > 0 && (
+                                        }
+                                    </tr>
+                                    {parseDataSize(query.queryStats.spilledDataSize) > 0 &&
                                             <tr>
-                                                <td className="info-title">Spilled Data</td>
+                                                <td className="info-title">
+                                                    Spilled Data
+                                                </td>
                                                 <td className="info-text">
                                                     {parseAndFormatDataSize(query.queryStats.spilledDataSize)}
                                                 </td>
                                             </tr>
-                                        )}
+                                    }
                                     </tbody>
                                 </table>
                             </div>

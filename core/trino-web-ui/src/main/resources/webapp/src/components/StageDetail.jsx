@@ -31,8 +31,10 @@ import {
     parseAndFormatDataSize,
     parseDataSize,
     parseDuration,
-} from '../utils'
-import { QueryHeader } from './QueryHeader'
+    precisionRound,
+    computedStdDev
+} from "../utils";
+import {QueryHeader} from "./QueryHeader";
 
 function getTotalWallTime(operator) {
     return (
@@ -53,12 +55,21 @@ class OperatorSummary extends React.Component {
     render() {
         const operator = this.props.operator
 
-        const totalWallTime = getTotalWallTime(operator)
-        const totalCpuTime = getTotalCpuTime(operator)
+        const query = this.props.query;
+        const queryTotalCpuTime = parseDuration(query.queryStats.totalCpuTime);
+        const queryTotalScheduledTime = parseDuration(query.queryStats.totalScheduledTime);
 
-        const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / (totalWallTime / 1000.0)
-        const byteInputRate =
-            totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0)
+        const totalWallTime = getTotalWallTime(operator);
+        const totalScheduledTime = parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall);
+        const totalCpuTime = getTotalCpuTime(operator);
+
+        const cpuTimePercent = 100.0 * totalCpuTime / queryTotalCpuTime;
+        const scheduledTimePercent = 100.0 * totalScheduledTime / queryTotalScheduledTime;
+        const inputAverage = (1.0 * operator.inputPositions) / operator.totalDrivers;
+        const inputStdDevPercent = 100.0 * computedStdDev(operator.sumSquaredInputPositions, operator.inputPositions, operator.totalDrivers) / inputAverage;
+
+        const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / (totalWallTime / 1000.0);
+        const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
 
         return (
             <div>
@@ -68,40 +79,100 @@ class OperatorSummary extends React.Component {
                 </div>
                 <table className="table">
                     <tbody>
-                        <tr>
-                            <td>Output</td>
-                            <td>
-                                {formatCount(operator.outputPositions) +
-                                    ' rows (' +
-                                    parseAndFormatDataSize(operator.outputDataSize) +
-                                    ')'}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Drivers</td>
-                            <td>{operator.totalDrivers}</td>
-                        </tr>
-                        <tr>
-                            <td>CPU Time</td>
-                            <td>{formatDuration(totalCpuTime)}</td>
-                        </tr>
-                        <tr>
-                            <td>Wall Time</td>
-                            <td>{formatDuration(totalWallTime)}</td>
-                        </tr>
-                        <tr>
-                            <td>Blocked</td>
-                            <td>{formatDuration(parseDuration(operator.blockedWall))}</td>
-                        </tr>
-                        <tr>
-                            <td>Input</td>
-                            <td>
-                                {formatCount(operator.inputPositions) +
-                                    ' rows (' +
-                                    parseAndFormatDataSize(operator.inputDataSize) +
-                                    ')'}
-                            </td>
-                        </tr>
+                    <tr>
+                        <td>
+                            Output
+                        </td>
+                        <td>
+                            {formatCount(operator.outputPositions) + " rows (" + parseAndFormatDataSize(operator.outputDataSize) + ")"}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Drivers
+                        </td>
+                        <td>
+                            {operator.totalDrivers}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            CPU Time
+                        </td>
+                        <td>
+                            {formatDuration(totalCpuTime)}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Wall Time
+                        </td>
+                        <td>
+                            {formatDuration(totalWallTime)}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Blocked
+                        </td>
+                        <td>
+                            {formatDuration(parseDuration(operator.blockedWall))}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Input
+                        </td>
+                        <td>
+                            {formatCount(operator.inputPositions) + " rows (" + parseAndFormatDataSize(operator.inputDataSize) + ")"}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Input avg.
+                        </td>
+                        <td>
+                            {formatCount(inputAverage) + " rows"}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Input std.dev.
+                        </td>
+                        <td>
+                            {precisionRound(inputStdDevPercent) + "%"}
+                        </td>
+                    </tr>
+                    {parseDataSize(operator.peakUserMemoryReservation) > 0 &&
+                            <tr>
+                                <td>
+                                    Peak User Memory
+                                </td>
+                                <td>
+                                    {parseAndFormatDataSize(operator.peakUserMemoryReservation)}
+                                </td>
+                            </tr>
+                    }
+                    {parseDataSize(operator.peakRevocableMemoryReservation) > 0 &&
+                            <tr>
+                                <td>
+                                    Peak Revocable Memory
+                                </td>
+                                <td>
+                                    {parseAndFormatDataSize(operator.peakRevocableMemoryReservation)}
+                                </td>
+                            </tr>
+                    }
+                    {parseDataSize(operator.spilledDataSize) > 0 &&
+                            <tr>
+                                <td>
+                                    Spilled Data
+                                </td>
+                                <td>
+                                    {parseAndFormatDataSize(operator.spilledDataSize)}
+                                </td>
+                            </tr>
+                    }
                     </tbody>
                 </table>
             </div>
@@ -301,26 +372,46 @@ class OperatorDetail extends React.Component {
                         <div className="col-xs-6">
                             <table className="table">
                                 <tbody>
-                                    <tr>
-                                        <td>CPU Time</td>
-                                        <td>{formatDuration(totalCpuTime)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Wall Time</td>
-                                        <td>{formatDuration(totalWallTime)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Blocked</td>
-                                        <td>{formatDuration(parseDuration(operator.blockedWall))}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Drivers</td>
-                                        <td>{operator.totalDrivers}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Tasks</td>
-                                        <td>{operatorTasks.length}</td>
-                                    </tr>
+                                <tr>
+                                    <td>
+                                        CPU Time
+                                    </td>
+                                    <td>
+                                        {formatDuration(totalCpuTime + " (" + precisionRound(cpuTimePercent) + "%)")}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        Wall Time
+                                    </td>
+                                    <td>
+                                        {formatDuration(totalWallTime)}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        Blocked
+                                    </td>
+                                    <td>
+                                        {formatDuration(parseDuration(operator.blockedWall))}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        Drivers
+                                    </td>
+                                    <td>
+                                        {operator.totalDrivers}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        Tasks
+                                    </td>
+                                    <td>
+                                        {operatorTasks.length}
+                                    </td>
+                                </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -465,14 +556,8 @@ class StageOperatorGraph extends React.Component {
         const operatorNodeId = 'operator-' + operator.pipelineId + '-' + operator.operatorId
 
         // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
-        const html = ReactDOMServer.renderToString(
-            <OperatorSummary key={operator.pipelineId + '-' + operator.operatorId} operator={operator} />
-        )
-        graph.setNode(operatorNodeId, {
-            class: 'operator-stats',
-            label: html,
-            labelType: 'html',
-        })
+        const html = ReactDOMServer.renderToString(<OperatorSummary key={operator.pipelineId + "-" + operator.operatorId} operator={operator}  query={this.props.query}/>);
+        graph.setNode(operatorNodeId, {class: "operator-stats", label: html, labelType: "html"});
 
         if (operator.hasOwnProperty('child')) {
             this.computeD3StageOperatorGraph(graph, operator.child, operatorNodeId, pipelineNode)
@@ -692,8 +777,9 @@ export class StageDetail extends React.Component {
                     </div>
                 </div>
             )
-        } else {
-            stageOperatorGraph = <StageOperatorGraph id={stage.stageId} stage={stage} />
+        }
+        else {
+            stageOperatorGraph = <StageOperatorGraph id={stage.stageId} stage={stage} query={query}/>;
         }
 
         return (
