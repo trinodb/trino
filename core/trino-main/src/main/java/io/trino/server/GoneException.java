@@ -11,17 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.ui;
+package io.trino.server;
 
-import jakarta.ws.rs.NotFoundException;
-import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
 
-public class NoWebUiAuthenticationFilter
-        implements WebUiAuthenticationFilter
+public class GoneException
+        extends WebApplicationException
 {
-    @Override
-    public void filter(ContainerRequestContext request)
+    public GoneException(String message)
     {
-        throw new NotFoundException();
+        super(message, Response.Status.GONE);
+    }
+
+    public GoneException()
+    {
+        super(Response.Status.GONE);
     }
 }

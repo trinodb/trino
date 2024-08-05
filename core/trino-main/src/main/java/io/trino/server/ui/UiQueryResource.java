@@ -21,6 +21,7 @@ import io.trino.execution.QueryState;
 import io.trino.security.AccessControl;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.DisableHttpCache;
+import io.trino.server.GoneException;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
@@ -102,7 +103,7 @@ public class UiQueryResource
                 throw new ForbiddenException();
             }
         }
-        return Response.status(Status.GONE).build();
+        throw new GoneException();
     }
 
     @ResourceSecurity(WEB_UI)
@@ -143,7 +144,7 @@ public class UiQueryResource
             throw new ForbiddenException();
         }
         catch (NoSuchElementException e) {
-            return Response.status(Status.GONE).build();
+            throw new GoneException();
         }
     }
 }

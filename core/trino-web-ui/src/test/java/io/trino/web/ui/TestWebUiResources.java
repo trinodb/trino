@@ -13,6 +13,7 @@
  */
 package io.trino.web.ui;
 
+import jakarta.ws.rs.NotFoundException;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -20,6 +21,7 @@ import java.io.IOException;
 import static io.trino.web.ui.WebUiResources.mediaType;
 import static io.trino.web.ui.WebUiResources.webUiResource;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestWebUiResources
 {
@@ -27,8 +29,10 @@ class TestWebUiResources
     public void testUiResources()
             throws IOException
     {
-        assertThat(webUiResource("notExistingPath").getStatus()).isEqualTo(404);
-        assertThat(webUiResource("/webapp/index.html/../index.html").getStatus()).isEqualTo(404); // not canonical
+        assertThatThrownBy(() -> webUiResource("notExistingPath").getStatus())
+                .isInstanceOf(NotFoundException.class);
+        assertThatThrownBy(() -> webUiResource("/webapp/index.html/../index.html").getStatus())
+                .isInstanceOf(NotFoundException.class); // not canonical
 
         assertThat(webUiResource("/webapp/index.html").getStatus()).isEqualTo(200);
         assertThat(webUiResource("/webapp-preview/dist/index.html").getStatus()).isEqualTo(200);
