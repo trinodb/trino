@@ -31,8 +31,9 @@ public class TimeMicrosValueWriter
     @Override
     public void write(Block block)
     {
+        boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!block.isNull(i)) {
+            if (!mayHaveNull || !block.isNull(i)) {
                 long scaledValue = TIME_MICROS.getLong(block, i) / PICOSECONDS_PER_MICROSECOND;
                 getValueWriter().writeLong(scaledValue);
                 getStatistics().updateStats(scaledValue);
