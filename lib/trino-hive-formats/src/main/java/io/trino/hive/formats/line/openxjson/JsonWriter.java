@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Writer only accepts a {@link Map}, {@link List}, JsonString, String, Boolean, or Number.
  */
-final class JsonWriter
+public final class JsonWriter
 {
     public static String writeJsonObject(Map<?, ?> jsonObject)
     {

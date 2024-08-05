@@ -13,7 +13,7 @@
  */
 package io.trino.hive.formats.line.openxjson;
 
-record JsonString(String value, boolean quoted)
+public record JsonString(String value, boolean quoted)
 {
     @Override
     public String toString()
