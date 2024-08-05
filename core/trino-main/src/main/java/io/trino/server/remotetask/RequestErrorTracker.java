@@ -27,6 +27,7 @@ import java.io.EOFException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.nio.channels.ClosedChannelException;
 import java.util.Queue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -154,6 +155,8 @@ class RequestErrorTracker
                     (t instanceof SocketTimeoutException) ||
                     (t instanceof EOFException) ||
                     (t instanceof TimeoutException) ||
+                    (t instanceof CancellationException) ||
+                    (t instanceof ClosedChannelException) ||
                     (t instanceof ServiceUnavailableException)) {
                 return true;
             }
