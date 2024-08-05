@@ -1,7 +1,7 @@
 version: '3.4'
 services:
     loki:
-        image: grafana/loki
+        image: grafana/loki:3.1.0
         logging: &logging
           driver: loki-compose
           options:
@@ -14,18 +14,6 @@ services:
     log-gen:
         logging:
           <<: *logging
-        image: mingrammer/flog
-        command: ["-f", "json", "-l", "-d", "2s"]
-        depends_on:
-          - loki
-
-    log-gen-2:
-        logging:
-          driver: loki-compose
-          options:
-            loki-url: "http://localhost:3100/loki/api/v1/push"
-            loki-retries: "1"
-            loki-tenant-id: "2"
         image: mingrammer/flog
         command: ["-f", "json", "-l", "-d", "2s"]
         depends_on:
@@ -49,7 +37,7 @@ services:
     grafana:
         logging:
             <<: *logging
-        image: grafana/grafana
+        image: grafana/grafana:11.1.1
         depends_on:
             - loki
         environment:
