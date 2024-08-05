@@ -13,8 +13,8 @@
  */
 package io.trino.client.uri;
 
+import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
-import org.weakref.jmx.$internal.guava.collect.ImmutableList;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Properties;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.CA;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.FULL;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.NONE;
@@ -40,7 +41,6 @@ import static io.trino.client.uri.PropertyName.SSL_USE_SYSTEM_TRUST_STORE;
 import static io.trino.client.uri.PropertyName.SSL_VERIFICATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.weakref.jmx.$internal.guava.collect.ImmutableSet.toImmutableSet;
 
 public class TestTrinoUri
 {
