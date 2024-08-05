@@ -43,11 +43,13 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.ServiceUnavailableException;
 import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
@@ -418,10 +420,7 @@ public class TaskResource
             // Ideally the coordinator should not schedule tasks on worker that is not ready, but in pipelined execution there is currently no way to move a task.
             // Accepting a request too early will likely lead to some failure and HTTP 500 (INTERNAL_SERVER_ERROR) response. The coordinator won't retry on this.
             // Send 503 (SERVICE_UNAVAILABLE) so that request is retried.
-            asyncResponse.resume(Response.status(Status.SERVICE_UNAVAILABLE)
-                    .type(MediaType.TEXT_PLAIN_TYPE)
-                    .entity("The server is not fully started yet ")
-                    .build());
+            asyncResponse.resume(new ServiceUnavailableException("The server is not fully started yet"));
             return true;
         }
         return false;
@@ -453,7 +452,7 @@ public class TaskResource
             case TASK_MANAGEMENT_REQUEST_FAILURE:
                 if (requestType.isTaskManagement()) {
                     log.info("Failing %s request for task %s", requestType, taskId);
-                    asyncResponse.resume(Response.serverError().build());
+                    asyncResponse.resume(new InternalServerErrorException("Task %s failed".formatted(taskId)));
                     return true;
                 }
                 break;
@@ -467,7 +466,7 @@ public class TaskResource
             case TASK_GET_RESULTS_REQUEST_FAILURE:
                 if (!requestType.isTaskManagement()) {
                     log.info("Failing %s request for task %s", requestType, taskId);
-                    asyncResponse.resume(Response.serverError().build());
+                    asyncResponse.resume(new InternalServerErrorException("Task %s failed".formatted(taskId)));
                     return true;
                 }
                 break;

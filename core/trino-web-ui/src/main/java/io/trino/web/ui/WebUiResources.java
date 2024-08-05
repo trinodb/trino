@@ -15,6 +15,7 @@ package io.trino.web.ui;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Resources;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 
 import java.io.IOException;
@@ -23,7 +24,6 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
-import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
 import static java.util.Locale.ENGLISH;
 
 public class WebUiResources
@@ -37,7 +37,7 @@ public class WebUiResources
     {
         if (!isCanonical(path)) {
             // consider redirecting to the absolute path
-            return Response.status(NOT_FOUND).build();
+            throw new NotFoundException();
         }
 
         try {
@@ -45,7 +45,7 @@ public class WebUiResources
             return Response.ok(resource.openStream(), mediaType(resource.toString())).build();
         }
         catch (IllegalArgumentException e) {
-            return Response.status(NOT_FOUND).build();
+            throw new NotFoundException();
         }
     }
 

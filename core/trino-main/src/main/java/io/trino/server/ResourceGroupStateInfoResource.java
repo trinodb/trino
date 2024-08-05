@@ -19,10 +19,10 @@ import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import jakarta.ws.rs.Encoded;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 
 import java.net.URLDecoder;
@@ -31,7 +31,6 @@ import java.util.Arrays;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
-import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -59,9 +58,9 @@ public class ResourceGroupStateInfoResource
                             Arrays.stream(resourceGroupIdString.split("/"))
                                     .map(ResourceGroupStateInfoResource::urlDecode)
                                     .collect(toImmutableList())))
-                    .orElseThrow(() -> new WebApplicationException(NOT_FOUND));
+                    .orElseThrow(NotFoundException::new);
         }
-        throw new WebApplicationException(NOT_FOUND);
+        throw new NotFoundException();
     }
 
     private static String urlDecode(String value)

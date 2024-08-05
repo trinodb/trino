@@ -97,7 +97,7 @@ public class QueryResource
         Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId)
                 .map(info -> pruned ? pruneQueryInfo(info, info.getVersion()) : info);
         if (queryInfo.isEmpty()) {
-            return Response.status(Status.GONE).build();
+            throw new GoneException();
         }
         try {
             checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queryInfo.get().getSession().toIdentity(), accessControl);
@@ -165,7 +165,7 @@ public class QueryResource
             throw new ForbiddenException();
         }
         catch (NoSuchElementException e) {
-            return Response.status(Status.GONE).build();
+            throw new GoneException();
         }
     }
 }
