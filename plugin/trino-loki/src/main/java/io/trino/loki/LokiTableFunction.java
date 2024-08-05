@@ -10,6 +10,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.function.table.*;
 import io.trino.spi.type.VarcharType;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -53,20 +54,19 @@ public class LokiTableFunction
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "column_count must be in range [1, 3]");
         }
 
-        if (!Strings.isNullOrEmpty(strSelector)) {
+        if (Strings.isNullOrEmpty(strSelector)) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, strSelector);
         }
 
         // determine the returned row type
-        List<Descriptor.Field> fields = List.of("col_a", "col_b", "col_c").subList(0, 3).stream()
-                .map(name -> new Descriptor.Field(name, Optional.of(BIGINT)))
-                .collect(toList());
+        List<Descriptor.Field> fields = new ArrayList<>();
+        fields.add(new Descriptor.Field(strSelector, Optional.of(VarcharType.VARCHAR)));
 
         Descriptor returnedType = new Descriptor(fields);
 
         return TableFunctionAnalysis.builder()
                 .returnedType(returnedType)
-                .handle(new QueryHandle(new LokiTableHandle()))
+                .handle(new QueryHandle(new LokiTableHandle(strSelector)))
                 .build();
     }
 

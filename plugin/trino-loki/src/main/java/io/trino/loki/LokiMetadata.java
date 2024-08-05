@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.spi.connector.*;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.type.VarcharType;
 
 import java.util.*;
 import java.util.function.UnaryOperator;
@@ -86,6 +88,20 @@ public class LokiMetadata implements ConnectorMetadata {
                 .iterator();
     }
 
+    @Override
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        if (!(handle instanceof LokiTableFunction.QueryHandle queryHandle)) {
+            return Optional.empty();
+        }
+
+        LokiTableHandle tableHandle = queryHandle.getTableHandle();
+        LokiColumnHandle columnHandle = new LokiColumnHandle("a_xxx", VarcharType.VARCHAR, 0);
+        List<ColumnHandle> columnHandles = new ArrayList<>();
+        columnHandles.add(columnHandle);
+        return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
+    }
+
     // TODO this always returns null
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
@@ -95,5 +111,18 @@ public class LokiMetadata implements ConnectorMetadata {
 
         return null;
 
+    }
+
+    @Override
+    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table){
+        List<ColumnMetadata> columns = new ArrayList<>();
+        columns.add(new ColumnMetadata("a_xxx", VarcharType.VARCHAR));
+
+        return new ConnectorTableMetadata(new SchemaTableName("default", "test"), columns);
+    }
+
+    @Override
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle) {
+        return new ColumnMetadata("a_xxx", VarcharType.VARCHAR);
     }
 }

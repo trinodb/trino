@@ -29,7 +29,7 @@ public class LokiSplitManager implements ConnectorSplitManager {
             Constraint constraint) {
 
         // TODO: support multiple splits by splitting on time.
-        List<ConnectorSplit> splits = ImmutableList.of(new LokiSplit());
+        List<ConnectorSplit> splits = ImmutableList.of(new LokiSplit("fixme"));
         return new FixedSplitSource(splits);
     }
 }
