@@ -63,7 +63,6 @@ import io.trino.type.VarcharOperators;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.StringReader;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -106,9 +105,6 @@ import static java.time.ZoneOffset.UTC;
 
 public final class JsonUtil
 {
-    // StringReader outperforms InputStreamReader for small inputs. Limit based on Jackson benchmarks {@link https://github.com/FasterXML/jackson-benchmarks/pull/9}
-    private static final int STRING_READER_LENGTH_LIMIT = 8192;
-
     private JsonUtil() {}
 
     // This object mapper is constructed without .configure(ORDER_MAP_ENTRIES_BY_KEYS, true) because
@@ -127,13 +123,6 @@ public final class JsonUtil
     public static JsonParser createJsonParser(JsonFactory factory, Slice json)
             throws IOException
     {
-        // Jackson tries to detect the character encoding automatically when using InputStream
-        // so we pass StringReader or an InputStreamReader instead.
-        if (json.length() < STRING_READER_LENGTH_LIMIT) {
-            // StringReader is more performant than InputStreamReader for small inputs
-            return factory.createParser(new StringReader(new String(json.getBytes(), UTF_8)));
-        }
-
         return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
     }
 
