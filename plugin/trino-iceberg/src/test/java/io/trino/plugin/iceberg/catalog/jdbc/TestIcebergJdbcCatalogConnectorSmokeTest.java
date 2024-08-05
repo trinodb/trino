@@ -198,6 +198,13 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
                 .hasMessageContaining("renameNamespace is not supported for Iceberg JDBC catalogs");
     }
 
+    @Test
+    @Override
+    public void testDeleteRowsConcurrently()
+    {
+        // TODO https://github.com/trinodb/trino/issues/21862 Fix flaky test
+    }
+
     @Override
     protected void dropTableFromMetastore(String tableName)
     {
