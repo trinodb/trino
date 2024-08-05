@@ -16,8 +16,11 @@ package io.trino.loki;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.trino.spi.connector.*;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import java.util.*;
@@ -25,10 +28,16 @@ import java.util.function.UnaryOperator;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.connector.RelationColumnsMetadata.forTable;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static java.util.Objects.requireNonNull;
 
 public class LokiMetadata implements ConnectorMetadata {
     private final LokiClient lokiClient;
+
+    // TODO: this might not be the right spot
+    static final Type TIMESTAMP_COLUMN_TYPE = createTimestampWithTimeZoneType(3);
+
+    private static final Logger log = Logger.get(LokiMetadata.class);
 
     @Inject
     public LokiMetadata(LokiClient lokiClient)
@@ -96,9 +105,10 @@ public class LokiMetadata implements ConnectorMetadata {
         }
 
         LokiTableHandle tableHandle = queryHandle.getTableHandle();
-        LokiColumnHandle columnHandle = new LokiColumnHandle("a_xxx", VarcharType.VARCHAR, 0);
-        List<ColumnHandle> columnHandles = new ArrayList<>();
-        columnHandles.add(columnHandle);
+        List<ColumnHandle> columnHandles = ImmutableList.of(
+                new LokiColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 0),
+                new LokiColumnHandle("value", VarcharType.VARCHAR, 1)
+        );
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
 
@@ -115,8 +125,13 @@ public class LokiMetadata implements ConnectorMetadata {
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table){
-        List<ColumnMetadata> columns = new ArrayList<>();
-        columns.add(new ColumnMetadata("a_xxx", VarcharType.VARCHAR));
+        // TODO: base value column type on query
+
+        var columns = ImmutableList.of(
+                        //new ColumnMetadata("labels", varcharMapType),
+                        new ColumnMetadata("timestamp", TIMESTAMP_COLUMN_TYPE),
+                        new ColumnMetadata("value", VarcharType.VARCHAR)
+        );
 
         return new ConnectorTableMetadata(new SchemaTableName("default", "test"), columns);
     }

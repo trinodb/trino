@@ -15,14 +15,19 @@ package io.trino.loki;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
@@ -84,8 +89,8 @@ public class LokiRecordCursor implements RecordCursor {
         int columnIndex = fieldToColumnIndex[field];
         return switch (columnIndex) {
             // TODO: case 0 -> getSqlMapFromMap(columnHandles.get(columnIndex).columnType(), fields.labels());
-            case 1 -> entry.getTs();
-            case 2 -> entry.getLine();
+            case 0 -> entry.getTs();
+            case 1 -> entry.getLine();
             default -> null;
         };
     }
@@ -97,7 +102,14 @@ public class LokiRecordCursor implements RecordCursor {
 
     @Override
     public long getLong(int field) {
-        return 0;
+        Type type = getType(field);
+        if (type.equals(LokiMetadata.TIMESTAMP_COLUMN_TYPE)) {
+            Long nanos = (Long) requireNonNull(getEntryValue(field));
+            // render with the fixed offset of the Trino server
+            int offsetMinutes = Instant.ofEpochMilli(nanos / 1000).atZone(ZoneId.systemDefault()).getOffset().getTotalSeconds() / 60;
+            return packTimeWithTimeZone(nanos, offsetMinutes);
+        }
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
     }
 
     @Override

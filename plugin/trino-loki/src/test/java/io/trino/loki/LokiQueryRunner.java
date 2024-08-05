@@ -14,7 +14,9 @@
 package io.trino.loki;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.util.Closables;
 import io.trino.testing.DistributedQueryRunner;
@@ -85,6 +87,10 @@ public final class LokiQueryRunner
     public static void main(String[] args)
             throws Exception
     {
+        Logging logger = Logging.initialize();
+        logger.setLevel("io.trino.loki", Level.DEBUG);
+        logger.setLevel("io.trino", Level.INFO);
+
         QueryRunner queryRunner = builder(new LokiServer())
                 .addCoordinatorProperty("http-server.http.port", "8080")
                 .build();
