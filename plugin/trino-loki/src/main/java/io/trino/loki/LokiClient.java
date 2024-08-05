@@ -13,6 +13,8 @@
  */
 package io.trino.loki;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.http.client.HttpUriBuilder;
 import io.trino.spi.TrinoException;
 import okhttp3.*;
@@ -21,6 +23,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static io.trino.loki.LokiErrorCode.LOKI_UNKNOWN_ERROR;
@@ -32,6 +35,7 @@ public class LokiClient {
     private final OkHttpClient httpClient;
     private final URI lokiEndpoint;
 
+    @Inject
     public LokiClient(LokiConnectorConfig config) {
         this.lokiEndpoint = config.getLokiURI();
 
@@ -81,6 +85,14 @@ public class LokiClient {
         catch (IOException e) {
             throw new TrinoException(LOKI_UNKNOWN_ERROR, "Error reading metrics", e);
         }
+    }
+
+    // TODO: do we need this?
+    public Set<String> getTableNames(String schema)
+    {
+        requireNonNull(schema, "schema is null");
+        String[] tables = {"this_client_does_not", "have_tables_as", "you_need_to_specify_a_table_function"};
+        return ImmutableSet.copyOf(tables);
     }
 
     public Response requestUri(URI uri) throws IOException
