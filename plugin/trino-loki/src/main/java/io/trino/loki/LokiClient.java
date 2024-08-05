@@ -71,8 +71,8 @@ public class LokiClient {
                 HttpUriBuilder.uriBuilderFrom(lokiEndpoint)
                         .appendPath("/loki/api/v1/query_range")
                         .addParameter("query", lokiQuery)
-                        .addParameter("start", start.toString())
-                        .addParameter("end", end.toString())
+                        //.addParameter("start", start.toString())
+                        //.addParameter("end", end.toString())
                         .addParameter("direction", "forward")
                         .build();
 

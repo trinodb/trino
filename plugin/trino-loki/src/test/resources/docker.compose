@@ -1,0 +1,11 @@
+version: '3.4'
+services:
+    loki:
+        image: grafana/loki
+        logging: &logging
+          driver: loki-compose
+          options:
+            loki-url: "http://localhost:8001/loki/api/v1/push"
+            loki-retries: "1"
+            loki-tenant-id: "1"
+
