@@ -43,9 +43,9 @@ public class BinaryValueWriter
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
                 Slice slice = type.getSlice(block, i);
-                // fromReusedByteBuffer must be used instead of fromConstantByteBuffer to avoid retaining entire
+                // fromReusedByteArray must be used instead of fromConstantByteArray to avoid retaining entire
                 // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
-                Binary binary = Binary.fromReusedByteBuffer(slice.toByteBuffer());
+                Binary binary = Binary.fromReusedByteArray(slice.byteArray(), slice.byteArrayOffset(), slice.length());
                 valuesWriter.writeBytes(binary);
                 statistics.updateStats(binary);
             }
