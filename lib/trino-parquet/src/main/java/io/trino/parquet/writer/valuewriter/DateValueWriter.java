@@ -34,8 +34,9 @@ public class DateValueWriter
     @Override
     public void write(Block block)
     {
+        boolean mayHaveNull = block.mayHaveNull();
         for (int position = 0; position < block.getPositionCount(); position++) {
-            if (!block.isNull(position)) {
+            if (!mayHaveNull || !block.isNull(position)) {
                 int value = DATE.getInt(block, position);
                 valuesWriter.writeInteger(value);
                 getStatistics().updateStats(value);

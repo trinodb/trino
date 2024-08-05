@@ -36,8 +36,9 @@ public class UuidValueWriter
     @Override
     public void write(Block block)
     {
+        boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!block.isNull(i)) {
+            if (!mayHaveNull || !block.isNull(i)) {
                 Slice slice = UUID.getSlice(block, i);
                 Binary binary = Binary.fromConstantByteArray(slice.getBytes());
                 valuesWriter.writeBytes(binary);
