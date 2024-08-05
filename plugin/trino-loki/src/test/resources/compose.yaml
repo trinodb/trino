@@ -1,0 +1,63 @@
+version: '3.4'
+services:
+    loki:
+        image: grafana/loki
+        logging: &logging
+          driver: loki-compose
+          options:
+            loki-url: "http://localhost:3100/loki/api/v1/push"
+            loki-retries: "1"
+            loki-tenant-id: "1"
+        ports:
+            - 3100:3100
+
+    log-gen:
+        logging:
+          <<: *logging
+        image: mingrammer/flog
+        command: ["-f", "json", "-l", "-d", "2s"]
+        depends_on:
+          - loki
+
+    log-gen-2:
+        logging:
+          driver: loki-compose
+          options:
+            loki-url: "http://localhost:3100/loki/api/v1/push"
+            loki-retries: "1"
+            loki-tenant-id: "2"
+        image: mingrammer/flog
+        command: ["-f", "json", "-l", "-d", "2s"]
+        depends_on:
+          - loki
+
+    minio:
+        logging:
+            <<: *logging
+        image: minio/minio:RELEASE.2024-02-24T17-11-14Z
+        entrypoint: sh
+        command: -c 'mkdir -p /data/loki && /usr/bin/minio server --console-address :9001 /data'
+        environment:
+            - MINIO_ACCESS_KEY=loki
+            - MINIO_SECRET_KEY=supersecret
+        ports:
+            - 9000:9000
+            - 9001:9001
+        volumes:
+            - .data-minio:/data:delegated
+
+    grafana:
+        logging:
+            <<: *logging
+        image: grafana/grafana
+        depends_on:
+            - loki
+        environment:
+            - GF_PATHS_PROVISIONING=/etc/config/grafana/provisioning
+            - GF_AUTH_ANONYMOUS_ENABLED=true
+            - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+        ports:
+            - 3000:3000
+        volumes:
+            - ./config/datasource.yaml:/etc/config/grafana/provisioning/datasources/ds.yaml
+
