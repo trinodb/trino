@@ -14,15 +14,14 @@
 package io.trino.loki;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.http.client.HttpUriBuilder;
 import io.trino.spi.TrinoException;
-import jakarta.inject.Inject;
 import okhttp3.*;
 
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
