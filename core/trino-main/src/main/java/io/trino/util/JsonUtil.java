@@ -131,7 +131,7 @@ public final class JsonUtil
         // so we pass StringReader or an InputStreamReader instead.
         if (json.length() < STRING_READER_LENGTH_LIMIT) {
             // StringReader is more performant than InputStreamReader for small inputs
-            return factory.createParser(new StringReader(new String(json.getBytes(), UTF_8)));
+            return factory.createParser(new StringReader(json.toStringUtf8()));
         }
 
         return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
