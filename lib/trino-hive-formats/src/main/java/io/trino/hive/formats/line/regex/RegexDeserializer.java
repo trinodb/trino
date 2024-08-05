@@ -20,7 +20,6 @@ import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalConversions;
@@ -33,14 +32,15 @@ import io.trino.spi.type.VarcharType;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveTimestamp;
+import static io.trino.hive.formats.line.LineDeserializerUtils.parseError;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
-import static io.trino.spi.StandardErrorCode.BAD_DATA;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -157,7 +157,7 @@ public class RegexDeserializer
             }
         }
         catch (UnsupportedTypeException e) {
-            throw e;
+            throw parseError(e.getMessage(), Optional.of(e));
         }
         catch (RuntimeException e) {
             // invalid columns are ignored
@@ -165,7 +165,7 @@ public class RegexDeserializer
                 builder.appendNull();
             }
             else {
-                throw new TrinoException(BAD_DATA, "Error Parsing a column in the table: " + e.getMessage(), e);
+                throw parseError(e.getMessage(), Optional.of(e));
             }
         }
     }

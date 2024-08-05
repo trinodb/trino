@@ -177,7 +177,8 @@ public class TestRegexFormat
                         "(line)",
                         false,
                         true))
-                .isInstanceOf(UnsupportedTypeException.class);
+                .isInstanceOf(TrinoException.class)
+                .hasRootCauseInstanceOf(UnsupportedTypeException.class);
         assertThatThrownBy(
                 () -> readLineHive(
                         ImmutableList.of(new Column("a", VARBINARY, 0)),
