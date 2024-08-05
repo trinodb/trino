@@ -22,6 +22,7 @@ import com.google.inject.Singleton;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.http.server.HttpServerConfig;
 import io.airlift.slice.Slice;
 import io.airlift.stats.GcMonitor;
 import io.airlift.stats.JmxGcMonitor;
@@ -205,6 +206,11 @@ public class ServerMainModule
         }
 
         binder.bind(StartupStatus.class).in(Scopes.SINGLETON);
+
+        configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
+            httpServerConfig.setHttp2MaxConcurrentStreams(32 * 1024); // from the default 16K
+        });
+
         binder.bind(PreparedStatementEncoder.class).in(Scopes.SINGLETON);
         binder.bind(HttpRequestSessionContextFactory.class).in(Scopes.SINGLETON);
         install(new InternalCommunicationModule());
@@ -348,8 +354,9 @@ public class ServerMainModule
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
-                    config.setMaxConnectionsPerServer(250);
+                    config.setMaxConnectionsPerServer(64);
                     config.setMaxContentLength(DataSize.of(32, MEGABYTE));
+                    config.setMaxRequestsQueuedPerDestination(65536);
                 }).build());
 
         configBinder(binder).bindConfig(DirectExchangeClientConfig.class);
