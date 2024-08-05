@@ -17,17 +17,20 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
+import io.trino.server.GoneException;
 import io.trino.spi.NodeManager;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HEAD;
 import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
 
@@ -39,10 +42,6 @@ import java.util.UUID;
 import static io.trino.plugin.raptor.legacy.backup.HttpBackupStore.CONTENT_XXH64;
 import static io.trino.plugin.raptor.legacy.backup.HttpBackupStore.TRINO_ENVIRONMENT;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_OCTET_STREAM;
-import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
-import static jakarta.ws.rs.core.Response.Status.FORBIDDEN;
-import static jakarta.ws.rs.core.Response.Status.GONE;
-import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
 import static java.lang.Long.parseUnsignedLong;
 import static java.util.Objects.requireNonNull;
 
@@ -73,10 +72,10 @@ public class TestingHttpBackupResource
     {
         checkEnvironment(environment);
         if (!shards.containsKey(uuid)) {
-            return Response.status(NOT_FOUND).build();
+            throw new NotFoundException();
         }
         if (shards.get(uuid) == null) {
-            return Response.status(GONE).build();
+            throw new GoneException();
         }
         return Response.noContent().build();
     }
@@ -90,11 +89,11 @@ public class TestingHttpBackupResource
     {
         checkEnvironment(environment);
         if (!shards.containsKey(uuid)) {
-            return Response.status(NOT_FOUND).build();
+            throw new NotFoundException();
         }
         byte[] bytes = shards.get(uuid);
         if (bytes == null) {
-            return Response.status(GONE).build();
+            throw new GoneException();
         }
         return Response.ok(bytes).build();
     }
@@ -110,15 +109,15 @@ public class TestingHttpBackupResource
     {
         checkEnvironment(environment);
         if ((request.getContentLength() < 0) || (bytes.length != request.getContentLength())) {
-            return Response.status(BAD_REQUEST).build();
+            throw new BadRequestException();
         }
         if (parseUnsignedLong(hexHash, 16) != XxHash64.hash(Slices.wrappedBuffer(bytes))) {
-            return Response.status(BAD_REQUEST).build();
+            throw new BadRequestException();
         }
         if (shards.containsKey(uuid)) {
             byte[] existing = shards.get(uuid);
             if ((existing == null) || !Arrays.equals(bytes, existing)) {
-                return Response.status(FORBIDDEN).build();
+                throw new ForbiddenException();
             }
         }
         shards.put(uuid, bytes);
@@ -133,10 +132,10 @@ public class TestingHttpBackupResource
     {
         checkEnvironment(environment);
         if (!shards.containsKey(uuid)) {
-            return Response.status(NOT_FOUND).build();
+            throw new NotFoundException();
         }
         if (shards.get(uuid) == null) {
-            return Response.status(GONE).build();
+            throw new GoneException();
         }
         shards.put(uuid, null);
         return Response.noContent().build();
@@ -145,7 +144,7 @@ public class TestingHttpBackupResource
     private void checkEnvironment(String environment)
     {
         if (!this.environment.equals(environment)) {
-            throw new WebApplicationException(Response.status(FORBIDDEN).build());
+            throw new ForbiddenException();
         }
     }
 }

@@ -17,6 +17,7 @@ import io.trino.server.ExternalUriInfo;
 import io.trino.server.security.ResourceSecurity;
 import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -27,7 +28,6 @@ import java.io.IOException;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.web.ui.WebUiResources.webUiResource;
-import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("")
 public class WebUiStaticResource
@@ -55,7 +55,7 @@ public class WebUiStaticResource
         // The "getFile" resource method matches all GET requests, and without a
         // resource for POST requests, a METHOD_NOT_ALLOWED error will be returned
         // instead of a NOT_FOUND error
-        return Response.status(NOT_FOUND).build();
+        throw new NotFoundException();
     }
 
     // asset files are always visible
