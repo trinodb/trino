@@ -37,7 +37,7 @@ public abstract class PrimitiveValueWriter
         this.statistics = Statistics.createStats(parquetType);
     }
 
-    ValuesWriter getValueWriter()
+    ValuesWriter getValuesWriter()
     {
         return valuesWriter;
     }
