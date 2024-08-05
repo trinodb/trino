@@ -29,6 +29,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
+import org.apache.avro.SchemaFormatter;
 
 import java.util.List;
 import java.util.Optional;
@@ -58,6 +59,8 @@ import static org.apache.avro.Schema.Type.UNION;
 
 public class AvroSchemaConverter
 {
+    private static final SchemaFormatter JSON_PRETTY_FORMATTER = SchemaFormatter.getInstance("json/pretty");
+
     public static final String DUMMY_FIELD_NAME = "$empty_field_marker";
 
     public static final RowType DUMMY_ROW_TYPE = RowType.from(ImmutableList.of(new RowType.Field(Optional.of(DUMMY_FIELD_NAME), BooleanType.BOOLEAN)));
@@ -176,7 +179,7 @@ public class AvroSchemaConverter
         if (BINARY_TYPES.containsAll(types)) {
             return Optional.of(VarbinaryType.VARBINARY);
         }
-        throw new UnsupportedOperationException(format("Incompatible UNION type: '%s'", schema.toString(true)));
+        throw new UnsupportedOperationException(format("Incompatible UNION type: '%s'", JSON_PRETTY_FORMATTER.format(schema)));
     }
 
     private Optional<Type> convertArray(Schema schema)
