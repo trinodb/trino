@@ -15,6 +15,7 @@ package io.trino.parquet.writer.valuewriter;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
@@ -25,24 +26,23 @@ import static java.util.Objects.requireNonNull;
 public class UuidValueWriter
         extends PrimitiveValueWriter
 {
-    private final ValuesWriter valuesWriter;
-
     public UuidValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.valuesWriter = requireNonNull(valuesWriter, "valuesWriter is null");
     }
 
     @Override
     public void write(Block block)
     {
+        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
+        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
                 Slice slice = UUID.getSlice(block, i);
                 Binary binary = Binary.fromConstantByteArray(slice.getBytes());
                 valuesWriter.writeBytes(binary);
-                getStatistics().updateStats(binary);
+                statistics.updateStats(binary);
             }
         }
     }

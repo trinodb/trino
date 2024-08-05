@@ -16,6 +16,7 @@ package io.trino.parquet.writer.valuewriter;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
@@ -25,19 +26,19 @@ import static java.util.Objects.requireNonNull;
 public class BinaryValueWriter
         extends PrimitiveValueWriter
 {
-    private final ValuesWriter valuesWriter;
     private final Type type;
 
     public BinaryValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.valuesWriter = requireNonNull(valuesWriter, "valuesWriter is null");
         this.type = requireNonNull(type, "type is null");
     }
 
     @Override
     public void write(Block block)
     {
+        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
+        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
@@ -46,7 +47,7 @@ public class BinaryValueWriter
                 // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter
                 Binary binary = Binary.fromReusedByteBuffer(slice.toByteBuffer());
                 valuesWriter.writeBytes(binary);
-                getStatistics().updateStats(binary);
+                statistics.updateStats(binary);
             }
         }
     }
