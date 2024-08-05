@@ -16,6 +16,7 @@ package io.trino.parquet.writer.valuewriter;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
@@ -43,13 +44,15 @@ public class FixedLenByteArrayShortDecimalValueWriter
     @Override
     public void write(Block block)
     {
+        ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
+        Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
         boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
                 long value = decimalType.getLong(block, i);
                 Binary binary = Binary.fromConstantByteArray(paddingLong(value));
-                getValueWriter().writeBytes(binary);
-                getStatistics().updateStats(binary);
+                valuesWriter.writeBytes(binary);
+                statistics.updateStats(binary);
             }
         }
     }

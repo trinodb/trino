@@ -17,6 +17,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
@@ -87,6 +88,8 @@ public class Int96TimestampValueWriter
             }
         }
 
+        ValuesWriter valuesWriter = getValuesWriter();
+        Statistics<?> statistics = getStatistics();
         for (int i = 0; i < nonNullsCount; i++) {
             long epochMillis = parquetTimeZone.convertLocalToUTC(localEpochMillis[i], false);
             long epochDay = floorDiv(epochMillis, MILLISECONDS_PER_DAY);
@@ -94,8 +97,8 @@ public class Int96TimestampValueWriter
 
             long nanosOfEpochDay = nanosOfMillis[i] + ((long) floorMod(epochMillis, MILLISECONDS_PER_DAY) * NANOSECONDS_PER_MILLISECOND);
             Binary binary = toBinary(julianDay, nanosOfEpochDay);
-            getValueWriter().writeBytes(binary);
-            getStatistics().updateStats(binary);
+            valuesWriter.writeBytes(binary);
+            statistics.updateStats(binary);
         }
     }
 
