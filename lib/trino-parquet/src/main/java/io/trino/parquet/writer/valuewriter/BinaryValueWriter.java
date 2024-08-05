@@ -38,8 +38,9 @@ public class BinaryValueWriter
     @Override
     public void write(Block block)
     {
+        boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!block.isNull(i)) {
+            if (!mayHaveNull || !block.isNull(i)) {
                 Slice slice = type.getSlice(block, i);
                 // fromReusedByteBuffer must be used instead of fromConstantByteBuffer to avoid retaining entire
                 // base byte array of the Slice in DictionaryValuesWriter.PlainBinaryDictionaryValuesWriter

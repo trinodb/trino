@@ -40,8 +40,9 @@ public class TimestampNanosValueWriter
     @Override
     public void write(Block block)
     {
+        boolean mayHaveNull = block.mayHaveNull();
         for (int i = 0; i < block.getPositionCount(); i++) {
-            if (!block.isNull(i)) {
+            if (!mayHaveNull || !block.isNull(i)) {
                 LongTimestamp value = (LongTimestamp) type.getObject(block, i);
                 long epochNanos = multiplyExact(value.getEpochMicros(), NANOSECONDS_PER_MICROSECOND) +
                         LongMath.divide(value.getPicosOfMicro(), PICOSECONDS_PER_NANOSECOND, UNNECESSARY);
