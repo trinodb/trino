@@ -155,7 +155,11 @@ public final class HiveFormatUtils
 
     public static void writeDecimal(String value, DecimalType decimalType, BlockBuilder builder)
     {
-        BigDecimal bigDecimal = parseDecimal(value, decimalType);
+        writeDecimal(value, decimalType, builder, parseDecimal(value, decimalType));
+    }
+
+    public static void writeDecimal(String value, DecimalType decimalType, BlockBuilder builder, BigDecimal bigDecimal)
+    {
         if (overflows(bigDecimal, decimalType.getPrecision())) {
             throw new NumberFormatException(format("Cannot convert '%s' to %s. Value too large.", value, decimalType));
         }

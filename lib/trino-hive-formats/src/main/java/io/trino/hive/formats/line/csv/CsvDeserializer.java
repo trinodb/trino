@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.hive.formats.line.LineDeserializerUtils.writeSlice;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -85,7 +86,7 @@ public class CsvDeserializer
                 blockBuilder.appendNull();
             }
             else {
-                VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(fieldValue));
+                writeSlice(VARCHAR, blockBuilder, Slices.utf8Slice(fieldValue));
             }
         }
     }

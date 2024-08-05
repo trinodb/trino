@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.hive.formats.FormatTestUtils;
 import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineDeserializer;
+import io.trino.hive.formats.line.LineDeserializerUtils;
 import io.trino.hive.formats.line.regex.RegexDeserializer.UnsupportedTypeException;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -175,8 +176,7 @@ public class TestRegexFormat
                         ImmutableList.of(new Column("a", VARBINARY, 0)),
                         "line",
                         "(line)",
-                        false,
-                        true))
+                        false))
                 .isInstanceOf(UnsupportedTypeException.class);
         assertThatThrownBy(
                 () -> readLineHive(
@@ -589,38 +589,32 @@ public class TestRegexFormat
             throws Exception
     {
         assertValueHive(type, regexValue, null);
-        assertValueTrino(type, regexValue, null, true);
-        assertTrinoError(type, regexValue, false);
+        assertValueTrino(type, regexValue, null);
+        assertTrinoError(type, regexValue, true);
     }
 
     private static void assertNullValueTrino(Type type, String regexValue)
             throws Exception
     {
-        assertValueTrino(type, regexValue, null, true);
-        assertTrinoError(type, regexValue, false);
+        assertValueTrino(type, regexValue, null);
+        assertTrinoError(type, regexValue, true);
     }
 
     private static void assertValueTrino(Type type, String regexValue, Object expectedValue)
             throws IOException
     {
-        assertValueTrino(type, regexValue, expectedValue, true);
-    }
-
-    private static void assertValueTrino(Type type, String regexValue, Object expectedValue, boolean nullOnParseError)
-            throws IOException
-    {
-        Object actualValue = readValueTrino(type, regexValue, nullOnParseError);
+        Object actualValue = readValueTrino(type, regexValue, false);
         assertColumnValueEquals(type, actualValue, expectedValue);
     }
 
-    private static void assertTrinoError(Type type, String regexValue, boolean nullOnParseError)
+    private static void assertTrinoError(Type type, String regexValue, boolean strictParsing)
     {
         assertThatThrownBy(() ->
-                readValueTrino(type, regexValue, nullOnParseError))
+                readValueTrino(type, regexValue, strictParsing))
                 .isInstanceOf(TrinoException.class);
     }
 
-    private static Object readValueTrino(Type type, String value, boolean nullOnParseError)
+    private static Object readValueTrino(Type type, String value, boolean strictParsing)
             throws IOException
     {
         List<Object> values = readTrinoLine(
@@ -628,7 +622,7 @@ public class TestRegexFormat
                 "ignore~" + value + "~ignore",
                 "([^~]*)~([^~]*)~([^~]*)",
                 false,
-                nullOnParseError);
+                strictParsing);
         return values.get(0);
     }
 
@@ -642,7 +636,7 @@ public class TestRegexFormat
     private static void assertLineTrino(List<Column> columns, String line, String regex, boolean caseSensitive, List<Object> expectedValues)
             throws IOException
     {
-        List<Object> actualValues = readTrinoLine(columns, line, regex, caseSensitive, true);
+        List<Object> actualValues = readTrinoLine(columns, line, regex, caseSensitive);
         for (int i = 0; i < columns.size(); i++) {
             Type type = columns.get(i).type();
             Object actualValue = actualValues.get(i);
@@ -651,10 +645,16 @@ public class TestRegexFormat
         }
     }
 
-    private static List<Object> readTrinoLine(List<Column> columns, String line, String regex, boolean caseSensitive, boolean nullOnParseError)
+    private static List<Object> readTrinoLine(List<Column> columns, String line, String regex, boolean caseSensitive)
             throws IOException
     {
-        LineDeserializer deserializer = new RegexDeserializerFactory().create(columns, createRegexProperties(regex, caseSensitive, nullOnParseError));
+        return readTrinoLine(columns, line, regex, caseSensitive, false);
+    }
+
+    private static List<Object> readTrinoLine(List<Column> columns, String line, String regex, boolean caseSensitive, boolean strictParsing)
+            throws IOException
+    {
+        LineDeserializer deserializer = new RegexDeserializerFactory().create(columns, createRegexProperties(regex, caseSensitive, strictParsing));
         PageBuilder pageBuilder = new PageBuilder(1, deserializer.getTypes());
         deserializer.deserialize(createLineBuffer(line), pageBuilder);
         return readTrinoValues(columns, pageBuilder.build(), 0);
@@ -711,7 +711,7 @@ public class TestRegexFormat
                         .map(FormatTestUtils::getJavaObjectInspector)
                         .map(ObjectInspector::getTypeName)
                         .collect(joining(",")));
-        schema.putAll(createRegexProperties(regex, caseSensitive, true));
+        schema.putAll(createRegexProperties(regex, caseSensitive, false));
         // this is required in the Hive serde for some reason
         schema.put("columns.comments", columns.stream()
                 .map(column -> "\0")
@@ -737,12 +737,12 @@ public class TestRegexFormat
         }
     }
 
-    private static Map<String, String> createRegexProperties(String regex, boolean caseSensitive, boolean nullOnParseError)
+    private static Map<String, String> createRegexProperties(String regex, boolean caseSensitive, boolean strictParsing)
     {
         ImmutableMap.Builder<String, String> schema = ImmutableMap.builder();
         schema.put(RegexDeserializerFactory.REGEX_KEY, regex);
         schema.put(RegexDeserializerFactory.REGEX_CASE_SENSITIVE_KEY, String.valueOf(caseSensitive));
-        schema.put(RegexDeserializerFactory.REGEX_NULL_ON_PARSE_ERROR, String.valueOf(nullOnParseError));
+        schema.put(LineDeserializerUtils.STRICT_PARSING, String.valueOf(strictParsing));
         return schema.buildOrThrow();
     }
 }

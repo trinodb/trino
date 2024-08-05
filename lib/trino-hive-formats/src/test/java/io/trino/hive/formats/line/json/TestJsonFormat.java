@@ -20,6 +20,7 @@ import io.airlift.slice.SliceOutput;
 import io.trino.hive.formats.FormatTestUtils;
 import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineDeserializer;
+import io.trino.hive.formats.line.LineDeserializerUtils;
 import io.trino.hive.formats.line.LineSerializer;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -350,7 +351,7 @@ public class TestJsonFormat
         assertValue(BOOLEAN, "1.23e45", false);
 
         assertValueFails(BOOLEAN, "[ true ]", false);
-        assertValueFailsTrino(BOOLEAN, "{ \"x\" : false }", false);
+        assertValueFailsTrino(BOOLEAN, "{ \"x\" : false }", false, false);
     }
 
     @Test
@@ -515,13 +516,13 @@ public class TestJsonFormat
         assertValue(roundingType, "10.005", SqlDecimal.decimal("10.01", roundingType));
         assertValueFails(roundingType, "99.999");
 
-        assertValueFailsTrino(SHORT_DECIMAL, "true");
-        assertValueFailsTrino(SHORT_DECIMAL, "false");
-        assertValueFailsTrino(SHORT_DECIMAL, "\"string\"");
-        assertValueFailsTrino(SHORT_DECIMAL, "\"null\"");
+        assertStrictParsing(SHORT_DECIMAL, "true");
+        assertStrictParsing(SHORT_DECIMAL, "false");
+        assertStrictParsing(SHORT_DECIMAL, "\"string\"");
+        assertStrictParsing(SHORT_DECIMAL, "\"null\"");
 
         assertValueFails(SHORT_DECIMAL, "[ 42 ]", false);
-        assertValueFailsTrino(SHORT_DECIMAL, "{ \"x\" : 42 }", false);
+        assertValueFailsTrino(SHORT_DECIMAL, "{ \"x\" : 42 }", false, false);
     }
 
     @Test
@@ -554,13 +555,13 @@ public class TestJsonFormat
         assertValue(roundingType, "10.001", SqlDecimal.decimal("10.00", roundingType));
         assertValue(roundingType, "10.005", SqlDecimal.decimal("10.01", roundingType));
 
-        assertValueFailsTrino(LONG_DECIMAL, "true");
-        assertValueFailsTrino(LONG_DECIMAL, "false");
-        assertValueFailsTrino(LONG_DECIMAL, "\"string\"");
-        assertValueFailsTrino(LONG_DECIMAL, "\"null\"");
+        assertStrictParsing(LONG_DECIMAL, "true");
+        assertStrictParsing(LONG_DECIMAL, "false");
+        assertStrictParsing(LONG_DECIMAL, "\"string\"");
+        assertStrictParsing(LONG_DECIMAL, "\"null\"");
 
         assertValueFails(LONG_DECIMAL, "[ 42 ]", false);
-        assertValueFailsTrino(LONG_DECIMAL, "{ \"x\" : 42 }", false);
+        assertValueFailsTrino(LONG_DECIMAL, "{ \"x\" : 42 }", false, false);
     }
 
     private static void assertDecimal(DecimalType decimalType, String jsonValue)
@@ -866,33 +867,42 @@ public class TestJsonFormat
             throws Exception
     {
         assertValueHive(type, jsonValue, expectedValue, timestampFormats, testMapKey);
-        assertValueTrino(type, jsonValue, expectedValue, timestampFormats, testMapKey);
+        assertValueTrino(type, jsonValue, expectedValue, timestampFormats, testMapKey, true);
+    }
+
+    private static void assertStrictParsing(Type type, String jsonValue)
+            throws IOException, SerDeException
+    {
+        assertValueTrino(type, jsonValue, null, ImmutableList.of(), true, false);
+        assertValueFailsTrino(type, jsonValue, true, false);
     }
 
     private static void assertValueTrino(Type type, String jsonValue, Object expectedValue)
             throws IOException, SerDeException
     {
-        assertValueTrino(type, jsonValue, expectedValue, ImmutableList.of(), true);
+        assertValueTrino(type, jsonValue, expectedValue, ImmutableList.of(), true, true);
     }
 
-    private static void assertValueTrino(Type type, String jsonValue, Object expectedValue, List<String> timestampFormats, boolean testMapKey)
+    private static void assertValueTrino(Type type, String jsonValue, Object expectedValue, List<String> timestampFormats, boolean testMapKey, boolean strictParsing)
             throws IOException, SerDeException
     {
-        internalAssertValueTrino(type, jsonValue, expectedValue, timestampFormats);
-        internalAssertValueTrino(new ArrayType(type), "[" + jsonValue + "]", singletonList(expectedValue), timestampFormats);
+        internalAssertValueTrino(type, jsonValue, expectedValue, timestampFormats, strictParsing);
+        internalAssertValueTrino(new ArrayType(type), "[" + jsonValue + "]", singletonList(expectedValue), timestampFormats, strictParsing);
         internalAssertValueTrino(
                 RowType.rowType(field("a", type), field("nested", type), field("b", type)),
                 "{ \"nested\" : " + jsonValue + " }",
                 Arrays.asList(null, expectedValue, null),
-                timestampFormats);
+                timestampFormats,
+                strictParsing);
         internalAssertValueTrino(
                 new MapType(BIGINT, type, TYPE_OPERATORS),
                 "{ \"1234\" : " + jsonValue + " }",
                 singletonMap(1234L, expectedValue),
-                timestampFormats);
+                timestampFormats,
+                strictParsing);
         if (expectedValue != null && isScalarType(type)) {
             if (testMapKey) {
-                internalAssertValueTrino(toMapKeyType(type), toMapKeyJson(jsonValue), toMapKeyExpectedValue(expectedValue), timestampFormats);
+                internalAssertValueTrino(toMapKeyType(type), toMapKeyJson(jsonValue), toMapKeyExpectedValue(expectedValue), timestampFormats, strictParsing);
             }
             else {
                 internalAssertValueFailsTrino(toMapKeyType(type), toMapKeyJson(jsonValue));
@@ -900,24 +910,24 @@ public class TestJsonFormat
         }
     }
 
-    private static void internalAssertValueTrino(Type type, String jsonValue, Object expectedValue, List<String> timestampFormats)
+    private static void internalAssertValueTrino(Type type, String jsonValue, Object expectedValue, List<String> timestampFormats, boolean strictParsing)
             throws IOException, SerDeException
     {
         List<Column> columns = ImmutableList.of(new Column("test", type, 33));
 
         // read normal json
-        Object actualValue = readTrinoLine("{\"test\" : " + jsonValue + "}", columns, timestampFormats).get(0);
+        Object actualValue = readTrinoLine("{\"test\" : " + jsonValue + "}", columns, timestampFormats, strictParsing).get(0);
         assertColumnValueEquals(type, actualValue, expectedValue);
 
         // read column ordinal json
-        actualValue = readTrinoLine("{\"_col33\" : " + jsonValue + "}", columns, timestampFormats).get(0);
+        actualValue = readTrinoLine("{\"_col33\" : " + jsonValue + "}", columns, timestampFormats, strictParsing).get(0);
         assertColumnValueEquals(type, actualValue, expectedValue);
 
         // write the value using Trino
         String trinoLine = writeTrinoValue(type, expectedValue);
 
         // verify Trino can read back the Trino json
-        actualValue = readTrinoLine(trinoLine, columns, timestampFormats).get(0);
+        actualValue = readTrinoLine(trinoLine, columns, timestampFormats, strictParsing).get(0);
         assertColumnValueEquals(type, actualValue, expectedValue);
 
         // verify Hive can read back the Trino json
@@ -927,10 +937,10 @@ public class TestJsonFormat
         }
     }
 
-    private static List<Object> readTrinoLine(String jsonLine, List<Column> columns, List<String> timestampFormats)
+    private static List<Object> readTrinoLine(String jsonLine, List<Column> columns, List<String> timestampFormats, boolean strictParsing)
             throws IOException
     {
-        LineDeserializer deserializer = new JsonDeserializerFactory().create(columns, createJsonProperties(timestampFormats));
+        LineDeserializer deserializer = new JsonDeserializerFactory().create(columns, createJsonProperties(timestampFormats, strictParsing));
         PageBuilder pageBuilder = new PageBuilder(1, deserializer.getTypes());
         deserializer.deserialize(createLineBuffer(jsonLine), pageBuilder);
         Page page = pageBuilder.build();
@@ -1015,7 +1025,7 @@ public class TestJsonFormat
                 .map(FormatTestUtils::getJavaObjectInspector)
                 .map(ObjectInspector::getTypeName)
                 .collect(joining(",")));
-        schema.putAll(createJsonProperties(timestampFormats));
+        schema.putAll(createJsonProperties(timestampFormats, false));
 
         Deserializer deserializer;
         if (hcatalog) {
@@ -1037,15 +1047,15 @@ public class TestJsonFormat
     private static void assertValueFails(Type type, String jsonValue, boolean testMapKey)
     {
         assertValueFailsHive(type, jsonValue, testMapKey);
-        assertValueFailsTrino(type, jsonValue, testMapKey);
+        assertValueFailsTrino(type, jsonValue, testMapKey, true);
     }
 
     private static void assertValueFailsTrino(Type type, String jsonValue)
     {
-        assertValueFailsTrino(type, jsonValue, true);
+        assertValueFailsTrino(type, jsonValue, true, true);
     }
 
-    private static void assertValueFailsTrino(Type type, String jsonValue, boolean testMapKey)
+    private static void assertValueFailsTrino(Type type, String jsonValue, boolean testMapKey, boolean strictParsing)
     {
         internalAssertValueFailsTrino(type, jsonValue);
 
@@ -1109,7 +1119,7 @@ public class TestJsonFormat
         return ImmutableMap.of(value, 8675309L);
     }
 
-    private static Map<String, String> createJsonProperties(List<String> timestampFormats)
+    private static Map<String, String> createJsonProperties(List<String> timestampFormats, boolean strictParsing)
     {
         ImmutableMap.Builder<String, String> schema = ImmutableMap.builder();
         if (!timestampFormats.isEmpty()) {
@@ -1118,6 +1128,7 @@ public class TestJsonFormat
                     .map(format -> format.replace(",", "\\,"))
                     .collect(joining(",")));
         }
+        schema.put(LineDeserializerUtils.STRICT_PARSING, String.valueOf(strictParsing));
         return schema.buildOrThrow();
     }
 }

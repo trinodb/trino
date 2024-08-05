@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import static io.trino.hive.formats.line.LineDeserializerUtils.STRICT_PARSING;
+
 public class OpenXJsonOptions
 {
     public static final OpenXJsonOptions DEFAULT_OPEN_X_JSON_OPTIONS = builder().build();
@@ -43,6 +45,7 @@ public class OpenXJsonOptions
     private final boolean dotsInFieldNames;
     private final boolean explicitNull;
     private final List<String> timestampFormats;
+    private final boolean strictParsing;
 
     private OpenXJsonOptions(
             boolean ignoreMalformedJson,
@@ -50,7 +53,8 @@ public class OpenXJsonOptions
             boolean caseInsensitive,
             boolean dotsInFieldNames,
             boolean explicitNull,
-            List<String> timestampFormats)
+            List<String> timestampFormats,
+            boolean strictParsing)
     {
         this.ignoreMalformedJson = ignoreMalformedJson;
         this.fieldNameMappings = ImmutableMap.copyOf(fieldNameMappings);
@@ -58,6 +62,7 @@ public class OpenXJsonOptions
         this.dotsInFieldNames = dotsInFieldNames;
         this.explicitNull = explicitNull;
         this.timestampFormats = ImmutableList.copyOf(timestampFormats);
+        this.strictParsing = strictParsing;
     }
 
     public boolean isIgnoreMalformedJson()
@@ -90,6 +95,11 @@ public class OpenXJsonOptions
         return timestampFormats;
     }
 
+    public boolean isStrictParsing()
+    {
+        return strictParsing;
+    }
+
     public Map<String, String> toSchema()
     {
         ImmutableMap.Builder<String, String> schema = ImmutableMap.builder();
@@ -116,6 +126,10 @@ public class OpenXJsonOptions
 
         if (!timestampFormats.isEmpty()) {
             schema.put(TIMESTAMP_FORMATS_KEY, String.join(",", timestampFormats));
+        }
+
+        if (!strictParsing) {
+            schema.put(STRICT_PARSING, "false");
         }
         return schema.buildOrThrow();
     }
@@ -156,6 +170,11 @@ public class OpenXJsonOptions
             builder.timestampFormats(Splitter.on(',').splitToList(timestampFormats));
         }
 
+        boolean strictParsing = "true".equalsIgnoreCase(serdeProperties.getOrDefault(STRICT_PARSING, "true"));
+        if (!strictParsing) {
+            builder.nonStrictParsing();
+        }
+
         return builder.build();
     }
 
@@ -177,6 +196,7 @@ public class OpenXJsonOptions
         private boolean dotsInFieldNames;
         private boolean explicitNull;
         private List<String> timestampFormats = ImmutableList.of();
+        private boolean strictParsing = true;
 
         public Builder() {}
 
@@ -188,6 +208,7 @@ public class OpenXJsonOptions
             dotsInFieldNames = options.isDotsInFieldNames();
             explicitNull = options.isExplicitNull();
             timestampFormats = options.getTimestampFormats();
+            strictParsing = options.isStrictParsing();
         }
 
         public Builder ignoreMalformedJson()
@@ -231,6 +252,12 @@ public class OpenXJsonOptions
             return this;
         }
 
+        public Builder nonStrictParsing()
+        {
+            this.strictParsing = false;
+            return this;
+        }
+
         public OpenXJsonOptions build()
         {
             return new OpenXJsonOptions(
@@ -239,7 +266,8 @@ public class OpenXJsonOptions
                     caseInsensitive,
                     dotsInFieldNames,
                     explicitNull,
-                    timestampFormats);
+                    timestampFormats,
+                    strictParsing);
         }
     }
 }

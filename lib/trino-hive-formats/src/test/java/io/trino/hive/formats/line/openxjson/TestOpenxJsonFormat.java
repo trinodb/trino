@@ -650,9 +650,9 @@ public class TestOpenxJsonFormat
         assertNumber(type, "0" + Long.toUnsignedString(maxValue, 8), coercion.apply(maxValue), true);
         // But negative values are not allowed
         // Only test with Trino here, as Hive handling of octal is very broken
-        assertValueFailsTrino(type, "01777777777777777777777", DEFAULT_OPEN_X_JSON_OPTIONS, true);
-        assertValueFailsTrino(type, "07777777777777777777777", DEFAULT_OPEN_X_JSON_OPTIONS, true);
-        assertValueFailsTrino(type, "0" + Long.toUnsignedString(minValue, 8), DEFAULT_OPEN_X_JSON_OPTIONS, true);
+        assertStrictParsingTrinoOnly(type, "01777777777777777777777");
+        assertStrictParsingTrinoOnly(type, "07777777777777777777777");
+        assertStrictParsingTrinoOnly(type, "0" + Long.toUnsignedString(minValue, 8));
 
         // all other string values are invalid
         assertInvalidNumber(type, "\"\"");
@@ -733,22 +733,22 @@ public class TestOpenxJsonFormat
         assertDecimal(SHORT_DECIMAL, "1.5645e15");
 
         // Hive does not enforce size bounds
-        assertValueFailsTrinoNullHive(SHORT_DECIMAL, "10000000000000000.00");
-        assertValueFailsTrinoNullHive(SHORT_DECIMAL, "-10000000000000000.00");
-        assertValueFailsTrinoNullHive(SHORT_DECIMAL, "1e19");
-        assertValueFailsTrinoNullHive(SHORT_DECIMAL, "-1e19");
+        assertStrictParsing(SHORT_DECIMAL, "10000000000000000.00");
+        assertStrictParsing(SHORT_DECIMAL, "-10000000000000000.00");
+        assertStrictParsing(SHORT_DECIMAL, "1e19");
+        assertStrictParsing(SHORT_DECIMAL, "-1e19");
 
         // test rounding
         DecimalType roundingType = createDecimalType(4, 2);
         assertValue(roundingType, "10.001", SqlDecimal.decimal("10.00", roundingType));
         assertValue(roundingType, "10.005", SqlDecimal.decimal("10.01", roundingType));
-        assertValueFailsTrinoNullHive(roundingType, "99.999");
+        assertStrictParsing(roundingType, "99.999");
 
-        assertValueFailsTrinoNullHive(SHORT_DECIMAL, "invalid");
-        assertValueFailsTrinoNullHive(SHORT_DECIMAL, "true");
-        assertValueFailsTrinoNullHive(SHORT_DECIMAL, "false");
-        assertValueFailsTrinoNullHive(SHORT_DECIMAL, "\"string\"");
-        assertValueFailsTrinoNullHive(SHORT_DECIMAL, "\"null\"");
+        assertStrictParsing(SHORT_DECIMAL, "invalid");
+        assertStrictParsing(SHORT_DECIMAL, "true");
+        assertStrictParsing(SHORT_DECIMAL, "false");
+        assertStrictParsing(SHORT_DECIMAL, "\"string\"");
+        assertStrictParsing(SHORT_DECIMAL, "\"null\"");
 
         assertValueFailsTrino(SHORT_DECIMAL, "[ 42 ]", DEFAULT_OPEN_X_JSON_OPTIONS, false);
         assertValueFailsTrino(SHORT_DECIMAL, "{ \"x\" : 42 }", DEFAULT_OPEN_X_JSON_OPTIONS, false);
@@ -775,21 +775,21 @@ public class TestOpenxJsonFormat
         assertDecimal(LONG_DECIMAL, "1.5645e35");
 
         // Hive does not enforce size bounds
-        assertValueFailsTrinoNullHive(LONG_DECIMAL, "1000000000000000000000000000000000000.00");
-        assertValueFailsTrinoNullHive(LONG_DECIMAL, "-1000000000000000000000000000000000000.00");
-        assertValueFailsTrinoNullHive(LONG_DECIMAL, "1e39");
-        assertValueFailsTrinoNullHive(LONG_DECIMAL, "-1e39");
+        assertStrictParsing(LONG_DECIMAL, "1000000000000000000000000000000000000.00");
+        assertStrictParsing(LONG_DECIMAL, "-1000000000000000000000000000000000000.00");
+        assertStrictParsing(LONG_DECIMAL, "1e39");
+        assertStrictParsing(LONG_DECIMAL, "-1e39");
 
         // test rounding (Hive doesn't seem to enforce scale)
         DecimalType roundingType = createDecimalType(38, 2);
         assertValue(roundingType, "10.001", SqlDecimal.decimal("10.00", roundingType));
         assertValue(roundingType, "10.005", SqlDecimal.decimal("10.01", roundingType));
 
-        assertValueFailsTrinoNullHive(LONG_DECIMAL, "invalid");
-        assertValueFailsTrinoNullHive(LONG_DECIMAL, "true");
-        assertValueFailsTrinoNullHive(LONG_DECIMAL, "false");
-        assertValueFailsTrinoNullHive(LONG_DECIMAL, "\"string\"");
-        assertValueFailsTrinoNullHive(LONG_DECIMAL, "\"null\"");
+        assertStrictParsing(LONG_DECIMAL, "invalid");
+        assertStrictParsing(LONG_DECIMAL, "true");
+        assertStrictParsing(LONG_DECIMAL, "false");
+        assertStrictParsing(LONG_DECIMAL, "\"string\"");
+        assertStrictParsing(LONG_DECIMAL, "\"null\"");
 
         assertValueFailsTrino(LONG_DECIMAL, "[ 42 ]", DEFAULT_OPEN_X_JSON_OPTIONS, false);
         assertValueFailsTrino(LONG_DECIMAL, "{ \"x\" : 42 }", DEFAULT_OPEN_X_JSON_OPTIONS, false);
@@ -828,15 +828,15 @@ public class TestOpenxJsonFormat
         assertValue(REAL, "Infinity", Float.POSITIVE_INFINITY);
         assertValue(REAL, "+Infinity", Float.POSITIVE_INFINITY);
         assertValue(REAL, "-Infinity", Float.NEGATIVE_INFINITY);
-        assertValueFailsTrino(REAL, "+Inf");
-        assertValueFailsTrino(REAL, "-Inf");
+        assertStrictParsingTrinoOnly(REAL, "+Inf");
+        assertStrictParsingTrinoOnly(REAL, "-Inf");
 
-        assertValueFailsTrino(REAL, "invalid");
-        assertValueFailsTrino(REAL, "true");
-        assertValueFailsTrino(REAL, "false");
+        assertStrictParsingTrinoOnly(REAL, "invalid");
+        assertStrictParsingTrinoOnly(REAL, "true");
+        assertStrictParsingTrinoOnly(REAL, "false");
         assertValue(REAL, "\"123.45\"", 123.45f);
-        assertValueFailsTrino(REAL, "\"string\"");
-        assertValueFailsTrino(REAL, "\"null\"");
+        assertStrictParsingTrinoOnly(REAL, "\"string\"");
+        assertStrictParsingTrinoOnly(REAL, "\"null\"");
 
         assertValueFails(REAL, "[ 42 ]", DEFAULT_OPEN_X_JSON_OPTIONS, false);
         assertValueFails(REAL, "{ \"x\" : 42 }", DEFAULT_OPEN_X_JSON_OPTIONS, false);
@@ -860,15 +860,15 @@ public class TestOpenxJsonFormat
         assertValue(DOUBLE, "Infinity", Double.POSITIVE_INFINITY);
         assertValue(DOUBLE, "+Infinity", Double.POSITIVE_INFINITY);
         assertValue(DOUBLE, "-Infinity", Double.NEGATIVE_INFINITY);
-        assertValueFailsTrino(DOUBLE, "+Inf");
-        assertValueFailsTrino(DOUBLE, "-Inf");
+        assertStrictParsingTrinoOnly(DOUBLE, "+Inf");
+        assertStrictParsingTrinoOnly(DOUBLE, "-Inf");
 
-        assertValueFailsTrino(DOUBLE, "invalid");
-        assertValueFailsTrino(DOUBLE, "true");
-        assertValueFailsTrino(DOUBLE, "false");
+        assertStrictParsingTrinoOnly(DOUBLE, "invalid");
+        assertStrictParsingTrinoOnly(DOUBLE, "true");
+        assertStrictParsingTrinoOnly(DOUBLE, "false");
         assertValue(DOUBLE, "\"123.45\"", 123.45);
-        assertValueFailsTrino(DOUBLE, "\"string\"");
-        assertValueFailsTrino(DOUBLE, "\"null\"");
+        assertStrictParsingTrinoOnly(DOUBLE, "\"string\"");
+        assertStrictParsingTrinoOnly(DOUBLE, "\"null\"");
 
         assertValueFails(DOUBLE, "[ 42 ]", DEFAULT_OPEN_X_JSON_OPTIONS, false);
         assertValueFails(DOUBLE, "{ \"x\" : 42 }", DEFAULT_OPEN_X_JSON_OPTIONS, false);
@@ -894,8 +894,8 @@ public class TestOpenxJsonFormat
         assertDate("\"-5877641-06-23\"", Integer.MIN_VALUE);
 
         // Hive does not enforce size bounds and truncates the results in Date.toEpochDay
-        assertValueFailsTrino(DATE, "\"5881580-07-12\"");
-        assertValueFailsTrino(DATE, "\"-5877641-06-22\"");
+        assertStrictParsingTrinoOnly(DATE, "\"5881580-07-12\"");
+        assertStrictParsingTrinoOnly(DATE, "\"-5877641-06-22\"");
 
         // numbers are translated into epoch days
         assertDate("0", 0, false);
@@ -918,20 +918,20 @@ public class TestOpenxJsonFormat
         assertDate("0" + Long.toUnsignedString(Integer.MAX_VALUE, 8), Integer.MAX_VALUE, false);
 
         // out of bounds
-        assertValueFailsTrino(DATE, String.valueOf(Integer.MAX_VALUE + 1L));
-        assertValueFailsTrino(DATE, String.valueOf(Integer.MIN_VALUE - 1L));
+        assertStrictParsingTrinoOnly(DATE, String.valueOf(Integer.MAX_VALUE + 1L));
+        assertStrictParsingTrinoOnly(DATE, String.valueOf(Integer.MIN_VALUE - 1L));
 
         // unsupported values fail
-        assertValueFailsTrino(DATE, "1.23");
-        assertValueFailsTrino(DATE, "1.2345e2");
-        assertValueFailsTrino(DATE, "1.56");
-        assertValueFailsTrino(DATE, "1.5645e2");
-        assertValueFailsTrino(DATE, "1.5645e300");
+        assertStrictParsingTrinoOnly(DATE, "1.23");
+        assertStrictParsingTrinoOnly(DATE, "1.2345e2");
+        assertStrictParsingTrinoOnly(DATE, "1.56");
+        assertStrictParsingTrinoOnly(DATE, "1.5645e2");
+        assertStrictParsingTrinoOnly(DATE, "1.5645e300");
 
-        assertValueFailsTrino(DATE, "true");
-        assertValueFailsTrino(DATE, "false");
-        assertValueFailsTrino(DATE, "\"string\"");
-        assertValueFailsTrino(DATE, "\"null\"");
+        assertStrictParsingTrinoOnly(DATE, "true");
+        assertStrictParsingTrinoOnly(DATE, "false");
+        assertStrictParsingTrinoOnly(DATE, "\"string\"");
+        assertStrictParsingTrinoOnly(DATE, "\"null\"");
 
         assertValueFails(DATE, "[ 42 ]", DEFAULT_OPEN_X_JSON_OPTIONS, false);
         assertValueFails(DATE, "{ \"x\" : 42 }", DEFAULT_OPEN_X_JSON_OPTIONS, false);
@@ -1518,9 +1518,16 @@ public class TestOpenxJsonFormat
         assertValueFailsTrino(type, jsonValue, options, testMapKey);
     }
 
-    private static void assertValueFailsTrinoNullHive(Type type, String jsonValue)
+    private static void assertStrictParsingTrinoOnly(Type type, String jsonValue)
     {
         assertValueFailsTrino(type, jsonValue);
+        OpenXJsonOptions nonStrictParsing = OpenXJsonOptions.builder().nonStrictParsing().build();
+        assertValueTrino(type, jsonValue, null, nonStrictParsing, true);
+    }
+
+    private static void assertStrictParsing(Type type, String jsonValue)
+    {
+        assertStrictParsingTrinoOnly(type, jsonValue);
         assertValueHive(type, jsonValue, null, DEFAULT_OPEN_X_JSON_OPTIONS, true);
     }
 

@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static io.trino.hive.formats.HiveFormatUtils.getTimestampFormatsSchemaProperty;
+import static io.trino.hive.formats.line.LineDeserializerUtils.STRICT_PARSING;
 import static io.trino.hive.formats.line.json.JsonConstants.HIVE_SERDE_CLASS_NAMES;
 
 public class JsonDeserializerFactory
@@ -36,6 +37,7 @@ public class JsonDeserializerFactory
     @Override
     public LineDeserializer create(List<Column> columns, Map<String, String> serdeProperties)
     {
-        return new JsonDeserializer(columns, getTimestampFormatsSchemaProperty(serdeProperties));
+        boolean strictParsing = Boolean.parseBoolean(serdeProperties.getOrDefault(STRICT_PARSING, "true"));
+        return new JsonDeserializer(columns, getTimestampFormatsSchemaProperty(serdeProperties), strictParsing);
     }
 }
