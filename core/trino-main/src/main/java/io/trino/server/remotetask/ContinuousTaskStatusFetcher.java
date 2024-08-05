@@ -149,8 +149,10 @@ class ContinuousTaskStatusFetcher
                 .setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("status").build())
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(TRINO_CURRENT_VERSION, Long.toString(taskStatus.getVersion()))
-                .setHeader(TRINO_MAX_WAIT, refreshMaxWait.toString())
+                .setHeader(TRINO_MAX_WAIT, refreshMaxWait.toString()) // the max wait for the task is in the bounds [T/2, T]
                 .setSpanBuilder(spanBuilderFactory.get())
+                .setRequestTimeout(refreshMaxWait)
+                .setIdleTimeout(refreshMaxWait)
                 .build();
 
         errorTracker.startRequest();

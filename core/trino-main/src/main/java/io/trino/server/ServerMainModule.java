@@ -22,6 +22,7 @@ import com.google.inject.Singleton;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.http.server.HttpServerConfig;
 import io.airlift.slice.Slice;
 import io.airlift.stats.GcMonitor;
 import io.airlift.stats.JmxGcMonitor;
@@ -205,6 +206,13 @@ public class ServerMainModule
         }
 
         binder.bind(StartupStatus.class).in(Scopes.SINGLETON);
+
+        configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
+            httpServerConfig.setHttp2MaxConcurrentStreams(64 * 1024); // from the default 16K
+            httpServerConfig.setHttp2InitialStreamReceiveWindowSize(DataSize.of(2, MEGABYTE));
+            httpServerConfig.setHttp2InitialSessionReceiveWindowSize(DataSize.of(2, MEGABYTE));
+        });
+
         binder.bind(PreparedStatementEncoder.class).in(Scopes.SINGLETON);
         binder.bind(HttpRequestSessionContextFactory.class).in(Scopes.SINGLETON);
         install(new InternalCommunicationModule());
@@ -346,10 +354,12 @@ public class ServerMainModule
         binder.bind(DirectExchangeClientSupplier.class).to(DirectExchangeClientFactory.class).in(Scopes.SINGLETON);
         install(internalHttpClientModule("exchange", ForExchange.class)
                 .withConfigDefaults(config -> {
-                    config.setIdleTimeout(new Duration(30, SECONDS));
+                    config.setMaxConnectionsPerServer(64);
                     config.setRequestTimeout(new Duration(10, SECONDS));
-                    config.setMaxConnectionsPerServer(250);
+                    config.setIdleTimeout(new Duration(15, SECONDS));
+                    config.setDestinationIdleTimeout(new Duration(30, SECONDS));
                     config.setMaxContentLength(DataSize.of(32, MEGABYTE));
+                    config.setMaxRequestsQueuedPerDestination(65536);
                 }).build());
 
         configBinder(binder).bindConfig(DirectExchangeClientConfig.class);
