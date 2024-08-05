@@ -54,7 +54,8 @@ public class AzureFileSystemFactory
                 config.getReadBlockSize(),
                 config.getWriteBlockSize(),
                 config.getMaxWriteConcurrency(),
-                config.getMaxSingleUploadSize());
+                config.getMaxSingleUploadSize(),
+                config.getMaxHttpRequests());
     }
 
     public AzureFileSystemFactory(
@@ -63,7 +64,8 @@ public class AzureFileSystemFactory
             DataSize readBlockSize,
             DataSize writeBlockSize,
             int maxWriteConcurrency,
-            DataSize maxSingleUploadSize)
+            DataSize maxSingleUploadSize,
+            int maxHttpRequests)
     {
         this.auth = requireNonNull(azureAuth, "azureAuth is null");
         this.readBlockSize = requireNonNull(readBlockSize, "readBlockSize is null");
@@ -73,7 +75,12 @@ public class AzureFileSystemFactory
         this.maxSingleUploadSize = requireNonNull(maxSingleUploadSize, "maxSingleUploadSize is null");
         this.tracingOptions = new OpenTelemetryTracingOptions().setOpenTelemetry(openTelemetry);
 
-        okHttpClient = new OkHttpClient.Builder().build();
+        Dispatcher dispatcher = new Dispatcher();
+        dispatcher.setMaxRequests(maxHttpRequests);
+        dispatcher.setMaxRequestsPerHost(maxHttpRequests);
+        okHttpClient = new OkHttpClient.Builder()
+                .dispatcher(dispatcher)
+                .build();
         HttpClientOptions clientOptions = new HttpClientOptions();
         clientOptions.setTracingOptions(tracingOptions);
         httpClient = createAzureHttpClient(okHttpClient, clientOptions);
@@ -97,9 +104,6 @@ public class AzureFileSystemFactory
         Integer poolSize = clientOptions.getMaximumConnectionPoolSize();
         // By default, OkHttp uses a maximum idle connection count of 5.
         int maximumConnectionPoolSize = (poolSize != null && poolSize > 0) ? poolSize : 5;
-        Dispatcher dispatcher = new Dispatcher();
-        dispatcher.setMaxRequests(Runtime.getRuntime().availableProcessors() * 4);
-        dispatcher.setMaxRequestsPerHost(Runtime.getRuntime().availableProcessors() * 2);
 
         return new OkHttpAsyncHttpClientBuilder(okHttpClient)
                 .proxy(clientOptions.getProxyOptions())
@@ -109,7 +113,6 @@ public class AzureFileSystemFactory
                 .readTimeout(clientOptions.getReadTimeout())
                 .connectionPool(new ConnectionPool(maximumConnectionPoolSize,
                         clientOptions.getConnectionIdleTimeout().toMillis(), TimeUnit.MILLISECONDS))
-                .dispatcher(dispatcher)
                 .build();
     }
 }

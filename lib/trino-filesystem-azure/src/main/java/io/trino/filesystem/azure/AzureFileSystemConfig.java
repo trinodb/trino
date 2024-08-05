@@ -14,8 +14,10 @@
 package io.trino.filesystem.azure;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 public class AzureFileSystemConfig
@@ -33,6 +35,7 @@ public class AzureFileSystemConfig
     private DataSize writeBlockSize = DataSize.of(4, Unit.MEGABYTE);
     private int maxWriteConcurrency = 8;
     private DataSize maxSingleUploadSize = DataSize.of(4, Unit.MEGABYTE);
+    private Integer maxHttpRequests = 2 * Runtime.getRuntime().availableProcessors();
 
     @NotNull
     public AuthType getAuthType()
@@ -95,6 +98,20 @@ public class AzureFileSystemConfig
     public AzureFileSystemConfig setMaxSingleUploadSize(DataSize maxSingleUploadSize)
     {
         this.maxSingleUploadSize = maxSingleUploadSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxHttpRequests()
+    {
+        return maxHttpRequests;
+    }
+
+    @Config("azure.max-http-requests")
+    @ConfigDescription("Maximum number of concurrent HTTP requests to Azure on every node")
+    public AzureFileSystemConfig setMaxHttpRequests(int maxHttpRequests)
+    {
+        this.maxHttpRequests = maxHttpRequests;
         return this;
     }
 }
