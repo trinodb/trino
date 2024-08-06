@@ -12,10 +12,10 @@
  * limitations under the License.
  */
 //@flow
-import React from "react";
+import React from 'react'
 
 type Props = {
-    title: string
+    title: string,
 }
 
 type State = {
@@ -28,10 +28,10 @@ type State = {
 }
 
 export class PageTitle extends React.Component<Props, State> {
-    timeoutId: TimeoutID;
+    timeoutId: TimeoutID
 
     constructor(props: Props) {
-        super(props);
+        super(props)
         this.state = {
             noConnection: false,
             lightShown: false,
@@ -39,70 +39,69 @@ export class PageTitle extends React.Component<Props, State> {
             lastSuccess: Date.now(),
             modalShown: false,
             errorText: null,
-        };
+        }
     }
 
     refreshLoop = () => {
-        clearTimeout(this.timeoutId);
-        fetch("/ui/api/cluster")
-            .then(response => {
+        clearTimeout(this.timeoutId)
+        fetch('/ui/api/cluster')
+            .then((response) => {
                 if (response.status === 401) {
-                    location.reload();
+                    location.reload()
                 }
-                return response.json();
+                return response.json()
             })
-            .then(info => {
+            .then((info) => {
                 this.setState({
                     info: info,
                     noConnection: false,
                     lastSuccess: Date.now(),
                     modalShown: false,
-                });
+                })
                 //$FlowFixMe$ Bootstrap 3 plugin
-                $('#no-connection-modal').modal('hide');
-                this.resetTimer();
+                $('#no-connection-modal').modal('hide')
+                this.resetTimer()
             })
-            .catch(fail => {
+            .catch((fail) => {
                 this.setState({
                     noConnection: true,
                     lightShown: !this.state.lightShown,
-                    errorText: fail
-                });
-                this.resetTimer();
+                    errorText: fail,
+                })
+                this.resetTimer()
 
-                if (!this.state.modalShown && (fail || (Date.now() - this.state.lastSuccess) > 30 * 1000)) {
+                if (!this.state.modalShown && (fail || Date.now() - this.state.lastSuccess > 30 * 1000)) {
                     //$FlowFixMe$ Bootstrap 3 plugin
-                    $('#no-connection-modal').modal();
-                    this.setState({modalShown: true});
+                    $('#no-connection-modal').modal()
+                    this.setState({ modalShown: true })
                 }
-        });
+            })
     }
 
     resetTimer() {
-        clearTimeout(this.timeoutId);
-        this.timeoutId = setTimeout(this.refreshLoop.bind(this), 1000);
+        clearTimeout(this.timeoutId)
+        this.timeoutId = setTimeout(this.refreshLoop.bind(this), 1000)
     }
 
     componentDidMount() {
-        this.refreshLoop.bind(this)();
+        this.refreshLoop.bind(this)()
     }
 
-    renderStatusLight() : any {
+    renderStatusLight(): any {
         if (this.state.noConnection) {
             if (this.state.lightShown) {
-                return <span className="status-light status-light-red" id="status-indicator"/>;
-            }
-            else {
-                return <span className="status-light" id="status-indicator"/>
+                return <span className="status-light status-light-red" id="status-indicator" />
+            } else {
+                return <span className="status-light" id="status-indicator" />
             }
         }
-        return <span className="status-light status-light-green" id="status-indicator"/>;
+        return <span className="status-light status-light-green" id="status-indicator" />
     }
 
-    render() : any {
-        const info = this.state.info;
+    render(): any {
+        const info = this.state.info
         if (!info) {
-            return null;
+            return null
         }
 
         return (
@@ -112,14 +111,16 @@ export class PageTitle extends React.Component<Props, State> {
                         <div className="navbar-header">
                             <table>
                                 <tbody>
-                                <tr>
-                                    <td>
-                                        <a href="/ui/"><img src="assets/logo.png"/></a>
-                                    </td>
-                                    <td>
-                                        <span className="navbar-brand">{this.props.title}</span>
-                                    </td>
-                                </tr>
+                                    <tr>
+                                        <td>
+                                            <a href="/ui/">
+                                                <img src="assets/logo.png" />
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <span className="navbar-brand">{this.props.title}</span>
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -127,30 +128,41 @@ export class PageTitle extends React.Component<Props, State> {
                             <ul className="nav navbar-nav navbar-right">
                                 <li>
                                     <span className="navbar-cluster-info">
-                                        <span className="uppercase">Version</span><br/>
-                                        <span className="text uppercase" id="version-number">{info.nodeVersion.version}</span>
+                                        <span className="uppercase">Version</span>
+                                        <br />
+                                        <span className="text uppercase" id="version-number">
+                                            {info.nodeVersion.version}
+                                        </span>
                                     </span>
                                 </li>
                                 <li>
                                     <span className="navbar-cluster-info">
-                                        <span className="uppercase">Environment</span><br/>
-                                        <span className="text uppercase" id="environment">{info.environment}</span>
+                                        <span className="uppercase">Environment</span>
+                                        <br />
+                                        <span className="text uppercase" id="environment">
+                                            {info.environment}
+                                        </span>
                                     </span>
                                 </li>
                                 <li>
                                     <span className="navbar-cluster-info">
-                                        <span className="uppercase">Uptime</span><br/>
+                                        <span className="uppercase">Uptime</span>
+                                        <br />
                                         <span data-toggle="tooltip" data-placement="bottom" title="Connection status">
-                                        {this.renderStatusLight()}
-                                         </span>
+                                            {this.renderStatusLight()}
+                                        </span>
                                         &nbsp;
-                                        <span className="text" id="uptime">{info.uptime}</span>
+                                        <span className="text" id="uptime">
+                                            {info.uptime}
+                                        </span>
                                     </span>
                                 </li>
                                 <li>
                                     <span className="navbar-cluster-info">
                                         <span className="text" id="logout">
-                                            <a className="btn btn-logout" href="logout">Log Out</a>
+                                            <a className="btn btn-logout" href="logout">
+                                                Log Out
+                                            </a>
                                         </span>
                                     </span>
                                 </li>
@@ -165,13 +177,13 @@ export class PageTitle extends React.Component<Props, State> {
                                 <div className="col-xs-12">
                                     <br />
                                     <h4>Unable to connect to server</h4>
-                                    <p>{this.state.errorText ? "Error: " + this.state.errorText : null}</p>
+                                    <p>{this.state.errorText ? 'Error: ' + this.state.errorText : null}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        );
+        )
     }
 }

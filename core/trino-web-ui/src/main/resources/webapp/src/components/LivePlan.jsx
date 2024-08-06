@@ -13,13 +13,20 @@
  */
 //@flow
 
-import React from "react";
-import ReactDOMServer from "react-dom/server";
-import * as dagreD3 from "dagre-d3";
-import * as d3 from "d3";
+import React from 'react'
+import ReactDOMServer from 'react-dom/server'
+import * as dagreD3 from 'dagre-d3'
+import * as d3 from 'd3'
 
-import {formatRows, getStageStateColor, initializeGraph, initializeSvg, parseAndFormatDataSize, truncateString} from "../utils";
-import {QueryHeader} from "./QueryHeader";
+import {
+    formatRows,
+    getStageStateColor,
+    initializeGraph,
+    initializeSvg,
+    parseAndFormatDataSize,
+    truncateString,
+} from '../utils'
+import { QueryHeader } from './QueryHeader'
 
 type StageStatisticsProps = {
     stage: any,
@@ -37,18 +44,18 @@ type StageNodeInfo = {
 
 class StageStatistics extends React.Component<StageStatisticsProps, StageStatisticsState> {
     static getStages(queryInfo: any): Map<string, StageNodeInfo> {
-        const stages: Map<string, StageNodeInfo> = new Map();
-        StageStatistics.flattenStage(queryInfo.outputStage, stages);
-        return stages;
+        const stages: Map<string, StageNodeInfo> = new Map()
+        StageStatistics.flattenStage(queryInfo.outputStage, stages)
+        return stages
     }
 
-    static flattenStage(stageInfo : any, result : any) {
+    static flattenStage(stageInfo: any, result: any) {
         stageInfo.subStages.forEach(function (stage) {
-            StageStatistics.flattenStage(stage, result);
-        });
+            StageStatistics.flattenStage(stage, result)
+        })
 
-        const nodes = new Map<any, PlanNodeProps>();
-        StageStatistics.flattenNode(result, stageInfo.plan.root, JSON.parse(stageInfo.plan.jsonRepresentation), nodes);
+        const nodes = new Map<any, PlanNodeProps>()
+        StageStatistics.flattenNode(result, stageInfo.plan.root, JSON.parse(stageInfo.plan.jsonRepresentation), nodes)
 
         result.set(stageInfo.plan.id, {
             stageId: stageInfo.stageId,
@@ -57,47 +64,52 @@ class StageStatistics extends React.Component<StageStatisticsProps, StageStatist
             distribution: stageInfo.plan.distribution,
             stageStats: stageInfo.stageStats,
             state: stageInfo.state,
-            nodes: nodes
-        });
+            nodes: nodes,
+        })
     }
 
-    static flattenNode(stages : any, rootNodeInfo : any, node: any, result: Map<any, PlanNodeProps>) {
+    static flattenNode(stages: any, rootNodeInfo: any, node: any, result: Map<any, PlanNodeProps>) {
         result.set(node.id, {
             id: node.id,
             name: node['name'],
             descriptor: node['descriptor'],
             details: node['details'],
-            sources: node.children.map(node => node.id),
-        });
+            sources: node.children.map((node) => node.id),
+        })
 
         node.children.forEach(function (child) {
-            StageStatistics.flattenNode(stages, rootNodeInfo, child, result);
-        });
+            StageStatistics.flattenNode(stages, rootNodeInfo, child, result)
+        })
     }
 
-    render() : any {
-        const stage = this.props.stage;
-        const stats = this.props.stage.stageStats;
+    render(): any {
+        const stage = this.props.stage
+        const stats = this.props.stage.stageStats
         return (
             <div>
                 <div>
                     <h3 className="margin-top: 0">Stage {stage.id}</h3>
                     {stage.state}
-                    <hr/>
-                    CPU: {stats.totalCpuTime}<br />
-                    Buffered: {parseAndFormatDataSize(stats.bufferedDataSize)}<br />
-                    {stats.fullyBlocked ?
-                        <div style={{color: '#ff0000'}}>Blocked: {stats.totalBlockedTime} </div> :
+                    <hr />
+                    CPU: {stats.totalCpuTime}
+                    <br />
+                    Buffered: {parseAndFormatDataSize(stats.bufferedDataSize)}
+                    <br />
+                    {stats.fullyBlocked ? (
+                        <div style={{ color: '#ff0000' }}>Blocked: {stats.totalBlockedTime} </div>
+                    ) : (
                         <div>Blocked: {stats.totalBlockedTime} </div>
-                    }
+                    )}
                     Memory: {parseAndFormatDataSize(stats.userMemoryReservation)}
-                    <br/>
-                    Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers}
-                    <hr/>
-                    Input: {parseAndFormatDataSize(stats.rawInputDataSize) + " / " + formatRows(stats.rawInputPositions)}
+                    <br />
+                    Splits:{' '}
+                    {'Q:' + stats.queuedDrivers + ', R:' + stats.runningDrivers + ', F:' + stats.completedDrivers}
+                    <hr />
+                    Input:{' '}
+                    {parseAndFormatDataSize(stats.rawInputDataSize) + ' / ' + formatRows(stats.rawInputPositions)}
                 </div>
             </div>
-        );
+        )
     }
 }
 
@@ -112,31 +124,35 @@ type PlanNodeState = {}
 
 class PlanNode extends React.Component<PlanNodeProps, PlanNodeState> {
     constructor(props: PlanNodeProps) {
-        super(props);
+        super(props)
     }
 
-    render() : any {
+    render(): any {
         // get join distribution type by matching details to a regular expression
-        var distribution = "";
-        var matchArray = this.props.details.join("\n").match(/Distribution:\s+(\w+)/);
+        var distribution = ''
+        var matchArray = this.props.details.join('\n').match(/Distribution:\s+(\w+)/)
         if (matchArray !== null) {
-            distribution = " (" + matchArray[1] + ")";
+            distribution = ' (' + matchArray[1] + ')'
         }
 
         var descriptor = Object.entries(this.props.descriptor)
-                .map(([key, value]) => key + " = " + String(value))
-                .join(", ");
-        descriptor = "(" + descriptor + ")";
+            .map(([key, value]) => key + ' = ' + String(value))
+            .join(', ')
+        descriptor = '(' + descriptor + ')'
 
         return (
-            <div style={{color: "#000"}} data-toggle="tooltip" data-placement="bottom" data-container="body" data-html="true"
-                 title={"<h4>" + this.props.name + "</h4>" + descriptor}>
+            <div
+                style={{ color: '#000' }}
+                data-toggle="tooltip"
+                data-placement="bottom"
+                data-container="body"
+                data-html="true"
+                title={'<h4>' + this.props.name + '</h4>' + descriptor}
+            >
                 <strong>{this.props.name + distribution}</strong>
-                <div>
-                    {truncateString(descriptor, 35)}
-                </div>
+                <div>{truncateString(descriptor, 35)}</div>
             </div>
-        );
+        )
     }
 }
 
@@ -157,10 +173,10 @@ type LivePlanState = {
 }
 
 export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
-    timeoutId: TimeoutID;
+    timeoutId: TimeoutID
 
     constructor(props: LivePlanProps) {
-        super(props);
+        super(props)
         this.state = {
             initialized: false,
             ended: false,
@@ -170,166 +186,204 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
             graph: initializeGraph(),
             svg: null,
             render: new dagreD3.render(),
-        };
+        }
     }
 
     resetTimer() {
-        clearTimeout(this.timeoutId);
+        clearTimeout(this.timeoutId)
         // stop refreshing when query finishes or fails
         if (this.state.query === null || !this.state.ended) {
-            this.timeoutId = setTimeout(this.refreshLoop.bind(this), 1000);
+            this.timeoutId = setTimeout(this.refreshLoop.bind(this), 1000)
         }
     }
 
     refreshLoop = () => {
-        clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
+        clearTimeout(this.timeoutId) // to stop multiple series of refreshLoop from going on simultaneously
         fetch('/ui/api/query/' + this.props.queryId)
-            .then(response => response.json())
-            .then(query => {
+            .then((response) => response.json())
+            .then((query) => {
                 this.setState({
                     query: query,
 
                     initialized: true,
                     ended: query.finalQueryInfo,
-                });
-                this.resetTimer();
+                })
+                this.resetTimer()
             })
             .catch(() => {
                 this.setState({
                     initialized: true,
-                });
-                this.resetTimer();
-            });
+                })
+                this.resetTimer()
+            })
     }
 
     static handleStageClick(stageCssId: string) {
-        window.open("stage.html?" + stageCssId, '_blank');
+        window.open('stage.html?' + stageCssId, '_blank')
     }
 
     componentDidMount() {
-        this.refreshLoop.bind(this)();
-        new window.ClipboardJS('.copy-button');
+        this.refreshLoop.bind(this)()
+        new window.ClipboardJS('.copy-button')
     }
 
     updateD3Stage(stage: StageNodeInfo, graph: any, allStages: Map<string, StageNodeInfo>) {
-        const clusterId = stage.stageId;
-        const stageRootNodeId = "stage-" + stage.id + "-root";
-        const color = getStageStateColor(stage);
+        const clusterId = stage.stageId
+        const stageRootNodeId = 'stage-' + stage.id + '-root'
+        const color = getStageStateColor(stage)
 
-        graph.setNode(clusterId, {style: 'fill: ' + color, labelStyle: 'fill: #fff'});
+        graph.setNode(clusterId, {
+            style: 'fill: ' + color,
+            labelStyle: 'fill: #fff',
+        })
 
         // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
-        const html = ReactDOMServer.renderToString(<StageStatistics key={stage.id} stage={stage}/>);
+        const html = ReactDOMServer.renderToString(<StageStatistics key={stage.id} stage={stage} />)
 
-        graph.setNode(stageRootNodeId, {class: "stage-stats", label: html, labelType: "html"});
-        graph.setParent(stageRootNodeId, clusterId);
-        graph.setEdge("node-" + stage.root, stageRootNodeId, {style: "visibility: hidden"});
+        graph.setNode(stageRootNodeId, {
+            class: 'stage-stats',
+            label: html,
+            labelType: 'html',
+        })
+        graph.setParent(stageRootNodeId, clusterId)
+        graph.setEdge('node-' + stage.root, stageRootNodeId, {
+            style: 'visibility: hidden',
+        })
 
-        stage.nodes.forEach(node => {
-            const nodeId = "node-" + node.id;
-            const nodeHtml = ReactDOMServer.renderToString(<PlanNode {...node}/>);
+        stage.nodes.forEach((node) => {
+            const nodeId = 'node-' + node.id
+            const nodeHtml = ReactDOMServer.renderToString(<PlanNode {...node} />)
 
-            graph.setNode(nodeId, {label: nodeHtml, style: 'fill: #fff', labelType: "html"});
-            graph.setParent(nodeId, clusterId);
+            graph.setNode(nodeId, {
+                label: nodeHtml,
+                style: 'fill: #fff',
+                labelType: 'html',
+            })
+            graph.setParent(nodeId, clusterId)
 
-            node.sources.forEach(source => {
-                graph.setEdge("node-" + source, nodeId, {class: "plan-edge", arrowheadClass: "plan-arrowhead"});
-            });
+            node.sources.forEach((source) => {
+                graph.setEdge('node-' + source, nodeId, {
+                    class: 'plan-edge',
+                    arrowheadClass: 'plan-arrowhead',
+                })
+            })
 
-            var sourceFragmentIds = node.descriptor['sourceFragmentIds'];
+            var sourceFragmentIds = node.descriptor['sourceFragmentIds']
             if (sourceFragmentIds) {
-                var remoteSources = sourceFragmentIds.replace('[', '').replace(']', '').split(', ');
+                var remoteSources = sourceFragmentIds.replace('[', '').replace(']', '').split(', ')
                 if (remoteSources.length > 0) {
-                    graph.setNode(nodeId, {label: '', shape: "circle"});
+                    graph.setNode(nodeId, { label: '', shape: 'circle' })
 
-                    remoteSources.forEach(sourceId => {
-                        const source = allStages.get(sourceId);
+                    remoteSources.forEach((sourceId) => {
+                        const source = allStages.get(sourceId)
                         if (source) {
-                            const sourceStats = source.stageStats;
-                            graph.setEdge("stage-" + sourceId + "-root", nodeId, {
-                                class: "plan-edge",
-                                style: "stroke-width: 4px",
-                                arrowheadClass: "plan-arrowhead",
-                                label: parseAndFormatDataSize(sourceStats.outputDataSize) + " / " + formatRows(sourceStats.outputPositions),
-                                labelStyle: "color: #fff; font-weight: bold; font-size: 24px;",
-                                labelType: "html",
-                            });
+                            const sourceStats = source.stageStats
+                            graph.setEdge('stage-' + sourceId + '-root', nodeId, {
+                                class: 'plan-edge',
+                                style: 'stroke-width: 4px',
+                                arrowheadClass: 'plan-arrowhead',
+                                label:
+                                    parseAndFormatDataSize(sourceStats.outputDataSize) +
+                                    ' / ' +
+                                    formatRows(sourceStats.outputPositions),
+                                labelStyle: 'color: #fff; font-weight: bold; font-size: 24px;',
+                                labelType: 'html',
+                            })
                         }
-                    });
+                    })
                 }
             }
-        });
+        })
     }
 
     updateD3Graph() {
         if (!this.state.svg) {
             this.setState({
-                svg: initializeSvg("#plan-canvas"),
-            });
-            return;
+                svg: initializeSvg('#plan-canvas'),
+            })
+            return
         }
 
         if (!this.state.query) {
-            return;
+            return
         }
 
-        const graph = this.state.graph;
-        const stages = StageStatistics.getStages(this.state.query);
-        stages.forEach(stage => {
-            this.updateD3Stage(stage, graph, stages);
-        });
+        const graph = this.state.graph
+        const stages = StageStatistics.getStages(this.state.query)
+        stages.forEach((stage) => {
+            this.updateD3Stage(stage, graph, stages)
+        })
 
-        const inner = d3.select("#plan-canvas g");
-        this.state.render(inner, graph);
+        const inner = d3.select('#plan-canvas g')
+        this.state.render(inner, graph)
 
-        const svg = this.state.svg;
-        svg.selectAll("g.cluster").on("click", LivePlan.handleStageClick);
+        const svg = this.state.svg
+        svg.selectAll('g.cluster').on('click', LivePlan.handleStageClick)
 
-        const width = parseInt(window.getComputedStyle(document.getElementById("live-plan"), null).getPropertyValue("width").replace(/px/, "")) - 50;
-        const height = parseInt(window.getComputedStyle(document.getElementById("live-plan"), null).getPropertyValue("height").replace(/px/, "")) - 50;
+        const width =
+            parseInt(
+                window
+                    .getComputedStyle(document.getElementById('live-plan'), null)
+                    .getPropertyValue('width')
+                    .replace(/px/, '')
+            ) - 50
+        const height =
+            parseInt(
+                window
+                    .getComputedStyle(document.getElementById('live-plan'), null)
+                    .getPropertyValue('height')
+                    .replace(/px/, '')
+            ) - 50
 
-        const graphHeight = graph.graph().height + 100;
-        const graphWidth = graph.graph().width + 100;
+        const graphHeight = graph.graph().height + 100
+        const graphWidth = graph.graph().width + 100
         if (this.state.ended) {
             // Zoom doesn't deal well with DOM changes
-            const initialScale = Math.min(width / graphWidth, height / graphHeight);
-            const zoom = d3.zoom().scaleExtent([initialScale, 1]).on("zoom", function () {
-                inner.attr("transform", d3.event.transform);
-            });
+            const initialScale = Math.min(width / graphWidth, height / graphHeight)
+            const zoom = d3
+                .zoom()
+                .scaleExtent([initialScale, 1])
+                .on('zoom', function () {
+                    inner.attr('transform', d3.event.transform)
+                })
 
-            svg.call(zoom);
-            svg.call(zoom.transform, d3.zoomIdentity.translate((width - graph.graph().width * initialScale) / 2, 20).scale(initialScale));
-            svg.attr('height', height);
-            svg.attr('width', width);
-        }
-        else {
-            svg.attr('height', graphHeight);
-            svg.attr('width', graphWidth);
+            svg.call(zoom)
+            svg.call(
+                zoom.transform,
+                d3.zoomIdentity.translate((width - graph.graph().width * initialScale) / 2, 20).scale(initialScale)
+            )
+            svg.attr('height', height)
+            svg.attr('width', width)
+        } else {
+            svg.attr('height', graphHeight)
+            svg.attr('width', graphWidth)
         }
     }
 
     componentDidUpdate() {
-        this.updateD3Graph();
+        this.updateD3Graph()
         //$FlowFixMe
         $('[data-toggle="tooltip"]').tooltip()
     }
 
-    render() : any {
-        const query = this.state.query;
+    render(): any {
+        const query = this.state.query
 
         if (query === null || this.state.initialized === false) {
-            let label = (<div className="loader">Loading...</div>);
+            let label = <div className="loader">Loading...</div>
             if (this.state.initialized) {
-                label = <div className="error-message">Query not found</div>;
+                label = <div className="error-message">Query not found</div>
             }
             return (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>{label}</h4></div>
+                    <div className="col-xs-12">
+                        <h4>{label}</h4>
+                    </div>
                 </div>
-            );
+            )
         }
 
-        let loadingMessage = null;
+        let loadingMessage = null
         if (query && !query.outputStage) {
             loadingMessage = (
                 <div className="row error-message">
@@ -342,7 +396,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         }
 
         // TODO: Refactor components to move refreshLoop to parent rather than using this property
-        const queryHeader = this.props.isEmbedded ? null : <QueryHeader query={query}/>;
+        const queryHeader = this.props.isEmbedded ? null : <QueryHeader query={query} />
         return (
             <div>
                 {queryHeader}
@@ -351,13 +405,14 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
                         {loadingMessage}
                         <div id="live-plan" className="graph-container">
                             <div className="pull-right">
-                                {this.state.ended ? "Scroll to zoom." : "Zoom disabled while query is running." } Click stage to view additional statistics
+                                {this.state.ended ? 'Scroll to zoom.' : 'Zoom disabled while query is running.'} Click
+                                stage to view additional statistics
                             </div>
-                            <svg id="plan-canvas"/>
+                            <svg id="plan-canvas" />
                         </div>
                     </div>
                 </div>
             </div>
-        );
+        )
     }
 }
