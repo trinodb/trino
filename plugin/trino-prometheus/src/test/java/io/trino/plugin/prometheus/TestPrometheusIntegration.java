@@ -14,12 +14,15 @@
 package io.trino.plugin.prometheus;
 
 import io.airlift.units.Duration;
+import io.trino.Session;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.TimeUnit;
@@ -119,13 +122,36 @@ public class TestPrometheusIntegration
         config.setCacheDuration(new Duration(30, SECONDS));
         PrometheusTable table = client.getTable("default", "up");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, new PrometheusClock(), config);
+        PrometheusSessionProperties sessionProperties = new PrometheusSessionProperties(config);
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(sessionProperties.getSessionProperties())
+                .build();
         ConnectorSplitSource splits = splitManager.getSplits(
                 null,
-                null,
+                session,
                 new PrometheusTableHandle("default", table.name()),
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
         int numSplits = splits.getNextBatch(NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS).getNow(null).getSplits().size();
         assertThat((double) numSplits).isEqualTo(config.getMaxQueryRangeDuration().getValue(TimeUnit.SECONDS) / config.getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS));
+    }
+
+    @Test
+    public void testSessionProperties()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("prometheus", "max_query_range_duration", "1d")
+                .setCatalogSessionProperty("prometheus", "query_chunk_size_duration", "1h")
+                .build();
+
+        assertQuery(session,
+                "show session like 'prometheus.max_query_range_duration'",
+                "VALUES " +
+                        "('prometheus.max_query_range_duration', '1d', '21.00d','varchar','Width of overall query to Prometheus, will be divided into query_chunk_size_duration queries')");
+
+        assertQuery(session,
+                "show session like 'prometheus.query_chunk_size_duration'",
+                "VALUES " +
+                        "('prometheus.query_chunk_size_duration', '1h', '1.00d','varchar','The duration of each query to Prometheus')");
     }
 }

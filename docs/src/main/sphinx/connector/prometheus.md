@@ -52,11 +52,13 @@ The following configuration properties are available:
   - Where to find Prometheus coordinator host.
   - `http://localhost:9090`
 * - `prometheus.query.chunk.size.duration`
-  - The duration of each query to Prometheus.
+  - The duration of each query to Prometheus. 
+    The equivalent catalog session property is `query_chunk_size_duration`.
   - `1d`
 * - `prometheus.max.query.range.duration`
   - Width of overall query to Prometheus, will be divided into
-    `prometheus.query.chunk.size.duration` queries.
+    `prometheus.query.chunk.size.duration` queries. 
+    The equivalent catalog session property is `max_query_range_duration`.
   - `21d`
 * - `prometheus.cache.ttl`
   - How long values from this config file are cached.
