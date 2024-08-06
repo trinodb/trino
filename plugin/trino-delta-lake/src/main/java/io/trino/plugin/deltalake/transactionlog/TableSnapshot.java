@@ -47,6 +47,8 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SC
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
+import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
+import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.SIDECAR;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static java.lang.String.format;
@@ -203,7 +205,7 @@ public class TableSnapshot
             checkState(metadataAndProtocol.isPresent(), "metadata and protocol information is needed to process the add log entries");
         }
 
-        return getCheckpointPartPaths(checkpoint).stream()
+        Stream<DeltaLakeTransactionLogEntry> deltaLakeTransactionLogEntryStream = getCheckpointPartPaths(checkpoint).stream()
                 .map(fileSystem::newInputFile)
                 .flatMap(checkpointFile -> getCheckpointTransactionLogEntries(
                         session,
@@ -218,6 +220,29 @@ public class TableSnapshot
                         checkpointFile,
                         partitionConstraint,
                         addStatsMinMaxColumnFilter));
+
+        Optional<MultipartCheckpointOptimizationInfo> multipartCheckpointOptimizationPredicate = getMultipartCheckpointOptimizationPredicate(entryTypes);
+        if (multipartCheckpointOptimizationPredicate.isPresent()) {
+            return deltaLakeTransactionLogEntryStream
+                    .filter(multipartCheckpointOptimizationPredicate.get().predicate())
+                    .limit(multipartCheckpointOptimizationPredicate.get().expectedSize());
+        }
+        return deltaLakeTransactionLogEntryStream;
+    }
+
+    private record MultipartCheckpointOptimizationInfo(Predicate<DeltaLakeTransactionLogEntry> predicate, int expectedSize) {}
+
+    private static Optional<MultipartCheckpointOptimizationInfo> getMultipartCheckpointOptimizationPredicate(Set<CheckpointEntryIterator.EntryType> entryTypes)
+    {
+        // While reading multipart checkpoint only to get METADATA or/and PROTOCOL there is no need to read all parts.
+        // We can limit file reads by reading only until required information irs retrieved.
+        if (entryTypes.size() == 1 && entryTypes.contains(METADATA)) {
+            return Optional.of(new MultipartCheckpointOptimizationInfo(logEntry -> logEntry.getMetaData() != null, 1));
+        }
+        if (entryTypes.size() == 2 && entryTypes.contains(METADATA) && entryTypes.contains(PROTOCOL)) {
+            return Optional.of(new MultipartCheckpointOptimizationInfo(logEntry -> logEntry.getMetaData() != null || logEntry.getProtocol() != null, 2));
+        }
+        return Optional.empty();
     }
 
     public Optional<Long> getLastCheckpointVersion()
