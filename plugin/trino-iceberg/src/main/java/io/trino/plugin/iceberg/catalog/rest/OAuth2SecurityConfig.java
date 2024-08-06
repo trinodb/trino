@@ -23,6 +23,7 @@ import java.util.Optional;
 public class OAuth2SecurityConfig
 {
     private String credential;
+    private String scope;
     private String token;
 
     public Optional<String> getCredential()
@@ -36,6 +37,19 @@ public class OAuth2SecurityConfig
     public OAuth2SecurityConfig setCredential(String credential)
     {
         this.credential = credential;
+        return this;
+    }
+
+    public Optional<String> getScope()
+    {
+        return Optional.ofNullable(scope);
+    }
+
+    @Config("iceberg.rest-catalog.oauth2.scope")
+    @ConfigDescription("The scope which will be used for interactions with the server")
+    public OAuth2SecurityConfig setScope(String scope)
+    {
+        this.scope = scope;
         return this;
     }
 
@@ -57,5 +71,11 @@ public class OAuth2SecurityConfig
     public boolean credentialOrTokenPresent()
     {
         return credential != null || token != null;
+    }
+
+    @AssertTrue(message = "Scope is applicable only when using credential")
+    public boolean scopePresentOnlyWithCredential()
+    {
+        return !(token != null && scope != null);
     }
 }
