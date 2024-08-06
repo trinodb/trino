@@ -483,6 +483,9 @@ following properties:
   - The credential to exchange for a token in the OAuth2 client credentials flow
     with the server. A `token` or `credential` is required for `OAUTH2`
     security. Example: `AbCdEf123456`
+* - `iceberg.rest-catalog.oauth2.scope`
+  - Scope to be used when communicating with the REST Catalog. Applicable only
+    when using `credential`.
 :::
 
 The following example shows a minimal catalog configuration using an Iceberg
