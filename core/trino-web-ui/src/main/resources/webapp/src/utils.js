@@ -13,16 +13,16 @@
  */
 //@flow
 
-import * as dagreD3 from "dagre-d3";
-import * as d3 from "d3";
+import * as dagreD3 from 'dagre-d3'
+import * as d3 from 'd3'
 
 // Query display
 // =============
 
-export const GLYPHICON_DEFAULT = {color: '#1edcff'};
-export const GLYPHICON_HIGHLIGHT = {color: '#999999'};
+export const GLYPHICON_DEFAULT = { color: '#1edcff' }
+export const GLYPHICON_HIGHLIGHT = { color: '#999999' }
 
-const EMDASH = "\u2014";
+const EMDASH = '\u2014'
 
 const STATE_COLOR_MAP = {
     QUEUED: '#1b8f72',
@@ -34,196 +34,187 @@ const STATE_COLOR_MAP = {
     CANCELED: '#858959',
     INSUFFICIENT_RESOURCES: '#7f5b72',
     EXTERNAL_ERROR: '#ca7640',
-    UNKNOWN_ERROR: '#943524'
-};
+    UNKNOWN_ERROR: '#943524',
+}
 
-export function getQueryStateColor(query: any): string
-{
+export function getQueryStateColor(query: any): string {
     switch (query.state) {
-        case "QUEUED":
-            return STATE_COLOR_MAP.QUEUED;
-        case "PLANNING":
-            return STATE_COLOR_MAP.PLANNING;
-        case "STARTING":
-        case "FINISHING":
-        case "RUNNING":
+        case 'QUEUED':
+            return STATE_COLOR_MAP.QUEUED
+        case 'PLANNING':
+            return STATE_COLOR_MAP.PLANNING
+        case 'STARTING':
+        case 'FINISHING':
+        case 'RUNNING':
             if (query.queryStats && query.queryStats.fullyBlocked) {
-                return STATE_COLOR_MAP.BLOCKED;
+                return STATE_COLOR_MAP.BLOCKED
             }
-            return STATE_COLOR_MAP.RUNNING;
-        case "FAILED":
+            return STATE_COLOR_MAP.RUNNING
+        case 'FAILED':
             switch (query.errorType) {
-                case "USER_ERROR":
+                case 'USER_ERROR':
                     if (query.errorCode.name === 'USER_CANCELED') {
-                        return STATE_COLOR_MAP.CANCELED;
+                        return STATE_COLOR_MAP.CANCELED
                     }
-                    return STATE_COLOR_MAP.USER_ERROR;
-                case "EXTERNAL":
-                    return STATE_COLOR_MAP.EXTERNAL_ERROR;
-                case "INSUFFICIENT_RESOURCES":
-                    return STATE_COLOR_MAP.INSUFFICIENT_RESOURCES;
+                    return STATE_COLOR_MAP.USER_ERROR
+                case 'EXTERNAL':
+                    return STATE_COLOR_MAP.EXTERNAL_ERROR
+                case 'INSUFFICIENT_RESOURCES':
+                    return STATE_COLOR_MAP.INSUFFICIENT_RESOURCES
                 default:
-                    return STATE_COLOR_MAP.UNKNOWN_ERROR;
+                    return STATE_COLOR_MAP.UNKNOWN_ERROR
             }
-        case "FINISHED":
-            return STATE_COLOR_MAP.FINISHED;
+        case 'FINISHED':
+            return STATE_COLOR_MAP.FINISHED
         default:
-            return STATE_COLOR_MAP.QUEUED;
+            return STATE_COLOR_MAP.QUEUED
     }
 }
 
-export function getStageStateColor(stage: any): string
-{
+export function getStageStateColor(stage: any): string {
     switch (stage.state) {
-        case "PLANNED":
-            return STATE_COLOR_MAP.QUEUED;
-        case "SCHEDULING":
-        case "SCHEDULING_SPLITS":
-        case "SCHEDULED":
-            return STATE_COLOR_MAP.PLANNING;
-        case "RUNNING":
+        case 'PLANNED':
+            return STATE_COLOR_MAP.QUEUED
+        case 'SCHEDULING':
+        case 'SCHEDULING_SPLITS':
+        case 'SCHEDULED':
+            return STATE_COLOR_MAP.PLANNING
+        case 'RUNNING':
             if (stage.stageStats && stage.stageStats.fullyBlocked) {
-                return STATE_COLOR_MAP.BLOCKED;
+                return STATE_COLOR_MAP.BLOCKED
             }
-            return STATE_COLOR_MAP.RUNNING;
-        case "FINISHED":
-            return STATE_COLOR_MAP.FINISHED;
-        case "CANCELED":
-        case "ABORTED":
-            return STATE_COLOR_MAP.CANCELED;
-        case "FAILED":
-            return STATE_COLOR_MAP.UNKNOWN_ERROR;
+            return STATE_COLOR_MAP.RUNNING
+        case 'FINISHED':
+            return STATE_COLOR_MAP.FINISHED
+        case 'CANCELED':
+        case 'ABORTED':
+            return STATE_COLOR_MAP.CANCELED
+        case 'FAILED':
+            return STATE_COLOR_MAP.UNKNOWN_ERROR
         default:
-            return "#b5b5b5"
+            return '#b5b5b5'
     }
 }
 
 // This relies on the fact that BasicQueryInfo and QueryInfo have all the fields
 // necessary to compute this string, and that these fields are consistently named.
-export function getHumanReadableState(query: any, forOverviewPage: boolean): string
-{
-    if (query.state === "RUNNING") {
-        let title = "RUNNING";
+export function getHumanReadableState(query: any, forOverviewPage: boolean): string {
+    if (query.state === 'RUNNING') {
+        let title = 'RUNNING'
 
         if (query.scheduled && query.queryStats.totalDrivers > 0 && query.queryStats.runningDrivers >= 0) {
             if (query.queryStats.fullyBlocked) {
-                title = "BLOCKED";
+                title = 'BLOCKED'
 
                 if (query.queryStats.blockedReasons && query.queryStats.blockedReasons.length > 0) {
-                    title += " (" + query.queryStats.blockedReasons.join(", ") + ")";
+                    title += ' (' + query.queryStats.blockedReasons.join(', ') + ')'
                 }
             }
 
-            if (query.memoryPool === "reserved") {
-                title += " (RESERVED)"
+            if (query.memoryPool === 'reserved') {
+                title += ' (RESERVED)'
             }
 
-            return title;
+            return title
         }
     }
 
-    if (query.state === "FAILED") {
-        let errorMsg = "";
+    if (query.state === 'FAILED') {
+        let errorMsg = ''
         switch (query.errorType) {
-            case "USER_ERROR":
-                errorMsg = "USER ERROR";
-                if (query.errorCode.name === "USER_CANCELED") {
-                    errorMsg = "USER CANCELED";
+            case 'USER_ERROR':
+                errorMsg = 'USER ERROR'
+                if (query.errorCode.name === 'USER_CANCELED') {
+                    errorMsg = 'USER CANCELED'
                 }
-                break;
-            case "INTERNAL_ERROR":
-                errorMsg = "INTERNAL ERROR";
-                break;
-            case "INSUFFICIENT_RESOURCES":
-                errorMsg = "INSUFFICIENT RESOURCES";
-                break;
-            case "EXTERNAL":
-                errorMsg = "EXTERNAL ERROR";
-                break;
+                break
+            case 'INTERNAL_ERROR':
+                errorMsg = 'INTERNAL ERROR'
+                break
+            case 'INSUFFICIENT_RESOURCES':
+                errorMsg = 'INSUFFICIENT RESOURCES'
+                break
+            case 'EXTERNAL':
+                errorMsg = 'EXTERNAL ERROR'
+                break
         }
         if (forOverviewPage && query.errorCode && query.errorCode.name) {
-            errorMsg += " " + EMDASH + " " + query.errorCode.name;
+            errorMsg += ' ' + EMDASH + ' ' + query.errorCode.name
         }
-        return errorMsg;
+        return errorMsg
     }
 
-    return query.state;
+    return query.state
 }
 
-export function getProgressBarPercentage(query: any): number
-{
-    const progress = query.queryStats.progressPercentage;
+export function getProgressBarPercentage(query: any): number {
+    const progress = query.queryStats.progressPercentage
 
     // progress bars should appear 'full' when query progress is not meaningful
-    if (!progress || query.state !== "RUNNING") {
-        return 100;
+    if (!progress || query.state !== 'RUNNING') {
+        return 100
     }
 
-    return Math.round(progress);
+    return Math.round(progress)
 }
 
-export function getProgressBarTitle(query: any, forOverviewPage: boolean): string
-{
-    if (query.queryStats.progressPercentage && query.state === "RUNNING") {
-        return getHumanReadableState(query, forOverviewPage) + " (" + getProgressBarPercentage(query) + "%)"
+export function getProgressBarTitle(query: any, forOverviewPage: boolean): string {
+    if (query.queryStats.progressPercentage && query.state === 'RUNNING') {
+        return getHumanReadableState(query, forOverviewPage) + ' (' + getProgressBarPercentage(query) + '%)'
     }
 
     return getHumanReadableState(query, forOverviewPage)
 }
 
-export function isQueryEnded(query: any): boolean
-{
-    return ["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1;
+export function isQueryEnded(query: any): boolean {
+    return ['FINISHED', 'FAILED', 'CANCELED'].indexOf(query.state) > -1
 }
 
 // Sparkline-related functions
 // ===========================
 
 // display at most 5 minutes worth of data on the sparklines
-const MAX_HISTORY = 60 * 5;
+const MAX_HISTORY = 60 * 5
 // alpha param of exponentially weighted moving average. picked arbitrarily - lower values means more smoothness
-const MOVING_AVERAGE_ALPHA = 0.2;
+const MOVING_AVERAGE_ALPHA = 0.2
 
-export function addToHistory (value: number, valuesArray: number[]): number[] {
+export function addToHistory(value: number, valuesArray: number[]): number[] {
     if (valuesArray.length === 0) {
-        return valuesArray.concat([value]);
+        return valuesArray.concat([value])
     }
-    return valuesArray.concat([value]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0));
+    return valuesArray.concat([value]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0))
 }
 
-export function addExponentiallyWeightedToHistory (value: number, valuesArray: number[]): number[] {
+export function addExponentiallyWeightedToHistory(value: number, valuesArray: number[]): number[] {
     if (valuesArray.length === 0) {
-        return valuesArray.concat([value]);
+        return valuesArray.concat([value])
     }
 
-    let movingAverage = (value * MOVING_AVERAGE_ALPHA) + (valuesArray[valuesArray.length - 1] * (1 - MOVING_AVERAGE_ALPHA));
+    let movingAverage = value * MOVING_AVERAGE_ALPHA + valuesArray[valuesArray.length - 1] * (1 - MOVING_AVERAGE_ALPHA)
     if (value < 1) {
-        movingAverage = 0;
+        movingAverage = 0
     }
 
-    return valuesArray.concat([movingAverage]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0));
+    return valuesArray.concat([movingAverage]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0))
 }
 
 // DagreD3 Graph-related functions
 // ===============================
 
-export function initializeGraph() : any
-{
-    return new dagreD3.graphlib.Graph({compound: true})
-        .setGraph({rankdir: 'BT'})
-        .setDefaultEdgeLabel(function () { return {}; });
+export function initializeGraph(): any {
+    return new dagreD3.graphlib.Graph({ compound: true }).setGraph({ rankdir: 'BT' }).setDefaultEdgeLabel(function () {
+        return {}
+    })
 }
 
-export function initializeSvg(selector: any) : any
-{
-    const svg = d3.select(selector);
-    svg.append("g");
+export function initializeSvg(selector: any): any {
+    const svg = d3.select(selector)
+    svg.append('g')
 
-    return svg;
+    return svg
 }
 
-export function getChildren(nodeInfo: any) : any
-{
+export function getChildren(nodeInfo: any): any {
     // TODO: Remove this function by migrating StageDetail to use node JSON representation
     switch (nodeInfo['@type']) {
         case 'aggregation':
@@ -253,19 +244,19 @@ export function getChildren(nodeInfo: any) : any
         case 'topNRanking':
         case 'unnest':
         case 'window':
-            return [nodeInfo.source];
+            return [nodeInfo.source]
         case 'join':
-            return [nodeInfo.left, nodeInfo.right];
+            return [nodeInfo.left, nodeInfo.right]
         case 'semiJoin':
-            return [nodeInfo.source, nodeInfo.filteringSource];
+            return [nodeInfo.source, nodeInfo.filteringSource]
         case 'spatialJoin':
-            return [nodeInfo.left, nodeInfo.right];
+            return [nodeInfo.left, nodeInfo.right]
         case 'indexJoin':
-            return [nodeInfo.probeSource, nodeInfo.indexSource];
+            return [nodeInfo.probeSource, nodeInfo.indexSource]
         case 'exchange':
         case 'intersect':
         case 'union':
-            return nodeInfo.sources;
+            return nodeInfo.sources
         case 'indexSource':
         case 'loadCachedData':
         case 'refreshMaterializedView':
@@ -274,12 +265,12 @@ export function getChildren(nodeInfo: any) : any
         case 'tableScan':
         case 'tableUpdate':
         case 'values':
-            break;
+            break
         default:
-            console.log("NOTE: Unhandled PlanNode: " + nodeInfo['@type']);
+            console.log('NOTE: Unhandled PlanNode: ' + nodeInfo['@type'])
     }
 
-    return [];
+    return []
 }
 
 // Utility functions
@@ -287,10 +278,10 @@ export function getChildren(nodeInfo: any) : any
 
 export function truncateString(inputString: string, length: number): string {
     if (inputString && inputString.length > length) {
-        return inputString.substring(0, length) + "...";
+        return inputString.substring(0, length) + '...'
     }
 
-    return inputString;
+    return inputString
 }
 
 export function getStageNumber(stageId: string): number {
@@ -302,222 +293,230 @@ export function getTaskIdSuffix(taskId: string): string {
 }
 
 export function getTaskNumber(taskId: string): number {
-    return Number.parseInt(getTaskIdSuffix(getTaskIdSuffix(taskId)));
+    return Number.parseInt(getTaskIdSuffix(getTaskIdSuffix(taskId)))
 }
 
 export function getFirstParameter(searchString: string): string {
-    const searchText = searchString.substring(1);
+    const searchText = searchString.substring(1)
 
     if (searchText.indexOf('&') !== -1) {
-        return searchText.substring(0, searchText.indexOf('&'));
+        return searchText.substring(0, searchText.indexOf('&'))
     }
 
-    return searchText;
+    return searchText
 }
 
 export function getHostname(url: string): string {
-    let hostname = new URL(url).hostname;
-    if ((hostname.charAt(0) === '[') && (hostname.charAt(hostname.length - 1) === ']')) {
-        hostname = hostname.substr(1, hostname.length - 2);
+    let hostname = new URL(url).hostname
+    if (hostname.charAt(0) === '[' && hostname.charAt(hostname.length - 1) === ']') {
+        hostname = hostname.substr(1, hostname.length - 2)
     }
-    return hostname;
+    return hostname
 }
 
 export function getPort(url: string): string {
-    return new URL(url).port;
+    return new URL(url).port
 }
 
 export function getHostAndPort(urlStr: string): string {
-    const url = new URL(urlStr);
-    return url.hostname + ":" + url.port;
+    const url = new URL(urlStr)
+    return url.hostname + ':' + url.port
 }
 
 export function computeRate(count: number, ms: number): number {
     if (ms === 0) {
-        return 0;
+        return 0
     }
-    return (count / ms) * 1000.0;
+    return (count / ms) * 1000.0
 }
 
 export function precisionRound(n: number): string {
-    if (n === undefined){
-        return "n/a";
+    if (n === undefined) {
+        return 'n/a'
     }
     if (n < 10) {
-        return n.toFixed(2);
+        return n.toFixed(2)
     }
     if (n < 100) {
-        return n.toFixed(1);
+        return n.toFixed(1)
     }
-    return Math.round(n).toString();
+    return Math.round(n).toString()
 }
 
 export function formatDuration(duration: number): string {
-    let unit = "ms";
+    let unit = 'ms'
     if (duration > 1000) {
-        duration /= 1000;
-        unit = "s";
+        duration /= 1000
+        unit = 's'
     }
-    if (unit === "s" && duration > 60) {
-        duration /= 60;
-        unit = "m";
+    if (unit === 's' && duration > 60) {
+        duration /= 60
+        unit = 'm'
     }
-    if (unit === "m" && duration > 60) {
-        duration /= 60;
-        unit = "h";
+    if (unit === 'm' && duration > 60) {
+        duration /= 60
+        unit = 'h'
     }
-    if (unit === "h" && duration > 24) {
-        duration /= 24;
-        unit = "d";
+    if (unit === 'h' && duration > 24) {
+        duration /= 24
+        unit = 'd'
     }
-    if (unit === "d" && duration > 7) {
-        duration /= 7;
-        unit = "w";
+    if (unit === 'd' && duration > 7) {
+        duration /= 7
+        unit = 'w'
     }
-    return precisionRound(duration) + unit;
+    return precisionRound(duration) + unit
 }
 
 export function formatRows(count: number): string {
     if (count === 1) {
-        return "1 row";
+        return '1 row'
     }
 
-    return formatCount(count) + " rows";
+    return formatCount(count) + ' rows'
 }
 
 export function formatCount(count: number): string {
-    let unit = "";
+    let unit = ''
     if (count > 1000) {
-        count /= 1000;
-        unit = "K";
+        count /= 1000
+        unit = 'K'
     }
     if (count > 1000) {
-        count /= 1000;
-        unit = "M";
+        count /= 1000
+        unit = 'M'
     }
     if (count > 1000) {
-        count /= 1000;
-        unit = "B";
+        count /= 1000
+        unit = 'B'
     }
     if (count > 1000) {
-        count /= 1000;
-        unit = "T";
+        count /= 1000
+        unit = 'T'
     }
     if (count > 1000) {
-        count /= 1000;
-        unit = "Q";
+        count /= 1000
+        unit = 'Q'
     }
-    return precisionRound(count) + unit;
+    return precisionRound(count) + unit
 }
 
 export function formatDataSizeBytes(size: number): string {
-    return formatDataSizeMinUnit(size, "");
+    return formatDataSizeMinUnit(size, '')
 }
 
 export function formatDataSize(size: number): string {
-    return formatDataSizeMinUnit(size, "B");
+    return formatDataSizeMinUnit(size, 'B')
 }
 
 function formatDataSizeMinUnit(size: number, minUnit: string): string {
-    let unit = minUnit;
+    let unit = minUnit
     if (size === 0) {
-        return "0" + unit;
+        return '0' + unit
     }
     if (size >= 1024) {
-        size /= 1024;
-        unit = "K" + minUnit;
+        size /= 1024
+        unit = 'K' + minUnit
     }
     if (size >= 1024) {
-        size /= 1024;
-        unit = "M" + minUnit;
+        size /= 1024
+        unit = 'M' + minUnit
     }
     if (size >= 1024) {
-        size /= 1024;
-        unit = "G" + minUnit;
+        size /= 1024
+        unit = 'G' + minUnit
     }
     if (size >= 1024) {
-        size /= 1024;
-        unit = "T" + minUnit;
+        size /= 1024
+        unit = 'T' + minUnit
     }
     if (size >= 1024) {
-        size /= 1024;
-        unit = "P" + minUnit;
+        size /= 1024
+        unit = 'P' + minUnit
     }
-    return precisionRound(size) + unit;
+    return precisionRound(size) + unit
 }
 
 export function parseDataSize(value: string): ?number {
-    const DATA_SIZE_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/;
-    const match = DATA_SIZE_PATTERN.exec(value);
+    const DATA_SIZE_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/
+    const match = DATA_SIZE_PATTERN.exec(value)
     if (match === null) {
-        return null;
+        return null
     }
-    const number = parseFloat(match[1]);
+    const number = parseFloat(match[1])
     switch (match[2]) {
-        case "B":
-            return number;
-        case "kB":
-            return number * Math.pow(2, 10);
-        case "MB":
-            return number * Math.pow(2, 20);
-        case "GB":
-            return number * Math.pow(2, 30);
-        case "TB":
-            return number * Math.pow(2, 40);
-        case "PB":
-            return number * Math.pow(2, 50);
+        case 'B':
+            return number
+        case 'kB':
+            return number * Math.pow(2, 10)
+        case 'MB':
+            return number * Math.pow(2, 20)
+        case 'GB':
+            return number * Math.pow(2, 30)
+        case 'TB':
+            return number * Math.pow(2, 40)
+        case 'PB':
+            return number * Math.pow(2, 50)
         default:
-            return null;
+            return null
     }
 }
 
 export function parseAndFormatDataSize(value: string): string {
-    const parsed = parseDataSize(value);
+    const parsed = parseDataSize(value)
 
     if (parsed == null) {
-        return "";
+        return ''
     }
 
-    return formatDataSize(parsed);
+    return formatDataSize(parsed)
 }
 
 export function parseDuration(value: string): ?number {
-    const DURATION_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/;
+    const DURATION_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/
 
-    const match = DURATION_PATTERN.exec(value);
+    const match = DURATION_PATTERN.exec(value)
     if (match === null) {
-        return null;
+        return null
     }
-    const number = parseFloat(match[1]);
+    const number = parseFloat(match[1])
     switch (match[2]) {
-        case "ns":
-            return number / 1000000.0;
-        case "us":
-            return number / 1000.0;
-        case "ms":
-            return number;
-        case "s":
-            return number * 1000;
-        case "m":
-            return number * 1000 * 60;
-        case "h":
-            return number * 1000 * 60 * 60;
-        case "d":
-            return number * 1000 * 60 * 60 * 24;
+        case 'ns':
+            return number / 1000000.0
+        case 'us':
+            return number / 1000.0
+        case 'ms':
+            return number
+        case 's':
+            return number * 1000
+        case 'm':
+            return number * 1000 * 60
+        case 'h':
+            return number * 1000 * 60 * 60
+        case 'd':
+            return number * 1000 * 60 * 60 * 24
         default:
-            return null;
+            return null
     }
 }
 
 export function formatShortTime(date: Date): string {
-    const hours = (date.getHours() % 12) || 12;
-    const minutes = (date.getMinutes() < 10 ? "0" : "") + date.getMinutes();
-    return hours + ":" + minutes + (date.getHours() >= 12 ? "pm" : "am");
+    const hours = date.getHours() % 12 || 12
+    const minutes = (date.getMinutes() < 10 ? '0' : '') + date.getMinutes()
+    return hours + ':' + minutes + (date.getHours() >= 12 ? 'pm' : 'am')
 }
 
 export function formatShortDateTime(date: Date): string {
-    const year = date.getFullYear();
-    const month = "" + (date.getMonth() + 1);
-    const dayOfMonth = "" + date.getDate();
-    return year + "-" + (month[1] ? month : "0" + month[0]) + "-" + (dayOfMonth[1] ? dayOfMonth: "0" + dayOfMonth[0]) + " " + formatShortTime(date);
+    const year = date.getFullYear()
+    const month = '' + (date.getMonth() + 1)
+    const dayOfMonth = '' + date.getDate()
+    return (
+        year +
+        '-' +
+        (month[1] ? month : '0' + month[0]) +
+        '-' +
+        (dayOfMonth[1] ? dayOfMonth : '0' + dayOfMonth[0]) +
+        ' ' +
+        formatShortTime(date)
+    )
 }
