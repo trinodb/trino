@@ -36,6 +36,8 @@ public class OAuth2SecurityProperties
                 value -> propertiesBuilder.put(OAuth2Properties.CREDENTIAL, value));
         securityConfig.getToken().ifPresent(
                 value -> propertiesBuilder.put(OAuth2Properties.TOKEN, value));
+        securityConfig.getScope().ifPresent(
+                value -> propertiesBuilder.put(OAuth2Properties.SCOPE, value));
 
         this.securityProperties = propertiesBuilder.buildOrThrow();
     }

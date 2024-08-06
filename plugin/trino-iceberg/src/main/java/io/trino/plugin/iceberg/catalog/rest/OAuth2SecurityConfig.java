@@ -24,6 +24,7 @@ public class OAuth2SecurityConfig
 {
     private String credential;
     private String token;
+    private String scope;
 
     public Optional<String> getCredential()
     {
@@ -50,6 +51,19 @@ public class OAuth2SecurityConfig
     public OAuth2SecurityConfig setToken(String token)
     {
         this.token = token;
+        return this;
+    }
+
+    public Optional<String> getScope()
+    {
+        return Optional.ofNullable(scope);
+    }
+
+    @Config("iceberg.rest-catalog.oauth2.scope")
+    @ConfigDescription("The scope which will be used for interactions with the server")
+    public OAuth2SecurityConfig setScope(String scope)
+    {
+        this.scope = scope;
         return this;
     }
 
