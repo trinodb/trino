@@ -13,11 +13,21 @@
  */
 package io.trino.cost;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.optimizations.PlanNodeSearcher;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.RemoteSourceNode;
+import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.UnnestNode;
+import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.util.MoreMath;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -31,12 +41,14 @@ import static java.util.stream.Stream.concat;
 
 public final class PlanNodeStatsEstimateMath
 {
-    private PlanNodeStatsEstimateMath() {}
+    private static final List<Class<? extends PlanNode>> EXPANDING_NODE_CLASSES = ImmutableList.of(JoinNode.class, UnnestNode.class);
 
+    private PlanNodeStatsEstimateMath() {}
     /**
      * Subtracts subset stats from supersets stats.
      * It is assumed that each NDV from subset has a matching NDV in superset.
      */
+
     public static PlanNodeStatsEstimate subtractSubsetStats(PlanNodeStatsEstimate superset, PlanNodeStatsEstimate subset)
     {
         if (superset.isOutputRowCountUnknown() || subset.isOutputRowCountUnknown()) {
@@ -227,6 +239,66 @@ public final class PlanNodeStatsEstimateMath
         result.setOutputRowCount(0);
         stats.getSymbolsWithKnownStatistics().forEach(symbol -> result.addSymbolStatistics(symbol, SymbolStatsEstimate.zero()));
         return result.build();
+    }
+
+    /**
+     * Recursively looks for the first source node with a known estimate and uses that to return an approximate output size.
+     * Returns NaN if an un-estimated expanding node (Join or Unnest) is encountered.
+     * The amount of reduction in size from un-estimated non-expanding nodes (e.g. an un-estimated filter or aggregation)
+     * is not accounted here. We make use of the first available estimate and make decision about flipping join sides only if
+     * we find a large difference in output size of both sides.
+     */
+    public static double getFirstKnownOutputSizeInBytes(PlanNode node, Lookup lookup, StatsProvider statsProvider)
+    {
+        return Stream.of(node)
+                .map(lookup::resolve)
+                .mapToDouble(resolvedNode -> {
+                    double outputSizeInBytes = statsProvider.getStats(resolvedNode).getOutputSizeInBytes(
+                            resolvedNode.getOutputSymbols());
+                    if (!isNaN(outputSizeInBytes)) {
+                        return outputSizeInBytes;
+                    }
+
+                    if (EXPANDING_NODE_CLASSES.stream().anyMatch(clazz -> clazz.isInstance(resolvedNode))) {
+                        return NaN;
+                    }
+
+                    List<PlanNode> sourceNodes = resolvedNode.getSources();
+                    if (sourceNodes.isEmpty()) {
+                        return NaN;
+                    }
+
+                    double sourcesOutputSizeInBytes = 0;
+                    for (PlanNode sourceNode : sourceNodes) {
+                        double firstKnownOutputSizeInBytes = getFirstKnownOutputSizeInBytes(sourceNode, lookup, statsProvider);
+                        if (isNaN(firstKnownOutputSizeInBytes)) {
+                            return NaN;
+                        }
+                        sourcesOutputSizeInBytes += firstKnownOutputSizeInBytes;
+                    }
+                    return sourcesOutputSizeInBytes;
+                })
+                .sum();
+    }
+
+    public static double getSourceTablesSizeInBytes(PlanNode node, Lookup lookup, StatsProvider statsProvider)
+    {
+        boolean hasExpandingNodes = PlanNodeSearcher.searchFrom(node, lookup)
+                .whereIsInstanceOfAny(EXPANDING_NODE_CLASSES)
+                .matches();
+        if (hasExpandingNodes) {
+            return NaN;
+        }
+
+        List<PlanNode> sourceNodes = PlanNodeSearcher.searchFrom(node, lookup)
+                // Include RemoteSourceNode to account for adaptive planning where a finished subplan is
+                // replaced with a RemoteSourceNode.
+                .whereIsInstanceOfAny(TableScanNode.class, ValuesNode.class, RemoteSourceNode.class)
+                .findAll();
+
+        return sourceNodes.stream()
+                .mapToDouble(sourceNode -> statsProvider.getStats(sourceNode).getOutputSizeInBytes(sourceNode.getOutputSymbols()))
+                .sum();
     }
 
     @FunctionalInterface

@@ -33,7 +33,7 @@ import java.util.List;
 import static io.trino.SystemSessionProperties.getJoinDistributionType;
 import static io.trino.SystemSessionProperties.getJoinMaxBroadcastTableSize;
 import static io.trino.cost.CostCalculatorWithEstimatedExchanges.calculateJoinCostWithoutOutput;
-import static io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType.getSourceTablesSizeInBytes;
+import static io.trino.cost.PlanNodeStatsEstimateMath.getSourceTablesSizeInBytes;
 import static io.trino.sql.planner.plan.Patterns.semiJoin;
 import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
@@ -98,7 +98,7 @@ public class DetermineSemiJoinDistributionType
     {
         DataSize joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
 
-        if (getSourceTablesSizeInBytes(node.getFilteringSource(), context) <= joinMaxBroadcastTableSize.toBytes()) {
+        if (getSourceTablesSizeInBytes(node.getFilteringSource(), context.getLookup(), context.getStatsProvider()) <= joinMaxBroadcastTableSize.toBytes()) {
             // choose replicated distribution type as filtering source contains small source tables only
             return node.withDistributionType(REPLICATED);
         }
@@ -114,7 +114,7 @@ public class DetermineSemiJoinDistributionType
         PlanNodeStatsEstimate buildSideStatsEstimate = context.getStatsProvider().getStats(buildSide);
         double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputSymbols());
         return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes()
-                || getSourceTablesSizeInBytes(buildSide, context) <= joinMaxBroadcastTableSize.toBytes();
+                || getSourceTablesSizeInBytes(buildSide, context.getLookup(), context.getStatsProvider()) <= joinMaxBroadcastTableSize.toBytes();
     }
 
     private PlanNodeWithCost getSemiJoinNodeWithCost(SemiJoinNode possibleJoinNode, Context context)
