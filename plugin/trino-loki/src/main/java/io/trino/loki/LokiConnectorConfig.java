@@ -24,7 +24,8 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-public class LokiConnectorConfig {
+public class LokiConnectorConfig
+{
     private URI lokiURI = URI.create("http://localhost:3100");
     private String user;
     private String password;

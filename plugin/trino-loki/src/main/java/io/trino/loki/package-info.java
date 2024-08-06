@@ -12,24 +12,3 @@
  * limitations under the License.
  */
 package io.trino.loki;
-
-import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.type.Type;
-
-import static java.util.Objects.requireNonNull;
-
-public record LokiColumnHandle(String name, Type type, int ordinalPosition)
-        implements ColumnHandle
-{
-    public LokiColumnHandle
-    {
-        requireNonNull(name, "name is null");
-        requireNonNull(type, "type is null");
-    }
-
-    public ColumnMetadata columnMetadata()
-    {
-        return new ColumnMetadata(name, type);
-    }
-}

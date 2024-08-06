@@ -27,14 +27,18 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.util.Objects.requireNonNull;
 
-public class LokiConnectorFactory implements ConnectorFactory {
+public class LokiConnectorFactory
+        implements ConnectorFactory
+{
     @Override
-    public String getName() {
+    public String getName()
+    {
         return "loki";
     }
 
     @Override
-    public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context) {
+    public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
+    {
         requireNonNull(requiredConfig, "requiredConfig is null");
         checkStrictSpiVersionMatch(context, this);
 

@@ -19,7 +19,9 @@ import io.trino.spi.connector.*;
 
 import java.util.List;
 
-public class LokiSplitManager implements ConnectorSplitManager {
+public class LokiSplitManager
+        implements ConnectorSplitManager
+{
 
     private static final Logger log = Logger.get(LokiSplitManager.class);
 
@@ -29,7 +31,8 @@ public class LokiSplitManager implements ConnectorSplitManager {
             ConnectorSession session,
             ConnectorTableHandle connectorTableHandle,
             DynamicFilter dynamicFilter,
-            Constraint constraint) {
+            Constraint constraint)
+    {
 
         var table = (LokiTableHandle) connectorTableHandle;
 

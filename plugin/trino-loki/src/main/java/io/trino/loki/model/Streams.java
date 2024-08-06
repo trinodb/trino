@@ -11,30 +11,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.loki;
+package io.trino.loki.model;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.connector.ConnectorSplit;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
-import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 
-import static java.util.Objects.requireNonNull;
-
-public record LokiSplit(
-        @JsonProperty("query")
-        String query,
-        @JsonProperty("start")
-        Instant start,
-        @JsonProperty("end")
-        Instant end
-)
-        implements ConnectorSplit
+@JsonDeserialize(using = StreamsDeserializer.class)
+public final class Streams
+        extends QueryResult.Result
 {
 
-    @JsonCreator
-    public LokiSplit
+    public List<Stream> getStreams()
     {
-        requireNonNull(query, "query is null");
+        return streams;
     }
+
+    public void setStreams(List<Stream> streams)
+    {
+        this.streams = streams;
+    }
+
+    private List<Stream> streams;
+
+    public record Stream(
+            @JsonProperty("stream")
+            Map<String, String> labels,
+            List<LogEntry> values
+    ) {}
 }

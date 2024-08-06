@@ -11,25 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.loki;
+package io.trino.loki.model;
 
-import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.type.Type;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
-import static java.util.Objects.requireNonNull;
-
-public record LokiColumnHandle(String name, Type type, int ordinalPosition)
-        implements ColumnHandle
+@JsonDeserialize(using = MetricPointDeserializer.class)
+public class MetricPoint
 {
-    public LokiColumnHandle
+    public Long getTs()
     {
-        requireNonNull(name, "name is null");
-        requireNonNull(type, "type is null");
+        return ts;
     }
 
-    public ColumnMetadata columnMetadata()
+    public void setTs(Long ts)
     {
-        return new ColumnMetadata(name, type);
+        this.ts = ts;
     }
+
+    public Double getValue()
+    {
+        return v;
+    }
+
+    public void setValue(Double v)
+    {
+        this.v = v;
+    }
+
+    private Long ts;
+    private Double v;
 }

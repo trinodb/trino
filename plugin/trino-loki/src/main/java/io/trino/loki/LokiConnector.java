@@ -25,7 +25,9 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public class LokiConnector implements Connector {
+public class LokiConnector
+        implements Connector
+{
     private static final Logger log = Logger.get(LokiConnector.class);
 
     private final LifeCycleManager lifeCycleManager;

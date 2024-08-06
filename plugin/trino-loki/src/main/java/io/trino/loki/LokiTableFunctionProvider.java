@@ -21,19 +21,22 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 import static java.util.Objects.requireNonNull;
 
 public class LokiTableFunctionProvider
-        implements Provider<ConnectorTableFunction> {
+        implements Provider<ConnectorTableFunction>
+{
     //public static final String SCHEMA_NAME = "system";
     //public static final String NAME = "query";
 
     private final LokiMetadata lokiMetadata;
 
     @Inject
-    public LokiTableFunctionProvider(LokiMetadata lokiMetadata) {
+    public LokiTableFunctionProvider(LokiMetadata lokiMetadata)
+    {
         this.lokiMetadata = requireNonNull(lokiMetadata, "lokimetadata is null");
     }
 
     @Override
-    public ConnectorTableFunction get() {
-        return new ClassLoaderSafeConnectorTableFunction(new LokiTableFunction(this.lokiMetadata.getVarcharMapType()), getClass().getClassLoader());
+    public ConnectorTableFunction get()
+    {
+        return new ClassLoaderSafeConnectorTableFunction(new LokiTableFunction(this.lokiMetadata), getClass().getClassLoader());
     }
 }

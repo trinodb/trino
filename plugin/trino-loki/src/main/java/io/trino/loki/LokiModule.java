@@ -21,9 +21,12 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
-public class LokiModule implements Module {
+public class LokiModule
+        implements Module
+{
     @Override
-    public void configure(Binder binder) {
+    public void configure(Binder binder)
+    {
         binder.bind(LokiConnector.class).in(Scopes.SINGLETON);
         binder.bind(LokiMetadata.class).in(Scopes.SINGLETON);
         binder.bind(LokiClient.class).in(Scopes.SINGLETON);

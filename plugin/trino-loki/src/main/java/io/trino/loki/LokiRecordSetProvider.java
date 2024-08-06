@@ -22,14 +22,16 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 // TODO: replace with LokiPageSourceProvider eventually.
-public class LokiRecordSetProvider implements ConnectorRecordSetProvider {
+public class LokiRecordSetProvider
+        implements ConnectorRecordSetProvider
+{
 
     private final LokiClient prometheusClient;
 
     @Inject
     public LokiRecordSetProvider(LokiClient lokiClient)
     {
-        this.prometheusClient = requireNonNull(lokiClient, "prometheusClient is null");
+        this.prometheusClient = requireNonNull(lokiClient, "lokiClient is null");
     }
 
     @Override

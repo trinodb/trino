@@ -11,22 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.loki;
+package io.trino.loki.model;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
-import java.io.IOException;
-import java.io.InputStream;
-import org.junit.jupiter.api.Test;
+@JsonDeserialize(using = LogEntryDeserializer.class)
+public class LogEntry
+{
+    public Long getTs()
+    {
+        return ts;
+    }
 
-public class TestQueryResult {
-  @Test
-  void testDeserialize() throws IOException {
-    final InputStream input =
-        Thread.currentThread().getContextClassLoader().getResourceAsStream("result.json");
-    QueryResult result = QueryResult.fromJSON(input);
+    public void setTs(Long ts)
+    {
+        this.ts = ts;
+    }
 
-    var values = result.getData().getStreams().getFirst().getValues();
-    assertThat(values).hasSize(100);
-  }
+    public String getLine()
+    {
+        return line;
+    }
+
+    public void setLine(String line)
+    {
+        this.line = line;
+    }
+
+    private Long ts;
+    private String line;
 }

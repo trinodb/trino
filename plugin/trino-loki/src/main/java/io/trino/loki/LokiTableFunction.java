@@ -16,20 +16,25 @@ package io.trino.loki;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Strings;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.function.table.*;
 import io.trino.spi.type.*;
 
+import java.lang.reflect.UndeclaredThrowableException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -42,8 +47,9 @@ public class LokiTableFunction
         extends AbstractConnectorTableFunction
 {
     private Type varcharMapType;
+    private LokiMetadata metadata;
 
-    public LokiTableFunction(Type varcharMapType)
+    public LokiTableFunction(LokiMetadata metadata)
     {
         super(
                 "default",
@@ -65,32 +71,41 @@ public class LokiTableFunction
                                 .build()),
                 GENERIC_TABLE);
 
-        this.varcharMapType = varcharMapType;
+        this.metadata = metadata;
+        this.varcharMapType = metadata.getVarcharMapType();
     }
 
     @Override
-    public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments, ConnectorAccessControl accessControl) {
-        io.airlift.slice.Slice selector = (io.airlift.slice.Slice) ((ScalarArgument) arguments.get("QUERY")).getValue();
-        String strSelector = new String(selector.byteArray());
+    public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments, ConnectorAccessControl accessControl)
+    {
+        var argument = (ScalarArgument) arguments.get("QUERY");
+        String query = ((io.airlift.slice.Slice) argument.getValue()).toStringUtf8();
 
-       var start = (LongTimestampWithTimeZone) ((ScalarArgument) arguments.get("START")).getValue();
-       var end = (LongTimestampWithTimeZone) ((ScalarArgument) arguments.get("END")).getValue();
+        var start = (LongTimestampWithTimeZone) ((ScalarArgument) arguments.get("START")).getValue();
+        var end = (LongTimestampWithTimeZone) ((ScalarArgument) arguments.get("END")).getValue();
 
-        if (Strings.isNullOrEmpty(strSelector)) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, strSelector);
+        if (Strings.isNullOrEmpty(query)) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, query);
         }
 
         // determine the returned row type
-        List<Descriptor.Field> fields = ImmutableList.of(
-                new Descriptor.Field("labels", Optional.of(varcharMapType)),
-                new Descriptor.Field("timestamp", Optional.of(LokiMetadata.TIMESTAMP_COLUMN_TYPE)),
-                new Descriptor.Field("value", Optional.of(VarcharType.VARCHAR))
-        );
-
-        Descriptor returnedType = new Descriptor(fields);
+        List<ColumnHandle> columnHandles;
+        try {
+            columnHandles = metadata.getColumnHandles(query);
+        }
+        catch (UndeclaredThrowableException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot get column definition", Throwables.getRootCause(e));
+        }
+        if (columnHandles.isEmpty()) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot get column definition");
+        }
+        Descriptor returnedType = new Descriptor(columnHandles.stream()
+                .map(LokiColumnHandle.class::cast)
+                .map(column -> new Descriptor.Field(column.name(), Optional.of(column.type())))
+                .collect(toImmutableList()));
 
         var tableHandle = new LokiTableHandle(
-                strSelector,
+                query,
                 // TODO: account for time zone
                 Instant.ofEpochMilli(start.getEpochMillis()),
                 Instant.ofEpochMilli(end.getEpochMillis())

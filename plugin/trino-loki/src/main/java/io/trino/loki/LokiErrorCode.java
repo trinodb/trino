@@ -20,7 +20,7 @@ import io.trino.spi.ErrorType;
 import static io.trino.spi.ErrorType.EXTERNAL;
 
 public enum LokiErrorCode
-    implements ErrorCodeSupplier
+        implements ErrorCodeSupplier
 {
 
     LOKI_UNKNOWN_ERROR(0, EXTERNAL);
@@ -33,7 +33,8 @@ public enum LokiErrorCode
     }
 
     @Override
-    public ErrorCode toErrorCode() {
+    public ErrorCode toErrorCode()
+    {
         return errorCode;
     }
 }
