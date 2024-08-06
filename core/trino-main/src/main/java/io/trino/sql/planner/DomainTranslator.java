@@ -992,7 +992,7 @@ public final class DomainTranslator
 
             LikePattern matcher = (LikePattern) patternConstant.value();
 
-            Slice pattern = utf8Slice(matcher.getPattern());
+            Slice pattern = matcher.getPattern();
             Optional<Slice> escape = matcher.getEscape()
                     .map(character -> Slices.utf8Slice(character.toString()));
 

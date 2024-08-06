@@ -349,7 +349,7 @@ public final class DateTimeFunctions
             }
             for (int i = 0; i < length; i++) {
                 // Each lowercase letter has an ASCII code 0x20 more than the corresponding uppercase letter
-                if ((unit.getByteUnchecked(i) | 0x20) != unitBytes[i]) {
+                if ((unit.getByte(i) | 0x20) != unitBytes[i]) {
                     return false;
                 }
             }

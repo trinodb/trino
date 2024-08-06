@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.google.inject.Inject;
+import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -58,7 +59,7 @@ public final class BlockJsonSerde
             SliceOutput output = new DynamicSliceOutput(toIntExact(block.getSizeInBytes() + block.getEncodingName().length() + (2 * Integer.BYTES)));
             writeBlock(blockEncodingSerde, output, block);
             Slice slice = output.slice();
-            jsonGenerator.writeBinary(Base64Variants.MIME_NO_LINEFEEDS, slice.byteArray(), slice.byteArrayOffset(), slice.length());
+            jsonGenerator.writeBinary(Base64Variants.MIME_NO_LINEFEEDS, new BasicSliceInput(slice), slice.length());
         }
     }
 

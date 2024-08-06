@@ -62,7 +62,7 @@ public final class HmacFunctions
 
     static Slice computeHash(HashFunction hash, Slice data)
     {
-        HashCode result = hash.hashBytes(data.byteArray(), data.byteArrayOffset(), data.length());
+        HashCode result = hash.hashBytes(data.toByteBuffer());
         return wrappedBuffer(result.asBytes());
     }
 }

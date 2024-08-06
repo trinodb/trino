@@ -125,6 +125,7 @@ public final class CompressedOrcChunkLoader
         Slice chunk = compressedBufferStream.readSlice(chunkLength);
 
         if (!isUncompressed) {
+            // TODO: use memorysegment based decompression
             int uncompressedSize = decompressor.decompress(
                     chunk.byteArray(),
                     chunk.byteArrayOffset(),

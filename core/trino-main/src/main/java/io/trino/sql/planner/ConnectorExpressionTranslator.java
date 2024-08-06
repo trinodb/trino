@@ -733,7 +733,7 @@ public final class ConnectorExpressionTranslator
             if (patternArgument instanceof Constant constant) {
                 LikePattern matcher = (LikePattern) constant.value();
 
-                arguments.add(new io.trino.spi.expression.Constant(Slices.utf8Slice(matcher.getPattern()), createVarcharType(matcher.getPattern().length())));
+                arguments.add(new io.trino.spi.expression.Constant(matcher.getPattern(), createVarcharType(matcher.getPattern().length())));
                 if (matcher.getEscape().isPresent()) {
                     arguments.add(new io.trino.spi.expression.Constant(Slices.utf8Slice(matcher.getEscape().get().toString()), createVarcharType(1)));
                 }

@@ -343,10 +343,7 @@ public class PageDeserializer
 
             int encryptedSize = source.readInt();
             int ivSize = cipher.orElseThrow().getBlockSize();
-            IvParameterSpec iv = new IvParameterSpec(
-                    source.getSlice().byteArray(),
-                    source.getSlice().byteArrayOffset() + source.getPosition(),
-                    ivSize);
+            IvParameterSpec iv = new IvParameterSpec(source.getSlice().getBytes(source.getPosition(), ivSize)); // Little copy here
             source.setPosition(source.getPosition() + ivSize);
 
             Cipher cipher = initCipher(encryptionKey.get(), iv);
@@ -354,6 +351,7 @@ public class PageDeserializer
             try {
                 // Do not refactor into single doFinal call, performance and allocation rate are significantly worse
                 // See https://github.com/trinodb/trino/pull/5557
+                // TODO: rewrite to use byteBuffer() instead of a byteArray()
                 decryptedSize = cipher.update(
                         source.getSlice().byteArray(),
                         source.getSlice().byteArrayOffset() + source.getPosition(),
@@ -401,6 +399,7 @@ public class PageDeserializer
 
             int decompressedSize;
             if (compressed) {
+                // TODO: use new aircompressor's memorysegment API
                 decompressedSize = decompressor.decompress(
                         source.getSlice().byteArray(),
                         source.getSlice().byteArrayOffset() + source.getPosition(),
@@ -410,12 +409,7 @@ public class PageDeserializer
                         sink.getSlice().length() - bytesPreserved);
             }
             else {
-                System.arraycopy(
-                        source.getSlice().byteArray(),
-                        source.getSlice().byteArrayOffset() + source.getPosition(),
-                        sink.getSlice().byteArray(),
-                        sink.getSlice().byteArrayOffset() + bytesPreserved,
-                        blockSize);
+                source.getSlice().getBytes(source.getPosition(), sink.getSlice(), bytesPreserved, blockSize);
                 decompressedSize = blockSize;
             }
             source.setPosition(source.getPosition() + blockSize);

@@ -19,6 +19,7 @@ import io.airlift.joni.Option;
 import io.airlift.joni.Regex;
 import io.airlift.joni.Syntax;
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.trino.likematcher.LikeMatcher;
 import io.trino.type.JoniRegexp;
@@ -97,21 +98,21 @@ public class BenchmarkLike
         LONG_TOKEN_3("%aaaaaaaxaaaaaa%", LONG_STRING),
         SHORT_TOKENS_WITH_LONG_SKIP("%the%dog%", LONG_STRING);
 
-        private final String pattern;
-        private final String text;
+        private final Slice pattern;
+        private final Slice text;
 
         BenchmarkCase(String pattern, String text)
         {
-            this.pattern = pattern;
-            this.text = text;
+            this.pattern = Slices.utf8Slice(pattern);
+            this.text = Slices.utf8Slice(text);
         }
 
-        public String pattern()
+        public Slice pattern()
         {
             return pattern;
         }
 
-        public String text()
+        public Slice text()
         {
             return text;
         }
@@ -124,7 +125,6 @@ public class BenchmarkLike
         private BenchmarkCase benchmarkCase;
 
         private Slice data;
-        private byte[] bytes;
         private JoniRegexp joniPattern;
         private LikeMatcher optimizedMatcher;
         private LikeMatcher nonOptimizedMatcher;
@@ -135,9 +135,7 @@ public class BenchmarkLike
             optimizedMatcher = LikeMatcher.compile(benchmarkCase.pattern(), Optional.empty(), true);
             nonOptimizedMatcher = LikeMatcher.compile(benchmarkCase.pattern(), Optional.empty(), false);
             joniPattern = compileJoni(benchmarkCase.pattern(), '0', false);
-
-            bytes = benchmarkCase.text().getBytes(UTF_8);
-            data = Slices.wrappedBuffer(bytes);
+            data = benchmarkCase.text();
         }
     }
 
@@ -150,13 +148,13 @@ public class BenchmarkLike
     @Benchmark
     public boolean matchOptimized(Data data)
     {
-        return data.optimizedMatcher.match(data.bytes, 0, data.bytes.length);
+        return data.optimizedMatcher.match(data.data);
     }
 
     @Benchmark
     public boolean matchNonOptimized(Data data)
     {
-        return data.nonOptimizedMatcher.match(data.bytes, 0, data.bytes.length);
+        return data.nonOptimizedMatcher.match(data.data);
     }
 
     @Benchmark
@@ -180,21 +178,21 @@ public class BenchmarkLike
     @Benchmark
     public boolean dynamicJoni(Data data)
     {
-        return likeVarchar(data.data, compileJoni(Slices.utf8Slice(data.benchmarkCase.pattern()).toStringUtf8(), '0', false));
+        return likeVarchar(data.data, compileJoni(data.benchmarkCase.pattern(), '0', false));
     }
 
     @Benchmark
     public boolean dynamicOptimized(Data data)
     {
         return LikeMatcher.compile(data.benchmarkCase.pattern(), Optional.empty(), true)
-                .match(data.bytes, 0, data.bytes.length);
+                .match(data.data);
     }
 
     @Benchmark
     public boolean dynamicNonOptimized(Data data)
     {
         return LikeMatcher.compile(data.benchmarkCase.pattern(), Optional.empty(), false)
-                .match(data.bytes, 0, data.bytes.length);
+                .match(data.data);
     }
 
     public static boolean likeVarchar(Slice value, JoniRegexp pattern)
@@ -204,20 +202,21 @@ public class BenchmarkLike
         return matcher.match(offset, offset + value.length(), Option.NONE) != -1;
     }
 
-    private static JoniRegexp compileJoni(String patternString, char escapeChar, boolean shouldEscape)
+    private static JoniRegexp compileJoni(Slice patternString, char escapeChar, boolean shouldEscape)
     {
         byte[] bytes = likeToRegex(patternString, escapeChar, shouldEscape).getBytes(UTF_8);
         Regex joniRegex = new Regex(bytes, 0, bytes.length, Option.MULTILINE, NonStrictUTF8Encoding.INSTANCE, SYNTAX);
         return new JoniRegexp(Slices.wrappedBuffer(bytes), joniRegex);
     }
 
-    private static String likeToRegex(String patternString, char escapeChar, boolean shouldEscape)
+    private static String likeToRegex(Slice patternString, char escapeChar, boolean shouldEscape)
     {
         StringBuilder regex = new StringBuilder(patternString.length() * 2);
 
         regex.append('^');
         boolean escaped = false;
-        for (char currentChar : patternString.toCharArray()) {
+        for (int i = 0; i < SliceUtf8.countCodePoints(patternString); i++) {
+            int currentChar = SliceUtf8.getCodePointAt(patternString, i);
             checkEscape(!escaped || currentChar == '%' || currentChar == '_' || currentChar == escapeChar);
             if (shouldEscape && !escaped && (currentChar == escapeChar)) {
                 escaped = true;

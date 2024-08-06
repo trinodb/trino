@@ -15,12 +15,13 @@ package io.trino.array;
 
 import io.airlift.slice.Slice;
 
+import static io.airlift.slice.SizeOf.MEMORY_SEGMENT_INSTANCE_SIZE;
 import static io.airlift.slice.SizeOf.instanceSize;
 
 public final class SliceBigArray
 {
     private static final int INSTANCE_SIZE = instanceSize(SliceBigArray.class);
-    private static final int SLICE_INSTANCE_SIZE = instanceSize(Slice.class);
+    private static final int SLICE_INSTANCE_SIZE = instanceSize(Slice.class) + MEMORY_SEGMENT_INSTANCE_SIZE;
     private final ObjectBigArray<Slice> array;
     private final ReferenceCountMap trackedSlices = new ReferenceCountMap();
     private long sizeOfSlices;

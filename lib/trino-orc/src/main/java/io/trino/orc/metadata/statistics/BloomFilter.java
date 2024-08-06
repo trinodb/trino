@@ -398,7 +398,7 @@ public class BloomFilter
             // body
             int current = 0;
             while (current < fastLimit) {
-                long k = data.getLongUnchecked(current);
+                long k = data.getLong(current);
                 current += SIZE_OF_LONG;
 
                 // mix functions
@@ -413,19 +413,19 @@ public class BloomFilter
             long k = 0;
             switch (data.length() - current) {
                 case 7:
-                    k ^= ((long) data.getByteUnchecked(current + 6) & 0xff) << 48;
+                    k ^= ((long) data.getByte(current + 6) & 0xff) << 48;
                 case 6:
-                    k ^= ((long) data.getByteUnchecked(current + 5) & 0xff) << 40;
+                    k ^= ((long) data.getByte(current + 5) & 0xff) << 40;
                 case 5:
-                    k ^= ((long) data.getByteUnchecked(current + 4) & 0xff) << 32;
+                    k ^= ((long) data.getByte(current + 4) & 0xff) << 32;
                 case 4:
-                    k ^= ((long) data.getByteUnchecked(current + 3) & 0xff) << 24;
+                    k ^= ((long) data.getByte(current + 3) & 0xff) << 24;
                 case 3:
-                    k ^= ((long) data.getByteUnchecked(current + 2) & 0xff) << 16;
+                    k ^= ((long) data.getByte(current + 2) & 0xff) << 16;
                 case 2:
-                    k ^= ((long) data.getByteUnchecked(current + 1) & 0xff) << 8;
+                    k ^= ((long) data.getByte(current + 1) & 0xff) << 8;
                 case 1:
-                    k ^= ((long) data.getByteUnchecked(current) & 0xff);
+                    k ^= ((long) data.getByte(current) & 0xff);
                     k *= C1;
                     k = Long.rotateLeft(k, R1);
                     k *= C2;

@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.optimizer;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
@@ -49,6 +48,7 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
@@ -156,7 +156,7 @@ public class TestHivePlans
                         filter(
                                 new Call(
                                         FUNCTIONS.resolveFunction("$like", fromTypes(createVarcharType(55), LIKE_PATTERN)),
-                                        ImmutableList.of(new Reference(createVarcharType(55), "STR_PART"), new Constant(LIKE_PATTERN, LikePattern.compile("t%", Optional.empty())))),
+                                        ImmutableList.of(new Reference(createVarcharType(55), "STR_PART"), new Constant(LIKE_PATTERN, LikePattern.compile(utf8Slice("t%"), Optional.empty())))),
                                 tableScan("table_str_partitioned", Map.of("INT_COL", "int_col", "STR_PART", "str_part")))));
     }
 
@@ -178,12 +178,12 @@ public class TestHivePlans
                                 .left(
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new Call(LIKE, ImmutableList.of(new Reference(createVarcharType(5), "L_STR_PART"), new Constant(LIKE_PATTERN, LikePattern.compile("t%", Optional.empty())))),
+                                                        new Call(LIKE, ImmutableList.of(new Reference(createVarcharType(5), "L_STR_PART"), new Constant(LIKE_PATTERN, LikePattern.compile(utf8Slice("t%"), Optional.empty())))),
                                                         tableScan("table_str_partitioned", Map.of("L_INT_COL", "int_col", "L_STR_PART", "str_part")))))
                                 .right(exchange(LOCAL,
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new Logical(AND, ImmutableList.of(new In(new Reference(createVarcharType(5), "R_STR_COL"), ImmutableList.of(new Constant(createVarcharType(5), Slices.utf8Slice("three")), new Constant(createVarcharType(5), Slices.utf8Slice("two")))), new Call(LIKE, ImmutableList.of(new Reference(createVarcharType(5), "R_STR_COL"), new Constant(LIKE_PATTERN, LikePattern.compile("t%", Optional.empty())))))),
+                                                        new Logical(AND, ImmutableList.of(new In(new Reference(createVarcharType(5), "R_STR_COL"), ImmutableList.of(new Constant(createVarcharType(5), utf8Slice("three")), new Constant(createVarcharType(5), utf8Slice("two")))), new Call(LIKE, ImmutableList.of(new Reference(createVarcharType(5), "R_STR_COL"), new Constant(LIKE_PATTERN, LikePattern.compile(utf8Slice("t%"), Optional.empty())))))),
                                                         tableScan("table_unpartitioned", Map.of("R_STR_COL", "str_col", "R_INT_COL", "int_col")))))))));
     }
 
@@ -228,7 +228,7 @@ public class TestHivePlans
                                 .left(
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new Comparison(NOT_EQUAL, new Reference(createVarcharType(5), "L_STR_COL"), new Constant(createVarcharType(5), Slices.utf8Slice("three"))),
+                                                        new Comparison(NOT_EQUAL, new Reference(createVarcharType(5), "L_STR_COL"), new Constant(createVarcharType(5), utf8Slice("three"))),
                                                         tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))))
                                 .right(
                                         exchange(LOCAL,
@@ -254,7 +254,7 @@ public class TestHivePlans
                                 .left(
                                         exchange(REMOTE, REPARTITION,
                                                 filter(
-                                                        new Comparison(NOT_EQUAL, new Call(SUBSTRING, ImmutableList.of(new Reference(createVarcharType(5), "L_STR_COL"), new Constant(BIGINT, 2L))), new Constant(createVarcharType(5), Slices.utf8Slice("hree"))),
+                                                        new Comparison(NOT_EQUAL, new Call(SUBSTRING, ImmutableList.of(new Reference(createVarcharType(5), "L_STR_COL"), new Constant(BIGINT, 2L))), new Constant(createVarcharType(5), utf8Slice("hree"))),
                                                         tableScan("table_int_partitioned", Map.of("L_INT_PART", "int_part", "L_STR_COL", "str_col")))))
                                 .right(
                                         exchange(LOCAL,
