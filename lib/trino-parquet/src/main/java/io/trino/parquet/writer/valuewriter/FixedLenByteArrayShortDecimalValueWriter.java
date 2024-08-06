@@ -47,76 +47,75 @@ public class FixedLenByteArrayShortDecimalValueWriter
         ValuesWriter valuesWriter = requireNonNull(getValuesWriter(), "valuesWriter is null");
         Statistics<?> statistics = requireNonNull(getStatistics(), "statistics is null");
         boolean mayHaveNull = block.mayHaveNull();
+        byte[] buffer = new byte[getTypeLength()];
+        Binary reusedBinary = Binary.fromReusedByteArray(buffer);
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!mayHaveNull || !block.isNull(i)) {
                 long value = decimalType.getLong(block, i);
-                Binary binary = Binary.fromConstantByteArray(paddingLong(value));
-                valuesWriter.writeBytes(binary);
-                statistics.updateStats(binary);
+                storeLongIntoBuffer(value, buffer);
+                valuesWriter.writeBytes(reusedBinary);
+                statistics.updateStats(reusedBinary);
             }
         }
     }
 
-    private byte[] paddingLong(long unscaledValue)
+    private static void storeLongIntoBuffer(long unscaledValue, byte[] buffer)
     {
-        int numBytes = getTypeLength();
-        byte[] result = new byte[numBytes];
-        switch (numBytes) {
+        switch (buffer.length) {
             case 1:
-                result[0] = (byte) unscaledValue;
+                buffer[0] = (byte) unscaledValue;
                 break;
             case 2:
-                result[0] = (byte) (unscaledValue >> 8);
-                result[1] = (byte) unscaledValue;
+                buffer[0] = (byte) (unscaledValue >> 8);
+                buffer[1] = (byte) unscaledValue;
                 break;
             case 3:
-                result[0] = (byte) (unscaledValue >> 16);
-                result[1] = (byte) (unscaledValue >> 8);
-                result[2] = (byte) unscaledValue;
+                buffer[0] = (byte) (unscaledValue >> 16);
+                buffer[1] = (byte) (unscaledValue >> 8);
+                buffer[2] = (byte) unscaledValue;
                 break;
             case 4:
-                result[0] = (byte) (unscaledValue >> 24);
-                result[1] = (byte) (unscaledValue >> 16);
-                result[2] = (byte) (unscaledValue >> 8);
-                result[3] = (byte) unscaledValue;
+                buffer[0] = (byte) (unscaledValue >> 24);
+                buffer[1] = (byte) (unscaledValue >> 16);
+                buffer[2] = (byte) (unscaledValue >> 8);
+                buffer[3] = (byte) unscaledValue;
                 break;
             case 5:
-                result[0] = (byte) (unscaledValue >> 32);
-                result[1] = (byte) (unscaledValue >> 24);
-                result[2] = (byte) (unscaledValue >> 16);
-                result[3] = (byte) (unscaledValue >> 8);
-                result[4] = (byte) unscaledValue;
+                buffer[0] = (byte) (unscaledValue >> 32);
+                buffer[1] = (byte) (unscaledValue >> 24);
+                buffer[2] = (byte) (unscaledValue >> 16);
+                buffer[3] = (byte) (unscaledValue >> 8);
+                buffer[4] = (byte) unscaledValue;
                 break;
             case 6:
-                result[0] = (byte) (unscaledValue >> 40);
-                result[1] = (byte) (unscaledValue >> 32);
-                result[2] = (byte) (unscaledValue >> 24);
-                result[3] = (byte) (unscaledValue >> 16);
-                result[4] = (byte) (unscaledValue >> 8);
-                result[5] = (byte) unscaledValue;
+                buffer[0] = (byte) (unscaledValue >> 40);
+                buffer[1] = (byte) (unscaledValue >> 32);
+                buffer[2] = (byte) (unscaledValue >> 24);
+                buffer[3] = (byte) (unscaledValue >> 16);
+                buffer[4] = (byte) (unscaledValue >> 8);
+                buffer[5] = (byte) unscaledValue;
                 break;
             case 7:
-                result[0] = (byte) (unscaledValue >> 48);
-                result[1] = (byte) (unscaledValue >> 40);
-                result[2] = (byte) (unscaledValue >> 32);
-                result[3] = (byte) (unscaledValue >> 24);
-                result[4] = (byte) (unscaledValue >> 16);
-                result[5] = (byte) (unscaledValue >> 8);
-                result[6] = (byte) unscaledValue;
+                buffer[0] = (byte) (unscaledValue >> 48);
+                buffer[1] = (byte) (unscaledValue >> 40);
+                buffer[2] = (byte) (unscaledValue >> 32);
+                buffer[3] = (byte) (unscaledValue >> 24);
+                buffer[4] = (byte) (unscaledValue >> 16);
+                buffer[5] = (byte) (unscaledValue >> 8);
+                buffer[6] = (byte) unscaledValue;
                 break;
             case 8:
-                result[0] = (byte) (unscaledValue >> 56);
-                result[1] = (byte) (unscaledValue >> 48);
-                result[2] = (byte) (unscaledValue >> 40);
-                result[3] = (byte) (unscaledValue >> 32);
-                result[4] = (byte) (unscaledValue >> 24);
-                result[5] = (byte) (unscaledValue >> 16);
-                result[6] = (byte) (unscaledValue >> 8);
-                result[7] = (byte) unscaledValue;
+                buffer[0] = (byte) (unscaledValue >> 56);
+                buffer[1] = (byte) (unscaledValue >> 48);
+                buffer[2] = (byte) (unscaledValue >> 40);
+                buffer[3] = (byte) (unscaledValue >> 32);
+                buffer[4] = (byte) (unscaledValue >> 24);
+                buffer[5] = (byte) (unscaledValue >> 16);
+                buffer[6] = (byte) (unscaledValue >> 8);
+                buffer[7] = (byte) unscaledValue;
                 break;
             default:
-                throw new IllegalArgumentException("Invalid number of bytes: " + numBytes);
+                throw new IllegalArgumentException("Invalid number of bytes: " + buffer.length);
         }
-        return result;
     }
 }
