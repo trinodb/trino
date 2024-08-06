@@ -70,24 +70,24 @@ public class TestBlockAndPositionNullConvention
     {
         assertThat(assertions.function("test_block_position", "BIGINT '1234'"))
                 .isEqualTo(1234L);
-        assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionBigint.get()).isTrue();
+        assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionBigint.get()).isFalse();
 
         assertThat(assertions.function("test_block_position", "12.34e0"))
                 .isEqualTo(12.34);
-        assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionDouble.get()).isTrue();
+        assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionDouble.get()).isFalse();
 
         assertThat(assertions.function("test_block_position", "'hello'"))
                 .hasType(createVarcharType(5))
                 .isEqualTo("hello");
-        assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionSlice.get()).isTrue();
+        assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionSlice.get()).isFalse();
 
         assertThat(assertions.function("test_block_position", "true"))
                 .isEqualTo(true);
-        assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionBoolean.get()).isTrue();
+        assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionBoolean.get()).isFalse();
 
         assertThat(assertions.function("test_block_position", "ROW(1234)"))
                 .isEqualTo(ImmutableList.of(1234));
-        assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionObject.get()).isTrue();
+        assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionObject.get()).isFalse();
     }
 
     @ScalarFunction("test_block_position")
@@ -193,20 +193,20 @@ public class TestBlockAndPositionNullConvention
     {
         assertThat(assertions.function("test_value_block_position", "BIGINT '1234'"))
                 .isEqualTo(1234L);
-        assertThat(FunctionWithValueBlockAndPositionConvention.hitBlockPositionBigint.get()).isTrue();
+        assertThat(FunctionWithValueBlockAndPositionConvention.hitBlockPositionBigint.get()).isFalse();
 
         assertThat(assertions.function("test_value_block_position", "12.34e0"))
                 .isEqualTo(12.34);
-        assertThat(FunctionWithValueBlockAndPositionConvention.hitBlockPositionDouble.get()).isTrue();
+        assertThat(FunctionWithValueBlockAndPositionConvention.hitBlockPositionDouble.get()).isFalse();
 
         assertThat(assertions.function("test_value_block_position", "'hello'"))
                 .hasType(createVarcharType(5))
                 .isEqualTo("hello");
-        assertThat(FunctionWithValueBlockAndPositionConvention.hitBlockPositionSlice.get()).isTrue();
+        assertThat(FunctionWithValueBlockAndPositionConvention.hitBlockPositionSlice.get()).isFalse();
 
         assertThat(assertions.function("test_value_block_position", "true"))
                 .isEqualTo(true);
-        assertThat(FunctionWithValueBlockAndPositionConvention.hitBlockPositionBoolean.get()).isTrue();
+        assertThat(FunctionWithValueBlockAndPositionConvention.hitBlockPositionBoolean.get()).isFalse();
     }
 
     @ScalarFunction("test_value_block_position")
