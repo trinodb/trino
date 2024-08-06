@@ -107,6 +107,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivil
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
@@ -1115,6 +1116,12 @@ public class FileBasedSystemAccessControl
         catch (IllegalArgumentException exception) {
             throw new TrinoException(INVALID_COLUMN_MASK, "Multiple column masks defined for the same column", exception);
         }
+    }
+
+    @Override
+    public void checkCanSetEntityAuthorization(SystemSecurityContext context, String ownedKind, List<String> name, TrinoPrincipal principal)
+    {
+        denySetEntityAuthorization(ownedKind, name);
     }
 
     private boolean checkAnyCatalogAccess(SystemSecurityContext context, String catalogName)

@@ -1036,4 +1036,10 @@ public abstract class AbstractMockMetadata
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public void setEntityAuthorization(Session session, String ownedKind, List<String> name, TrinoPrincipal principal)
+    {
+        throw new UnsupportedOperationException();
+    }
 }
