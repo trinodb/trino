@@ -25,15 +25,15 @@ public class LokiTableFunctionProvider
     //public static final String SCHEMA_NAME = "system";
     //public static final String NAME = "query";
 
-    //private final LokiMetadata lokiMetadata;
+    private final LokiMetadata lokiMetadata;
 
     @Inject
     public LokiTableFunctionProvider(LokiMetadata lokiMetadata) {
-        //this.lokiMetadata = requireNonNull(lokiMetadata, "cassandraMetadata is null");
+        this.lokiMetadata = requireNonNull(lokiMetadata, "lokimetadata is null");
     }
 
     @Override
     public ConnectorTableFunction get() {
-        return new ClassLoaderSafeConnectorTableFunction(new LokiTableFunction(), getClass().getClassLoader());
+        return new ClassLoaderSafeConnectorTableFunction(new LokiTableFunction(this.lokiMetadata.getVarcharMapType()), getClass().getClassLoader());
     }
 }

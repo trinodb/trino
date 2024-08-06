@@ -36,6 +36,9 @@ public class LokiMetadata implements ConnectorMetadata {
 
     // TODO: this might not be the right spot
     static final Type TIMESTAMP_COLUMN_TYPE = createTimestampWithTimeZoneType(3);
+    public Type getVarcharMapType() {
+        return this.lokiClient.getVarcharMapType();
+    }
 
     private static final Logger log = Logger.get(LokiMetadata.class);
 
@@ -106,8 +109,9 @@ public class LokiMetadata implements ConnectorMetadata {
 
         LokiTableHandle tableHandle = queryHandle.getTableHandle();
         List<ColumnHandle> columnHandles = ImmutableList.of(
-                new LokiColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 0),
-                new LokiColumnHandle("value", VarcharType.VARCHAR, 1)
+                new LokiColumnHandle("labels", getVarcharMapType(), 0),
+                new LokiColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 1),
+                new LokiColumnHandle("value", VarcharType.VARCHAR, 2)
         );
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
@@ -128,7 +132,7 @@ public class LokiMetadata implements ConnectorMetadata {
         // TODO: base value column type on query
 
         var columns = ImmutableList.of(
-                        //new ColumnMetadata("labels", varcharMapType),
+                        new ColumnMetadata("labels", getVarcharMapType()),
                         new ColumnMetadata("timestamp", TIMESTAMP_COLUMN_TYPE),
                         new ColumnMetadata("value", VarcharType.VARCHAR)
         );

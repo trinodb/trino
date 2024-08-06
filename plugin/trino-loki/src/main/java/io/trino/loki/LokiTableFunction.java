@@ -22,9 +22,7 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.function.table.*;
-import io.trino.spi.type.LongTimestampWithTimeZone;
-import io.trino.spi.type.TimeZoneKey;
-import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.*;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -43,7 +41,9 @@ import static java.util.stream.Collectors.toList;
 public class LokiTableFunction
         extends AbstractConnectorTableFunction
 {
-    public LokiTableFunction()
+    private Type varcharMapType;
+
+    public LokiTableFunction(Type varcharMapType)
     {
         super(
                 "default",
@@ -64,6 +64,8 @@ public class LokiTableFunction
                                 .type(VarcharType.VARCHAR)
                                 .build()),
                 GENERIC_TABLE);
+
+        this.varcharMapType = varcharMapType;
     }
 
     @Override
@@ -80,6 +82,7 @@ public class LokiTableFunction
 
         // determine the returned row type
         List<Descriptor.Field> fields = ImmutableList.of(
+                new Descriptor.Field("labels", Optional.of(varcharMapType)),
                 new Descriptor.Field("timestamp", Optional.of(LokiMetadata.TIMESTAMP_COLUMN_TYPE)),
                 new Descriptor.Field("value", Optional.of(VarcharType.VARCHAR))
         );

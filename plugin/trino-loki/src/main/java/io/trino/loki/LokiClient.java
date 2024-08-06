@@ -13,10 +13,16 @@
  */
 package io.trino.loki;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.http.client.HttpUriBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import jakarta.annotation.Nullable;
 import okhttp3.*;
 
 import java.io.IOException;
@@ -28,6 +34,8 @@ import java.util.Set;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static io.trino.loki.LokiErrorCode.LOKI_UNKNOWN_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.type.TypeSignature.mapType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class LokiClient {
@@ -35,13 +43,21 @@ public class LokiClient {
     private final OkHttpClient httpClient;
     private final URI lokiEndpoint;
 
+    private final Type varcharMapType;
+
+    public Type getVarcharMapType() {
+        return varcharMapType;
+    }
+
     @Inject
-    public LokiClient(LokiConnectorConfig config) {
+    public LokiClient(LokiConnectorConfig config, TypeManager typeManager) {
         this.lokiEndpoint = config.getLokiURI();
+        requireNonNull(typeManager, "typeManager is null");
 
         OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder().readTimeout(Duration.ofMillis(config.getReadTimeout().toMillis()));
         setupBasicAuth(clientBuilder, config.getUser(), config.getPassword());
         this.httpClient = clientBuilder.build();
+        varcharMapType = typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
     }
 
     private static void setupBasicAuth(OkHttpClient.Builder clientBuilder, Optional<String> user, Optional<String> password)

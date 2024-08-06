@@ -27,6 +27,7 @@ import java.util.Map;
 
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class LokiQueryRunner
@@ -81,7 +82,7 @@ public final class LokiQueryRunner
         LokiConnectorConfig config = new LokiConnectorConfig();
         config.setLokiURI(server.getUri());
         config.setReadTimeout(new Duration(10, SECONDS));
-        return new LokiClient(config);
+        return new LokiClient(config, TESTING_TYPE_MANAGER);
     }
 
     public static void main(String[] args)
