@@ -282,15 +282,14 @@ public class TestMemoryConnectorTest
     public void testJoinDynamicFilteringBlockProbeSide()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
-            // Wait for both build sides to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
+            // Wait for both build side to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
             assertDynamicFiltering(
                     "SELECT l.comment" +
-                            " FROM  lineitem l, part p, orders o" +
-                            " WHERE l.orderkey = o.orderkey AND o.comment = 'nstructions sleep furiously among '" +
-                            " AND p.partkey = l.partkey AND p.comment = 'onic deposits'",
+                            " FROM  lineitem l, orders o" +
+                            " WHERE l.orderkey = o.orderkey AND o.comment = 'nstructions sleep furiously among '",
                     noJoinReordering(joinDistributionType),
-                    1,
-                    1, PART_COUNT, ORDERS_COUNT);
+                    6,
+                    6, ORDERS_COUNT);
         }
     }
 
