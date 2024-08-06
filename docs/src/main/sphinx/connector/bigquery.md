@@ -386,6 +386,11 @@ the following features:
 ```{include} sql-delete-limitation.fragment
 ```
 
+### Procedures
+
+```{include} procedures-execute.fragment
+```
+
 ### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
