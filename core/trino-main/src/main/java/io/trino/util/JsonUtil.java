@@ -123,7 +123,7 @@ public final class JsonUtil
     public static JsonParser createJsonParser(JsonFactory factory, Slice json)
             throws IOException
     {
-        return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
+        return factory.createParser(json.byteArray(), json.byteArrayOffset(), json.length());
     }
 
     public static JsonGenerator createJsonGenerator(JsonFactory factory, SliceOutput output)
