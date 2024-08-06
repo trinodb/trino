@@ -24,9 +24,11 @@ import io.trino.hdfs.MemoryAwareFileSystem;
 import io.trino.hdfs.authentication.HdfsAuthentication.ExceptionAction;
 import io.trino.hdfs.gcs.GcsAtomicOutputStream;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -36,6 +38,7 @@ import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
 import static io.trino.filesystem.hdfs.HdfsFileSystem.withCause;
 import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.spi.StandardErrorCode.STORAGE_LIMIT_EXCEEDED;
 import static java.util.Objects.requireNonNull;
 
 class HdfsOutputFile
@@ -102,6 +105,13 @@ class HdfsOutputFile
         catch (org.apache.hadoop.fs.FileAlreadyExistsException e) {
             createFileCallStat.recordException(e);
             throw withCause(new FileAlreadyExistsException(toString()), e);
+        }
+        catch (QuotaExceededException e) {
+            createFileCallStat.recordException(e);
+            throw new TrinoException(
+                    STORAGE_LIMIT_EXCEEDED,
+                    "Creation of file %s failed due to storage quota exceeded: %s".formatted(file, e.getMessage()),
+                    e);
         }
         catch (IOException e) {
             createFileCallStat.recordException(e);

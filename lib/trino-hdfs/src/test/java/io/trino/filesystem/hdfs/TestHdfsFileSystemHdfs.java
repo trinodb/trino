@@ -24,10 +24,13 @@ import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
+import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
+import org.assertj.core.api.ThrowingConsumer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -36,8 +39,10 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
+import static io.trino.spi.StandardErrorCode.STORAGE_LIMIT_EXCEEDED;
 import static java.util.Collections.emptySet;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHdfsFileSystemHdfs
         extends AbstractTestTrinoFileSystem
@@ -133,6 +138,51 @@ public class TestHdfsFileSystemHdfs
         TrinoFileSystem fileSystem = new HdfsFileSystem(hdfsEnvironment, hdfsContext, new TrinoHdfsFileSystemStats());
 
         assertCreateDirectoryPermission(fileSystem, hdfsEnvironment, (short) 755);
+    }
+
+    @Test
+    void testNamespaceQuotaExceededOnMkdirs()
+            throws Exception
+    {
+        testQuotaExceededException((location) -> fileSystem.createDirectory(location));
+    }
+
+    @Test
+    void testNamespaceQuotaExceededOnNewFile()
+            throws Exception
+    {
+        testQuotaExceededException((location) -> fileSystem.newOutputFile(location).create().close());
+    }
+
+    @Test
+    void testSpaceQuotaExceededOnFileWrite()
+            throws Exception
+    {
+        testQuotaExceededException((location) -> {
+            try (var stream = fileSystem.newOutputFile(location).create()) {
+                stream.write(42);
+            }
+        });
+    }
+
+    private void testQuotaExceededException(ThrowingConsumer<Location> quotaExceedingAction)
+            throws Exception
+    {
+        Path root = new Path(getRootLocation().toString());
+        FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, root);
+        fs.mkdirs(new Path(root, "quota"));
+
+        // Set tiny quotas such that any new addition will trigger the quota to be exceeded
+        for (var command : new String[] {"-setQuota", "-setSpaceQuota" }) {
+            hadoop.executeInContainerFailOnError("hdfs", "dfsadmin", command, "1", "/quota");
+        }
+
+        Location location = getRootLocation().appendPath("quota").appendPath("file");
+        assertThatThrownBy(() -> quotaExceedingAction.acceptThrows(location))
+                .isInstanceOfSatisfying(TrinoException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(STORAGE_LIMIT_EXCEEDED.toErrorCode()))
+                .hasMessageContaining("storage quota exceeded")
+                .hasCauseInstanceOf(QuotaExceededException.class);
     }
 
     private void assertCreateDirectoryPermission(TrinoFileSystem fileSystem, HdfsEnvironment hdfsEnvironment, short permission)

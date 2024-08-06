@@ -25,12 +25,14 @@ import io.trino.hdfs.FileSystemWithBatchDelete;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.viewfs.ViewFileSystem;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
+import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -49,6 +51,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
 import static io.trino.filesystem.hdfs.HdfsFileIterator.listedLocation;
 import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
+import static io.trino.spi.StandardErrorCode.STORAGE_LIMIT_EXCEEDED;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.groupingBy;
@@ -305,6 +308,13 @@ class HdfsFileSystem
                 if (permission.isPresent()) {
                     fileSystem.setPermission(directory, permission.get());
                 }
+            }
+            catch (QuotaExceededException e) {
+                stats.getCreateDirectoryCalls().recordException(e);
+                throw new TrinoException(
+                        STORAGE_LIMIT_EXCEEDED,
+                        "Creation of directory %s failed due to storage quota exceeded: %s".formatted(location, e.getMessage()),
+                        e);
             }
             catch (IOException e) {
                 stats.getCreateDirectoryCalls().recordException(e);
