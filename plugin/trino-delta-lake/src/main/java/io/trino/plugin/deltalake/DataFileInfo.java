@@ -13,9 +13,11 @@
  */
 package io.trino.plugin.deltalake;
 
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -25,7 +27,8 @@ public record DataFileInfo(
         long creationTime,
         io.trino.plugin.deltalake.DataFileInfo.DataFileType dataFileType,
         List<String> partitionValues,
-        DeltaLakeJsonFileStatistics statistics)
+        DeltaLakeJsonFileStatistics statistics,
+        Optional<DeletionVectorEntry> deletionVector)
 {
     public enum DataFileType
     {
@@ -37,5 +40,6 @@ public record DataFileInfo(
     {
         requireNonNull(dataFileType, "dataFileType is null");
         requireNonNull(statistics, "statistics is null");
+        requireNonNull(deletionVector, "deletionVector is null");
     }
 }

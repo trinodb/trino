@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.math.IntMath;
 import com.google.common.primitives.SignedBytes;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -58,6 +59,31 @@ public final class Base85Codec
     }
 
     private Base85Codec() {}
+
+    public static String encode(ByteBuffer buffer)
+    {
+        checkArgument(buffer.remaining() % 4 == 0, "Input should be 4 byte aligned");
+        int blocks = buffer.remaining() / 4;
+        // Every 4 byte block gets encoded into 5 bytes/chars
+        int outputLength = blocks * 5;
+        byte[] output = new byte[outputLength];
+        int outputIndex = 0;
+
+        while (buffer.hasRemaining()) {
+            long sum = buffer.getInt() & 0x00000000ffffffffL;
+            output[outputIndex] = ENCODE_MAP[(int) (sum / BASE_4TH_POWER)];
+            sum %= BASE_4TH_POWER;
+            output[outputIndex + 1] = ENCODE_MAP[(int) (sum / BASE_3RD_POWER)];
+            sum %= BASE_3RD_POWER;
+            output[outputIndex + 2] = ENCODE_MAP[(int) (sum / BASE_2ND_POWER)];
+            sum %= BASE_2ND_POWER;
+            output[outputIndex + 3] = ENCODE_MAP[(int) (sum / BASE)];
+            output[outputIndex + 4] = ENCODE_MAP[(int) (sum % BASE)];
+            outputIndex += 5;
+        }
+
+        return new String(output, UTF_8);
+    }
 
     public static byte[] decode(String encoded)
     {

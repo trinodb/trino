@@ -15,7 +15,7 @@ package io.trino.plugin.deltalake.delete;
 
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.spi.block.Block;
-import org.roaringbitmap.longlong.Roaring64NavigableMap;
+import org.roaringbitmap.longlong.Roaring64Bitmap;
 
 import java.util.List;
 
@@ -26,9 +26,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class PositionDeleteFilter
 {
-    private final Roaring64NavigableMap deletedRows;
+    private final Roaring64Bitmap deletedRows;
 
-    public PositionDeleteFilter(Roaring64NavigableMap deletedRows)
+    public PositionDeleteFilter(Roaring64Bitmap deletedRows)
     {
         requireNonNull(deletedRows, "deletedRows is null");
         checkArgument(!deletedRows.isEmpty(), "deletedRows is empty");

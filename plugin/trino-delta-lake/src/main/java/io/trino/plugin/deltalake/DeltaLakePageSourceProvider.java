@@ -62,7 +62,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.Type;
 import org.joda.time.DateTimeZone;
-import org.roaringbitmap.longlong.Roaring64NavigableMap;
+import org.roaringbitmap.longlong.Roaring64Bitmap;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -295,7 +295,7 @@ public class DeltaLakePageSourceProvider
             DeletionVectorEntry deletionVector)
     {
         try {
-            Roaring64NavigableMap deletedRows = readDeletionVectors(fileSystem, tableLocation, deletionVector);
+            Roaring64Bitmap deletedRows = readDeletionVectors(fileSystem, tableLocation, deletionVector);
             return new PositionDeleteFilter(deletedRows);
         }
         catch (IOException e) {

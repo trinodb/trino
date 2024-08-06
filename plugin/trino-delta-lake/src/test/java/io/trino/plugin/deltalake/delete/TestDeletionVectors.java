@@ -18,13 +18,15 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import org.junit.jupiter.api.Test;
-import org.roaringbitmap.longlong.Roaring64NavigableMap;
+import org.roaringbitmap.longlong.Roaring64Bitmap;
 
 import java.io.File;
 import java.nio.file.Path;
 import java.util.OptionalInt;
+import java.util.UUID;
 
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
+import static io.trino.plugin.deltalake.delete.DeletionVectors.encodeUuid;
 import static io.trino.plugin.deltalake.delete.DeletionVectors.readDeletionVectors;
 import static io.trino.plugin.deltalake.delete.DeletionVectors.toFileName;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
@@ -42,7 +44,7 @@ public class TestDeletionVectors
         TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
         DeletionVectorEntry deletionVector = new DeletionVectorEntry("u", "R7QFX3rGXPFLhHGq&7g<", OptionalInt.of(1), 34, 1);
 
-        Roaring64NavigableMap bitmaps = readDeletionVectors(fileSystem, Location.of(path.toString()), deletionVector);
+        Roaring64Bitmap bitmaps = readDeletionVectors(fileSystem, Location.of(path.toString()), deletionVector);
         assertThat(bitmaps.getLongCardinality()).isEqualTo(1);
         assertThat(bitmaps.contains(0)).isFalse();
         assertThat(bitmaps.contains(1)).isTrue();
@@ -65,6 +67,13 @@ public class TestDeletionVectors
         DeletionVectorEntry deletionVector = new DeletionVectorEntry("i", "wi5b=000010000siXQKl0rr91000f55c8Xg0@@D72lkbi5=-{L", OptionalInt.empty(), 40, 1);
         assertThatThrownBy(() -> readDeletionVectors(fileSystem, Location.of("s3://bucket/table"), deletionVector))
                 .hasMessageContaining("Unsupported storage type for deletion vector: i");
+    }
+
+    @Test
+    public void testEncodeUuid()
+    {
+        assertThat(encodeUuid(UUID.fromString("a52eda8c-0a57-4636-814b-9c165388f7ca"))).isEqualTo("R7QFX3rGXPFLhHGq&7g<");
+        assertThat(encodeUuid(UUID.fromString("d2c639aa-8816-431a-aaf6-d3fe2512ff61"))).isEqualTo("^-aqEH.-t@S}K{vb[*k^");
     }
 
     @Test

@@ -106,7 +106,7 @@ public final class DeltaLakeSchemaSupport
     private static final String CHANGE_DATA_FEED_FEATURE_NAME = "changeDataFeed";
     private static final String CHECK_CONSTRAINTS_FEATURE_NAME = "checkConstraints";
     private static final String COLUMN_MAPPING_FEATURE_NAME = "columnMapping";
-    private static final String DELETION_VECTORS_FEATURE_NAME = "deletionVectors";
+    public static final String DELETION_VECTORS_FEATURE_NAME = "deletionVectors";
     private static final String ICEBERG_COMPATIBILITY_V1_FEATURE_NAME = "icebergCompatV1";
     private static final String ICEBERG_COMPATIBILITY_V2_FEATURE_NAME = "icebergCompatV2";
     private static final String IDENTITY_COLUMNS_FEATURE_NAME = "identityColumns";
@@ -132,6 +132,7 @@ public final class DeltaLakeSchemaSupport
             .build();
     private static final Set<String> SUPPORTED_WRITER_FEATURES = ImmutableSet.<String>builder()
             .add(APPEND_ONLY_FEATURE_NAME)
+            .add(DELETION_VECTORS_FEATURE_NAME)
             .add(INVARIANTS_FEATURE_NAME)
             .add(CHECK_CONSTRAINTS_FEATURE_NAME)
             .add(CHANGE_DATA_FEED_FEATURE_NAME)
