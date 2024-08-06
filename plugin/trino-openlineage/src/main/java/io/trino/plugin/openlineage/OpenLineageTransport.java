@@ -17,5 +17,5 @@ public enum OpenLineageTransport
 {
     CONSOLE,
     HTTP,
-    /**/
+    KAFKA
 }
