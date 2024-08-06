@@ -306,6 +306,7 @@ public final class HiveWriteUtils
             case TIMESTAMPLOCALTZ:
             case INTERVAL_YEAR_MONTH:
             case INTERVAL_DAY_TIME:
+            case VARIANT:
             case UNKNOWN:
                 // unsupported for writing
                 break;

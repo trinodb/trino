@@ -34,6 +34,7 @@ import static io.trino.metastore.type.TypeConstants.STRING_TYPE_NAME;
 import static io.trino.metastore.type.TypeConstants.TIMESTAMPLOCALTZ_TYPE_NAME;
 import static io.trino.metastore.type.TypeConstants.TIMESTAMP_TYPE_NAME;
 import static io.trino.metastore.type.TypeConstants.TINYINT_TYPE_NAME;
+import static io.trino.metastore.type.TypeConstants.VARIANT_TYPE_NAME;
 import static io.trino.metastore.type.TypeInfoFactory.getPrimitiveTypeInfo;
 import static io.trino.metastore.type.TypeInfoUtils.getTypeInfoFromTypeString;
 import static io.trino.metastore.type.TypeInfoUtils.getTypeInfosFromTypeString;
@@ -55,6 +56,7 @@ public final class HiveType
     public static final HiveType HIVE_TIMESTAMPLOCALTZ = new HiveType(getPrimitiveTypeInfo(TIMESTAMPLOCALTZ_TYPE_NAME));
     public static final HiveType HIVE_DATE = new HiveType(getPrimitiveTypeInfo(DATE_TYPE_NAME));
     public static final HiveType HIVE_BINARY = new HiveType(getPrimitiveTypeInfo(BINARY_TYPE_NAME));
+    public static final HiveType HIVE_VARIANT = new HiveType(getPrimitiveTypeInfo(VARIANT_TYPE_NAME));
 
     private final HiveTypeName hiveTypeName;
     private final TypeInfo typeInfo;

@@ -107,6 +107,7 @@ public final class HiveTypeUtil
             case INTERVAL_YEAR_MONTH,
                     INTERVAL_DAY_TIME,
                     VOID,
+                    VARIANT,
                     UNKNOWN -> false;
         };
     }
