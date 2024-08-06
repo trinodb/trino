@@ -29,7 +29,6 @@ import java.util.concurrent.TimeUnit;
 
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
 import static io.trino.client.OkHttpUtil.basicAuth;
-import static io.trino.client.OkHttpUtil.disableHttp2;
 import static io.trino.client.OkHttpUtil.setupAlternateHostnameVerification;
 import static io.trino.client.OkHttpUtil.setupCookieJar;
 import static io.trino.client.OkHttpUtil.setupHttpLogging;
@@ -53,7 +52,6 @@ public class HttpClientFactory
     public static OkHttpClient.Builder toHttpClientBuilder(TrinoUri uri, String userAgent)
     {
         OkHttpClient.Builder builder = unauthenticatedClientBuilder(uri, userAgent);
-        disableHttp2(builder);
         setupCookieJar(builder);
 
         if (!uri.isUseSecureConnection()) {
