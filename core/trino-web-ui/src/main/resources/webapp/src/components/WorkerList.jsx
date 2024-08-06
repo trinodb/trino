@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-import React from "react";
+import React from 'react'
 
 const SMALL_SPARKLINE_PROPERTIES = {
     width: '100%',
@@ -22,108 +22,117 @@ const SMALL_SPARKLINE_PROPERTIES = {
     spotColor: '#1EDCFF',
     tooltipClassname: 'sparkline-tooltip',
     disableHiddenCheck: true,
-};
+}
 
 export class WorkerList extends React.Component {
     constructor(props) {
-        super(props);
+        super(props)
         this.state = {
             initialized: false,
-            workers: []
-        };
-        this.refreshLoop = this.refreshLoop.bind(this);
+            workers: [],
+        }
+        this.refreshLoop = this.refreshLoop.bind(this)
     }
 
     refreshLoop() {
-        clearTimeout(this.timeoutId);
-        $.get('/ui/api/worker', function (workers) {
-            if (workers != null) {
-                workers.sort(function (workerA, workerB) {
-                    if (workerA.coordinator && !workerB.coordinator) {
-                        return -1;
-                    }
-                    if (!workerA.coordinator && workerB.coordinator) {
-                        return 1;
-                    }
-                    return workerA.nodeId.localeCompare(workerB.nodeId);
-                });
-            }
+        clearTimeout(this.timeoutId)
+        $.get(
+            '/ui/api/worker',
+            function (workers) {
+                if (workers != null) {
+                    workers.sort(function (workerA, workerB) {
+                        if (workerA.coordinator && !workerB.coordinator) {
+                            return -1
+                        }
+                        if (!workerA.coordinator && workerB.coordinator) {
+                            return 1
+                        }
+                        return workerA.nodeId.localeCompare(workerB.nodeId)
+                    })
+                }
+                this.setState({
+                    initialized: true,
+                    workers: workers,
+                })
+                this.resetTimer()
+            }.bind(this)
+        ).fail(() => {
             this.setState({
                 initialized: true,
-                workers: workers
             })
-            this.resetTimer();
-        }.bind(this))
-                .fail(() => {
-                    this.setState({
-                        initialized: true,
-                    });
-                    this.resetTimer();
-                });
+            this.resetTimer()
+        })
     }
 
     resetTimer() {
-        clearTimeout(this.timeoutId);
-        this.timeoutId = setTimeout(this.refreshLoop.bind(this), 1000);
+        clearTimeout(this.timeoutId)
+        this.timeoutId = setTimeout(this.refreshLoop.bind(this), 1000)
     }
 
     componentDidMount() {
-        this.refreshLoop();
+        this.refreshLoop()
     }
 
     render() {
-        const workers = this.state.workers;
+        const workers = this.state.workers
         if (workers === null) {
             if (this.state.initialized === false) {
-                return (
-                    <div className="loader">Loading...</div>
-                );
-            }
-            else {
+                return <div className="loader">Loading...</div>
+            } else {
                 return (
                     <div className="row error-message">
-                        <div className="col-xs-12"><h4>Worker list information could not be loaded</h4></div>
+                        <div className="col-xs-12">
+                            <h4>Worker list information could not be loaded</h4>
+                        </div>
                     </div>
-                );
+                )
             }
         }
         let workerList = function () {
-            let trs = [];
+            let trs = []
             workers.forEach((worker) => {
                 trs.push(
                     <tr>
-                        <td className="info-text wrap-text"><a href={"worker.html?" + worker.nodeId} className="font-light" target="_blank">{worker.nodeId}</a></td>
-                        <td className="info-text wrap-text"><a href={"worker.html?" + worker.nodeId} className="font-light" target="_blank">{worker.nodeIp}</a></td>
+                        <td className="info-text wrap-text">
+                            <a href={'worker.html?' + worker.nodeId} className="font-light" target="_blank">
+                                {worker.nodeId}
+                            </a>
+                        </td>
+                        <td className="info-text wrap-text">
+                            <a href={'worker.html?' + worker.nodeId} className="font-light" target="_blank">
+                                {worker.nodeIp}
+                            </a>
+                        </td>
                         <td className="info-text wrap-text">{worker.nodeVersion}</td>
                         <td className="info-text wrap-text">{String(worker.coordinator)}</td>
                         <td className="info-text wrap-text">{worker.state}</td>
                     </tr>
-                );
-            });
-            return trs;
-        };
+                )
+            })
+            return trs
+        }
 
         return (
             <div>
                 <div className="row">
                     <div className="col-xs-12">
                         <h3>Overview</h3>
-                        <hr className="h3-hr"/>
+                        <hr className="h3-hr" />
                         <table className="table">
                             <tbody>
-                            <tr>
-                                <td className="info-title stage-table-stat-text">Node ID</td>
-                                <td className="info-title stage-table-stat-text">Node IP</td>
-                                <td className="info-title stage-table-stat-text">Node Version</td>
-                                <td className="info-title stage-table-stat-text">Coordinator</td>
-                                <td className="info-title stage-table-stat-text">State</td>
-                            </tr>
-                            {workerList()}
+                                <tr>
+                                    <td className="info-title stage-table-stat-text">Node ID</td>
+                                    <td className="info-title stage-table-stat-text">Node IP</td>
+                                    <td className="info-title stage-table-stat-text">Node Version</td>
+                                    <td className="info-title stage-table-stat-text">Coordinator</td>
+                                    <td className="info-title stage-table-stat-text">State</td>
+                                </tr>
+                                {workerList()}
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
-        );
+        )
     }
 }
