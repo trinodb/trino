@@ -24,6 +24,7 @@ public class PostgreSqlConfig
     private ArrayMapping arrayMapping = ArrayMapping.DISABLED;
     private boolean includeSystemTables;
     private boolean enableStringPushdownWithCollate;
+    private String jdbcOptions;
 
     public enum ArrayMapping
     {
@@ -67,6 +68,18 @@ public class PostgreSqlConfig
     public PostgreSqlConfig setEnableStringPushdownWithCollate(boolean enableStringPushdownWithCollate)
     {
         this.enableStringPushdownWithCollate = enableStringPushdownWithCollate;
+        return this;
+    }
+
+    public String getJdbcOptions()
+    {
+        return this.jdbcOptions;
+    }
+
+    @Config("postgresql.jdbc.options")
+    public PostgreSqlConfig setJdbcOptions(String jdbcOptions)
+    {
+        this.jdbcOptions = jdbcOptions;
         return this;
     }
 }
