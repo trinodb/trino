@@ -99,13 +99,13 @@
                         </configuration>
                     </execution>
                     <execution>
-                        <id>flow check</id>
+                        <id>check</id>
                         <goals>
                             <goal>npm</goal>
                         </goals>
                         <phase>verify</phase>
                         <configuration>
-                            <arguments>run flow</arguments>
+                            <arguments>run check</arguments>
                             <workingDirectory>src/main/resources/webapp/src</workingDirectory>
                         </configuration>
                     </execution>
