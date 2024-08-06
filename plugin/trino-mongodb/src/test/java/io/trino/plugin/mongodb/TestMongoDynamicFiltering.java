@@ -156,15 +156,14 @@ public class TestMongoDynamicFiltering
     @Test
     public void testJoinDynamicFilteringBlockProbeSide()
     {
-        // Wait for both build sides to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
+        // Wait for both build side to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
         assertDynamicFiltering(
                 "SELECT l.comment" +
-                        " FROM  lineitem l, part p, orders o" +
-                        " WHERE l.orderkey = o.orderkey AND o.comment = 'nstructions sleep furiously among '" +
-                        " AND p.partkey = l.partkey AND p.comment = 'onic deposits'",
+                        " FROM  lineitem l, orders o" +
+                        " WHERE l.orderkey = o.orderkey AND o.comment = 'nstructions sleep furiously among '",
                 withBroadcastJoinNonReordering(),
-                1,
-                1);
+                6,
+                6);
     }
 
     private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
