@@ -156,6 +156,9 @@ public class MongoSession
     public static final String DATABASE_NAME = "databaseName";
     public static final String COLLECTION_NAME = "collectionName";
     public static final String ID = "id";
+    public static final String DATABASE_NAME_NATIVE = "$db";
+    public static final String COLLECTION_NAME_NATIVE = "$ref";
+    public static final String ID_NATIVE = "$id";
 
     // The 'simple' locale is the default collection in MongoDB. The locale doesn't allow specifying other fields (e.g. numericOrdering)
     // https://www.mongodb.com/docs/manual/reference/collation/
