@@ -91,6 +91,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.delta</groupId>
+            <artifactId>delta-kernel-api</artifactId>
+            <version>3.2.0</version>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-cache</artifactId>
         </dependency>
