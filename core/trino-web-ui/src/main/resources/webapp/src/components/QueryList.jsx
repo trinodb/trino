@@ -29,6 +29,8 @@ import {
     truncateString
 } from "../utils";
 
+import { SqlBlock } from "./SqlBlock";
+
 export class QueryListItem extends React.Component {
     static stripQueryTextWhitespace(queryText) {
         const maxLines = 6;
@@ -140,10 +142,40 @@ export class QueryListItem extends React.Component {
                 <div className="row">
                     <div className="col-xs-4">
                         <div className="row stat-row query-header query-header-queryid">
-                            <div className="col-xs-9" data-toggle="tooltip" data-placement="bottom" data-trigger="hover" title="Query ID">
+                            <div className="col-xs-6" data-toggle="tooltip" data-placement="bottom" data-trigger="hover" title="Query ID">
                                 <a href={"query.html?" + query.queryId} target="_blank">{query.queryId}</a>
                             </div>
-                            <div className="col-xs-3 query-header-timestamp" data-toggle="tooltip" data-placement="bottom" title="Submit time">
+                            <div className="col-xs-4 text-right">
+                                <a href={"/ui/api/query/" + query.queryId + "?pretty"} target="_blank"
+                                   data-toggle="tooltip" data-placement="bottom" data-trigger="hover"
+                                   title="Query JSON">
+                                    <span className="glyphicon glyphicon-save-file" style={GLYPHICON_DEFAULT}/>
+                                </a>&nbsp;
+                                <a href={"/ui/api/query/" + query.queryId + "/explain"} target="_blank"
+                                   data-toggle="tooltip" data-placement="bottom" data-trigger="hover"
+                                   title="Query explain plan">
+                                    <span className="glyphicon glyphicon-eye-open" style={GLYPHICON_DEFAULT}/>
+                                </a>&nbsp;
+                                <a href={"stage.html?" + query.queryId}
+                                   data-toggle="tooltip" data-placement="bottom" data-trigger="hover"
+                                   title="Stage performance">
+                                    <span className="glyphicon glyphicon-equalizer" style={GLYPHICON_DEFAULT}/>
+                                </a>&nbsp;
+                                <a href={"plan.html?" + query.queryId}
+                                   data-toggle="tooltip" data-placement="bottom" data-trigger="hover"
+                                   title="Query plan">
+                                    <span className="glyphicon glyphicon-object-align-vertical"
+                                          style={GLYPHICON_DEFAULT}/>
+                                </a>&nbsp;
+                                <a href={"references.html?" + query.queryId}
+                                   data-toggle="tooltip" data-placement="bottom" data-trigger="hover"
+                                   title="References">
+                                    <span className="glyphicon glyphicon-list-alt"
+                                          style={GLYPHICON_DEFAULT}/>
+                                </a>
+                            </div>
+                            <div className="col-xs-2 query-header-timestamp" data-toggle="tooltip"
+                                 data-placement="bottom" title="Submit time">
                                 <span>{formatShortTime(new Date(Date.parse(query.queryStats.createTime)))}</span>
                             </div>
                         </div>
@@ -194,7 +226,7 @@ export class QueryListItem extends React.Component {
                         </div>
                         <div className="row query-row-bottom">
                             <div className="col-xs-12">
-                                <pre className="query-snippet"><code className="sql">{QueryListItem.stripQueryTextWhitespace(query.queryTextPreview)}</code></pre>
+                                <pre className="query-snippet"><SqlBlock code={QueryListItem.stripQueryTextWhitespace(query.queryTextPreview)} /></pre>
                             </div>
                         </div>
                     </div>

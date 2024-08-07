@@ -80,7 +80,7 @@ export class QueryHeader extends React.Component {
         return (
             <div>
                 <div className="row">
-                    <div className="col-xs-6">
+                    <div className="col-xs-5">
                         <h3 className="query-id">
                             <span id="query-id">{query.queryId}</span>
                             <a className="btn copy-button" data-clipboard-target="#query-id" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
@@ -88,7 +88,7 @@ export class QueryHeader extends React.Component {
                             </a>
                         </h3>
                     </div>
-                    <div className="col-xs-6">
+                    <div className="col-xs-7">
                         <table className="header-inline-links">
                             <tbody>
                             <tr>
@@ -102,6 +102,8 @@ export class QueryHeader extends React.Component {
                                     {this.renderTab("timeline.html", "Splits")}
                                     &nbsp;
                                     <a href={"/ui/api/query/" + query.queryId + "?pretty"} className="btn btn-info navbar-btn" target="_blank">JSON</a>
+                                    &nbsp;
+                                    <a href={"/ui/api/query/" + query.queryId + "/explain"} className="btn btn-info navbar-btn" target="_blank">Explain</a>
                                     &nbsp;
                                     {this.renderTab("references.html", "References")}
                                 </td>

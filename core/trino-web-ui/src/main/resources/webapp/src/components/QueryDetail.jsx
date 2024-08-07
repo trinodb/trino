@@ -14,6 +14,7 @@
 
 import React from "react";
 import Reactable from "reactable";
+import { SqlBlock } from "./SqlBlock";
 
 import {
     addToHistory,
@@ -958,16 +959,6 @@ export class QueryDetail extends React.Component {
             $('#reserved-memory-sparkline').sparkline(this.state.reservedMemory, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
             $('#physical-input-rate-sparkline').sparkline(this.state.physicalInputRate, $.extend({}, SMALL_SPARKLINE_PROPERTIES, {numberFormatter: formatDataSize}));
 
-            if (this.state.lastRender === null) {
-                $('#query').each((i, block) => {
-                    hljs.highlightBlock(block);
-                });
-
-                $('#prepared-query').each((i, block) => {
-                    hljs.highlightBlock(block);
-                });
-            }
-
             this.setState({
                 renderingEnded: this.state.ended,
                 lastRender: renderTimestamp,
@@ -1025,9 +1016,7 @@ export class QueryDetail extends React.Component {
                         </a>
                 </h3>
                 <pre id="prepared-query">
-                    <code className="lang-sql" id="prepared-query-text">
-                        {query.preparedQuery}
-                    </code>
+                    <SqlBlock code={query.preparedQuery} />
                 </pre>
             </div>
         );
@@ -1698,9 +1687,7 @@ export class QueryDetail extends React.Component {
                             </a>
                         </h3>
                         <pre id="query">
-                            <code className="lang-sql" id="query-text">
-                                {query.query}
-                            </code>
+                            <SqlBlock code={query.query} />
                         </pre>
                     </div>
                     {this.renderPreparedQuery()}

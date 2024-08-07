@@ -15,9 +15,13 @@ package io.trino.server.ui;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.trino.client.NodeVersion;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
+import io.trino.metadata.FunctionManager;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.DisableHttpCache;
@@ -27,6 +31,8 @@ import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.sql.planner.planprinter.NoOpAnonymizer;
+import io.trino.sql.planner.planprinter.ValuePrinter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
@@ -50,19 +56,28 @@ import static io.trino.security.AccessControlUtil.checkCanKillQueryOwnedBy;
 import static io.trino.security.AccessControlUtil.checkCanViewQueryOwnedBy;
 import static io.trino.security.AccessControlUtil.filterQueries;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
+import static io.trino.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
 import static java.util.Objects.requireNonNull;
 
 @Path("/ui/api/query")
 @DisableHttpCache
 public class UiQueryResource
 {
+    private final Metadata metadata;
+    private final FunctionManager functionManager;
+    private final NodeVersion nodeVersion;
+    private final SessionPropertyManager sessionPropertyManager;
     private final DispatchManager dispatchManager;
     private final AccessControl accessControl;
     private final HttpRequestSessionContextFactory sessionContextFactory;
 
     @Inject
-    public UiQueryResource(DispatchManager dispatchManager, AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory)
+    public UiQueryResource(Metadata metadata, FunctionManager functionManager, NodeVersion nodeVersion, SessionPropertyManager sessionPropertyManager, DispatchManager dispatchManager, AccessControl accessControl, HttpRequestSessionContextFactory sessionContextFactory)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
@@ -104,6 +119,34 @@ public class UiQueryResource
             }
         }
         throw new GoneException();
+    }
+
+    @ResourceSecurity(WEB_UI)
+    @GET
+    @Path("{queryId}/explain")
+    public Response explainQuery(@PathParam("queryId") QueryId queryId, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
+    {
+        requireNonNull(queryId, "queryId is null");
+
+        Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
+        if (queryInfo.isPresent()) {
+            try {
+                checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queryInfo.get().getSession().toIdentity(), accessControl);
+
+                ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, queryInfo.get().getSession().toSession(sessionPropertyManager));
+                return Response.ok(textDistributedPlan(
+                        queryInfo.get().getOutputStage().orElseThrow(),
+                        queryInfo.get().getQueryStats(),
+                        valuePrinter,
+                        true,
+                        new NoOpAnonymizer(),
+                        nodeVersion)).type("text/plain;charset=utf-8").build();
+            }
+            catch (AccessDeniedException e) {
+                throw new ForbiddenException();
+            }
+        }
+        return Response.status(Status.GONE).build();
     }
 
     @ResourceSecurity(WEB_UI)
