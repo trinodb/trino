@@ -46,10 +46,7 @@ The argument `columns` is a descriptor without types.
 
 (sequence-table-function)=
 :::{function} sequence(start => bigint, stop => bigint, step => bigint) -> table(sequential_number bigint)
-:noindex: true
-
-Returns a single column `sequential_number` containing a sequence of
-bigint:
+Returns a single column `sequential_number` containing a sequence of bigint:
 
 ```sql
 SELECT *
