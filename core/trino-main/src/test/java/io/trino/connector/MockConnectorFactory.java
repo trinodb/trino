@@ -84,6 +84,7 @@ import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.metrics.Metrics.EMPTY;
 import static io.trino.spi.statistics.TableStatistics.empty;
@@ -114,7 +115,8 @@ public class MockConnectorFactory
     private final Function<SchemaTableName, List<String>> checkConstraints;
     private final ApplyProjection applyProjection;
     private final ApplyAggregation applyAggregation;
-    private final ApplyJoin applyJoin;
+    private final Optional<ApplyJoinLegacy> applyJoinLegacy;
+    private final Optional<ApplyJoin> applyJoin;
     private final ApplyTopN applyTopN;
     private final ApplyFilter applyFilter;
     private final ApplyTableFunction applyTableFunction;
@@ -172,7 +174,8 @@ public class MockConnectorFactory
             Function<SchemaTableName, List<String>> checkConstraints,
             ApplyProjection applyProjection,
             ApplyAggregation applyAggregation,
-            ApplyJoin applyJoin,
+            Optional<ApplyJoinLegacy> applyJoinLegacy,
+            Optional<ApplyJoin> applyJoin,
             ApplyTopN applyTopN,
             ApplyFilter applyFilter,
             ApplyTableFunction applyTableFunction,
@@ -226,7 +229,9 @@ public class MockConnectorFactory
         this.checkConstraints = requireNonNull(checkConstraints, "checkConstraints is null");
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
         this.applyAggregation = requireNonNull(applyAggregation, "applyAggregation is null");
+        this.applyJoinLegacy = requireNonNull(applyJoinLegacy, "applyJoinLegacy is null");
         this.applyJoin = requireNonNull(applyJoin, "applyJoin is null");
+        verify(applyJoin.isEmpty() || applyJoinLegacy.isEmpty(), "cannot provide both join implementations");
         this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
         this.applyFilter = requireNonNull(applyFilter, "applyFilter is null");
         this.applyTableFunction = requireNonNull(applyTableFunction, "applyTableFunction is null");
@@ -290,6 +295,7 @@ public class MockConnectorFactory
                 checkConstraints,
                 applyProjection,
                 applyAggregation,
+                applyJoinLegacy,
                 applyJoin,
                 applyTopN,
                 applyFilter,
@@ -371,7 +377,7 @@ public class MockConnectorFactory
     }
 
     @FunctionalInterface
-    public interface ApplyJoin
+    public interface ApplyJoinLegacy
     {
         Optional<JoinApplicationResult<ConnectorTableHandle>> apply(
                 ConnectorSession session,
@@ -379,6 +385,19 @@ public class MockConnectorFactory
                 ConnectorTableHandle left,
                 ConnectorTableHandle right,
                 List<JoinCondition> joinConditions,
+                Map<String, ColumnHandle> leftAssignments,
+                Map<String, ColumnHandle> rightAssignments);
+    }
+
+    @FunctionalInterface
+    public interface ApplyJoin
+    {
+        Optional<JoinApplicationResult<ConnectorTableHandle>> apply(
+                ConnectorSession session,
+                JoinType joinType,
+                ConnectorTableHandle left,
+                ConnectorTableHandle right,
+                ConnectorExpression joinCondition,
                 Map<String, ColumnHandle> leftAssignments,
                 Map<String, ColumnHandle> rightAssignments);
     }
@@ -440,7 +459,8 @@ public class MockConnectorFactory
         private Function<SchemaTableName, List<String>> checkConstraints = schemaTableName -> ImmutableList.of();
         private ApplyProjection applyProjection = (session, handle, projections, assignments) -> Optional.empty();
         private ApplyAggregation applyAggregation = (session, handle, aggregates, assignments, groupingSets) -> Optional.empty();
-        private ApplyJoin applyJoin = (session, joinType, left, right, joinConditions, leftAssignments, rightAssignments) -> Optional.empty();
+        private Optional<ApplyJoinLegacy> applyJoinLegacy = Optional.empty();
+        private Optional<ApplyJoin> applyJoin = Optional.empty();
         private BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> getInsertLayout = defaultGetInsertLayout();
         private BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> getNewTableLayout = defaultGetNewTableLayout();
         private BiFunction<ConnectorSession, Type, Optional<Type>> getSupportedType = (session, type) -> Optional.empty();
@@ -610,9 +630,15 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withApplyJoin(ApplyJoinLegacy applyJoinLegacy)
+        {
+            this.applyJoinLegacy = Optional.of(applyJoinLegacy);
+            return this;
+        }
+
         public Builder withApplyJoin(ApplyJoin applyJoin)
         {
-            this.applyJoin = applyJoin;
+            this.applyJoin = Optional.of(applyJoin);
             return this;
         }
 
@@ -871,6 +897,7 @@ public class MockConnectorFactory
                     checkConstraints,
                     applyProjection,
                     applyAggregation,
+                    applyJoinLegacy,
                     applyJoin,
                     applyTopN,
                     applyFilter,

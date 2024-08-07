@@ -25,9 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assumptions.abort;
-
 public abstract class BaseMariaDbFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
 {
@@ -51,14 +48,6 @@ public abstract class BaseMariaDbFailureRecoveryTest
                             "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
                 })
                 .build();
-    }
-
-    @Test
-    @Override
-    protected void testUpdateWithSubquery()
-    {
-        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("Unexpected Join over for-update table scan");
-        abort("skipped");
     }
 
     @Test

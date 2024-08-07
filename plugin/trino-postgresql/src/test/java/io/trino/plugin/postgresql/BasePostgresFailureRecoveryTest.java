@@ -25,9 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assumptions.abort;
-
 public abstract class BasePostgresFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
 {
@@ -53,14 +50,6 @@ public abstract class BasePostgresFailureRecoveryTest
                 })
                 .setInitialTables(requiredTpchTables)
                 .build();
-    }
-
-    @Test
-    @Override
-    protected void testUpdateWithSubquery()
-    {
-        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("Unexpected Join over for-update table scan");
-        abort("skipped");
     }
 
     @Test
