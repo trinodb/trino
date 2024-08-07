@@ -14,6 +14,8 @@
 package io.trino.plugin.postgresql;
 
 import io.trino.Session;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -235,6 +237,34 @@ final class TestPostgreSqlVectorType
                     .hasMessageContaining("infinite value not allowed in vector");
             assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <=> '[+Infinity]' FROM " + table.getName()))
                     .hasMessageContaining("infinite value not allowed in vector");
+        }
+    }
+
+    @Test
+    void testCosineDistanceUnsupportedPushdown()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_vector", "(id int, v vector(1))")) {
+            postgreSqlServer.execute("INSERT INTO " + table.getName() + " VALUES (1, '[10]'), (2, '[20]')");
+
+            // The connector doesn't support predicate pushdown with cosine_distance function
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE cosine_distance(v, ARRAY[1]) < 1"))
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            // The connector doesn't pushdown these values because pgvector throws an exception
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, ARRAY[DOUBLE '1.7976931348623157E+309']) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, ARRAY[DOUBLE '-1.7976931348623157E+308']) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, ARRAY[REAL 'Infinity']) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, ARRAY[REAL '-Infinity']) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, ARRAY[REAL 'NaN']) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertQueryFails("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, ARRAY[CAST(NULL AS REAL)]) LIMIT 1",
+                    "Vector magnitude cannot be zero");
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, NULL) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
         }
     }
 }
