@@ -39,6 +39,7 @@
         <elasticsearch.client.version>7.10.2</elasticsearch.client.version>
         <graalvm.version>22.3.5</graalvm.version>
         <gson.version>2.11.0</gson.version>
+        <hadoop-shaded-guava.version>1.2.0</hadoop-shaded-guava.version>
         <httpcomponents.httpclient.version>4.5.13</httpcomponents.httpclient.version>
         <httpcomponents.httpcore.version>4.4.14</httpcomponents.httpcore.version>
         <jackson-annotation.version>2.17.1</jackson-annotation.version>
@@ -49,7 +50,7 @@
         <opensearch.client.version>1.3.15</opensearch.client.version>
         <opentelemetry.version>1.37.0</opentelemetry.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <ranger.version>2.4.0</ranger.version>
+        <ranger.version>2.5.0</ranger.version>
         <slf4j-api.version>2.0.13</slf4j-api.version>
         <zookeeper.version>3.5.5</zookeeper.version>
     </properties>
@@ -128,6 +129,11 @@
             <artifactId>hadoop-apache</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.apache.hadoop.thirdparty</groupId>
+            <artifactId>hadoop-shaded-guava</artifactId>
+            <version>${hadoop-shaded-guava.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
             <version>${httpcomponents.httpclient.version}</version>
@@ -155,6 +161,10 @@
                 <exclusion>
                     <groupId>com.carrotsearch</groupId>
                     <artifactId>hppc</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>org.apache.commons</groupId>
@@ -254,6 +264,10 @@
                 <exclusion>
                     <groupId>com.sun.jersey</groupId>
                     <artifactId>jersey-bundle</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>javax.servlet</groupId>

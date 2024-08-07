@@ -1835,6 +1835,7 @@ public class RangerSystemAccessControl
     {
         Class<?>[] ignored = {
                 org.apache.commons.collections.CollectionUtils.class,
+                org.apache.hadoop.thirdparty.com.google.common.collect.Lists.class,
                 org.apache.http.Header.class,
                 org.apache.http.client.HttpClient.class,
                 org.apache.ranger.audit.provider.AuditProviderFactory.class,
