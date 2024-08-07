@@ -15,6 +15,7 @@ package io.trino.connector;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
@@ -32,9 +33,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static java.util.Objects.requireNonNull;
 
@@ -43,9 +42,15 @@ public class CatalogStoreManager
 {
     private static final Logger log = Logger.get(CatalogStoreManager.class);
     private static final File CATALOG_STORE_CONFIGURATION = new File("etc/catalog-store.properties");
-    private static final String CATALOG_STORE_PROPERTY_NAME = "catalog-store.name";
     private final Map<String, CatalogStoreFactory> catalogStoreFactories = new ConcurrentHashMap<>();
     private final AtomicReference<Optional<CatalogStore>> configuredCatalogStore = new AtomicReference<>(Optional.empty());
+    private final Optional<String> catalogStoreKind;
+
+    @Inject
+    public CatalogStoreManager(@CatalogStoreKind Optional<String> catalogStoreKind)
+    {
+        this.catalogStoreKind = requireNonNull(catalogStoreKind, "catalogStoreKind is null");
+    }
 
     public void addCatalogStoreFactory(CatalogStoreFactory catalogStoreFactory)
     {
@@ -59,22 +64,21 @@ public class CatalogStoreManager
     public void loadConfiguredCatalogStore()
             throws IOException
     {
-        loadConfiguredCatalogStore(CATALOG_STORE_CONFIGURATION);
+        checkState(catalogStoreKind.isPresent(), "Expected catalogStoreKind to be available, was %s", catalogStoreKind);
+        loadConfiguredCatalogStore(catalogStoreKind.get(), CATALOG_STORE_CONFIGURATION);
     }
 
     @VisibleForTesting
-    void loadConfiguredCatalogStore(File catalogStoreFile)
+    void loadConfiguredCatalogStore(String catalogStoreName, File catalogStoreFile)
             throws IOException
     {
-        if (configuredCatalogStore.get().isPresent() || !catalogStoreFile.exists()) {
+        if (configuredCatalogStore.get().isPresent()) {
             return;
         }
-        Map<String, String> properties = new HashMap<>(loadPropertiesFrom(catalogStoreFile.getPath()));
-
-        String catalogStoreName = properties.remove(CATALOG_STORE_PROPERTY_NAME);
-        checkArgument(!isNullOrEmpty(catalogStoreName),
-                "Catalog store configuration %s does not contain %s", catalogStoreFile.getAbsoluteFile(), CATALOG_STORE_PROPERTY_NAME);
-
+        Map<String, String> properties = new HashMap<>();
+        if (catalogStoreFile.exists()) {
+            properties = new HashMap<>(loadPropertiesFrom(catalogStoreFile.getPath()));
+        }
         setConfiguredCatalogStore(catalogStoreName, properties);
     }
 

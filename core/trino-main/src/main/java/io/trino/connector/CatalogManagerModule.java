@@ -14,6 +14,7 @@
 package io.trino.connector;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
@@ -29,6 +30,7 @@ public class CatalogManagerModule
         binder.bind(LazyCatalogFactory.class).in(Scopes.SINGLETON);
         binder.bind(CatalogFactory.class).to(LazyCatalogFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, CatalogStoreManager.class);
+        newOptionalBinder(binder, Key.get(String.class, CatalogStoreKind.class));
 
         CatalogManagerConfig config = buildConfigObject(CatalogManagerConfig.class);
         switch (config.getCatalogMangerKind()) {

@@ -22,7 +22,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestingCatalogStoreConfig
+public class TestCatalogStoreConfig
 {
     @Test
     public void testDefaults()

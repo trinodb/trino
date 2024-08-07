@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -36,12 +37,23 @@ class TestCatalogStoreManager
             throws IOException
     {
         try (TempFile tempFile = new TempFile()) {
-            Files.writeString(tempFile.path(), "catalog-store.name=test");
-            CatalogStoreManager catalogStoreManager = new CatalogStoreManager();
+            Files.writeString(tempFile.path(), "some-property=some-value");
+            Optional<String> catalogStoreKind = Optional.of("test");
+            CatalogStoreManager catalogStoreManager = new CatalogStoreManager(catalogStoreKind);
             catalogStoreManager.addCatalogStoreFactory(new TestingCatalogStoreFactory());
-            catalogStoreManager.loadConfiguredCatalogStore(tempFile.file());
+            catalogStoreManager.loadConfiguredCatalogStore(catalogStoreKind.get(), tempFile.file());
             assertThat(catalogStoreManager.getCatalogs()).containsExactly(TestingCatalogStore.STORED_CATALOG);
         }
+    }
+
+    @Test
+    void testCatalogStoreIsLoadedWithoutConfiguration()
+            throws IOException
+    {
+        CatalogStoreManager catalogStoreManager = new CatalogStoreManager(Optional.of("test"));
+        catalogStoreManager.addCatalogStoreFactory(new TestingCatalogStoreFactory());
+        catalogStoreManager.loadConfiguredCatalogStore();
+        assertThat(catalogStoreManager.getCatalogs()).containsExactly(TestingCatalogStore.STORED_CATALOG);
     }
 
     private static class TestingCatalogStoreFactory
