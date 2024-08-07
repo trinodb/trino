@@ -41,7 +41,8 @@ final class TestPostgreSqlVectorType
             throws Exception
     {
         postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer("pgvector/pgvector:0.7.2-pg16", false));
-        postgreSqlServer.execute("CREATE EXTENSION vector");
+        // 'SCHEMA public' is required until the connector supports pushdown vector type which is installed in other schemas
+        postgreSqlServer.execute("CREATE EXTENSION vector SCHEMA public");
         return PostgreSqlQueryRunner.builder(postgreSqlServer).build();
     }
 
@@ -183,13 +184,60 @@ final class TestPostgreSqlVectorType
     void testEuclideanDistanceCompatibility()
     {
         // Verify compatibility between Trino euclidean_distance function and pgvector <-> operator
-        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_vector", "(v vector(3))");
-                TestView view = new TestView(postgreSqlServer::execute, "test_euclidean_distance", "SELECT v <-> '[4,5,6]' FROM " + table.getName())) {
-            postgreSqlServer.execute("INSERT INTO " + table.getName() + " VALUES ('[1,2,3]')");
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_vector", "(id int, v vector(3))");
+                TestView view = new TestView(postgreSqlServer::execute, "test_euclidean_distance", "SELECT v <-> '[7,8,9]' FROM " + table.getName())) {
+            postgreSqlServer.execute("INSERT INTO " + table.getName() + " VALUES (1, '[1,2,3]'), (2, '[4,5,6]')");
 
-            assertThat(query("SELECT euclidean_distance(v, ARRAY[4,5,6]) FROM " + table.getName()))
-                    .matches("SELECT * FROM tpch." + view.getName());
+            assertThat(query("SELECT euclidean_distance(v, ARRAY[7,8,9]) FROM " + table.getName()))
+                    .matches("SELECT * FROM tpch." + view.getName())
+                    .isFullyPushedDown();
 
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY euclidean_distance(v, ARRAY[7,8,9]) LIMIT 1"))
+                    .isFullyPushedDown();
+
+            assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <-> '[NaN]' FROM " + table.getName()))
+                    .hasMessageContaining("NaN not allowed in vector");
+            assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <-> '[-Infinity]' FROM " + table.getName()))
+                    .hasMessageContaining("infinite value not allowed in vector");
+            assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <-> '[+Infinity]' FROM " + table.getName()))
+                    .hasMessageContaining("infinite value not allowed in vector");
+        }
+    }
+
+    @Test
+    void testEuclideanDistanceUnsupportedPushdown()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_vector", "(id int, v vector(1))")) {
+            postgreSqlServer.execute("INSERT INTO " + table.getName() + " VALUES (1, '[10]'), (2, '[20]')");
+
+            // The connector doesn't support predicate pushdown with euclidean_distance function
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE euclidean_distance(v, ARRAY[1]) < 1"))
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            // The connector doesn't pushdown these values because pgvector throws an exception
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY euclidean_distance(v, ARRAY[DOUBLE '1.7976931348623157E+309']) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY euclidean_distance(v, ARRAY[DOUBLE '-1.7976931348623157E+308']) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY euclidean_distance(v, ARRAY[REAL 'Infinity']) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY euclidean_distance(v, ARRAY[REAL '-Infinity']) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY euclidean_distance(v, ARRAY[REAL 'NaN']) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY euclidean_distance(v, ARRAY[CAST(NULL AS REAL)]) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY euclidean_distance(v, NULL) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+        }
+    }
+
+    @Test
+    void testPgVectorUnsupportedEuclideanDistance()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_vector", "(v vector(1))")) {
+            assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <-> '[1.7976931348623157E+309]' FROM " + table.getName()))
+                    .hasMessageContaining("out of range for type vector");
             assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <-> '[NaN]' FROM " + table.getName()))
                     .hasMessageContaining("NaN not allowed in vector");
             assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <-> '[-Infinity]' FROM " + table.getName()))
@@ -203,14 +251,27 @@ final class TestPostgreSqlVectorType
     void testDotProductCompatibility()
     {
         // Verify compatibility between Trino dot_product function and pgvector <#> operator
-        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_vector", "(v vector(3))");
-                TestView view = new TestView(postgreSqlServer::execute, "test_dot_product", "SELECT v <#> '[4,5,6]' FROM " + table.getName())) {
-            postgreSqlServer.execute("INSERT INTO " + table.getName() + " VALUES ('[1,2,3]')");
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_vector", "(id int, v vector(3))");
+                TestView view = new TestView(postgreSqlServer::execute, "test_dot_product", "SELECT v <#> '[7,8,9]' FROM " + table.getName())) {
+            postgreSqlServer.execute("INSERT INTO " + table.getName() + " VALUES (1, '[1,2,3]'), (2, '[4,5,6]')");
 
+            // TODO Add support for projection pushdown with dot_product function
             // The minus sign is needed because <#> returns the negative inner product. Postgres only supports ASC order index scans on operators.
-            assertThat(query("SELECT -dot_product(v, ARRAY[4,5,6]) FROM " + table.getName()))
-                    .matches("SELECT * FROM tpch." + view.getName());
+            assertThat(query("SELECT -dot_product(v, ARRAY[7,8,9]) FROM " + table.getName()))
+                    .matches("SELECT * FROM tpch." + view.getName())
+                    .isNotFullyPushedDown(ProjectNode.class);
 
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY -dot_product(v, ARRAY[7,8,9]) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+        }
+    }
+
+    @Test
+    void testPgVectorUnsupportedNegativeInnerProduct()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_vector", "(v vector(1))")) {
+            assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <#> '[1.7976931348623157E+309]' FROM " + table.getName()))
+                    .hasMessageContaining("out of range for type vector");
             assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <#> '[NaN]' FROM " + table.getName()))
                     .hasMessageContaining("NaN not allowed in vector");
             assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <#> '[-Infinity]' FROM " + table.getName()))
@@ -221,15 +282,47 @@ final class TestPostgreSqlVectorType
     }
 
     @Test
+    void testDotProductUnsupportedPushdown()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_vector", "(id int, v vector(1))")) {
+            postgreSqlServer.execute("INSERT INTO " + table.getName() + " VALUES (1, '[10]'), (2, '[20]')");
+
+            // The connector doesn't support predicate pushdown with dot_product function
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE -dot_product(v, ARRAY[1]) < 1"))
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            // The connector doesn't pushdown these values because pgvector throws an exception
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY -dot_product(v, ARRAY[DOUBLE '1.7976931348623157E+309']) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY -dot_product(v, ARRAY[DOUBLE '-1.7976931348623157E+308']) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY -dot_product(v, ARRAY[REAL 'Infinity']) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY -dot_product(v, ARRAY[REAL '-Infinity']) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY -dot_product(v, ARRAY[REAL 'NaN']) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY -dot_product(v, ARRAY[CAST(NULL AS REAL)]) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY -dot_product(v, NULL) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
+        }
+    }
+
+    @Test
     void testCosineDistanceCompatibility()
     {
         // Verify compatibility between Trino cosine_distance function and pgvector <=> operator
-        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_vector", "(v vector(3))");
-                TestView view = new TestView(postgreSqlServer::execute, "test_cosine_distance", "SELECT v <=> '[4,5,6]' FROM " + table.getName())) {
-            postgreSqlServer.execute("INSERT INTO " + table.getName() + " VALUES ('[1,2,3]')");
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_vector", "(id int, v vector(3))");
+                TestView view = new TestView(postgreSqlServer::execute, "test_cosine_distance", "SELECT v <=> '[7,8,9]' FROM " + table.getName())) {
+            postgreSqlServer.execute("INSERT INTO " + table.getName() + " VALUES (1, '[1,2,3]'), (2, '[4,5,6]')");
 
-            assertThat(query("SELECT cosine_distance(v, ARRAY[4,5,6]) FROM " + table.getName()))
-                    .matches("SELECT * FROM tpch." + view.getName());
+            assertThat(query("SELECT cosine_distance(v, ARRAY[7,8,9]) FROM " + table.getName()))
+                    .matches("SELECT * FROM tpch." + view.getName())
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, ARRAY[4,5,6]) LIMIT 1"))
+                    .isFullyPushedDown();
 
             assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <=> '[NaN]' FROM " + table.getName()))
                     .hasMessageContaining("NaN not allowed in vector");
@@ -265,6 +358,25 @@ final class TestPostgreSqlVectorType
                     "Vector magnitude cannot be zero");
             assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, NULL) LIMIT 1"))
                     .isNotFullyPushedDown(ProjectNode.class);
+        }
+    }
+
+    @Test
+    void testPgVectorUnsupportedCosineDistance()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_vector", "(v vector(1))")) {
+            assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <=> '[1.7976931348623157E+309]' FROM " + table.getName()))
+                    .hasMessageContaining("out of range for type vector");
+            assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <=> '[-1.7976931348623157E+308]' FROM " + table.getName()))
+                    .hasMessageContaining("out of range for type vector");
+            assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <=> '[NaN]' FROM " + table.getName()))
+                    .hasMessageContaining("NaN not allowed in vector");
+            assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <=> '[-Infinity]' FROM " + table.getName()))
+                    .hasMessageContaining("infinite value not allowed in vector");
+            assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <=> '[+Infinity]' FROM " + table.getName()))
+                    .hasMessageContaining("infinite value not allowed in vector");
+            assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <=> '[NULL]' FROM " + table.getName()))
+                    .hasMessageContaining("invalid input");
         }
     }
 }

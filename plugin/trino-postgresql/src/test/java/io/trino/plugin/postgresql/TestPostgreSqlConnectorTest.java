@@ -62,6 +62,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -1271,6 +1272,26 @@ public class TestPostgreSqlConnectorTest
         }
         finally {
             onRemoteDatabase().execute("DROP TYPE " + enumType);
+        }
+    }
+
+    @Test
+    void testVectorDistanceNotPushdown()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("postgresql", "array_mapping", AS_ARRAY.name())
+                .build();
+
+        try (TestTable table = new TestTable(onRemoteDatabase(), "test_vector", "(id int, v real[])")) {
+            onRemoteDatabase().execute("INSERT INTO " + table.getName() + " VALUES (1, '{1,2,3}'), (2, '{4,5,6}')");
+
+            // The function should not be pushed down because the underlying column isn't vector type
+            assertThat(query(session, "SELECT euclidean_distance(v, CAST(ARRAY[4.0,5.0,6.0] AS array(real))) FROM " + table.getName()))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query(session, "SELECT -dot_product(v, CAST(ARRAY[4.0,5.0,6.0] AS array(real))) FROM " + table.getName()))
+                    .isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query(session, "SELECT cosine_distance(v, CAST(ARRAY[4.0,5.0,6.0] AS array(real))) FROM " + table.getName()))
+                    .isNotFullyPushedDown(ProjectNode.class);
         }
     }
 
