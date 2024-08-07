@@ -416,6 +416,88 @@ public abstract class BaseOracleConnectorTest
                 .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
     }
 
+    @Test
+    @Override
+    // Oracle doesn't support `IS DISTINCT FROM` expression pushdown
+    public void testSpecialValueOnApproximateNumericColumn()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "spl_approx_numeric",
+                "(c_varchar VARCHAR, c_real REAL, c_real_2 REAL, c_double DOUBLE, c_double_2 DOUBLE)",
+                List.of(
+                        "'1', NaN(), REAL '1', Nan(), DOUBLE '1'",
+                        "'2', -Infinity(), REAL '1', -Infinity(), DOUBLE '1'",
+                        "'3', Infinity(),  REAL '1', Infinity(), DOUBLE '1'",
+                        "'4', Nan(), Nan(), NaN(), Nan()"))) {
+            String tableName = table.getName();
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real > 1 AND c_double > 1"))
+                    .isFullyPushedDown()
+                    .skippingTypesCheck()
+                    .matches("VALUES '3'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real < 1 AND c_double < 1"))
+                    .isFullyPushedDown()
+                    .skippingTypesCheck()
+                    .matches("VALUES '2'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real < Infinity() AND c_double < Infinity()"))
+                    .isFullyPushedDown()
+                    .skippingTypesCheck()
+                    .matches("VALUES '2'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real > -Infinity() AND c_double > -Infinity()"))
+                    .isFullyPushedDown()
+                    .skippingTypesCheck()
+                    .matches("VALUES '3'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real > c_real_2 AND c_double > c_double_2"))
+                    .isFullyPushedDown()
+                    .skippingTypesCheck()
+                    .matches("VALUES '3'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real IS DISTINCT FROM c_real_2 AND c_double IS DISTINCT FROM c_double_2"))
+                    .isNotFullyPushedDown(FilterNode.class)
+                    .skippingTypesCheck()
+                    .matches("VALUES '1', '2', '3'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real_2 IS DISTINCT FROM c_real AND c_double_2 IS DISTINCT FROM c_double"))
+                    .isNotFullyPushedDown(FilterNode.class)
+                    .skippingTypesCheck()
+                    .matches("VALUES '1', '2', '3'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real > c_real_2 OR c_double > c_double_2"))
+                    .isFullyPushedDown()
+                    .skippingTypesCheck()
+                    .matches("VALUES '3'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real = c_real_2 OR c_double = c_double_2"))
+                    .isFullyPushedDown()
+                    .returnsEmptyResult();
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real <> c_real_2 OR c_double <> c_double_2"))
+                    .isFullyPushedDown()
+                    .skippingTypesCheck()
+                    .matches("VALUES '1', '2', '3', '4'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real < 1 OR c_double < 1"))
+                    .isNotFullyPushedDown(FilterNode.class)
+                    .skippingTypesCheck()
+                    .matches("VALUES '2'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real < Infinity() OR c_double < Infinity()"))
+                    .isNotFullyPushedDown(FilterNode.class)
+                    .skippingTypesCheck()
+                    .matches("VALUES '2'");
+
+            assertThat(query("SELECT c_varchar FROM " + tableName + " WHERE c_real > -Infinity() OR c_double > -Infinity()"))
+                    .isNotFullyPushedDown(FilterNode.class)
+                    .skippingTypesCheck()
+                    .matches("VALUES '3'");
+        }
+    }
+
     @Override
     protected TestTable simpleTable()
     {
