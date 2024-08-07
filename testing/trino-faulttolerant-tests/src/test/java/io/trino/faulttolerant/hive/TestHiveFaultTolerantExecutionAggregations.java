@@ -13,6 +13,7 @@
  */
 package io.trino.faulttolerant.hive;
 
+import io.airlift.log.Logger;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.HiveQueryRunner;
@@ -31,6 +32,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestHiveFaultTolerantExecutionAggregations
         extends AbstractTestFaultTolerantExecutionAggregations
 {
+    private static final Logger log = Logger.get(TestHiveFaultTolerantExecutionAggregations.class);
     private MinioStorage minioStorage;
 
     @Override
@@ -40,7 +42,11 @@ public class TestHiveFaultTolerantExecutionAggregations
         this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
         minioStorage.start();
 
+        String throttlingWorkers = System.getProperty("fault_tolerant_execution_throttling_max_workers", "0");
+        log.info("Running with fault_tolerant_execution_throttling_max_workers: %s", throttlingWorkers);
+
         return HiveQueryRunner.builder()
+                .amendSession(s -> s.setSystemProperty("fault_tolerant_execution_throttling_max_workers", String.valueOf(throttlingWorkers)))
                 .setExtraProperties(extraProperties)
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());

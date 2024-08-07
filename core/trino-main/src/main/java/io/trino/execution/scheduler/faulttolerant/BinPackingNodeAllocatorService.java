@@ -72,6 +72,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.EAGER_SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.SPECULATIVE;
@@ -314,9 +315,9 @@ public class BinPackingNodeAllocatorService
     }
 
     @Override
-    public NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass)
+    public NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass, ExecutionThrottling throttling)
     {
-        BinPackingNodeLease nodeLease = new BinPackingNodeLease(memoryRequirement.toBytes(), executionClass);
+        BinPackingNodeLease nodeLease = new BinPackingNodeLease(memoryRequirement.toBytes(), executionClass, throttling);
         PendingAcquire pendingAcquire = new PendingAcquire(nodeRequirements, nodeLease, ticker);
         pendingAcquires.add(pendingAcquire);
         wakeupProcessPendingAcquires();
@@ -506,22 +507,26 @@ public class BinPackingNodeAllocatorService
             implements NodeAllocator.NodeLease
     {
         private final SettableFuture<InternalNode> node = SettableFuture.create();
+        private final ListenableFuture<InternalNode> nodeFuture;
         private final AtomicBoolean released = new AtomicBoolean();
         private final AtomicLong memoryLease;
         private final AtomicReference<TaskId> taskId = new AtomicReference<>();
         private final AtomicReference<TaskExecutionClass> executionClass;
+        private final ExecutionThrottling throttling;
 
-        private BinPackingNodeLease(long memoryLease, TaskExecutionClass executionClass)
+        private BinPackingNodeLease(long memoryLease, TaskExecutionClass executionClass, ExecutionThrottling throttling)
         {
             this.memoryLease = new AtomicLong(memoryLease);
             requireNonNull(executionClass, "executionClass is null");
             this.executionClass = new AtomicReference<>(executionClass);
+            this.nodeFuture = Futures.transformAsync(node, throttling::throttle, directExecutor());
+            this.throttling = throttling;
         }
 
         @Override
         public ListenableFuture<InternalNode> getNode()
         {
-            return node;
+            return nodeFuture;
         }
 
         InternalNode getAssignedNode()
@@ -594,6 +599,7 @@ public class BinPackingNodeAllocatorService
         public void release()
         {
             if (released.compareAndSet(false, true)) {
+                throttling.release();
                 node.cancel(true);
                 if (node.isDone() && !node.isCancelled()) {
                     checkState(fulfilledAcquires.remove(this), "node lease %s not found in fulfilledAcquires %s", this, fulfilledAcquires);

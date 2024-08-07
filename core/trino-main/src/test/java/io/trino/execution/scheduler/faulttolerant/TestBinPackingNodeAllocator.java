@@ -41,6 +41,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.execution.scheduler.faulttolerant.ExecutionThrottling.UNRESTRICTED;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -156,19 +157,19 @@ public class TestBinPackingNodeAllocator
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
             // first two allocations should not block
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire1, NODE_1);
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire2, NODE_2);
 
             // same for subsequent two allocation (each task requires 32GB and we have 2 nodes with 64GB each)
-            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire3, NODE_1);
-            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire4, NODE_2);
 
             // 5th allocation should block
-            NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire5);
 
             // release acquire2 which uses
@@ -180,7 +181,7 @@ public class TestBinPackingNodeAllocator
             });
 
             // try to acquire one more node (should block)
-            NodeAllocator.NodeLease acquire6 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire6 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire6);
 
             // add new node
@@ -205,25 +206,25 @@ public class TestBinPackingNodeAllocator
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire1, NODE_1);
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire2, NODE_2);
-            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire3, NODE_1);
-            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire4, NODE_2);
-            NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire5, NODE_1);
-            NodeAllocator.NodeLease acquire6 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire6 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire6, NODE_2);
             // each of the nodes is filled in with 32+16+16
 
             // try allocate 32 and 16
-            NodeAllocator.NodeLease acquire7 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire7 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire7);
 
-            NodeAllocator.NodeLease acquire8 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire8 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire8);
 
             // free 16MB on NODE_1;
@@ -252,25 +253,25 @@ public class TestBinPackingNodeAllocator
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire1, NODE_1);
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire2, NODE_2);
-            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire3, NODE_1);
-            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire4, NODE_2);
-            NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire5, NODE_1);
-            NodeAllocator.NodeLease acquire6 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire6 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire6, NODE_2);
             // each of the nodes is filled in with 32+16+16
 
             // try to allocate 32 and 16
-            NodeAllocator.NodeLease acquire7 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire7 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire7);
 
-            NodeAllocator.NodeLease acquire8 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire8 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire8);
 
             // free 32MB on NODE_2;
@@ -294,15 +295,15 @@ public class TestBinPackingNodeAllocator
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
             // first two allocations should not block
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire1, NODE_1);
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire2, NODE_1);
 
             // another two should block
-            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire3);
-            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire4);
 
             // releasing a blocked one should not unblock anything
@@ -324,7 +325,7 @@ public class TestBinPackingNodeAllocator
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
             // request a node with specific catalog (not present)
-            NodeAllocator.NodeLease acquireNoMatching = nodeAllocator.acquire(REQ_CATALOG_1, DataSize.of(64, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquireNoMatching = nodeAllocator.acquire(REQ_CATALOG_1, DataSize.of(64, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquireNoMatching);
             ticker.increment(59, TimeUnit.SECONDS); // still below timeout
             nodeAllocatorService.processPendingAcquires();
@@ -338,11 +339,11 @@ public class TestBinPackingNodeAllocator
             nodeManager.addNodes(NODE_2);
 
             // we should be able to acquire the node now
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_CATALOG_1, DataSize.of(64, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_CATALOG_1, DataSize.of(64, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire1, NODE_2);
 
             // acquiring one more should block (only one acquire fits a node as we request 64GB)
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_CATALOG_1, DataSize.of(64, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_CATALOG_1, DataSize.of(64, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire2);
 
             // remove node with catalog
@@ -371,8 +372,8 @@ public class TestBinPackingNodeAllocator
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
             // request a node with specific catalog (not present)
-            NodeAllocator.NodeLease acquireNoMatching1 = nodeAllocator.acquire(REQ_CATALOG_1, DataSize.of(64, GIGABYTE), STANDARD);
-            NodeAllocator.NodeLease acquireNoMatching2 = nodeAllocator.acquire(REQ_CATALOG_1, DataSize.of(64, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquireNoMatching1 = nodeAllocator.acquire(REQ_CATALOG_1, DataSize.of(64, GIGABYTE), STANDARD, UNRESTRICTED);
+            NodeAllocator.NodeLease acquireNoMatching2 = nodeAllocator.acquire(REQ_CATALOG_1, DataSize.of(64, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquireNoMatching1);
             assertNotAcquired(acquireNoMatching2);
 
@@ -419,7 +420,7 @@ public class TestBinPackingNodeAllocator
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire1, NODE_1);
 
             // remove acquired node
@@ -439,17 +440,17 @@ public class TestBinPackingNodeAllocator
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NODE_2, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NODE_2, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire1, NODE_2);
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NODE_2, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NODE_2, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire2, NODE_2);
 
-            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NODE_2, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NODE_2, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             // no more place on NODE_2
             assertNotAcquired(acquire3);
 
             // requests for other node are still good
-            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NODE_1, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NODE_1, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire4, NODE_1);
 
             // release some space on NODE_2
@@ -468,7 +469,7 @@ public class TestBinPackingNodeAllocator
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
             // first allocation is fine
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire1, NODE_1);
             acquire1.attachTaskId(taskId(1));
 
@@ -479,27 +480,27 @@ public class TestBinPackingNodeAllocator
             nodeAllocatorService.refreshNodePoolMemoryInfos();
 
             // second allocation of 32GB should go to another node
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire2, NODE_2);
             acquire2.attachTaskId(taskId(2));
 
             // third allocation of 32GB should also use NODE_2 as there is not enough runtime memory on NODE_1
             // second allocation of 32GB should go to another node
-            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire3, NODE_2);
             acquire3.attachTaskId(taskId(3));
 
             // fourth allocation of 16 should fit on NODE_1
-            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire4, NODE_1);
             acquire4.attachTaskId(taskId(4));
 
             // fifth allocation of 16 should no longer fit on NODE_1. There is 16GB unreserved but only 15GB taking runtime usage into account
-            NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire5);
 
             // even tiny allocations should not fit now
-            NodeAllocator.NodeLease acquire6 = nodeAllocator.acquire(REQ_NONE, DataSize.of(1, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire6 = nodeAllocator.acquire(REQ_NONE, DataSize.of(1, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire6);
 
             // if memory usage decreases on NODE_1 the pending 16GB allocation should complete
@@ -526,7 +527,7 @@ public class TestBinPackingNodeAllocator
         // test when global memory usage on node is greater than per task usage
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
             // first allocation is fine
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire1, NODE_1);
             acquire1.attachTaskId(taskId(1));
 
@@ -537,7 +538,7 @@ public class TestBinPackingNodeAllocator
             nodeAllocatorService.refreshNodePoolMemoryInfos();
 
             // global (greater) memory usage should take precedence
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire2);
         }
 
@@ -545,7 +546,7 @@ public class TestBinPackingNodeAllocator
         // test when global memory usage on node is smaller than per task usage
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
             // first allocation is fine
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire1, NODE_1);
             acquire1.attachTaskId(taskId(1));
 
@@ -556,7 +557,7 @@ public class TestBinPackingNodeAllocator
             nodeAllocatorService.refreshNodePoolMemoryInfos();
 
             // per-task (greater) memory usage should take precedence
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire2);
         }
 
@@ -564,7 +565,7 @@ public class TestBinPackingNodeAllocator
         // test when per-task memory usage not present at all
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
             // first allocation is fine
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire1, NODE_1);
             acquire1.attachTaskId(taskId(1));
 
@@ -573,7 +574,7 @@ public class TestBinPackingNodeAllocator
             nodeAllocatorService.refreshNodePoolMemoryInfos();
 
             // global memory usage should be used (not per-task usage)
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire2);
         }
     }
@@ -588,10 +589,10 @@ public class TestBinPackingNodeAllocator
         // test when global memory usage on node is greater than per task usage
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
             // reserve 32GB on NODE_1 and 16GB on NODE_2
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire1, NODE_1);
             acquire1.attachTaskId(taskId(1));
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire2, NODE_2);
             acquire2.attachTaskId(taskId(2));
 
@@ -607,11 +608,11 @@ public class TestBinPackingNodeAllocator
             // try to allocate 32GB task
             // it will not fit on neither of nodes. space should be reserved on NODE_2 as it has more memory available
             // when you do not take runtime memory into account
-            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire3);
 
             // to check that is the case try to allocate 20GB; NODE_1 should be picked
-            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(20, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(20, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire4, NODE_1);
             acquire4.attachTaskId(taskId(2));
         }
@@ -627,7 +628,7 @@ public class TestBinPackingNodeAllocator
         // test when global memory usage on node is greater than per task usage
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
             // allocated 32GB
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire1, NODE_1);
             acquire1.attachTaskId(taskId(1));
 
@@ -638,7 +639,7 @@ public class TestBinPackingNodeAllocator
             nodeAllocatorService.refreshNodePoolMemoryInfos();
 
             // including overhead node runtime usage is 30+4 = 34GB so another 32GB task will not fit
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire2);
 
             // decrease runtime usage to 28GB
@@ -662,7 +663,7 @@ public class TestBinPackingNodeAllocator
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
             for (int i = 0; i < 10_000_000; ++i) {
-                NodeAllocator.NodeLease lease = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+                NodeAllocator.NodeLease lease = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
                 lease.release();
             }
         }
@@ -677,19 +678,19 @@ public class TestBinPackingNodeAllocator
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
             // allocate two speculative tasks
-            NodeAllocator.NodeLease acquireSpeculative1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), SPECULATIVE);
+            NodeAllocator.NodeLease acquireSpeculative1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), SPECULATIVE, UNRESTRICTED);
             assertAcquired(acquireSpeculative1, NODE_1);
-            NodeAllocator.NodeLease acquireSpeculative2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), SPECULATIVE);
+            NodeAllocator.NodeLease acquireSpeculative2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), SPECULATIVE, UNRESTRICTED);
             assertAcquired(acquireSpeculative2, NODE_2);
 
             // standard tasks should still get node
-            NodeAllocator.NodeLease acquireStandard1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquireStandard1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquireStandard1, NODE_2);
-            NodeAllocator.NodeLease acquireStandard2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquireStandard2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquireStandard2, NODE_1);
 
             // new speculative task will not fit (even tiny one)
-            NodeAllocator.NodeLease acquireSpeculative3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(1, GIGABYTE), SPECULATIVE);
+            NodeAllocator.NodeLease acquireSpeculative3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(1, GIGABYTE), SPECULATIVE, UNRESTRICTED);
             assertNotAcquired(acquireSpeculative3);
 
             // if you switch it to standard it will schedule
@@ -702,15 +703,15 @@ public class TestBinPackingNodeAllocator
             acquireSpeculative3.release();
 
             // we have 32G free on NODE_1 now
-            NodeAllocator.NodeLease acquireStandard4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquireStandard4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquireStandard4, NODE_1);
 
             // no place for speculative task
-            NodeAllocator.NodeLease acquireSpeculative4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(1, GIGABYTE), SPECULATIVE);
+            NodeAllocator.NodeLease acquireSpeculative4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(1, GIGABYTE), SPECULATIVE, UNRESTRICTED);
             assertNotAcquired(acquireSpeculative4);
 
             // no place for another standard task
-            NodeAllocator.NodeLease acquireStandard5 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquireStandard5 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquireStandard5);
 
             // release acquireStandard4 - a standard task should be scheduled before speculative one
@@ -733,11 +734,11 @@ public class TestBinPackingNodeAllocator
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
             // allocate speculative task
-            NodeAllocator.NodeLease acquireSpeculative = nodeAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), SPECULATIVE);
+            NodeAllocator.NodeLease acquireSpeculative = nodeAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), SPECULATIVE, UNRESTRICTED);
             assertAcquired(acquireSpeculative, NODE_1);
 
             // check if standard task can fit and release - it should fit
-            NodeAllocator.NodeLease acquireStandard1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquireStandard1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquireStandard1, NODE_1);
             acquireStandard1.release();
 
@@ -745,7 +746,7 @@ public class TestBinPackingNodeAllocator
             acquireSpeculative.setExecutionClass(STANDARD);
 
             // extra standard task should no longer fit
-            NodeAllocator.NodeLease acquireStandard2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquireStandard2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquireStandard2);
         }
     }
@@ -758,21 +759,21 @@ public class TestBinPackingNodeAllocator
         setupNodeAllocatorService(nodeManager);
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
-            NodeAllocator.NodeLease acquireStandard1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquireStandard1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquireStandard1, NODE_1);
-            NodeAllocator.NodeLease acquireStandard2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquireStandard2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquireStandard2, NODE_2);
 
             // not enough space for acquireStandard3
-            NodeAllocator.NodeLease acquireStandard3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquireStandard3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(64, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquireStandard3);
 
             // acquireSpeculative3 cannot be acquired because there is pending acquireStandard3
-            NodeAllocator.NodeLease acquireSpeculative3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), SPECULATIVE);
+            NodeAllocator.NodeLease acquireSpeculative3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), SPECULATIVE, UNRESTRICTED);
             assertNotAcquired(acquireSpeculative3);
 
             // acquireEagerSpeculative1 can be acquired despite acquireStandard3 pending
-            NodeAllocator.NodeLease acquireEagerSpeculative1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), EAGER_SPECULATIVE);
+            NodeAllocator.NodeLease acquireEagerSpeculative1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), EAGER_SPECULATIVE, UNRESTRICTED);
             assertAcquired(acquireEagerSpeculative1, NODE_2);
 
             // cancel acquireStandard3
@@ -783,17 +784,17 @@ public class TestBinPackingNodeAllocator
             assertNotAcquired(acquireSpeculative3);
 
             // still place for two more 10GB EAGER_SPECULATIVE tasks due to overcommit logic
-            NodeAllocator.NodeLease acquireEagerSpeculative2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(10, GIGABYTE), EAGER_SPECULATIVE);
+            NodeAllocator.NodeLease acquireEagerSpeculative2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(10, GIGABYTE), EAGER_SPECULATIVE, UNRESTRICTED);
             assertAcquired(acquireEagerSpeculative2, NODE_1);
-            NodeAllocator.NodeLease acquireEagerSpeculative3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(10, GIGABYTE), EAGER_SPECULATIVE);
+            NodeAllocator.NodeLease acquireEagerSpeculative3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(10, GIGABYTE), EAGER_SPECULATIVE, UNRESTRICTED);
             assertAcquired(acquireEagerSpeculative3, NODE_2);
 
             // no place for another one
-            NodeAllocator.NodeLease acquireEagerSpeculative4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(10, GIGABYTE), EAGER_SPECULATIVE);
+            NodeAllocator.NodeLease acquireEagerSpeculative4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(10, GIGABYTE), EAGER_SPECULATIVE, UNRESTRICTED);
             assertNotAcquired(acquireEagerSpeculative4);
 
             // acquireStandard4 can be acquired despite acquireEagerSpeculative* tasks scheduled
-            NodeAllocator.NodeLease acquireStandard4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquireStandard4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquireStandard4, NODE_2);
         }
     }
@@ -807,13 +808,13 @@ public class TestBinPackingNodeAllocator
 
         try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
             // Allocate 32GB on each noe
-            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire1, NODE_1);
-            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, UNRESTRICTED);
             assertAcquired(acquire2, NODE_2);
 
             // Try to allocate 40GB more - will not fit
-            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(40, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(40, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire3);
 
             // lower memory requirements for acquire3 to 32GB; it should fit now
@@ -821,7 +822,7 @@ public class TestBinPackingNodeAllocator
             assertAcquired(acquire3, NODE_1);
 
             // Try to allocate another 40GB more - will not fit
-            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(40, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(40, GIGABYTE), STANDARD, UNRESTRICTED);
             assertNotAcquired(acquire4);
 
             // Lower memory requirements for leases already on NODE_1
@@ -866,6 +867,103 @@ public class TestBinPackingNodeAllocator
             ticker.increment(61, TimeUnit.SECONDS);
             assertEventually(() -> assertThatThrownBy(() -> getFutureValue(acquireNoNodes.getNode()))
                     .hasMessage("No nodes available to run query"));
+        }
+    }
+
+    @Test
+    @Timeout(value = 10000, unit = MILLISECONDS)
+    public void testTaskThrottling()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1);
+        setupNodeAllocatorService(nodeManager);
+        ThrottlingController throttler = new ThrottlingController(2);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
+            ExecutionThrottling throttler1 = throttler.createThrottling(new StageId("query_123", 5), 11);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(2, GIGABYTE), STANDARD, throttler1);
+            assertAcquired(acquire1, NODE_1);
+
+            ExecutionThrottling throttler2 = throttler.createThrottling(new StageId("query_123", 5), 12);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(2, GIGABYTE), STANDARD, throttler2);
+            assertNotAcquired(acquire2);
+
+            ExecutionThrottling throttler3 = throttler.createThrottling(new StageId("query_123", 5), 13);
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(2, GIGABYTE), STANDARD, throttler3);
+            assertNotAcquired(acquire3);
+
+            ExecutionThrottling throttler4 = throttler.createThrottling(new StageId("query_123", 6), 14);
+            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(2, GIGABYTE), STANDARD, throttler4);
+            assertAcquired(acquire4, NODE_1);
+
+            acquire1.release();
+            assertAcquired(acquire2, NODE_1);
+            assertNotAcquired(acquire3);
+
+            acquire2.release();
+            assertAcquired(acquire3, NODE_1);
+            acquire3.release();
+        }
+    }
+
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
+    public void testNodeThrottling()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2, NODE_3);
+        setupNodeAllocatorService(nodeManager);
+        ThrottlingController throttler = new ThrottlingController(2);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
+            ExecutionThrottling throttler1 = throttler.createThrottling(new StageId("query_123", 5), 11);
+            NodeAllocator.NodeLease acquire1 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, throttler1);
+
+            ExecutionThrottling throttler2 = throttler.createThrottling(new StageId("query_123", 5), 12);
+            NodeAllocator.NodeLease acquire2 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, throttler2);
+
+            ExecutionThrottling throttler3 = throttler.createThrottling(new StageId("query_123", 5), 13);
+            NodeAllocator.NodeLease acquire3 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, throttler3);
+
+            ExecutionThrottling throttler4 = throttler.createThrottling(new StageId("query_123", 5), 14);
+            NodeAllocator.NodeLease acquire4 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, throttler4);
+
+            ExecutionThrottling throttler5 = throttler.createThrottling(new StageId("query_123", 5), 15);
+            NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, throttler5);
+
+            ExecutionThrottling throttler6 = throttler.createThrottling(new StageId("query_123", 5), 16);
+            NodeAllocator.NodeLease acquire6 = nodeAllocator.acquire(REQ_NONE, DataSize.of(32, GIGABYTE), STANDARD, throttler6);
+
+            assertAcquired(acquire1, NODE_1);
+            assertAcquired(acquire2, NODE_2);
+            assertNotAcquired(acquire3);
+            assertNotAcquired(acquire4);
+            assertNotAcquired(acquire5);
+            assertNotAcquired(acquire6);
+
+            acquire1.release();
+            assertAcquired(acquire2, NODE_2);
+            assertNotAcquired(acquire3);
+            assertAcquired(acquire4, NODE_1);
+            assertNotAcquired(acquire5);
+            assertNotAcquired(acquire6);
+
+            acquire2.release();
+            assertNotAcquired(acquire3);
+            assertAcquired(acquire4, NODE_1);
+            assertAcquired(acquire5, NODE_2);
+            assertNotAcquired(acquire6);
+
+            acquire4.release();
+            assertAcquired(acquire3, NODE_3);
+            assertAcquired(acquire5, NODE_2);
+            assertNotAcquired(acquire6);
+
+            acquire5.release();
+            assertAcquired(acquire3, NODE_3);
+            assertNotAcquired(acquire6);
+
+            acquire3.release();
+            assertAcquired(acquire6, NODE_3);
+            acquire6.release();
         }
     }
 
