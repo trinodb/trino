@@ -32,7 +32,7 @@ public class BigQueryNamedRelationHandle
     private final String type;
     private final Optional<BigQueryPartitionType> partitionType;
     private final Optional<String> comment;
-    private final Optional<String> connectionId;
+    private final boolean connectionExists;
 
     @JsonCreator
     public BigQueryNamedRelationHandle(
@@ -41,14 +41,14 @@ public class BigQueryNamedRelationHandle
             @JsonProperty("type") String type,
             @JsonProperty("partitionType") Optional<BigQueryPartitionType> partitionType,
             @JsonProperty("comment") Optional<String> comment,
-            @JsonProperty("connectionId") Optional<String> connectionId)
+            @JsonProperty("connectionExists") boolean connectionExists)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
         this.type = requireNonNull(type, "type is null");
         this.partitionType = requireNonNull(partitionType, "partitionType is null");
         this.comment = requireNonNull(comment, "comment is null");
-        this.connectionId = requireNonNull(connectionId, "connectionId is null");
+        this.connectionExists = connectionExists;
     }
 
     @JsonProperty
@@ -82,9 +82,9 @@ public class BigQueryNamedRelationHandle
     }
 
     @JsonProperty
-    public boolean hasConnection()
+    public boolean isConnectionExists()
     {
-        return connectionId.isPresent();
+        return connectionExists;
     }
 
     @Override
@@ -103,13 +103,13 @@ public class BigQueryNamedRelationHandle
                 Objects.equals(type, that.type) &&
                 Objects.equals(partitionType, that.partitionType) &&
                 Objects.equals(comment, that.comment) &&
-                Objects.equals(connectionId, that.connectionId);
+                connectionExists == that.connectionExists;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName, type, partitionType, comment, connectionId);
+        return Objects.hash(schemaTableName, type, partitionType, comment, connectionExists);
     }
 
     @Override
@@ -120,7 +120,7 @@ public class BigQueryNamedRelationHandle
                 .add("schemaTableName", schemaTableName)
                 .add("type", type)
                 .add("comment", comment)
-                .add("connectionId", connectionId)
+                .add("connectionExists", connectionExists)
                 .toString();
     }
 }

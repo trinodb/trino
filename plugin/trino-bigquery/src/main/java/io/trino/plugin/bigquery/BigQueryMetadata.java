@@ -343,9 +343,9 @@ public class BigQueryMetadata
                 tableInfo.get().getDefinition().getType().toString(),
                 partitionType,
                 Optional.ofNullable(tableInfo.get().getDescription()),
+                connectionId.isPresent()),
                 TupleDomain.all(),
-                Optional.empty(),
-                connectionId))
+                Optional.empty())
                 .withProjectedColumns(columns.build());
     }
 
