@@ -25,7 +25,6 @@ import io.trino.testing.QueryRunner;
 import java.util.HashMap;
 import java.util.Map;
 
-
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.TimeUnit.SECONDS;

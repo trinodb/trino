@@ -23,7 +23,6 @@ import java.util.Map;
 public final class Streams
         extends QueryResult.Result
 {
-
     public List<Stream> getStreams()
     {
         return streams;

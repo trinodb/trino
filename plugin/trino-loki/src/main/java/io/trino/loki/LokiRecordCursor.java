@@ -56,7 +56,6 @@ public abstract class LokiRecordCursor
 
     public LokiRecordCursor(List<LokiColumnHandle> columnHandles)
     {
-
         this.columnHandles = columnHandles;
 
         fieldToColumnIndex = new int[columnHandles.size()];
@@ -229,7 +228,6 @@ public abstract class LokiRecordCursor
     @Override
     public void close()
     {
-
     }
 
     private void checkFieldType(int field, Type expected)

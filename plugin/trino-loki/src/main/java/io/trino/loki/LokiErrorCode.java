@@ -22,7 +22,6 @@ import static io.trino.spi.ErrorType.EXTERNAL;
 public enum LokiErrorCode
         implements ErrorCodeSupplier
 {
-
     LOKI_UNKNOWN_ERROR(0, EXTERNAL);
 
     private final ErrorCode errorCode;

@@ -22,7 +22,11 @@ import io.trino.loki.model.QueryResult;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import okhttp3.*;
+import okhttp3.Credentials;
+import okhttp3.Interceptor;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,7 +45,6 @@ import static java.util.Objects.requireNonNull;
 
 public class LokiClient
 {
-
     private final OkHttpClient httpClient;
     private final URI lokiEndpoint;
 

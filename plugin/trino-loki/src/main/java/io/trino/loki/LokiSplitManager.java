@@ -15,14 +15,21 @@ package io.trino.loki;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
-import io.trino.spi.connector.*;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.Constraint;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.FixedSplitSource;
 
 import java.util.List;
 
 public class LokiSplitManager
         implements ConnectorSplitManager
 {
-
     private static final Logger log = Logger.get(LokiSplitManager.class);
 
     @Override
@@ -33,7 +40,6 @@ public class LokiSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
-
         var table = (LokiTableHandle) connectorTableHandle;
 
         // TODO: support multiple splits by splitting on time.

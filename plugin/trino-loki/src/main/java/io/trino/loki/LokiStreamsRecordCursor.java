@@ -25,7 +25,6 @@ import static com.google.common.base.Preconditions.checkState;
 public class LokiStreamsRecordCursor
         extends LokiRecordCursor
 {
-
     private final Iterator<LabelledEntry> entryItr;
 
     record LabelledEntry(LogEntry entry, Map<String, String> labels) {}

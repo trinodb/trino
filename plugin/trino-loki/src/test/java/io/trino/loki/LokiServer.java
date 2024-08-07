@@ -15,14 +15,10 @@ package io.trino.loki;
 
 import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.DockerComposeContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.Closeable;
 import java.io.File;
 import java.net.URI;
-import java.time.Duration;
-
-import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public class LokiServer
         implements Closeable
@@ -45,8 +41,8 @@ public class LokiServer
     {
         this.dockerCompose = new DockerComposeContainer(new File("plugin/trino-loki/src/test/resources/compose.yaml"));
 
-                //.waitingFor(Wait.forHttp(LOKI_QUERY_API).forResponsePredicate(response -> response.contains("\"status\"")))
-                //.withStartupTimeout(Duration.ofSeconds(360));
+        //.waitingFor(Wait.forHttp(LOKI_QUERY_API).forResponsePredicate(response -> response.contains("\"status\"")))
+        //.withStartupTimeout(Duration.ofSeconds(360));
 
         this.dockerCompose.start();
     }

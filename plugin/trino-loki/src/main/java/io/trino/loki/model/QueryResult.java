@@ -20,7 +20,6 @@ import java.io.InputStream;
 
 public class QueryResult
 {
-
     static ObjectMapper mapper = new ObjectMapper();
 
     public static QueryResult fromJSON(InputStream input)
@@ -52,6 +51,6 @@ public class QueryResult
     private String status;
     private Data data;
 
-    public static sealed abstract class Result
+    public abstract static sealed class Result
             permits Streams, Matrix {}
 }

@@ -15,7 +15,13 @@ package io.trino.loki;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import io.trino.spi.connector.*;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.RecordSet;
 
 import java.util.List;
 
@@ -25,7 +31,6 @@ import static java.util.Objects.requireNonNull;
 public class LokiRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-
     private final LokiClient prometheusClient;
 
     @Inject

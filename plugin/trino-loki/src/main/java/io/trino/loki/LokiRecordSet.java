@@ -30,7 +30,6 @@ import static java.util.Objects.requireNonNull;
 public class LokiRecordSet
         implements RecordSet
 {
-
     private final List<LokiColumnHandle> columnHandles;
     private final List<Type> columnTypes;
 
@@ -49,7 +48,7 @@ public class LokiRecordSet
         this.columnTypes = types.build();
 
         Long end = now();
-        Long start = end - ONE_HOUR;
+        Long start = end - onehour;
         if (split.end().getEpochSecond() != 0) {
             end = nanosFromInstant(split.end());
         }
@@ -63,7 +62,7 @@ public class LokiRecordSet
         this.result = lokiClient.rangeQuery(query, start, end);
     }
 
-    static long ONE_HOUR = Duration.ofHours(1).toNanos();
+    static long onehour = Duration.ofHours(1).toNanos();
 
     @Override
     public List<Type> getColumnTypes()

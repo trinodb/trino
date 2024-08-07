@@ -27,11 +27,9 @@ public record LokiSplit(
         @JsonProperty("start")
         Instant start,
         @JsonProperty("end")
-        Instant end
-)
+        Instant end)
         implements ConnectorSplit
 {
-
     @JsonCreator
     public LokiSplit
     {
