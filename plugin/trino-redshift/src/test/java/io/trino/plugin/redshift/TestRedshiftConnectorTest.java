@@ -16,10 +16,12 @@ package io.trino.plugin.redshift;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -625,6 +627,84 @@ public class TestRedshiftConnectorTest
     public void testInsertRowConcurrently()
     {
         abort("Test fails with a timeout sometimes and is flaky");
+    }
+
+    @Test
+    public void testJoinPushdownWithImplicitCast()
+    {
+        try (TestTable leftTable = new TestTable(
+                getQueryRunner()::execute,
+                "left_table",
+                "(id int, c_boolean boolean, c_tinyint tinyint, c_smallint smallint, c_integer integer, c_bigint bigint, c_real real, c_double_precision double precision, c_decimal_10_2 decimal(10, 2))",
+                ImmutableList.of("(11, true, 12, 12, 12, 12, 12.34, 12.34, 12.34)", "(12, false, 123, 123, 123, 123, 123.67, 123.67, 123.67)"));
+                TestTable rightTable = new TestTable(
+                        getQueryRunner()::execute,
+                        "right_table_",
+                        "(id int, c_boolean boolean, c_tinyint tinyint, c_smallint smallint, c_integer integer, c_bigint bigint, c_real real, c_double_precision double precision, c_decimal_10_2 decimal(10, 2))",
+                        ImmutableList.of("(21, true, 12, 12, 12, 12, 12.34, 12.34, 12.34)", "(22, true, 234, 234, 234, 234, 234.67, 234.67, 234.67)"))) {
+            String leftTableName = leftTable.getName();
+            String rightTableName = rightTable.getName();
+            Session session = joinPushdownEnabled(getSession());
+
+            assertJoin(session, leftTableName, rightTableName, "LEFT JOIN", "l.c_tinyint = r.c_bigint")
+                    .isFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "RIGHT JOIN", "l.c_tinyint = r.c_bigint")
+                    .isFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "INNER JOIN", "l.c_tinyint = r.c_bigint")
+                    .isFullyPushedDown();
+
+            assertJoin(session, leftTableName, rightTableName, "LEFT JOIN", "l.c_smallint = r.c_bigint")
+                    .isFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "RIGHT JOIN", "l.c_smallint = r.c_bigint")
+                    .isFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "INNER JOIN", "l.c_smallint = r.c_bigint")
+                    .isFullyPushedDown();
+
+            assertJoin(session, leftTableName, rightTableName, "LEFT JOIN", "l.c_integer = r.c_bigint")
+                    .isFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "RIGHT JOIN", "l.c_integer = r.c_bigint")
+                    .isFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "INNER JOIN", "l.c_integer = r.c_bigint")
+                    .isFullyPushedDown();
+
+            // Below cases try to implicit cast from bigint type to real/double/decimal type.
+            // CAST pushdown with real/double/decimal type is not supported yet.
+            assertJoin(session, leftTableName, rightTableName, "LEFT JOIN", "l.c_real = r.c_bigint")
+                    .joinIsNotFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "RIGHT JOIN", "l.c_real = r.c_bigint")
+                    .joinIsNotFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "INNER JOIN", "l.c_real = r.c_bigint")
+                    .joinIsNotFullyPushedDown();
+
+            assertJoin(session, leftTableName, rightTableName, "LEFT JOIN", "l.c_double_precision = r.c_bigint")
+                    .joinIsNotFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "RIGHT JOIN", "l.c_double_precision = r.c_bigint")
+                    .joinIsNotFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "INNER JOIN", "l.c_double_precision = r.c_bigint")
+                    .joinIsNotFullyPushedDown();
+
+            assertJoin(session, leftTableName, rightTableName, "LEFT JOIN", "l.c_decimal_10_2 = r.c_bigint")
+                    .joinIsNotFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "RIGHT JOIN", "l.c_decimal_10_2 = r.c_bigint")
+                    .joinIsNotFullyPushedDown();
+            assertJoin(session, leftTableName, rightTableName, "INNER JOIN", "l.c_decimal_10_2 = r.c_bigint")
+                    .joinIsNotFullyPushedDown();
+        }
+    }
+
+    private QueryAssertions.QueryAssert assertJoin(Session session, String leftTable, String rightTable, String joinType, String joinCondition)
+    {
+        return assertThat(query(session, "SELECT l.id FROM %s l %s %s r ON %s".formatted(leftTable, joinType, rightTable, joinCondition)));
+    }
+
+    @Nested
+    public class TestCastPushdown
+            extends RedshiftCastPushdownTest
+    {
+        public TestCastPushdown()
+        {
+            super(joinPushdownEnabled(TestRedshiftConnectorTest.this.getSession()), TestRedshiftConnectorTest.this.getQueryRunner(), TestRedshiftConnectorTest.this.onRemoteDatabase());
+        }
     }
 
     @Override
