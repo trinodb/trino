@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
+import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
@@ -39,8 +40,10 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
+import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -50,12 +53,16 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN;
+import static io.trino.sql.ir.Comparison.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.LESS_THAN;
+import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.Logical.Operator.AND;
 import static io.trino.sql.ir.Logical.Operator.OR;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -76,6 +83,7 @@ public abstract class AbstractPredicatePushdownTest
     private static final ResolvedFunction RANDOM_INTEGER = FUNCTIONS.resolveFunction("random", fromTypes(INTEGER));
     private static final ResolvedFunction ROUND = FUNCTIONS.resolveFunction("round", fromTypes(DOUBLE));
     private static final ResolvedFunction LENGTH = FUNCTIONS.resolveFunction("length", fromTypes(createVarcharType(1)));
+    private static final ResolvedFunction CONCAT = FUNCTIONS.resolveFunction("concat", fromTypes(VARCHAR, VARCHAR));
     private static final ResolvedFunction ADD_BIGINT = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(BIGINT, BIGINT));
     private static final ResolvedFunction MULTIPLY_BIGINT = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(BIGINT, BIGINT));
     private static final ResolvedFunction DIVIDE_INTEGER = FUNCTIONS.resolveOperator(OperatorType.DIVIDE, ImmutableList.of(INTEGER, INTEGER));
@@ -587,6 +595,147 @@ public abstract class AbstractPredicatePushdownTest
                         WHERE t1.a = 'aa'
                         """,
                 output(values("field", "field_0")));
+    }
+
+    @Test
+    public void testBetweenPredicatePushdown()
+    {
+        Session disableJoinReordering = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
+                .build();
+        // join build side, min between value pushed down
+        assertPlan(
+                "SELECT p.name, l.comment FROM lineitem l JOIN part p ON l.partkey = p.partkey WHERE p.name BETWEEN 'f' AND l.comment",
+                disableJoinReordering,
+                output(
+                        join(INNER, builder -> builder
+                                .equiCriteria("l_partkey", "p_partkey")
+                                .filter(new Comparison(LESS_THAN_OR_EQUAL,
+                                        new Reference(createVarcharType(55), "name"),
+                                        new Cast(new Reference(createVarcharType(55), "comment"), createVarcharType(55))))
+                                .left(anyIfDynamicFilteringEnabled(tableScan(
+                                        "lineitem",
+                                        ImmutableMap.of("l_partkey", "partkey", "comment", "comment"))))
+                                .right(anyTree(
+                                        filter(
+                                                new Comparison(GREATER_THAN_OR_EQUAL,
+                                                        new Reference(createVarcharType(55), "name"),
+                                                        new Constant(createVarcharType(55), utf8Slice("f"))),
+                                                tableScan(
+                                                        "part",
+                                                        ImmutableMap.of("p_partkey", "partkey", "name", "name"))))))));
+
+
+        // min between value could be pushed down, but it's not because between value is expensive
+        assertPlan(
+                "SELECT p.name, l.comment FROM lineitem l JOIN part p ON l.partkey = p.partkey WHERE p.name || 'X' BETWEEN 'f' AND l.comment",
+                disableJoinReordering,
+                output(
+                        join(INNER, builder -> builder
+                                .equiCriteria("l_partkey", "p_partkey")
+                                .filter(new Between(
+                                        new Call(CONCAT, ImmutableList.of(new Cast(new Reference(createVarcharType(55), "name"), VARCHAR), new Constant(VARCHAR, utf8Slice("X")))),
+                                        new Constant(VARCHAR, utf8Slice("f")),
+                                        new Cast(new Reference(createVarcharType(55), "comment"), VARCHAR)))
+                                .left(anyIfDynamicFilteringEnabled(
+                                        tableScan(
+                                                "lineitem",
+                                                ImmutableMap.of("l_partkey", "partkey", "comment", "comment"))))
+                                .right(exchange(tableScan(
+                                        "part",
+                                        ImmutableMap.of("p_partkey", "partkey", "name", "name")))))));
+
+        // join build side, max between value pushed down
+        assertPlan(
+                "SELECT p.name, l.comment FROM lineitem l JOIN part p ON l.partkey = p.partkey WHERE p.name BETWEEN l.comment AND 'f'",
+                disableJoinReordering,
+                output(
+                        join(INNER, builder -> builder
+                                .equiCriteria("l_partkey", "p_partkey")
+                                .filter(new Comparison(GREATER_THAN_OR_EQUAL,
+                                        new Reference(createVarcharType(55), "name"),
+                                        new Cast(new Reference(createVarcharType(44), "comment"), createVarcharType(55))))
+                                .left(anyIfDynamicFilteringEnabled(tableScan(
+                                        "lineitem",
+                                        ImmutableMap.of("l_partkey", "partkey", "comment", "comment"))))
+                                .right(anyTree(
+                                        filter(
+                                                new Comparison(LESS_THAN_OR_EQUAL,
+                                                        new Reference(createVarcharType(55), "name"),
+                                                        new Constant(createVarcharType(55), utf8Slice("f"))),
+                                                tableScan(
+                                                        "part",
+                                                        ImmutableMap.of("p_partkey", "partkey", "name", "name"))))))));
+
+        // join probe side, min between value pushed down
+        assertPlan(
+                "SELECT p.name, l.comment FROM lineitem l JOIN part p ON l.partkey = p.partkey WHERE l.comment BETWEEN 'f' AND p.name",
+                disableJoinReordering,
+                output(
+                        join(INNER, builder -> builder
+                                .equiCriteria("l_partkey", "p_partkey")
+                                .filter(new Comparison(
+                                        LESS_THAN_OR_EQUAL,
+                                        new Cast(new Reference(createVarcharType(44), "comment"),
+                                        createVarcharType(55)), new Reference(createVarcharType(55), "name")))
+                                .left(filter(
+                                        new Comparison(
+                                                GREATER_THAN_OR_EQUAL,
+                                                new Reference(createVarcharType(44), "comment"),
+                                                new Constant(createVarcharType(44), utf8Slice("f"))),
+                                        tableScan(
+                                                "lineitem",
+                                                ImmutableMap.of("l_partkey", "partkey", "comment", "comment"))))
+                                .right(anyTree(
+                                        tableScan(
+                                                "part",
+                                                ImmutableMap.of("p_partkey", "partkey", "name", "name")))))));
+
+        // join probe side, max between value pushed down
+        assertPlan(
+                "SELECT p.name, l.comment FROM lineitem l JOIN part p ON l.partkey = p.partkey WHERE l.comment BETWEEN p.name AND 'f'",
+                disableJoinReordering,
+                output(
+                        join(INNER, builder -> builder
+                                .equiCriteria("l_partkey", "p_partkey")
+                                .filter(new Comparison(
+                                        GREATER_THAN_OR_EQUAL,
+                                        new Cast(new Reference(createVarcharType(44), "comment"), createVarcharType(55)),
+                                        new Reference(createVarcharType(55), "name")))
+                                .left(filter(
+                                        new Comparison(
+                                                LESS_THAN_OR_EQUAL,
+                                                new Reference(createVarcharType(44), "comment"),
+                                                new Constant(createVarcharType(44), utf8Slice("f"))),
+                                        tableScan(
+                                                "lineitem",
+                                                ImmutableMap.of("l_partkey", "partkey", "comment", "comment"))))
+                                .right(anyTree(
+                                        tableScan(
+                                                "part",
+                                                ImmutableMap.of("p_partkey", "partkey", "name", "name")))))));
+        // neither side is pushed down
+        assertPlan(
+                "SELECT p.name, l.comment FROM lineitem l JOIN part p ON l.partkey = p.partkey WHERE p.name BETWEEN l.linestatus  AND l.comment",
+                disableJoinReordering,
+                output(
+                        join(INNER, builder -> builder
+                                .equiCriteria("l_partkey", "p_partkey")
+                                .filter(new Between(
+                                        new Reference(createVarcharType(55), "name"),
+                                        new Cast(new Reference(createVarcharType(1), "linestatus"), createVarcharType(55)),
+                                        new Cast(new Reference(createVarcharType(44), "comment"), createVarcharType(55))))
+                                .left(anyIfDynamicFilteringEnabled(tableScan(
+                                        "lineitem",
+                                        ImmutableMap.of("l_partkey", "partkey", "comment", "comment", "linestatus", "linestatus"))))
+                                .right(exchange(tableScan(
+                                        "part",
+                                        ImmutableMap.of("p_partkey", "partkey", "name", "name")))))));
+    }
+
+    private PlanMatchPattern anyIfDynamicFilteringEnabled(PlanMatchPattern source)
+    {
+        return enableDynamicFiltering ? any(source) : source;
     }
 
     @Test

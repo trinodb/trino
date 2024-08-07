@@ -26,6 +26,8 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Booleans;
+import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Comparison.Operator;
 import io.trino.sql.ir.Constant;
@@ -83,6 +85,12 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.trino.SystemSessionProperties.isPredicatePushdownUseTableProperties;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.DIVIDE;
+import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MULTIPLY;
+import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
@@ -1071,7 +1079,52 @@ public class PredicatePushDown
 
                 // Drop predicate after join only if unable to push down to either side
                 if (leftRewrittenConjunct == null && rightRewrittenConjunct == null) {
-                    joinConjuncts.add(allInference.rewrite(conjunct, Sets.union(leftScope, rightScope)));
+                    // Try to push one side of BETWEEN that could not be pushed down entirely.
+                    // We do it only if BETWEEN value is a simple expression, which we assume is cheap to evaluate twice.
+                    if (conjunct instanceof Between between && isSimpleExpression(between.value())) {
+                        Expression lteMax = new Comparison(LESS_THAN_OR_EQUAL, between.value(), between.max());
+                        Expression gteMin = new Comparison(GREATER_THAN_OR_EQUAL, between.value(), between.min());
+                        Expression leftRewrittenLteMax = allInference.rewrite(lteMax, leftScope);
+                        Expression leftRewrittenGteMin = allInference.rewrite(gteMin, leftScope);
+                        Expression rightRewrittenLteMax = allInference.rewrite(lteMax, rightScope);
+                        Expression rightRewrittenGteMin = allInference.rewrite(gteMin, rightScope);
+                        if (leftRewrittenLteMax != null) {
+                            leftPushDownConjuncts.add(leftRewrittenLteMax);
+                            if (rightRewrittenGteMin == null) {
+                                // lteMax was pushed down but gteMin not
+                                joinConjuncts.add(gteMin);
+                            }
+                        }
+                        else if (leftRewrittenGteMin != null) {
+                            leftPushDownConjuncts.add(leftRewrittenGteMin);
+                            if (rightRewrittenLteMax == null) {
+                                // gteMin was pushed down but lteMax not
+                                joinConjuncts.add(lteMax);
+                            }
+                        }
+                        if (rightRewrittenLteMax != null) {
+                            rightPushDownConjuncts.add(rightRewrittenLteMax);
+                            if (leftRewrittenGteMin == null) {
+                                // lteMax was pushed down but gteMin not
+                                joinConjuncts.add(gteMin);
+                            }
+                        }
+                        else if (rightRewrittenGteMin != null) {
+                            rightPushDownConjuncts.add(rightRewrittenGteMin);
+                            if (leftRewrittenLteMax == null) {
+                                // gteMin was pushed down but lteMax not
+                                joinConjuncts.add(lteMax);
+                            }
+                        }
+
+                        if (leftRewrittenLteMax == null && rightRewrittenGteMin == null && leftRewrittenGteMin == null && rightRewrittenLteMax == null) {
+                            // neither between side was pushed down to neither join side
+                            joinConjuncts.add(conjunct);
+                        }
+                    }
+                    else {
+                        joinConjuncts.add(allInference.rewrite(conjunct, Sets.union(leftScope, rightScope)));
+                    }
                 }
             });
 
@@ -1104,6 +1157,26 @@ public class PredicatePushDown
                     combineConjuncts(rightPushDownConjuncts.build()),
                     combineConjuncts(joinConjuncts.build()),
                     TRUE);
+        }
+
+        private static boolean isSimpleExpression(Expression expression)
+        {
+            return isSimpleExpression(expression, true);
+        }
+
+        private static boolean isSimpleExpression(Expression expression, boolean allowArithmeticBinaryExpression)
+        {
+            return expression instanceof Reference ||
+                    expression instanceof Constant ||
+                    (expression instanceof Cast cast && isSimpleExpression(cast.expression(), allowArithmeticBinaryExpression)) ||
+                    (allowArithmeticBinaryExpression && expression instanceof Call arithmeticExpression &&
+                            (arithmeticExpression.function().name().equals(builtinFunctionName(ADD)) ||
+                                    arithmeticExpression.function().name().equals(builtinFunctionName(SUBTRACT)) ||
+                                    arithmeticExpression.function().name().equals(builtinFunctionName(MULTIPLY)) ||
+                                    arithmeticExpression.function().name().equals(builtinFunctionName(DIVIDE)) ||
+                                    arithmeticExpression.function().name().equals(builtinFunctionName(MODULUS))) &&
+                            isSimpleExpression(arithmeticExpression.arguments().get(0), false) &&
+                            isSimpleExpression(arithmeticExpression.arguments().get(1), false));
         }
 
         private static class InnerJoinPushDownResult
