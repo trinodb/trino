@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.delete;
 
 import com.google.common.base.CharMatcher;
+import io.delta.kernel.internal.deletionvectors.Base85Codec;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
@@ -31,6 +32,7 @@ import java.util.zip.Checksum;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.delta.kernel.internal.deletionvectors.Base85Codec.decodeUUID;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Math.toIntExact;
@@ -74,7 +76,7 @@ public final class DeletionVectors
         checkArgument(ALPHANUMERIC.matchesAllOf(randomPrefix), "Random prefix must be alphanumeric: %s", randomPrefix);
         String prefix = randomPrefix.isEmpty() ? "" : randomPrefix + "/";
         String encodedUuid = pathOrInlineDv.substring(randomPrefixLength);
-        UUID uuid = decodeUuid(encodedUuid);
+        UUID uuid = decodeUUID(encodedUuid);
         return "%sdeletion_vector_%s.bin".formatted(prefix, uuid);
     }
 
@@ -130,15 +132,5 @@ public final class DeletionVectors
             return bitmaps;
         }
         throw new IllegalArgumentException("Unsupported magic number: " + magicNumber);
-    }
-
-    public static UUID decodeUuid(String encoded)
-    {
-        byte[] bytes = Base85Codec.decode(encoded);
-        ByteBuffer buffer = ByteBuffer.wrap(bytes);
-        checkArgument(buffer.remaining() == 16);
-        long highBits = buffer.getLong();
-        long lowBits = buffer.getLong();
-        return new UUID(highBits, lowBits);
     }
 }
