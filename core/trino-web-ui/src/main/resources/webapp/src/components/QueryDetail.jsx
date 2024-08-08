@@ -35,7 +35,9 @@ import {
     parseAndFormatDataSize,
     parseDataSize,
     parseDuration,
-    precisionRound
+    precisionRound,
+    bracketedString,
+    formatPercentage
 } from "../utils";
 import {QueryHeader} from "./QueryHeader";
 
@@ -158,6 +160,9 @@ class TaskList extends React.Component {
                     <Td column="elapsedTime" value={parseDuration(task.stats.elapsedTime)}>
                         {task.stats.elapsedTime}
                     </Td>
+                    <Td column="scheduledTime" value={parseDuration(task.stats.totalScheduledTime)}>
+                        {task.stats.totalScheduledTime}
+                    </Td>
                     <Td column="cpuTime" value={parseDuration(task.stats.totalCpuTime)}>
                         {task.stats.totalCpuTime}
                     </Td>
@@ -169,6 +174,12 @@ class TaskList extends React.Component {
                     </Td>
                     <Td column="peakMemory" value={parseDataSize(task.stats.peakUserMemoryReservation)}>
                         {parseAndFormatDataSize(task.stats.peakUserMemoryReservation)}
+                    </Td>
+                    <Td column="revocableMemory" value={parseDataSize(task.stats.revocableMemoryReservation)}>
+                        {parseAndFormatDataSize(task.stats.revocableMemoryReservation)}
+                    </Td>
+                    <Td column="spilledData" value={parseDataSize(task.stats.spilledDataSize)}>
+                        {parseAndFormatDataSize(task.stats.spilledDataSize)}
                     </Td>
                     {taskRetriesEnabled &&
                     <Td column="estimatedMemory" value={parseDataSize(task.estimatedMemory)}>
@@ -197,10 +208,13 @@ class TaskList extends React.Component {
                     'bytes',
                     'bytesSec',
                     'elapsedTime',
+                    'scheduledTime',
                     'cpuTime',
                     'bufferedBytes',
                     'memory',
                     'peakMemory',
+                    'revocableMemory',
+                    'spilledData',
                     'estimatedMemory',
                 ]}
                    defaultSort={{column: 'id', direction: 'asc'}}>
@@ -221,9 +235,12 @@ class TaskList extends React.Component {
                 <Th column="bytes">Bytes</Th>
                 <Th column="bytesSec">Bytes/s</Th>
                 <Th column="elapsedTime">Elapsed</Th>
+                <Th column="scheduledTime">Scheduled</Th>
                 <Th column="cpuTime">CPU Time</Th>
                 <Th column="memory">Mem</Th>
                 <Th column="peakMemory">Peak Mem</Th>
+                <Th column="revocableMemory">Revocable Mem</Th>
+                <Th column="spilledData">Spilled Data</Th>
                 {taskRetriesEnabled &&
                 <Th column="estimatedMemory">Est Mem</Th>
                 }
@@ -327,6 +344,7 @@ class StageSummary extends React.Component {
 
         const scheduledTimes = stage.tasks.map(task => parseDuration(task.stats.totalScheduledTime));
         const cpuTimes = stage.tasks.map(task => parseDuration(task.stats.totalCpuTime));
+        const physicalInputDataSizes = stage.tasks.map(task => parseDataSize(task.stats.physicalInputDataSize))
 
         // prevent multiple calls to componentDidUpdate (resulting from calls to setState or otherwise) within the refresh interval from re-rendering sparklines/charts
         if (this.state.lastRender === null || (Date.now() - this.state.lastRender) >= 1000) {
@@ -335,6 +353,7 @@ class StageSummary extends React.Component {
 
             StageSummary.renderHistogram('#scheduled-time-histogram-' + stageId, scheduledTimes, formatDuration);
             StageSummary.renderHistogram('#cpu-time-histogram-' + stageId, cpuTimes, formatDuration);
+            StageSummary.renderHistogram('#physical-input-data-size-histogram-' + stageId, physicalInputDataSizes, formatDataSize)
 
             if (this.state.expanded) {
                 // this needs to be a string otherwise it will also be passed to numberFormatter
@@ -347,6 +366,7 @@ class StageSummary extends React.Component {
 
                 $('#scheduled-time-bar-chart-' + stageId).sparkline(scheduledTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
                 $('#cpu-time-bar-chart-' + stageId).sparkline(cpuTimes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDuration}));
+                $('#physical-input-data-size-bar-chart-' + stageId).sparkline(physicalInputDataSizes, $.extend({}, stageBarChartProperties, {numberFormatter: formatDataSize}));
             }
 
             this.setState({
@@ -407,6 +427,7 @@ class StageSummary extends React.Component {
     }
 
     render() {
+        const query = this.props.query;
         const stage = this.props.stage;
         const taskRetriesEnabled = this.props.taskRetriesEnabled;
 
@@ -420,6 +441,9 @@ class StageSummary extends React.Component {
         const totalBufferedBytes = stage.tasks
             .map(task => task.outputBuffers.totalBufferedBytes)
             .reduce((a, b) => a + b, 0);
+
+        const cpuTimePercent = 100.0 * parseDuration(stage?.stageStats.totalCpuTime) / parseDuration(query?.queryStats.totalCpuTime);
+        const scheduledTimePercent = 100.0 * parseDuration(stage?.stageStats.totalScheduledTime) / parseDuration(query?.queryStats.totalScheduledTime);
 
         const stageId = getStageNumber(stage.stageId);
 
@@ -448,7 +472,7 @@ class StageSummary extends React.Component {
                                             Scheduled
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.stageStats.totalScheduledTime}
+                                            {stage.stageStats.totalScheduledTime + bracketedString(formatPercentage(precisionRound(scheduledTimePercent)))}
                                         </td>
                                     </tr>
                                     <tr>
@@ -464,7 +488,7 @@ class StageSummary extends React.Component {
                                             CPU
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.stageStats.totalCpuTime}
+                                            {stage.stageStats.totalCpuTime + bracketedString(formatPercentage(precisionRound(cpuTimePercent)))}
                                         </td>
                                     </tr>
                                     <tr>
@@ -507,10 +531,18 @@ class StageSummary extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="stage-table-stat-title">
-                                            Current
+                                            User
                                         </td>
                                         <td className="stage-table-stat-text">
                                             {parseAndFormatDataSize(stage.stageStats.userMemoryReservation)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Revocable
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {parseAndFormatDataSize(stage.stageStats.revocableMemoryReservation)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -523,10 +555,18 @@ class StageSummary extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="stage-table-stat-title">
-                                            Peak
+                                            Peak User
                                         </td>
                                         <td className="stage-table-stat-text">
                                             {parseAndFormatDataSize(stage.stageStats.peakUserMemoryReservation)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Peak Revocable
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {parseAndFormatDataSize(stage.stageStats.peakRevocableMemoryReservation)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -535,6 +575,14 @@ class StageSummary extends React.Component {
                                         </td>
                                         <td className="stage-table-stat-text">
                                             {formatDataSizeBytes(stage.stageStats.failedCumulativeUserMemory / 1000)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Spilled Data
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {parseAndFormatDataSize(stage.stageStats.spilledDataSize)}
                                         </td>
                                     </tr>
                                     </tbody>
@@ -573,6 +621,22 @@ class StageSummary extends React.Component {
                                         </td>
                                         <td className="stage-table-stat-text">
                                             {stage.tasks.filter(task => task.stats.fullyBlocked).length}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Flushing
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.tasks.filter(task => task.taskStatus.state === "FLUSHING").length}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="stage-table-stat-title">
+                                            Finished
+                                        </td>
+                                        <td className="stage-table-stat-text">
+                                            {stage.tasks.filter(task => task.taskStatus.state === "FINISHED").length}
                                         </td>
                                     </tr>
                                     <tr>
@@ -630,6 +694,25 @@ class StageSummary extends React.Component {
                                     </tbody>
                                 </table>
                             </td>
+                            <td>
+                                <table className="stage-table histogram-table">
+                                    <thead>
+                                    <tr>
+                                        <th className="stage-table-stat-title stage-table-chart-header">
+                                            Physical Input Data Skew
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr>
+                                        <td className="histogram-container">
+                                            <span className="histogram" id={"physical-input-data-size-histogram-" + stageId}><div
+                                                    className="loader"/></span>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </td>
                             <td className="expand-charts-container">
                                 <a onClick={this.toggleExpanded.bind(this)} className="expand-charts-button">
                                     <span className={"glyphicon " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-toggle="tooltip" data-placement="top" title="More"/>
@@ -670,6 +753,22 @@ class StageSummary extends React.Component {
                         </tr>
                         <tr style={this.getExpandedStyle()}>
                             <td colSpan="6">
+                                <table className="expanded-chart">
+                                    <tbody>
+                                    <tr>
+                                        <td className="stage-table-stat-title expanded-chart-title">
+                                            Task Physical Input Data Size
+                                        </td>
+                                        <td className="bar-chart-container">
+                                            <span className="bar-chart" id={"physical-input-data-size-bar-chart-" + stageId}><div className="loader"/></span>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr style={this.getExpandedStyle()}>
+                            <td colSpan="6">
                                 {this.renderTaskFilter()}
                             </td>
                         </tr>
@@ -700,15 +799,15 @@ class StageList extends React.Component {
 
         if (stages === undefined || stages.length === 0) {
             return (
-                <div className="row">
-                    <div className="col-xs-12">
-                        No stage information available.
+                    <div className="row">
+                        <div className="col-xs-12">
+                            No stage information available.
+                        </div>
                     </div>
-                </div>
             );
         }
 
-        const renderedStages = stages.map(stage => <StageSummary key={stage.stageId} stage={stage} taskRetriesEnabled={taskRetriesEnabled}/>);
+        const renderedStages = stages.map(stage => <StageSummary key={stage.stageId} stage={stage} taskRetriesEnabled={taskRetriesEnabled} query={this.props.query}/>);
 
         return (
             <div className="row">
@@ -1003,8 +1102,7 @@ export class QueryDetail extends React.Component {
                 </div>
                 <div className="row">
                     <div className="col-xs-12">
-                        <StageList key={this.state.query.queryId} outputStage={this.state.lastSnapshotStage} taskRetriesEnabled={taskRetriesEnabled} />
-                    </div>
+                        <StageList key={this.state.query.queryId} outputStage={this.state.lastSnapshotStage} taskRetriesEnabled={taskRetriesEnabled} query={this.state.query}/>                    </div>
                 </div>
             </div>
         );
@@ -1362,9 +1460,9 @@ export class QueryDetail extends React.Component {
                                             {query.queryStats.totalCpuTime}
                                         </td>
                                         {taskRetriesEnabled &&
-                                        <td className="info-failed">
-                                            {query.queryStats.failedCpuTime}
-                                        </td>
+                                                <td className="info-failed">
+                                                    {query.queryStats.failedCpuTime}
+                                                </td>
                                         }
                                     </tr>
                                     <tr>
@@ -1383,10 +1481,18 @@ export class QueryDetail extends React.Component {
                                             {query.queryStats.totalScheduledTime}
                                         </td>
                                         {taskRetriesEnabled &&
-                                        <td className="info-failed">
-                                            {query.queryStats.failedScheduledTime}
-                                        </td>
+                                                <td className="info-failed">
+                                                    {query.queryStats.failedScheduledTime}
+                                                </td>
                                         }
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Total Splits
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.totalDrivers}
+                                        </td>
                                     </tr>
                                     <tr>
                                         <td className="info-title">
@@ -1396,9 +1502,9 @@ export class QueryDetail extends React.Component {
                                             {formatCount(query.queryStats.processedInputPositions)}
                                         </td>
                                         {taskRetriesEnabled &&
-                                        <td className="info-failed">
-                                            {query.queryStats.failedProcessedInputPositions}
-                                        </td>
+                                                <td className="info-failed">
+                                                    {query.queryStats.failedProcessedInputPositions}
+                                                </td>
                                         }
                                     </tr>
                                     <tr>
@@ -1409,9 +1515,9 @@ export class QueryDetail extends React.Component {
                                             {parseAndFormatDataSize(query.queryStats.processedInputDataSize)}
                                         </td>
                                         {taskRetriesEnabled &&
-                                        <td className="info-failed">
-                                            {query.queryStats.failedProcessedInputDataSize}
-                                        </td>
+                                                <td className="info-failed">
+                                                    {query.queryStats.failedProcessedInputDataSize}
+                                                </td>
                                         }
                                     </tr>
                                     <tr>
@@ -1422,9 +1528,9 @@ export class QueryDetail extends React.Component {
                                             {formatCount(query.queryStats.physicalInputPositions)}
                                         </td>
                                         {taskRetriesEnabled &&
-                                        <td className="info-failed">
-                                            {formatCount(query.queryStats.failedPhysicalInputPositions)}
-                                        </td>
+                                                <td className="info-failed">
+                                                    {formatCount(query.queryStats.failedPhysicalInputPositions)}
+                                                </td>
                                         }
                                     </tr>
                                     <tr>
@@ -1435,9 +1541,9 @@ export class QueryDetail extends React.Component {
                                             {parseAndFormatDataSize(query.queryStats.physicalInputDataSize)}
                                         </td>
                                         {taskRetriesEnabled &&
-                                        <td className="info-failed">
-                                            {parseAndFormatDataSize(query.queryStats.failedPhysicalInputDataSize)}
-                                        </td>
+                                                <td className="info-failed">
+                                                    {parseAndFormatDataSize(query.queryStats.failedPhysicalInputDataSize)}
+                                                </td>
                                         }
                                     </tr>
                                     <tr>
@@ -1448,9 +1554,9 @@ export class QueryDetail extends React.Component {
                                             {query.queryStats.physicalInputReadTime}
                                         </td>
                                         {taskRetriesEnabled &&
-                                        <td className="info-failed">
-                                            {query.queryStats.failedPhysicalInputReadTime}
-                                        </td>
+                                                <td className="info-failed">
+                                                    {query.queryStats.failedPhysicalInputReadTime}
+                                                </td>
                                         }
                                     </tr>
                                     <tr>
@@ -1461,9 +1567,9 @@ export class QueryDetail extends React.Component {
                                             {formatCount(query.queryStats.internalNetworkInputPositions)}
                                         </td>
                                         {taskRetriesEnabled &&
-                                        <td className="info-failed">
-                                            {formatCount(query.queryStats.failedInternalNetworkInputPositions)}
-                                        </td>
+                                                <td className="info-failed">
+                                                    {formatCount(query.queryStats.failedInternalNetworkInputPositions)}
+                                                </td>
                                         }
                                     </tr>
                                     <tr>
@@ -1474,9 +1580,9 @@ export class QueryDetail extends React.Component {
                                             {parseAndFormatDataSize(query.queryStats.internalNetworkInputDataSize)}
                                         </td>
                                         {taskRetriesEnabled &&
-                                        <td className="info-failed">
-                                            {parseAndFormatDataSize(query.queryStats.failedInternalNetworkInputDataSize)}
-                                        </td>
+                                                <td className="info-failed">
+                                                    {parseAndFormatDataSize(query.queryStats.failedInternalNetworkInputDataSize)}
+                                                </td>
                                         }
                                     </tr>
                                     <tr>
@@ -1488,14 +1594,14 @@ export class QueryDetail extends React.Component {
                                         </td>
                                     </tr>
                                     {parseDataSize(query.queryStats.peakRevocableMemoryReservation) > 0 &&
-                                    <tr>
-                                        <td className="info-title">
-                                            Peak Revocable Memory
-                                        </td>
-                                        <td className="info-text">
-                                            {parseAndFormatDataSize(query.queryStats.peakRevocableMemoryReservation)}
-                                        </td>
-                                    </tr>
+                                            <tr>
+                                                <td className="info-title">
+                                                    Peak Revocable Memory
+                                                </td>
+                                                <td className="info-text">
+                                                    {parseAndFormatDataSize(query.queryStats.peakRevocableMemoryReservation)}
+                                                </td>
+                                            </tr>
                                     }
                                     <tr>
                                         <td className="info-title">
@@ -1513,9 +1619,9 @@ export class QueryDetail extends React.Component {
                                             {formatDataSize(query.queryStats.cumulativeUserMemory / 1000.0) + "*seconds"}
                                         </td>
                                         {taskRetriesEnabled &&
-                                        <td className="info-failed">
-                                            {formatDataSize(query.queryStats.failedCumulativeUserMemory / 1000.0) + "*seconds"}
-                                        </td>
+                                                <td className="info-failed">
+                                                    {formatDataSize(query.queryStats.failedCumulativeUserMemory / 1000.0) + "*seconds"}
+                                                </td>
                                         }
                                     </tr>
                                     <tr>
@@ -1526,9 +1632,9 @@ export class QueryDetail extends React.Component {
                                             {formatCount(query.queryStats.outputPositions)}
                                         </td>
                                         {taskRetriesEnabled &&
-                                        <td className="info-failed">
-                                            {formatCount(query.queryStats.failedOutputPositions)}
-                                        </td>
+                                                <td className="info-failed">
+                                                    {formatCount(query.queryStats.failedOutputPositions)}
+                                                </td>
                                         }
                                     </tr>
                                     <tr>
@@ -1539,9 +1645,9 @@ export class QueryDetail extends React.Component {
                                             {parseAndFormatDataSize(query.queryStats.outputDataSize)}
                                         </td>
                                         {taskRetriesEnabled &&
-                                        <td className="info-failed">
-                                            {parseAndFormatDataSize(query.queryStats.failedOutputDataSize)}
-                                        </td>
+                                                <td className="info-failed">
+                                                    {parseAndFormatDataSize(query.queryStats.failedOutputDataSize)}
+                                                </td>
                                         }
                                     </tr>
                                     <tr>
@@ -1568,20 +1674,20 @@ export class QueryDetail extends React.Component {
                                             {parseAndFormatDataSize(query.queryStats.physicalWrittenDataSize)}
                                         </td>
                                         {taskRetriesEnabled &&
-                                        <td className="info-failed">
-                                            {parseAndFormatDataSize(query.queryStats.failedPhysicalWrittenDataSize)}
-                                        </td>
+                                                <td className="info-failed">
+                                                    {parseAndFormatDataSize(query.queryStats.failedPhysicalWrittenDataSize)}
+                                                </td>
                                         }
                                     </tr>
                                     {parseDataSize(query.queryStats.spilledDataSize) > 0 &&
-                                    <tr>
-                                        <td className="info-title">
-                                            Spilled Data
-                                        </td>
-                                        <td className="info-text">
-                                            {parseAndFormatDataSize(query.queryStats.spilledDataSize)}
-                                        </td>
-                                    </tr>
+                                            <tr>
+                                                <td className="info-title">
+                                                    Spilled Data
+                                                </td>
+                                                <td className="info-text">
+                                                    {parseAndFormatDataSize(query.queryStats.spilledDataSize)}
+                                                </td>
+                                            </tr>
                                     }
                                     </tbody>
                                 </table>

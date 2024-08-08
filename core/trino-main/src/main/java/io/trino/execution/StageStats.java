@@ -627,6 +627,13 @@ public class StageStats
         return operatorSummaries;
     }
 
+    public DataSize getSpilledDataSize()
+    {
+        return succinctBytes(operatorSummaries.stream()
+                .mapToLong(stats -> stats.getSpilledDataSize().toBytes())
+                .sum());
+    }
+
     public BasicStageStats toBasicStageStats(StageState stageState)
     {
         boolean isScheduled = stageState == RUNNING || stageState == StageState.PENDING || stageState.isDone();

@@ -40,6 +40,7 @@ public class TrimmedBasicQueryInfo
     private final String sessionUser;
     private final Optional<String> sessionPrincipal;
     private final Optional<String> sessionSource;
+    private final Optional<String> sessionClientInfo;
     private final Optional<ResourceGroupId> resourceGroupId;
     private final QueryState state;
     private final boolean scheduled;
@@ -59,6 +60,7 @@ public class TrimmedBasicQueryInfo
         this.sessionUser = requireNonNull(queryInfo.getSession().getUser(), "user is null");
         this.sessionPrincipal = requireNonNull(queryInfo.getSession().getPrincipal(), "principal is null");
         this.sessionSource = requireNonNull(queryInfo.getSession().getSource(), "source is null");
+        this.sessionClientInfo = requireNonNull(queryInfo.getSession().getClientInfo(), "clientInfo is null");
         this.resourceGroupId = requireNonNull(queryInfo.getResourceGroupId(), "resourceGroupId is null");
         this.state = requireNonNull(queryInfo.getState(), "state is null");
         this.errorType = Optional.ofNullable(queryInfo.getErrorType());
@@ -101,6 +103,12 @@ public class TrimmedBasicQueryInfo
     public Optional<String> getSessionSource()
     {
         return sessionSource;
+    }
+
+    @JsonProperty
+    public Optional<String> getSessionClientInfo()
+    {
+        return sessionClientInfo;
     }
 
     @JsonProperty
