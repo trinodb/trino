@@ -14,11 +14,11 @@
 package io.trino.plugin.deltalake.delete;
 
 import com.google.common.io.Resources;
+import io.delta.kernel.internal.deletionvectors.RoaringBitmapArray;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import org.junit.jupiter.api.Test;
-import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -42,8 +42,7 @@ public class TestDeletionVectors
         TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
         DeletionVectorEntry deletionVector = new DeletionVectorEntry("u", "R7QFX3rGXPFLhHGq&7g<", OptionalInt.of(1), 34, 1);
 
-        Roaring64NavigableMap bitmaps = readDeletionVectors(fileSystem, Location.of(path.toString()), deletionVector);
-        assertThat(bitmaps.getLongCardinality()).isEqualTo(1);
+        RoaringBitmapArray bitmaps = readDeletionVectors(fileSystem, Location.of(path.toString()), deletionVector);
         assertThat(bitmaps.contains(0)).isFalse();
         assertThat(bitmaps.contains(1)).isTrue();
         assertThat(bitmaps.contains(2)).isFalse();
