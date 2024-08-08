@@ -21,6 +21,9 @@ import io.airlift.http.server.HttpServer.ClientCertificate;
 import io.trino.server.security.Authenticator;
 import io.trino.server.security.CertificateAuthenticator;
 import io.trino.server.security.CertificateConfig;
+import io.trino.server.security.HeaderAuthenticator;
+import io.trino.server.security.HeaderAuthenticatorConfig;
+import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.KerberosAuthenticator;
 import io.trino.server.security.KerberosConfig;
 import io.trino.server.security.SecurityConfig;
@@ -58,6 +61,11 @@ public class WebUiAuthenticationModule
         }));
         installWebUiAuthenticator("kerberos", KerberosAuthenticator.class, KerberosConfig.class);
         install(webUiAuthenticator("jwt", JwtAuthenticator.class, new JwtAuthenticatorSupportModule()));
+        install(webUiAuthenticator("header", HeaderAuthenticator.class, headerBinder -> {
+            newOptionalBinder(headerBinder, HeaderAuthenticatorManager.class);
+            configBinder(headerBinder).bindConfig(HeaderAuthenticatorConfig.class);
+            headerBinder.bind(HeaderAuthenticatorManager.class).in(SINGLETON);
+        }));
     }
 
     private void installWebUiAuthenticator(String type, Module module)
