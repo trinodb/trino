@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>468-SNAPSHOT</version>
+    <version>470-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -64,6 +64,7 @@
         <module>plugin/trino-blackhole</module>
         <module>plugin/trino-cassandra</module>
         <module>plugin/trino-clickhouse</module>
+        <module>plugin/trino-databend</module>
         <module>plugin/trino-delta-lake</module>
         <module>plugin/trino-druid</module>
         <module>plugin/trino-elasticsearch</module>
@@ -462,6 +463,13 @@
                 <groupId>com.clickhouse</groupId>
                 <artifactId>clickhouse-jdbc</artifactId>
                 <version>0.6.3</version>
+                <classifier>all</classifier>
+            </dependency>
+
+            <dependency>
+                <groupId>com.databend</groupId>
+                <artifactId>databend-jdbc</artifactId>
+                <version>0.3.4</version>
                 <classifier>all</classifier>
             </dependency>
 
