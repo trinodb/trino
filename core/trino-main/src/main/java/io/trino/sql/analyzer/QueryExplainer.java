@@ -32,6 +32,7 @@ import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.tree.CreateCatalog;
+import io.trino.sql.tree.CreateCatalogLike;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
@@ -41,6 +42,8 @@ import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.ExplainType.Type;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Prepare;
+import io.trino.sql.tree.RenameCatalog;
+import io.trino.sql.tree.SetCatalogProperties;
 import io.trino.sql.tree.Statement;
 
 import java.util.List;
@@ -196,7 +199,10 @@ public class QueryExplainer
 
         return Optional.of(switch (statement) {
             case CreateCatalog createCatalog -> "CREATE CATALOG " + createCatalog.getCatalogName();
+            case CreateCatalogLike createCatalogLike -> "CREATE CATALOG %s LIKE %s".formatted(createCatalogLike.getTarget(), createCatalogLike.getSource());
             case DropCatalog dropCatalog -> "DROP CATALOG " + dropCatalog.getCatalogName();
+            case RenameCatalog renameCatalog -> "ALTER CATALOG %s RENAME TO %s".formatted(((RenameCatalog) statement).getSource(), ((RenameCatalog) statement).getTarget());
+            case SetCatalogProperties setCatalogProperties -> "ALTER CATALOG %s SET PROPERTIES".formatted(((SetCatalogProperties) statement).getName());
             case CreateSchema createSchema -> "CREATE SCHEMA " + createSchema.getSchemaName();
             case DropSchema dropSchema -> "DROP SCHEMA " + dropSchema.getSchemaName();
             case CreateTable createTable -> "CREATE TABLE " + createTable.getName();

@@ -53,8 +53,15 @@ statement
          (COMMENT string)?
          (AUTHORIZATION principal)?
          (WITH properties)?                                            #createCatalog
+    | CREATE CATALOG (IF NOT EXISTS)? target=identifier
+         LIKE source=identifier
+         (WITH properties)?                                            #createCatalogLike
     | DROP CATALOG (IF EXISTS)? catalog=identifier
          (CASCADE | RESTRICT)?                                         #dropCatalog
+    | ALTER CATALOG from=identifier
+        RENAME TO to=identifier                                        #renameCatalog
+    | ALTER CATALOG catalog=identifier
+        SET PROPERTIES propertyAssignments                             #setCatalogProperties
     | CREATE SCHEMA (IF NOT EXISTS)? qualifiedName
         (AUTHORIZATION principal)?
         (WITH properties)?                                             #createSchema
@@ -155,6 +162,7 @@ statement
     | EXPLAIN ANALYZE VERBOSE? statement                               #explainAnalyze
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
     | SHOW CREATE SCHEMA qualifiedName                                 #showCreateSchema
+    | SHOW CREATE CATALOG identifier                                   #showCreateCatalog
     | SHOW CREATE VIEW qualifiedName                                   #showCreateView
     | SHOW CREATE MATERIALIZED VIEW qualifiedName                      #showCreateMaterializedView
     | SHOW CREATE FUNCTION qualifiedName                               #showCreateFunction

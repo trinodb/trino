@@ -32,6 +32,7 @@ import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.CompoundStatement;
 import io.trino.sql.tree.ControlStatement;
 import io.trino.sql.tree.CreateCatalog;
+import io.trino.sql.tree.CreateCatalogLike;
 import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
@@ -117,6 +118,7 @@ import io.trino.sql.tree.QueryPeriod;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Relation;
+import io.trino.sql.tree.RenameCatalog;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
@@ -137,6 +139,7 @@ import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
+import io.trino.sql.tree.SetCatalogProperties;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
@@ -150,6 +153,7 @@ import io.trino.sql.tree.SetViewAuthorization;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
+import io.trino.sql.tree.ShowCreateCatalog;
 import io.trino.sql.tree.ShowFunctions;
 import io.trino.sql.tree.ShowGrants;
 import io.trino.sql.tree.ShowRoleGrants;
@@ -1385,6 +1389,14 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitShowCreateCatalog(ShowCreateCatalog node, Integer indent)
+        {
+            builder.append("SHOW CREATE CATALOG ")
+                    .append(formatName(node.getName()));
+            return null;
+        }
+
+        @Override
         protected Void visitShowColumns(ShowColumns node, Integer indent)
         {
             builder.append("SHOW COLUMNS FROM ")
@@ -1460,6 +1472,21 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitCreateCatalogLike(CreateCatalogLike node, Integer indent)
+        {
+            builder.append("CREATE CATALOG ");
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatName(node.getTarget()))
+                    .append(" LIKE ")
+                    .append(formatName(node.getSource()));
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
+
+            return null;
+        }
+
+        @Override
         protected Void visitCreateCatalog(CreateCatalog node, Integer indent)
         {
             builder.append("CREATE CATALOG ");
@@ -1489,6 +1516,28 @@ public final class SqlFormatter
             builder.append(formatName(node.getCatalogName()))
                     .append(" ")
                     .append(node.isCascade() ? "CASCADE" : "RESTRICT");
+
+            return null;
+        }
+
+        @Override
+        protected Void visitRenameCatalog(RenameCatalog node, Integer indent)
+        {
+            builder.append("ALTER CATALOG ")
+                    .append(formatName(node.getSource()))
+                    .append(" RENAME TO ")
+                    .append(formatName(node.getTarget()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitSetCatalogProperties(SetCatalogProperties node, Integer context)
+        {
+            builder.append("ALTER CATALOG ")
+                    .append(formatName(node.getName()))
+                    .append(" SET PROPERTIES ")
+                    .append(joinProperties(node.getProperties()));
 
             return null;
         }

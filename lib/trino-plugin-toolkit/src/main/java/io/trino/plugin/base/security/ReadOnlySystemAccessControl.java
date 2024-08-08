@@ -94,6 +94,11 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
+    public void checkCanShowCreateCatalog(SystemSecurityContext context, String catalog)
+    {
+    }
+
+    @Override
     public void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName)
     {
     }
