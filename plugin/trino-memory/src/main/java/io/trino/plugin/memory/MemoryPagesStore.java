@@ -117,7 +117,10 @@ public class MemoryPagesStore
                 done = true;
             }
             // Append missing columns with null values. This situation happens when a new column is added without additional insert.
-            for (int j = page.getChannelCount(); j < columnIndexes.length; j++) {
+            for (int j = 0; j < columnIndexes.length; j++) {
+                if (columnIndexes[j] < page.getChannelCount()) {
+                    continue;
+                }
                 Type type = columnTypes.get(j);
                 BlockBuilder builder = type.createBlockBuilder(null, page.getPositionCount());
                 IntStream.range(0, page.getPositionCount()).forEach(_ -> builder.appendNull());
