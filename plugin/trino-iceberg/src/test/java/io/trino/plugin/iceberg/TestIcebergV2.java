@@ -40,6 +40,7 @@ import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -97,7 +98,9 @@ import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTableWithSchema;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
@@ -345,6 +348,19 @@ public class TestIcebergV2
         assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE nationkey < 5");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
         assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "1");
+    }
+
+    @Test
+    public void testOptimizePopulateSplitOffsets()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_optimize_split_offsets", "AS SELECT * FROM tpch.tiny.nation")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize");
+            assertThat(computeActual("SELECT split_offsets FROM \"" + table.getName() + "$files\""))
+                    .isEqualTo(resultBuilder(getSession(), ImmutableList.of(new ArrayType(BIGINT)))
+                            .row(ImmutableList.of(4L))
+                            .row(ImmutableList.of(4L))
+                            .build());
+        }
     }
 
     @Test
