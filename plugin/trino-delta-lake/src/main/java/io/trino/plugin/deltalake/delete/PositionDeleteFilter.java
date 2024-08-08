@@ -13,26 +13,23 @@
  */
 package io.trino.plugin.deltalake.delete;
 
+import io.delta.kernel.internal.deletionvectors.RoaringBitmapArray;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.spi.block.Block;
-import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.ROW_POSITION_COLUMN_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public final class PositionDeleteFilter
 {
-    private final Roaring64NavigableMap deletedRows;
+    private final RoaringBitmapArray deletedRows;
 
-    public PositionDeleteFilter(Roaring64NavigableMap deletedRows)
+    public PositionDeleteFilter(RoaringBitmapArray deletedRows)
     {
-        requireNonNull(deletedRows, "deletedRows is null");
-        checkArgument(!deletedRows.isEmpty(), "deletedRows is empty");
-        this.deletedRows = deletedRows;
+        this.deletedRows = requireNonNull(deletedRows, "deletedRows is null");
     }
 
     public PageFilter createPredicate(List<DeltaLakeColumnHandle> columns)
