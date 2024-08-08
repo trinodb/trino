@@ -73,7 +73,7 @@ public final class Standard
     public static final String CONTAINER_TRINO_ETC = CONTAINER_CONF_ROOT + "conf/presto/etc";
     public static final String CONTAINER_TRINO_JVM_CONFIG = CONTAINER_TRINO_ETC + "/jvm.config";
     public static final String CONTAINER_TRINO_SECRETS_CONFIG = CONTAINER_TRINO_ETC + "/secrets.toml";
-    public static final String CONTAINER_TRINO_ACCESS_CONTROL_PROPERTIES = CONTAINER_TRINO_ETC + "/access-control.properties";
+    public static final String CONTAINER_TRINO_ACCESS_CONTROL_PROPERTIES = CONTAINER_TRINO_ETC + "/access-control.toml";
     public static final String CONTAINER_TRINO_CONFIG_PROPERTIES = CONTAINER_TRINO_ETC + "/config.properties";
     /**
      * @deprecated please use {@link EnvironmentContainers#configureTempto} instead.
@@ -169,7 +169,7 @@ public final class Standard
     {
         DockerContainer container =
                 createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, tracing, "ghcr.io/trinodb/testing/almalinux9-oj17:" + imagesVersion, COORDINATOR)
-                        .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.properties")), CONTAINER_TRINO_ACCESS_CONTROL_PROPERTIES)
+                        .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.toml")), CONTAINER_TRINO_ACCESS_CONTROL_PROPERTIES)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES);
 
         portBinder.exposePort(container, 8080); // Trino default port

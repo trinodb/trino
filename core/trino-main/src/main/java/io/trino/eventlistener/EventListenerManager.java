@@ -33,6 +33,7 @@ import org.weakref.jmx.Nested;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -47,7 +48,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.plugin.base.ConfigurationLoader.configurationExists;
+import static io.trino.plugin.base.ConfigurationLoader.loadConfigurationFrom;
+import static io.trino.plugin.base.ConfigurationLoader.resolvedConfigurationPath;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -55,7 +58,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class EventListenerManager
 {
     private static final Logger log = Logger.get(EventListenerManager.class);
-    private static final File CONFIG_FILE = new File("etc/event-listener.properties");
+    private static final Path CONFIG_FILE = Path.of("etc/event-listener");
     private static final String EVENT_LISTENER_NAME_PROPERTY = "event-listener.name";
     private final List<File> configFiles;
     private final int maxConcurrentQueryCompletedEvents;
@@ -109,10 +112,10 @@ public class EventListenerManager
     {
         List<File> configFiles = this.configFiles;
         if (configFiles.isEmpty()) {
-            if (!CONFIG_FILE.exists()) {
+            if (!configurationExists(CONFIG_FILE)) {
                 return ImmutableList.of();
             }
-            configFiles = ImmutableList.of(CONFIG_FILE);
+            configFiles = ImmutableList.of(resolvedConfigurationPath(CONFIG_FILE).toFile());
         }
         return configFiles.stream()
                 .map(this::createEventListener)
@@ -143,7 +146,7 @@ public class EventListenerManager
     private static Map<String, String> loadEventListenerProperties(File configFile)
     {
         try {
-            return new HashMap<>(loadPropertiesFrom(configFile.getPath()));
+            return new HashMap<>(loadConfigurationFrom(configFile.getPath()));
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to read configuration file: " + configFile, e);

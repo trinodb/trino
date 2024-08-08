@@ -24,9 +24,9 @@ import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeManagerFactory;
 import jakarta.annotation.PreDestroy;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,7 +34,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.plugin.base.ConfigurationLoader.configurationExists;
+import static io.trino.plugin.base.ConfigurationLoader.loadConfigurationFrom;
 import static io.trino.spi.StandardErrorCode.EXCHANGE_MANAGER_NOT_CONFIGURED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -43,7 +44,7 @@ public class ExchangeManagerRegistry
 {
     private static final Logger log = Logger.get(ExchangeManagerRegistry.class);
 
-    private static final File CONFIG_FILE = new File("etc/exchange-manager.properties");
+    private static final Path CONFIG_FILE = Path.of("etc/exchange-manager");
     private static final String EXCHANGE_MANAGER_NAME_PROPERTY = "exchange-manager.name";
 
     private final OpenTelemetry openTelemetry;
@@ -74,7 +75,7 @@ public class ExchangeManagerRegistry
 
     public void loadExchangeManager()
     {
-        if (!CONFIG_FILE.exists()) {
+        if (!configurationExists(CONFIG_FILE)) {
             return;
         }
 
@@ -126,10 +127,10 @@ public class ExchangeManagerRegistry
         }
     }
 
-    private static Map<String, String> loadProperties(File configFile)
+    private static Map<String, String> loadProperties(Path configFile)
     {
         try {
-            return new HashMap<>(loadPropertiesFrom(configFile.getPath()));
+            return new HashMap<>(loadConfigurationFrom(configFile));
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to read configuration file: " + configFile, e);

@@ -24,6 +24,7 @@ import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
+import io.trino.plugin.base.ConfigurationLoader;
 import io.trino.server.ForStartup;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
@@ -52,7 +53,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.plugin.base.ConfigurationLoader.loadConfigurationFrom;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -93,7 +94,7 @@ public class StaticCatalogManager
 
             Map<String, String> properties;
             try {
-                properties = new HashMap<>(loadPropertiesFrom(file.getPath()));
+                properties = new HashMap<>(loadConfigurationFrom(file));
             }
             catch (IOException e) {
                 throw new UncheckedIOException("Error reading catalog property file " + file, e);
@@ -128,7 +129,7 @@ public class StaticCatalogManager
         }
         return Arrays.stream(files)
                 .filter(File::isFile)
-                .filter(file -> file.getName().endsWith(".properties"))
+                .filter(ConfigurationLoader::isConfigurationFile)
                 .collect(toImmutableList());
     }
 

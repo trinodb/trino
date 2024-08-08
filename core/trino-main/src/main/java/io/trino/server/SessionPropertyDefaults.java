@@ -27,8 +27,8 @@ import io.trino.spi.session.SessionConfigurationContext;
 import io.trino.spi.session.SessionPropertyConfigurationManager;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -37,7 +37,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.plugin.base.ConfigurationLoader.configurationExists;
+import static io.trino.plugin.base.ConfigurationLoader.loadConfigurationFrom;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -45,7 +46,7 @@ public class SessionPropertyDefaults
 {
     private static final Logger log = Logger.get(SessionPropertyDefaults.class);
 
-    private static final File CONFIG_FILE = new File("etc/session-property-config.properties");
+    private static final Path CONFIG_FILE = Path.of("etc/session-property-config");
     private static final String NAME_PROPERTY = "session-property-config.configuration-manager";
 
     private final SessionPropertyConfigurationManagerContext configurationManagerContext;
@@ -73,16 +74,16 @@ public class SessionPropertyDefaults
     public void loadConfigurationManager()
             throws IOException
     {
-        loadConfigurationManager(CONFIG_FILE.getAbsoluteFile());
+        loadConfigurationManager(CONFIG_FILE);
     }
 
-    public void loadConfigurationManager(File configFile)
+    public void loadConfigurationManager(Path configFile)
             throws IOException
     {
-        if (!configFile.exists()) {
+        if (!configurationExists(configFile)) {
             return;
         }
-        Map<String, String> properties = new HashMap<>(loadPropertiesFrom(configFile.getPath()));
+        Map<String, String> properties = new HashMap<>(loadConfigurationFrom(configFile));
 
         String name = properties.remove(NAME_PROPERTY);
         checkState(!isNullOrEmpty(name), "Session property configuration %s does not contain '%s'", configFile, NAME_PROPERTY);

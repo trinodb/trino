@@ -37,7 +37,7 @@ import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.Managed;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +55,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.plugin.base.ConfigurationLoader.configurationExists;
+import static io.trino.plugin.base.ConfigurationLoader.loadConfigurationFrom;
+import static io.trino.plugin.base.ConfigurationLoader.resolvedConfigurationPath;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -68,7 +70,7 @@ public final class InternalResourceGroupManager<C>
 {
     private static final Logger log = Logger.get(InternalResourceGroupManager.class);
 
-    private static final File CONFIG_FILE = new File("etc/resource-groups.properties");
+    private static final Path CONFIG_FILE = Path.of("etc/resource-groups");
     private static final String NAME_PROPERTY = "resource-groups.configuration-manager";
 
     private final ScheduledExecutorService refreshExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("ResourceGroupManager"));
@@ -141,15 +143,14 @@ public final class InternalResourceGroupManager<C>
     public void loadConfigurationManager()
             throws Exception
     {
-        File configFile = CONFIG_FILE.getAbsoluteFile();
-        if (!configFile.exists()) {
+        if (!configurationExists(CONFIG_FILE)) {
             return;
         }
 
-        Map<String, String> properties = new HashMap<>(loadPropertiesFrom(configFile.getPath()));
+        Map<String, String> properties = new HashMap<>(loadConfigurationFrom(CONFIG_FILE));
 
         String name = properties.remove(NAME_PROPERTY);
-        checkState(!isNullOrEmpty(name), "Resource groups configuration %s does not contain '%s'", configFile, NAME_PROPERTY);
+        checkState(!isNullOrEmpty(name), "Resource groups configuration %s does not contain '%s'", resolvedConfigurationPath(CONFIG_FILE), NAME_PROPERTY);
 
         setConfigurationManager(name, properties);
     }

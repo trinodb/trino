@@ -25,8 +25,8 @@ import io.trino.spi.catalog.CatalogStoreFactory;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorName;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,14 +37,16 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.plugin.base.ConfigurationLoader.configurationExists;
+import static io.trino.plugin.base.ConfigurationLoader.loadConfigurationFrom;
+import static io.trino.plugin.base.ConfigurationLoader.resolvedConfigurationPath;
 import static java.util.Objects.requireNonNull;
 
 public class CatalogStoreManager
         implements CatalogStore
 {
     private static final Logger log = Logger.get(CatalogStoreManager.class);
-    private static final File CATALOG_STORE_CONFIGURATION = new File("etc/catalog-store.properties");
+    private static final Path CATALOG_STORE_CONFIGURATION = Path.of("etc/catalog-store");
     private static final String CATALOG_STORE_PROPERTY_NAME = "catalog-store.name";
     private final Map<String, CatalogStoreFactory> catalogStoreFactories = new ConcurrentHashMap<>();
     private final AtomicReference<Optional<CatalogStore>> configuredCatalogStore = new AtomicReference<>(Optional.empty());
@@ -72,17 +74,17 @@ public class CatalogStoreManager
     }
 
     @VisibleForTesting
-    void loadConfiguredCatalogStore(File catalogStoreFile)
+    void loadConfiguredCatalogStore(Path catalogStoreFile)
             throws IOException
     {
-        if (configuredCatalogStore.get().isPresent() || !catalogStoreFile.exists()) {
+        if (configuredCatalogStore.get().isPresent() || !configurationExists(catalogStoreFile)) {
             return;
         }
-        Map<String, String> properties = new HashMap<>(loadPropertiesFrom(catalogStoreFile.getPath()));
+        Map<String, String> properties = new HashMap<>(loadConfigurationFrom(catalogStoreFile));
 
         String catalogStoreName = properties.remove(CATALOG_STORE_PROPERTY_NAME);
         checkArgument(!isNullOrEmpty(catalogStoreName),
-                "Catalog store configuration %s does not contain %s", catalogStoreFile.getAbsoluteFile(), CATALOG_STORE_PROPERTY_NAME);
+                "Catalog store configuration %s does not contain %s", resolvedConfigurationPath(catalogStoreFile), CATALOG_STORE_PROPERTY_NAME);
 
         setConfiguredCatalogStore(catalogStoreName, properties);
     }
