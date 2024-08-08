@@ -20,12 +20,15 @@ import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
+import io.trino.tests.product.launcher.env.common.HttpProxy;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.common.HttpProxy.HTTP_PROXY_CONF_DIR;
+import static io.trino.tests.product.launcher.env.common.HttpProxy.PROXY;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
@@ -40,9 +43,14 @@ public class EnvSinglenodeOauth2HttpsProxy
     private final ResourceProvider configDir;
 
     @Inject
-    public EnvSinglenodeOauth2HttpsProxy(DockerFiles dockerFiles, PortBinder binder, Standard standard, HydraIdentityProvider hydraIdentityProvider)
+    public EnvSinglenodeOauth2HttpsProxy(
+            DockerFiles dockerFiles,
+            PortBinder binder,
+            Standard standard,
+            HydraIdentityProvider hydraIdentityProvider,
+            HttpProxy httpProxy)
     {
-        super(ImmutableList.of(standard, hydraIdentityProvider));
+        super(ImmutableList.of(standard, hydraIdentityProvider, httpProxy));
 
         this.binder = requireNonNull(binder, "binder is null");
         this.hydraIdentityProvider = requireNonNull(hydraIdentityProvider, "hydraIdentityProvider is null");
@@ -78,15 +86,13 @@ public class EnvSinglenodeOauth2HttpsProxy
 
         builder.containerDependsOn(COORDINATOR, hydraClientConfig.getLogicalName());
 
-        DockerContainer proxy = new DockerContainer("httpd:2.4.51", "proxy");
-        proxy
+        builder.containerDependsOn(COORDINATOR, PROXY);
+        builder.configureContainer(PROXY, proxyContainer -> proxyContainer
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("httpd.conf")),
-                        "/usr/local/apache2/conf/httpd.conf")
+                        HTTP_PROXY_CONF_DIR + "httpd.conf")
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("cert")),
-                        "/usr/local/apache2/conf/cert");
-        builder.addContainer(proxy);
-        builder.containerDependsOn(COORDINATOR, "proxy");
+                        HTTP_PROXY_CONF_DIR + "cert"));
     }
 }
