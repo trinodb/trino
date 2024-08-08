@@ -16,6 +16,7 @@ package io.trino.plugin.ignite;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.plugin.jdbc.DefaultJdbcMetadataFactory;
+import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
@@ -32,9 +33,9 @@ public class IgniteJdbcMetadataFactory
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
     @Inject
-    public IgniteJdbcMetadataFactory(JdbcClient jdbcClient, TimestampTimeZoneDomain timestampTimeZoneDomain, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public IgniteJdbcMetadataFactory(JdbcClient jdbcClient, TimestampTimeZoneDomain timestampTimeZoneDomain, Set<JdbcQueryEventListener> jdbcQueryEventListeners, IdentityCacheMapping identityCacheMapping)
     {
-        super(jdbcClient, timestampTimeZoneDomain, jdbcQueryEventListeners);
+        super(jdbcClient, timestampTimeZoneDomain, jdbcQueryEventListeners, identityCacheMapping);
         this.timestampTimeZoneDomain = requireNonNull(timestampTimeZoneDomain, "timestampTimeZoneDomain is null");
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "jdbcQueryEventListeners is null"));
     }
