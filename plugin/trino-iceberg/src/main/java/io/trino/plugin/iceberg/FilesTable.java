@@ -33,9 +33,11 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
-import org.apache.iceberg.DataFile;
+import org.apache.iceberg.ContentFile;
+import org.apache.iceberg.DataTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableGroup;
@@ -48,6 +50,7 @@ import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -64,6 +67,8 @@ import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataTableType.FILES;
+import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
 
 public class FilesTable
         implements SystemTable
@@ -121,7 +126,8 @@ public class FilesTable
         }
 
         Map<Integer, Type> idToTypeMapping = getIcebergIdToTypeMapping(icebergTable.schema());
-        TableScan tableScan = icebergTable.newScan()
+        TableScan tableScan = createMetadataTableInstance(icebergTable, FILES)
+                .newScan()
                 .useSnapshot(snapshotId.get())
                 .includeColumnStats();
 
@@ -174,45 +180,85 @@ public class FilesTable
             addCloseable(planFilesIterator);
 
             return new CloseableIterator<>() {
+                private CloseableIterator<StructLike> currentIterator = CloseableIterator.empty();
+
                 @Override
                 public boolean hasNext()
                 {
-                    return !closed && planFilesIterator.hasNext();
+                    updateCurrentIterator();
+                    return !closed && currentIterator.hasNext();
                 }
 
                 @Override
                 public List<Object> next()
                 {
-                    return getRecord(planFilesIterator.next().file());
+                    updateCurrentIterator();
+
+                    StructLike dataTaskFile = currentIterator.next();
+
+                    StructLike innerContentFile = null;
+
+                    // the StructWithReadableMetrics is a private class in iceberg-core
+                    // so we need to use reflection to access it
+                    try {
+                        Class<?> clazz = dataTaskFile.getClass();
+                        Field field = clazz.getDeclaredField("struct");
+                        field.setAccessible(true);
+                        innerContentFile = (StructLike) field.get(dataTaskFile);
+                    }
+                    catch (NoSuchFieldException | IllegalAccessException e) {
+                        throw new RuntimeException("Failed to access field struct from " + dataTaskFile.getClass().getName());
+                    }
+
+                    if (innerContentFile instanceof ContentFile contentFile) {
+                        return getRecord(contentFile);
+                    }
+                    else {
+                        throw new IllegalArgumentException("Unknown ContentFile type for " + dataTaskFile.getClass().getName());
+                    }
+                }
+
+                private void updateCurrentIterator()
+                {
+                    try {
+                        while (!closed && !currentIterator.hasNext() && planFilesIterator.hasNext()) {
+                            currentIterator.close();
+                            DataTask dataTask = (DataTask) planFilesIterator.next();
+                            currentIterator = dataTask.rows().iterator();
+                        }
+                    }
+                    catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
                 }
 
                 @Override
                 public void close()
                         throws IOException
                 {
-                    PlanFilesIterable.super.close();
+                    FilesTable.PlanFilesIterable.super.close();
                     closed = true;
                 }
             };
         }
 
-        private List<Object> getRecord(DataFile dataFile)
+        private List<Object> getRecord(ContentFile<?> contentFile)
         {
             List<Object> columns = new ArrayList<>();
-            columns.add(dataFile.content().id());
-            columns.add(dataFile.path().toString());
-            columns.add(dataFile.format().name());
-            columns.add(dataFile.recordCount());
-            columns.add(dataFile.fileSizeInBytes());
-            columns.add(getIntegerBigintSqlMap(dataFile.columnSizes()));
-            columns.add(getIntegerBigintSqlMap(dataFile.valueCounts()));
-            columns.add(getIntegerBigintSqlMap(dataFile.nullValueCounts()));
-            columns.add(getIntegerBigintSqlMap(dataFile.nanValueCounts()));
-            columns.add(getIntegerVarcharSqlMap(dataFile.lowerBounds()));
-            columns.add(getIntegerVarcharSqlMap(dataFile.upperBounds()));
-            columns.add(toVarbinarySlice(dataFile.keyMetadata()));
-            columns.add(toBigintArrayBlock(dataFile.splitOffsets()));
-            columns.add(toIntegerArrayBlock(dataFile.equalityFieldIds()));
+            columns.add(contentFile.content().id());
+            columns.add(contentFile.path().toString());
+            columns.add(contentFile.format().name());
+            columns.add(contentFile.recordCount());
+            columns.add(contentFile.fileSizeInBytes());
+            columns.add(getIntegerBigintSqlMap(contentFile.columnSizes()));
+            columns.add(getIntegerBigintSqlMap(contentFile.valueCounts()));
+            columns.add(getIntegerBigintSqlMap(contentFile.nullValueCounts()));
+            columns.add(getIntegerBigintSqlMap(contentFile.nanValueCounts()));
+            columns.add(getIntegerVarcharSqlMap(contentFile.lowerBounds()));
+            columns.add(getIntegerVarcharSqlMap(contentFile.upperBounds()));
+            columns.add(toVarbinarySlice(contentFile.keyMetadata()));
+            columns.add(toBigintArrayBlock(contentFile.splitOffsets()));
+            columns.add(toIntegerArrayBlock(contentFile.equalityFieldIds()));
             checkArgument(columns.size() == types.size(), "Expected %s types in row, but got %s values", types.size(), columns.size());
             return columns;
         }
