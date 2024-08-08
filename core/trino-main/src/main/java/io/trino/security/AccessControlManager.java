@@ -218,7 +218,7 @@ public class AccessControlManager
 
         SystemAccessControl systemAccessControl;
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            systemAccessControl = factory.create(ImmutableMap.copyOf(properties), createContext(name));
+            systemAccessControl = factory.create(ImmutableMap.copyOf(secretsResolver.getResolvedConfiguration(properties)), createContext(name));
         }
 
         log.info("-- Loaded system access control %s --", name);
