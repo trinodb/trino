@@ -41,11 +41,11 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-import static io.trino.execution.scheduler.faulttolerant.ExecutionThrottling.UNRESTRICTED;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.trino.execution.scheduler.faulttolerant.ExecutionThrottling.UNRESTRICTED;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.EAGER_SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.STANDARD;
@@ -846,22 +846,22 @@ public class TestBinPackingNodeAllocator
             final DataSize oneGig = DataSize.of(1, GIGABYTE);
 
             // When both nodes are alive, acquire works normally and yields node 2.
-            NodeAllocator.NodeLease acquireMyNode = nodeAllocator.acquire(node2Flexible, oneGig, STANDARD);
+            NodeAllocator.NodeLease acquireMyNode = nodeAllocator.acquire(node2Flexible, oneGig, STANDARD, UNRESTRICTED);
             assertAcquired(acquireMyNode, NODE_2);
             acquireMyNode.release();
 
             // When node 2 is dead, the flexible acquire should succeed on node 1, but the rigid acquire should fail.
             nodeManager.removeNode(NODE_2);
-            NodeAllocator.NodeLease acquireAnyNode = nodeAllocator.acquire(node2Flexible, oneGig, STANDARD);
+            NodeAllocator.NodeLease acquireAnyNode = nodeAllocator.acquire(node2Flexible, oneGig, STANDARD, UNRESTRICTED);
             assertAcquired(acquireAnyNode, NODE_1);
             acquireAnyNode.release();
-            acquireAnyNode = nodeAllocator.acquire(node2Rigid, oneGig, STANDARD);
+            acquireAnyNode = nodeAllocator.acquire(node2Rigid, oneGig, STANDARD, UNRESTRICTED);
             nodeAllocatorService.processPendingAcquires();
             assertNotAcquired(acquireAnyNode);
 
             nodeManager.removeNode(NODE_1);
             // Only the coordinator node remains, but allocator was created with scheduleOnCoordinator==false.
-            NodeAllocator.NodeLease acquireNoNodes = nodeAllocator.acquire(node2Flexible, oneGig, STANDARD);
+            NodeAllocator.NodeLease acquireNoNodes = nodeAllocator.acquire(node2Flexible, oneGig, STANDARD, UNRESTRICTED);
             nodeAllocatorService.processPendingAcquires();
             assertNotAcquired(acquireNoNodes);
             ticker.increment(61, TimeUnit.SECONDS);

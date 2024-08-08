@@ -22,8 +22,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static io.trino.execution.scheduler.faulttolerant.ExecutionThrottling.UNRESTRICTED;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.trino.execution.scheduler.faulttolerant.ExecutionThrottling.UNRESTRICTED;
 
 public class ThrottlingController
 {
