@@ -24,7 +24,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
@@ -394,40 +393,6 @@ public class TestPhoenixConnectorTest
             assertQuery("SELECT count(DISTINCT t_char) FROM " + testTable.getName(), "VALUES 6");
             assertQuery("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName(), "VALUES (6, 6)");
         }
-    }
-
-    @Test
-    @Override
-    public void testMergeLarge()
-    {
-        String tableName = "test_merge_" + randomNameSuffix();
-
-        assertUpdate(createTableForWrites(format("CREATE TABLE %s (orderkey BIGINT, custkey BIGINT, totalprice DOUBLE)", tableName)));
-
-        assertUpdate(
-                format("INSERT INTO %s SELECT orderkey, custkey, totalprice FROM tpch.sf1.orders", tableName),
-                (long) computeScalar("SELECT count(*) FROM tpch.sf1.orders"));
-
-        @Language("SQL") String mergeSql = "" +
-                "MERGE INTO " + tableName + " t USING (SELECT * FROM tpch.sf1.orders) s ON (t.orderkey = s.orderkey)\n" +
-                "WHEN MATCHED AND mod(s.orderkey, 3) = 0 THEN UPDATE SET totalprice = t.totalprice + s.totalprice\n" +
-                "WHEN MATCHED AND mod(s.orderkey, 3) = 1 THEN DELETE";
-
-        assertUpdate(mergeSql, 1_000_000);
-
-        // verify deleted rows
-        assertQuery("SELECT count(*) FROM " + tableName + " WHERE mod(orderkey, 3) = 1", "SELECT 0");
-
-        // verify untouched rows
-        assertThat(query("SELECT count(*), cast(sum(totalprice) AS decimal(18,2)) FROM " + tableName + " WHERE mod(orderkey, 3) = 2"))
-                .matches("SELECT count(*), cast(sum(totalprice) AS decimal(18,2)) FROM tpch.sf1.orders WHERE mod(orderkey, 3) = 2");
-
-        // TODO investigate why sum(DOUBLE) not correct
-        // verify updated rows
-        String sql = format("SELECT count(*) FROM %s t JOIN tpch.sf1.orders s ON t.orderkey = s.orderkey WHERE mod(t.orderkey, 3) = 0 AND t.totalprice != s.totalprice * 2", tableName);
-        assertQuery(sql, "SELECT 0");
-
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

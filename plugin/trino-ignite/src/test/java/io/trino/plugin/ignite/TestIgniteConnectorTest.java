@@ -25,13 +25,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -65,7 +67,9 @@ public class TestIgniteConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_JOIN_PUSHDOWN,
                  SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
-                 SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
+                 SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR,
+                 SUPPORTS_ROW_LEVEL_UPDATE,
+                 SUPPORTS_MERGE -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                  SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
@@ -90,6 +94,90 @@ public class TestIgniteConnectorTest
                  SUPPORTS_TRUNCATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
+    }
+
+    @Test
+    public void testMergeWithSpecifiedRowkeys()
+    {
+        testMergeWithSpecifiedRowkeys("'customer'");
+        testMergeWithSpecifiedRowkeys("'customer_copy'");
+        testMergeWithSpecifiedRowkeys("'customer','customer_copy'");
+    }
+
+    // This method is mainly copied from BaseConnectorTest#testMergeMultipleOperations, and appended a 'customer_copy' column which is the copy of the 'customer' column for
+    // testing merge with specifying rowkeys explicitly in Ignite
+    private void testMergeWithSpecifiedRowkeys(String rowkeyDefinition)
+    {
+        int targetCustomerCount = 32;
+        String targetTable = "merge_multiple_rowkeys_specified_" + randomNameSuffix();
+        // check the upper case table name also works
+        targetTable = targetTable.toUpperCase(ENGLISH);
+        assertUpdate(createTableForWrites(format("CREATE TABLE %s (customer VARCHAR, purchases INT, zipcode INT, spouse VARCHAR, address VARCHAR, customer_copy VARCHAR) WITH (primary_key = ARRAY[%s])", targetTable, rowkeyDefinition)));
+
+        String originalInsertFirstHalf = IntStream.range(1, targetCustomerCount / 2)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct', 'joe_%s')", intValue, 1000, 91000, intValue, intValue, intValue))
+                .collect(Collectors.joining(", "));
+        String originalInsertSecondHalf = IntStream.range(targetCustomerCount / 2, targetCustomerCount)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct', 'joe_%s')", intValue, 2000, 92000, intValue, intValue, intValue))
+                .collect(Collectors.joining(", "));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchases, zipcode, spouse, address, customer_copy) VALUES %s, %s", targetTable, originalInsertFirstHalf, originalInsertSecondHalf), targetCustomerCount - 1);
+
+        String firstMergeSource = IntStream.range(targetCustomerCount / 2, targetCustomerCount)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct', 'joe_%s')", intValue, 3000, 83000, intValue, intValue, intValue))
+                .collect(Collectors.joining(", "));
+
+        assertUpdate(format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchases, zipcode, spouse, address, customer_copy)", targetTable, firstMergeSource) +
+                        "    ON t.customer = s.customer" +
+                        "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases, zipcode = s.zipcode, spouse = s.spouse, address = s.address",
+                targetCustomerCount / 2);
+
+        assertQuery(
+                "SELECT customer, purchases, zipcode, spouse, address, customer_copy FROM " + targetTable,
+                format("VALUES %s, %s", originalInsertFirstHalf, firstMergeSource));
+
+        String nextInsert = IntStream.range(targetCustomerCount, targetCustomerCount * 3 / 2)
+                .mapToObj(intValue -> format("('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct', 'jack_%s')", intValue, 4000, 74000, intValue, intValue, intValue))
+                .collect(Collectors.joining(", "));
+
+        assertUpdate(format("INSERT INTO %s (customer, purchases, zipcode, spouse, address, customer_copy) VALUES %s", targetTable, nextInsert), targetCustomerCount / 2);
+
+        String secondMergeSource = IntStream.range(1, targetCustomerCount * 3 / 2)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct', 'joe_%s')", intValue, 5000, 85000, intValue, intValue, intValue))
+                .collect(Collectors.joining(", "));
+
+        assertUpdate(format("MERGE INTO %s t USING (VALUES %s) AS s(customer, purchases, zipcode, spouse, address, customer_copy)", targetTable, secondMergeSource) +
+                        "    ON t.customer = s.customer" +
+                        "    WHEN MATCHED AND t.zipcode = 91000 THEN DELETE" +
+                        "    WHEN MATCHED AND s.zipcode = 85000 THEN UPDATE SET zipcode = 60000" +
+                        "    WHEN MATCHED THEN UPDATE SET zipcode = s.zipcode, spouse = s.spouse, address = s.address" +
+                        "    WHEN NOT MATCHED THEN INSERT (customer, purchases, zipcode, spouse, address, customer_copy) VALUES(s.customer, s.purchases, s.zipcode, s.spouse, s.address, s.customer_copy)",
+                targetCustomerCount * 3 / 2 - 1);
+
+        String updatedBeginning = IntStream.range(targetCustomerCount / 2, targetCustomerCount)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct', 'joe_%s')", intValue, 3000, 60000, intValue, intValue, intValue))
+                .collect(Collectors.joining(", "));
+        String updatedMiddle = IntStream.range(targetCustomerCount, targetCustomerCount * 3 / 2)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct', 'joe_%s')", intValue, 5000, 85000, intValue, intValue, intValue))
+                .collect(Collectors.joining(", "));
+        String updatedEnd = IntStream.range(targetCustomerCount, targetCustomerCount * 3 / 2)
+                .mapToObj(intValue -> format("('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct', 'jack_%s')", intValue, 4000, 74000, intValue, intValue, intValue))
+                .collect(Collectors.joining(", "));
+
+        assertQuery(
+                "SELECT customer, purchases, zipcode, spouse, address, customer_copy FROM " + targetTable,
+                format("VALUES %s, %s, %s", updatedBeginning, updatedMiddle, updatedEnd));
+
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    // TODO (https://github.com/trinodb/trino/issues/17003) Remove the test once the issue has been fixed
+    @Test
+    @Override
+    public void testDeleteWithSubquery()
+    {
+        assertThatThrownBy(super::testDeleteWithSubquery)
+                .hasStackTraceContaining("Unexpected Join over for-update table scan");
     }
 
     @Test
@@ -450,7 +538,7 @@ public class TestIgniteConnectorTest
     @Override
     protected String errorMessageForInsertIntoNotNullColumn(String columnName)
     {
-        return format("Failed to insert data: Null value is not allowed for column '%s'", columnName.toUpperCase(Locale.ENGLISH));
+        return format("Failed to insert data: Null value is not allowed for column '%s'", columnName.toUpperCase(ENGLISH));
     }
 
     @Test
@@ -492,6 +580,13 @@ public class TestIgniteConnectorTest
         assertQueryFails(
                 "SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'",
                 errorMessageForDateOutOfRange("-1996-09-14"));
+    }
+
+    @Test
+    @Override
+    public void testUpdateRowConcurrently()
+    {
+        abort("Ignite doesn't support concurrent update of different columns in a row");
     }
 
     @Override
