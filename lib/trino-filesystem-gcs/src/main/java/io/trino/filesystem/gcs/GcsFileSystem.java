@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemException;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 
@@ -150,7 +151,7 @@ public class GcsFileSystem
     public void renameFile(Location source, Location target)
             throws IOException
     {
-        throw new IOException("GCS does not support renames");
+        throw new TrinoFileSystemException("GCS does not support renames");
     }
 
     @Override
@@ -241,7 +242,7 @@ public class GcsFileSystem
     public void renameDirectory(Location source, Location target)
             throws IOException
     {
-        throw new IOException("GCS does not support directory renames");
+        throw new TrinoFileSystemException("GCS does not support directory renames");
     }
 
     @Override

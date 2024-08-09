@@ -14,8 +14,6 @@
 package io.trino.plugin.iceberg.catalog;
 
 import com.google.common.collect.ImmutableMap;
-import dev.failsafe.Failsafe;
-import dev.failsafe.RetryPolicy;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -61,15 +59,12 @@ import org.apache.iceberg.Transaction;
 import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metastore.Table.TABLE_COMMENT;
@@ -193,19 +188,7 @@ public abstract class AbstractTrinoCatalog
     @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName schemaViewName)
     {
-        try {
-            return Failsafe.with(RetryPolicy.builder()
-                            .withMaxAttempts(10)
-                            .withBackoff(1, 5_000, ChronoUnit.MILLIS, 4)
-                            .withMaxDuration(Duration.ofSeconds(30))
-                            .abortOn(failure -> !(failure instanceof MaterializedViewMayBeBeingRemovedException))
-                            .build())
-                    .get(() -> doGetMaterializedView(session, schemaViewName));
-        }
-        catch (MaterializedViewMayBeBeingRemovedException e) {
-            throwIfUnchecked(e.getCause());
-            throw new RuntimeException(e.getCause());
-        }
+        return doGetMaterializedView(session, schemaViewName);
     }
 
     protected abstract Optional<ConnectorMaterializedViewDefinition> doGetMaterializedView(ConnectorSession session, SchemaTableName schemaViewName);
@@ -516,13 +499,4 @@ public abstract class AbstractTrinoCatalog
     }
 
     protected abstract void invalidateTableCache(SchemaTableName schemaTableName);
-
-    protected static class MaterializedViewMayBeBeingRemovedException
-            extends RuntimeException
-    {
-        public MaterializedViewMayBeBeingRemovedException(Throwable cause)
-        {
-            super(requireNonNull(cause, "cause is null"));
-        }
-    }
 }

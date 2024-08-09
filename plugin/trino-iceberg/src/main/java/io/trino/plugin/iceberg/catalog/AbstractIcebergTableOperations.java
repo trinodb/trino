@@ -17,6 +17,7 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.StorageFormat;
@@ -257,10 +258,11 @@ public abstract class AbstractIcebergTableOperations
         TableMetadata newMetadata;
         try {
             newMetadata = Failsafe.with(RetryPolicy.builder()
-                            .withMaxRetries(20)
+                            .withMaxRetries(3)
                             .withBackoff(100, 5000, MILLIS, 4.0)
-                            .withMaxDuration(Duration.ofMinutes(10))
-                            .abortOn(failure -> failure instanceof ValidationException || isNotFoundException(failure))
+                            .withMaxDuration(Duration.ofMinutes(3))
+                            .handleIf(failure -> !(failure instanceof ValidationException) && !isNotFoundException(failure))
+                            .abortOn(TrinoFileSystem::isUnrecoverableException)
                             .build())
                     .get(() -> metadataLoader.apply(newLocation));
         }
@@ -290,8 +292,8 @@ public abstract class AbstractIcebergTableOperations
     {
         // qualified name, as this is NOT the io.trino.spi.connector.NotFoundException
         return failure instanceof org.apache.iceberg.exceptions.NotFoundException ||
-                // This is used in context where the code cannot throw a checked exception, so FileNotFoundException would need to be wrapped
-                failure.getCause() instanceof FileNotFoundException;
+               // This is used in context where the code cannot throw a checked exception, so FileNotFoundException would need to be wrapped
+               failure.getCause() instanceof FileNotFoundException;
     }
 
     protected static String newTableMetadataFilePath(TableMetadata meta, int newVersion)

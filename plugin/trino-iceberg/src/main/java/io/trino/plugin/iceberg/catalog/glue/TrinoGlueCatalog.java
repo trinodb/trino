@@ -939,7 +939,8 @@ public class TrinoGlueCatalog
         Failsafe.with(RetryPolicy.builder()
                         .withMaxRetries(3)
                         .withDelay(Duration.ofMillis(100))
-                        .abortIf(throwable -> !replace || throwable instanceof ViewAlreadyExistsException)
+                        .handleIf(throwable -> replace && !(throwable instanceof ViewAlreadyExistsException))
+                        .abortOn(TrinoFileSystem::isUnrecoverableException)
                         .build())
                 .run(() -> doCreateView(session, schemaViewName, viewTableInput, replace));
     }

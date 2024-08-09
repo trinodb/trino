@@ -14,15 +14,11 @@
 package io.trino.plugin.hive.metastore.glue;
 
 import com.google.common.base.Strings;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
-import dev.failsafe.Failsafe;
-import dev.failsafe.FailsafeException;
-import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -65,7 +61,6 @@ import software.amazon.awssdk.services.glue.model.AlreadyExistsException;
 import software.amazon.awssdk.services.glue.model.BatchGetPartitionResponse;
 import software.amazon.awssdk.services.glue.model.BatchUpdatePartitionRequestEntry;
 import software.amazon.awssdk.services.glue.model.ColumnStatistics;
-import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
 import software.amazon.awssdk.services.glue.model.CreateTableRequest;
 import software.amazon.awssdk.services.glue.model.DatabaseInput;
 import software.amazon.awssdk.services.glue.model.DeleteTableRequest;
@@ -84,7 +79,6 @@ import software.amazon.awssdk.services.glue.model.TableInput;
 import software.amazon.awssdk.services.glue.model.UserDefinedFunctionInput;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -101,6 +95,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -167,12 +162,6 @@ public class GlueHiveMetastore
     private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
     private static final int BATCH_UPDATE_PARTITION_MAX_PAGE_SIZE = 100;
     private static final int AWS_GLUE_GET_FUNCTIONS_MAX_RESULTS = 100;
-
-    private static final RetryPolicy<Object> CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY = RetryPolicy.builder()
-            .handleIf(throwable -> Throwables.getRootCause(throwable) instanceof ConcurrentModificationException)
-            .withDelay(Duration.ofMillis(100))
-            .withMaxRetries(3)
-            .build();
 
     private static final AtomicInteger poolCounter = new AtomicInteger();
 
@@ -525,8 +514,7 @@ public class GlueHiveMetastore
                 .name(tableName)
                 .build();
         try {
-            Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
-                    .run(() -> stats.getDeleteTable().call(() -> glueClient.deleteTable(deleteTableRequest)));
+            stats.getDeleteTable().call(() -> glueClient.deleteTable(deleteTableRequest));
         }
         catch (EntityNotFoundException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
@@ -563,45 +551,34 @@ public class GlueHiveMetastore
         updateTable(databaseName, tableName, _ -> newTable);
     }
 
-    private void updateTable(String databaseName, String tableName, TableModifier modifier)
+    private void updateTable(String databaseName, String tableName, UnaryOperator<Table> modifier)
     {
-        try {
-            Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY).run(() -> {
-                Table existingTable = getTable(databaseName, tableName)
-                        .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
-                Table newTable = modifier.modify(existingTable);
-                if (!existingTable.getDatabaseName().equals(newTable.getDatabaseName()) || !existingTable.getTableName().equals(newTable.getTableName())) {
-                    throw new TrinoException(NOT_SUPPORTED, "Update cannot be used to change rename a table");
-                }
-                if (existingTable.getParameters().getOrDefault("table_type", "").equalsIgnoreCase("iceberg") && !Objects.equals(
-                        existingTable.getParameters().get("metadata_location"),
-                        newTable.getParameters().get("previous_metadata_location"))) {
-                    throw new TrinoException(NOT_SUPPORTED, "Cannot update Iceberg table: supplied previous location does not match current location");
-                }
-                try {
-                    stats.getUpdateTable().call(() -> glueClient.updateTable(builder -> builder
-                            .applyMutation(glueContext::configureClient)
-                            .databaseName(databaseName)
-                            .tableInput(toGlueTableInput(newTable))));
-                }
-                catch (EntityNotFoundException e) {
-                    throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
-                }
-            });
+        Table existingTable = getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        Table newTable = modifier.apply(existingTable);
+        if (!existingTable.getDatabaseName().equals(newTable.getDatabaseName()) || !existingTable.getTableName().equals(newTable.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, "Update cannot be used to change rename a table");
         }
-        catch (FailsafeException e) {
-            throwIfUnchecked(e.getCause());
+        if (existingTable.getParameters().getOrDefault("table_type", "").equalsIgnoreCase("iceberg") && !Objects.equals(
+                existingTable.getParameters().get("metadata_location"),
+                newTable.getParameters().get("previous_metadata_location"))) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot update Iceberg table: supplied previous location does not match current location");
+        }
+        try {
+            stats.getUpdateTable().call(() -> glueClient.updateTable(builder -> builder
+                    .applyMutation(glueContext::configureClient)
+                    .databaseName(databaseName)
+                    .tableInput(toGlueTableInput(newTable))));
+        }
+        catch (EntityNotFoundException e) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         finally {
             glueCache.invalidateTable(databaseName, tableName, false);
         }
-    }
-
-    private interface TableModifier
-    {
-        Table modify(Table table)
-                throws Exception;
     }
 
     @Override
@@ -752,11 +729,9 @@ public class GlueHiveMetastore
         // first update the basic statistics on the table, which requires a read-modify-write cycle
         BasicTableStatisticsResult result;
         try {
-            result = Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
-                    .get(context -> updateBasicTableStatistics(databaseName, tableName, mode, statisticsUpdate, existingColumnStatistics));
+            result = updateBasicTableStatistics(databaseName, tableName, mode, statisticsUpdate, existingColumnStatistics);
         }
-        catch (FailsafeException e) {
-            throwIfUnchecked(e.getCause());
+        catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         finally {

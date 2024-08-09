@@ -13,6 +13,9 @@
  */
 package io.trino.filesystem;
 
+import com.google.common.base.Throwables;
+
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Optional;
@@ -223,4 +226,20 @@ public interface TrinoFileSystem
      */
     Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
             throws IOException;
+
+    /**
+     * Checks whether given exception is unrecoverable, so that further retries won't help
+     * <p>
+     * By default, all third party (AWS, Azure, GCP) SDKs will retry appropriate exceptions
+     * (either client side IO errors, or 500/503), so there is no need to retry those additionally.
+     * <p>
+     * If any custom retry behavior is needed, it is advised to change SDK's retry handlers,
+     * rather than introducing outer retry loop, which combined with SDKs default retries,
+     * could lead to prolonged, unnecessary retries
+     */
+    static boolean isUnrecoverableException(Throwable throwable)
+    {
+        return Throwables.getCausalChain(throwable).stream()
+                .anyMatch(t -> t instanceof TrinoFileSystemException || t instanceof FileNotFoundException);
+    }
 }

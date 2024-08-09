@@ -38,6 +38,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.GlueClientBuilder;
+import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
@@ -98,7 +99,7 @@ public class GlueMetastoreModule
         // Note: while we could skip CachingHiveMetastoreModule altogether on workers, we retain it so that catalog
         // configuration can remain identical for all nodes, making cluster configuration easier.
         boolean enabled = nodeManager.getCurrentNode().isCoordinator() &&
-                (metadataCacheTtl.toMillis() > 0 || statsCacheTtl.toMillis() > 0);
+                          (metadataCacheTtl.toMillis() > 0 || statsCacheTtl.toMillis() > 0);
 
         checkState(config.isPartitionCacheEnabled(), "Disabling partitions cache is not supported with Glue v2");
         checkState(config.isCacheMissing(), "Disabling cache missing is not supported with Glue v2");
@@ -128,8 +129,9 @@ public class GlueMetastoreModule
                         .setCaptureExperimentalSpanAttributes(true)
                         .setRecordIndividualHttpError(true)
                         .build().newExecutionInterceptor())
-                .retryPolicy(retry -> retry
-                        .numRetries(config.getMaxGlueErrorRetries())));
+                .retryStrategy(retryBuilder -> retryBuilder
+                        .retryOnException(throwable -> throwable instanceof ConcurrentModificationException)
+                        .maxAttempts(config.getMaxGlueErrorRetries())));
 
         Optional<StaticCredentialsProvider> staticCredentialsProvider = getStaticCredentialsProvider(config);
 

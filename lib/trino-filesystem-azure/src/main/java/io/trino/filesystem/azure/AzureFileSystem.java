@@ -37,6 +37,7 @@ import io.airlift.units.DataSize;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemException;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 
@@ -165,7 +166,7 @@ public class AzureFileSystem
             DataLakeDirectoryClient directoryClient = createDirectoryClient(fileSystemClient, location.path());
             if (directoryClient.exists()) {
                 if (!directoryClient.getProperties().isDirectory()) {
-                    throw new IOException("Location is not a directory: " + location);
+                    throw new TrinoFileSystemException("Location is not a directory: " + location);
                 }
                 directoryClient.deleteIfExistsWithResponse(deleteRecursiveOptions, null, null);
             }
@@ -191,10 +192,10 @@ public class AzureFileSystem
         AzureLocation sourceLocation = new AzureLocation(source);
         AzureLocation targetLocation = new AzureLocation(target);
         if (!sourceLocation.account().equals(targetLocation.account())) {
-            throw new IOException("Cannot rename across storage accounts");
+            throw new TrinoFileSystemException("Cannot rename across storage accounts");
         }
         if (!Objects.equals(sourceLocation.container(), targetLocation.container())) {
-            throw new IOException("Cannot rename across storage account containers");
+            throw new TrinoFileSystemException("Cannot rename across storage account containers");
         }
 
         // DFS rename file works with all storage types
@@ -208,7 +209,7 @@ public class AzureFileSystem
             DataLakeFileSystemClient fileSystemClient = createFileSystemClient(source);
             DataLakeFileClient dataLakeFileClient = createFileClient(fileSystemClient, source.path());
             if (dataLakeFileClient.getProperties().isDirectory()) {
-                throw new IOException("Rename file from %s to %s, source is a directory".formatted(source, target));
+                throw new TrinoFileSystemException("Rename file from %s to %s, source is a directory".formatted(source, target));
             }
 
             createDirectoryIfNotExists(fileSystemClient, target.location().parentDirectory().path());
@@ -255,7 +256,7 @@ public class AzureFileSystem
                 return FileIterator.empty();
             }
             if (!directoryClient.getProperties().isDirectory()) {
-                throw new IOException("Location is not a directory: " + location);
+                throw new TrinoFileSystemException("Location is not a directory: " + location);
             }
             pathItems = directoryClient.listPaths(true, false, null, null);
         }
@@ -315,7 +316,7 @@ public class AzureFileSystem
             DataLakeFileSystemClient fileSystemClient = createFileSystemClient(azureLocation);
             DataLakeDirectoryClient directoryClient = createDirectoryIfNotExists(fileSystemClient, azureLocation.path());
             if (!directoryClient.getProperties().isDirectory()) {
-                throw new IOException("Location is not a directory: " + azureLocation);
+                throw new TrinoFileSystemException("Location is not a directory: " + azureLocation);
             }
         }
         catch (RuntimeException e) {
@@ -330,26 +331,26 @@ public class AzureFileSystem
         AzureLocation sourceLocation = new AzureLocation(source);
         AzureLocation targetLocation = new AzureLocation(target);
         if (!sourceLocation.account().equals(targetLocation.account())) {
-            throw new IOException("Cannot rename across storage accounts");
+            throw new TrinoFileSystemException("Cannot rename across storage accounts");
         }
         if (!Objects.equals(sourceLocation.container(), targetLocation.container())) {
-            throw new IOException("Cannot rename across storage account containers");
+            throw new TrinoFileSystemException("Cannot rename across storage account containers");
         }
         if (!isHierarchicalNamespaceEnabled(sourceLocation)) {
-            throw new IOException("Azure non-hierarchical does not support directory renames");
+            throw new TrinoFileSystemException("Azure non-hierarchical does not support directory renames");
         }
         if (sourceLocation.path().isEmpty() || targetLocation.path().isEmpty()) {
-            throw new IOException("Cannot rename %s to %s".formatted(source, target));
+            throw new TrinoFileSystemException("Cannot rename %s to %s".formatted(source, target));
         }
 
         try {
             DataLakeFileSystemClient fileSystemClient = createFileSystemClient(sourceLocation);
             DataLakeDirectoryClient directoryClient = createDirectoryClient(fileSystemClient, sourceLocation.path());
             if (!directoryClient.exists()) {
-                throw new IOException("Source directory does not exist: " + source);
+                throw new TrinoFileSystemException("Source directory does not exist: " + source);
             }
             if (!directoryClient.getProperties().isDirectory()) {
-                throw new IOException("Source is not a directory: " + source);
+                throw new TrinoFileSystemException("Source is not a directory: " + source);
             }
             directoryClient.rename(null, targetLocation.path());
         }
@@ -416,7 +417,7 @@ public class AzureFileSystem
                 return ImmutableSet.of();
             }
             if (!directoryClient.getProperties().isDirectory()) {
-                throw new IOException("Location is not a directory: " + location);
+                throw new TrinoFileSystemException("Location is not a directory: " + location);
             }
             pathItems = directoryClient.listPaths(false, false, null, null);
         }

@@ -14,6 +14,7 @@
 package io.trino.filesystem.s3;
 
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemException;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
@@ -130,7 +131,7 @@ final class S3InputFile
             return false;
         }
         catch (SdkException e) {
-            throw new IOException("S3 HEAD request failed for file: " + location, e);
+            throw new TrinoFileSystemException("S3 HEAD request failed for file: " + location, e);
         }
     }
 }
