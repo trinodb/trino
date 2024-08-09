@@ -34,7 +34,17 @@ import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -78,6 +88,7 @@ final class S3FileSystemLoader
                 config.isRequesterPays(),
                 config.getSseType(),
                 config.getSseKmsKeyId(),
+                config.getSseCustomerKey() != null ? S3SseCustomerKey.onAES256(config.getSseCustomerKey()) : null,
                 Optional.empty(),
                 config.getCannedAcl());
     }
@@ -210,6 +221,12 @@ final class S3FileSystemLoader
         config.getSocketConnectTimeout().ifPresent(timeout -> client.connectionTimeout(timeout.toJavaTime()));
         config.getSocketReadTimeout().ifPresent(timeout -> client.socketTimeout(timeout.toJavaTime()));
 
+        Optional<String> trustStorePath = config.getTruststorePath();
+        Optional<String> trustStorePassword = config.getTruststorePassword();
+        if (trustStorePath.isPresent() && trustStorePassword.isPresent()) {
+            client.tlsTrustManagersProvider(() -> createTrustStore(trustStorePath.get(), trustStorePassword.get()));
+        }
+
         if (config.getHttpProxy() != null) {
             client.proxyConfiguration(ProxyConfiguration.builder()
                     .endpoint(URI.create("%s://%s".formatted(
@@ -223,6 +240,23 @@ final class S3FileSystemLoader
         }
 
         return client.build();
+    }
+
+    private static TrustManager[] createTrustStore(String trustStorePath, String trustStorePassword)
+    {
+        try {
+            KeyStore truststore = KeyStore.getInstance("JKS");
+            try (InputStream truststoreStream = new FileInputStream(trustStorePath)) {
+                truststore.load(truststoreStream, trustStorePassword.toCharArray());
+            }
+            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            trustManagerFactory.init(truststore);
+            return trustManagerFactory.getTrustManagers();
+        }
+        catch (KeyStoreException | IOException | CertificateException |
+               NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     interface S3ClientFactory

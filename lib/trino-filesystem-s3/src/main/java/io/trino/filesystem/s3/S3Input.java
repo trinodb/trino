@@ -36,13 +36,15 @@ final class S3Input
     private final Location location;
     private final S3Client client;
     private final GetObjectRequest request;
+    private final S3Context context;
     private boolean closed;
 
-    public S3Input(Location location, S3Client client, GetObjectRequest request)
+    public S3Input(Location location, S3Client client, GetObjectRequest request, S3Context context)
     {
         this.location = requireNonNull(location, "location is null");
         this.client = requireNonNull(client, "client is null");
         this.request = requireNonNull(request, "request is null");
+        this.context = requireNonNull(context, "context is null");
     }
 
     @Override
@@ -59,7 +61,9 @@ final class S3Input
         }
 
         String range = "bytes=%s-%s".formatted(position, (position + length) - 1);
-        GetObjectRequest rangeRequest = request.toBuilder().range(range).build();
+        GetObjectRequest.Builder builder = request.toBuilder().range(range);
+        addEncryptionSettings(builder);
+        GetObjectRequest rangeRequest = builder.build();
 
         int n = read(buffer, offset, length, rangeRequest);
         if (n < length) {
@@ -78,9 +82,20 @@ final class S3Input
         }
 
         String range = "bytes=-%s".formatted(length);
-        GetObjectRequest rangeRequest = request.toBuilder().range(range).build();
+        GetObjectRequest.Builder builder = request.toBuilder().range(range);
+        addEncryptionSettings(builder);
+        GetObjectRequest rangeRequest = builder.build();
 
         return read(buffer, offset, length, rangeRequest);
+    }
+
+    private void addEncryptionSettings(GetObjectRequest.Builder builder)
+    {
+        if (context.sseType() == S3FileSystemConfig.S3SseType.CUSTOMER) {
+            builder.sseCustomerAlgorithm(context.sseCustomerKey().algorithm());
+            builder.sseCustomerKey(context.sseCustomerKey().key());
+            builder.sseCustomerKeyMD5(context.sseCustomerKey().md5());
+        }
     }
 
     @Override

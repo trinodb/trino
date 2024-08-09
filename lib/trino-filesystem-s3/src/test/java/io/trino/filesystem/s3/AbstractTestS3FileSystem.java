@@ -30,7 +30,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -63,6 +65,16 @@ public abstract class AbstractTestS3FileSystem
         fileSystem = null;
         fileSystemFactory.destroy();
         fileSystemFactory = null;
+    }
+
+    protected GetObjectRequest.Builder configure(GetObjectRequest.Builder requestBuilder)
+    {
+        return requestBuilder;
+    }
+
+    protected PutObjectRequest.Builder configure(PutObjectRequest.Builder requestBuilder)
+    {
+        return requestBuilder;
     }
 
     @Override
@@ -135,7 +147,7 @@ public abstract class AbstractTestS3FileSystem
             String key = "foo/bar with whitespace ";
             byte[] contents = "abc foo bar".getBytes(UTF_8);
             s3Client.putObject(
-                    request -> request.bucket(bucket()).key(key),
+                    request -> configure(request).bucket(bucket()).key(key),
                     RequestBody.fromBytes(contents.clone()));
             try {
                 // Verify listing
@@ -156,7 +168,7 @@ public abstract class AbstractTestS3FileSystem
                 // Verify writing
                 byte[] newContents = "bar bar baz new content".getBytes(UTF_8);
                 fileSystem.newOutputFile(fileEntry.location()).createOrOverwrite(newContents);
-                assertThat(s3Client.getObjectAsBytes(request -> request.bucket(bucket()).key(key)).asByteArray())
+                assertThat(s3Client.getObjectAsBytes(request -> configure(request.bucket(bucket())).key(key)).asByteArray())
                         .isEqualTo(newContents);
 
                 // Verify deleting
@@ -237,7 +249,7 @@ public abstract class AbstractTestS3FileSystem
 
         public void create()
         {
-            s3Client.putObject(request -> request.bucket(bucket()).key(path), RequestBody.empty());
+            s3Client.putObject(request -> configure(request).bucket(bucket()).key(path), RequestBody.empty());
         }
 
         @Override
