@@ -42,6 +42,9 @@ Trino offers the following built-in system access control implementations:
 * - `opa`
   - Use Open Policy Agent (OPA) for authorization. See
     [](/security/opa-access-control).
+* - `ranger`
+  - Apache Ranger policies are used to authorize access and apply dynamic
+    row-filters and column-masking. See [](/security/ranger-access-control).
 :::
 
 If you want to limit access on a system level in any other way than the ones
