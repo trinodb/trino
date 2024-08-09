@@ -16,12 +16,15 @@ package io.trino.filesystem.hdfs;
 import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.hdfs.protocol.QuotaExceededException;
 
 import java.io.IOException;
 import java.io.OutputStream;
 
+import static io.trino.spi.StandardErrorCode.STORAGE_LIMIT_EXCEEDED;
 import static java.util.Objects.requireNonNull;
 
 class HdfsOutputStream
@@ -54,7 +57,7 @@ class HdfsOutputStream
         ensureOpen();
         // handle Kerberos ticket refresh during long write operations
         environment.doAs(identity, () -> {
-            super.write(b);
+            convertExceptions(() -> super.write(b));
             return null;
         });
     }
@@ -66,7 +69,7 @@ class HdfsOutputStream
         ensureOpen();
         // handle Kerberos ticket refresh during long write operations
         environment.doAs(identity, () -> {
-            super.write(b, off, len);
+            convertExceptions(() -> super.write(b, off, len));
             return null;
         });
     }
@@ -76,7 +79,7 @@ class HdfsOutputStream
             throws IOException
     {
         ensureOpen();
-        super.flush();
+        convertExceptions(super::flush);
     }
 
     @Override
@@ -84,7 +87,7 @@ class HdfsOutputStream
             throws IOException
     {
         closed = true;
-        super.close();
+        convertExceptions(super::close);
     }
 
     private void ensureOpen()
@@ -92,6 +95,27 @@ class HdfsOutputStream
     {
         if (closed) {
             throw new IOException("Output stream closed: " + location);
+        }
+    }
+
+    @FunctionalInterface
+    private interface IORunnable
+    {
+        void call()
+                throws IOException;
+    }
+
+    private void convertExceptions(IORunnable runnable)
+            throws IOException
+    {
+        try {
+            runnable.call();
+        }
+        catch (QuotaExceededException e) {
+            throw new TrinoException(
+                    STORAGE_LIMIT_EXCEEDED,
+                    "Writing to %s failed due to storage quota exceeded: %s".formatted(location, e.getMessage()),
+                    e);
         }
     }
 }
