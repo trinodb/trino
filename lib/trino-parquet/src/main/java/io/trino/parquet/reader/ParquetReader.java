@@ -529,20 +529,12 @@ public class ParquetReader
     private ColumnChunk readColumnChunk(Field field)
             throws IOException
     {
-        ColumnChunk columnChunk;
-        if (field.getType() instanceof RowType) {
-            columnChunk = readStruct((GroupField) field);
-        }
-        else if (field.getType() instanceof MapType) {
-            columnChunk = readMap((GroupField) field);
-        }
-        else if (field.getType() instanceof ArrayType) {
-            columnChunk = readArray((GroupField) field);
-        }
-        else {
-            columnChunk = readPrimitive((PrimitiveField) field);
-        }
-        return columnChunk;
+        return switch (field.getType()) {
+            case RowType _ -> readStruct((GroupField) field);
+            case MapType _ -> readMap((GroupField) field);
+            case ArrayType _ -> readArray((GroupField) field);
+            default -> readPrimitive((PrimitiveField) field);
+        };
     }
 
     public ParquetDataSource getDataSource()
