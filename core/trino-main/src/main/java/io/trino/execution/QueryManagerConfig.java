@@ -150,6 +150,7 @@ public class QueryManagerConfig
     private boolean faultTolerantExecutionSmallStageRequireNoMorePartitions;
     private boolean faultTolerantExecutionStageEstimationForEagerParentEnabled = true;
     private boolean faultTolerantExecutionAdaptiveQueryPlanningEnabled;
+    private int faultTolerantExecutionThrottlingMaxWorkers;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -1130,6 +1131,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionAdaptiveQueryPlanningEnabled(boolean faultTolerantExecutionSmallStageEstimationEnabled)
     {
         this.faultTolerantExecutionAdaptiveQueryPlanningEnabled = faultTolerantExecutionSmallStageEstimationEnabled;
+        return this;
+    }
+
+    public int getFaultTolerantExecutionThrottlingMaxWorkers()
+    {
+        return faultTolerantExecutionThrottlingMaxWorkers;
+    }
+
+    @Config("fault-tolerant-execution-max-workers")
+    @ConfigDescription("Fault Tolerant Execution throttling max workers")
+    public QueryManagerConfig setFaultTolerantExecutionThrottlingMaxWorkers(int faultTolerantExecutionThrottlingMaxWorkers)
+    {
+        this.faultTolerantExecutionThrottlingMaxWorkers = faultTolerantExecutionThrottlingMaxWorkers;
         return this;
     }
 }

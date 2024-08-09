@@ -215,6 +215,7 @@ public final class SystemSessionProperties
     public static final String IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD = "idle_writer_min_data_size_threshold";
     public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
     public static final String COLUMNAR_FILTER_EVALUATION_ENABLED = "columnar_filter_evaluation_enabled";
+    public static final String FAULT_TOLERANT_EXECUTION_THROTTLING_MAX_WORKERS = "fault_tolerant_execution_throttling_max_workers";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1097,6 +1098,12 @@ public final class SystemSessionProperties
                 durationProperty(CLOSE_IDLE_WRITERS_TRIGGER_DURATION,
                         "The duration after which the writer operator tries to close the idle writers",
                         new Duration(5, SECONDS),
+                        true),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_THROTTLING_MAX_WORKERS,
+                        "Maximum number of workers to process partitions for distributed joins and aggregations executed with fault tolerant execution enabled",
+                        queryManagerConfig.getFaultTolerantExecutionThrottlingMaxWorkers(),
+                        value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_THROTTLING_MAX_WORKERS, 0, false),
                         true));
     }
 
@@ -1970,5 +1977,10 @@ public final class SystemSessionProperties
     public static boolean isColumnarFilterEvaluationEnabled(Session session)
     {
         return session.getSystemProperty(COLUMNAR_FILTER_EVALUATION_ENABLED, Boolean.class);
+    }
+
+    public static int getFaultTolerantExecutionThrottlingMaxWorkers(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_THROTTLING_MAX_WORKERS, Integer.class);
     }
 }

@@ -29,7 +29,7 @@ public interface NodeAllocator
      *
      * It is obligatory for the calling party to release all the leases they obtained via {@link NodeLease#release()}.
      */
-    NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass);
+    NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass, ExecutionThrottling throttling);
 
     @Override
     void close();

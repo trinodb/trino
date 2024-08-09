@@ -150,6 +150,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionRuntimeAdaptivePartitioningPartitionCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionThrottlingMaxWorkers;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForExecutionPerQuery;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerStage;
 import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
@@ -739,6 +740,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final SchedulingDelayer schedulingDelayer;
 
         private boolean queryOutputSet;
+        private final ThrottlingController throttlingController;
 
         public Scheduler(
                 QueryStateMachine queryStateMachine,
@@ -811,6 +813,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     .setParent(Context.current().with(queryStateMachine.getSession().getQuerySpan()))
                     .setAttribute(TrinoAttributes.QUERY_ID, queryStateMachine.getQueryId().toString())
                     .startSpan();
+            this.throttlingController = new ThrottlingController(getFaultTolerantExecutionThrottlingMaxWorkers(queryStateMachine.getSession()));
 
             if (log.isDebugEnabled()) {
                 eventDebugInfos = Optional.of(new EventDebugInfos(queryStateMachine.getQueryId().toString(), EVENTS_DEBUG_INFOS_PER_BUCKET));
@@ -1585,7 +1588,9 @@ public class EventDrivenFaultTolerantQueryScheduler
                     continue;
                 }
                 MemoryRequirements memoryRequirements = stageExecution.getMemoryRequirements(partitionId);
-                NodeLease lease = nodeAllocator.acquire(nodeRequirements.get(), memoryRequirements.getRequiredMemory(), scheduledTask.getExecutionClass());
+
+                ExecutionThrottling throttling = throttlingController.createThrottling(stageExecution.getStageId(), partitionId);
+                NodeLease lease = nodeAllocator.acquire(nodeRequirements.get(), memoryRequirements.getRequiredMemory(), scheduledTask.getExecutionClass(), throttling);
                 lease.getNode().addListener(() -> eventQueue.add(Event.WAKE_UP), queryExecutor);
                 preSchedulingTaskContexts.put(scheduledTask.task(), new PreSchedulingTaskContext(lease, scheduledTask.getExecutionClass()));
 
