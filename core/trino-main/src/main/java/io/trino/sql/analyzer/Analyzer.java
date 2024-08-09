@@ -14,6 +14,7 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
@@ -69,8 +70,8 @@ public class Analyzer
         this.session = requireNonNull(session, "session is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
-        this.parameters = parameters;
-        this.parameterLookup = parameterLookup;
+        this.parameters = ImmutableList.copyOf(parameters);
+        this.parameterLookup = ImmutableMap.copyOf(parameterLookup);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
