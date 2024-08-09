@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
-public class EnvSinglenodeOauth2HttpsProxy
+public class EnvSinglenodeOauth2HttpProxyAuthn
         extends EnvironmentProvider
 {
     private final PortBinder binder;
@@ -41,7 +41,7 @@ public class EnvSinglenodeOauth2HttpsProxy
     private final ResourceProvider configDir;
 
     @Inject
-    public EnvSinglenodeOauth2HttpsProxy(
+    public EnvSinglenodeOauth2HttpProxyAuthn(
             DockerFiles dockerFiles,
             PortBinder binder,
             Standard standard,
@@ -53,7 +53,7 @@ public class EnvSinglenodeOauth2HttpsProxy
         this.binder = requireNonNull(binder, "binder is null");
         this.hydraIdentityProvider = requireNonNull(hydraIdentityProvider, "hydraIdentityProvider is null");
         requireNonNull(dockerFiles, "dockerFiles is null");
-        this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-oauth2-https-proxy/");
+        this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-oauth2-http-proxy-authn/");
     }
 
     @Override
@@ -64,9 +64,6 @@ public class EnvSinglenodeOauth2HttpsProxy
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("config.properties")),
                             CONTAINER_TRINO_CONFIG_PROPERTIES)
-                    .withCopyFileToContainer(
-                            forHostPath(configDir.getPath("cert/truststore.jks")),
-                            CONTAINER_TRINO_ETC + "/cert/truststore.jks")
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("log.properties")),
                             CONTAINER_TRINO_ETC + "/log.properties");
@@ -85,12 +82,11 @@ public class EnvSinglenodeOauth2HttpsProxy
         builder.containerDependsOn(COORDINATOR, hydraClientConfig.getLogicalName());
 
         builder.containerDependsOn(COORDINATOR, PROXY);
-        builder.configureContainer(PROXY, proxyContainer -> proxyContainer
-                .withCopyFileToContainer(
-                        forHostPath(configDir.getPath("httpd.conf")),
-                        "/usr/local/apache2/conf/httpd.conf")
-                .withCopyFileToContainer(
-                        forHostPath(configDir.getPath("cert")),
-                        "/usr/local/apache2/conf/cert"));
+        builder.configureContainer(PROXY, dockerContainer -> {
+            dockerContainer
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("httpd.conf")), "/usr/local/apache2/conf/httpd.conf");
+            dockerContainer
+                    .withCopyFileToContainer(forHostPath(configDir.getPath(".htpasswd")), "/usr/local/apache2/conf/.htpasswd");
+        });
     }
 }

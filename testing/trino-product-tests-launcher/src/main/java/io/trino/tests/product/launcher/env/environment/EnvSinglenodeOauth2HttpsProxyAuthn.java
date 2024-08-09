@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
-public class EnvSinglenodeOauth2HttpsProxy
+public class EnvSinglenodeOauth2HttpsProxyAuthn
         extends EnvironmentProvider
 {
     private final PortBinder binder;
@@ -41,7 +41,7 @@ public class EnvSinglenodeOauth2HttpsProxy
     private final ResourceProvider configDir;
 
     @Inject
-    public EnvSinglenodeOauth2HttpsProxy(
+    public EnvSinglenodeOauth2HttpsProxyAuthn(
             DockerFiles dockerFiles,
             PortBinder binder,
             Standard standard,
@@ -53,7 +53,7 @@ public class EnvSinglenodeOauth2HttpsProxy
         this.binder = requireNonNull(binder, "binder is null");
         this.hydraIdentityProvider = requireNonNull(hydraIdentityProvider, "hydraIdentityProvider is null");
         requireNonNull(dockerFiles, "dockerFiles is null");
-        this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-oauth2-https-proxy/");
+        this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-oauth2-https-proxy-authn/");
     }
 
     @Override
@@ -85,12 +85,16 @@ public class EnvSinglenodeOauth2HttpsProxy
         builder.containerDependsOn(COORDINATOR, hydraClientConfig.getLogicalName());
 
         builder.containerDependsOn(COORDINATOR, PROXY);
-        builder.configureContainer(PROXY, proxyContainer -> proxyContainer
-                .withCopyFileToContainer(
-                        forHostPath(configDir.getPath("httpd.conf")),
-                        "/usr/local/apache2/conf/httpd.conf")
-                .withCopyFileToContainer(
-                        forHostPath(configDir.getPath("cert")),
-                        "/usr/local/apache2/conf/cert"));
+        builder.configureContainer(PROXY, proxy -> {
+            proxy.withCopyFileToContainer(
+                    forHostPath(configDir.getPath("httpd.conf")),
+                    "/usr/local/apache2/conf/httpd.conf");
+            proxy.withCopyFileToContainer(
+                    forHostPath(configDir.getPath(".htpasswd")),
+                    "/usr/local/apache2/conf/.htpasswd");
+            proxy.withCopyFileToContainer(
+                    forHostPath(configDir.getPath("cert")),
+                    "/usr/local/apache2/conf/cert");
+        });
     }
 }
