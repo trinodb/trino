@@ -2488,6 +2488,7 @@ class StatementAnalyzer
                     view.getCatalog(),
                     view.getSchema(),
                     view.getRunAsIdentity(),
+                    view.isHybrid(),
                     view.getPath(),
                     view.getColumns(),
                     storageTable,
@@ -2503,6 +2504,7 @@ class StatementAnalyzer
                     view.getCatalog(),
                     view.getSchema(),
                     view.getRunAsIdentity(),
+                    view.isHybrid(),
                     view.getPath(),
                     view.getColumns(),
                     Optional.empty(),
@@ -2517,6 +2519,7 @@ class StatementAnalyzer
                 Optional<String> catalog,
                 Optional<String> schema,
                 Optional<Identity> owner,
+                boolean isHybrid,
                 List<CatalogSchemaName> path,
                 List<ViewColumn> columns,
                 Optional<TableHandle> storageTable,
@@ -2546,7 +2549,7 @@ class StatementAnalyzer
             }
 
             analysis.registerTableForView(table, name, isMaterializedView);
-            RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
+            RelationType descriptor = analyzeView(query, name, catalog, schema, owner, isHybrid, path, table);
             analysis.unregisterTableForView();
 
             checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)
@@ -4945,27 +4948,36 @@ class StatementAnalyzer
                 Optional<String> catalog,
                 Optional<String> schema,
                 Optional<Identity> owner,
+                boolean hybrid,
                 List<CatalogSchemaName> path,
                 Table node)
         {
             try {
                 // run view as view owner if set; otherwise, run as session user
-                Identity identity;
+                Identity identity = session.getIdentity();
                 AccessControl viewAccessControl;
                 if (owner.isPresent()) {
-                    identity = Identity.from(owner.get())
+                    Identity ownerIdentity = Identity.from(owner.get())
                             .withGroups(groupProvider.getGroups(owner.get().getUser()))
                             .build();
                     if (owner.get().getUser().equals(session.getIdentity().getUser())) {
                         // View owner does not need GRANT OPTION to grant access themselves
                         viewAccessControl = accessControl;
+                        identity = ownerIdentity;
                     }
                     else {
-                        viewAccessControl = new ViewAccessControl(accessControl);
+                        SecurityContext accessSecurityContext = new SecurityContext(
+                    	   session.getRequiredTransactionId(), ownerIdentity, session.getQueryId(), session.getStart());
+
+                        // Hybrid uses the ownerIdentity for access control and the invoker for all database operations.
+                        if (!hybrid) {
+                    	   identity = ownerIdentity;
+                    	}
+
+						viewAccessControl = new ViewAccessControl(accessControl, accessSecurityContext);
                     }
                 }
                 else {
-                    identity = session.getIdentity();
                     viewAccessControl = accessControl;
                 }
 

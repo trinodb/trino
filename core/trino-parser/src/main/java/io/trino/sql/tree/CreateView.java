@@ -27,7 +27,7 @@ public class CreateView
 {
     public enum Security
     {
-        INVOKER, DEFINER
+        INVOKER, DEFINER, HYBRID
     }
 
     private final QualifiedName name;

@@ -33,6 +33,7 @@ public class ViewDefinition
     private final List<ViewColumn> columns;
     private final Optional<String> comment;
     private final Optional<Identity> runAsIdentity;
+    private final boolean hybrid;
     private final List<CatalogSchemaName> path;
 
     public ViewDefinition(
@@ -42,6 +43,7 @@ public class ViewDefinition
             List<ViewColumn> columns,
             Optional<String> comment,
             Optional<Identity> runAsIdentity,
+            boolean hybrid,
             List<CatalogSchemaName> path)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
@@ -50,6 +52,7 @@ public class ViewDefinition
         this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
         this.comment = requireNonNull(comment, "comment is null");
         this.runAsIdentity = requireNonNull(runAsIdentity, "runAsIdentity is null");
+        this.hybrid = hybrid;
         this.path = requireNonNull(path, "path is null");
         checkArgument(schema.isEmpty() || catalog.isPresent(), "catalog must be present if schema is present");
         checkArgument(!columns.isEmpty(), "columns list is empty");
@@ -90,6 +93,10 @@ public class ViewDefinition
         return runAsIdentity;
     }
 
+    public boolean isHybrid() {
+		return hybrid;
+	}
+
     public List<CatalogSchemaName> getPath()
     {
         return path;
@@ -107,6 +114,7 @@ public class ViewDefinition
                 comment,
                 runAsIdentity.map(Identity::getUser),
                 runAsIdentity.isEmpty(),
+                hybrid,
                 path);
     }
 
@@ -120,6 +128,7 @@ public class ViewDefinition
                 .add("columns", columns)
                 .add("comment", comment.orElse(null))
                 .add("runAsIdentity", runAsIdentity.orElse(null))
+                .add("hybrid", hybrid)
                 .add("path", path)
                 .toString();
     }

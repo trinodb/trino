@@ -222,6 +222,7 @@ public abstract class BaseDataDefinitionTaskTest
                 columns,
                 Optional.empty(),
                 Optional.empty(),
+                false,
                 ImmutableList.of());
     }
 
@@ -599,6 +600,7 @@ public abstract class BaseDataDefinitionTaskTest
                             view.getColumns(),
                             comment,
                             view.getRunAsIdentity(),
+                            false,
                             view.getPath()));
         }
 
@@ -632,6 +634,7 @@ public abstract class BaseDataDefinitionTaskTest
                                     .collect(toImmutableList()),
                             view.getComment(),
                             view.getRunAsIdentity(),
+                            false,
                             view.getPath()));
         }
 

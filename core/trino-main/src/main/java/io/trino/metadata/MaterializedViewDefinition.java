@@ -44,7 +44,7 @@ public class MaterializedViewDefinition
             List<CatalogSchemaName> path,
             Optional<CatalogSchemaTableName> storageTable)
     {
-        super(originalSql, catalog, schema, columns, comment, Optional.of(owner), path);
+        super(originalSql, catalog, schema, columns, comment, Optional.of(owner), false, path);
         this.gracePeriod = requireNonNull(gracePeriod, "gracePeriod is null");
         checkArgument(gracePeriod.isEmpty() || !gracePeriod.get().isNegative(), "gracePeriod cannot be negative: %s", gracePeriod);
         this.storageTable = requireNonNull(storageTable, "storageTable is null");
