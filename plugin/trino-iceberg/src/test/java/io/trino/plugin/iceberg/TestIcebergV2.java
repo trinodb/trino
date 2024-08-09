@@ -353,11 +353,15 @@ public class TestIcebergV2
     @Test
     public void testOptimizePopulateSplitOffsets()
     {
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+        Session session = Session.builder(getSession())
+                .setSystemProperty("task_min_writer_count", "1")
+                .build();
+
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_optimize_split_offsets", "AS SELECT * FROM tpch.tiny.nation")) {
-            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize");
+            assertUpdate(session, "ALTER TABLE " + table.getName() + " EXECUTE optimize");
             assertThat(computeActual("SELECT split_offsets FROM \"" + table.getName() + "$files\""))
                     .isEqualTo(resultBuilder(getSession(), ImmutableList.of(new ArrayType(BIGINT)))
-                            .row(ImmutableList.of(4L))
                             .row(ImmutableList.of(4L))
                             .build());
         }
