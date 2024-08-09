@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import dev.failsafe.Failsafe;
-import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -28,17 +26,20 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.jdbi.v3.core.HandleCallback;
-import org.jdbi.v3.core.HandleConsumer;
-import org.jdbi.v3.core.Jdbi;
 
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_PASSWORD;
+import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_URL;
+import static io.trino.plugin.redshift.TestingRedshiftServer.JDBC_USER;
+import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_DATABASE;
+import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshiftWithRetry;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingProperties.requiredNonEmptySystemProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -54,18 +55,10 @@ public final class RedshiftQueryRunner
 
     private static final Logger log = Logger.get(RedshiftQueryRunner.class);
 
-    private static final String JDBC_ENDPOINT = requiredNonEmptySystemProperty("test.redshift.jdbc.endpoint");
-    static final String JDBC_USER = requiredNonEmptySystemProperty("test.redshift.jdbc.user");
-    static final String JDBC_PASSWORD = requiredNonEmptySystemProperty("test.redshift.jdbc.password");
     private static final String S3_TPCH_TABLES_ROOT = requiredNonEmptySystemProperty("test.redshift.s3.tpch.tables.root");
     private static final String IAM_ROLE = requiredNonEmptySystemProperty("test.redshift.iam.role");
 
-    static final String TEST_DATABASE = "testdb";
     private static final String TEST_CATALOG = "redshift";
-    static final String TEST_SCHEMA = "test_schema";
-
-    static final String JDBC_URL = "jdbc:redshift://" + JDBC_ENDPOINT + TEST_DATABASE;
-
     private static final String CONNECTOR_NAME = "redshift";
     private static final String TPCH_CATALOG = "tpch";
 
@@ -154,33 +147,6 @@ public final class RedshiftQueryRunner
                 throw e;
             }
         }
-    }
-
-    private static void executeInRedshiftWithRetry(String sql)
-    {
-        Failsafe.with(RetryPolicy.builder()
-                        .handleIf(e -> e.getMessage().matches(".* concurrent transaction .*"))
-                        .withDelay(Duration.ofSeconds(10))
-                        .withMaxRetries(3)
-                        .build())
-                .run(() -> executeInRedshift(sql));
-    }
-
-    public static void executeInRedshift(String sql, Object... parameters)
-    {
-        executeInRedshift(handle -> handle.execute(sql, parameters));
-    }
-
-    public static <E extends Exception> void executeInRedshift(HandleConsumer<E> consumer)
-            throws E
-    {
-        executeWithRedshift(consumer.asCallback());
-    }
-
-    public static <T, E extends Exception> T executeWithRedshift(HandleCallback<T, E> callback)
-            throws E
-    {
-        return Jdbi.create(JDBC_URL, JDBC_USER, JDBC_PASSWORD).withHandle(callback);
     }
 
     private static synchronized void provisionTables(QueryRunner queryRunner, Iterable<TpchTable<?>> tables)
