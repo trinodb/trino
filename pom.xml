@@ -286,6 +286,14 @@
             </dependency>
 
             <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-bom</artifactId>
+                <version>12.0.13-SNAPSHOT</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
                 <version>3.45.3</version>
@@ -2286,6 +2294,19 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <repositories>
+        <repository>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+            <id>jetty</id>
+            <url>https://wendigo-m2-repository.s3.us-west-2.amazonaws.com/starburst-support-snapshot-repo-12123</url>
+        </repository>
+    </repositories>
 
     <build>
         <pluginManagement>

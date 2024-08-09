@@ -334,9 +334,10 @@ public class CoordinatorModule
                 .withTracing()
                 .withFilter(GenerateTraceTokenRequestFilter.class)
                 .withConfigDefaults(config -> {
-                    config.setIdleTimeout(new Duration(60, SECONDS));
-                    config.setRequestTimeout(new Duration(20, SECONDS));
-                    config.setMaxConnectionsPerServer(250);
+                    config.setIdleTimeout(new Duration(20, SECONDS));
+                    config.setRequestTimeout(new Duration(30, SECONDS));
+                    config.setDestinationIdleTimeout(new Duration(60, SECONDS));
+                    config.setMaxRequestsQueuedPerDestination(65536);
                 }).build());
 
         binder.bind(ScheduledExecutorService.class).annotatedWith(ForScheduler.class)
