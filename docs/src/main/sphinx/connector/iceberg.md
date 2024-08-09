@@ -161,6 +161,9 @@ implementation is used:
 * - `iceberg.register-table-procedure.enabled`
   - Enable to allow user to call [`register_table` procedure](iceberg-register-table).
   - `false`
+* - `iceberg.add-files-procedure.enabled`
+  - Enable to allow user to call [`add_files` procedure](iceberg-add-files).
+  - `false`
 * - `iceberg.query-partition-filter-required`
   - Set to `true` to force a query to use a partition filter for schemas
     specified with `iceberg.query-partition-filter-required-schemas`. Equivalent
@@ -556,6 +559,64 @@ CALL example.system.migrate(
 The default value is `fail`, which causes the migrate procedure to throw an
 exception if subdirectories are found. Set the value to `true` to migrate
 nested directories, or `false` to ignore them.
+
+(iceberg-add-files)=
+#### Add files
+
+The connector can add files from tables or locations if
+`iceberg.add-files-procedure.enabled` is set to `true` for the catalog.
+
+Use the procedure `system.add_files` to copy files from the Hive table or specified locations. 
+The data files must be the Parquet, ORC, or Avro file format.
+
+The procedure must be called for a specific catalog `example` with the
+relevant schema and table names supplied with the required parameters
+`target_schema_name` and `target_table_name`:
+
+```sql
+CALL example.system.add_files(
+    target_schema_name => 'testdb',
+    target_table_name => 'iceberg_customer_orders',
+    source_schema_name => 'testdb',
+    source_table_name => 'hive_customer_orders')
+```
+
+You can provide a `partition_filter` argument to add files from specified partitions:
+
+```sql
+CALL example.system.add_files(
+    target_schema_name => 'testdb',
+    target_table_name => 'iceberg_customer_orders',
+    source_schema_name => 'testdb',
+    source_table_name => 'hive_customer_orders',
+    partition_filter => ARRAY['region=ASIA/country=JAPAN'])
+```
+
+In addition, you can provide a `recursive_directory` argument to migrate a
+Hive table that contains subdirectories:
+
+```sql
+CALL example.system.add_files(
+    target_schema_name => 'testdb',
+    target_table_name => 'iceberg_customer_orders',
+    source_schema_name => 'testdb',
+    source_table_name => 'hive_customer_orders',
+    recursive_directory => 'true')
+```
+
+The default value is `fail`, which causes the procedure to throw an
+exception if subdirectories are found. Set the value to `true` to add files from
+nested directories, or `false` to ignore them.
+
+The procedure supports adding files from a specified location:
+
+```sql
+CALL example.system.add_files(
+    target_schema_name => 'testdb',
+    target_table_name => 'iceberg_customer_orders',
+    location => 's3://my-bucket/a/path',
+    format => 'ORC')
+```
 
 (iceberg-data-management)=
 ### Data management

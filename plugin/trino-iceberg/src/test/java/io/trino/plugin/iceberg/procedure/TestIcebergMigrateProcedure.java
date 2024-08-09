@@ -12,10 +12,12 @@
  * limitations under the License.
  */
 
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.procedure;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.TestingHivePlugin;
+import io.trino.plugin.iceberg.IcebergFileFormat;
+import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
