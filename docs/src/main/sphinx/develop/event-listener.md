@@ -47,7 +47,7 @@ custom-property2=custom-value2
 
 Maximum number of concurrent query completed events
 can be configured using `event-listener.max-concurrent-query-completed-events` property
-(`100` by default). Excessive events are dropped.
+(`1000` by default). Excessive events are dropped.
 
 (multiple-listeners)=
 ## Multiple event listeners

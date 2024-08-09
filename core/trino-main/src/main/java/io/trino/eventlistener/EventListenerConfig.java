@@ -27,7 +27,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 public class EventListenerConfig
 {
     private List<File> eventListenerFiles = ImmutableList.of();
-    private int maxConcurrentQueryCompletedEvents = 100;
+    private int maxConcurrentQueryCompletedEvents = 1000;
 
     @NotNull
     public List<@FileExists File> getEventListenerFiles()

@@ -32,7 +32,7 @@ public class TestEventListenerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(EventListenerConfig.class)
-                .setMaxConcurrentQueryCompletedEvents(100)
+                .setMaxConcurrentQueryCompletedEvents(1000)
                 .setEventListenerFiles(ImmutableList.of()));
     }
 
