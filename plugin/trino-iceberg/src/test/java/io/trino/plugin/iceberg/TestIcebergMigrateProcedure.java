@@ -15,7 +15,10 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
+import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.TestingHivePlugin;
+import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
@@ -24,17 +27,28 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.ZoneId;
+import java.util.Locale;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.plugin.hive.HiveTimestampPrecision.MICROSECONDS;
+import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
+import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
+import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergMigrateProcedure
         extends AbstractTestQueryFramework
 {
+    private final ZoneId jvmZone = ZoneId.systemDefault();
+    private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
+    private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
+
     private Path dataDirectory;
 
     @Override
@@ -408,22 +422,146 @@ public class TestIcebergMigrateProcedure
     }
 
     @Test
-    public void testMigrateUnsupportedColumnType()
+    public void testMigrateTimestampMillisTypeWithAvro()
     {
-        String tableName = "test_migrate_unsupported_column_type_" + randomNameSuffix();
+        String tableName = "test_migrate_timestamp_millis_avro" + randomNameSuffix();
+        String hiveTableName = "hive.tpch." + tableName;
+
+        assertUpdate("CREATE TABLE " + hiveTableName + " WITH (format='AVRO') AS SELECT timestamp '2021-01-01 00:00:00.000' x", 1);
+        assertQuery("SELECT * FROM " + hiveTableName, "VALUES timestamp '2021-01-01 00:00:00.000'");
+
+        assertQueryFails("CALL iceberg.system.migrate('tpch', '" + tableName + "')", "Migrating timestamp type with AVRO format is not supported.");
+
+        assertUpdate("DROP TABLE " + hiveTableName);
+    }
+
+    @Test
+    public void testMigrateTimestampMicrosTypeWithAvro()
+    {
+        String tableName = "test_migrate_timestamp_micro_avro" + randomNameSuffix();
+        String hiveTableName = "hive.tpch." + tableName;
+        Session session = timestampPrecisionSession(MICROSECONDS, UTC);
+
+        assertUpdate(session, "CREATE TABLE " + hiveTableName + " (x timestamp(6)) WITH (format='AVRO')");
+        assertUpdate(session, "INSERT INTO " + hiveTableName + " VALUES timestamp '2021-01-01 00:00:00.123456'", 1);
+        // Currently Hive maps timestamp(6) to timestamp(millis)
+        assertQuery("SELECT * FROM " + hiveTableName, "VALUES timestamp '2021-01-01 00:00:00.123'");
+
+        assertQueryFails("CALL iceberg.system.migrate('tpch', '" + tableName + "')", "Migrating timestamp type with AVRO format is not supported.");
+
+        assertUpdate("DROP TABLE " + hiveTableName);
+    }
+
+    @Test
+    public void testMigrateTimestampNanosTypeWithAvro()
+    {
+        String tableName = "test_migrate_timestamp_micro_avro" + randomNameSuffix();
+        String hiveTableName = "hive.tpch." + tableName;
+        Session session = timestampPrecisionSession(NANOSECONDS, UTC);
+
+        assertUpdate(session, "CREATE TABLE " + hiveTableName + " (x timestamp(9)) WITH (format='AVRO')");
+        assertQueryFails(session, "INSERT INTO " + hiveTableName + " VALUES timestamp '2021-01-01 00:00:00.123456789'", "Failed to write data page to Avro file");
+
+        assertUpdate("DROP TABLE " + hiveTableName);
+    }
+
+    @Test
+    public void testMigrateTimestampMilisOnORC()
+    {
+        asList(UTC, jvmZone, vilnius, kathmandu).forEach(zoneId ->
+                testMigrateTimestampOnFormat(
+                        MILLISECONDS,
+                        "ORC",
+                        "2021-01-01 06:12:12.123",
+                        "2021-01-01 06:12:12.123",
+                        zoneId));
+    }
+
+    @Test
+    public void testMigrateTimestampMicrosOnORC()
+    {
+        asList(UTC, jvmZone, vilnius, kathmandu).forEach(zoneId ->
+                testMigrateTimestampOnFormat(
+                        MICROSECONDS,
+                        "ORC",
+                        "2021-01-01 06:12:12.123456",
+                        "2021-01-01 06:12:12.123456",
+                        zoneId));
+    }
+
+    @Test
+    public void testMigrateTimestampNanosOnOrc()
+    {
+        asList(UTC, jvmZone, vilnius, kathmandu).forEach(zoneId ->
+                testMigrateTimestampOnFormat(
+                        NANOSECONDS,
+                        "ORC",
+                        "2021-01-01 06:12:12.123456789",
+                        "2021-01-01 06:12:12.123457",  // Rounded as Iceberg timestamp precision is 6
+                        zoneId));
+    }
+
+    @Test
+    public void testMigrateTimestampMilisOnParquet()
+    {
+        asList(UTC, jvmZone, vilnius, kathmandu).forEach(zoneId ->
+                testMigrateTimestampOnFormat(
+                        MILLISECONDS,
+                        "Parquet",
+                        "2021-01-01 06:12:12.123",
+                        "2021-01-01 06:12:12.123",
+                        zoneId));
+    }
+
+    @Test
+    public void testMigrateTimestampMicrosOnParquet()
+    {
+        asList(UTC, jvmZone, vilnius, kathmandu).forEach(zoneId ->
+                testMigrateTimestampOnFormat(
+                        MICROSECONDS,
+                        "Parquet",
+                        "2021-01-01 06:12:12.123456",
+                        "2021-01-01 06:12:12.123456",
+                        zoneId));
+    }
+
+    @Test
+    public void testMigrateTimestampNanosOnParquet()
+    {
+        asList(UTC, jvmZone, vilnius, kathmandu).forEach(zoneId ->
+                testMigrateTimestampOnFormat(
+                        NANOSECONDS,
+                        "Parquet",
+                        "2021-01-01 06:12:12.123456789",
+                        "2021-01-01 06:12:12.123457", // Rounded as Iceberg timestamp precision is 6
+                        zoneId));
+    }
+
+    private void testMigrateTimestampOnFormat(HiveTimestampPrecision precision, String fileFormat, String input, String expected, ZoneId zoneId)
+    {
+        String tableName = "test_migrate_timestamp_" + fileFormat.toLowerCase(Locale.ENGLISH) + randomNameSuffix();
         String hiveTableName = "hive.tpch." + tableName;
         String icebergTableName = "iceberg.tpch." + tableName;
 
-        assertUpdate("CREATE TABLE " + hiveTableName + " AS SELECT timestamp '2021-01-01 00:00:00.000' x", 1);
+        Session session = timestampPrecisionSession(precision, zoneId);
 
-        assertQueryFails(
-                "CALL iceberg.system.migrate('tpch', '" + tableName + "')",
-                "\\QTimestamp precision (3) not supported for Iceberg. Use \"timestamp(6)\" instead.");
+        assertUpdate(session, "CREATE TABLE " + hiveTableName + " (x timestamp(" + precision.getPrecision() + ")) WITH (format='" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + hiveTableName + " VALUES timestamp '" + input + "'", 1);
+        assertQuery(session, "SELECT * FROM " + hiveTableName, "VALUES timestamp '" + input + "'");
 
-        assertQuery("SELECT * FROM " + hiveTableName, "VALUES timestamp '2021-01-01 00:00:00.000'");
-        assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
+        assertQuerySucceeds("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
 
-        assertUpdate("DROP TABLE " + hiveTableName);
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES timestamp '" + expected + "'");
+
+        assertUpdate("DROP TABLE " + icebergTableName);
+    }
+
+    private Session timestampPrecisionSession(HiveTimestampPrecision hiveTimestampPrecision, ZoneId zoneId)
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "timestamp_precision", hiveTimestampPrecision.name())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(zoneId.getId()))
+                .build();
     }
 
     @Test

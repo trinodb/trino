@@ -51,6 +51,7 @@ import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.UuidType.UUID;
 import static java.lang.String.format;
@@ -147,6 +148,9 @@ public final class TypeConverter
         }
         if (type.equals(TIME_MICROS)) {
             return Types.TimeType.get();
+        }
+        if (type.equals(TIMESTAMP_MILLIS)) {
+            return Types.TimestampType.withoutZone();
         }
         if (type.equals(TIMESTAMP_MICROS)) {
             return Types.TimestampType.withoutZone();
