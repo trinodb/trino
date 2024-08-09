@@ -118,7 +118,7 @@ jobs:
           $MAVEN failsafe:integration-test failsafe:verify -B --strict-checksums -P ci -pl :trino-jdbc
       - name: Clean Maven Output
         run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
-      - uses: docker/setup-qemu-action@68827325e0b33c7199eb31dd4e31fbe9023e06e3 # v3
+      - uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3
         with:
           platforms: arm64,ppc64le
       - name: Build and Test Docker Image
