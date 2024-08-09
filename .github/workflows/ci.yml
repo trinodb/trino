@@ -96,6 +96,16 @@ jobs:
             - { modules: plugin/trino-exasol }
             - { modules: plugin/trino-exasol }
             - { modules: plugin/trino-exasol }
+            - { modules: plugin/trino-exasol }
+            - { modules: plugin/trino-exasol }
+            - { modules: plugin/trino-exasol }
+            - { modules: plugin/trino-exasol }
+            - { modules: plugin/trino-exasol }
+            - { modules: plugin/trino-exasol }
+            - { modules: plugin/trino-exasol }
+            - { modules: plugin/trino-exasol }
+            - { modules: plugin/trino-exasol }
+            - { modules: plugin/trino-exasol }
           EOF
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
           echo "Matrix: $(jq '.' matrix.json)"
