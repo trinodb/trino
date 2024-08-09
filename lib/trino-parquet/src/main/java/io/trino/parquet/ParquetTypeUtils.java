@@ -189,19 +189,6 @@ public final class ParquetTypeUtils
         return Optional.of(DecimalType.createDecimalType(decimalLogicalType.getPrecision(), decimalLogicalType.getScale()));
     }
 
-    /**
-     * For optional fields:
-     * <ul>
-     * <li>definitionLevel == maxDefinitionLevel     =&gt; Value is defined</li>
-     * <li>definitionLevel == maxDefinitionLevel - 1 =&gt; Value is null</li>
-     * <li>definitionLevel &lt; maxDefinitionLevel - 1  =&gt; Value does not exist, because one of its optional parent fields is null</li>
-     * </ul>
-     */
-    public static boolean isValueNull(boolean required, int definitionLevel, int maxDefinitionLevel)
-    {
-        return !required && (definitionLevel == maxDefinitionLevel - 1);
-    }
-
     public static boolean isOptionalFieldValueNull(int definitionLevel, int maxDefinitionLevel)
     {
         return definitionLevel == maxDefinitionLevel - 1;
