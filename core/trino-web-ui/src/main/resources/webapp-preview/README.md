@@ -24,7 +24,7 @@ property.
 2. Install dependencies:
 
 ```
-$ cd core/trino-main/src/main/resources/webapp-preview
+$ cd core/trino-web-ui/src/main/resources/webapp-preview
 $ npm install
 ```
 
