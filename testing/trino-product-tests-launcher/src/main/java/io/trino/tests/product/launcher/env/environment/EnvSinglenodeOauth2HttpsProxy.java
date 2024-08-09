@@ -20,14 +20,13 @@ import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.common.HttpProxy;
+import io.trino.tests.product.launcher.env.common.HttpsProxy;
 import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.common.HttpProxy.HTTP_PROXY_CONF_DIR;
 import static io.trino.tests.product.launcher.env.common.HttpProxy.PROXY;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
@@ -41,6 +40,7 @@ public class EnvSinglenodeOauth2HttpsProxy
     private final PortBinder binder;
     private final HydraIdentityProvider hydraIdentityProvider;
     private final ResourceProvider configDir;
+    private final HttpsProxy httpsProxy;
 
     @Inject
     public EnvSinglenodeOauth2HttpsProxy(
@@ -48,14 +48,15 @@ public class EnvSinglenodeOauth2HttpsProxy
             PortBinder binder,
             Standard standard,
             HydraIdentityProvider hydraIdentityProvider,
-            HttpProxy httpProxy)
+            HttpsProxy httpsProxy)
     {
-        super(ImmutableList.of(standard, hydraIdentityProvider, httpProxy));
+        super(ImmutableList.of(standard, hydraIdentityProvider, httpsProxy));
 
         this.binder = requireNonNull(binder, "binder is null");
         this.hydraIdentityProvider = requireNonNull(hydraIdentityProvider, "hydraIdentityProvider is null");
         requireNonNull(dockerFiles, "dockerFiles is null");
         this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-oauth2-https-proxy/");
+        this.httpsProxy = requireNonNull(httpsProxy, "httpsProxy is null");
     }
 
     @Override
@@ -67,7 +68,7 @@ public class EnvSinglenodeOauth2HttpsProxy
                             forHostPath(configDir.getPath("config.properties")),
                             CONTAINER_TRINO_CONFIG_PROPERTIES)
                     .withCopyFileToContainer(
-                            forHostPath(configDir.getPath("cert/truststore.jks")),
+                            forHostPath(httpsProxy.getTrustStorePath()),
                             CONTAINER_TRINO_ETC + "/cert/truststore.jks")
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("log.properties")),
@@ -87,12 +88,5 @@ public class EnvSinglenodeOauth2HttpsProxy
         builder.containerDependsOn(COORDINATOR, hydraClientConfig.getLogicalName());
 
         builder.containerDependsOn(COORDINATOR, PROXY);
-        builder.configureContainer(PROXY, proxyContainer -> proxyContainer
-                .withCopyFileToContainer(
-                        forHostPath(configDir.getPath("httpd.conf")),
-                        HTTP_PROXY_CONF_DIR + "httpd.conf")
-                .withCopyFileToContainer(
-                        forHostPath(configDir.getPath("cert")),
-                        HTTP_PROXY_CONF_DIR + "cert"));
     }
 }
