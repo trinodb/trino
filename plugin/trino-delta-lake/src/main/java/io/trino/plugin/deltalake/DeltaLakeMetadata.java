@@ -2195,7 +2195,10 @@ public class DeltaLakeMetadata
         long currentVersion = getMandatoryCurrentVersion(fileSystem, handle.location(), readVersion.get());
 
         List<DeltaLakeTableHandle> sameAsTargetSourceTableHandles = getSameAsTargetSourceTableHandles(sourceTableHandles, handle.tableName());
-        checkForConcurrentTransactionConflicts(session, fileSystem, sameAsTargetSourceTableHandles, isolationLevel, currentVersion, readVersion, handle.location(), attemptCount);
+        List<TupleDomain<DeltaLakeColumnHandle>> enforcedSourcePartitionConstraints = sameAsTargetSourceTableHandles.stream()
+                .map(DeltaLakeTableHandle::getEnforcedPartitionConstraint)
+                .collect(toImmutableList());
+        checkForConcurrentTransactionConflicts(session, fileSystem, enforcedSourcePartitionConstraints, isolationLevel, currentVersion, readVersion, handle.location(), attemptCount);
         long commitVersion = currentVersion + 1;
         writeTransactionLogForInsertOperation(session, handle, sameAsTargetSourceTableHandles.isEmpty(), isolationLevel, dataFileInfos, commitVersion, currentVersion);
         return commitVersion;
@@ -2217,7 +2220,7 @@ public class DeltaLakeMetadata
     private void checkForConcurrentTransactionConflicts(
             ConnectorSession session,
             TrinoFileSystem fileSystem,
-            List<DeltaLakeTableHandle> sameAsTargetSourceTableHandles,
+            List<TupleDomain<DeltaLakeColumnHandle>> enforcedSourcePartitionConstraints,
             IsolationLevel isolationLevel,
             long currentVersion,
             AtomicReference<Long> readVersion,
@@ -2243,10 +2246,7 @@ public class DeltaLakeMetadata
 
                 switch (isolationLevel) {
                     case WRITESERIALIZABLE -> {
-                        if (!sameAsTargetSourceTableHandles.isEmpty()) {
-                            List<TupleDomain<DeltaLakeColumnHandle>> enforcedSourcePartitionConstraints = sameAsTargetSourceTableHandles.stream()
-                                    .map(DeltaLakeTableHandle::getEnforcedPartitionConstraint)
-                                    .collect(toImmutableList());
+                        if (!enforcedSourcePartitionConstraints.isEmpty()) {
                             TupleDomain<DeltaLakeColumnHandle> enforcedSourcePartitionConstraintsUnion = TupleDomain.columnWiseUnion(enforcedSourcePartitionConstraints);
 
                             checkIfCommittedAddedFilesConflictWithCurrentOperation(enforcedSourcePartitionConstraintsUnion, commitSummary);
@@ -2500,9 +2500,12 @@ public class DeltaLakeMetadata
         long createdTime = Instant.now().toEpochMilli();
 
         List<DeltaLakeTableHandle> sameAsTargetSourceTableHandles = getSameAsTargetSourceTableHandles(sourceTableHandles, handle.getSchemaTableName());
+        List<TupleDomain<DeltaLakeColumnHandle>> enforcedSourcePartitionConstraints = sameAsTargetSourceTableHandles.stream()
+                .map(DeltaLakeTableHandle::getEnforcedPartitionConstraint)
+                .collect(toImmutableList());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation, readVersion.get());
-        checkForConcurrentTransactionConflicts(session, fileSystem, sameAsTargetSourceTableHandles, isolationLevel, currentVersion, readVersion, handle.getLocation(), attemptCount);
+        checkForConcurrentTransactionConflicts(session, fileSystem, enforcedSourcePartitionConstraints, isolationLevel, currentVersion, readVersion, handle.getLocation(), attemptCount);
         long commitVersion = currentVersion + 1;
 
         transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, isolationLevel, commitVersion, createdTime, MERGE_OPERATION, handle.getReadVersion(), sameAsTargetSourceTableHandles.isEmpty()));
@@ -2617,7 +2620,8 @@ public class DeltaLakeMetadata
                         tableHandle.getMetadataEntry().getOriginalPartitionColumns(),
                         maxScannedFileSize,
                         Optional.empty(),
-                        retryMode != NO_RETRIES),
+                        retryMode != NO_RETRIES,
+                        tableHandle.getEnforcedPartitionConstraint()),
                 tableHandle.getLocation()));
     }
 
@@ -2671,7 +2675,9 @@ public class DeltaLakeMetadata
         checkSupportedWriterVersion(table);
 
         return new BeginTableExecuteResult<>(
-                executeHandle.withProcedureHandle(optimizeHandle.withCurrentVersion(table.getReadVersion())),
+                executeHandle.withProcedureHandle(optimizeHandle
+                        .withCurrentVersion(table.getReadVersion())
+                        .withEnforcedPartitionConstraint(table.getEnforcedPartitionConstraint())),
                 table.forOptimize(true, optimizeHandle.getMaxScannedFileSize()));
     }
 
@@ -2690,11 +2696,10 @@ public class DeltaLakeMetadata
     private void finishOptimize(ConnectorSession session, DeltaLakeTableExecuteHandle executeHandle, Collection<Slice> fragments, List<Object> splitSourceInfo)
     {
         DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.procedureHandle();
-        long readVersion = optimizeHandle.getCurrentVersion().orElseThrow(() -> new IllegalArgumentException("currentVersion not set"));
         String tableLocation = executeHandle.tableLocation();
 
         // paths to be deleted
-        Set<DeltaLakeScannedDataFile> scannnedDataFiles = splitSourceInfo.stream()
+        Set<DeltaLakeScannedDataFile> scannedDataFiles = splitSourceInfo.stream()
                 .map(DeltaLakeScannedDataFile.class::cast)
                 .collect(toImmutableSet());
 
@@ -2708,36 +2713,19 @@ public class DeltaLakeMetadata
             cleanExtraOutputFiles(session, Location.of(executeHandle.tableLocation()), dataFileInfos);
         }
 
+        // Note: during writes we want to preserve original case of partition columns
+        List<String> partitionColumns = getPartitionColumns(
+                optimizeHandle.getMetadataEntry().getOriginalPartitionColumns(),
+                optimizeHandle.getTableColumns(),
+                getColumnMappingMode(optimizeHandle.getMetadataEntry(), optimizeHandle.getProtocolEntry()));
+
         boolean writeCommitted = false;
         try {
-            TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, tableLocation);
+            IsolationLevel isolationLevel = getIsolationLevel(optimizeHandle.getMetadataEntry());
+            AtomicReference<Long> readVersion = new AtomicReference<>(optimizeHandle.getCurrentVersion().orElseThrow(() -> new IllegalArgumentException("currentVersion not set")));
+            long commitVersion = Failsafe.with(TRANSACTION_CONFLICT_RETRY_POLICY)
+                    .get(context -> commitOptimizeOperation(session, optimizeHandle, isolationLevel, tableLocation, partitionColumns, scannedDataFiles, dataFileInfos, readVersion, context.getAttemptCount()));
 
-            long createdTime = Instant.now().toEpochMilli();
-            long commitVersion = readVersion + 1;
-            transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, IsolationLevel.WRITESERIALIZABLE, commitVersion, createdTime, OPTIMIZE_OPERATION, readVersion, false));
-            // TODO: Delta writes another field "operationMetrics" that I haven't
-            //   seen before. It contains delete/update metrics. Investigate/include it.
-
-            long writeTimestamp = Instant.now().toEpochMilli();
-
-            for (DeltaLakeScannedDataFile scannedFile : scannnedDataFiles) {
-                String relativePath = relativePath(tableLocation, scannedFile.path());
-                Map<String, Optional<String>> canonicalPartitionValues = scannedFile.partitionKeys();
-                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(
-                        toUriFormat(relativePath),
-                        createPartitionValuesMap(canonicalPartitionValues),
-                        writeTimestamp,
-                        false));
-            }
-
-            // Note: during writes we want to preserve original case of partition columns
-            List<String> partitionColumns = getPartitionColumns(
-                    optimizeHandle.getMetadataEntry().getOriginalPartitionColumns(),
-                    optimizeHandle.getTableColumns(),
-                    getColumnMappingMode(optimizeHandle.getMetadataEntry(), optimizeHandle.getProtocolEntry()));
-            appendAddFileEntries(transactionLogWriter, dataFileInfos, partitionColumns, getExactColumnNames(optimizeHandle.getMetadataEntry()), false);
-
-            transactionLogWriter.flush();
             writeCommitted = true;
             enqueueUpdateInfo(
                     session,
@@ -2762,6 +2750,54 @@ public class DeltaLakeMetadata
             }
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
         }
+    }
+
+    private long commitOptimizeOperation(
+            ConnectorSession session,
+            DeltaTableOptimizeHandle optimizeHandle,
+            IsolationLevel isolationLevel,
+            String tableLocation,
+            List<String> partitionColumns,
+            Set<DeltaLakeScannedDataFile> scannedDataFiles,
+            List<DataFileInfo> dataFileInfos,
+            AtomicReference<Long> readVersion,
+            int attemptCount)
+            throws IOException
+    {
+        TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, tableLocation);
+
+        long createdTime = Instant.now().toEpochMilli();
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation, readVersion.get());
+        checkForConcurrentTransactionConflicts(session, fileSystem, ImmutableList.of(optimizeHandle.getEnforcedPartitionConstraint()), isolationLevel, currentVersion, readVersion, tableLocation, attemptCount);
+        long commitVersion = currentVersion + 1;
+        transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(
+                session,
+                isolationLevel,
+                commitVersion,
+                createdTime,
+                OPTIMIZE_OPERATION,
+                optimizeHandle.getCurrentVersion().orElseThrow(() -> new IllegalArgumentException("currentVersion not set")),
+                false));
+        // TODO: Delta writes another field "operationMetrics" that I haven't
+        //   seen before. It contains delete/update metrics. Investigate/include it.
+
+        long writeTimestamp = Instant.now().toEpochMilli();
+
+        for (DeltaLakeScannedDataFile scannedFile : scannedDataFiles) {
+            String relativePath = relativePath(tableLocation, scannedFile.path());
+            Map<String, Optional<String>> canonicalPartitionValues = scannedFile.partitionKeys();
+            transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(
+                    toUriFormat(relativePath),
+                    createPartitionValuesMap(canonicalPartitionValues),
+                    writeTimestamp,
+                    false));
+        }
+
+        appendAddFileEntries(transactionLogWriter, dataFileInfos, partitionColumns, getExactColumnNames(optimizeHandle.getMetadataEntry()), false);
+
+        transactionLogWriter.flush();
+        return commitVersion;
     }
 
     private void checkWriteAllowed(ConnectorSession session, DeltaLakeTableHandle table)
@@ -4094,7 +4130,7 @@ public class DeltaLakeMetadata
         long writeTimestamp = Instant.now().toEpochMilli();
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation, readVersion.get());
-        checkForConcurrentTransactionConflicts(session, fileSystem, ImmutableList.of(tableHandle), isolationLevel, currentVersion, readVersion, tableHandle.getLocation(), attemptCount);
+        checkForConcurrentTransactionConflicts(session, fileSystem, ImmutableList.of(tableHandle.getEnforcedPartitionConstraint()), isolationLevel, currentVersion, readVersion, tableHandle.getLocation(), attemptCount);
         long commitVersion = currentVersion + 1;
         transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, isolationLevel, commitVersion, writeTimestamp, operation, tableHandle.getReadVersion(), false));
 
