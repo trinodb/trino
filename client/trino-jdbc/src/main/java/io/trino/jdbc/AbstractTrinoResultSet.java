@@ -57,6 +57,7 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -154,6 +155,8 @@ abstract class AbstractTrinoResultSet
                     .add("date", String.class, java.time.LocalDate.class, string -> parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId())).toLocalDate())
                     .add("time", String.class, Time.class, string -> parseTime(string, ZoneId.systemDefault()))
                     .add("time with time zone", String.class, Time.class, AbstractTrinoResultSet::parseTimeWithTimeZone)
+                    .add("timestamp", String.class, Instant.class, string -> parseTimestampAsInstant(string, ZoneId.systemDefault()))
+                    .add("timestamp", String.class, LocalDateTime.class, string -> parseTimestampAsLocalDateTime(string, ZoneId.systemDefault()))
                     .add("timestamp", String.class, Timestamp.class, string -> parseTimestampAsSqlTimestamp(string, ZoneId.systemDefault()))
                     .add("timestamp with time zone", String.class, Timestamp.class, AbstractTrinoResultSet::parseTimestampWithTimeZoneAsSqlTimestamp)
                     .add("timestamp with time zone", String.class, ZonedDateTime.class, AbstractTrinoResultSet::parseTimestampWithTimeZone)
@@ -1968,6 +1971,28 @@ abstract class AbstractTrinoResultSet
         return list.build();
     }
 
+    private static Instant parseTimestampAsInstant(String value, ZoneId localTimeZone)
+    {
+        ParsedTimestamp parsed = parseTimestamp(value);
+        return toInstant(value, parsed, timezone -> {
+            if (timezone.isPresent()) {
+                throw new IllegalArgumentException("Invalid timestamp: " + value);
+            }
+            return localTimeZone;
+        });
+    }
+
+    private static LocalDateTime parseTimestampAsLocalDateTime(String value, ZoneId localTimeZone)
+    {
+        ParsedTimestamp parsed = parseTimestamp(value);
+        return toLocalDateTime(value, parsed, timezone -> {
+            if (timezone.isPresent()) {
+                throw new IllegalArgumentException("Invalid timestamp: " + value);
+            }
+            return localTimeZone;
+        });
+    }
+
     private static Timestamp parseTimestampWithTimeZoneAsSqlTimestamp(String value)
     {
         ParsedTimestamp parsed = parseTimestamp(value);
@@ -2015,7 +2040,7 @@ abstract class AbstractTrinoResultSet
         return new ParsedTimestamp(year, month, day, hour, minute, second, picosOfSecond, timezone);
     }
 
-    private static Timestamp toTimestamp(String originalValue, ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser)
+    private static Instant toInstant(String originalValue, ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser)
     {
         int year = parsed.year;
         int month = parsed.month;
@@ -2044,8 +2069,22 @@ abstract class AbstractTrinoResultSet
             nanoOfSecond = 0;
         }
 
-        Timestamp timestamp = new Timestamp(epochSecond * MILLISECONDS_PER_SECOND);
-        timestamp.setNanos(nanoOfSecond);
+        return Instant.ofEpochMilli(epochSecond * MILLISECONDS_PER_SECOND).plusNanos(nanoOfSecond);
+    }
+
+    private static LocalDateTime toLocalDateTime(String originalValue, ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser)
+    {
+        Instant instant = toInstant(originalValue, parsed, timeZoneParser);
+
+        return LocalDateTime.ofInstant(instant, timeZoneParser.apply(parsed.timezone));
+    }
+
+    private static Timestamp toTimestamp(String originalValue, ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser)
+    {
+        Instant instant = toInstant(originalValue, parsed, timeZoneParser);
+
+        Timestamp timestamp = new Timestamp(instant.toEpochMilli());
+        timestamp.setNanos(instant.getNano());
         return timestamp;
     }
 
