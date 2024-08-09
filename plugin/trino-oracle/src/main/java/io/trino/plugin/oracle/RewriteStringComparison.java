@@ -70,17 +70,38 @@ public class RewriteStringComparison
         Variable firstArgument = captures.get(FIRST_ARGUMENT);
         Variable secondArgument = captures.get(SECOND_ARGUMENT);
 
-        if (isClob(firstArgument, context) || isClob(secondArgument, context)) {
-            return Optional.empty();
-        }
         return context.defaultRewrite(firstArgument).flatMap(first ->
                 context.defaultRewrite(secondArgument).map(second ->
                         new ParameterizedExpression(
-                                "(%s) %s (%s)".formatted(first.expression(), comparison.getOperator(), second.expression()),
+                                buildComparison(first.expression(), comparison.getOperator(), second.expression(), firstArgument, secondArgument, context),
                                 ImmutableList.<QueryParameter>builder()
                                         .addAll(first.parameters())
                                         .addAll(second.parameters())
                                         .build())));
+    }
+
+    private static String buildComparison(
+            String firstExpression,
+            String operator,
+            String secondExpression,
+            Variable firstArgument,
+            Variable secondArgument,
+            RewriteContext<ParameterizedExpression> context)
+    {
+        boolean[] clobInfo = {isClob(firstArgument, context), isClob(secondArgument, context)};
+
+        if (clobInfo[0] || clobInfo[1]) {
+            return "DBMS_LOB.compare(%s, %s) %s 0".formatted(
+                    clobInfo[0] ? toNClob(firstExpression) : firstExpression,
+                    clobInfo[1] ? toNClob(secondExpression) : secondExpression,
+                    operator);
+        }
+        return "(%s) %s (%s)".formatted(firstExpression, operator, secondExpression);
+    }
+
+    private static String toNClob(String expression)
+    {
+        return "TO_NCLOB(%s)".formatted(expression);
     }
 
     private static boolean isClob(Variable variable, RewriteContext<?> context)
