@@ -2,11 +2,11 @@ name: ci
 
 on:
   push:
-    branches:
-      - master
-  pull_request:
-    paths-ignore:
-      - 'docs/**'
+  #  branches:
+  #    - master
+  #pull_request:
+  #  paths-ignore:
+  #    - 'docs/**'
   repository_dispatch:
     types: [test-with-secrets-command]
 
