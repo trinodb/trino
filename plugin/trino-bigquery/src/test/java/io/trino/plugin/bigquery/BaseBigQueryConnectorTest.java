@@ -65,6 +65,7 @@ public abstract class BaseBigQueryConnectorTest
 {
     protected BigQuerySqlExecutor bigQuerySqlExecutor;
     private String gcpStorageBucket;
+    private String bigQueryConnectionId;
 
     @BeforeAll
     public void initBigQueryExecutor()
@@ -72,6 +73,7 @@ public abstract class BaseBigQueryConnectorTest
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
         // Prerequisite: upload region.csv in resources directory to gs://{testing.gcp-storage-bucket}/tpch/tiny/region.csv
         this.gcpStorageBucket = requiredNonEmptySystemProperty("testing.gcp-storage-bucket");
+        this.bigQueryConnectionId = requiredNonEmptySystemProperty("testing.bigquery-connection-id");
     }
 
     @Override
@@ -80,18 +82,18 @@ public abstract class BaseBigQueryConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_TRUNCATE -> true;
             case SUPPORTS_ADD_COLUMN,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_DEREFERENCE_PUSHDOWN,
-                    SUPPORTS_MERGE,
-                    SUPPORTS_NEGATIVE_DATE,
-                    SUPPORTS_NOT_NULL_CONSTRAINT,
-                    SUPPORTS_RENAME_COLUMN,
-                    SUPPORTS_RENAME_SCHEMA,
-                    SUPPORTS_RENAME_TABLE,
-                    SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN,
-                    SUPPORTS_UPDATE -> false;
+                 SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                 SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_DEREFERENCE_PUSHDOWN,
+                 SUPPORTS_MERGE,
+                 SUPPORTS_NEGATIVE_DATE,
+                 SUPPORTS_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_RENAME_COLUMN,
+                 SUPPORTS_RENAME_SCHEMA,
+                 SUPPORTS_RENAME_TABLE,
+                 SUPPORTS_SET_COLUMN_TYPE,
+                 SUPPORTS_TOPN_PUSHDOWN,
+                 SUPPORTS_UPDATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -353,15 +355,15 @@ public abstract class BaseBigQueryConnectorTest
             assertQuery(
                     "SELECT table_name, comment FROM system.metadata.table_comments WHERE catalog_name = 'bigquery' AND schema_name = '" + schemaName + "'",
                     "VALUES " +
-                            "('test_comment_semicolon', " + varcharLiteral("a;semicolon") + ")," +
-                            "('test_comment_at', " + varcharLiteral("an@at") + ")," +
-                            "('test_comment_quote', " + varcharLiteral("a\"quote") + ")," +
-                            "('test_comment_apostrophe', " + varcharLiteral("an'apostrophe") + ")," +
-                            "('test_comment_backtick', " + varcharLiteral("a`backtick`") + ")," +
-                            "('test_comment_slash', " + varcharLiteral("a/slash") + ")," +
-                            "('test_comment_backslash', " + varcharLiteral("a\\backslash") + ")," +
-                            "('test_comment_question', " + varcharLiteral("a?question") + ")," +
-                            "('test_comment_bracket', " + varcharLiteral("[square bracket]") + ")");
+                    "('test_comment_semicolon', " + varcharLiteral("a;semicolon") + ")," +
+                    "('test_comment_at', " + varcharLiteral("an@at") + ")," +
+                    "('test_comment_quote', " + varcharLiteral("a\"quote") + ")," +
+                    "('test_comment_apostrophe', " + varcharLiteral("an'apostrophe") + ")," +
+                    "('test_comment_backtick', " + varcharLiteral("a`backtick`") + ")," +
+                    "('test_comment_slash', " + varcharLiteral("a/slash") + ")," +
+                    "('test_comment_backslash', " + varcharLiteral("a\\backslash") + ")," +
+                    "('test_comment_question', " + varcharLiteral("a?question") + ")," +
+                    "('test_comment_bracket', " + varcharLiteral("[square bracket]") + ")");
         }
         finally {
             assertUpdate("DROP SCHEMA " + schemaName + " CASCADE");
@@ -523,8 +525,8 @@ public abstract class BaseBigQueryConnectorTest
                 List.of("1, 2, 3"))) {
             assertQuery(
                     "SELECT 1 FROM " + table.getName() + " WHERE " +
-                            "    ((NULL IS NULL) OR a = 100) AND " +
-                            "    b = 2",
+                    "    ((NULL IS NULL) OR a = 100) AND " +
+                    "    b = 2",
                     "VALUES (1)");
         }
     }
@@ -620,16 +622,16 @@ public abstract class BaseBigQueryConnectorTest
     {
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo("CREATE TABLE bigquery.tpch.orders (\n" +
-                        "   orderkey bigint NOT NULL,\n" +
-                        "   custkey bigint NOT NULL,\n" +
-                        "   orderstatus varchar NOT NULL,\n" +
-                        "   totalprice double NOT NULL,\n" +
-                        "   orderdate date NOT NULL,\n" +
-                        "   orderpriority varchar NOT NULL,\n" +
-                        "   clerk varchar NOT NULL,\n" +
-                        "   shippriority bigint NOT NULL,\n" +
-                        "   comment varchar NOT NULL\n" +
-                        ")");
+                           "   orderkey bigint NOT NULL,\n" +
+                           "   custkey bigint NOT NULL,\n" +
+                           "   orderstatus varchar NOT NULL,\n" +
+                           "   totalprice double NOT NULL,\n" +
+                           "   orderdate date NOT NULL,\n" +
+                           "   orderpriority varchar NOT NULL,\n" +
+                           "   clerk varchar NOT NULL,\n" +
+                           "   shippriority bigint NOT NULL,\n" +
+                           "   comment varchar NOT NULL\n" +
+                           ")");
     }
 
     @Test
@@ -643,9 +645,9 @@ public abstract class BaseBigQueryConnectorTest
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 2)");
             assertThat((String) computeActual("SHOW CREATE TABLE " + table.getName()).getOnlyValue())
                     .isEqualTo("CREATE TABLE bigquery." + table.getName() + " (\n" +
-                            "   a bigint,\n" +
-                            "   b bigint\n" +
-                            ")");
+                               "   a bigint,\n" +
+                               "   b bigint\n" +
+                               ")");
         }
     }
 
@@ -752,6 +754,42 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
+    public void testBigLakeExternalTable()
+    {
+        String biglakeExternalTable = "test_biglake_external" + randomNameSuffix();
+        try {
+            onBigQuery("CREATE EXTERNAL TABLE test." + biglakeExternalTable +
+                       " WITH CONNECTION `" + bigQueryConnectionId + "`" +
+                       " OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
+            assertThat(getQueryRunner().tableExists(getSession(), biglakeExternalTable)).isTrue();
+
+            assertThat(query("DESCRIBE test." + biglakeExternalTable)).matches("DESCRIBE tpch.region");
+            assertThat(query("SELECT * FROM test." + biglakeExternalTable)).matches("SELECT * FROM tpch.region");
+
+            assertUpdate("DROP TABLE test." + biglakeExternalTable);
+            assertThat(getQueryRunner().tableExists(getSession(), biglakeExternalTable)).isFalse();
+            // BigLake tables should not run queries, since they are read directly using the storage read API.
+            assertJobCountForTable(biglakeExternalTable, 0);
+        }
+        finally {
+            onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + biglakeExternalTable);
+        }
+    }
+
+    private void assertJobCountForTable(String referencedTable, long expectedJobCount)
+    {
+        @Language("SQL")
+        String jobCountForTableQuery = """
+                 SELECT count(*) FROM region-us.INFORMATION_SCHEMA.JOBS WHERE EXISTS(
+                     SELECT * FROM UNNEST(referenced_tables) AS referenced_table
+                         WHERE referenced_table.table_id = '%s')
+                """.formatted(referencedTable);
+        // Use assertEventually in case there are delays in the BQ information schema.
+        assertEventually(() -> assertThat(bigQuerySqlExecutor.executeQuery(jobCountForTableQuery).getTotalRows())
+                .isEqualTo(expectedJobCount));
+    }
+
+    @Test
     public void testQueryLabeling()
     {
         Function<String, Session> sessionWithToken = token -> Session.builder(getSession())
@@ -786,9 +824,9 @@ public abstract class BaseBigQueryConnectorTest
 
         @Language("SQL")
         String checkForLabelQuery = """
-                    SELECT * FROM region-us.INFORMATION_SCHEMA.JOBS_BY_USER WHERE EXISTS(
-                        SELECT * FROM UNNEST(labels) AS label WHERE label.key = 'trino_query' AND label.value = '%s'
-                    )""".formatted(expectedLabel);
+                SELECT * FROM region-us.INFORMATION_SCHEMA.JOBS_BY_USER WHERE EXISTS(
+                    SELECT * FROM UNNEST(labels) AS label WHERE label.key = 'trino_query' AND label.value = '%s'
+                )""".formatted(expectedLabel);
 
         assertEventually(() -> assertThat(bigQuerySqlExecutor.executeQuery(checkForLabelQuery).getValues())
                 .extracting(values -> values.get("query").getStringValue())
@@ -1166,10 +1204,10 @@ public abstract class BaseBigQueryConnectorTest
                 this::onBigQuery,
                 "test.test_table",
                 "(col_required INT64 NOT NULL," +
-                        "col_nullable INT64," +
-                        "col_default INT64 DEFAULT 43," +
-                        "col_nonnull_default INT64 DEFAULT 42 NOT NULL," +
-                        "col_required2 INT64 NOT NULL)");
+                "col_nullable INT64," +
+                "col_default INT64 DEFAULT 43," +
+                "col_nonnull_default INT64 DEFAULT 42 NOT NULL," +
+                "col_required2 INT64 NOT NULL)");
     }
 
     @Test

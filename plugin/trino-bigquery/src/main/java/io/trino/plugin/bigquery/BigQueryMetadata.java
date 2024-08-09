@@ -17,6 +17,7 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
+import com.google.cloud.bigquery.ExternalTableDefinition;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.QueryParameterValue;
@@ -330,12 +331,19 @@ public class BigQueryMetadata
             columns.add(PARTITION_DATE.getColumnHandle());
             columns.add(PARTITION_TIME.getColumnHandle());
         }
+        Optional<String> connectionId = Optional.empty();
+        if (tableInfo.get().getDefinition() instanceof ExternalTableDefinition externalTableDefinition) {
+            if (externalTableDefinition.getConnectionId() != null && !externalTableDefinition.getConnectionId().isEmpty()) {
+                connectionId = Optional.of(externalTableDefinition.getConnectionId());
+            }
+        }
         return new BigQueryTableHandle(new BigQueryNamedRelationHandle(
                 schemaTableName,
                 new RemoteTableName(tableInfo.get().getTableId()),
                 tableInfo.get().getDefinition().getType().toString(),
                 partitionType,
-                Optional.ofNullable(tableInfo.get().getDescription())),
+                Optional.ofNullable(tableInfo.get().getDescription()),
+                connectionId.isPresent()),
                 TupleDomain.all(),
                 Optional.empty())
                 .withProjectedColumns(columns.build());
