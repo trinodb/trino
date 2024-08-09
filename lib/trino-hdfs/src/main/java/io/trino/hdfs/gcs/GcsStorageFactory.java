@@ -24,13 +24,13 @@ import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.Retry
 import com.google.inject.Inject;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.Path;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.util.Optional;
 
@@ -38,7 +38,6 @@ import static com.google.cloud.hadoop.fs.gcs.TrinoGoogleHadoopFileSystemConfigur
 import static com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.CredentialFactory.DEFAULT_SCOPES;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.hdfs.gcs.GcsConfigurationProvider.GCS_OAUTH_KEY;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class GcsStorageFactory
@@ -97,8 +96,8 @@ public class GcsStorageFactory
                     .setApplicationName(APPLICATION_NAME)
                     .build();
         }
-        catch (Exception e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 }
