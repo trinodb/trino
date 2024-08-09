@@ -18,8 +18,8 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.redshift.RedshiftQueryRunner.TEST_SCHEMA;
-import static io.trino.plugin.redshift.RedshiftQueryRunner.executeInRedshift;
+import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 

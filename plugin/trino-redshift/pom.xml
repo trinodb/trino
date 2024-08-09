@@ -110,6 +110,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>concurrent</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
             <scope>runtime</scope>
         </dependency>
@@ -117,6 +123,12 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
             <scope>runtime</scope>
         </dependency>
 
