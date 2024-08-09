@@ -367,6 +367,19 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.5.14</version>
+            <scope>runtime</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>
             <scope>runtime</scope>
@@ -426,6 +439,13 @@
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>sts</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.databricks</groupId>
+            <artifactId>databricks-jdbc</artifactId>
+            <version>2.6.36</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -697,6 +717,7 @@
                         <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                         <ignoredResourcePattern>mime.types</ignoredResourcePattern>
+                        <ignoredResourcePattern>Log4j-charsets.properties</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                 </configuration>
             </plugin>
@@ -732,6 +753,7 @@
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestTrinoSnowflakeCatalog.java</exclude>
+                                <exclude>**/TestIcebergUnityRestCatalogConnectorSmokeTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -796,6 +818,7 @@
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</include>
                                 <include>**/TestTrinoSnowflakeCatalog.java</include>
+                                <include>**/TestIcebergUnityRestCatalogConnectorSmokeTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>

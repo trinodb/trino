@@ -27,6 +27,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.CatalogProperties;
+import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 
@@ -44,6 +45,7 @@ public class TrinoIcebergRestCatalogFactory
     private final URI serverUri;
     private final Optional<String> prefix;
     private final Optional<String> warehouse;
+    private final Namespace namespace;
     private final SessionType sessionType;
     private final boolean vendedCredentialsEnabled;
     private final SecurityProperties securityProperties;
@@ -70,6 +72,7 @@ public class TrinoIcebergRestCatalogFactory
         this.serverUri = restConfig.getBaseUri();
         this.prefix = restConfig.getPrefix();
         this.warehouse = restConfig.getWarehouse();
+        this.namespace = restConfig.getNamespace();
         this.sessionType = restConfig.getSessionType();
         this.vendedCredentialsEnabled = restConfig.isVendedCredentialsEnabled();
         this.securityProperties = requireNonNull(securityProperties, "securityProperties is null");
@@ -108,6 +111,6 @@ public class TrinoIcebergRestCatalogFactory
             icebergCatalog = icebergCatalogInstance;
         }
 
-        return new TrinoRestCatalog(icebergCatalog, catalogName, sessionType, trinoVersion, typeManager, uniqueTableLocation);
+        return new TrinoRestCatalog(icebergCatalog, catalogName, namespace, sessionType, trinoVersion, typeManager, uniqueTableLocation);
     }
 }

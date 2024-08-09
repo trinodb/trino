@@ -703,6 +703,11 @@ jobs:
           SNOWFLAKE_CATALOG_S3_SECRET_ACCESS_KEY: ${{ secrets.SNOWFLAKE_CATALOG_S3_SECRET_ACCESS_KEY }}
           SNOWFLAKE_EXTERNAL_VOLUME: ${{ vars.SNOWFLAKE_EXTERNAL_VOLUME }}
           SNOWFLAKE_CATALOG_S3_REGION: ${{ vars.SNOWFLAKE_CATALOG_S3_REGION }}
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_LOGIN: token
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_UNITY_CATALOG_NAME: ${{ vars.DATABRICKS_UNITY_CATALOG_NAME }}
+          DATABRICKS_UNITY_JDBC_URL: ${{ vars.DATABRICKS_UNITY_JDBC_URL }}
         if: >-
           contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
