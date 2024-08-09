@@ -799,6 +799,10 @@ public abstract class BaseJdbcClient
         }
     }
 
+    /**
+     * @deprecated because used only within deprecated {@link BaseJdbcClient#legacyImplementJoin}
+     */
+    @Deprecated
     protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         return false;
