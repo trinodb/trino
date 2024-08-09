@@ -30,7 +30,8 @@ public class TestOAuth2SecurityConfig
     {
         assertRecordedDefaults(recordDefaults(OAuth2SecurityConfig.class)
                 .setCredential(null)
-                .setToken(null));
+                .setToken(null)
+                .setScope(null));
     }
 
     @Test
@@ -39,11 +40,13 @@ public class TestOAuth2SecurityConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("iceberg.rest-catalog.oauth2.token", "token")
                 .put("iceberg.rest-catalog.oauth2.credential", "credential")
+                .put("iceberg.rest-catalog.oauth2.scope", "scope")
                 .buildOrThrow();
 
         OAuth2SecurityConfig expected = new OAuth2SecurityConfig()
                 .setCredential("credential")
-                .setToken("token");
+                .setToken("token")
+                .setScope("scope");
         assertThat(expected.credentialOrTokenPresent()).isTrue();
         assertFullMapping(properties, expected);
     }
