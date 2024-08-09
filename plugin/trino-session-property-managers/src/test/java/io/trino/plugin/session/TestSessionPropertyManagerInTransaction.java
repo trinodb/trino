@@ -36,7 +36,7 @@ public class TestSessionPropertyManagerInTransaction
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .build();
         queryRunner.installPlugin(new SessionPropertyConfigurationManagerPlugin());
-        queryRunner.getSessionPropertyDefaults().loadConfigurationManager(CONFIG_FILE.getAbsoluteFile());
+        queryRunner.getSessionPropertyDefaults().loadConfigurationManager(CONFIG_FILE.toPath());
         return queryRunner;
     }
 

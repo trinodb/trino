@@ -41,7 +41,7 @@ class TestCatalogStoreManager
             Files.writeString(tempFile.path(), "catalog-store.name=test");
             CatalogStoreManager catalogStoreManager = new CatalogStoreManager(new SecretsResolver(ImmutableMap.of()));
             catalogStoreManager.addCatalogStoreFactory(new TestingCatalogStoreFactory());
-            catalogStoreManager.loadConfiguredCatalogStore(tempFile.file());
+            catalogStoreManager.loadConfiguredCatalogStore(tempFile.path());
             assertThat(catalogStoreManager.getCatalogs()).containsExactly(TestingCatalogStore.STORED_CATALOG);
         }
     }

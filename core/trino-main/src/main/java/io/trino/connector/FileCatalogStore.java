@@ -21,6 +21,7 @@ import com.google.common.hash.Hashing;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.plugin.base.ConfigurationLoader;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
@@ -48,7 +49,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Files.getNameWithoutExtension;
-import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.plugin.base.ConfigurationLoader.PROPERTIES_SUFFIX;
+import static io.trino.plugin.base.ConfigurationLoader.loadConfigurationFrom;
 import static io.trino.spi.StandardErrorCode.CATALOG_STORE_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
@@ -151,7 +153,7 @@ public final class FileCatalogStore
 
     private File toFile(CatalogName catalogName)
     {
-        return new File(catalogsDirectory, catalogName.toString() + ".properties");
+        return new File(catalogsDirectory, catalogName.toString() + PROPERTIES_SUFFIX);
     }
 
     private static List<File> listCatalogFiles(File catalogsDirectory)
@@ -166,7 +168,7 @@ public final class FileCatalogStore
         }
         return Arrays.stream(files)
                 .filter(File::isFile)
-                .filter(file -> file.getName().endsWith(".properties"))
+                .filter(ConfigurationLoader::isConfigurationFile)
                 .collect(toImmutableList());
     }
 
@@ -217,7 +219,7 @@ public final class FileCatalogStore
         {
             Map<String, String> properties;
             try {
-                properties = new HashMap<>(loadPropertiesFrom(file.getPath()));
+                properties = new HashMap<>(loadConfigurationFrom(file));
             }
             catch (IOException e) {
                 throw new UncheckedIOException("Error reading catalog property file " + file, e);

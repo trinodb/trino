@@ -31,7 +31,7 @@ import java.util.Optional;
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.plugin.base.ConfigurationLoader.loadConfigurationFrom;
 import static io.trino.plugin.jdbc.credential.CredentialProviderType.FILE;
 import static io.trino.plugin.jdbc.credential.CredentialProviderType.INLINE;
 import static io.trino.plugin.jdbc.credential.CredentialProviderType.KEYSTORE;
@@ -93,7 +93,7 @@ public class CredentialProviderModule
         public CredentialProvider getCredentialProvider(ConfigFileBasedCredentialProviderConfig fileConfig)
                 throws IOException
         {
-            Map<String, String> properties = loadPropertiesFrom(fileConfig.getCredentialFile());
+            Map<String, String> properties = loadConfigurationFrom(fileConfig.getCredentialFile());
             CredentialConfig config = new ConfigurationFactory(properties).build(CredentialConfig.class);
             return new StaticCredentialProvider(config.getConnectionUser(), config.getConnectionPassword());
         }

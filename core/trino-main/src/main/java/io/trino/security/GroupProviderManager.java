@@ -23,8 +23,8 @@ import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.GroupProviderFactory;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -35,7 +35,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.plugin.base.ConfigurationLoader.configurationExists;
+import static io.trino.plugin.base.ConfigurationLoader.loadConfigurationFrom;
+import static io.trino.plugin.base.ConfigurationLoader.resolvedConfigurationPath;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -43,7 +45,7 @@ public class GroupProviderManager
         implements GroupProvider
 {
     private static final Logger log = Logger.get(GroupProviderManager.class);
-    private static final File GROUP_PROVIDER_CONFIGURATION = new File("etc/group-provider.properties");
+    private static final Path GROUP_PROVIDER_CONFIGURATION = Path.of("etc/group-provider");
     private static final String GROUP_PROVIDER_PROPERTY_NAME = "group-provider.name";
     private final Map<String, GroupProviderFactory> groupProviderFactories = new ConcurrentHashMap<>();
     private final AtomicReference<Optional<GroupProvider>> configuredGroupProvider = new AtomicReference<>(Optional.empty());
@@ -71,17 +73,17 @@ public class GroupProviderManager
     }
 
     @VisibleForTesting
-    void loadConfiguredGroupProvider(File groupProviderFile)
+    void loadConfiguredGroupProvider(Path groupProviderFile)
             throws IOException
     {
-        if (configuredGroupProvider.get().isPresent() || !groupProviderFile.exists()) {
+        if (configuredGroupProvider.get().isPresent() || !configurationExists(groupProviderFile)) {
             return;
         }
-        Map<String, String> properties = new HashMap<>(loadPropertiesFrom(groupProviderFile.getPath()));
+        Map<String, String> properties = new HashMap<>(loadConfigurationFrom(groupProviderFile));
 
         String groupProviderName = properties.remove(GROUP_PROVIDER_PROPERTY_NAME);
         checkArgument(!isNullOrEmpty(groupProviderName),
-                "Group provider configuration %s does not contain %s", groupProviderFile.getAbsoluteFile(), GROUP_PROVIDER_PROPERTY_NAME);
+                "Group provider configuration %s does not contain %s", resolvedConfigurationPath(groupProviderFile), GROUP_PROVIDER_PROPERTY_NAME);
 
         setConfiguredGroupProvider(groupProviderName, properties);
     }

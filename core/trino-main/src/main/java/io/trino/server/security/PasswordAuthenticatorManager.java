@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.plugin.base.ConfigurationLoader.loadConfigurationFrom;
 import static java.util.Objects.requireNonNull;
 
 public class PasswordAuthenticatorManager
@@ -92,7 +92,7 @@ public class PasswordAuthenticatorManager
     {
         Map<String, String> properties;
         try {
-            properties = new HashMap<>(loadPropertiesFrom(configFile.getPath()));
+            properties = new HashMap<>(loadConfigurationFrom(configFile.getPath()));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

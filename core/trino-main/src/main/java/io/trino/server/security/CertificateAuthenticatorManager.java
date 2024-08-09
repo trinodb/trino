@@ -21,7 +21,7 @@ import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.security.CertificateAuthenticator;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,14 +31,16 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.plugin.base.ConfigurationLoader.configurationExists;
+import static io.trino.plugin.base.ConfigurationLoader.loadConfigurationFrom;
+import static io.trino.plugin.base.ConfigurationLoader.resolvedConfigurationPath;
 import static java.util.Objects.requireNonNull;
 
 public class CertificateAuthenticatorManager
 {
     private static final Logger log = Logger.get(CertificateAuthenticatorManager.class);
 
-    private static final File CONFIG_FILE = new File("etc/certificate-authenticator.properties");
+    private static final Path CONFIG_FILE = Path.of("etc/certificate-authenticator");
     private static final String NAME_PROPERTY = "certificate-authenticator.name";
 
     private final AtomicBoolean required = new AtomicBoolean();
@@ -70,16 +72,15 @@ public class CertificateAuthenticatorManager
             return;
         }
 
-        File configFile = CONFIG_FILE.getAbsoluteFile();
-        if (!configFile.exists()) {
+        if (!configurationExists(CONFIG_FILE)) {
             useDefaultAuthenticator();
             return;
         }
 
-        Map<String, String> properties = new HashMap<>(loadPropertiesFrom(configFile.getPath()));
+        Map<String, String> properties = new HashMap<>(loadConfigurationFrom(CONFIG_FILE));
 
         String name = properties.remove(NAME_PROPERTY);
-        checkState(!isNullOrEmpty(name), "Certificate authenticator configuration %s does not contain '%s'", configFile, NAME_PROPERTY);
+        checkState(!isNullOrEmpty(name), "Certificate authenticator configuration %s does not contain '%s'", resolvedConfigurationPath(CONFIG_FILE), NAME_PROPERTY);
 
         log.info("-- Loading certificate authenticator --");
 

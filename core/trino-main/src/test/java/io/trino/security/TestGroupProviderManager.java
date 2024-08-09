@@ -54,7 +54,7 @@ public class TestGroupProviderManager
             Files.write(tempFile.path(), "group-provider.name=testGroupProvider".getBytes(UTF_8));
             GroupProviderManager groupProviderManager = new GroupProviderManager(new SecretsResolver(ImmutableMap.of()));
             groupProviderManager.addGroupProviderFactory(TEST_GROUP_PROVIDER_FACTORY);
-            groupProviderManager.loadConfiguredGroupProvider(tempFile.file());
+            groupProviderManager.loadConfiguredGroupProvider(tempFile.path());
             assertThat(groupProviderManager.getGroups("alice")).isEqualTo(ImmutableSet.of("test", "alice"));
             assertThat(groupProviderManager.getGroups("bob")).isEqualTo(ImmutableSet.of("test", "bob"));
         }

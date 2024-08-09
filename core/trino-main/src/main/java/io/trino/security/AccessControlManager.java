@@ -66,6 +66,7 @@ import org.weakref.jmx.Nested;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.security.Principal;
 import java.util.Arrays;
 import java.util.Collection;
@@ -86,7 +87,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.plugin.base.ConfigurationLoader.configurationExists;
+import static io.trino.plugin.base.ConfigurationLoader.loadConfigurationFrom;
+import static io.trino.plugin.base.ConfigurationLoader.resolvedConfigurationPath;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SERVER_STARTING_UP;
@@ -99,7 +102,7 @@ public class AccessControlManager
 {
     private static final Logger log = Logger.get(AccessControlManager.class);
 
-    private static final File CONFIG_FILE = new File("etc/access-control.properties");
+    private static final Path CONFIG_FILE = Path.of("etc/access-control");
     private static final String NAME_PROPERTY = "access-control.name";
 
     private final NodeVersion nodeVersion;
@@ -163,12 +166,12 @@ public class AccessControlManager
     {
         List<File> configFiles = this.configFiles;
         if (configFiles.isEmpty()) {
-            if (!CONFIG_FILE.exists()) {
+            if (!configurationExists(CONFIG_FILE)) {
                 loadSystemAccessControl(defaultAccessControlName, ImmutableMap.of());
                 log.info("Using system access control: %s", defaultAccessControlName);
                 return;
             }
-            configFiles = ImmutableList.of(CONFIG_FILE);
+            configFiles = ImmutableList.of(resolvedConfigurationPath(CONFIG_FILE).toFile());
         }
 
         List<SystemAccessControl> systemAccessControls = configFiles.stream()
@@ -204,7 +207,7 @@ public class AccessControlManager
 
         Map<String, String> properties;
         try {
-            properties = new HashMap<>(loadPropertiesFrom(configFile.getPath()));
+            properties = new HashMap<>(loadConfigurationFrom(configFile));
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to read configuration file: " + configFile, e);
