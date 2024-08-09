@@ -97,7 +97,6 @@ public class TestMemoryConnectorTest
                  SUPPORTS_MERGE,
                  SUPPORTS_PREDICATE_PUSHDOWN,
                  SUPPORTS_RENAME_FIELD,
-                 SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_SET_COLUMN_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN,
                  SUPPORTS_UPDATE -> false;

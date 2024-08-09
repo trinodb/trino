@@ -66,6 +66,7 @@ statements, the connector supports the following features:
 - {doc}`/sql/alter-table`
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`
+- {doc}`/sql/alter-schema`
 - {doc}`/sql/comment`
 - [](sql-view-management)
 - [](sql-routine-management)
