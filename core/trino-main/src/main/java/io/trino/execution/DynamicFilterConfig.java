@@ -18,7 +18,9 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
+import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -26,6 +28,7 @@ import jakarta.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "dynamic-filtering-max-per-driver-row-count",
@@ -45,6 +48,9 @@ public class DynamicFilterConfig
     private boolean enableDynamicRowFiltering = true;
     private double dynamicRowFilterSelectivityThreshold = 0.7;
 
+    private Duration preferredDynamicFilterWaitTimeout = new Duration(20, SECONDS);
+    private long awaitedDynamicFilterMaxRowCount = 100_000;
+    private long awaitedDynamicFilterMaxNdvCount = 500;
     /*
      * dynamic-filtering.small.* and dynamic-filtering.large.* limits are applied when
      * collected over a not pre-partitioned source (when join distribution type is
@@ -126,6 +132,48 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setDynamicRowFilterSelectivityThreshold(double dynamicRowFilterSelectivityThreshold)
     {
         this.dynamicRowFilterSelectivityThreshold = dynamicRowFilterSelectivityThreshold;
+        return this;
+    }
+
+    @MinDuration("0ms")
+    public Duration getPreferredDynamicFilterWaitTimeout()
+    {
+        return preferredDynamicFilterWaitTimeout;
+    }
+
+    @Config("preferred-dynamic-filter.wait-timeout")
+    @ConfigDescription("Maximum preferred time to wait for awaitable dynamic filter before table scan is started")
+    public DynamicFilterConfig setPreferredDynamicFilterWaitTimeout(Duration dynamicFilteringWaitTimeout)
+    {
+        this.preferredDynamicFilterWaitTimeout = dynamicFilteringWaitTimeout;
+        return this;
+    }
+
+    @Min(0)
+    public long getAwaitedDynamicFilterMaxRowCount()
+    {
+        return awaitedDynamicFilterMaxRowCount;
+    }
+
+    @Config("awaited-dynamic-filter.max-row-count")
+    @ConfigDescription("Maximum number of rows for dynamic filter to be awaited")
+    public DynamicFilterConfig setAwaitedDynamicFilterMaxRowCount(long awaitedDynamicFilterMaxRowCount)
+    {
+        this.awaitedDynamicFilterMaxRowCount = awaitedDynamicFilterMaxRowCount;
+        return this;
+    }
+
+    @Min(0)
+    public long getAwaitedDynamicFilterMaxNdvCount()
+    {
+        return awaitedDynamicFilterMaxNdvCount;
+    }
+
+    @Config("awaited-dynamic-filter.max-ndv-count")
+    @ConfigDescription("Maximum number of distinct values for dynamic filter to be awaited")
+    public DynamicFilterConfig setAwaitedDynamicFilterMaxNdvCount(long awaitedDynamicFilterMaxNdvCount)
+    {
+        this.awaitedDynamicFilterMaxNdvCount = awaitedDynamicFilterMaxNdvCount;
         return this;
     }
 
