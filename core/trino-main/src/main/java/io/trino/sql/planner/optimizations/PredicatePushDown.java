@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -156,6 +157,7 @@ public class PredicatePushDown
         private final Session session;
         private final boolean dynamicFiltering;
         private final EffectivePredicateExtractor effectivePredicateExtractor;
+        private final boolean allowUnsafePushdown;
 
         private Rewriter(
                 SymbolAllocator symbolAllocator,
@@ -176,6 +178,7 @@ public class PredicatePushDown
                     plannerContext,
                     useTableProperties && isPredicatePushdownUseTableProperties(session));
             optimizer = newOptimizer(plannerContext);
+            this.allowUnsafePushdown = SystemSessionProperties.isUnsafePushdownAllowed(session);
         }
 
         @Override
@@ -1078,7 +1081,7 @@ public class PredicatePushDown
             boolean doNotPush = !combineConjuncts(joinConjuncts.build()).equals(TRUE);
             // attempt to push down the predicates that may fail
             for (Expression conjunct : mayFail) {
-                if (doNotPush) {
+                if (doNotPush && !allowUnsafePushdown) {
                     joinConjuncts.add(allInference.rewrite(conjunct, Sets.union(leftScope, rightScope)));
                 }
                 else {
