@@ -347,7 +347,15 @@ final class TaskControl
     {
         lock.lock();
         try {
-            return group.name() + "-" + id + " [" + state + "]";
+            return "%s-%s [%s, %sready, %sblocked, %scancelled, start=%s, tid=%s]".formatted(
+                    group.name(),
+                    id,
+                    state,
+                    ready ? "+" : "-",
+                    blocked ? "+" : "-",
+                    cancelled ? "+" : "-",
+                    periodStart,
+                    thread.threadId());
         }
         finally {
             lock.unlock();

@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.execution.SplitRunner;
@@ -56,6 +57,8 @@ import static java.util.Objects.requireNonNull;
 public class ThreadPerDriverTaskExecutor
         implements TaskExecutor
 {
+    private static final Logger LOG = Logger.get(ThreadPerDriverTaskExecutor.class);
+
     private final FairScheduler scheduler;
     private final Tracer tracer;
     private final VersionEmbedder versionEmbedder;
@@ -103,6 +106,7 @@ public class ThreadPerDriverTaskExecutor
         scheduler.start();
         backgroundTasks.scheduleWithFixedDelay(this::scheduleMoreLeafSplits, 0, 100, TimeUnit.MILLISECONDS);
         backgroundTasks.scheduleWithFixedDelay(this::adjustConcurrency, 0, 10, TimeUnit.MILLISECONDS);
+        backgroundTasks.scheduleWithFixedDelay(this::logDiagnostics, 0, 30, TimeUnit.SECONDS);
     }
 
     @PreDestroy
@@ -212,6 +216,27 @@ public class ThreadPerDriverTaskExecutor
     {
         for (TaskEntry task : tasks.values()) {
             task.updateConcurrency();
+        }
+    }
+
+    private void logDiagnostics()
+    {
+        if (LOG.isDebugEnabled()) {
+            StringBuilder builder = new StringBuilder();
+            builder.append("Queue:\n");
+            builder.append(scheduler.diagnostics().indent(4));
+
+            builder.append("Query tasks:\n");
+            for (TaskEntry task : tasks.values()) {
+                builder.append("%s: [total running = %s, leaf running = %s, leaf pending = %s, target concurrency = %s]\n".formatted(
+                        task.taskId(),
+                        task.totalRunningSplits(),
+                        task.runningLeafSplits(),
+                        task.pendingLeafSplitCount(),
+                        task.targetConcurrency()).indent(4));
+            }
+
+            LOG.debug("\n" + builder);
         }
     }
 

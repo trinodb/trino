@@ -36,13 +36,20 @@ final class Reservation<T>
 {
     private final Semaphore semaphore;
     private final Set<T> reservations = new HashSet<>();
+    private final int slots;
 
     public Reservation(int slots)
     {
-        semaphore = new Semaphore(slots);
+        this.slots = slots;
+        semaphore = new Semaphore(this.slots);
     }
 
-    public int availablePermits()
+    public int totalSlots()
+    {
+        return slots;
+    }
+
+    public int availableSlots()
     {
         return semaphore.availablePermits();
     }
