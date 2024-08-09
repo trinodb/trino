@@ -24,6 +24,8 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryInfo;
+import io.trino.filesystem.FileEntry;
+import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -9328,6 +9330,37 @@ public abstract class BaseHiveConnectorTest
     {
         // Flushing metadata cache does not fail even if cache is disabled
         assertQuerySucceeds("CALL system.flush_metadata_cache()");
+    }
+
+    @Test
+    public void testListFilesTableFunction()
+            throws Exception
+    {
+        TrinoFileSystem fileSystem = getTrinoFileSystem();
+        Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
+        fileSystem.createDirectory(tempDir);
+        Location dataFile = tempDir.appendPath("data.txt");
+        try (OutputStream out = fileSystem.newOutputFile(dataFile).create()) {
+            out.write(123);
+        }
+        FileIterator files = fileSystem.listFiles(tempDir);
+        FileEntry file = files.next();
+
+        assertThat(query("SELECT * FROM TABLE(system.list_files('" + tempDir + "'))"))
+                .matches("VALUES (at_timezone(from_iso8601_timestamp('%s'), 'Pacific/Apia'), BIGINT '%s', VARCHAR '%s')".formatted(file.lastModified(), file.length(), file.location()));
+
+        assertThat(query("SELECT file_modified_time, size, location FROM TABLE(system.list_files('" + tempDir + "'))"))
+                .matches("VALUES (at_timezone(from_iso8601_timestamp('%s'), 'Pacific/Apia'), BIGINT '%s', VARCHAR '%s')".formatted(file.lastModified(), file.length(), file.location()));
+
+        assertThat(query("SELECT * FROM TABLE(system.list_files(path => '" + tempDir + "'))"))
+                .matches("VALUES (at_timezone(from_iso8601_timestamp('%s'), 'Pacific/Apia'), BIGINT '%s', VARCHAR '%s')".formatted(file.lastModified(), file.length(), file.location()));
+
+        assertQuerySucceeds("EXPLAIN SELECT * FROM TABLE(system.list_files('" + tempDir + "'))");
+
+        assertQueryFails("SELECT * FROM TABLE(system.list_files('local:///path_not_found'))", "Directory not found: .*");
+        assertQueryFails("SELECT * FROM TABLE(system.list_files('" + dataFile + "'))", "Directory not found: .*");
+
+        fileSystem.deleteDirectory(tempDir);
     }
 
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);

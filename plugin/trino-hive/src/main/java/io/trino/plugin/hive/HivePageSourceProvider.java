@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.HiveTypeName;
 import io.trino.metastore.type.TypeInfo;
@@ -27,6 +28,9 @@ import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
+import io.trino.plugin.hive.functions.HiveListFilesTableHandle;
+import io.trino.plugin.hive.functions.ListFilesPageSource;
+import io.trino.plugin.hive.functions.ListFilesSplit;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -85,13 +89,15 @@ public class HivePageSourceProvider
     // The original file path looks like this: /root/dir/nnnnnnn_m(_copy_ccc)?
     private static final Pattern ORIGINAL_FILE_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<filename>(?<bucketNumber>\\d+)_(?<rest>.*)?)$");
 
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
     private final int domainCompactionThreshold;
     private final Set<HivePageSourceFactory> pageSourceFactories;
 
     @Inject
-    public HivePageSourceProvider(TypeManager typeManager, HiveConfig hiveConfig, Set<HivePageSourceFactory> pageSourceFactories)
+    public HivePageSourceProvider(TrinoFileSystemFactory fileSystemFactory, TypeManager typeManager, HiveConfig hiveConfig, Set<HivePageSourceFactory> pageSourceFactories)
     {
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.domainCompactionThreshold = hiveConfig.getDomainCompactionThreshold();
         this.pageSourceFactories = ImmutableSet.copyOf(requireNonNull(pageSourceFactories, "pageSourceFactories is null"));
@@ -106,6 +112,11 @@ public class HivePageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
+        if (tableHandle instanceof HiveListFilesTableHandle) {
+            checkArgument(split instanceof ListFilesSplit, "split is not an instance of HiveListFilesTableHandle");
+            return new ListFilesPageSource(fileSystemFactory.create(session), ((ListFilesSplit) split).path(), session.getTimeZoneKey());
+        }
+
         HiveTableHandle hiveTable = (HiveTableHandle) tableHandle;
         HiveSplit hiveSplit = (HiveSplit) split;
 
