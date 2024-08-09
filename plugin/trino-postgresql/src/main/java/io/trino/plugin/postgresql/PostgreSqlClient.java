@@ -73,6 +73,7 @@ import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
+import io.trino.plugin.postgresql.rule.RewriteDotProductFunction;
 import io.trino.plugin.postgresql.rule.RewriteStringReverseFunction;
 import io.trino.plugin.postgresql.rule.RewriteVectorDistanceFunction;
 import io.trino.spi.TrinoException;
@@ -348,7 +349,7 @@ public class PostgreSqlClient
                         .add(new RewriteStringReverseFunction())
                         .add(new RewriteVectorDistanceFunction("euclidean_distance", "<->"))
                         .add(new RewriteVectorDistanceFunction("cosine_distance", "<=>"))
-                        // TODO Rewrite Trino -dot_product to pgvector <#> operator
+                        .add(new RewriteDotProductFunction())
                         .build());
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());

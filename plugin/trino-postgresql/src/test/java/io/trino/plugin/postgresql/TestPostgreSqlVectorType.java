@@ -255,14 +255,13 @@ final class TestPostgreSqlVectorType
                 TestView view = new TestView(postgreSqlServer::execute, "test_dot_product", "SELECT v <#> '[7,8,9]' FROM " + table.getName())) {
             postgreSqlServer.execute("INSERT INTO " + table.getName() + " VALUES (1, '[1,2,3]'), (2, '[4,5,6]')");
 
-            // TODO Add support for projection pushdown with dot_product function
             // The minus sign is needed because <#> returns the negative inner product. Postgres only supports ASC order index scans on operators.
             assertThat(query("SELECT -dot_product(v, ARRAY[7,8,9]) FROM " + table.getName()))
                     .matches("SELECT * FROM tpch." + view.getName())
-                    .isNotFullyPushedDown(ProjectNode.class);
+                    .isFullyPushedDown();
 
             assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY -dot_product(v, ARRAY[7,8,9]) LIMIT 1"))
-                    .isNotFullyPushedDown(ProjectNode.class);
+                    .isFullyPushedDown();
         }
     }
 

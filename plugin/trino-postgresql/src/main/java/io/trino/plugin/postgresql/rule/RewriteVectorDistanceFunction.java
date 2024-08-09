@@ -103,7 +103,7 @@ public final class RewriteVectorDistanceFunction
                         Optional.empty())));
     }
 
-    private static Optional<ParameterizedExpression> rewrite(ConnectorExpression expression, RewriteContext<ParameterizedExpression> context)
+    public static Optional<ParameterizedExpression> rewrite(ConnectorExpression expression, RewriteContext<ParameterizedExpression> context)
     {
         if (expression instanceof Constant constant) {
             Type elementType = ((ArrayType) constant.getType()).getElementType();
@@ -140,7 +140,7 @@ public final class RewriteVectorDistanceFunction
         return Optional.of(translatedArgument.orElseThrow());
     }
 
-    private static boolean isArrayTypeWithRealOrDouble(Type type)
+    public static boolean isArrayTypeWithRealOrDouble(Type type)
     {
         return type instanceof ArrayType arrayType && (arrayType.getElementType() == REAL || arrayType.getElementType() == DOUBLE);
     }
