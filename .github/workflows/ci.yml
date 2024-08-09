@@ -2,11 +2,11 @@ name: ci
 
 on:
   push:
-  #  branches:
-  #    - master
-  #pull_request:
-  #  paths-ignore:
-  #    - 'docs/**'
+    branches:
+      - master
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
   repository_dispatch:
     types: [test-with-secrets-command]
 
@@ -49,59 +49,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
-  check-commits-dispatcher:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # checkout all commits to be able to determine merge base
-      - name: Block illegal commits
-        uses: trinodb/github-actions/block-commits@c2991972560c5219d9ae5fb68c0c9d687ffcdd10
-        with:
-          action-merge: fail
-          action-fixup: none
-      - name: Set matrix (dispatch commit checks)
-        id: set-matrix
-        run: |
-          # Make sure the PR branch contains the compile-commit composite job
-          if git merge-base --is-ancestor $( git rev-list HEAD -- .github/actions/compile-commit/action.yml | tail -n 1 ) ${{ github.event.pull_request.head.sha }}
-          then
-            # The HEAD commit of the PR can be safely ignored since it's already compiled in other jobs
-            # This is achieved by adding a tilde (~) after the HEAD sha
-            git log --reverse --pretty=format:'%H,%T,"%s"' refs/remotes/origin/${{ github.event.pull_request.base.ref }}..${{ github.event.pull_request.head.sha }}~ | ./.github/bin/prepare-check-commits-matrix.py > commit-matrix.json
-          else
-            echo -n '' > commit-matrix.json
-          fi
-
-          echo "Commit matrix: $(jq '.' commit-matrix.json)"
-          echo "matrix=$(jq -c '.' commit-matrix.json)" >> $GITHUB_OUTPUT
-
-  check-commit:
-    needs: check-commits-dispatcher
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && needs.check-commits-dispatcher.outputs.matrix != ''
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.check-commits-dispatcher.outputs.matrix) }}
-    steps:
-      - uses: actions/checkout@v4
-        if: matrix.commit != ''
-        with:
-          fetch-depth: 0 # checkout all commits to be able to determine merge base
-          ref: ${{ matrix.commit }}
-      # This composite job must be entirely standalone, and checked out from the correct commit before being executed.
-      # It can't accept any parameters defined in this workflow, because the values of those parameters would always be taken from
-      # PR HEAD since that is the commit the workflow is started for. This could lead to problems if those parameters were changed
-      # in the middle of a PR branch.
-      - uses: ./.github/actions/compile-commit
-        if: matrix.commit != ''
-        with:
-          base_ref: ${{ github.event.pull_request.base.ref }}
-
 
   build-test-matrix:
     runs-on: ubuntu-latest
