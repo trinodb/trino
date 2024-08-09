@@ -133,18 +133,6 @@ jobs:
       #  run: echo 'testcontainers.reuse.enable=true' > "$HOME/.testcontainers.properties"
       - name: Maven Tests
         id: tests
-        if: >-
-          matrix.modules != 'plugin/trino-singlestore'
-          && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-2'))
-          && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
-          && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
-          && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
-          && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'fte-tests'))
-          && ! (contains(matrix.modules, 'trino-snowflake') && contains(matrix.profile, 'cloud-tests'))
-          && ! (contains(matrix.modules, 'trino-filesystem-azure') && contains(matrix.profile, 'cloud-tests'))
-          && ! (contains(matrix.modules, 'trino-filesystem-gcs') && contains(matrix.profile, 'cloud-tests'))
-          && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
-          && ! (contains(matrix.modules, 'trino-hdfs') && contains(matrix.profile, 'cloud-tests'))
         run: $MAVEN test ${MAVEN_TEST} -Dsurefire.runOrder.random.seed=666569662199 -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
         env:
           TESTCONTAINERS_REUSE_ENABLE: true
