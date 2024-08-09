@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.ColumnDefinition;
+import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -449,6 +450,8 @@ public class TestSqlFormatter
                                 true,
                                 emptyList(),
                                 Optional.empty()),
+                        ColumnPosition.LAST,
+                        Optional.empty(),
                         false, false)))
                 .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR");
         assertThat(formatSql(
@@ -459,8 +462,34 @@ public class TestSqlFormatter
                                 true,
                                 emptyList(),
                                 Optional.of("攻殻機動隊")),
+                        ColumnPosition.LAST,
+                        Optional.empty(),
                         false, false)))
                 .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR COMMENT '攻殻機動隊'");
+        assertThat(formatSql(
+                new AddColumn(
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("c"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
+                                true,
+                                emptyList(),
+                                Optional.empty()),
+                        ColumnPosition.FIRST,
+                        Optional.empty(),
+                        false, false)))
+                .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR FIRST");
+        assertThat(formatSql(
+                new AddColumn(
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("c"),
+                                new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
+                                true,
+                                emptyList(),
+                                Optional.empty()),
+                        ColumnPosition.AFTER,
+                        Optional.of(new Identifier("b")),
+                        false, false)))
+                .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR AFTER b");
     }
 
     @Test
