@@ -83,6 +83,9 @@ The following table details all general configuration properties:
     queries. Some deployments map OpenSearch ports to a random public port and
     enabling this property can help in these cases.
   - `false`
+* - `opensearch.projection-pushdown-enabled`
+  - Read only projected fields from row columns while performing `SELECT` queries
+  - `true`
 :::
 
 ### Authentication

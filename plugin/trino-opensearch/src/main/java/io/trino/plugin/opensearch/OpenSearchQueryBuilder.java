@@ -63,9 +63,9 @@ public final class OpenSearchQueryBuilder
                 OpenSearchColumnHandle column = entry.getKey();
                 Domain domain = entry.getValue();
 
-                checkArgument(!domain.isNone(), "Unexpected NONE domain for %s", column.name());
+                checkArgument(!domain.isNone(), "Unexpected NONE domain for %s", column.dereferencePath());
                 if (!domain.isAll()) {
-                    addPredicateToQueryBuilder(queryBuilder, column.name(), domain, column.type());
+                    addPredicateToQueryBuilder(queryBuilder, column.dereferencePath(), domain, column.type());
                 }
             }
         }

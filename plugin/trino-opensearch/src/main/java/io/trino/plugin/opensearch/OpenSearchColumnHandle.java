@@ -13,28 +13,44 @@
  */
 package io.trino.plugin.opensearch;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 
+import java.util.List;
+
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public record OpenSearchColumnHandle(
-        String name,
+        List<String> path,
         Type type,
         DecoderDescriptor decoderDescriptor,
-        boolean supportsPredicates)
+        boolean supportsPredicates,
+        String dereferencePath)
         implements ColumnHandle
 {
     public OpenSearchColumnHandle
     {
-        requireNonNull(name, "name is null");
+        path = ImmutableList.copyOf(requireNonNull(path, "path is null"));
         requireNonNull(type, "type is null");
         requireNonNull(decoderDescriptor, "decoderDescriptor is null");
+        checkArgument(Joiner.on('.').join(ImmutableList.of(path)).equals(dereferencePath), "dereferencePath doesn't match path");
+    }
+
+    public OpenSearchColumnHandle(
+            List<String> path,
+            Type type,
+            DecoderDescriptor decoderDescriptor,
+            boolean supportsPredicates)
+    {
+        this(path, type, decoderDescriptor, supportsPredicates, Joiner.on('.').join(ImmutableList.of(path)));
     }
 
     @Override
     public String toString()
     {
-        return name() + "::" + type();
+        return dereferencePath + "::" + type();
     }
 }

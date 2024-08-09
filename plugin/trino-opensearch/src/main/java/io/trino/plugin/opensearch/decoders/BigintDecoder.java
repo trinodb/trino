@@ -20,6 +20,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import org.opensearch.search.SearchHit;
 
+import java.util.Objects;
 import java.util.function.Supplier;
 
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
@@ -85,6 +86,25 @@ public class BigintDecoder
         public Decoder createDecoder()
         {
             return new BigintDecoder(path);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Descriptor that = (Descriptor) o;
+            return Objects.equals(this.path, that.path);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return path.hashCode();
         }
     }
 }
