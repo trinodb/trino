@@ -3,7 +3,7 @@ description: "Verify checked out commits and setup Java"
 inputs:
   java-version:
     description: "Java version to setup"
-    default: 22
+    default: 23-ea
   cache:
     description: "Cache Maven repo (true/false/restore)"
     default: restore
@@ -37,11 +37,18 @@ runs:
         if: ${{ format('{0}', inputs.cleanup-node) == 'true' }}
         shell: bash
         run: ./.github/bin/free-disk-space.sh
+      - name: Download Valhalla EA JDK
+        shell: bash
+        run: |
+          download_url="https://download.java.net/java/early_access/valhalla/1/openjdk-23-valhalla+1-90_linux-x64_bin.tar.gz"
+          wget -O $RUNNER_TEMP/java_package.tar.gz $download_url
       - uses: actions/setup-java@v4
         if: ${{ inputs.java-version != '' }}
         with:
-          distribution: 'temurin' # use same JDK distro as in Trino docker images
-          java-version: ${{ inputs.java-version }}
+          distribution: 'jdkfile'
+          jdkFile: ${{ runner.temp }}/java_package.tar.gz
+          java-version: '23.0.0'
+          architecture: x64
       - name: Cache and Restore local Maven repo
         id: cache
         if: ${{ format('{0}', inputs.cache) == 'true' }}

@@ -279,7 +279,7 @@
                 <groupId>org.skife.maven</groupId>
                 <artifactId>really-executable-jar-maven-plugin</artifactId>
                 <configuration>
-                    <flags>-Xmx256m</flags>
+                    <flags>-Xmx256m --enable-preview</flags>
                     <classifier>executable</classifier>
                 </configuration>
                 <executions>

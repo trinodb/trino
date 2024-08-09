@@ -15,6 +15,7 @@
 
     <properties>
         <project.build.targetJdk>11</project.build.targetJdk>
+        <air.compiler.enable-preview>false</air.compiler.enable-preview>
     </properties>
 
     <dependencies>
