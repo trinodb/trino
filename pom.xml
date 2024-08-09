@@ -102,6 +102,7 @@
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
         <module>plugin/trino-prometheus</module>
+        <module>plugin/trino-ranger</module>
         <module>plugin/trino-raptor-legacy</module>
         <module>plugin/trino-redis</module>
         <module>plugin/trino-redshift</module>
@@ -1358,6 +1359,19 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-product-tests-groups</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-ranger</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-ranger</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
             </dependency>
 
             <dependency>
