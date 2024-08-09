@@ -13,8 +13,10 @@
  */
 package io.trino.orc;
 
-import io.airlift.compress.MalformedInputException;
-import io.airlift.compress.snappy.SnappyDecompressor;
+import io.airlift.compress.v2.MalformedInputException;
+import io.airlift.compress.v2.snappy.SnappyDecompressor;
+import io.airlift.compress.v2.snappy.SnappyJavaDecompressor;
+import io.airlift.compress.v2.snappy.SnappyNativeDecompressor;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.util.Objects.requireNonNull;
@@ -24,7 +26,7 @@ class OrcSnappyDecompressor
 {
     private final OrcDataSourceId orcDataSourceId;
     private final int maxBufferSize;
-    private final SnappyDecompressor decompressor = new SnappyDecompressor();
+    private final SnappyDecompressor decompressor = SnappyNativeDecompressor.isEnabled() ? new SnappyNativeDecompressor() : new SnappyJavaDecompressor();
 
     public OrcSnappyDecompressor(OrcDataSourceId orcDataSourceId, int maxBufferSize)
     {
@@ -37,7 +39,7 @@ class OrcSnappyDecompressor
             throws OrcCorruptionException
     {
         try {
-            int uncompressedLength = SnappyDecompressor.getUncompressedLength(input, offset);
+            int uncompressedLength = decompressor.getUncompressedLength(input, offset);
             if (uncompressedLength > maxBufferSize) {
                 throw new OrcCorruptionException(orcDataSourceId, "Snappy requires buffer (%s) larger than max size (%s)", uncompressedLength, maxBufferSize);
             }

@@ -14,10 +14,14 @@
 package io.trino.orc;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.airlift.compress.Compressor;
-import io.airlift.compress.lz4.Lz4Compressor;
-import io.airlift.compress.snappy.SnappyCompressor;
-import io.airlift.compress.zstd.ZstdCompressor;
+import io.airlift.compress.v2.Compressor;
+import io.airlift.compress.v2.deflate.DeflateCompressor;
+import io.airlift.compress.v2.lz4.Lz4JavaCompressor;
+import io.airlift.compress.v2.lz4.Lz4NativeCompressor;
+import io.airlift.compress.v2.snappy.SnappyJavaCompressor;
+import io.airlift.compress.v2.snappy.SnappyNativeCompressor;
+import io.airlift.compress.v2.zstd.ZstdJavaCompressor;
+import io.airlift.compress.v2.zstd.ZstdNativeCompressor;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -92,10 +96,10 @@ public class OrcOutputBuffer
     {
         return switch (compression) {
             case NONE -> null;
-            case SNAPPY -> new SnappyCompressor();
+            case SNAPPY -> SnappyNativeCompressor.isEnabled() ? new SnappyNativeCompressor() : new SnappyJavaCompressor();
             case ZLIB -> new DeflateCompressor();
-            case LZ4 -> new Lz4Compressor();
-            case ZSTD -> new ZstdCompressor();
+            case LZ4 -> Lz4NativeCompressor.isEnabled() ? new Lz4NativeCompressor() : new Lz4JavaCompressor();
+            case ZSTD -> ZstdNativeCompressor.isEnabled() ? new ZstdNativeCompressor() : new ZstdJavaCompressor();
         };
     }
 

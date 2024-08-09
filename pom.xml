@@ -118,6 +118,7 @@
         <module>plugin/trino-tpch</module>
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
+        <module>testing/trino-aircompressor-bridge</module>
         <module>testing/trino-benchmark-queries</module>
         <module>testing/trino-benchto-benchmarks</module>
         <module>testing/trino-faulttolerant-tests</module>
@@ -676,7 +677,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor</artifactId>
-                <version>0.27</version>
+                <version>2.0-SNAPSHOT</version>
             </dependency>
 
             <dependency>
@@ -951,6 +952,12 @@
                 <groupId>io.swagger.core.v3</groupId>
                 <artifactId>swagger-core</artifactId>
                 <version>${dep.swagger.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-aircompressor-bridge</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>

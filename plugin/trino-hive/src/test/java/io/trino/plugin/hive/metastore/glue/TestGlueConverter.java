@@ -220,7 +220,7 @@ class TestGlueConverter
                 .build();
         LanguageFunction actual = GlueConverter.fromGlueFunction(function);
 
-        assertThat(input.resourceUris().size()).isEqualTo(4);
+        assertThat(input.resourceUris().size()).isEqualTo(3);
         assertThat(actual).isEqualTo(expected);
 
         // verify that the owner comes from the metastore

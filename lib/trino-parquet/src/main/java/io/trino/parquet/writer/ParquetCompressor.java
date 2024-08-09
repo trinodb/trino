@@ -13,9 +13,13 @@
  */
 package io.trino.parquet.writer;
 
-import io.airlift.compress.Compressor;
-import io.airlift.compress.snappy.SnappyCompressor;
-import io.airlift.compress.zstd.ZstdCompressor;
+import io.airlift.compress.v2.Compressor;
+import io.airlift.compress.v2.lz4.Lz4JavaCompressor;
+import io.airlift.compress.v2.lz4.Lz4NativeCompressor;
+import io.airlift.compress.v2.snappy.SnappyJavaCompressor;
+import io.airlift.compress.v2.snappy.SnappyNativeCompressor;
+import io.airlift.compress.v2.zstd.ZstdJavaCompressor;
+import io.airlift.compress.v2.zstd.ZstdNativeCompressor;
 import io.airlift.slice.Slices;
 import org.apache.parquet.format.CompressionCodec;
 
@@ -37,13 +41,14 @@ interface ParquetCompressor
             case GZIP:
                 return new GzipCompressor();
             case SNAPPY:
-                return new AirLiftCompressor(new SnappyCompressor());
+                return new AirLiftCompressor(SnappyNativeCompressor.isEnabled() ? new SnappyNativeCompressor() : new SnappyJavaCompressor());
             case ZSTD:
-                return new AirLiftCompressor(new ZstdCompressor());
+                return new AirLiftCompressor(ZstdNativeCompressor.isEnabled() ? new ZstdNativeCompressor() : new ZstdJavaCompressor());
+            case LZ4:
+                return new AirLiftCompressor(Lz4NativeCompressor.isEnabled() ? new Lz4NativeCompressor() : new Lz4JavaCompressor());
             case UNCOMPRESSED:
                 return null;
             case LZO:
-            case LZ4:
             case LZ4_RAW:
                 // TODO Support LZO and LZ4_RAW compression
                 // Note: LZ4 compression scheme has been deprecated by parquet-format in favor of LZ4_RAW

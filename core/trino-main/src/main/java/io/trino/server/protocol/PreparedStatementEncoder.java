@@ -14,8 +14,12 @@
 package io.trino.server.protocol;
 
 import com.google.inject.Inject;
-import io.airlift.compress.zstd.ZstdCompressor;
-import io.airlift.compress.zstd.ZstdDecompressor;
+import io.airlift.compress.v2.zstd.ZstdCompressor;
+import io.airlift.compress.v2.zstd.ZstdDecompressor;
+import io.airlift.compress.v2.zstd.ZstdJavaCompressor;
+import io.airlift.compress.v2.zstd.ZstdJavaDecompressor;
+import io.airlift.compress.v2.zstd.ZstdNativeCompressor;
+import io.airlift.compress.v2.zstd.ZstdNativeDecompressor;
 import io.trino.server.ProtocolConfig;
 
 import static com.google.common.io.BaseEncoding.base64Url;
@@ -43,7 +47,7 @@ public class PreparedStatementEncoder
             return preparedStatement;
         }
 
-        ZstdCompressor compressor = new ZstdCompressor();
+        ZstdCompressor compressor = ZstdNativeCompressor.isEnabled() ? new ZstdNativeCompressor() : new ZstdJavaCompressor();
         byte[] inputBytes = preparedStatement.getBytes(UTF_8);
         byte[] compressed = new byte[compressor.maxCompressedLength(inputBytes.length)];
         int outputSize = compressor.compress(inputBytes, 0, inputBytes.length, compressed, 0, compressed.length);
@@ -63,9 +67,9 @@ public class PreparedStatementEncoder
 
         String encoded = headerValue.substring(PREFIX.length());
         byte[] compressed = base64Url().decode(encoded);
-
-        byte[] preparedStatement = new byte[toIntExact(ZstdDecompressor.getDecompressedSize(compressed, 0, compressed.length))];
-        new ZstdDecompressor().decompress(compressed, 0, compressed.length, preparedStatement, 0, preparedStatement.length);
+        ZstdDecompressor decompressor = ZstdNativeDecompressor.isEnabled() ? new ZstdNativeDecompressor() : new ZstdJavaDecompressor();
+        byte[] preparedStatement = new byte[toIntExact(decompressor.getDecompressedSize(compressed, 0, compressed.length))];
+        decompressor.decompress(compressed, 0, compressed.length, preparedStatement, 0, preparedStatement.length);
         return new String(preparedStatement, UTF_8);
     }
 }

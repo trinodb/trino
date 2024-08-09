@@ -13,12 +13,16 @@
  */
 package io.trino.execution.buffer;
 
-import io.airlift.compress.Compressor;
-import io.airlift.compress.Decompressor;
-import io.airlift.compress.lz4.Lz4Compressor;
-import io.airlift.compress.lz4.Lz4Decompressor;
-import io.airlift.compress.zstd.ZstdCompressor;
-import io.airlift.compress.zstd.ZstdDecompressor;
+import io.airlift.compress.v2.Compressor;
+import io.airlift.compress.v2.Decompressor;
+import io.airlift.compress.v2.lz4.Lz4JavaCompressor;
+import io.airlift.compress.v2.lz4.Lz4JavaDecompressor;
+import io.airlift.compress.v2.lz4.Lz4NativeCompressor;
+import io.airlift.compress.v2.lz4.Lz4NativeDecompressor;
+import io.airlift.compress.v2.zstd.ZstdJavaCompressor;
+import io.airlift.compress.v2.zstd.ZstdJavaDecompressor;
+import io.airlift.compress.v2.zstd.ZstdNativeCompressor;
+import io.airlift.compress.v2.zstd.ZstdNativeDecompressor;
 import io.trino.spi.block.BlockEncodingSerde;
 
 import javax.crypto.SecretKey;
@@ -54,8 +58,8 @@ public class PagesSerdeFactory
     {
         return switch (compressionCodec) {
             case NONE -> Optional.empty();
-            case LZ4 -> Optional.of(new Lz4Compressor());
-            case ZSTD -> Optional.of(new ZstdCompressor());
+            case LZ4 -> Optional.of(Lz4NativeCompressor.isEnabled() ? new Lz4NativeCompressor() : new Lz4JavaCompressor());
+            case ZSTD -> Optional.of(ZstdNativeCompressor.isEnabled() ? new ZstdNativeCompressor() : new ZstdJavaCompressor());
         };
     }
 
@@ -63,8 +67,8 @@ public class PagesSerdeFactory
     {
         return switch (compressionCodec) {
             case NONE -> Optional.empty();
-            case LZ4 -> Optional.of(new Lz4Decompressor());
-            case ZSTD -> Optional.of(new ZstdDecompressor());
+            case LZ4 -> Optional.of(Lz4NativeCompressor.isEnabled() ? new Lz4NativeDecompressor() : new Lz4JavaDecompressor());
+            case ZSTD -> Optional.of(ZstdNativeDecompressor.isEnabled() ? new ZstdNativeDecompressor() : new ZstdJavaDecompressor());
         };
     }
 }

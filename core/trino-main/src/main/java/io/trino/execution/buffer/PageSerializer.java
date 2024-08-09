@@ -14,9 +14,8 @@
 package io.trino.execution.buffer;
 
 import com.google.common.base.VerifyException;
-import io.airlift.compress.Compressor;
-import io.airlift.compress.lz4.Lz4Compressor;
-import io.airlift.compress.lz4.Lz4RawCompressor;
+import io.airlift.compress.v2.Compressor;
+import io.airlift.compress.v2.lz4.Lz4Compressor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -38,7 +37,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
-import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.trino.execution.buffer.PageCodecMarker.COMPRESSED;
 import static io.trino.execution.buffer.PageCodecMarker.ENCRYPTED;
 import static io.trino.execution.buffer.PagesSerdeUtil.ESTIMATED_AES_CIPHER_RETAINED_SIZE;
@@ -95,7 +93,8 @@ public class PageSerializer
     {
         private static final int INSTANCE_SIZE = instanceSize(SerializedPageOutput.class);
         // TODO: implement getRetainedSizeInBytes in Lz4Compressor
-        private static final int COMPRESSOR_RETAINED_SIZE = toIntExact(instanceSize(Lz4Compressor.class) + sizeOfIntArray(Lz4RawCompressor.MAX_TABLE_SIZE));
+        // TODO: need a fix
+        private static final int COMPRESSOR_RETAINED_SIZE = toIntExact(instanceSize(Lz4Compressor.class));
         private static final int ENCRYPTION_KEY_RETAINED_SIZE = toIntExact(instanceSize(SecretKeySpec.class) + sizeOfByteArray(256 / 8));
 
         private static final double MINIMUM_COMPRESSION_RATIO = 0.8;

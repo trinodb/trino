@@ -13,9 +13,10 @@
  */
 package io.trino.orc;
 
-import io.airlift.compress.Decompressor;
-import io.airlift.compress.MalformedInputException;
-import io.airlift.compress.lz4.Lz4Decompressor;
+import io.airlift.compress.v2.Decompressor;
+import io.airlift.compress.v2.MalformedInputException;
+import io.airlift.compress.v2.lz4.Lz4JavaDecompressor;
+import io.airlift.compress.v2.lz4.Lz4NativeDecompressor;
 
 import static java.util.Objects.requireNonNull;
 
@@ -24,7 +25,7 @@ class OrcLz4Decompressor
 {
     private final OrcDataSourceId orcDataSourceId;
     private final int maxBufferSize;
-    private final Decompressor decompressor = new Lz4Decompressor();
+    private final Decompressor decompressor = Lz4NativeDecompressor.isEnabled() ? new Lz4NativeDecompressor() : new Lz4JavaDecompressor();
 
     public OrcLz4Decompressor(OrcDataSourceId orcDataSourceId, int maxBufferSize)
     {

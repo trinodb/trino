@@ -14,11 +14,14 @@
 package io.trino.parquet;
 
 import com.google.common.io.ByteStreams;
-import io.airlift.compress.Decompressor;
-import io.airlift.compress.lz4.Lz4Decompressor;
-import io.airlift.compress.lzo.LzoDecompressor;
-import io.airlift.compress.snappy.SnappyDecompressor;
-import io.airlift.compress.zstd.ZstdDecompressor;
+import io.airlift.compress.v2.Decompressor;
+import io.airlift.compress.v2.lz4.Lz4JavaDecompressor;
+import io.airlift.compress.v2.lz4.Lz4NativeDecompressor;
+import io.airlift.compress.v2.lzo.LzoDecompressor;
+import io.airlift.compress.v2.snappy.SnappyJavaDecompressor;
+import io.airlift.compress.v2.snappy.SnappyNativeDecompressor;
+import io.airlift.compress.v2.zstd.ZstdJavaDecompressor;
+import io.airlift.compress.v2.zstd.ZstdNativeDecompressor;
 import io.airlift.slice.Slice;
 import org.apache.parquet.format.CompressionCodec;
 
@@ -65,7 +68,7 @@ public final class ParquetCompressionUtils
         // Snappy decompressor is more efficient if there's at least a long's worth of extra space
         // in the output buffer
         byte[] buffer = new byte[uncompressedSize + SIZE_OF_LONG];
-        int actualUncompressedSize = decompress(new SnappyDecompressor(), input, 0, input.length(), buffer, 0);
+        int actualUncompressedSize = decompress(SnappyNativeDecompressor.isEnabled() ? new SnappyNativeDecompressor() : new SnappyJavaDecompressor(), input, 0, input.length(), buffer, 0);
         if (actualUncompressedSize != uncompressedSize) {
             throw new IllegalArgumentException(format("Invalid uncompressedSize for SNAPPY input. Expected %s, actual: %s", uncompressedSize, actualUncompressedSize));
         }
@@ -75,7 +78,7 @@ public final class ParquetCompressionUtils
     private static Slice decompressZstd(Slice input, int uncompressedSize)
     {
         byte[] buffer = new byte[uncompressedSize];
-        decompress(new ZstdDecompressor(), input, 0, input.length(), buffer, 0);
+        decompress(ZstdNativeDecompressor.isEnabled() ? new ZstdNativeDecompressor() : new ZstdJavaDecompressor(), input, 0, input.length(), buffer, 0);
         return wrappedBuffer(buffer);
     }
 
@@ -100,7 +103,7 @@ public final class ParquetCompressionUtils
 
     private static Slice decompressLz4(Slice input, int uncompressedSize)
     {
-        return decompressFramed(new Lz4Decompressor(), input, uncompressedSize);
+        return decompressFramed(Lz4NativeDecompressor.isEnabled() ? new Lz4NativeDecompressor() : new Lz4JavaDecompressor(), input, uncompressedSize);
     }
 
     private static Slice decompressLZO(Slice input, int uncompressedSize)

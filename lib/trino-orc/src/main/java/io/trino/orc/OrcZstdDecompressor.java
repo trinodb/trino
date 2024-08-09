@@ -13,8 +13,10 @@
  */
 package io.trino.orc;
 
-import io.airlift.compress.MalformedInputException;
-import io.airlift.compress.zstd.ZstdDecompressor;
+import io.airlift.compress.v2.MalformedInputException;
+import io.airlift.compress.v2.zstd.ZstdDecompressor;
+import io.airlift.compress.v2.zstd.ZstdJavaDecompressor;
+import io.airlift.compress.v2.zstd.ZstdNativeDecompressor;
 
 import static java.lang.StrictMath.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -24,7 +26,7 @@ class OrcZstdDecompressor
 {
     private final OrcDataSourceId orcDataSourceId;
     private final int maxBufferSize;
-    private final ZstdDecompressor decompressor = new ZstdDecompressor();
+    private final ZstdDecompressor decompressor = ZstdNativeDecompressor.isEnabled() ? new ZstdNativeDecompressor() : new ZstdJavaDecompressor();
 
     public OrcZstdDecompressor(OrcDataSourceId orcDataSourceId, int maxBufferSize)
     {
@@ -37,7 +39,7 @@ class OrcZstdDecompressor
             throws OrcCorruptionException
     {
         try {
-            long uncompressedLength = ZstdDecompressor.getDecompressedSize(input, offset, length);
+            long uncompressedLength = decompressor.getDecompressedSize(input, offset, length);
             if (uncompressedLength > maxBufferSize) {
                 throw new OrcCorruptionException(orcDataSourceId, "Zstd requires buffer (%s) larger than max size (%s)", uncompressedLength, maxBufferSize);
             }
