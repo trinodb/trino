@@ -507,8 +507,11 @@ public class AddLocalExchanges
             else {
                 childRequirements = parentPreferences
                         .constrainTo(node.getSource().orElseThrow().getOutputSymbols())
-                        .withDefaultParallelism(session)
-                        .withPartitioning(partitionBy);
+                        .withDefaultParallelism(session);
+
+                if (!partitionBy.isEmpty()) {
+                    childRequirements = childRequirements.withPartitioning(partitionBy);
+                }
             }
 
             PlanWithProperties child = planAndEnforce(node.getSource().orElseThrow(), childRequirements, childRequirements);
