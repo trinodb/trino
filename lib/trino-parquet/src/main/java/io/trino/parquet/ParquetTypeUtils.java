@@ -39,9 +39,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
@@ -265,10 +267,15 @@ public final class ParquetTypeUtils
      */
     public static Optional<Field> constructField(Type type, ColumnIO columnIO)
     {
-        return constructField(type, columnIO, true);
+        return constructField(columnIO, new TrinoFieldContext(type));
     }
 
-    private static Optional<Field> constructField(Type type, ColumnIO columnIO, boolean isTopLevel)
+    public static <T extends FieldContext> Optional<Field> constructField(ColumnIO columnIO, T context)
+    {
+        return constructField(columnIO, true, context);
+    }
+
+    private static <T extends FieldContext> Optional<Field> constructField(ColumnIO columnIO, boolean isTopLevel, T context)
     {
         if (columnIO == null) {
             return Optional.empty();
@@ -276,14 +283,17 @@ public final class ParquetTypeUtils
         boolean required = columnIO.getType().getRepetition() != OPTIONAL;
         int repetitionLevel = columnIO.getRepetitionLevel();
         int definitionLevel = columnIO.getDefinitionLevel();
+        Type type = context.type();
         if (type instanceof RowType rowType) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
             List<RowType.Field> fields = rowType.getFields();
             boolean structHasParameters = false;
-            for (RowType.Field rowField : fields) {
-                String name = rowField.getName().orElseThrow().toLowerCase(Locale.ENGLISH);
-                Optional<Field> field = constructField(rowField.getType(), lookupColumnByName(groupColumnIO, name), false);
+            for (int i = 0; i < fields.size(); i++) {
+                RowType.Field rowField = fields.get(i);
+                FieldContext rowFieldContext = context.getRowField(i);
+                Optional<Field> field = rowFieldContext.lookupRowColumn(rowField, groupColumnIO)
+                        .flatMap(column -> constructField(column, false, rowFieldContext));
                 structHasParameters |= field.isPresent();
                 fieldsBuilder.add(field);
             }
@@ -292,15 +302,19 @@ public final class ParquetTypeUtils
             }
             return Optional.empty();
         }
-        if (type instanceof MapType mapType) {
+        if (type instanceof MapType) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             GroupColumnIO keyValueColumnIO = getMapKeyValueColumn(groupColumnIO);
             if (keyValueColumnIO.getChildrenCount() != 2) {
                 return Optional.empty();
             }
-            Optional<Field> keyField = constructField(mapType.getKeyType(), keyValueColumnIO.getChild(0), false);
-            Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1), false);
-            return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
+            ColumnIO keyColumnIO = keyValueColumnIO.getChild(0);
+            ColumnIO valueColumnIO = keyValueColumnIO.getChild(1);
+            FieldContext keyContext = context.getMapKey(keyColumnIO);
+            FieldContext valueContext = context.getMapValue(valueColumnIO);
+            Optional<Field> keyField = constructField(keyColumnIO, false, keyContext);
+            Optional<Field> valueField = constructField(valueColumnIO, false, valueContext);
+            return Optional.of(new GroupField(context.type(), repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
         }
         if (type instanceof ArrayType arrayType) {
             // Per the parquet spec (https://github.com/apache/parquet-format/blob/master/LogicalTypes.md):
@@ -326,7 +340,9 @@ public final class ParquetTypeUtils
             if (groupColumnIO.getChildrenCount() != 1) {
                 return Optional.empty();
             }
-            Optional<Field> field = constructField(arrayType.getElementType(), getArrayElementColumn(groupColumnIO.getChild(0)), false);
+            ColumnIO elementColumnIO = groupColumnIO.getChild(0);
+            FieldContext elementContext = context.getArrayElement(elementColumnIO);
+            Optional<Field> field = constructField(getArrayElementColumn(elementColumnIO), false, elementContext);
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
@@ -334,5 +350,63 @@ public final class ParquetTypeUtils
             throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", type, primitiveColumnIO.getColumnDescriptor()));
         }
         return Optional.of(new PrimitiveField(type, required, primitiveColumnIO.getColumnDescriptor(), primitiveColumnIO.getId()));
+    }
+
+    public interface FieldContext
+    {
+        Type type();
+
+        FieldContext getArrayElement(ColumnIO elementColumnIO);
+
+        FieldContext getMapKey(ColumnIO keyColumnIO);
+
+        FieldContext getMapValue(ColumnIO valueColumnIO);
+
+        FieldContext getRowField(int index);
+
+        Optional<ColumnIO> lookupRowColumn(RowType.Field field, GroupColumnIO groupColumnIO);
+    }
+
+    public record TrinoFieldContext(Type type)
+            implements FieldContext
+    {
+        public TrinoFieldContext(Type type)
+        {
+            this.type = requireNonNull(type, "type is null");
+        }
+
+        @Override
+        public TrinoFieldContext getArrayElement(ColumnIO elementColumnIO)
+        {
+            checkArgument(type instanceof ArrayType, "Not an array: %s", type);
+            return new TrinoFieldContext(((ArrayType) type).getElementType());
+        }
+
+        @Override
+        public TrinoFieldContext getMapKey(ColumnIO keyColumnIO)
+        {
+            checkArgument(type instanceof MapType, "Not a map: %s", type);
+            return new TrinoFieldContext(((MapType) type).getKeyType());
+        }
+
+        @Override
+        public TrinoFieldContext getMapValue(ColumnIO valueColumnIO)
+        {
+            checkArgument(type instanceof MapType, "Not a map: %s", type);
+            return new TrinoFieldContext(((MapType) type).getValueType());
+        }
+
+        @Override
+        public TrinoFieldContext getRowField(int index)
+        {
+            checkArgument(type instanceof RowType, "Not a row: %s", type);
+            return new TrinoFieldContext(((RowType) type).getFields().get(index).getType());
+        }
+
+        @Override
+        public Optional<ColumnIO> lookupRowColumn(RowType.Field field, GroupColumnIO groupColumnIO)
+        {
+            return Optional.ofNullable(lookupColumnByName(groupColumnIO, field.getName().orElseThrow().toLowerCase(Locale.ENGLISH)));
+        }
     }
 }

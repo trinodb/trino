@@ -52,7 +52,6 @@ import io.trino.plugin.hive.ReaderProjectionsAdapter;
 import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
-import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteManager;
 import io.trino.plugin.iceberg.delete.RowPredicate;
@@ -1001,7 +1000,7 @@ public class IcebergPageSourceProvider
                     }
                     // The top level columns are already mapped by name/id appropriately.
                     ColumnIO columnIO = messageColumnIO.getChild(parquetField.getName());
-                    Optional<Field> field = IcebergParquetColumnIOConverter.constructField(new FieldContext(trinoType, column.getColumnIdentity()), columnIO);
+                    Optional<Field> field = IcebergParquetColumnIOConverter.constructField(trinoType, columnIO, column.getColumnIdentity());
                     if (field.isEmpty()) {
                         pageSourceBuilder.addNullColumn(trinoType);
                         continue;
