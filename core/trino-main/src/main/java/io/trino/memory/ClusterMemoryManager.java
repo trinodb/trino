@@ -27,7 +27,6 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryInfo;
@@ -72,7 +71,6 @@ import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Sets.difference;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.airlift.units.Duration.nanosSince;
 import static io.trino.ExceededMemoryLimitException.exceededGlobalTotalLimit;
 import static io.trino.ExceededMemoryLimitException.exceededGlobalUserLimit;
 import static io.trino.SystemSessionProperties.RESOURCE_OVERCOMMIT;
@@ -103,7 +101,6 @@ public class ClusterMemoryManager
     private final DataSize maxQueryMemory;
     private final DataSize maxQueryTotalMemory;
     private final List<LowMemoryKiller> lowMemoryKillers;
-    private final Duration killOnOutOfMemoryDelay;
     private final AtomicLong totalAvailableProcessors = new AtomicLong();
     private final AtomicLong clusterUserMemoryReservation = new AtomicLong();
     private final AtomicLong clusterTotalMemoryReservation = new AtomicLong();
@@ -118,9 +115,6 @@ public class ClusterMemoryManager
     private final List<Consumer<MemoryPoolInfo>> changeListeners = new ArrayList<>();
 
     private final ClusterMemoryPool pool;
-
-    @GuardedBy("this")
-    private long lastTimeNotOutOfMemory = System.nanoTime();
 
     @GuardedBy("this")
     private Optional<KillTarget> lastKillTarget = Optional.empty();
@@ -151,7 +145,6 @@ public class ClusterMemoryManager
                 queryLowMemoryKiller);
         this.maxQueryMemory = config.getMaxQueryMemory();
         this.maxQueryTotalMemory = config.getMaxQueryTotalMemory();
-        this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
 
         verify(maxQueryMemory.toBytes() <= maxQueryTotalMemory.toBytes(),
                 "maxQueryMemory cannot be greater than maxQueryTotalMemory");
@@ -182,9 +175,6 @@ public class ClusterMemoryManager
         memoryLeakDetector.checkForMemoryLeaks(allQueryInfoSupplier, pool.getQueryMemoryReservations());
 
         boolean outOfMemory = isClusterOutOfMemory();
-        if (!outOfMemory) {
-            lastTimeNotOutOfMemory = System.nanoTime();
-        }
 
         boolean queryKilled = false;
         long totalUserMemoryBytes = 0L;
@@ -228,10 +218,7 @@ public class ClusterMemoryManager
         clusterUserMemoryReservation.set(totalUserMemoryBytes);
         clusterTotalMemoryReservation.set(totalMemoryBytes);
 
-        if (!lowMemoryKillers.isEmpty() &&
-                outOfMemory &&
-                !queryKilled &&
-                nanosSince(lastTimeNotOutOfMemory).compareTo(killOnOutOfMemoryDelay) > 0) {
+        if (!lowMemoryKillers.isEmpty() && outOfMemory && !queryKilled) {
             if (isLastKillTargetGone()) {
                 callOomKiller(runningQueries);
             }
