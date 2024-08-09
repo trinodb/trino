@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.hive.formats.DistinctMapKeys;
-import io.trino.hive.formats.HiveFormatUtils;
 import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineDeserializer;
@@ -34,7 +33,6 @@ import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Int128;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
@@ -43,13 +41,13 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.IntUnaryOperator;
@@ -65,14 +63,17 @@ import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveFormatUtils.createTimestampParser;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
-import static io.trino.hive.formats.HiveFormatUtils.writeDecimal;
+import static io.trino.hive.formats.line.LineDeserializerUtils.parseError;
+import static io.trino.hive.formats.line.LineDeserializerUtils.writeDecimal;
+import static io.trino.hive.formats.line.LineDeserializerUtils.writeDouble;
+import static io.trino.hive.formats.line.LineDeserializerUtils.writeLongExpressedValue;
+import static io.trino.hive.formats.line.LineDeserializerUtils.writeSlice;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -83,7 +84,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.StrictMath.toIntExact;
-import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.joda.time.DateTimeZone.UTC;
 
@@ -215,7 +215,8 @@ public class JsonDeserializer
                             .collect(toImmutableList()),
                     IntUnaryOperator.identity());
         }
-        throw new UnsupportedOperationException("Unsupported column type: " + type);
+        UnsupportedOperationException unsupportedOperationException = new UnsupportedOperationException("Unsupported column type: " + type);
+        throw parseError(unsupportedOperationException.getMessage(), Optional.of(unsupportedOperationException));
     }
 
     private abstract static class Decoder
@@ -236,7 +237,7 @@ public class JsonDeserializer
             }
 
             if (isScalarType(type) && !parser.currentToken().isScalarValue()) {
-                throw invalidJson(type + " value must be a scalar json value");
+                throw parseError("Invalid JSON: " + type + " value must be a scalar json value", Optional.empty());
             }
             decodeValue(parser, builder);
         }
@@ -296,7 +297,7 @@ public class JsonDeserializer
         void decodeValue(JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            INTEGER.writeLong(builder, parser.getIntValue());
+            writeLongExpressedValue(INTEGER, builder, parser.getIntValue());
         }
     }
 
@@ -312,7 +313,7 @@ public class JsonDeserializer
         void decodeValue(JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            SMALLINT.writeLong(builder, parser.getShortValue());
+            writeLongExpressedValue(SMALLINT, builder, parser.getShortValue());
         }
     }
 
@@ -328,7 +329,7 @@ public class JsonDeserializer
         void decodeValue(JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            TINYINT.writeLong(builder, parser.getByteValue());
+            writeLongExpressedValue(TINYINT, builder, parser.getByteValue());
         }
     }
 
@@ -347,26 +348,7 @@ public class JsonDeserializer
         void decodeValue(JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            String value = parser.getText();
-            BigDecimal bigDecimal;
-            try {
-                bigDecimal = HiveFormatUtils.parseDecimal(value, decimalType);
-            }
-            catch (NumberFormatException _) {
-                // parsing errors are simply ignored and the field is null
-                builder.appendNull();
-                return;
-            }
-            // out of bounds is an error
-            if (overflows(bigDecimal, decimalType.getPrecision())) {
-                throw new NumberFormatException(format("Cannot convert '%s' to %s. Value too large.", value, decimalType));
-            }
-            if (decimalType.isShort()) {
-                decimalType.writeLong(builder, bigDecimal.unscaledValue().longValueExact());
-            }
-            else {
-                decimalType.writeObject(builder, Int128.valueOf(bigDecimal.unscaledValue()));
-            }
+            writeDecimal(decimalType, builder, parser.getText(), Optional.empty());
         }
     }
 
@@ -382,7 +364,7 @@ public class JsonDeserializer
         void decodeValue(JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            REAL.writeLong(builder, floatToRawIntBits(parser.getFloatValue()));
+            writeLongExpressedValue(REAL, builder, floatToRawIntBits(parser.getFloatValue()));
         }
     }
 
@@ -398,7 +380,7 @@ public class JsonDeserializer
         void decodeValue(JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            DOUBLE.writeDouble(builder, parser.getDoubleValue());
+            writeDouble(builder, parser.getDoubleValue());
         }
     }
 
@@ -414,7 +396,7 @@ public class JsonDeserializer
         void decodeValue(JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            DATE.writeLong(builder, toIntExact(parseHiveDate(parser.getText()).toEpochDay()));
+            writeLongExpressedValue(DATE, builder, toIntExact(parseHiveDate(parser.getText()).toEpochDay()));
         }
     }
 
@@ -455,7 +437,7 @@ public class JsonDeserializer
         void decodeValue(JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            VARBINARY.writeSlice(builder, parseBinary(parser.getText(), charsetDecoder));
+            writeSlice(VARBINARY, builder, parseBinary(parser.getText(), charsetDecoder));
         }
 
         private static Slice parseBinary(String value, CharsetDecoder charsetDecoder)
@@ -490,7 +472,7 @@ public class JsonDeserializer
         void decodeValue(JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            varcharType.writeSlice(builder, truncateToLength(Slices.utf8Slice(parser.getText()), varcharType));
+            writeSlice(varcharType, builder, truncateToLength(Slices.utf8Slice(parser.getText()), varcharType));
         }
     }
 
@@ -509,7 +491,7 @@ public class JsonDeserializer
         void decodeValue(JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            charType.writeSlice(builder, truncateToLengthAndTrimSpaces(Slices.utf8Slice(parser.getText()), charType));
+            writeSlice(charType, builder, truncateToLengthAndTrimSpaces(Slices.utf8Slice(parser.getText()), charType));
         }
     }
 
@@ -530,7 +512,7 @@ public class JsonDeserializer
         {
             ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> {
                 if (parser.currentToken() != START_ARRAY) {
-                    throw invalidJson("start of array expected");
+                    throw parseError("Invalid JSON: start of array expected", Optional.empty());
                 }
                 while (nextTokenRequired(parser) != JsonToken.END_ARRAY) {
                     elementDecoder.decode(parser, elementBuilder);
@@ -571,7 +553,7 @@ public class JsonDeserializer
                 throws IOException
         {
             if (parser.currentToken() != START_OBJECT) {
-                throw invalidJson("start of object expected");
+                throw parseError("Invalid JSON: start of object expected", Optional.empty());
             }
 
             // buffer the keys and values
@@ -611,41 +593,42 @@ public class JsonDeserializer
                 type.writeLong(builder, Long.parseLong(value));
             }
             else if (INTEGER.equals(type)) {
-                type.writeLong(builder, Integer.parseInt(value));
+                writeLongExpressedValue(type, builder, Integer.parseInt(value));
             }
             else if (SMALLINT.equals(type)) {
-                type.writeLong(builder, Short.parseShort(value));
+                writeLongExpressedValue(type, builder, Short.parseShort(value));
             }
             else if (TINYINT.equals(type)) {
-                type.writeLong(builder, Byte.parseByte(value));
+                writeLongExpressedValue(type, builder, Byte.parseByte(value));
             }
             else if (type instanceof DecimalType decimalType) {
-                writeDecimal(value, decimalType, builder);
+                writeDecimal(decimalType, builder, value, Optional.empty());
             }
             else if (REAL.equals(type)) {
-                type.writeLong(builder, floatToRawIntBits(Float.parseFloat(value)));
+                writeLongExpressedValue(type, builder, floatToRawIntBits(Float.parseFloat(value)));
             }
             else if (DOUBLE.equals(type)) {
-                type.writeDouble(builder, Double.parseDouble(value));
+                writeDouble(builder, Double.parseDouble(value));
             }
             else if (DATE.equals(type)) {
-                type.writeLong(builder, parseHiveDate(value).toEpochDay());
+                writeLongExpressedValue(type, builder, parseHiveDate(value).toEpochDay());
             }
             else if (type instanceof TimestampType timestampType) {
                 DecodedTimestamp timestamp = timestampParser.apply(value);
                 createTimestampEncoder(timestampType, UTC).write(timestamp, builder);
             }
             else if (VARBINARY.equals(type)) {
-                type.writeSlice(builder, VarbinaryDecoder.parseBinary(value, charsetDecoder));
+                writeSlice(VARBINARY, builder, VarbinaryDecoder.parseBinary(value, charsetDecoder));
             }
             else if (type instanceof VarcharType varcharType) {
-                type.writeSlice(builder, truncateToLength(Slices.utf8Slice(value), varcharType));
+                writeSlice(varcharType, builder, truncateToLength(Slices.utf8Slice(value), varcharType));
             }
             else if (type instanceof CharType charType) {
-                type.writeSlice(builder, truncateToLengthAndTrimSpaces(Slices.utf8Slice(value), charType));
+                writeSlice(charType, builder, truncateToLengthAndTrimSpaces(Slices.utf8Slice(value), charType));
             }
             else {
-                throw new UnsupportedOperationException("Unsupported map key type: " + type);
+                UnsupportedOperationException unsupportedOperationException = new UnsupportedOperationException("Unsupported map key type: " + type);
+                throw parseError(unsupportedOperationException.getMessage(), Optional.of(unsupportedOperationException));
             }
         }
     }
@@ -692,7 +675,7 @@ public class JsonDeserializer
                 throws IOException
         {
             if (parser.currentToken() != START_OBJECT) {
-                throw invalidJson("start of object expected");
+                throw parseError("Invalid JSON: start of object expected", Optional.empty());
             }
 
             boolean[] fieldWritten = new boolean[fieldDecoders.size()];
@@ -766,7 +749,7 @@ public class JsonDeserializer
         if (token == END_OBJECT) {
             return false;
         }
-        throw invalidJson("field name expected");
+        throw parseError("Invalid JSON: field name expected", Optional.empty());
     }
 
     private static JsonToken nextTokenRequired(JsonParser parser)
@@ -774,13 +757,8 @@ public class JsonDeserializer
     {
         JsonToken token = parser.nextToken();
         if (token == null) {
-            throw invalidJson("object is truncated");
+            throw parseError("Invalid JSON: object is truncated", Optional.empty());
         }
         return token;
-    }
-
-    private static IOException invalidJson(String message)
-    {
-        return new IOException("Invalid JSON: " + message);
     }
 }

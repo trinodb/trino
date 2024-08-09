@@ -30,6 +30,7 @@ public class RegexDeserializerFactory
 {
     static final String REGEX_KEY = "input.regex";
     static final String REGEX_CASE_SENSITIVE_KEY = "input.regex.case.insensitive";
+    static final String REGEX_NULL_ON_PARSE_ERROR = "input.regex.null.on.parse.error";
 
     @Override
     public Set<String> getHiveSerDeClassNames()
@@ -43,6 +44,7 @@ public class RegexDeserializerFactory
         String regex = serdeProperties.get(REGEX_KEY);
         checkArgument(regex != null, "Schema does not have required '%s' property", REGEX_KEY);
         boolean caseSensitive = Boolean.parseBoolean(serdeProperties.get(REGEX_CASE_SENSITIVE_KEY));
-        return new RegexDeserializer(columns, regex, caseSensitive);
+        boolean nullOnParseError = Boolean.parseBoolean(serdeProperties.getOrDefault(REGEX_NULL_ON_PARSE_ERROR, "true"));
+        return new RegexDeserializer(columns, regex, caseSensitive, nullOnParseError);
     }
 }
