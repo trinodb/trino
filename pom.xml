@@ -2089,7 +2089,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.45.0</version>
+                <version>3.46.0</version>
             </dependency>
 
             <dependency>
