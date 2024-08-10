@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  <meta name="lang:clipboard.copy" content="Copy to clipboard">
+  <meta name="lang:clipboard.copied" content="Copied to clipboard">
+  <meta name="lang:search.language" content="en">
+  <meta name="lang:search.pipeline.stopwords" content="True">
+  <meta name="lang:search.pipeline.trimmer" content="True">
+  <meta name="lang:search.result.none" content="No matching documents">
+  <meta name="lang:search.result.one" content="1 matching document">
+  <meta name="lang:search.result.other" content="# matching documents">
+  <meta name="lang:search.tokenizer" content="[\s\-]+">
+
+
+    <link href="https://fonts.gstatic.com/" rel="preconnect" crossorigin>
+    <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,500,700|Roboto:300,400,400i,700&display=fallback" rel="stylesheet">
+
+    <style>
+      body,
+      input {
+        font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif
+      }
+
+      code,
+      kbd,
+      pre {
+        font-family: "Roboto Mono", "Courier New", Courier, monospace
+      }
+    </style>
+
+
+  <link rel="stylesheet" href="../_static/stylesheets/application.css"/>
+  <link rel="stylesheet" href="../_static/stylesheets/application-palette.css"/>
+  <link rel="stylesheet" href="../_static/stylesheets/application-fixes.css"/>
+
+  <link rel="stylesheet" href="../_static/fonts/material-icons.css"/>
+
+  <meta name="theme-color" content="2196f3">
+  <script src="../_static/javascripts/modernizr.js"></script>
+
+
+
+    <title>Graceful shutdown &#8212; Trino 454-SNAPSHOT Documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=bbebba6e" />
+    <link rel="stylesheet" type="text/css" href="../_static/material.css?v=79c92029" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/trino.css?v=daa3c281" />
+    <script src="../_static/jquery.js?v=5d32c60e"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+    <script src="../_static/documentation_options.js?v=3e345f81"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <link rel="canonical" href="https://trino.io/docs/current/admin/graceful-shutdown.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Fault-tolerant execution" href="fault-tolerant-execution.html" />
+    <link rel="prev" title="Dynamic filtering" href="dynamic-filtering.html" />
+
+
+
+  </head>
+  <body dir=ltr
+        data-md-color-primary= data-md-color-accent=>
+
+  <svg class="md-svg">
+    <defs data-children-count="0">
+
+      <svg xmlns="http://www.w3.org/2000/svg" width="416" height="448" viewBox="0 0 416 448" id="__github"><path fill="currentColor" d="M160 304q0 10-3.125 20.5t-10.75 19T128 352t-18.125-8.5-10.75-19T96 304t3.125-20.5 10.75-19T128 256t18.125 8.5 10.75 19T160 304zm160 0q0 10-3.125 20.5t-10.75 19T288 352t-18.125-8.5-10.75-19T256 304t3.125-20.5 10.75-19T288 256t18.125 8.5 10.75 19T320 304zm40 0q0-30-17.25-51T296 232q-10.25 0-48.75 5.25Q229.5 240 208 240t-39.25-2.75Q130.75 232 120 232q-29.5 0-46.75 21T56 304q0 22 8 38.375t20.25 25.75 30.5 15 35 7.375 37.25 1.75h42q20.5 0 37.25-1.75t35-7.375 30.5-15 20.25-25.75T360 304zm56-44q0 51.75-15.25 82.75-9.5 19.25-26.375 33.25t-35.25 21.5-42.5 11.875-42.875 5.5T212 416q-19.5 0-35.5-.75t-36.875-3.125-38.125-7.5-34.25-12.875T37 371.5t-21.5-28.75Q0 312 0 260q0-59.25 34-99-6.75-20.5-6.75-42.5 0-29 12.75-54.5 27 0 47.5 9.875t47.25 30.875Q171.5 96 212 96q37 0 70 8 26.25-20.5 46.75-30.25T376 64q12.75 25.5 12.75 54.5 0 21.75-6.75 42 34 40 34 99.5z"/></svg>
+
+    </defs>
+  </svg>
+
+  <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer">
+  <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search">
+  <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
+  <a href="#admin/graceful-shutdown" tabindex="1" class="md-skip"> Skip to content </a>
+  <header class="md-header" data-md-component="header">
+    <nav class="md-header-nav md-grid">
+        <div class="md-flex navheader">
+            <div class="md-flex__cell md-flex__cell--shrink">
+                <a href="../index.html" title="Trino 454-SNAPSHOT Documentation"
+                   class="md-header-nav__button md-logo">
+
+                    <!-- https://github.com/bashtage/sphinx-material/issues/136 -->
+                    <img src="../_static/trino.svg" height="26"
+                         alt="Trino 454-SNAPSHOT Documentation logo">
+
+                </a>
+            </div>
+            <div class="md-flex__cell md-flex__cell--shrink">
+                <label class="md-icon md-icon--menu md-header-nav__button" for="__drawer"></label>
+            </div>
+            <div class="md-flex__cell md-flex__cell--stretch">
+                <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
+                    <span class="md-header-nav__topic">Trino 454-SNAPSHOT Documentation</span>
+                    <span class="md-header-nav__topic"> Graceful shutdown </span>
+                </div>
+            </div>
+            <div class="md-flex__cell md-flex__cell--shrink">
+                <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
+
+<div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" action="../search.html" method="get" name="search">
+      <input type="text" class="md-search__input" name="q" placeholder="Search"
+             autocapitalize="off" autocomplete="off" spellcheck="false"
+             data-md-component="query" data-md-state="active">
+      <label class="md-icon md-search__icon" for="__search"></label>
+      <button type="reset" class="md-icon md-search__icon" data-md-component="reset" tabindex="-1">
+        &#xE5CD;
+      </button>
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="result">
+          <div class="md-search-result__meta">
+            Type to start searching
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+            </div>
+
+            <div class="md-flex__cell md-flex__cell--shrink">
+                <div class="md-header-nav__source">
+                    <a href="https://github.com/trinodb/trino" title="Go to repository" class="md-source" data-md-source="github">
+
+    <div class="md-source__icon">
+      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="28" height="28">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
+    </div>
+
+  <div class="md-source__repository">
+    Trino
+  </div>
+</a>
+                </div>
+            </div>
+
+
+
+  <script src="../_static/javascripts/version_dropdown.js"></script>
+  <script>
+    var json_loc = "../../versions.json",
+        target_loc = "../../",
+        text = "Versions";
+    $( document ).ready( add_version_dropdown(json_loc, target_loc, text));
+  </script>
+
+
+        </div>
+    </nav>
+</header>
+
+
+  <div class="md-container">
+
+
+    <!-- empty -->
+    <main class="md-main">
+      <div class="md-main__inner md-grid" data-md-component="container">
+
+          <div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
+            <div class="md-sidebar__scrollwrap">
+              <div class="md-sidebar__inner">
+                <nav class="md-nav md-nav--primary" data-md-level="0">
+    <label class="md-nav__title md-nav__title--site" for="__drawer">
+        <a href="../index.html" title="Trino 454-SNAPSHOT Documentation" class="md-nav__button md-logo">
+
+            <img src="../_static/trino.svg" alt=" logo" width="48" height="48">
+
+        </a>
+        <a href="../index.html"
+           title="Trino 454-SNAPSHOT Documentation">Trino 454-SNAPSHOT Documentation</a>
+    </label>
+    <div class="md-nav__source">
+        <a href="https://github.com/trinodb/trino" title="Go to repository" class="md-source" data-md-source="github">
+
+    <div class="md-source__icon">
+      <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" width="28" height="28">
+        <use xlink:href="#__github" width="24" height="24"></use>
+      </svg>
+    </div>
+
+  <div class="md-source__repository">
+    Trino
+  </div>
+</a>
+    </div>
+
+
+
+
+  <ul class="md-nav__list">
+    <li class="md-nav__item">
+
+
+      <a href="../overview.html" class="md-nav__link">Overview</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="../installation.html" class="md-nav__link">Installation</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="../client.html" class="md-nav__link">Clients</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="../security.html" class="md-nav__link">Security</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="../admin.html" class="md-nav__link">Administration</a>
+      <ul class="md-nav__list">
+    <li class="md-nav__item">
+
+
+      <a href="web-interface.html" class="md-nav__link">Web UI</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="preview-web-interface.html" class="md-nav__link">Preview Web UI</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="tuning.html" class="md-nav__link">Tuning Trino</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="jmx.html" class="md-nav__link">Monitoring with JMX</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="opentelemetry.html" class="md-nav__link">Observability with OpenTelemetry</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="properties.html" class="md-nav__link">Properties reference</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="spill.html" class="md-nav__link">Spill to disk</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="resource-groups.html" class="md-nav__link">Resource groups</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="session-property-managers.html" class="md-nav__link">Session property managers</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="dist-sort.html" class="md-nav__link">Distributed sort</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="dynamic-filtering.html" class="md-nav__link">Dynamic filtering</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    <label class="md-nav__link md-nav__link--active" for="__toc"> Graceful shutdown </label>
+
+      <a href="#" class="md-nav__link md-nav__link--active">Graceful shutdown</a>
+
+
+<nav class="md-nav md-nav--secondary">
+    <label class="md-nav__title" for="__toc">Contents</label>
+    <ul class="md-nav__list" data-md-scrollfix="">
+        <li class="md-nav__item"><a href="#shutdown-behavior" class="md-nav__link">Shutdown behavior</a>
+        </li>
+    </ul>
+</nav>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="fault-tolerant-execution.html" class="md-nav__link">Fault-tolerant execution</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="event-listeners-http.html" class="md-nav__link">HTTP event listener</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="event-listeners-mysql.html" class="md-nav__link">MySQL event listener</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="event-listeners-openlineage.html" class="md-nav__link">OpenLineage event listener</a>
+
+
+    </li></ul>
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="../optimizer.html" class="md-nav__link">Query optimizer</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="../connector.html" class="md-nav__link">Connectors</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="../object-storage.html" class="md-nav__link">Object storage</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="../functions.html" class="md-nav__link">Functions and operators</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="../language.html" class="md-nav__link">SQL language</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="../sql.html" class="md-nav__link">SQL statement syntax</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="../routines.html" class="md-nav__link">SQL routines</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="../develop.html" class="md-nav__link">Developer guide</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="../glossary.html" class="md-nav__link">Glossary</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="../appendix.html" class="md-nav__link">Appendix</a>
+
+
+    </li>
+    <li class="md-nav__item">
+
+
+      <a href="../release.html" class="md-nav__link">Release notes</a>
+
+
+    </li>
+  </ul>
+
+
+</nav>
+              </div>
+            </div>
+          </div>
+          <div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+            <div class="md-sidebar__scrollwrap">
+              <div class="md-sidebar__inner">
+
+<nav class="md-nav md-nav--secondary">
+    <label class="md-nav__title" for="__toc">Contents</label>
+    <ul class="md-nav__list" data-md-scrollfix="">
+        <li class="md-nav__item"><a href="#shutdown-behavior" class="md-nav__link">Shutdown behavior</a>
+        </li>
+    </ul>
+</nav>
+              </div>
+            </div>
+          </div>
+
+        <div class="md-content">
+          <article class="md-content__inner md-typeset" role="main">
+
+  <section id="graceful-shutdown">
+<h1 id="admin-graceful-shutdown--page-root">Graceful shutdown<a class="headerlink" href="#admin-graceful-shutdown--page-root" title="Link to this heading">#</a></h1>
+<p>Trino has a graceful shutdown API that can be used exclusively on workers in
+order to ensure that they terminate without affecting running queries, given a
+sufficient grace period.</p>
+<p>You can invoke the API with a HTTP PUT request:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-v<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>-d<span class="w"> </span><span class="s1">'"SHUTTING_DOWN"'</span><span class="w"> </span>-H<span class="w"> </span><span class="s2">"Content-type: application/json"</span><span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-Trino-User: authorizeduser"</span><span class="w"> </span><span class="se">\</span><span class="w">    </span>http://worker:8081/v1/info/state</pre></div></div>
+</pre></div>
+</div>
+<p>A successful invocation is logged with a <code class="docutils literal notranslate"><span class="pre">Shutdown</span> <span class="pre">requested</span></code> message at
+<code class="docutils literal notranslate"><span class="pre">INFO</span></code> level in the worker server log.</p>
+<p>Keep the following aspects in mind:</p>
+<ul class="simple">
+<li><p>If your cluster is secure, you need to provide a basic-authorization header,
+or satisfy whatever other security you have enabled.</p></li>
+<li><p>If you have TLS/HTTPS enabled, you have to ensure the worker certificate is
+CA signed, or trusted by the server calling the shut down endpoint.
+Otherwise, you can make the call <code class="docutils literal notranslate"><span class="pre">--insecure</span></code>, but that isn’t recommended.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">default</span></code> <a class="reference internal" href="../security/built-in-system-access-control.html"><span class="doc">System access control</span></a> does not allow
+graceful shutdowns. You can use the <code class="docutils literal notranslate"><span class="pre">allow-all</span></code> system access control, or
+configure <a class="reference internal" href="../security/file-system-access-control.html#system-file-auth-system-information"><span class="std std-ref">system information rules</span></a> with the <code class="docutils literal notranslate"><span class="pre">file</span></code> system access
+control. These configuration must be present on all workers.</p></li>
+</ul>
+<section id="shutdown-behavior">
+<h2 id="shutdown-behavior">Shutdown behavior<a class="headerlink" href="#shutdown-behavior" title="Link to this heading">#</a></h2>
+<p>Once the API is called, the worker performs the following steps:</p>
+<ul class="simple">
+<li><p>Go into <code class="docutils literal notranslate"><span class="pre">SHUTTING_DOWN</span></code> state.</p></li>
+<li><dl class="simple myst">
+<dt>Sleep for <code class="docutils literal notranslate"><span class="pre">shutdown.grace-period</span></code>, which defaults to 2 minutes.</dt><dd><ul>
+<li><p>After this, the coordinator is aware of the shutdown and stops sending
+tasks to the worker.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>Block until all active tasks are complete.</p></li>
+<li><p>Sleep for the grace period again in order to ensure the coordinator sees
+all tasks are complete.</p></li>
+<li><p>Shutdown the application.</p></li>
+</ul>
+</section>
+</section>
+
+
+          </article>
+        </div>
+      </div>
+    </main>
+  </div>
+  <footer class="md-footer">
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid">
+
+            <a href="dynamic-filtering.html" title="Dynamic filtering"
+               class="md-flex md-footer-nav__link md-footer-nav__link--prev"
+               rel="prev">
+              <div class="md-flex__cell md-flex__cell--shrink">
+                <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
+              </div>
+              <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+                <span class="md-flex__ellipsis">
+                  <span
+                      class="md-footer-nav__direction"> Previous </span> Dynamic filtering </span>
+              </div>
+            </a>
+
+
+            <a href="fault-tolerant-execution.html" title="Fault-tolerant execution"
+               class="md-flex md-footer-nav__link md-footer-nav__link--next"
+               rel="next">
+            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title"><span
+                class="md-flex__ellipsis"> <span
+                class="md-footer-nav__direction"> Next </span> Fault-tolerant execution </span>
+            </div>
+            <div class="md-flex__cell md-flex__cell--shrink"><i
+                class="md-icon md-icon--arrow-forward md-footer-nav__button"></i>
+            </div>
+
+        </a>
+
+      </nav>
+    </div>
+    <div class="md-footer-meta md-typeset">
+      <div class="md-footer-meta__inner md-grid">
+        <div class="md-footer-copyright">
+        </div>
+      </div>
+    </div>
+  </footer>
+  <script src="../_static/javascripts/application.js"></script>
+  <script>app.initialize({version: "1.0.4", url: {base: ".."}})</script>
+  </body>
+</html>
