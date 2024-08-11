@@ -27,6 +27,10 @@ public final class HiveClassNames
     public static final String HUDI_PARQUET_REALTIME_INPUT_FORMAT = "org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat";
     public static final String HUDI_INPUT_FORMAT = "com.uber.hoodie.hadoop.HoodieInputFormat";
     public static final String HUDI_REALTIME_INPUT_FORMAT = "com.uber.hoodie.hadoop.realtime.HoodieRealtimeInputFormat";
+    public static final String ION_SERDE_CLASS = "com.amazon.ionhiveserde.IonHiveSerDe";
+    public static final String ION_INPUT_FORMAT = "com.amazon.ionhiveserde.formats.IonInputFormat";
+    public static final String ION_OUTPUT_FORMAT = "com.amazon.ionhiveserde.formats.IonOutputFormat";
+
     public static final String JSON_SERDE_CLASS = "org.apache.hive.hcatalog.data.JsonSerDe";
     public static final String LEGACY_JSON_SERDE_CLASS = "org.apache.hadoop.hive.serde2.JsonSerDe";
     public static final String OPENX_JSON_SERDE_CLASS = "org.openx.data.jsonserde.JsonSerDe";

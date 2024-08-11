@@ -5693,6 +5693,7 @@ public abstract class BaseHiveConnectorTest
             case PARQUET -> true;
             case AVRO -> true;
             case JSON -> true;
+            case ION -> true;
             case ORC -> false;
             case RCBINARY -> false;
             case RCTEXT -> false;
