@@ -44,7 +44,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.sql.tree.IntervalLiteral.IntervalField;
 import static io.trino.util.DateTimeZoneIndex.getChronology;
 import static io.trino.util.DateTimeZoneIndex.packDateTimeWithZone;
@@ -212,48 +212,46 @@ public final class DateTimeUtils
 
     public static long parseDayTimeInterval(String value, IntervalField startField, Optional<IntervalField> endField)
     {
-        IntervalField end = endField.orElse(startField);
-
         try {
-            if (startField == IntervalField.DAY && end == IntervalField.SECOND) {
-                return parsePeriodMillis(INTERVAL_DAY_SECOND_FORMATTER, value);
-            }
-            if (startField == IntervalField.DAY && end == IntervalField.MINUTE) {
-                return parsePeriodMillis(INTERVAL_DAY_MINUTE_FORMATTER, value);
-            }
-            if (startField == IntervalField.DAY && end == IntervalField.HOUR) {
-                return parsePeriodMillis(INTERVAL_DAY_HOUR_FORMATTER, value);
-            }
-            if (startField == IntervalField.DAY && end == IntervalField.DAY) {
+            if (startField == IntervalField.DAY && endField.isEmpty()) {
                 return parsePeriodMillis(INTERVAL_DAY_FORMATTER, value);
             }
+            if (startField == IntervalField.DAY && endField.get() == IntervalField.SECOND) {
+                return parsePeriodMillis(INTERVAL_DAY_SECOND_FORMATTER, value);
+            }
+            if (startField == IntervalField.DAY && endField.get() == IntervalField.MINUTE) {
+                return parsePeriodMillis(INTERVAL_DAY_MINUTE_FORMATTER, value);
+            }
+            if (startField == IntervalField.DAY && endField.get() == IntervalField.HOUR) {
+                return parsePeriodMillis(INTERVAL_DAY_HOUR_FORMATTER, value);
+            }
 
-            if (startField == IntervalField.HOUR && end == IntervalField.SECOND) {
-                return parsePeriodMillis(INTERVAL_HOUR_SECOND_FORMATTER, value);
-            }
-            if (startField == IntervalField.HOUR && end == IntervalField.MINUTE) {
-                return parsePeriodMillis(INTERVAL_HOUR_MINUTE_FORMATTER, value);
-            }
-            if (startField == IntervalField.HOUR && end == IntervalField.HOUR) {
+            if (startField == IntervalField.HOUR && endField.isEmpty()) {
                 return parsePeriodMillis(INTERVAL_HOUR_FORMATTER, value);
             }
-
-            if (startField == IntervalField.MINUTE && end == IntervalField.SECOND) {
-                return parsePeriodMillis(INTERVAL_MINUTE_SECOND_FORMATTER, value);
+            if (startField == IntervalField.HOUR && endField.get() == IntervalField.SECOND) {
+                return parsePeriodMillis(INTERVAL_HOUR_SECOND_FORMATTER, value);
             }
-            if (startField == IntervalField.MINUTE && end == IntervalField.MINUTE) {
+            if (startField == IntervalField.HOUR && endField.get() == IntervalField.MINUTE) {
+                return parsePeriodMillis(INTERVAL_HOUR_MINUTE_FORMATTER, value);
+            }
+
+            if (startField == IntervalField.MINUTE && endField.isEmpty()) {
                 return parsePeriodMillis(INTERVAL_MINUTE_FORMATTER, value);
             }
+            if (startField == IntervalField.MINUTE && endField.get() == IntervalField.SECOND) {
+                return parsePeriodMillis(INTERVAL_MINUTE_SECOND_FORMATTER, value);
+            }
 
-            if (startField == IntervalField.SECOND && end == IntervalField.SECOND) {
+            if (startField == IntervalField.SECOND && endField.isEmpty()) {
                 return parsePeriodMillis(INTERVAL_SECOND_FORMATTER, value);
             }
         }
         catch (IllegalArgumentException e) {
-            throw invalidInterval(e, value, startField, end);
+            throw invalidInterval(e, value, startField, endField.orElse(startField));
         }
 
-        throw new IllegalArgumentException("Invalid day second interval qualifier: " + startField + " to " + end);
+        throw invalidQualifier(startField, endField.orElse(startField));
     }
 
     private static long parsePeriodMillis(PeriodFormatter periodFormatter, String value)
@@ -269,25 +267,23 @@ public final class DateTimeUtils
 
     public static long parseYearMonthInterval(String value, IntervalField startField, Optional<IntervalField> endField)
     {
-        IntervalField end = endField.orElse(startField);
-
         try {
-            if (startField == IntervalField.YEAR && end == IntervalField.MONTH) {
-                return parsePeriodMonths(value, INTERVAL_YEAR_MONTH_FORMATTER);
-            }
-            if (startField == IntervalField.YEAR && end == IntervalField.YEAR) {
+            if (startField == IntervalField.YEAR && endField.isEmpty()) {
                 return parsePeriodMonths(value, INTERVAL_YEAR_FORMATTER);
             }
+            if (startField == IntervalField.YEAR && endField.get() == IntervalField.MONTH) {
+                return parsePeriodMonths(value, INTERVAL_YEAR_MONTH_FORMATTER);
+            }
 
-            if (startField == IntervalField.MONTH && end == IntervalField.MONTH) {
+            if (startField == IntervalField.MONTH && endField.isEmpty()) {
                 return parsePeriodMonths(value, INTERVAL_MONTH_FORMATTER);
             }
         }
         catch (IllegalArgumentException e) {
-            throw invalidInterval(e, value, startField, end);
+            throw invalidInterval(e, value, startField, endField.orElse(startField));
         }
 
-        throw new IllegalArgumentException("Invalid year month interval qualifier: " + startField + " to " + end);
+        throw invalidQualifier(startField, endField.orElse(startField));
     }
 
     private static long parsePeriodMonths(String value, PeriodFormatter periodFormatter)
@@ -325,7 +321,12 @@ public final class DateTimeUtils
         else {
             message = format("Invalid INTERVAL %s TO %s value: %s", startField, endField, value);
         }
-        return new TrinoException(INVALID_FUNCTION_ARGUMENT, message, throwable);
+        return new TrinoException(INVALID_LITERAL, message, throwable);
+    }
+
+    private static TrinoException invalidQualifier(IntervalField startField, IntervalField endField)
+    {
+        throw new TrinoException(INVALID_LITERAL, "Invalid interval qualifier: " + startField + " TO " + endField);
     }
 
     private static PeriodFormatter cretePeriodFormatter(IntervalField startField, IntervalField endField)
@@ -351,7 +352,7 @@ public final class DateTimeUtils
                 builder.appendMonths();
                 parsers.add(builder.toParser());
                 if (endField != IntervalField.MONTH) {
-                    throw new IllegalArgumentException("Invalid interval qualifier: " + startField + " to " + endField);
+                    throw invalidQualifier(startField, endField);
                 }
                 break;
 
