@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.filesystem.Location;
+import io.trino.hive.formats.SparseRowType;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.HiveTypeName;
 import io.trino.metastore.type.TypeInfo;
@@ -28,6 +29,7 @@ import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
+import io.trino.plugin.hive.util.HiveTypeTranslator;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -41,11 +43,14 @@ import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -279,7 +284,8 @@ public class HivePageSourceProvider
         HiveColumnHandle expectedColumn = (HiveColumnHandle) expected;
         HiveColumnHandle readColumn = (HiveColumnHandle) read;
 
-        checkArgument(expectedColumn.getBaseColumn().equals(readColumn.getBaseColumn()), "reader column is not valid for expected column");
+        // checkArgument(expectedColumn.getBaseColumn().equals(readColumn.getBaseColumn()), "reader column is not valid for expected column");
+        checkArgument(expectedColumn.getBaseHiveColumnIndex() == readColumn.getBaseHiveColumnIndex(), "reader column is not valid for expected column");
 
         List<Integer> expectedDereferences = expectedColumn.getHiveColumnProjectionInfo()
                 .map(HiveColumnProjectionInfo::getDereferenceIndices)
@@ -292,7 +298,25 @@ public class HivePageSourceProvider
         checkArgument(readerDereferences.size() <= expectedDereferences.size(), "Field returned by the reader should include expected field");
         checkArgument(expectedDereferences.subList(0, readerDereferences.size()).equals(readerDereferences), "Field returned by the reader should be a prefix of expected field");
 
-        return expectedDereferences.subList(readerDereferences.size(), expectedDereferences.size());
+        checkArgument(readerDereferences.isEmpty(), "reader dereferences not supported yet");
+
+        Type adapted = readColumn.getBaseColumn().getBaseType();
+        ImmutableList.Builder<Integer> dereferenceBuilder = ImmutableList.builder();
+        for (int deref : expectedDereferences) {
+            if (adapted instanceof SparseRowType sparseRowType) {
+                int found = sparseRowType.getOffset(deref);
+                dereferenceBuilder.add(found);
+                adapted = sparseRowType.getFields().get(found).getType();
+            }
+            else if (adapted instanceof RowType rowType) {
+                dereferenceBuilder.add(deref);
+                adapted = rowType.getFields().get(deref).getType();
+            }
+            else {
+                throw new IllegalArgumentException("Expected RowType!");
+            }
+        }
+        return dereferenceBuilder.build();
     }
 
     public static class ColumnMapping
@@ -641,7 +665,11 @@ public class HivePageSourceProvider
     }
 
     /**
-     * Creates a mapping between the input {@code columns} and base columns based on baseHiveColumnIndex or baseColumnName if required.
+     * Transforms the input columns (the projections from the user) to the corresponding base columns in the
+     * table definition, and a mapping from the projected to the base columns.
+     *
+     * For example, given projections [foo.bar, baz, foo.qux] for a table schema of [baz, foo], the ReaderColumns
+     * produced would be [foo, baz] with a mapping of [0, 1, 0].
      */
     public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns, boolean useColumnNames)
     {
@@ -784,5 +812,132 @@ public class HivePageSourceProvider
 
             return prefixes.build();
         }
+    }
+
+    /**
+     * Transforms the input columns (the projections from the user) to the corresponding base columns in the table
+     * definition, and a mapping from the projected to the base columns.
+     *
+     * For example, given projections [foo.bar, baz, foo.qux] for a table schema of [baz, foo], the ReaderColumns
+     * produced would be [foo, baz] with a mapping of [0, 1, 0].
+     *
+     * The base types returned will be "sparse". For example, if foo from the example above also had a field
+     * named quuz that would be "pruned" from the base type.
+     *
+     * Deserializers that use the positions of fields in deserialization can ... todo complete
+     */
+    public static Optional<ReaderColumns> sparseReaderColumns(List<HiveColumnHandle> columns)
+    {
+        requireNonNull(columns, "columns is null");
+
+        if (columns.stream().allMatch(HiveColumnHandle::isBaseColumn)) {
+            return Optional.empty();
+        }
+
+        Map<Integer, Integer> ordinalToPosition = new HashMap<>();
+        List<Type> sparseBaseTypes = new ArrayList<>(columns.size());
+        List<HiveColumnHandle> baseColumnHandles = new ArrayList<>(columns.size());
+        List<Integer> toReaderColMapping = new LinkedList<>();
+
+        for (HiveColumnHandle column : columns) {
+            checkArgument(column.isBaseColumn() == column.getHiveColumnProjectionInfo().isEmpty(), "Invalid column projection");
+
+            Type baseType = column.getBaseType();
+            Integer baseColumnOrdinal = column.getBaseHiveColumnIndex();
+            Integer position = ordinalToPosition.putIfAbsent(baseColumnOrdinal, sparseBaseTypes.size());
+            if (position == null) {
+                position = sparseBaseTypes.size();
+
+                // we will replace this with a sparse version later
+                sparseBaseTypes.add(null);
+                baseColumnHandles.add(column.getBaseColumn());
+            }
+            toReaderColMapping.add(position);
+
+            // if the expected is a base column, we need to read the whole thing anyway
+            if (column.isBaseColumn()) {
+                sparseBaseTypes.set(position, baseType);
+            }
+            // if the existing sparse type is the base, then the base "covers" the projection
+            else if (sparseBaseTypes.get(position) != column.getBaseType()) {
+                List<Integer> derefIndexes = column.getHiveColumnProjectionInfo().get().getDereferenceIndices();
+
+                RowType baseRowType = (RowType) baseType;
+                SparseRowType candidate = sparseTypeFor(baseRowType, derefIndexes);
+                RowType mergedType = switch (sparseBaseTypes.get(position)) {
+                    case null -> candidate;
+                    case Type t -> mergeSparseTypes(candidate, t);
+                };
+
+                sparseBaseTypes.set(position, mergedType);
+            }
+        }
+
+        List<HiveColumnHandle> readerColumns = new ArrayList<>(baseColumnHandles.size());
+        for (int i = 0; i < baseColumnHandles.size(); i++) {
+            HiveColumnHandle baseColumnHandle = baseColumnHandles.get(i);
+            Type sparseType = sparseBaseTypes.get(i);
+            HiveColumnHandle projectedColumnHandle = new HiveColumnHandle(
+                    baseColumnHandle.getBaseColumnName(),
+                    baseColumnHandle.getBaseHiveColumnIndex(),
+                    HiveTypeTranslator.toHiveType(sparseType),
+                    sparseType,
+                    Optional.empty(),
+                    baseColumnHandle.getColumnType(),
+                    baseColumnHandle.getComment());
+            readerColumns.add(projectedColumnHandle);
+        }
+
+        return Optional.of(new ReaderColumns(readerColumns, toReaderColMapping));
+    }
+
+    private static SparseRowType sparseTypeFor(RowType original, List<Integer> derefIndexes)
+    {
+        if (derefIndexes.isEmpty()) {
+            throw new IllegalArgumentException("derefIndexes cannot be empty");
+        }
+
+        Integer index = derefIndexes.getFirst();
+        if (derefIndexes.size() == 1) {
+            return SparseRowType.initial(original.getFields(), index);
+        }
+
+        List<RowType.Field> fields = new ArrayList<>(original.getFields());
+        Type sparseChild = sparseTypeFor((RowType) fields.get(index).getType(), derefIndexes.subList(1, derefIndexes.size()));
+        fields.set(index, new RowType.Field(fields.get(index).getName(), sparseChild));
+
+        return SparseRowType.initial(fields, index);
+    }
+
+    private static RowType mergeSparseTypes(
+            SparseRowType sparseType,
+            Type other)
+    {
+        if (!(other instanceof RowType rowOther)) {
+            throw new IllegalArgumentException("other must be a RowType");
+        }
+
+        if (!(other instanceof SparseRowType sparseOther)) {
+            return rowOther;
+        }
+
+        List<RowType.Field> sparseFields = sparseType.getSparseFields();
+        List<RowType.Field> otherFields = sparseOther.getSparseFields();
+        checkArgument(sparseFields.size() == otherFields.size(), "Mismatched field sizes");
+
+        List<RowType.Field> mergedFields = new ArrayList<>(sparseFields.size());
+        boolean[] mask = new boolean[sparseFields.size()];
+        for (int i = 0; i < mask.length; i++) {
+            mask[i] = sparseType.getOffset(i) != null || sparseOther.getOffset(i) != null;
+            RowType.Field field = sparseFields.get(i);
+            if (field.getType() instanceof SparseRowType sparseChild) {
+                Type mergedType = mergeSparseTypes(sparseChild, otherFields.get(i).getType());
+                mergedFields.add(new RowType.Field(field.getName(), mergedType));
+            }
+            else {
+                mergedFields.add(field);
+            }
+        }
+        return SparseRowType.from(mergedFields, mask);
     }
 }

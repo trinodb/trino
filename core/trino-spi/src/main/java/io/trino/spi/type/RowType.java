@@ -126,7 +126,7 @@ public class RowType
     private final int flatFixedSize;
     private final boolean flatVariableWidth;
 
-    private RowType(TypeSignature typeSignature, List<Field> originalFields)
+    protected RowType(TypeSignature typeSignature, List<Field> originalFields)
     {
         super(typeSignature, SqlRow.class, RowBlock.class);
 
@@ -188,7 +188,7 @@ public class RowType
         return new Field(Optional.empty(), type);
     }
 
-    private static TypeSignature makeSignature(List<Field> fields)
+    protected static TypeSignature makeSignature(List<Field> fields)
     {
         int size = fields.size();
         if (size == 0) {

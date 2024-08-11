@@ -48,7 +48,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.line.LineDeserializer.EMPTY_LINE_DESERIALIZER;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.trino.plugin.hive.HivePageSourceProvider.sparseReaderColumns;
 import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.getFooterCount;
@@ -109,7 +109,7 @@ public abstract class LinePageSourceFactory
 
         // setup projected columns
         List<HiveColumnHandle> projectedReaderColumns = columns;
-        Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
+        Optional<ReaderColumns> readerProjections = sparseReaderColumns(columns);
         if (readerProjections.isPresent()) {
             projectedReaderColumns = readerProjections.get().get().stream()
                     .map(HiveColumnHandle.class::cast)

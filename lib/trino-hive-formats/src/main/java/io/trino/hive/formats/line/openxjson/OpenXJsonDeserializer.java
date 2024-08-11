@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.hive.formats.DistinctMapKeys;
+import io.trino.hive.formats.SparseRowType;
 import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineDeserializer;
@@ -56,6 +57,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.IntFunction;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -746,6 +748,7 @@ public final class OpenXJsonDeserializer
     {
         private final List<FieldName> fieldNames;
         private final List<Decoder> fieldDecoders;
+        private final List<Integer> decoderOffsets;
         private final boolean dotsInKeyNames;
 
         public RowDecoder(RowType rowType, OpenXJsonOptions options, List<Decoder> fieldDecoders)
@@ -755,6 +758,16 @@ public final class OpenXJsonDeserializer
                     .map(fieldName -> fieldName.toLowerCase(Locale.ROOT))
                     .map(originalValue -> new FieldName(originalValue, options))
                     .collect(toImmutableList());
+            if (rowType instanceof SparseRowType sparseRowType) {
+                // build an inverse mapping, from dense fields to sparse fields
+                decoderOffsets = IntStream.range(0, sparseRowType.getSparseFields().size())
+                        .filter(sparsePos -> sparseRowType.getOffset(sparsePos) != null)
+                        .boxed()
+                        .toList();
+            }
+            else {
+                decoderOffsets = IntStream.range(0, fieldDecoders.size()).boxed().toList();
+            }
             this.fieldDecoders = fieldDecoders;
             this.dotsInKeyNames = options.isDotsInFieldNames();
         }
@@ -831,7 +844,8 @@ public final class OpenXJsonDeserializer
         private void decodeValueFromList(List<?> jsonArray, IntFunction<BlockBuilder> fieldBuilders)
         {
             for (int i = 0; i < fieldDecoders.size(); i++) {
-                Object fieldValue = jsonArray.size() > i ? jsonArray.get(i) : null;
+                int position = decoderOffsets.get(i);
+                Object fieldValue = jsonArray.size() > position ? jsonArray.get(position) : null;
                 BlockBuilder blockBuilder = fieldBuilders.apply(i);
                 if (fieldValue == null) {
                     blockBuilder.appendNull();

@@ -81,7 +81,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
-import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.trino.plugin.hive.HivePageSourceProvider.sparseReaderColumns;
 import static io.trino.plugin.hive.HiveSessionProperties.getOrcLazyReadSmallRanges;
 import static io.trino.plugin.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getOrcMaxMergeDistance;
@@ -187,7 +187,7 @@ public class OrcPageSourceFactory
 
         List<HiveColumnHandle> readerColumnHandles = columns;
 
-        Optional<ReaderColumns> readerColumns = projectBaseColumns(columns);
+        Optional<ReaderColumns> readerColumns = sparseReaderColumns(columns);
         if (readerColumns.isPresent()) {
             readerColumnHandles = readerColumns.get().get().stream()
                     .map(HiveColumnHandle.class::cast)

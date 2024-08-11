@@ -589,6 +589,16 @@
                                     <old>interface io.trino.spi.exchange.ExchangeManagerHandleResolver</old>
                                     <justification>cleanup</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <new>method void io.trino.spi.type.RowType::&lt;init&gt;(io.trino.spi.type.TypeSignature, java.util.List&lt;io.trino.spi.type.RowType.Field&gt;)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <new>method io.trino.spi.type.TypeSignature io.trino.spi.type.RowType::makeSignature(java.util.List&lt;io.trino.spi.type.RowType.Field&gt;)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

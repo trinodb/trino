@@ -56,6 +56,7 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
+import io.trino.plugin.hive.util.HiveTypeTranslator;
 import io.trino.spi.PageSorter;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -315,6 +316,62 @@ public final class HiveTestUtils
         }
 
         throw new IllegalArgumentException("Unsupported type: " + type);
+    }
+
+    public static HiveColumnHandle toHiveBaseColumnHandle(String name, Type type, int ordinal)
+    {
+        return new HiveColumnHandle(
+                name,
+                ordinal,
+                HiveTypeTranslator.toHiveType(type),
+                type,
+                Optional.empty(),
+                HiveColumnHandle.ColumnType.REGULAR,
+                Optional.empty());
+    }
+
+    public static HiveColumnHandle projectedColumn(HiveColumnHandle baseColumn, String... path)
+    {
+        if (path.length == 0) {
+            throw new IllegalArgumentException("path must have at least one element");
+        }
+
+        final Type baseType = baseColumn.getBaseType();
+        Type type = baseType;
+        ImmutableList.Builder<Integer> derefBuilder = ImmutableList.builder();
+
+        for (String fieldName : path) {
+            if (type instanceof RowType rowType) {
+                List<RowType.Field> fields = rowType.getFields();
+                type = null;
+                for (int pos = 0; pos < fields.size(); pos++) {
+                    if (fields.get(pos).getName().get().equals(fieldName)) {
+                        derefBuilder.add(pos);
+                        type = fields.get(pos).getType();
+                        break;
+                    }
+                }
+                if (type == null) {
+                    throw new IllegalArgumentException(String.format("could not find field named: %s!", fieldName));
+                }
+            }
+            else {
+                throw new IllegalArgumentException("cannot step into non-RowType!");
+            }
+        }
+
+        return new HiveColumnHandle(
+                baseColumn.getBaseColumnName(),
+                baseColumn.getBaseHiveColumnIndex(),
+                HiveTypeTranslator.toHiveType(baseType),
+                baseType,
+                Optional.of(new HiveColumnProjectionInfo(
+                        derefBuilder.build(),
+                        ImmutableList.copyOf(path),
+                        HiveTypeTranslator.toHiveType(type),
+                        type)),
+                baseColumn.getColumnType(),
+                baseColumn.getComment());
     }
 
     private static UUID uuidFromBytes(byte[] bytes)
