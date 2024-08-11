@@ -67,20 +67,18 @@ public record ElasticsearchTableHandle(
     public String toString()
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(type + ":" + index);
+        builder.append(type).append(":").append(index);
 
         StringBuilder attributes = new StringBuilder();
         if (!regexes.isEmpty()) {
-            attributes.append("regexes=[");
             attributes.append(regexes.entrySet().stream()
                     .map(regex -> regex.getKey() + ":" + regex.getValue())
-                    .collect(Collectors.joining(", ")));
-            attributes.append("]");
+                    .collect(Collectors.joining(", ", "regexes=[", "]")));
         }
-        limit.ifPresent(value -> attributes.append("limit=" + value));
-        query.ifPresent(value -> attributes.append("query" + value));
+        limit.ifPresent(value -> attributes.append("limit=").append(value));
+        query.ifPresent(value -> attributes.append("query").append(value));
 
-        if (attributes.length() > 0) {
+        if (!attributes.isEmpty()) {
             builder.append("(");
             builder.append(attributes);
             builder.append(")");
