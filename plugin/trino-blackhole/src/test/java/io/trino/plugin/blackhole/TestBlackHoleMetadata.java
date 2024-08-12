@@ -63,7 +63,8 @@ final class TestBlackHoleMetadata
                 SESSION,
                 new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties),
                 Optional.empty(),
-                NO_RETRIES);
+                NO_RETRIES,
+                false);
 
         assertThatNoTableIsCreated();
 
@@ -78,7 +79,7 @@ final class TestBlackHoleMetadata
     void testCreateTableInNotExistSchema()
     {
         SchemaTableName schemaTableName = new SchemaTableName("schema1", "test_table");
-        assertTrinoExceptionThrownBy(() -> metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties), Optional.empty(), NO_RETRIES))
+        assertTrinoExceptionThrownBy(() -> metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties), Optional.empty(), NO_RETRIES, false))
                 .hasErrorCode(NOT_FOUND)
                 .hasMessage("Schema schema1 not found");
     }
