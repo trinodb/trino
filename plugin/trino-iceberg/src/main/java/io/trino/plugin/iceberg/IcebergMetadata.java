@@ -1038,7 +1038,7 @@ public class IcebergMetadata
                 // Commit the transaction if the table is being created without data
                 AppendFiles appendFiles = transaction.newFastAppend();
                 commit(appendFiles, session);
-                transaction.commitTransaction();
+                commitTransaction(transaction, "create table");
                 transaction = null;
                 return Optional.empty();
             }
@@ -1217,7 +1217,7 @@ public class IcebergMetadata
         }
 
         commit(appendFiles, session);
-        transaction.commitTransaction();
+        commitTransaction(transaction, "insert");
         // TODO (https://github.com/trinodb/trino/issues/15439) this may not exactly be the snapshot we committed, if there is another writer
         long newSnapshotId = transaction.table().currentSnapshot().snapshotId();
         transaction = null;
@@ -1241,7 +1241,7 @@ public class IcebergMetadata
                         .setStatistics(newSnapshotId, statisticsFile)
                         .commit();
 
-                transaction.commitTransaction();
+                commitTransaction(transaction, "update statistics on insert");
             }
             catch (Exception e) {
                 // Write was committed, so at this point we cannot fail the query
@@ -1587,7 +1587,7 @@ public class IcebergMetadata
         Snapshot snapshot = requireNonNull(icebergTable.snapshot(optimizeHandle.snapshotId().get()), "snapshot is null");
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
         commit(rewriteFiles, session);
-        transaction.commitTransaction();
+        commitTransaction(transaction, "optimize");
 
         // TODO (https://github.com/trinodb/trino/issues/15439) this may not exactly be the snapshot we committed, if there is another writer
         long newSnapshotId = transaction.table().currentSnapshot().snapshotId();
@@ -1605,7 +1605,7 @@ public class IcebergMetadata
             transaction.updateStatistics()
                     .setStatistics(newSnapshotId, newStatsFile)
                     .commit();
-            transaction.commitTransaction();
+            commitTransaction(transaction, "update statistics after optimize");
         }
         catch (Exception e) {
             // Write was committed, so at this point we cannot fail the query
@@ -1613,6 +1613,16 @@ public class IcebergMetadata
             log.error(e, "Failed to save table statistics");
         }
         transaction = null;
+    }
+
+    private static void commitTransaction(Transaction transaction, String operation)
+    {
+        try {
+            transaction.commitTransaction();
+        }
+        catch (ValidationException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit during %s: %s", operation, firstNonNull(e.getMessage(), e)), e);
+        }
     }
 
     @Override
@@ -1645,7 +1655,7 @@ public class IcebergMetadata
             updateStatistics.removeStatistics(statisticsFile.snapshotId());
         }
         updateStatistics.commit();
-        transaction.commitTransaction();
+        commitTransaction(transaction, "drop extended stats");
         transaction = null;
     }
 
@@ -1925,12 +1935,7 @@ public class IcebergMetadata
             }
         }
 
-        try {
-            transaction.commitTransaction();
-        }
-        catch (RuntimeException e) {
-            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to commit new table properties", e);
-        }
+        commitTransaction(transaction, "set table properties");
     }
 
     private static void updatePartitioning(Table icebergTable, Transaction transaction, List<String> partitionColumns)
@@ -2362,7 +2367,7 @@ public class IcebergMetadata
                     "Unexpected computed statistics that cannot be attached to a snapshot because none exists: %s",
                     computedStatistics);
 
-            transaction.commitTransaction();
+            commitTransaction(transaction, "statistics collection");
             transaction = null;
             return;
         }
@@ -2379,7 +2384,7 @@ public class IcebergMetadata
                 .setStatistics(snapshotId, statisticsFile)
                 .commit();
 
-        transaction.commitTransaction();
+        commitTransaction(transaction, "statistics collection");
         transaction = null;
     }
 
@@ -2538,13 +2543,8 @@ public class IcebergMetadata
         }
 
         rowDelta.validateDataFilesExist(referencedDataFiles.build());
-        try {
-            commit(rowDelta, session);
-            transaction.commitTransaction();
-        }
-        catch (ValidationException e) {
-            throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to commit Iceberg update to table: " + table.getSchemaTableName(), e);
-        }
+        commit(rowDelta, session);
+        commitTransaction(transaction, "write");
     }
 
     @Override
@@ -3097,7 +3097,7 @@ public class IcebergMetadata
         appendFiles.set(TRINO_QUERY_START_TIME, session.getStart().toString());
         commit(appendFiles, session);
 
-        transaction.commitTransaction();
+        commitTransaction(transaction, "refresh materialized view");
         transaction = null;
         fromSnapshotForRefresh = Optional.empty();
         return Optional.of(new HiveWrittenPartitions(commitTasks.stream()

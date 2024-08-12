@@ -275,7 +275,7 @@ public abstract class BaseIcebergConnectorTest
     @Override
     protected void verifyConcurrentUpdateFailurePermissible(Exception e)
     {
-        assertThat(e).hasMessageContaining("Failed to commit Iceberg update to table");
+        assertThat(e).hasMessageContaining("Failed to commit during write");
     }
 
     @Override
