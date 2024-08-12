@@ -148,6 +148,42 @@ final class TestBlackHoleSmoke
     }
 
     @Test
+    void testCreateOrReplaceTable()
+    {
+        assertUpdate("CREATE OR REPLACE TABLE test_create_or_replace(x int)");
+        assertThat(query("DESCRIBE test_create_or_replace")).result().projected("Column", "Type")
+                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR)
+                        .row("x", "integer")
+                        .build());
+
+        assertUpdate("CREATE OR REPLACE TABLE test_create_or_replace(y varchar)");
+        assertThat(query("DESCRIBE test_create_or_replace")).result().projected("Column", "Type")
+                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR)
+                        .row("y", "varchar")
+                        .build());
+
+        assertUpdate("DROP TABLE test_create_or_replace");
+    }
+
+    @Test
+    void testCreateOrReplaceTableAsSelect()
+    {
+        assertUpdate("CREATE OR REPLACE TABLE test_create_or_replace_as_select AS SELECT 1 x", 1);
+        assertThat(query("DESCRIBE test_create_or_replace_as_select")).result().projected("Column", "Type")
+                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR)
+                        .row("x", "integer")
+                        .build());
+
+        assertUpdate("CREATE OR REPLACE TABLE test_create_or_replace_as_select AS SELECT '2' y", 1);
+        assertThat(query("DESCRIBE test_create_or_replace_as_select")).result().projected("Column", "Type")
+                .matches(resultBuilder(getSession(), VARCHAR, VARCHAR)
+                        .row("y", "varchar(1)")
+                        .build());
+
+        assertUpdate("DROP TABLE test_create_or_replace_as_select");
+    }
+
+    @Test
     void testDataGenerationUsage()
     {
         Session session = testSessionBuilder()
