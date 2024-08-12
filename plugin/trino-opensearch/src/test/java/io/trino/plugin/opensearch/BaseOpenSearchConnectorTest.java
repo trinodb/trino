@@ -80,7 +80,7 @@ public abstract class BaseOpenSearchConnectorTest
     public final void destroy()
             throws IOException
     {
-        opensearch.stop();
+        opensearch.close();
         opensearch = null;
         client.close();
         client = null;
