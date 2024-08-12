@@ -54,7 +54,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
-public class TestBlackHoleSmoke
+final class TestBlackHoleSmoke
         extends AbstractTestQueryFramework
 {
     @Override
@@ -65,13 +65,13 @@ public class TestBlackHoleSmoke
     }
 
     @AfterAll
-    public void tearDown()
+    void tearDown()
     {
         assertThat(listBlackHoleTables()).isEmpty();
     }
 
     @Test
-    public void testCreateSchema()
+    void testCreateSchema()
     {
         assertThat(query("SHOW SCHEMAS FROM blackhole"))
                 .result().rowCount().isEqualTo(2);
@@ -87,7 +87,7 @@ public class TestBlackHoleSmoke
     }
 
     @Test
-    public void createTableWhenTableIsAlreadyCreated()
+    void testCreateTableWhenTableIsAlreadyCreated()
     {
         String createTableSql = "CREATE TABLE nation as SELECT * FROM tpch.tiny.nation";
         assertUpdate(createTableSql, 25);
@@ -97,7 +97,7 @@ public class TestBlackHoleSmoke
     }
 
     @Test
-    public void blackHoleConnectorUsage()
+    void testBlackHoleConnectorUsage()
     {
         assertUpdate("CREATE TABLE nation as SELECT * FROM tpch.tiny.nation", 25);
 
@@ -115,7 +115,7 @@ public class TestBlackHoleSmoke
     }
 
     @Test
-    public void notAllPropertiesSetForDataGeneration()
+    void testNotAllPropertiesSetForDataGeneration()
     {
         assertThat(query(
                 format("CREATE TABLE nation WITH ( %s = 3, %s = 1 ) as SELECT * FROM tpch.tiny.nation",
@@ -125,7 +125,7 @@ public class TestBlackHoleSmoke
     }
 
     @Test
-    public void createTableWithDistribution()
+    void testCreateTableWithDistribution()
     {
         assertUpdate(
                 "CREATE TABLE distributed_test WITH ( distributed_on = array['orderkey'] ) AS SELECT * FROM tpch.tiny.orders",
@@ -134,7 +134,7 @@ public class TestBlackHoleSmoke
     }
 
     @Test
-    public void testCreateTableInNotExistSchema()
+    void testCreateTableInNotExistSchema()
     {
         int tablesBeforeCreate = listBlackHoleTables().size();
 
@@ -148,7 +148,7 @@ public class TestBlackHoleSmoke
     }
 
     @Test
-    public void dataGenerationUsage()
+    void testDataGenerationUsage()
     {
         Session session = testSessionBuilder()
                 .setCatalog("blackhole")
@@ -179,7 +179,7 @@ public class TestBlackHoleSmoke
     }
 
     @Test
-    public void testCreateViewWithComment()
+    void testCreateViewWithComment()
     {
         String viewName = "test_crerate_view_with_comment_" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " COMMENT 'test comment' AS SELECT * FROM tpch.tiny.nation");
@@ -190,7 +190,7 @@ public class TestBlackHoleSmoke
     }
 
     @Test
-    public void testCommentOnView()
+    void testCommentOnView()
     {
         String viewName = "test_comment_on_view_" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM tpch.tiny.nation");
@@ -221,7 +221,7 @@ public class TestBlackHoleSmoke
     }
 
     @Test
-    public void fieldLength()
+    void testFieldLength()
     {
         Session session = testSessionBuilder()
                 .setCatalog("blackhole")
@@ -252,7 +252,7 @@ public class TestBlackHoleSmoke
     }
 
     @Test
-    public void testInsertAllTypes()
+    void testInsertAllTypes()
     {
         createBlackholeAllTypesTable();
         assertUpdate(
@@ -274,7 +274,7 @@ public class TestBlackHoleSmoke
     }
 
     @Test
-    public void testSelectAllTypes()
+    void testSelectAllTypes()
     {
         createBlackholeAllTypesTable();
         MaterializedResult rows = computeActual("SELECT * FROM blackhole_all_types");
@@ -298,7 +298,7 @@ public class TestBlackHoleSmoke
     }
 
     @Test
-    public void testSelectWithUnenforcedConstraint()
+    void testSelectWithUnenforcedConstraint()
     {
         createBlackholeAllTypesTable();
         MaterializedResult rows = computeActual("SELECT * FROM blackhole_all_types where _bigint > 10");
@@ -335,7 +335,7 @@ public class TestBlackHoleSmoke
     }
 
     @Test
-    public void pageProcessingDelay()
+    void testPageProcessingDelay()
     {
         Session session = testSessionBuilder()
                 .setCatalog("blackhole")
@@ -369,7 +369,7 @@ public class TestBlackHoleSmoke
     }
 
     @Test
-    public void testMultipleSplits()
+    void testMultipleSplits()
     {
         assertUpdate("CREATE TABLE table_multiple_splits (a integer) WITH (split_count = 5, pages_per_split = 3, rows_per_page = 2)");
 
