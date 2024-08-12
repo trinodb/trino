@@ -56,7 +56,7 @@ jobs:
           fail_if_no_tests: false
           commit: ${{github.event.workflow_run.head_sha}}
       # Process Product Test reports
-      - uses: starburstdata/action-testng-report@ce8d903c91ed324a708db57174ec34416e8a3eea # v1.0.3
+      - uses: starburstdata/action-testng-report@01dfdf31e0f8cc1d3c3f3ba727c7e7a3b438e187 # v1.0.4
         with:
           # this workflow should never fail, as it is not a quality gateway
           fail_if_empty: false
