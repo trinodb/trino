@@ -179,7 +179,6 @@ public class PrometheusClient
                     return buffer.toByteArray();
                 }
             }
-
             throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + " " + response.message());
         }
         catch (IOException e) {
