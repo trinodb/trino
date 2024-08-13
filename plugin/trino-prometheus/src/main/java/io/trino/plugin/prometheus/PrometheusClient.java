@@ -168,7 +168,7 @@ public class PrometheusClient
     {
         Request.Builder requestBuilder = new Request.Builder().url(uri.toString());
         try (Response response = httpClient.newCall(requestBuilder.build()).execute()) {
-            
+
             if (response.isSuccessful() && response.body() != null) {
                 try (InputStream inputStream = response.body().byteStream()) {
                     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
