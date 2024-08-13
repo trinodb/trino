@@ -81,7 +81,7 @@ public class PrometheusSplitManager
             Constraint constraint)
     {
         PrometheusTableHandle tableHandle = (PrometheusTableHandle) connectorTableHandle;
-        PrometheusTable table = prometheusClient.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
+        PrometheusTable table = prometheusClient.getTable(tableHandle.schemaName(), tableHandle.tableName());
 
         // this can happen if table is removed during a query
         if (table == null) {
@@ -129,7 +129,7 @@ public class PrometheusSplitManager
     protected static List<String> generateTimesForSplits(Instant defaultUpperBound, Duration maxQueryRangeDurationRequested, Duration queryChunkSizeDurationRequested,
             PrometheusTableHandle tableHandle)
     {
-        Optional<PrometheusPredicateTimeInfo> predicateRange = tableHandle.getPredicate()
+        Optional<PrometheusPredicateTimeInfo> predicateRange = tableHandle.predicate()
                 .flatMap(PrometheusSplitManager::determinePredicateTimes);
 
         EffectiveLimits effectiveLimits = new EffectiveLimits(defaultUpperBound, maxQueryRangeDurationRequested, predicateRange);
