@@ -189,7 +189,7 @@ public final class TransactionLogParser
     public static Object deserializeColumnValue(DeltaLakeColumnHandle column, String valueString, Function<String, Long> timestampReader, Function<String, Long> timestampWithZoneReader)
     {
         verify(column.isBaseColumn(), "Unexpected dereference: %s", column);
-        Type type = column.getBaseType();
+        Type type = column.baseType();
         try {
             if (type.equals(BOOLEAN)) {
                 if (valueString.equalsIgnoreCase("true")) {
@@ -237,13 +237,13 @@ public final class TransactionLogParser
         catch (RuntimeException e) {
             throw new TrinoException(
                     GENERIC_INTERNAL_ERROR,
-                    format("Unable to parse value [%s] from column %s with type %s", valueString, column.getBaseColumnName(), column.getBaseType()),
+                    format("Unable to parse value [%s] from column %s with type %s", valueString, column.baseColumnName(), column.baseType()),
                     e);
         }
         // Anything else is not a supported DeltaLake column
         throw new TrinoException(
                 GENERIC_INTERNAL_ERROR,
-                format("Unable to parse value [%s] from column %s with type %s", valueString, column.getBaseColumnName(), column.getBaseType()));
+                format("Unable to parse value [%s] from column %s with type %s", valueString, column.baseColumnName(), column.baseType()));
     }
 
     static Optional<LastCheckpoint> readLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)

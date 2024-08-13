@@ -87,7 +87,7 @@ public class DeltaLakeParquetFileStatistics
         if (!columnHandle.isBaseColumn()) {
             return Optional.empty();
         }
-        return getStat(columnHandle.getBasePhysicalColumnName(), maxValues);
+        return getStat(columnHandle.basePhysicalColumnName(), maxValues);
     }
 
     @Override
@@ -96,7 +96,7 @@ public class DeltaLakeParquetFileStatistics
         if (!columnHandle.isBaseColumn()) {
             return Optional.empty();
         }
-        return getStat(columnHandle.getBasePhysicalColumnName(), minValues);
+        return getStat(columnHandle.basePhysicalColumnName(), minValues);
     }
 
     @Override

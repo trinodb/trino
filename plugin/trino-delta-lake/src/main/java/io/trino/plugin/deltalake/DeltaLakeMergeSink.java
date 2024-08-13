@@ -147,11 +147,11 @@ public class DeltaLakeMergeSink
         requireNonNull(tableColumns, "tableColumns is null");
         this.tableColumnCount = tableColumns.size();
         this.dataColumns = tableColumns.stream()
-                .filter(column -> column.getColumnType() == REGULAR)
+                .filter(column -> column.columnType() == REGULAR)
                 .collect(toImmutableList());
         this.domainCompactionThreshold = domainCompactionThreshold;
         this.nonSynthesizedColumns = tableColumns.stream()
-                .filter(column -> column.getColumnType() != SYNTHESIZED)
+                .filter(column -> column.columnType() != SYNTHESIZED)
                 .collect(toImmutableList());
         this.cdfPageSinkSupplier = requireNonNull(cdfPageSinkSupplier);
         this.cdfEnabled = cdfEnabled;
@@ -370,10 +370,10 @@ public class DeltaLakeMergeSink
             dataColumns.forEach(column -> verify(column.isBaseColumn(), "Unexpected dereference: %s", column));
 
             List<Type> parquetTypes = dataColumns.stream()
-                    .map(column -> toParquetType(typeOperators, column.getBasePhysicalType()))
+                    .map(column -> toParquetType(typeOperators, column.basePhysicalType()))
                     .collect(toImmutableList());
             List<String> dataColumnNames = dataColumns.stream()
-                    .map(DeltaLakeColumnHandle::getBasePhysicalColumnName)
+                    .map(DeltaLakeColumnHandle::basePhysicalColumnName)
                     .collect(toImmutableList());
 
             return new ParquetFileWriter(
@@ -475,13 +475,13 @@ public class DeltaLakeMergeSink
             int partitionIndex = 0;
             List<String> partitionValues = deletion.partitionValues;
             for (int i = 0; i < nonSynthesizedColumns.size(); i++) {
-                if (nonSynthesizedColumns.get(i).getColumnType() == REGULAR) {
+                if (nonSynthesizedColumns.get(i).columnType() == REGULAR) {
                     outputBlocks[i] = cdfPage.getBlock(cdfPageIndex);
                     cdfPageIndex++;
                 }
                 else {
                     outputBlocks[i] = RunLengthEncodedBlock.create(nativeValueToBlock(
-                                    nonSynthesizedColumns.get(i).getBaseType(),
+                                    nonSynthesizedColumns.get(i).baseType(),
                                     deserializePartitionValue(
                                             nonSynthesizedColumns.get(i),
                                             Optional.ofNullable(partitionValues.get(partitionIndex)))),

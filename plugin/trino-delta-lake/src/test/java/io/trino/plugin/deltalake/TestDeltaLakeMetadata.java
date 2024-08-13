@@ -523,7 +523,7 @@ public class TestDeltaLakeMetadata
 
         constrainedColumns.forEach(column -> {
             verify(column.isBaseColumn(), "Unexpected dereference: %s", column);
-            tupleBuilder.put(column, Domain.notNull(column.getBaseType()));
+            tupleBuilder.put(column, Domain.notNull(column.baseType()));
         });
 
         return TupleDomain.withColumnDomains(tupleBuilder.buildOrThrow());
@@ -534,7 +534,7 @@ public class TestDeltaLakeMetadata
         return assignments.entrySet().stream()
                 .map(assignment -> {
                     DeltaLakeColumnHandle column = ((DeltaLakeColumnHandle) assignment.getValue());
-                    Type type = column.getProjectionInfo().map(DeltaLakeColumnProjectionInfo::getType).orElse(column.getBaseType());
+                    Type type = column.projectionInfo().map(DeltaLakeColumnProjectionInfo::getType).orElse(column.baseType());
                     return new Assignment(
                             assignment.getKey(),
                             assignment.getValue(),

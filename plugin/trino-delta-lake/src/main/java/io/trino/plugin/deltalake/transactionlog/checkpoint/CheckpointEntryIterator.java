@@ -393,9 +393,9 @@ public class CheckpointEntryIterator
                 addColumn.getBaseType(),
                 Optional.of(new HiveColumnProjectionInfo(
                         ImmutableList.of(0, 0), // hiveColumnIndex; we provide fake value because we always find columns by name
-                        ImmutableList.of("partitionvalues_parsed", partitionColumn.getColumnName()),
-                        DeltaHiveTypeTranslator.toHiveType(partitionColumn.getType()),
-                        partitionColumn.getType())),
+                        ImmutableList.of("partitionvalues_parsed", partitionColumn.columnName()),
+                        DeltaHiveTypeTranslator.toHiveType(partitionColumn.type()),
+                        partitionColumn.type())),
                 HiveColumnHandle.ColumnType.REGULAR,
                 addColumn.getComment());
     }
