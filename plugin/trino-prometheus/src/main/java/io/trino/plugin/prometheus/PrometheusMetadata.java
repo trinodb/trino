@@ -108,7 +108,7 @@ public class PrometheusMetadata
     {
         PrometheusTableHandle prometheusTableHandle = (PrometheusTableHandle) tableHandle;
 
-        PrometheusTable table = prometheusClient.getTable(prometheusTableHandle.getSchemaName(), prometheusTableHandle.getTableName());
+        PrometheusTable table = prometheusClient.getTable(prometheusTableHandle.schemaName(), prometheusTableHandle.tableName());
         if (table == null) {
             throw new TableNotFoundException(prometheusTableHandle.toSchemaTableName());
         }
