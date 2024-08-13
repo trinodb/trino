@@ -62,7 +62,7 @@ public class TestPinotSplitManager
     public void testBrokerNonShortQuery()
     {
         assertThatThrownBy(() -> {
-            PinotTableHandle pinotTableHandle = newTableHandle(realtimeOnlyTable.getSchemaName(), realtimeOnlyTable.getTableName());
+            PinotTableHandle pinotTableHandle = newTableHandle(realtimeOnlyTable.schemaName(), realtimeOnlyTable.tableName());
             List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, 1, true);
             assertSplits(splits, 1, BROKER);
         })
@@ -77,7 +77,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperNoFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
-        PinotTableHandle pinotTableHandle = newTableHandle(table.getSchemaName(), table.getTableName());
+        PinotTableHandle pinotTableHandle = newTableHandle(table.schemaName(), table.tableName());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
         splits.forEach(this::assertSegmentSplitWellFormed);
@@ -85,7 +85,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperWithFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
-        PinotTableHandle pinotTableHandle = newTableHandle(table.getSchemaName(), table.getTableName());
+        PinotTableHandle pinotTableHandle = newTableHandle(table.schemaName(), table.tableName());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
         splits.forEach(this::assertSegmentSplitWellFormed);

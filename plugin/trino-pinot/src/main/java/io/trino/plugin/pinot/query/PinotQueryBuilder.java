@@ -57,7 +57,7 @@ public final class PinotQueryBuilder
     {
         requireNonNull(tableHandle, "tableHandle is null");
         StringBuilder pqlBuilder = new StringBuilder();
-        if (tableHandle.isEnableNullHandling()) {
+        if (tableHandle.enableNullHandling()) {
             pqlBuilder.append("SET enableNullHandling = true;\n");
         }
         List<String> quotedColumnNames;
@@ -77,7 +77,7 @@ public final class PinotQueryBuilder
                 .append(getTableName(tableHandle, tableNameSuffix))
                 .append(" ");
         generateFilterPql(pqlBuilder, tableHandle, timePredicate);
-        OptionalLong appliedLimit = tableHandle.getLimit();
+        OptionalLong appliedLimit = tableHandle.limit();
         long limit = limitForSegmentQueries + 1;
         if (appliedLimit.isPresent()) {
             limit = Math.min(limit, appliedLimit.getAsLong());
@@ -90,13 +90,13 @@ public final class PinotQueryBuilder
     private static String getTableName(PinotTableHandle tableHandle, Optional<String> tableNameSuffix)
     {
         return tableNameSuffix
-                .map(suffix -> tableHandle.getTableName() + suffix)
-                .orElseGet(tableHandle::getTableName);
+                .map(suffix -> tableHandle.tableName() + suffix)
+                .orElseGet(tableHandle::tableName);
     }
 
     private static void generateFilterPql(StringBuilder pqlBuilder, PinotTableHandle tableHandle, Optional<String> timePredicate)
     {
-        getFilterClause(tableHandle.getConstraint(), timePredicate, false)
+        getFilterClause(tableHandle.constraint(), timePredicate, false)
                 .ifPresent(filterClause -> pqlBuilder.append(" WHERE ").append(filterClause));
     }
 

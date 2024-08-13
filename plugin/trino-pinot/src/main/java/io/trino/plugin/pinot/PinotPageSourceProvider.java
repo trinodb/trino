@@ -85,15 +85,15 @@ public class PinotPageSourceProvider
                         pinotDataFetcher);
             case BROKER:
                 PinotQueryInfo pinotQueryInfo;
-                if (pinotTableHandle.getQuery().isPresent()) {
-                    DynamicTable dynamicTable = pinotTableHandle.getQuery().get();
+                if (pinotTableHandle.query().isPresent()) {
+                    DynamicTable dynamicTable = pinotTableHandle.query().get();
                     pinotQueryInfo = new PinotQueryInfo(dynamicTable.tableName(),
-                            extractPql(dynamicTable, pinotTableHandle.getConstraint()),
+                            extractPql(dynamicTable, pinotTableHandle.constraint()),
                             dynamicTable.groupingColumns().size());
                 }
                 else {
                     String brokerQuery = generatePql(pinotTableHandle, handles, pinotSplit.getSuffix(), pinotSplit.getTimePredicate(), limitForSegmentQueries);
-                    pinotQueryInfo = new PinotQueryInfo(pinotTableHandle.getTableName(), brokerQuery, 0);
+                    pinotQueryInfo = new PinotQueryInfo(pinotTableHandle.tableName(), brokerQuery, 0);
                 }
 
                 return new PinotBrokerPageSource(

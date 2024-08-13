@@ -71,7 +71,7 @@ public class PinotSplitManager
             PinotTableHandle tableHandle,
             ConnectorSession session)
     {
-        String tableName = tableHandle.getTableName();
+        String tableName = tableHandle.tableName();
         Map<String, Map<String, List<String>>> routingTable = pinotClient.getRoutingTableForTable(tableName);
         LOG.debug("Got routing table for %s: %s", tableName, routingTable);
         List<ConnectorSplit> splits = new ArrayList<>();
@@ -177,8 +177,8 @@ public class PinotSplitManager
 
     private static boolean isBrokerQuery(ConnectorSession session, PinotTableHandle tableHandle)
     {
-        return tableHandle.getQuery().isPresent() ||
-                tableHandle.getLimit().orElse(Integer.MAX_VALUE) < getNonAggregateLimitForBrokerQueries(session) ||
+        return tableHandle.query().isPresent() ||
+                tableHandle.limit().orElse(Integer.MAX_VALUE) < getNonAggregateLimitForBrokerQueries(session) ||
                 isPreferBrokerQueries(session);
     }
 }
