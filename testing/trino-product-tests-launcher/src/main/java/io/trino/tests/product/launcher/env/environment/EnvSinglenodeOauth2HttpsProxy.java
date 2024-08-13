@@ -73,7 +73,7 @@ public class EnvSinglenodeOauth2HttpsProxy
                 "trinodb_client_id",
                 "trinodb_client_secret",
                 "client_secret_basic",
-                "trinodb_client_id/",
+                "trinodb_client_id",
                 "https://presto-master:7778/oauth2/callback,https://localhost:7778/oauth2/callback");
 
         builder.containerDependsOn(COORDINATOR, hydraClientConfig.getLogicalName());
