@@ -37,16 +37,6 @@ public class PinotTableHandle
     private final OptionalLong limit;
     private final Optional<DynamicTable> query;
 
-    public PinotTableHandle(String schemaName, String tableName)
-    {
-        this(schemaName, tableName, false, TupleDomain.all(), OptionalLong.empty(), Optional.empty());
-    }
-
-    public PinotTableHandle(String schemaName, String tableName, boolean enableNullHandling)
-    {
-        this(schemaName, tableName, enableNullHandling, TupleDomain.all(), OptionalLong.empty(), Optional.empty());
-    }
-
     @JsonCreator
     public PinotTableHandle(
             @JsonProperty("schemaName") String schemaName,

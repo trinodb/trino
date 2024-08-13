@@ -33,6 +33,7 @@ import java.util.OptionalLong;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.plugin.pinot.PinotSplit.SplitType.BROKER;
 import static io.trino.plugin.pinot.PinotSplit.SplitType.SEGMENT;
+import static io.trino.plugin.pinot.TestPinotTableHandle.newTableHandle;
 import static io.trino.plugin.pinot.query.DynamicTableBuilder.buildFromPql;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.String.format;
@@ -61,7 +62,7 @@ public class TestPinotSplitManager
     public void testBrokerNonShortQuery()
     {
         assertThatThrownBy(() -> {
-            PinotTableHandle pinotTableHandle = new PinotTableHandle(realtimeOnlyTable.getSchemaName(), realtimeOnlyTable.getTableName());
+            PinotTableHandle pinotTableHandle = newTableHandle(realtimeOnlyTable.getSchemaName(), realtimeOnlyTable.getTableName());
             List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, 1, true);
             assertSplits(splits, 1, BROKER);
         })
@@ -76,7 +77,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperNoFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
-        PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
+        PinotTableHandle pinotTableHandle = newTableHandle(table.getSchemaName(), table.getTableName());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
         splits.forEach(this::assertSegmentSplitWellFormed);
@@ -84,7 +85,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperWithFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
-        PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
+        PinotTableHandle pinotTableHandle = newTableHandle(table.getSchemaName(), table.getTableName());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
         splits.forEach(this::assertSegmentSplitWellFormed);
