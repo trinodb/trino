@@ -154,25 +154,25 @@ public abstract class AbstractDeltaLakePageSink
         }
         for (int inputIndex = 0; inputIndex < inputColumns.size(); inputIndex++) {
             DeltaLakeColumnHandle column = inputColumns.get(inputIndex);
-            switch (column.getColumnType()) {
+            switch (column.columnType()) {
                 case PARTITION_KEY:
-                    int partitionPosition = toOriginalPartitionPositions.get(column.getColumnName());
+                    int partitionPosition = toOriginalPartitionPositions.get(column.columnName());
                     partitionColumnInputIndex[partitionPosition] = inputIndex;
-                    originalPartitionColumnNames[partitionPosition] = column.getColumnName();
-                    partitionColumnTypes[partitionPosition] = column.getBaseType();
+                    originalPartitionColumnNames[partitionPosition] = column.columnName();
+                    partitionColumnTypes[partitionPosition] = column.baseType();
                     break;
                 case REGULAR:
                     verify(column.isBaseColumn(), "Unexpected dereference: %s", column);
                     dataColumnHandles.add(column);
                     dataColumnsInputIndex.add(inputIndex);
-                    dataColumnNames.add(column.getBasePhysicalColumnName());
-                    dataColumnTypes.add(column.getBasePhysicalType());
+                    dataColumnNames.add(column.basePhysicalColumnName());
+                    dataColumnTypes.add(column.basePhysicalType());
                     break;
                 case SYNTHESIZED:
                     processSynthesizedColumn(column);
                     break;
                 default:
-                    throw new IllegalStateException("Unexpected column type: " + column.getColumnType());
+                    throw new IllegalStateException("Unexpected column type: " + column.columnType());
             }
         }
 

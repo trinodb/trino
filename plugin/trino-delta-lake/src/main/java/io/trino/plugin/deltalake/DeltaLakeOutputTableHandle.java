@@ -63,8 +63,8 @@ public record DeltaLakeOutputTableHandle(
     public List<String> partitionedBy()
     {
         return inputColumns().stream()
-                .filter(column -> column.getColumnType() == PARTITION_KEY)
-                .map(DeltaLakeColumnHandle::getColumnName)
+                .filter(column -> column.columnType() == PARTITION_KEY)
+                .map(DeltaLakeColumnHandle::columnName)
                 .collect(toImmutableList());
     }
 }

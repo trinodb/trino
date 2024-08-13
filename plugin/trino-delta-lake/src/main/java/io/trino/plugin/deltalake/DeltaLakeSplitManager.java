@@ -184,7 +184,7 @@ public class DeltaLakeSplitManager
                         nonPartitionConstraint.getDomains().orElseThrow().keySet().stream(),
                         columnsCoveredByDynamicFilter.stream()
                                 .map(DeltaLakeColumnHandle.class::cast))
-                .map(DeltaLakeColumnHandle::getBaseColumnName)
+                .map(DeltaLakeColumnHandle::baseColumnName)
                 .collect(toImmutableSet());
         List<DeltaLakeColumnMetadata> schema = extractSchema(metadataEntry, tableHandle.getProtocolEntry(), typeManager);
         List<DeltaLakeColumnMetadata> predicatedColumns = schema.stream()
@@ -228,10 +228,10 @@ public class DeltaLakeSplitManager
                         Map<String, Optional<String>> partitionValues = addAction.getCanonicalPartitionValues();
                         Map<ColumnHandle, NullableValue> deserializedValues = constraint.getPredicateColumns().orElseThrow().stream()
                                 .map(DeltaLakeColumnHandle.class::cast)
-                                .filter(column -> column.isBaseColumn() && partitionValues.containsKey(column.getBaseColumnName()))
+                                .filter(column -> column.isBaseColumn() && partitionValues.containsKey(column.baseColumnName()))
                                 .collect(toImmutableMap(identity(), column -> new NullableValue(
-                                        column.getBaseType(),
-                                        deserializePartitionValue(column, partitionValues.get(column.getBaseColumnName())))));
+                                        column.baseType(),
+                                        deserializePartitionValue(column, partitionValues.get(column.baseColumnName())))));
                         if (!constraint.predicate().get().test(deserializedValues)) {
                             return Stream.empty();
                         }
@@ -277,7 +277,7 @@ public class DeltaLakeSplitManager
             return true;
         }
         return tableHandle.getProjectedColumns().get().stream()
-                .map(DeltaLakeColumnHandle::getColumnType)
+                .map(DeltaLakeColumnHandle::columnType)
                 .anyMatch(DeltaLakeColumnType.REGULAR::equals);
     }
 
@@ -286,7 +286,7 @@ public class DeltaLakeSplitManager
         for (Map.Entry<DeltaLakeColumnHandle, Domain> enforcedDomainsEntry : domains.entrySet()) {
             DeltaLakeColumnHandle partitionColumn = enforcedDomainsEntry.getKey();
             Domain partitionDomain = enforcedDomainsEntry.getValue();
-            if (!partitionDomain.includesNullableValue(deserializePartitionValue(partitionColumn, partitionKeys.get(partitionColumn.getBasePhysicalColumnName())))) {
+            if (!partitionDomain.includesNullableValue(deserializePartitionValue(partitionColumn, partitionKeys.get(partitionColumn.basePhysicalColumnName())))) {
                 return false;
             }
         }
@@ -297,7 +297,7 @@ public class DeltaLakeSplitManager
     {
         return effectivePredicate.getDomains()
                 .flatMap(domains -> Optional.ofNullable(domains.get(pathColumnHandle())))
-                .orElseGet(() -> Domain.all(pathColumnHandle().getBaseType()));
+                .orElseGet(() -> Domain.all(pathColumnHandle().baseType()));
     }
 
     private static boolean pathMatchesPredicate(Domain pathDomain, String path)

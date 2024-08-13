@@ -108,7 +108,7 @@ public final class DeltaLakeWriter
 
         ImmutableMap.Builder<Integer, Function<Block, Block>> coercers = ImmutableMap.builder();
         for (int i = 0; i < columnHandles.size(); i++) {
-            Optional<Function<Block, Block>> coercer = createCoercer(columnHandles.get(i).getBaseType());
+            Optional<Function<Block, Block>> coercer = createCoercer(columnHandles.get(i).baseType());
             if (coercer.isPresent()) {
                 coercers.put(i, coercer.get());
             }
@@ -184,7 +184,7 @@ public final class DeltaLakeWriter
     {
         Map</* lowercase */ String, Type> dataColumnTypes = columnHandles.stream()
                 // Lowercase because the subsequent logic expects lowercase
-                .collect(toImmutableMap(column -> column.getBasePhysicalColumnName().toLowerCase(ENGLISH), DeltaLakeColumnHandle::getBasePhysicalType));
+                .collect(toImmutableMap(column -> column.basePhysicalColumnName().toLowerCase(ENGLISH), DeltaLakeColumnHandle::basePhysicalType));
         return new DataFileInfo(
                 relativeFilePath,
                 getWrittenBytes(),

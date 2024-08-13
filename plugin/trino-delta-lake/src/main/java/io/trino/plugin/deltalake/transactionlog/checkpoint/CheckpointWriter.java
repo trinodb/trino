@@ -159,7 +159,7 @@ public class CheckpointWriter
         }
         List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(entries.metadataEntry(), entries.protocolEntry(), typeManager);
         List<RowType.Field> partitionValuesParsedFieldTypes = partitionColumns.stream()
-                .map(column -> RowType.field(column.getColumnName(), column.getType()))
+                .map(column -> RowType.field(column.columnName(), column.type()))
                 .collect(toImmutableList());
         for (AddFileEntry addFileEntry : entries.addFileEntries()) {
             writeAddFileEntry(pageBuilder, addEntryType, addFileEntry, entries.metadataEntry(), entries.protocolEntry(), partitionColumns, partitionValuesParsedFieldTypes, writeStatsAsJson, writeStatsAsStruct);

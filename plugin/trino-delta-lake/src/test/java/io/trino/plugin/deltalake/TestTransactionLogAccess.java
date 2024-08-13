@@ -680,7 +680,7 @@ public class TestTransactionLogAccess
                 DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(column.getName(), column.getType(), OptionalInt.empty(), column.getName(), column.getType(), REGULAR, Optional.empty());
                 assertThat(expected.getStats().get().getMinColumnValue(columnHandle)).isEqualTo(actual.getStats().get().getMinColumnValue(columnHandle));
                 assertThat(expected.getStats().get().getMaxColumnValue(columnHandle)).isEqualTo(actual.getStats().get().getMaxColumnValue(columnHandle));
-                assertThat(expected.getStats().get().getNullCount(columnHandle.getBaseColumnName())).isEqualTo(actual.getStats().get().getNullCount(columnHandle.getBaseColumnName()));
+                assertThat(expected.getStats().get().getNullCount(columnHandle.baseColumnName())).isEqualTo(actual.getStats().get().getNullCount(columnHandle.baseColumnName()));
                 assertThat(expected.getStats().get().getNumRecords()).isEqualTo(actual.getStats().get().getNumRecords());
             }
         }

@@ -323,7 +323,7 @@ public class TransactionLogAccess
     {
         Set<String> baseColumnNames = projectedColumns.stream()
                 .filter(DeltaLakeColumnHandle::isBaseColumn) // Only base column stats are supported
-                .map(DeltaLakeColumnHandle::getColumnName)
+                .map(DeltaLakeColumnHandle::columnName)
                 .collect(toImmutableSet());
         return getActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, partitionConstraint, baseColumnNames::contains);
     }

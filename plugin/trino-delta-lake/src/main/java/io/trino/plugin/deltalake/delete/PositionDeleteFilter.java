@@ -58,7 +58,7 @@ public final class PositionDeleteFilter
     private static int rowPositionChannel(List<DeltaLakeColumnHandle> columns)
     {
         for (int i = 0; i < columns.size(); i++) {
-            if (columns.get(i).getBaseColumnName().equals(ROW_POSITION_COLUMN_NAME)) {
+            if (columns.get(i).baseColumnName().equals(ROW_POSITION_COLUMN_NAME)) {
                 return i;
             }
         }

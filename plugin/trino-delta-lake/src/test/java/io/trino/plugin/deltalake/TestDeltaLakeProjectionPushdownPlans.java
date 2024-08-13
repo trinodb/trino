@@ -263,11 +263,11 @@ public class TestDeltaLakeProjectionPushdownPlans
             List<String> dereferenceNames)
     {
         return new DeltaLakeColumnHandle(
-                baseColumnHandle.getBaseColumnName(),
-                baseColumnHandle.getBaseType(),
-                baseColumnHandle.getBaseFieldId(),
-                baseColumnHandle.getBasePhysicalColumnName(),
-                baseColumnHandle.getBasePhysicalType(),
+                baseColumnHandle.baseColumnName(),
+                baseColumnHandle.baseType(),
+                baseColumnHandle.baseFieldId(),
+                baseColumnHandle.basePhysicalColumnName(),
+                baseColumnHandle.basePhysicalType(),
                 DeltaLakeColumnType.REGULAR,
                 Optional.of(new DeltaLakeColumnProjectionInfo(
                         BIGINT,

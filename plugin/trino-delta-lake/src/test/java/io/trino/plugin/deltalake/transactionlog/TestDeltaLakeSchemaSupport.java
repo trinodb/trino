@@ -238,7 +238,7 @@ public class TestDeltaLakeSchemaSupport
         List<DeltaLakeColumnHandle> columnHandles = ImmutableList.of(arrayColumn, structColumn, mapColumn);
         DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
         for (DeltaLakeColumnHandle column : columnHandles) {
-            deltaTable.addColumn(column.getColumnName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.getBaseType()), true, null, ImmutableMap.of());
+            deltaTable.addColumn(column.columnName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.baseType()), true, null, ImmutableMap.of());
         }
 
         String jsonEncoding = serializeSchemaAsJson(deltaTable.build());

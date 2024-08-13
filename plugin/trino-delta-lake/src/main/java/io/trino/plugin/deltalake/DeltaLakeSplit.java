@@ -187,7 +187,7 @@ public class DeltaLakeSplit
                 + sizeOf(fileRowCount, value -> LONG_INSTANCE_SIZE)
                 + sizeOf(deletionVector, DeletionVectorEntry::sizeInBytes)
                 + splitWeight.getRetainedSizeInBytes()
-                + statisticsPredicate.getRetainedSizeInBytes(DeltaLakeColumnHandle::getRetainedSizeInBytes)
+                + statisticsPredicate.getRetainedSizeInBytes(DeltaLakeColumnHandle::retainedSizeInBytes)
                 + estimatedSizeOf(partitionKeys, SizeOf::estimatedSizeOf, value -> sizeOf(value, SizeOf::estimatedSizeOf));
     }
 
