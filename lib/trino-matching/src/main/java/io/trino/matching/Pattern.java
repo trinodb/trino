@@ -29,6 +29,8 @@ import static java.util.Objects.requireNonNull;
 
 public abstract class Pattern<T>
 {
+    protected static final Stream<Match> NO_MATCHES = Stream.of();
+
     private final Optional<Pattern<?>> previous;
 
     public static Pattern<Object> any()

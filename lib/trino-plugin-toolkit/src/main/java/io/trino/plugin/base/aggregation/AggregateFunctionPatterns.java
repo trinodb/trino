@@ -88,12 +88,12 @@ public final class AggregateFunctionPatterns
             public <C> Stream<Match> accept(Object object, Captures captures, C context)
             {
                 if (!(object instanceof List)) {
-                    return Stream.of();
+                    return NO_MATCHES;
                 }
                 @SuppressWarnings("unchecked")
                 List<ConnectorExpression> arguments = (List<ConnectorExpression>) object;
                 if (!arguments.stream().allMatch(Variable.class::isInstance)) {
-                    return Stream.of();
+                    return NO_MATCHES;
                 }
                 return Stream.of(Match.of(captures));
             }

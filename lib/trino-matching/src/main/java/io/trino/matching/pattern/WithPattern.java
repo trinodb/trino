@@ -53,8 +53,10 @@ public class WithPattern<T>
         //TODO remove cast
         BiFunction<? super T, C, Optional<?>> property = (BiFunction<? super T, C, Optional<?>>) propertyPattern.getProperty().getFunction();
         Optional<?> propertyValue = property.apply((T) object, context);
-        return propertyValue.map(value -> propertyPattern.getPattern().match(value, captures, context))
-                .orElseGet(Stream::of);
+        if (propertyValue.isEmpty()) {
+            return NO_MATCHES;
+        }
+        return propertyPattern.getPattern().match(propertyValue.get(), captures, context);
     }
 
     @Override

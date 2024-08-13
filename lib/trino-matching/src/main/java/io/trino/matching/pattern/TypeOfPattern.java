@@ -50,7 +50,7 @@ public class TypeOfPattern<T>
         if (expectedClass.isInstance(object)) {
             return Stream.of(Match.of(captures));
         }
-        return Stream.of();
+        return NO_MATCHES;
     }
 
     @Override

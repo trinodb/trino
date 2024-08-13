@@ -42,8 +42,10 @@ public class EqualsPattern<T>
     @Override
     public <C> Stream<Match> accept(Object object, Captures captures, C context)
     {
-        return Stream.of(Match.of(captures))
-                .filter(match -> expectedValue.equals(object));
+        if (expectedValue.equals(object)) {
+            return Stream.of(Match.of(captures));
+        }
+        return NO_MATCHES;
     }
 
     @Override
