@@ -32,8 +32,10 @@ import okhttp3.OkHttpClient.Builder;
 import okhttp3.Request;
 import okhttp3.Response;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
@@ -166,9 +168,19 @@ public class PrometheusClient
     {
         Request.Builder requestBuilder = new Request.Builder().url(uri.toString());
         try (Response response = httpClient.newCall(requestBuilder.build()).execute()) {
+            
             if (response.isSuccessful() && response.body() != null) {
-                return response.body().bytes();
+                try (InputStream inputStream = response.body().byteStream()) {
+                    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+                    int nRead;
+                    byte[] data = new byte[10485760]; //1024
+                    while ((nRead = inputStream.read(data, 0, data.length)) > 0) {
+                        buffer.write(data, 0, nRead);
+                    }
+                    return buffer.toByteArray();
+                }
             }
+
             throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + " " + response.message());
         }
         catch (IOException e) {
