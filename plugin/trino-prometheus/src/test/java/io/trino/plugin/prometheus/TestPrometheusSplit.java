@@ -52,6 +52,7 @@ import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.plugin.prometheus.PrometheusClock.fixedClockAt;
 import static io.trino.plugin.prometheus.PrometheusSplitManager.OFFSET_MILLIS;
 import static io.trino.plugin.prometheus.PrometheusSplitManager.decimalSecondString;
+import static io.trino.plugin.prometheus.TestPrometheusTableHandle.newTableHandle;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -126,7 +127,7 @@ public class TestPrometheusSplit
         ConnectorSplitSource splits = splitManager.getSplits(
                 null,
                 null,
-                new PrometheusTableHandle("default", table.name()),
+                newTableHandle("default", table.name()),
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
         PrometheusSplit split = (PrometheusSplit) splits.getNextBatch(1).getNow(null).getSplits().get(0);
@@ -150,7 +151,7 @@ public class TestPrometheusSplit
         ConnectorSplitSource splits = splitManager.getSplits(
                 null,
                 null,
-                new PrometheusTableHandle("default", table.name()),
+                newTableHandle("default", table.name()),
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
         PrometheusSplit split = (PrometheusSplit) splits.getNextBatch(1).getNow(null).getSplits().get(0);
@@ -174,7 +175,7 @@ public class TestPrometheusSplit
         ConnectorSplitSource splitsMaybe = splitManager.getSplits(
                 null,
                 null,
-                new PrometheusTableHandle("default", table.name()),
+                newTableHandle("default", table.name()),
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
         List<ConnectorSplit> splits = splitsMaybe.getNextBatch(NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS).getNow(null).getSplits();
@@ -199,7 +200,7 @@ public class TestPrometheusSplit
         ConnectorSplitSource splits = splitManager.getSplits(
                 null,
                 null,
-                new PrometheusTableHandle("default", table.name()),
+                newTableHandle("default", table.name()),
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
         PrometheusSplit split1 = (PrometheusSplit) splits.getNextBatch(1).getNow(null).getSplits().get(0);
@@ -219,7 +220,7 @@ public class TestPrometheusSplit
         io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(1, TimeUnit.DAYS);
         Instant now = ofEpochMilli(1000000000L);
 
-        PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName");
+        PrometheusTableHandle prometheusTableHandle = newTableHandle("schemaName", "tableName");
         List<String> splitTimes = PrometheusSplitManager.generateTimesForSplits(
                 now,
                 maxQueryRangeDuration, queryChunkSizeDuration, prometheusTableHandle);
@@ -235,7 +236,7 @@ public class TestPrometheusSplit
         io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(2, TimeUnit.DAYS);
         Instant now = ofEpochMilli(1000000000L);
 
-        PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName");
+        PrometheusTableHandle prometheusTableHandle = newTableHandle("schemaName", "tableName");
         List<String> splitTimes = PrometheusSplitManager.generateTimesForSplits(now, maxQueryRangeDuration, queryChunkSizeDuration, prometheusTableHandle);
         List<String> expectedSplitTimes = ImmutableList.of(
                 "827199.999", "1000000");
@@ -249,7 +250,7 @@ public class TestPrometheusSplit
         io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(30, TimeUnit.SECONDS);
         Instant now = ofEpochMilli(1568638172000L);
 
-        PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName");
+        PrometheusTableHandle prometheusTableHandle = newTableHandle("schemaName", "tableName");
         List<String> splitTimes = PrometheusSplitManager.generateTimesForSplits(now, maxQueryRangeDuration, queryChunkSizeDuration, prometheusTableHandle);
         List<String> promTimesReturned = mockPrometheusResponseToChunkedQueries(queryChunkSizeDuration, splitTimes);
         assertThat(promTimesReturned).isEqualTo(convertMockTimesToStrings(promTimeValuesMock));
@@ -262,7 +263,7 @@ public class TestPrometheusSplit
         io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(30, TimeUnit.SECONDS);
         Instant now = ofEpochMilli(1568638171999L);
 
-        PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName");
+        PrometheusTableHandle prometheusTableHandle = newTableHandle("schemaName", "tableName");
         List<String> splitTimes = PrometheusSplitManager.generateTimesForSplits(now, maxQueryRangeDuration, queryChunkSizeDuration, prometheusTableHandle);
         List<String> promTimesReturned = mockPrometheusResponseToChunkedQueries(queryChunkSizeDuration, splitTimes);
         assertThat(promTimesReturned).isEqualTo(convertMockTimesToStrings(promTimeValuesMock));
@@ -320,7 +321,7 @@ public class TestPrometheusSplit
         Domain testDomain = Domain.create(valueSet, false);
         TupleDomain<ColumnHandle> testTupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 new PrometheusColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 2), testDomain));
-        PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName")
+        PrometheusTableHandle prometheusTableHandle = newTableHandle("schemaName", "tableName")
                 .withPredicate(testTupleDomain);
         io.airlift.units.Duration maxQueryRangeDuration = new io.airlift.units.Duration(120, TimeUnit.SECONDS);
         io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(30, TimeUnit.SECONDS);
@@ -347,7 +348,7 @@ public class TestPrometheusSplit
         Domain testDomain = Domain.create(valueSet, false);
         TupleDomain<ColumnHandle> testTupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 new PrometheusColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 2), testDomain));
-        PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName")
+        PrometheusTableHandle prometheusTableHandle = newTableHandle("schemaName", "tableName")
                 .withPredicate(testTupleDomain);
         io.airlift.units.Duration maxQueryRangeDuration = new io.airlift.units.Duration(120, TimeUnit.SECONDS);
         io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(30, TimeUnit.SECONDS);
@@ -381,7 +382,7 @@ public class TestPrometheusSplit
         Domain testDomain = Domain.create(valueSet, false);
         TupleDomain<ColumnHandle> testTupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 new PrometheusColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 2), testDomain));
-        PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName")
+        PrometheusTableHandle prometheusTableHandle = newTableHandle("schemaName", "tableName")
                 .withPredicate(testTupleDomain);
         io.airlift.units.Duration maxQueryRangeDuration = new io.airlift.units.Duration(120, TimeUnit.SECONDS);
         io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(30, TimeUnit.SECONDS);
@@ -407,7 +408,7 @@ public class TestPrometheusSplit
     public void testEmptyPredicatePredicatePushDown()
     {
         long predicateLowValue = 1570460709643L;
-        PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName");
+        PrometheusTableHandle prometheusTableHandle = newTableHandle("schemaName", "tableName");
         io.airlift.units.Duration maxQueryRangeDuration = new io.airlift.units.Duration(120, TimeUnit.SECONDS);
         io.airlift.units.Duration queryChunkSizeDuration = new io.airlift.units.Duration(30, TimeUnit.SECONDS);
         Instant now = ofEpochMilli(1568638171999L);

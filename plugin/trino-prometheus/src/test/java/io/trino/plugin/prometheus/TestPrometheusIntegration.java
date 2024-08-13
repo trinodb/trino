@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.plugin.prometheus.PrometheusQueryRunner.createPrometheusClient;
+import static io.trino.plugin.prometheus.TestPrometheusTableHandle.newTableHandle;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -122,7 +123,7 @@ public class TestPrometheusIntegration
         ConnectorSplitSource splits = splitManager.getSplits(
                 null,
                 null,
-                new PrometheusTableHandle("default", table.name()),
+                newTableHandle("default", table.name()),
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
         int numSplits = splits.getNextBatch(NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS).getNow(null).getSplits().size();

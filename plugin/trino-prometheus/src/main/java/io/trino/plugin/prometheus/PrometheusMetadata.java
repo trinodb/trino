@@ -82,7 +82,7 @@ public class PrometheusMetadata
             return null;
         }
 
-        return new PrometheusTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        return new PrometheusTableHandle(tableName.getSchemaName(), tableName.getTableName(), Optional.empty());
     }
 
     @Override
