@@ -320,23 +320,47 @@ public abstract class BaseFailureRecoveryTest
             return;
         }
 
-        assertThatQuery(query)
-                .withSession(session)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                .at(boundaryCoordinatorStage())
-                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
-                .cleansUpTemporaryTables();
+        if (retryPolicy == RetryPolicy.TASK) {
+            assertThatQuery(query)
+                    .withSession(session)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(boundaryCoordinatorStage())
+                    .finishesSuccessfully()
+                    .cleansUpTemporaryTables();
+        }
+        else {
+            assertThatQuery(query)
+                    .withSession(session)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(boundaryCoordinatorStage())
+                    .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
+                    .cleansUpTemporaryTables();
+        }
 
-        assertThatQuery(query)
-                .withSession(session)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                .at(rootStage())
-                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
-                .cleansUpTemporaryTables();
+        if (retryPolicy == RetryPolicy.TASK) {
+            assertThatQuery(query)
+                    .withSession(session)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(rootStage())
+                    .finishesSuccessfully()
+                    .cleansUpTemporaryTables();
+        }
+        else {
+            assertThatQuery(query)
+                    .withSession(session)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(rootStage())
+                    .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
+                    .cleansUpTemporaryTables();
+        }
 
         assertThatQuery(query)
                 .withSession(session)

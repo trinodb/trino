@@ -33,6 +33,7 @@ import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RE
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_TIMEOUT;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_FAILURE;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
+import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Locale.ENGLISH;
@@ -92,19 +93,39 @@ public abstract class BaseDeltaFailureRecoveryTest
         Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
         String deleteQuery = "DELETE FROM <table> WHERE orderkey = 1";
 
-        assertThatQuery(deleteQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                .at(boundaryCoordinatorStage())
-                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+        if (getRetryPolicy() == TASK) {
+            assertThatQuery(deleteQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(boundaryCoordinatorStage())
+                    .finishesSuccessfully();
+        }
+        else {
+            assertThatQuery(deleteQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(boundaryCoordinatorStage())
+                    .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+        }
 
-        assertThatQuery(deleteQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                .at(rootStage())
-                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+        if (getRetryPolicy() == TASK) {
+            assertThatQuery(deleteQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(rootStage())
+                    .finishesSuccessfully();
+        }
+        else {
+            assertThatQuery(deleteQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(rootStage())
+                    .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+        }
 
         assertThatQuery(deleteQuery)
                 .withSetupQuery(setupQuery)
@@ -177,19 +198,39 @@ public abstract class BaseDeltaFailureRecoveryTest
         Optional<String> cleanupQuery = Optional.of("DROP TABLE <table>");
         String updateQuery = "UPDATE <table> SET shippriority = 101 WHERE custkey = 1";
 
-        assertThatQuery(updateQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                .at(boundaryCoordinatorStage())
-                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+        if (getRetryPolicy() == TASK) {
+            assertThatQuery(updateQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(boundaryCoordinatorStage())
+                    .finishesSuccessfully();
+        }
+        else {
+            assertThatQuery(updateQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(boundaryCoordinatorStage())
+                    .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+        }
 
-        assertThatQuery(updateQuery)
-                .withSetupQuery(setupQuery)
-                .withCleanupQuery(cleanupQuery)
-                .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
-                .at(rootStage())
-                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+        if (getRetryPolicy() == TASK) {
+            assertThatQuery(updateQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(rootStage())
+                    .finishesSuccessfully();
+        }
+        else {
+            assertThatQuery(updateQuery)
+                    .withSetupQuery(setupQuery)
+                    .withCleanupQuery(cleanupQuery)
+                    .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
+                    .at(rootStage())
+                    .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+        }
 
         assertThatQuery(updateQuery)
                 .withSetupQuery(setupQuery)
