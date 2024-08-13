@@ -35,12 +35,8 @@ public final class PrometheusTableHandle
     @JsonCreator
     public PrometheusTableHandle(
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName)
-    {
-        this(schemaName, tableName, Optional.empty());
-    }
-
-    private PrometheusTableHandle(String schemaName, String tableName, Optional<TupleDomain<ColumnHandle>> predicate)
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("predicate") Optional<TupleDomain<ColumnHandle>> predicate)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -59,6 +55,7 @@ public final class PrometheusTableHandle
         return tableName;
     }
 
+    @JsonProperty
     public Optional<TupleDomain<ColumnHandle>> getPredicate()
     {
         return this.predicate;
