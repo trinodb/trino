@@ -50,6 +50,7 @@ public class TopologyAwareNodeSelectorModule
                 binder -> {
                     configBinder(binder).bindConfig(TopologyFileConfig.class);
                     binder.bind(NetworkTopology.class).to(FileBasedNetworkTopology.class).in(Scopes.SINGLETON);
+                    binder.bind(FileBasedNetworkTopology.class).in(Scopes.SINGLETON);
                     newExporter(binder).export(FileBasedNetworkTopology.class).withGeneratedName();
                 }));
 
