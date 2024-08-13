@@ -168,7 +168,13 @@ public class PinotMetadata
         if (pinotTableName == null) {
             return null;
         }
-        return new PinotTableHandle(tableName.getSchemaName(), pinotTableName, getFromCache(pinotTableSchemaCache, pinotTableName).isEnableColumnBasedNullHandling());
+        return new PinotTableHandle(
+                tableName.getSchemaName(),
+                pinotTableName,
+                getFromCache(pinotTableSchemaCache, pinotTableName).isEnableColumnBasedNullHandling(),
+                TupleDomain.all(),
+                OptionalLong.empty(),
+                Optional.empty());
     }
 
     @Override

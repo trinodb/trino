@@ -15,14 +15,18 @@ package io.trino.plugin.pinot;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.testing.EquivalenceTester;
+import io.trino.spi.predicate.TupleDomain;
 import org.junit.jupiter.api.Test;
+
+import java.util.Optional;
+import java.util.OptionalLong;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPinotTableHandle
 {
-    private final PinotTableHandle tableHandle = new PinotTableHandle("schemaName", "tableName");
+    private final PinotTableHandle tableHandle = newTableHandle("schemaName", "tableName");
 
     @Test
     public void testJsonRoundTrip()
@@ -38,14 +42,19 @@ public class TestPinotTableHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new PinotTableHandle("schema", "table"),
-                        new PinotTableHandle("schema", "table"))
+                        newTableHandle("schema", "table"),
+                        newTableHandle("schema", "table"))
                 .addEquivalentGroup(
-                        new PinotTableHandle("schemaX", "table"),
-                        new PinotTableHandle("schemaX", "table"))
+                        newTableHandle("schemaX", "table"),
+                        newTableHandle("schemaX", "table"))
                 .addEquivalentGroup(
-                        new PinotTableHandle("schema", "tableX"),
-                        new PinotTableHandle("schema", "tableX"))
+                        newTableHandle("schema", "tableX"),
+                        newTableHandle("schema", "tableX"))
                 .check();
+    }
+
+    public static PinotTableHandle newTableHandle(String schemaName, String tableName)
+    {
+        return new PinotTableHandle(schemaName, tableName, false, TupleDomain.all(), OptionalLong.empty(), Optional.empty());
     }
 }
