@@ -1519,7 +1519,19 @@ public class EventDrivenFaultTolerantQueryScheduler
         private static boolean shouldRetry(SqlStage stage)
         {
             boolean coordinatorStage = stage.getFragment().getPartitioning().equals(COORDINATOR_DISTRIBUTION);
-            return !coordinatorStage;
+
+            if (!coordinatorStage) {
+                return true;
+            }
+
+            if (!stage.getFragment().getRemoteSourceNodes().isEmpty()) {
+                // If coordinator stage is processing workers data we want to enable retries.
+                // Even if coordinator is working fine the task from coordinator stage may fail e.g. if
+                // upstream task fails while data it produces is speculatively processed by coordinator stage task.
+                return true;
+            }
+
+            return false;
         }
 
         private StageId getStageId(PlanFragmentId fragmentId)
