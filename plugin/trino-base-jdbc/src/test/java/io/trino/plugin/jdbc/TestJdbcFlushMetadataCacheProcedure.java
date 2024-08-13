@@ -114,7 +114,7 @@ public class TestJdbcFlushMetadataCacheProcedure
         // H2 stores unquoted names as uppercase. So this query should fail
         assertThatThrownBy(() -> h2SqlExecutor.execute("SELECT * FROM tpch.\"cached_name\""))
                 .hasRootCauseMessage("Table \"cached_name\" not found (candidates are: \"CACHED_NAME\"); SQL statement:\n" +
-                        "SELECT * FROM tpch.\"cached_name\" [42103-230]");
+                        "SELECT * FROM tpch.\"cached_name\" [42103-232]");
         // H2 stores unquoted names as uppercase. So this query should succeed
         h2SqlExecutor.execute("SELECT * FROM tpch.\"CACHED_NAME\"");
 
