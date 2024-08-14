@@ -113,7 +113,9 @@ public final class ParquetTypeUtils
                 .stream()
                 .collect(toImmutableMap(
                         columnIO -> Arrays.asList(columnIO.getFieldPath()),
-                        PrimitiveColumnIO::getColumnDescriptor));
+                        PrimitiveColumnIO::getColumnDescriptor,
+                        // Same column name may occur more than once when the file is written by case-sensitive tools
+                        (oldValue, _) -> oldValue));
     }
 
     @SuppressWarnings("deprecation")
