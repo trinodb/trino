@@ -18,8 +18,10 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.metrics.RequestMetricCollector;
+import com.amazonaws.retry.PredefinedBackoffStrategies.ExponentialBackoffStrategy;
 import com.amazonaws.retry.PredefinedRetryPolicies;
 import com.amazonaws.retry.RetryPolicy;
+import com.amazonaws.retry.RetryPolicy.BackoffStrategy;
 import com.amazonaws.retry.RetryPolicy.RetryCondition;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
@@ -45,11 +47,12 @@ public final class GlueClientUtil
         RetryCondition customRetryCondition = (requestContext, exception, retriesAttempted) ->
                 defaultRetryPolicy.getRetryCondition().shouldRetry(requestContext, exception, retriesAttempted)
                 || exception instanceof ConcurrentModificationException;
+        BackoffStrategy customBackoffStrategy = new ExponentialBackoffStrategy(20, 1500);
 
         RetryPolicy glueRetryPolicy = RetryPolicy.builder()
                 .withRetryMode(defaultRetryPolicy.getRetryMode())
                 .withRetryCondition(customRetryCondition)
-                .withBackoffStrategy(defaultRetryPolicy.getBackoffStrategy())
+                .withBackoffStrategy(customBackoffStrategy)
                 .withFastFailRateLimiting(defaultRetryPolicy.isFastFailRateLimiting())
                 .withMaxErrorRetry(config.getMaxGlueErrorRetries())
                 .build();
