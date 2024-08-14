@@ -18,6 +18,7 @@ import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.operator.RetryPolicy;
 import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
@@ -28,6 +29,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
 import static java.util.Objects.requireNonNull;
@@ -36,17 +38,20 @@ public class RemoteSourceMatcher
         implements Matcher
 {
     private final List<PlanFragmentId> sourceFragmentIds;
+    private final Optional<List<String>> outputSymbols;
     private final Optional<OrderingScheme> orderingScheme;
     private final Optional<ExchangeNode.Type> exchangeType;
     private final Optional<RetryPolicy> retryPolicy;
 
     public RemoteSourceMatcher(
             List<PlanFragmentId> sourceFragmentIds,
+            Optional<List<String>> outputSymbols,
             Optional<OrderingScheme> orderingScheme,
             Optional<ExchangeNode.Type> exchangeType,
             Optional<RetryPolicy> retryPolicy)
     {
         this.sourceFragmentIds = requireNonNull(sourceFragmentIds, "sourceFragmentIds is null");
+        this.outputSymbols = requireNonNull(outputSymbols, "outputSymbols is null");
         this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
         this.exchangeType = requireNonNull(exchangeType, "exchangeType is null");
         this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
@@ -76,7 +81,19 @@ public class RemoteSourceMatcher
             return NO_MATCH;
         }
 
-        return match();
+        SymbolAliases.Builder newAliases = SymbolAliases.builder();
+        if (outputSymbols.isPresent()) {
+            List<String> actualSymbols = remoteSourceNode.getOutputSymbols().stream()
+                    .map(Symbol::name)
+                    .collect(toImmutableList());
+            if (!outputSymbols.get().equals(actualSymbols)) {
+                return NO_MATCH;
+            }
+            remoteSourceNode.getOutputSymbols().stream()
+                    .map(Symbol::toSymbolReference)
+                    .forEach(reference -> newAliases.put(reference.name(), reference));
+        }
+        return match(newAliases.build());
     }
 
     @Override
