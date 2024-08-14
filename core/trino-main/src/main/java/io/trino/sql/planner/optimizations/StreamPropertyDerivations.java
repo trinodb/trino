@@ -54,6 +54,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RefreshMaterializedViewNode;
+import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
@@ -196,7 +197,7 @@ public final class StreamPropertyDerivations
         return deriveStreamPropertiesWithoutActualProperties(node, inputProperties, metadata, session);
     }
 
-    private static StreamProperties deriveStreamPropertiesWithoutActualProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session)
+    public static StreamProperties deriveStreamPropertiesWithoutActualProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session)
     {
         StreamProperties result = node.accept(new Visitor(metadata, session), inputProperties);
 
@@ -380,6 +381,18 @@ public final class StreamPropertyDerivations
                                         .collect(toImmutableList())), false);
                 case REPLICATE -> new StreamProperties(MULTIPLE, Optional.empty(), false);
             };
+        }
+
+        @Override
+        public StreamProperties visitRemoteSource(RemoteSourceNode node, List<StreamProperties> context)
+        {
+            if (node.getOrderingScheme().isPresent()) {
+                return StreamProperties.ordered();
+            }
+
+            // TODO: correctly determine if stream is parallelised
+            //  based on session properties
+            return StreamProperties.fixedStreams();
         }
 
         //
