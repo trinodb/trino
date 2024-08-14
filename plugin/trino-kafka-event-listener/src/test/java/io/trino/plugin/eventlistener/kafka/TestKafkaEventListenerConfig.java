@@ -28,7 +28,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestKafkaEventListenerConfig
+final class TestKafkaEventListenerConfig
 {
     @Test
     void testDefaults()
@@ -84,7 +84,7 @@ public class TestKafkaEventListenerConfig
     }
 
     @Test
-    public void testExcludedFields()
+    void testExcludedFields()
     {
         KafkaEventListenerConfig conf = new KafkaEventListenerConfig();
         // check default
@@ -112,7 +112,7 @@ public class TestKafkaEventListenerConfig
     }
 
     @Test
-    public void testKafkaClientOverrides()
+    void testKafkaClientOverrides()
     {
         KafkaEventListenerConfig conf = new KafkaEventListenerConfig();
         // check default

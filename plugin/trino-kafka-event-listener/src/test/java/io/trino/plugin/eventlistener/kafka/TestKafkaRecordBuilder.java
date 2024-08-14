@@ -30,7 +30,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestKafkaRecordBuilder
+final class TestKafkaRecordBuilder
 {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final Set<String> EXCLUDED_FIELDS = ImmutableSet.of(
@@ -44,7 +44,7 @@ public class TestKafkaRecordBuilder
     private static final MetadataProvider TEST_PROVIDER = new TestMetadataProvider("TRINO_INSIGHTS");
 
     @Test
-    public void testBuildKafkaRecord()
+    void testBuildKafkaRecord()
             throws IOException
     {
         KafkaRecordBuilder builder = new KafkaRecordBuilder("TestQueryStartedEvent", "TestQueryCompletedEvent", EXCLUDED_FIELDS, TEST_PROVIDER);
@@ -60,7 +60,7 @@ public class TestKafkaRecordBuilder
     }
 
     @Test
-    public void testBuildKafkaRecordWithExclusions()
+    void testBuildKafkaRecordWithExclusions()
             throws IOException
     {
         Set<String> exclude = Sets.union(EXCLUDED_FIELDS, Set.of("query", "principal", "analysisTime", "writtenBytes"));
@@ -81,7 +81,7 @@ public class TestKafkaRecordBuilder
     }
 
     @Test
-    public void testBuildKafkaRecordWithMetadata()
+    void testBuildKafkaRecordWithMetadata()
             throws IOException
     {
         Set<String> exclude = Sets.union(EXCLUDED_FIELDS, Set.of("context", "payload", "analysisTime"));
