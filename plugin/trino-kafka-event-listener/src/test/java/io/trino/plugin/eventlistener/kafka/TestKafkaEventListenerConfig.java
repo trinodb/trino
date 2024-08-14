@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -94,21 +95,18 @@ final class TestKafkaEventListenerConfig
         // check setting multiple
         conf.setExcludedFields(Set.of("payload", "plan", "user", "groups"));
         excludedFields = conf.getExcludedFields();
-        assertThat(excludedFields.size()).isEqualTo(4);
-        assertThat(excludedFields.contains("payload")).isTrue();
-        assertThat(excludedFields.contains("plan")).isTrue();
-        assertThat(excludedFields.contains("user")).isTrue();
-        assertThat(excludedFields.contains("groups")).isTrue();
+        assertThat(excludedFields)
+                .containsOnly("payload", "plan", "user", "groups");
 
         // setting to empty
         conf.setExcludedFields(Set.of(""));
         excludedFields = conf.getExcludedFields();
-        assertThat(excludedFields.size()).isEqualTo(0);
+        assertThat(excludedFields).isEmpty();
 
         // setting to empty with commas
         conf.setExcludedFields(Set.of(" ", ""));
         excludedFields = conf.getExcludedFields();
-        assertThat(excludedFields.size()).isEqualTo(0);
+        assertThat(excludedFields).isEmpty();
     }
 
     @Test
@@ -117,30 +115,27 @@ final class TestKafkaEventListenerConfig
         KafkaEventListenerConfig conf = new KafkaEventListenerConfig();
         // check default
         Map<String, String> overrides = conf.getKafkaClientOverrides();
-        assertThat(overrides.size()).isEqualTo(0);
+        assertThat(overrides).isEmpty();
 
         // check setting just one
         conf.setKafkaClientOverrides("buffer.memory=444555");
         overrides = conf.getKafkaClientOverrides();
-        assertThat(overrides.size()).isEqualTo(1);
-        assertThat(overrides.get("buffer.memory")).isEqualTo("444555");
+        assertThat(overrides).containsExactly(entry("buffer.memory", "444555"));
 
         // check setting multiple
         conf.setKafkaClientOverrides("buffer.memory=444555, compression.type=zstd");
         overrides = conf.getKafkaClientOverrides();
-        assertThat(overrides.size()).isEqualTo(2);
-        assertThat(overrides.get("buffer.memory")).isEqualTo("444555");
-        assertThat(overrides.get("compression.type")).isEqualTo("zstd");
+        assertThat(overrides)
+                .containsExactly(entry("buffer.memory", "444555"), entry("compression.type", "zstd"));
 
         // check empty trailing param
         conf.setKafkaClientOverrides("buffer.memory=555777,");
         overrides = conf.getKafkaClientOverrides();
-        assertThat(overrides.size()).isEqualTo(1);
-        assertThat(overrides.get("buffer.memory")).isEqualTo("555777");
+        assertThat(overrides).containsExactly(entry("buffer.memory", "555777"));
 
         conf.setKafkaClientOverrides(",, ,");
         overrides = conf.getKafkaClientOverrides();
-        assertThat(overrides.size()).isEqualTo(0);
+        assertThat(overrides).isEmpty();
 
         // check missing = throws
         assertThatThrownBy(() -> conf.setKafkaClientOverrides("invalid,buffer.memory=555777"))
