@@ -15,6 +15,7 @@ package io.trino.execution.executor.scheduler;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -35,6 +36,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 final class Reservation<T>
 {
     private final Semaphore semaphore;
+
+    @GuardedBy("this")
     private final Set<T> reservations = new HashSet<>();
     private final int slots;
 
