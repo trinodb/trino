@@ -5185,11 +5185,6 @@ public abstract class BaseIcebergConnectorTest
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("tinyint")
-                || typeName.equals("smallint")) {
-            // These types are not supported by Iceberg
-            return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
         if (typeName.equals("char(3)")) {
             // Use explicitly padded literal in char mapping test due to whitespace padding on coercion to varchar
             return Optional.of(new DataMappingTestSetup(typeName, "'ab '", dataMappingTestSetup.getHighValueLiteral()));
@@ -8169,6 +8164,8 @@ public abstract class BaseIcebergConnectorTest
     private List<TypeCoercionTestSetup> typeCoercionOnCreateTableAsSelectData()
     {
         return ImmutableList.<TypeCoercionTestSetup>builder()
+                .add(new TypeCoercionTestSetup("TINYINT '127'", "integer", "INTEGER '127'"))
+                .add(new TypeCoercionTestSetup("SMALLINT '32767'", "integer", "INTEGER '32767'"))
                 .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
                 .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.9'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.900000'"))
                 .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.56'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.560000'"))
@@ -8230,6 +8227,20 @@ public abstract class BaseIcebergConnectorTest
                 // TODO Add test case for MAP type with ARRAY keys once https://github.com/trinodb/trino/issues/1146 is resolved
                 .add(new TypeCoercionTestSetup("CAST(ROW('a') AS ROW(x CHAR))", "row(x varchar)", "CAST(ROW('a') AS ROW(x VARCHAR))"))
                 .add(new TypeCoercionTestSetup("CAST(ROW(ROW('a')) AS ROW(x ROW(y CHAR)))", "row(x row(y varchar))", "CAST(ROW(ROW('a')) AS ROW(x ROW(y VARCHAR)))"))
+                // tinyint -> integer
+                .add(new TypeCoercionTestSetup("ARRAY[TINYINT '127']", "array(integer)", "ARRAY[127]"))
+                .add(new TypeCoercionTestSetup("ARRAY[ARRAY[TINYINT '127']]", "array(array(integer))", "ARRAY[ARRAY[127]]"))
+                .add(new TypeCoercionTestSetup("MAP(ARRAY[TINYINT '1'], ARRAY[TINYINT '10'])", "map(integer, integer)", "MAP(ARRAY[1], ARRAY[10])"))
+                .add(new TypeCoercionTestSetup("MAP(ARRAY[TINYINT '1'], ARRAY[ARRAY[TINYINT '10']])", "map(integer, array(integer))", "MAP(ARRAY[1], ARRAY[ARRAY[10]])"))
+                .add(new TypeCoercionTestSetup("CAST(ROW(127) AS ROW(x TINYINT))", "row(x integer)", "CAST(ROW(127) AS ROW(x INTEGER))"))
+                .add(new TypeCoercionTestSetup("CAST(ROW(ROW(127)) AS ROW(x ROW(y TINYINT)))", "row(x row(y integer))", "CAST(ROW(ROW(127)) AS ROW(x ROW(y INTEGER)))"))
+                // smallint -> integer
+                .add(new TypeCoercionTestSetup("ARRAY[SMALLINT '32767']", "array(integer)", "ARRAY[32767]"))
+                .add(new TypeCoercionTestSetup("ARRAY[ARRAY[SMALLINT '32767']]", "array(array(integer))", "ARRAY[ARRAY[32767]]"))
+                .add(new TypeCoercionTestSetup("MAP(ARRAY[SMALLINT '1'], ARRAY[SMALLINT '10'])", "map(integer, integer)", "MAP(ARRAY[1], ARRAY[10])"))
+                .add(new TypeCoercionTestSetup("MAP(ARRAY[SMALLINT '1'], ARRAY[ARRAY[SMALLINT '10']])", "map(integer, array(integer))", "MAP(ARRAY[1], ARRAY[ARRAY[10]])"))
+                .add(new TypeCoercionTestSetup("CAST(ROW(32767) AS ROW(x SMALLINT))", "row(x integer)", "CAST(ROW(32767) AS ROW(x INTEGER))"))
+                .add(new TypeCoercionTestSetup("CAST(ROW(ROW(32767)) AS ROW(x ROW(y SMALLINT)))", "row(x row(y integer))", "CAST(ROW(ROW(32767)) AS ROW(x ROW(y INTEGER)))"))
                 .build();
     }
 
@@ -8251,6 +8262,9 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testAddColumnWithTypeCoercion()
     {
+        testAddColumnWithTypeCoercion("tinyint", "integer");
+        testAddColumnWithTypeCoercion("smallint", "integer");
+
         testAddColumnWithTypeCoercion("timestamp with time zone", "timestamp(6) with time zone");
         testAddColumnWithTypeCoercion("timestamp(0) with time zone", "timestamp(6) with time zone");
         testAddColumnWithTypeCoercion("timestamp(1) with time zone", "timestamp(6) with time zone");
@@ -8301,6 +8315,14 @@ public abstract class BaseIcebergConnectorTest
         testAddColumnWithTypeCoercion("array(char(10))", "array(varchar)");
         testAddColumnWithTypeCoercion("map(char(20), char(30))", "map(varchar, varchar)");
         testAddColumnWithTypeCoercion("row(x char(40))", "row(x varchar)");
+
+        testAddColumnWithTypeCoercion("array(tinyint)", "array(integer)");
+        testAddColumnWithTypeCoercion("map(tinyint, tinyint)", "map(integer, integer)");
+        testAddColumnWithTypeCoercion("row(x tinyint)", "row(x integer)");
+
+        testAddColumnWithTypeCoercion("array(smallint)", "array(integer)");
+        testAddColumnWithTypeCoercion("map(smallint, smallint)", "map(integer, integer)");
+        testAddColumnWithTypeCoercion("row(x smallint)", "row(x integer)");
     }
 
     private void testAddColumnWithTypeCoercion(String columnType, String expectedColumnType)
@@ -8342,6 +8364,7 @@ public abstract class BaseIcebergConnectorTest
             return Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
         }
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "tinyint -> smallint":
             case "bigint -> integer":
             case "decimal(5,3) -> decimal(5,2)":
             case "varchar -> char(20)":
@@ -8367,13 +8390,14 @@ public abstract class BaseIcebergConnectorTest
     {
         assertThat(e).hasMessageMatching(".*(Failed to set column type: Cannot change (column type:|type from .* to )" +
                 "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
-                "|Type not supported for Iceberg: char\\(20\\)).*");
+                "|Type not supported for Iceberg: smallint|char\\(20\\)).*");
     }
 
     @Override
     protected Optional<SetColumnTypeSetup> filterSetFieldTypesDataProvider(SetColumnTypeSetup setup)
     {
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "tinyint -> smallint":
             case "bigint -> integer":
             case "decimal(5,3) -> decimal(5,2)":
             case "varchar -> char(20)":
@@ -8408,7 +8432,7 @@ public abstract class BaseIcebergConnectorTest
     {
         assertThat(e).hasMessageMatching(".*(Failed to set field type: Cannot change (column type:|type from .* to )" +
                 "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
-                "|Type not supported for Iceberg: char\\(20\\)" +
+                "|Type not supported for Iceberg: smallint|char\\(20\\)" +
                 "|Iceberg doesn't support changing field type (from|to) non-primitive types).*");
     }
 

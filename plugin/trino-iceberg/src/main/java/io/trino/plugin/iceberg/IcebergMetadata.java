@@ -297,10 +297,13 @@ import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
@@ -953,6 +956,9 @@ public class IcebergMetadata
 
     private io.trino.spi.type.Type coerceType(io.trino.spi.type.Type type)
     {
+        if (type == TINYINT || type == SMALLINT) {
+            return INTEGER;
+        }
         if (type instanceof TimestampWithTimeZoneType) {
             return TIMESTAMP_TZ_MICROS;
         }
