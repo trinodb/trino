@@ -30,11 +30,9 @@ public abstract class BaseMongoConnectorSmokeTest
         return switch (connectorBehavior) {
             case SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_CREATE_VIEW,
-                 SUPPORTS_MERGE,
                  SUPPORTS_NOT_NULL_CONSTRAINT,
                  SUPPORTS_RENAME_SCHEMA,
-                 SUPPORTS_TRUNCATE,
-                 SUPPORTS_UPDATE -> false;
+                 SUPPORTS_TRUNCATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
