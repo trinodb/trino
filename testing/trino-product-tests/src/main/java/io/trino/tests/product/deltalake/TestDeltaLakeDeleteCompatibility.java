@@ -233,16 +233,16 @@ public class TestDeltaLakeDeleteCompatibility
             assertThat(onTrino().executeQuery("DESCRIBE delta.default." + tableName))
                     .contains(row("a", "integer", "", ""), row("b", "integer", "", ""));
 
-            // TODO https://github.com/trinodb/trino/issues/17063 Use Delta Deletion Vectors for row-level deletes
-            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (3, 33)"))
-                    .hasMessageContaining("Unsupported writer features: [deletionVectors]");
-            assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName))
-                    .hasMessageContaining("Unsupported writer features: [deletionVectors]");
-            assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a = 3"))
-                    .hasMessageContaining("Unsupported writer features: [deletionVectors]");
-            assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
-                    "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = -1"))
-                    .hasMessageContaining("Unsupported writer features: [deletionVectors]");
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (3, 33)");
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 1");
+            onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a = 30 WHERE b = 33");
+            onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
+                    "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = -1");
+
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(2, -1), row(30, -1));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(2, -1), row(30, -1));
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);

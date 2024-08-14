@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
@@ -22,13 +23,19 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.metadata.BlockMetadata;
+import io.trino.parquet.metadata.ParquetMetadata;
+import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.deltalake.delete.RoaringBitmapArray;
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
+import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -46,6 +53,7 @@ import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -65,12 +73,17 @@ import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.DATA;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.relativePath;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageValueCount;
 import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
+import static io.trino.plugin.deltalake.DeltaLakeWriter.readStatistics;
+import static io.trino.plugin.deltalake.delete.DeletionVectors.readDeletionVectors;
+import static io.trino.plugin.deltalake.delete.DeletionVectors.toFileName;
+import static io.trino.plugin.deltalake.delete.DeletionVectors.writeDeletionVectors;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -112,6 +125,10 @@ public class DeltaLakeMergeSink
     private final int[] dataColumnsIndices;
     private final int[] dataAndRowIdColumnsIndices;
     private final DeltaLakeParquetSchemaMapping parquetSchemaMapping;
+    private final FileFormatDataSourceStats fileFormatDataSourceStats;
+    private final ParquetReaderOptions parquetReaderOptions;
+    private final boolean deletionVectorEnabled;
+    private final Map<String, DeletionVectorEntry> deletionVectors;
 
     @Nullable
     private DeltaLakeCdfPageSink cdfPageSink;
@@ -131,7 +148,11 @@ public class DeltaLakeMergeSink
             int domainCompactionThreshold,
             Supplier<DeltaLakeCdfPageSink> cdfPageSinkSupplier,
             boolean cdfEnabled,
-            DeltaLakeParquetSchemaMapping parquetSchemaMapping)
+            DeltaLakeParquetSchemaMapping parquetSchemaMapping,
+            ParquetReaderOptions parquetReaderOptions,
+            FileFormatDataSourceStats fileFormatDataSourceStats,
+            boolean deletionVectorEnabled,
+            Map<String, DeletionVectorEntry> deletionVectors)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
@@ -155,6 +176,10 @@ public class DeltaLakeMergeSink
         this.cdfPageSinkSupplier = requireNonNull(cdfPageSinkSupplier);
         this.cdfEnabled = cdfEnabled;
         this.parquetSchemaMapping = requireNonNull(parquetSchemaMapping, "parquetSchemaMapping is null");
+        this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
+        this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
+        this.deletionVectorEnabled = deletionVectorEnabled;
+        this.deletionVectors = ImmutableMap.copyOf(requireNonNull(deletionVectors, "deletionVectors is null"));
         dataColumnsIndices = new int[tableColumnCount];
         dataAndRowIdColumnsIndices = new int[tableColumnCount + 1];
         for (int i = 0; i < tableColumnCount; i++) {
@@ -307,8 +332,14 @@ public class DeltaLakeMergeSink
                 .map(Slices::wrappedBuffer)
                 .forEach(fragments::add);
 
-        fileDeletions.forEach((path, deletion) ->
-                fragments.addAll(rewriteFile(path.toStringUtf8(), deletion)));
+        fileDeletions.forEach((path, deletion) -> {
+            if (deletionVectorEnabled) {
+                fragments.add(writeMergeResult(path, deletion));
+            }
+            else {
+                fragments.addAll(rewriteFile(path.toStringUtf8(), deletion));
+            }
+        });
 
         if (cdfEnabled && cdfPageSink != null) { // cdf may be enabled but there may be no update/deletion so sink was not instantiated
             MoreFutures.getDone(cdfPageSink.finish()).stream()
@@ -321,6 +352,82 @@ public class DeltaLakeMergeSink
         }
 
         return completedFuture(fragments);
+    }
+
+    private Slice writeMergeResult(Slice path, FileDeletion deletion)
+    {
+        RoaringBitmapArray deletedRows = loadDeletionVector(Location.of(path.toStringUtf8()));
+        deletedRows.or(deletion.rowsDeletedByDelete());
+        deletedRows.or(deletion.rowsDeletedByUpdate());
+
+        TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(path.toStringUtf8()));
+        try (ParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, parquetReaderOptions, fileFormatDataSourceStats)) {
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            long rowCount = parquetMetadata.getBlocks().stream().map(BlockMetadata::rowCount).mapToLong(Long::longValue).sum();
+            RoaringBitmapArray rowsRetained = new RoaringBitmapArray();
+            rowsRetained.addRange(0, rowCount);
+            rowsRetained.andNot(deletedRows);
+            if (rowsRetained.isEmpty()) {
+                // No rows are retained in the file, so we don't need to write deletion vectors.
+                return onlySourceFile(path.toStringUtf8(), deletion);
+            }
+            return writeDeletionVector(path.toStringUtf8(), inputFile.length(), inputFile.lastModified(), deletedRows, deletion, parquetMetadata, rowCount);
+        }
+        catch (IOException e) {
+            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Error reading Parquet file: " + path, e);
+        }
+    }
+
+    private Slice writeDeletionVector(
+            String sourcePath,
+            long length,
+            Instant lastModified,
+            RoaringBitmapArray deletedRows,
+            FileDeletion deletion,
+            ParquetMetadata parquetMetadata,
+            long rowCount)
+    {
+        String tablePath = rootTableLocation.toString();
+        String sourceRelativePath = relativePath(tablePath, sourcePath);
+
+        DeletionVectorEntry deletionVectorEntry;
+        try {
+            deletionVectorEntry = writeDeletionVectors(fileSystem, rootTableLocation, deletedRows);
+        }
+        catch (IOException e) {
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to write deletion vector file", e);
+        }
+
+        try {
+            DataFileInfo newFileInfo = new DataFileInfo(
+                    sourceRelativePath,
+                    length,
+                    lastModified.toEpochMilli(),
+                    DATA,
+                    deletion.partitionValues,
+                    readStatistics(parquetMetadata, dataColumns, rowCount),
+                    Optional.of(deletionVectorEntry));
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceRelativePath), Optional.of(newFileInfo));
+            return utf8Slice(mergeResultJsonCodec.toJson(result));
+        }
+        catch (Throwable e) {
+            try {
+                fileSystem.deleteFile(rootTableLocation.appendPath(toFileName(deletionVectorEntry.pathOrInlineDv())));
+            }
+            catch (IOException ex) {
+                if (!e.equals(ex)) {
+                    e.addSuppressed(ex);
+                }
+            }
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to write deletion vector file", e);
+        }
+    }
+
+    private Slice onlySourceFile(String sourcePath, FileDeletion deletion)
+    {
+        String sourceRelativePath = relativePath(rootTableLocation.toString(), sourcePath);
+        DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceRelativePath), Optional.empty());
+        return utf8Slice(mergeResultJsonCodec.toJson(result));
     }
 
     // In spite of the name "Delta" Lake, we must rewrite the entire file to delete rows.
@@ -391,6 +498,21 @@ public class DeltaLakeMergeSink
         }
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Error creating Parquet file", e);
+        }
+    }
+
+    private RoaringBitmapArray loadDeletionVector(Location path)
+    {
+        String relativePath = relativePath(rootTableLocation.toString(), path.toString());
+        DeletionVectorEntry deletionVector = deletionVectors.get(relativePath);
+        if (deletionVector == null) {
+            return new RoaringBitmapArray();
+        }
+        try {
+            return readDeletionVectors(fileSystem, rootTableLocation, deletionVector);
+        }
+        catch (IOException e) {
+            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Error reading deletion vector file: " + path, e);
         }
     }
 

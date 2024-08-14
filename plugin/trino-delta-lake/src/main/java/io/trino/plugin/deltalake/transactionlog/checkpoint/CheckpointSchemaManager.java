@@ -176,9 +176,6 @@ public class CheckpointSchemaManager
         addFields.add(RowType.field("size", BIGINT));
         addFields.add(RowType.field("modificationTime", BIGINT));
         addFields.add(RowType.field("dataChange", BOOLEAN));
-        if (deletionVectorEnabled) {
-            addFields.add(RowType.field("deletionVector", DELETION_VECTORS_TYPE));
-        }
         if (requireWriteStatsAsJson) {
             addFields.add(RowType.field("stats", VARCHAR));
         }
@@ -193,6 +190,9 @@ public class CheckpointSchemaManager
             addFields.add(RowType.field("stats_parsed", RowType.from(statsColumns.build())));
         }
         addFields.add(RowType.field("tags", stringMap));
+        if (deletionVectorEnabled) {
+            addFields.add(RowType.field("deletionVector", DELETION_VECTORS_TYPE));
+        }
 
         return RowType.from(addFields.build());
     }

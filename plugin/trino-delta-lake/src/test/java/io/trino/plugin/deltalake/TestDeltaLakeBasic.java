@@ -98,7 +98,6 @@ public class TestDeltaLakeBasic
             new ResourceTable("allow_column_defaults", "deltalake/allow_column_defaults"),
             new ResourceTable("stats_with_minmax_nulls", "deltalake/stats_with_minmax_nulls"),
             new ResourceTable("no_column_stats", "databricks73/no_column_stats"),
-            new ResourceTable("deletion_vectors", "databricks122/deletion_vectors"),
             new ResourceTable("liquid_clustering", "deltalake/liquid_clustering"),
             new ResourceTable("timestamp_ntz", "databricks131/timestamp_ntz"),
             new ResourceTable("timestamp_ntz_partition", "databricks131/timestamp_ntz_partition"),
@@ -1003,8 +1002,126 @@ public class TestDeltaLakeBasic
      */
     @Test
     public void testDeletionVectors()
+            throws Exception
     {
-        assertQuery("SELECT * FROM deletion_vectors", "VALUES (1, 11)");
+        String tableName = "deletion_vectors" + randomNameSuffix();
+
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, 31), (3, 32)", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (3, 31), (3, 32)");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE a = 3 AND b = 31", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (3, 32)");
+
+        assertUpdate("UPDATE " + tableName + " SET a = -3 WHERE b = 32", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (-3, 32)");
+
+        assertUpdate("UPDATE " + tableName + " SET a = -3 WHERE b = 32", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11), (-3, 32)");
+
+        assertUpdate("MERGE INTO " + tableName + " t " +
+                "USING (SELECT * FROM (VALUES 1)) AS s(a) " +
+                "ON (t.a = s.a) " +
+                "WHEN MATCHED THEN UPDATE SET b = -11", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, -11), (-3, 32)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDeletionVectorsAllRows()
+            throws Exception
+    {
+        String tableName = "deletion_vectors" + randomNameSuffix();
+
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, 31), (3, 32)", 2);
+        assertUpdate("DELETE FROM " + tableName + " WHERE a != 999", 3);
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10), (2, 20)", 2);
+        assertUpdate("UPDATE " + tableName + " SET a = a + 10", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (11, 10), (12, 20)");
+
+        assertUpdate("MERGE INTO " + tableName + " t " +
+                "USING (SELECT * FROM (VALUES 11, 12)) AS s(a) " +
+                "ON (t.a = s.a) " +
+                "WHEN MATCHED AND t.a = 11 THEN UPDATE SET b = 100 " +
+                "WHEN MATCHED AND t.a = 12 THEN DELETE", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (11, 100)");
+
+        assertUpdate("TRUNCATE TABLE " + tableName);
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDeletionVectorsLargeDelete()
+            throws Exception
+    {
+        String tableName = "deletion_vectors" + randomNameSuffix();
+
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors_empty").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertUpdate("INSERT INTO " + tableName + " SELECT orderkey, custkey FROM tpch.tiny.orders", 15000);
+        assertUpdate("DELETE FROM " + tableName + " WHERE a != 1", 14999);
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("SELECT CAST(orderkey AS integer), CAST(custkey AS integer) FROM tpch.tiny.orders WHERE orderkey = 1");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDeletionVectorsCheckPoint()
+            throws Exception
+    {
+        String tableName = "deletion_vectors" + randomNameSuffix();
+
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors_empty").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        for (int i = 0; i < 9; i++) {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (" + i + ", " + i + ")", 1);
+        }
+
+        assertThat(tableLocation.resolve("_delta_log/00000000000000000010.checkpoint.parquet")).doesNotExist();
+        assertUpdate("DELETE FROM " + tableName + " WHERE a != 1", 8);
+        assertThat(tableLocation.resolve("_delta_log/00000000000000000010.checkpoint.parquet")).exists();
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUnsupportedVacuumDeletionVectors()
+            throws Exception
+    {
+        String tableName = "deletion_vectors" + randomNameSuffix();
+
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors_empty").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        // TODO https://github.com/trinodb/trino/issues/22809 Add support for vacuuming tables with deletion vectors
+        assertQueryFails(
+                "CALL delta.system.vacuum('tpch', '" + tableName + "', '7d')",
+                "Cannot execute vacuum procedure with deletionVectors writer features");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     /**
