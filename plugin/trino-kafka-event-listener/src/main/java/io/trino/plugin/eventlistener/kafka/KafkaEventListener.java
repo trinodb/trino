@@ -59,10 +59,8 @@ public class KafkaEventListener
             if (config.getTerminateOnInitializationFailure()) {
                 throw e;
             }
-            else {
-                LOG.error(e, "Failed to initialize Kafka publisher.");
-                stats.kafkaPublisherFailedToInitialize();
-            }
+            LOG.error(e, "Failed to initialize Kafka publisher.");
+            stats.kafkaPublisherFailedToInitialize();
         }
     }
 

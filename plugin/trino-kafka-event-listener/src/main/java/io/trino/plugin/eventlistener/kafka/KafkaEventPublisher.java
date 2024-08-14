@@ -78,9 +78,7 @@ public class KafkaEventPublisher
         if (config.getEnvironmentVariablePrefix().isPresent()) {
             return new EnvMetadataProvider(config.getEnvironmentVariablePrefix().get());
         }
-        else {
-            return new NoOpMetadataProvider();
-        }
+        return new NoOpMetadataProvider();
     }
 
     public void publishCompletedEvent(QueryCompletedEvent queryCompletedEvent)
