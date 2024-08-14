@@ -32,6 +32,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.RuleStats;
+import io.trino.sql.planner.iterative.rule.AdaptiveReorderPartitionedJoin;
 import io.trino.sql.planner.iterative.rule.AddDynamicFilterSource;
 import io.trino.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import io.trino.sql.planner.iterative.rule.AddIntermediateAggregations;
@@ -1034,7 +1035,17 @@ public class PlanOptimizers
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
 
         this.optimizers = builder.build();
-        this.adaptivePlanOptimizers = ImmutableList.of(new AdaptivePartitioning());
+
+        // Adaptive optimization rules for FTE
+        ImmutableList.Builder<AdaptivePlanOptimizer> adaptivePlanOptimizers = ImmutableList.builder();
+        adaptivePlanOptimizers.add(new AdaptivePartitioning());
+        adaptivePlanOptimizers.add(new IterativeOptimizer(
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new AdaptiveReorderPartitionedJoin(metadata))));
+        this.adaptivePlanOptimizers = adaptivePlanOptimizers.build();
     }
 
     @VisibleForTesting
