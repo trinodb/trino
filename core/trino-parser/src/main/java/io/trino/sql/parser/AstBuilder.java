@@ -306,7 +306,6 @@ import io.trino.sql.tree.ZeroOrMoreQuantifier;
 import io.trino.sql.tree.ZeroOrOneQuantifier;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
-import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.ArrayDeque;
@@ -3308,9 +3307,8 @@ class AstBuilder
                 Optional.ofNullable(context.sign)
                         .map(AstBuilder::getIntervalSign)
                         .orElse(IntervalLiteral.Sign.POSITIVE),
-                getIntervalFieldType((Token) context.from.getChild(0).getPayload()),
+                getIntervalFieldType(context.from),
                 Optional.ofNullable(context.to)
-                        .map((x) -> x.getChild(0).getPayload())
                         .map(Token.class::cast)
                         .map(AstBuilder::getIntervalFieldType));
     }
@@ -3397,11 +3395,25 @@ class AstBuilder
     }
 
     @Override
-    public Node visitIntervalType(SqlBaseParser.IntervalTypeContext context)
+    public Node visitYearMonthIntervalDataType(SqlBaseParser.YearMonthIntervalDataTypeContext context)
     {
         String from = context.from.getText();
-        String to = Optional.ofNullable((ParserRuleContext) context.to)
-                .map(ParseTree::getText)
+        String to = Optional.ofNullable(context.to)
+                .map(Token::getText)
+                .orElse(from);
+
+        return new IntervalDayTimeDataType(
+                getLocation(context),
+                IntervalDayTimeDataType.Field.valueOf(from.toUpperCase(ENGLISH)),
+                IntervalDayTimeDataType.Field.valueOf(to.toUpperCase(ENGLISH)));
+    }
+
+    @Override
+    public Node visitDayTimeIntervalDataType(SqlBaseParser.DayTimeIntervalDataTypeContext context)
+    {
+        String from = context.from.getText();
+        String to = Optional.ofNullable(context.to)
+                .map(Token::getText)
                 .orElse(from);
 
         return new IntervalDayTimeDataType(

@@ -80,6 +80,12 @@ public class TestIntervalYearMonth
 
         assertThatThrownBy(assertions.expression("INTERVAL '--124--30' YEAR TO MONTH")::evaluate)
                 .hasMessage("line 1:12: '--124--30' is not a valid INTERVAL literal");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '124' YEAR TO YEAR"):: evaluate)
+                .hasMessage("line 1:35: mismatched input 'YEAR'. Expecting: 'MONTH'");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '124' MONTH TO MONTH"):: evaluate)
+                .hasMessageContaining("line 1:33: mismatched input 'TO'.");
     }
 
     private static SqlIntervalYearMonth interval(int year, int month)

@@ -720,11 +720,12 @@ booleanValue
     ;
 
 interval
-    : INTERVAL sign=(PLUS | MINUS)? string from=intervalField (TO to=intervalField)?
-    ;
-
-intervalField
-    : YEAR | MONTH | DAY | HOUR | MINUTE | SECOND
+    : INTERVAL sign=(PLUS | MINUS)? string from=YEAR (TO to=MONTH)?
+    | INTERVAL sign=(PLUS | MINUS)? string from=MONTH
+    | INTERVAL sign=(PLUS | MINUS)? string from=DAY (TO to=(HOUR | MINUTE | SECOND))?
+    | INTERVAL sign=(PLUS | MINUS)? string from=HOUR (TO to=(MINUTE | SECOND))?
+    | INTERVAL sign=(PLUS | MINUS)? string from=MINUTE (TO to=SECOND)?
+    | INTERVAL sign=(PLUS | MINUS)? string from=SECOND
     ;
 
 normalForm
@@ -733,7 +734,12 @@ normalForm
 
 type
     : ROW '(' rowField (',' rowField)* ')'                                         #rowType
-    | INTERVAL from=intervalField (TO to=intervalField)?                           #intervalType
+    | INTERVAL from=YEAR (TO to=MONTH)?                                            #yearMonthIntervalDataType
+    | INTERVAL from=MONTH                                                          #yearMonthIntervalDataType
+    | INTERVAL from=DAY (TO to=(HOUR | MINUTE | SECOND))?                          #dayTimeIntervalDataType
+    | INTERVAL from=HOUR (TO to=(MINUTE | SECOND))?                                #dayTimeIntervalDataType
+    | INTERVAL from=MINUTE (TO to=MINUTE)?                                         #dayTimeIntervalDataType
+    | INTERVAL from=SECOND                                                         #dayTimeIntervalDataType
     | base=TIMESTAMP ('(' precision = typeParameter ')')? (WITHOUT TIME ZONE)?     #dateTimeType
     | base=TIMESTAMP ('(' precision = typeParameter ')')? WITH TIME ZONE           #dateTimeType
     | base=TIME ('(' precision = typeParameter ')')? (WITHOUT TIME ZONE)?          #dateTimeType

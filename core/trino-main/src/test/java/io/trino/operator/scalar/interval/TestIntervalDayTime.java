@@ -152,6 +152,24 @@ public class TestIntervalDayTime
 
         assertThatThrownBy(assertions.expression("INTERVAL '--12 -10' DAY TO HOUR")::evaluate)
                 .hasMessage("line 1:12: '--12 -10' is not a valid INTERVAL literal");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '12' DAY TO YEAR")::evaluate)
+                .hasMessage("line 1:33: mismatched input 'YEAR'. Expecting: 'HOUR', 'MINUTE', 'SECOND'");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '12' DAY TO MONTH")::evaluate)
+                .hasMessage("line 1:33: mismatched input 'MONTH'. Expecting: 'HOUR', 'MINUTE', 'SECOND'");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '12' DAY TO DAY")::evaluate)
+                .hasMessage("line 1:33: mismatched input 'DAY'. Expecting: 'HOUR', 'MINUTE', 'SECOND'");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '12' HOUR TO HOUR")::evaluate)
+                .hasMessage("line 1:34: mismatched input 'HOUR'. Expecting: 'MINUTE', 'SECOND'");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '12' MINUTE TO MINUTE")::evaluate)
+                .hasMessage("line 1:36: mismatched input 'MINUTE'. Expecting: 'SECOND'");
+
+        assertThatThrownBy(assertions.expression("INTERVAL '12' SECOND TO SECOND")::evaluate)
+                .hasMessageContaining("line 1:33: mismatched input 'TO'.");
     }
 
     private static SqlIntervalDayTime interval(int day, int hour, int minute, int second, int milliseconds)

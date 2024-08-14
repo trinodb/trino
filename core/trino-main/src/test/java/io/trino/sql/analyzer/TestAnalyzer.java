@@ -3727,10 +3727,6 @@ public class TestAnalyzer
                 .hasErrorCode(INVALID_LITERAL);
         assertFails("SELECT INTERVAL '12.1' DAY TO SECOND")
                 .hasErrorCode(INVALID_LITERAL);
-        assertFails("SELECT INTERVAL '12' YEAR TO DAY")
-                .hasErrorCode(INVALID_LITERAL);
-        assertFails("SELECT INTERVAL '12' SECOND TO MINUTE")
-                .hasErrorCode(INVALID_LITERAL);
 
         // json
         assertFails("SELECT JSON ''")
