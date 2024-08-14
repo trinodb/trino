@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake.delete;
 
 import com.google.common.io.Resources;
-import io.delta.kernel.internal.deletionvectors.RoaringBitmapArray;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
