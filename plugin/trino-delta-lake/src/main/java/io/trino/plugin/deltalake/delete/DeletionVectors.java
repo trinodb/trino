@@ -23,8 +23,10 @@ import io.trino.spi.TrinoException;
 import org.roaringbitmap.RoaringBitmap;
 
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.zip.CRC32;
 import java.util.zip.Checksum;
@@ -32,15 +34,21 @@ import java.util.zip.Checksum;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.delta.kernel.internal.deletionvectors.Base85Codec.decodeUUID;
+import static io.delta.kernel.internal.deletionvectors.Base85Codec.encodeUUID;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Math.toIntExact;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
+import static java.util.UUID.randomUUID;
 
 // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#deletion-vector-format
 public final class DeletionVectors
 {
     private static final int PORTABLE_ROARING_BITMAP_MAGIC_NUMBER = 1681511377;
+    private static final int MAGIC_NUMBER_BYTE_SIZE = 4;
+    private static final int BIT_MAP_COUNT_BYTE_SIZE = 8;
+    private static final int BIT_MAP_KEY_BYTE_SIZE = 4;
+    private static final int FORMAT_VERSION_V1 = 1;
 
     private static final String UUID_MARKER = "u"; // relative path with random prefix on disk
     private static final String PATH_MARKER = "p"; // absolute path on disk
@@ -62,6 +70,48 @@ public final class DeletionVectors
             throw new TrinoException(NOT_SUPPORTED, "Unsupported storage type for deletion vector: " + deletionVector.storageType());
         }
         throw new IllegalArgumentException("Unexpected storage type: " + deletionVector.storageType());
+    }
+
+    public static DeletionVectorEntry writeDeletionVectors(
+            TrinoFileSystem fileSystem,
+            Location location,
+            RoaringBitmapArray deletedRows)
+            throws IOException
+    {
+        UUID uuid = randomUUID();
+        String deletionVectorFilename = "deletion_vector_" + uuid + ".bin";
+        String pathOrInlineDv = encodeUUID(uuid);
+        int sizeInBytes = MAGIC_NUMBER_BYTE_SIZE + BIT_MAP_COUNT_BYTE_SIZE + BIT_MAP_KEY_BYTE_SIZE + deletedRows.serializedSizeInBytes();
+        long cardinality = deletedRows.cardinality();
+
+        checkArgument(sizeInBytes > 0, "sizeInBytes must be positive: %s", sizeInBytes);
+        checkArgument(cardinality > 0, "cardinality must be positive: %s", cardinality);
+
+        OptionalInt offset;
+        byte[] data = serializeAsByteArray(deletedRows, sizeInBytes);
+        try (DataOutputStream output = new DataOutputStream(fileSystem.newOutputFile(location.appendPath(deletionVectorFilename)).create())) {
+            output.writeByte(FORMAT_VERSION_V1);
+            offset = OptionalInt.of(output.size());
+            output.writeInt(sizeInBytes);
+            output.write(data);
+            output.writeInt(calculateChecksum(data));
+        }
+
+        return new DeletionVectorEntry(UUID_MARKER, pathOrInlineDv, offset, sizeInBytes, cardinality);
+    }
+
+    private static byte[] serializeAsByteArray(RoaringBitmapArray bitmaps, int sizeInBytes)
+    {
+        ByteBuffer buffer = ByteBuffer.allocate(sizeInBytes).order(LITTLE_ENDIAN);
+        buffer.putInt(PORTABLE_ROARING_BITMAP_MAGIC_NUMBER);
+        buffer.putLong(bitmaps.length());
+        for (int i = 0; i < bitmaps.length(); i++) {
+            buffer.putInt(i); // Bitmap index
+            RoaringBitmap bitmap = bitmaps.get(i);
+            bitmap.runOptimize();
+            bitmap.serialize(buffer);
+        }
+        return buffer.array();
     }
 
     public static String toFileName(String pathOrInlineDv)

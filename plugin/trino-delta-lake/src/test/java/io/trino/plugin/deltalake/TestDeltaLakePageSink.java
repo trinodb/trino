@@ -23,8 +23,10 @@ import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
@@ -185,7 +187,9 @@ public class TestDeltaLakePageSink
                 JsonCodec.jsonCodec(DataFileInfo.class),
                 JsonCodec.jsonCodec(DeltaLakeMergeResult.class),
                 stats,
+                new FileFormatDataSourceStats(),
                 deltaLakeConfig,
+                new ParquetReaderConfig(),
                 new TestingTypeManager(),
                 new NodeVersion("test-version"));
 
