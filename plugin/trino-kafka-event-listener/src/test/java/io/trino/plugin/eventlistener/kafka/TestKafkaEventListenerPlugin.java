@@ -39,7 +39,7 @@ import java.util.Properties;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestKafkaEventListenerPlugin
+final class TestKafkaEventListenerPlugin
 {
     private static final String CREATED_TOPIC = "query_created";
     private static final String COMPLETED_TOPIC = "query_completed";
