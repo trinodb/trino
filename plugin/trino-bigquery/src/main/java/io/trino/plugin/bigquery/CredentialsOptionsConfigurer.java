@@ -31,11 +31,13 @@ public class CredentialsOptionsConfigurer
         implements BigQueryOptionsConfigurer
 {
     private final BigQueryCredentialsSupplier credentialsSupplier;
+    private final Optional<String> configProjectId;
     private final Optional<String> configParentProjectId;
 
     @Inject
     public CredentialsOptionsConfigurer(BigQueryConfig bigQueryConfig, BigQueryCredentialsSupplier credentialsSupplier)
     {
+        this.configProjectId = bigQueryConfig.getProjectId();
         this.configParentProjectId = bigQueryConfig.getParentProjectId();
         this.credentialsSupplier = requireNonNull(credentialsSupplier, "credentialsSupplier is null");
     }
@@ -44,9 +46,11 @@ public class CredentialsOptionsConfigurer
     public BigQueryOptions.Builder configure(BigQueryOptions.Builder builder, ConnectorSession session)
     {
         Optional<Credentials> credentials = credentialsSupplier.getCredentials(session);
-        String parentProjectId = resolveProjectId(configParentProjectId, credentials);
+        String projectId = resolveProjectId(configProjectId, credentials);
         credentials.ifPresent(builder::setCredentials);
-        builder.setProjectId(parentProjectId);
+        builder.setProjectId(projectId);
+        // Quota project id is different name for parent project id, both indicates project used for quota and billing purposes.
+        configParentProjectId.ifPresent(builder::setQuotaProjectId);
         return builder;
     }
 
