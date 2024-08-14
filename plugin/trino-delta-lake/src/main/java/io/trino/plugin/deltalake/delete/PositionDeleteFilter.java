@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake.delete;
 
-import io.delta.kernel.internal.deletionvectors.RoaringBitmapArray;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.spi.block.Block;
 

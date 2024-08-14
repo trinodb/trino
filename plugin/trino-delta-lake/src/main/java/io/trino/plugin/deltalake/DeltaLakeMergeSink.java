@@ -24,6 +24,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.writer.ParquetWriterOptions;
+import io.trino.plugin.deltalake.delete.RoaringBitmapArray;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
@@ -42,8 +43,6 @@ import io.trino.spi.type.TypeOperators;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.format.CompressionCodec;
 import org.joda.time.DateTimeZone;
-import org.roaringbitmap.longlong.LongBitmapDataProvider;
-import org.roaringbitmap.longlong.Roaring64Bitmap;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -213,10 +212,10 @@ public class DeltaLakeMergeSink
             FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, _ -> new FileDeletion(partitionValues));
 
             if (cdfOperation.equals(UPDATE_PREIMAGE_CDF_LABEL)) {
-                deletion.rowsDeletedByUpdate().addLong(rowPosition);
+                deletion.rowsDeletedByUpdate().add(rowPosition);
             }
             else {
-                deletion.rowsDeletedByDelete().addLong(rowPosition);
+                deletion.rowsDeletedByDelete().add(rowPosition);
             }
         }
     }
@@ -398,8 +397,8 @@ public class DeltaLakeMergeSink
     private Optional<DataFileInfo> rewriteParquetFile(Location path, FileDeletion deletion, DeltaLakeWriter fileWriter)
             throws IOException
     {
-        LongBitmapDataProvider rowsDeletedByDelete = deletion.rowsDeletedByDelete();
-        LongBitmapDataProvider rowsDeletedByUpdate = deletion.rowsDeletedByUpdate();
+        RoaringBitmapArray rowsDeletedByDelete = deletion.rowsDeletedByDelete();
+        RoaringBitmapArray rowsDeletedByUpdate = deletion.rowsDeletedByUpdate();
         try (ConnectorPageSource connectorPageSource = createParquetPageSource(path).get()) {
             long filePosition = 0;
             while (!connectorPageSource.isFinished()) {
@@ -410,8 +409,8 @@ public class DeltaLakeMergeSink
 
                 int positionCount = page.getPositionCount();
                 int[] retained = new int[positionCount];
-                int[] deletedByDelete = new int[(int) rowsDeletedByDelete.getLongCardinality()];
-                int[] deletedByUpdate = new int[(int) rowsDeletedByUpdate.getLongCardinality()];
+                int[] deletedByDelete = new int[(int) rowsDeletedByDelete.cardinality()];
+                int[] deletedByUpdate = new int[(int) rowsDeletedByUpdate.cardinality()];
                 int retainedCount = 0;
                 int deletedByUpdateCount = 0;
                 int deletedByDeleteCount = 0;
@@ -529,8 +528,8 @@ public class DeltaLakeMergeSink
     private static class FileDeletion
     {
         private final List<String> partitionValues;
-        private final LongBitmapDataProvider rowsDeletedByDelete = new Roaring64Bitmap();
-        private final LongBitmapDataProvider rowsDeletedByUpdate = new Roaring64Bitmap();
+        private final RoaringBitmapArray rowsDeletedByDelete = new RoaringBitmapArray();
+        private final RoaringBitmapArray rowsDeletedByUpdate = new RoaringBitmapArray();
 
         private FileDeletion(List<String> partitionValues)
         {
@@ -544,12 +543,12 @@ public class DeltaLakeMergeSink
             return partitionValues;
         }
 
-        public LongBitmapDataProvider rowsDeletedByDelete()
+        public RoaringBitmapArray rowsDeletedByDelete()
         {
             return rowsDeletedByDelete;
         }
 
-        public LongBitmapDataProvider rowsDeletedByUpdate()
+        public RoaringBitmapArray rowsDeletedByUpdate()
         {
             return rowsDeletedByUpdate;
         }
