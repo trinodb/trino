@@ -46,7 +46,7 @@ import java.util.Set;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.time.Duration.ofMillis;
 
-public class TestUtils
+public final class TestUtils
 {
     private static final QueryIOMetadata queryIOMetadata;
     private static final QueryContext queryContext;
