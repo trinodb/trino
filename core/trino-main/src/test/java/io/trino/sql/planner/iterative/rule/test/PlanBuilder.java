@@ -1421,6 +1421,17 @@ public class PlanBuilder
         return new RemoteSourceNode(idAllocator.getNextId(), sourceFragmentIds, outputs, orderingScheme, exchangeType, retryPolicy);
     }
 
+    public RemoteSourceNode remoteSource(
+            PlanNodeId id,
+            List<PlanFragmentId> sourceFragmentIds,
+            List<Symbol> outputs,
+            Optional<OrderingScheme> orderingScheme,
+            ExchangeNode.Type exchangeType,
+            RetryPolicy retryPolicy)
+    {
+        return new RemoteSourceNode(id, sourceFragmentIds, outputs, orderingScheme, exchangeType, retryPolicy);
+    }
+
     public static AggregationFunction aggregation(String name, List<Expression> arguments)
     {
         return new AggregationFunction(name, Optional.empty(), Optional.empty(), false, arguments);
