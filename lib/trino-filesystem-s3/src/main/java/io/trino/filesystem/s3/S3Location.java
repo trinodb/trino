@@ -16,12 +16,15 @@ package io.trino.filesystem.s3;
 import io.trino.filesystem.Location;
 
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 record S3Location(Location location)
 {
+    private static final Pattern SLASHES = Pattern.compile("/+");
+
     S3Location
     {
         requireNonNull(location, "location is null");
@@ -44,7 +47,7 @@ record S3Location(Location location)
 
     public String key()
     {
-        return location.path();
+        return SLASHES.matcher(location.path()).replaceAll("/");
     }
 
     @Override

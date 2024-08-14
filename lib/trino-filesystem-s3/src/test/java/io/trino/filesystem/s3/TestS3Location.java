@@ -30,8 +30,8 @@ public class TestS3Location
         assertS3Uri("s3://abc/xyz/../foo", "abc", "xyz/../foo");
         assertS3Uri("s3://abc/..", "abc", "..");
         assertS3Uri("s3://abc/xyz/%41%xx", "abc", "xyz/%41%xx");
-        assertS3Uri("s3://abc///what", "abc", "//what");
-        assertS3Uri("s3://abc///what//", "abc", "//what//");
+        assertS3Uri("s3://abc///what", "abc", "/what");
+        assertS3Uri("s3://abc///what//", "abc", "/what/");
         assertS3Uri("s3a://hello/what/xxx", "hello", "what/xxx");
     }
 
