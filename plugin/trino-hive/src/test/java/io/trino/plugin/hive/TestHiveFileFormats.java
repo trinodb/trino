@@ -616,10 +616,11 @@ public final class TestHiveFileFormats
     public void testParquetCaseSensitivity(int rowCount)
             throws Exception
     {
-        TestColumn writeColumn = new TestColumn("UPPER_CASE_COLUMN", createVarcharType(4), new HiveVarchar("test", 4), utf8Slice("test"));
-        TestColumn readColumn = new TestColumn("uppeR_casE_columN", createVarcharType(4), new HiveVarchar("test", 4), utf8Slice("test"));
+        TestColumn writeColumnA = new TestColumn("UPPER_CASE_COLUMN", createVarcharType(5), new HiveVarchar("testA", 5), utf8Slice("testA"));
+        TestColumn writeColumnB = new TestColumn("Upper_Case_Column", createVarcharType(5), new HiveVarchar("testB", 5), utf8Slice("testB"));
+        TestColumn readColumn = new TestColumn("uppeR_casE_columN", createVarcharType(5), new HiveVarchar("testA", 5), utf8Slice("testA"));
         assertThatFileFormat(PARQUET)
-                .withWriteColumns(ImmutableList.of(writeColumn))
+                .withWriteColumns(ImmutableList.of(writeColumnA, writeColumnB))
                 .withReadColumns(ImmutableList.of(readColumn))
                 .withSession(PARQUET_SESSION_USE_NAME)
                 .withRowsCount(rowCount)
