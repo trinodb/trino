@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.phoenix5;
+package io.trino.plugin.ignite;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -19,24 +19,15 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcMergeTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 
-public class PhoenixMergeTableHandle
+public class IgniteMergeTableHandle
         extends JdbcMergeTableHandle
 {
-    private final boolean hasRowKey;
-
     @JsonCreator
-    public PhoenixMergeTableHandle(
+    public IgniteMergeTableHandle(
             @JsonProperty("tableHandle") JdbcTableHandle tableHandle,
-            @JsonProperty("outputTableHandle") PhoenixOutputTableHandle outputTableHandle,
+            @JsonProperty("outputTableHandle") IgniteOutputTableHandle outputTableHandle,
             @JsonProperty("mergeRowIdColumnHandle") JdbcColumnHandle mergeRowIdColumnHandle)
     {
         super(tableHandle, outputTableHandle, mergeRowIdColumnHandle);
-        this.hasRowKey = outputTableHandle.rowkeyColumn().isPresent();
-    }
-
-    @JsonProperty
-    public boolean isHasRowKey()
-    {
-        return hasRowKey;
     }
 }

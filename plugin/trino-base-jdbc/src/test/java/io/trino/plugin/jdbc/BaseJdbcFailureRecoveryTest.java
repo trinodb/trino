@@ -31,6 +31,11 @@ public abstract class BaseJdbcFailureRecoveryTest
         super(retryPolicy);
     }
 
+    protected boolean supportMerge()
+    {
+        return false;
+    }
+
     @Test
     @Override
     protected void testAnalyzeTable()
@@ -59,6 +64,10 @@ public abstract class BaseJdbcFailureRecoveryTest
     @Override
     protected void testDeleteWithSubquery()
     {
+        if (supportMerge()) {
+            super.testDeleteWithSubquery();
+            return;
+        }
         assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
         abort("skipped");
     }
@@ -76,6 +85,10 @@ public abstract class BaseJdbcFailureRecoveryTest
     @Override
     protected void testUpdate()
     {
+        if (supportMerge()) {
+            super.testUpdate();
+            return;
+        }
         assertThatThrownBy(super::testUpdate).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
         abort("skipped");
     }
@@ -84,6 +97,10 @@ public abstract class BaseJdbcFailureRecoveryTest
     @Override
     protected void testUpdateWithSubquery()
     {
+        if (supportMerge()) {
+            super.testUpdateWithSubquery();
+            return;
+        }
         assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
         abort("skipped");
     }
@@ -92,6 +109,10 @@ public abstract class BaseJdbcFailureRecoveryTest
     @Override
     protected void testMerge()
     {
+        if (supportMerge()) {
+            super.testMerge();
+            return;
+        }
         assertThatThrownBy(super::testMerge).hasMessageContaining(MODIFYING_ROWS_MESSAGE);
         abort("skipped");
     }

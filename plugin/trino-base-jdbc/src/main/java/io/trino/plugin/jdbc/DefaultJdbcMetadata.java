@@ -32,6 +32,7 @@ import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -70,6 +71,7 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
 import java.sql.Types;
@@ -120,16 +122,17 @@ import static java.util.Objects.requireNonNull;
 public class DefaultJdbcMetadata
         implements JdbcMetadata
 {
+    public static final String MERGE_ROW_ID = "$merge_row_id";
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
     private static final String DELETE_ROW_ID = "_trino_artificial_column_handle_for_delete_row_id_";
-    private static final String MERGE_ROW_ID = "$merge_row_id";
 
     private final JdbcClient jdbcClient;
     private final TimestampTimeZoneDomain timestampTimeZoneDomain;
     private final boolean precalculateStatisticsForPushdown;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
-    private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+    private final AtomicReference<Runnable> insertRollbackAction = new AtomicReference<>();
+    private final AtomicReference<Runnable> deleteForMergeRollbackAction = new AtomicReference<>();
 
     public DefaultJdbcMetadata(
             JdbcClient jdbcClient,
@@ -1148,7 +1151,7 @@ public class DefaultJdbcMetadata
     {
         verifyRetryMode(session, retryMode);
         JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata);
-        setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
+        setInsertRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
         return handle;
     }
 
@@ -1203,15 +1206,21 @@ public class DefaultJdbcMetadata
         }
     }
 
-    private void setRollback(Runnable action)
+    private void setInsertRollback(Runnable action)
     {
-        checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
+        checkState(insertRollbackAction.compareAndSet(null, action), "insert rollback action is already set");
+    }
+
+    private void setDeleteForMergeRollback(Runnable action)
+    {
+        checkState(deleteForMergeRollbackAction.compareAndSet(null, action), "delete rollback action is already set");
     }
 
     @Override
     public void rollback()
     {
-        Optional.ofNullable(rollbackAction.getAndSet(null)).ifPresent(Runnable::run);
+        Optional.ofNullable(insertRollbackAction.getAndSet(null)).ifPresent(Runnable::run);
+        Optional.ofNullable(deleteForMergeRollbackAction.getAndSet(null)).ifPresent(Runnable::run);
     }
 
     @Override
@@ -1223,7 +1232,7 @@ public class DefaultJdbcMetadata
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
         JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, (JdbcTableHandle) tableHandle, columnHandles);
-        setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
+        setInsertRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
         return handle;
     }
 
@@ -1250,11 +1259,62 @@ public class DefaultJdbcMetadata
     public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         verify(!isTableHandleForProcedure(tableHandle), "Not a table reference: %s", tableHandle);
-        // The column is used for row-level merge, which is not supported, but it's required during analysis anyway.
+
+        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+        List<RowType.Field> fields = jdbcClient.getPrimaryKeys(session, handle).stream()
+                .map(columnHandle -> new RowType.Field(Optional.of(columnHandle.getColumnName()), columnHandle.getColumnType()))
+                .collect(toImmutableList());
+        if (!fields.isEmpty()) {
+            return new JdbcColumnHandle(
+                    MERGE_ROW_ID,
+                    new JdbcTypeHandle(Types.ROWID, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+                    RowType.from(fields));
+        }
+
         return new JdbcColumnHandle(
                 MERGE_ROW_ID,
                 new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
                 BIGINT);
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    {
+        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+        checkArgument(handle.isNamedRelation(), "Merge target must be named relation table");
+        JdbcTableHandle plainTable = handle.toPlainTableWithoutColumns();
+        if (jdbcClient.getPrimaryKeys(session, plainTable).isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+        }
+
+        List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, plainTable);
+        JdbcOutputTableHandle jdbcOutputTableHandle = (JdbcOutputTableHandle) beginInsert(session, plainTable, ImmutableList.copyOf(columns), retryMode);
+
+        JdbcColumnHandle mergeRowIdColumnHandle = (JdbcColumnHandle) getMergeRowIdColumnHandle(session, plainTable);
+        return new JdbcMergeTableHandle(
+                jdbcClient.updatedScanColumnsForMerge(session, handle, handle.getColumns(), mergeRowIdColumnHandle),
+                jdbcOutputTableHandle,
+                beginDeleteForMerge(session, plainTable, retryMode),
+                mergeRowIdColumnHandle);
+    }
+
+    protected Optional<JdbcOutputTableHandle> beginDeleteForMerge(ConnectorSession session, JdbcTableHandle tableHandle, RetryMode retryMode)
+    {
+        if (retryMode == NO_RETRIES || isNonTransactionalInsert(session)) {
+            return Optional.empty();
+        }
+        verifyRetryMode(session, retryMode);
+        JdbcOutputTableHandle handle = jdbcClient.beginDeleteTableForMerge(session, tableHandle);
+        setDeleteForMergeRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
+        return Optional.of(handle);
+    }
+
+    @Override
+    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        JdbcMergeTableHandle handle = (JdbcMergeTableHandle) tableHandle;
+        finishInsert(session, handle.getOutputTableHandle(), ImmutableList.of(), fragments, computedStatistics);
+        handle.getDeleteTableHandle().ifPresent(deleteTableHandle -> jdbcClient.finishDeleteTableForMerge(session, deleteTableHandle, getSuccessfulPageSinkIds(fragments)));
     }
 
     @Override

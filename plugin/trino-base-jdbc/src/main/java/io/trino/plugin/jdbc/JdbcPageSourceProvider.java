@@ -11,14 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.phoenix5;
+package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import io.trino.plugin.jdbc.ForRecordCursor;
-import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcRecordSetProvider;
-import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.JdbcPageSource.ColumnAdaptation;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -37,43 +34,47 @@ import java.util.concurrent.ExecutorService;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.indexOf;
-import static io.trino.plugin.phoenix5.PhoenixClient.MERGE_ROW_ID_COLUMN_NAME;
-import static io.trino.plugin.phoenix5.PhoenixPageSource.ColumnAdaptation;
+import static io.trino.plugin.jdbc.DefaultJdbcMetadata.MERGE_ROW_ID;
+import static java.util.Objects.requireNonNull;
 
-public class PhoenixPageSourceProvider
+public class JdbcPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final JdbcRecordSetProvider recordSetProvider;
-    private final PhoenixClient phoenixClient;
+    private final JdbcClient jdbcClient;
 
     @Inject
-    public PhoenixPageSourceProvider(PhoenixClient phoenixClient, @ForRecordCursor ExecutorService executor)
+    public JdbcPageSourceProvider(JdbcClient jdbcClient, @ForRecordCursor ExecutorService executor)
     {
-        this.recordSetProvider = new JdbcRecordSetProvider(phoenixClient, executor);
-        this.phoenixClient = phoenixClient;
+        this.recordSetProvider = new JdbcRecordSetProvider(jdbcClient, executor);
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
     }
 
     @Override
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
     {
+        if (table instanceof JdbcProcedureHandle procedureHandle) {
+            return new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, procedureHandle, columns));
+        }
+
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         List<JdbcColumnHandle> columnHandles = columns.stream()
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
-        int mergeRowIdChannel = indexOf(columnHandles.iterator(), column -> column.getColumnName().equalsIgnoreCase(MERGE_ROW_ID_COLUMN_NAME));
+        int mergeRowIdChannel = indexOf(columnHandles.iterator(), column -> column.getColumnName().equalsIgnoreCase(MERGE_ROW_ID));
         Optional<List<JdbcColumnHandle>> scanColumnHandles = Optional.of(columnHandles);
         if (mergeRowIdChannel != -1) {
             JdbcColumnHandle mergeRowIdColumn = columnHandles.get(mergeRowIdChannel);
-            tableHandle = phoenixClient.updatedScanColumnTable(session, tableHandle, scanColumnHandles, mergeRowIdColumn);
+            tableHandle = jdbcClient.updatedScanColumnsForMerge(session, tableHandle, scanColumnHandles, mergeRowIdColumn);
             scanColumnHandles = tableHandle.getColumns();
         }
 
-        return new PhoenixPageSource(
+        return new JdbcPageSource(
                 new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, tableHandle, scanColumnHandles.orElse(ImmutableList.of()))),
-                getColumnAdaptations(scanColumnHandles, mergeRowIdChannel, columnHandles));
+                getColumnAdaptations(scanColumnHandles, mergeRowIdChannel, columnHandles, columns.size()));
     }
 
-    private List<ColumnAdaptation> getColumnAdaptations(Optional<List<JdbcColumnHandle>> scanColumnHandles, int mergeRowIdChannel, List<JdbcColumnHandle> columnHandles)
+    private List<ColumnAdaptation> getColumnAdaptations(Optional<List<JdbcColumnHandle>> scanColumnHandles, int mergeRowIdChannel, List<JdbcColumnHandle> columnHandles, int columnCount)
     {
         if (mergeRowIdChannel == -1) {
             return ImmutableList.of();
@@ -82,7 +83,7 @@ public class PhoenixPageSourceProvider
         List<JdbcColumnHandle> scanColumns = scanColumnHandles.get();
         checkArgument(!scanColumns.isEmpty(), "Scan column handles is empty");
         JdbcColumnHandle mergeRowIdColumn = columnHandles.get(mergeRowIdChannel);
-        ImmutableList.Builder<ColumnAdaptation> columnAdaptationBuilder = ImmutableList.builder();
+        ImmutableList.Builder<ColumnAdaptation> columnAdaptationBuilder = ImmutableList.builderWithExpectedSize(columnCount);
         for (int index = 0; index < scanColumns.size(); index++) {
             if (mergeRowIdChannel == index) {
                 columnAdaptationBuilder.add(buildMergeIdColumnAdaptation(scanColumns, mergeRowIdColumn));
@@ -92,7 +93,8 @@ public class PhoenixPageSourceProvider
         if (mergeRowIdChannel == scanColumns.size()) {
             columnAdaptationBuilder.add(buildMergeIdColumnAdaptation(scanColumns, mergeRowIdColumn));
         }
-        return columnAdaptationBuilder.build();
+        // Trim the pages. Jdbc connectors need to follow the required columns strictly.
+        return columnAdaptationBuilder.build().subList(0, columnCount);
     }
 
     private ColumnAdaptation buildMergeIdColumnAdaptation(List<JdbcColumnHandle> scanColumns, JdbcColumnHandle mergeRowIdColumn)
