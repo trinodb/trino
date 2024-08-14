@@ -39,11 +39,12 @@ public final class TestingPolarisCatalog
 {
     public static final String WAREHOUSE = "polaris";
     private static final int POLARIS_PORT = 8181;
-    private static final Pattern PATTERN = Pattern.compile("realm: default-realm root principal credentials: [a-f0-9]+:(?<secret>[a-f0-9]+)");
+    private static final Pattern PATTERN = Pattern.compile("realm: default-realm root principal credentials: (?<id>[a-f0-9]+):(?<secret>[a-f0-9]+)");
 
     private static final HttpClient HTTP_CLIENT = new JettyHttpClient();
 
     private final GenericContainer<?> polarisCatalog;
+    private final String clientId;
     private final String clientSecret;
     private final String warehouseLocation;
 
@@ -58,9 +59,19 @@ public final class TestingPolarisCatalog
         polarisCatalog.waitingFor(new LogMessageWaitStrategy().withRegEx(".*o.eclipse.jetty.server.Server: Started.*"));
         polarisCatalog.start();
 
+        clientId = findClientId();
         clientSecret = findClientSecret();
         createCatalog();
         grantPrivilege();
+    }
+
+    private String findClientId()
+    {
+        return Stream.of(polarisCatalog.getLogs().split("\n"))
+                .map(PATTERN::matcher)
+                .filter(Matcher::find)
+                .map(matcher -> matcher.group("id"))
+                .collect(onlyElement());
     }
 
     private String findClientSecret()
@@ -122,6 +133,11 @@ public final class TestingPolarisCatalog
     public String oauth2Token()
     {
         return "principal:root;password:%s;realm:default-realm;role:ALL".formatted(clientSecret);
+    }
+
+    public String oauth2Credentials()
+    {
+        return "%s:%s".formatted(clientId, clientSecret);
     }
 
     @Override
