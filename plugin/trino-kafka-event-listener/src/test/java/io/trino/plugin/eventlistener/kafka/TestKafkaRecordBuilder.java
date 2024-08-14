@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 
+import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestKafkaRecordBuilder
@@ -94,8 +95,7 @@ final class TestKafkaRecordBuilder
         assertThat(record.key()).isNull();
         Map<String, String> metadata = MAPPER.readValue(MAPPER.readTree(record.value()).get("eventMetadata").toString(), Map.class);
 
-        assertThat(metadata.size()).isEqualTo(1);
-        assertThat(metadata.get("baz")).isEqualTo("yoo");
+        assertThat(metadata).containsExactly(entry("baz", "yoo"));
     }
 
     static class TestMetadataProvider
