@@ -259,7 +259,7 @@ public class BigQueryClient
      */
     public String getParentProjectId()
     {
-        return bigQuery.getOptions().getProjectId();
+        return Optional.ofNullable(bigQuery.getOptions().getQuotaProjectId()).orElse(bigQuery.getOptions().getProjectId());
     }
 
     /**
