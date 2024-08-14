@@ -361,8 +361,16 @@ features](https://github.com/delta-io/delta/blob/master/PROTOCOL.md#table-featur
 * - Column mapping
   - Readers and writers
 * - Deletion vectors
+  - Readers and writers
+* - Iceberg compatibility V1 & V2
   - Readers only
+* - Invariants
+  - Writers only
 * - Timestamp without time zone
+  - Readers and writers
+* - Type widening
+  - Readers only
+* - Vacuum protocol check
   - Readers and writers
 * - V2 checkpoint
   - Readers only
