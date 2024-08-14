@@ -221,7 +221,8 @@ public abstract class BaseDeltaFailureRecoveryTest
                     .withCleanupQuery(cleanupQuery)
                     .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                     .at(rootStage())
-                    .finishesSuccessfully();
+                    .finishesSuccessfully()
+                    .cleansUpTemporaryTables();
         }
         else {
             assertThatQuery(updateQuery)
