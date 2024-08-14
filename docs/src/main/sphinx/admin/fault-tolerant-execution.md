@@ -124,16 +124,11 @@ configuration properties have their default values changed to follow best
 practices for a fault-tolerant cluster. However, this automatic change does not
 affect clusters that have these properties manually configured. If you have
 any of the following properties configured in the `config.properties` file on
-a cluster with a `TASK` retry policy, it is strongly recommended to make the
-following changes:
-
-- Set the `task.low-memory-killer.policy`
-  {doc}`query management property </admin/properties-query-management>` to
-  `total-reservation-on-blocked-nodes`, or queries may
-  need to be manually killed if the cluster runs out of memory.
-- Set the `query.low-memory-killer.delay`
-  {doc}`query management property </admin/properties-query-management>` to
-  `0s` so the cluster immediately unblocks nodes that run out of memory.
+a cluster with a `TASK` retry policy, it is strongly recommended to set the
+`task.low-memory-killer.policy`
+{doc}`query management property </admin/properties-query-management>` to
+`total-reservation-on-blocked-nodes`, or queries may need to be manually killed
+if the cluster runs out of memory.
 
 :::{note}
 A `TASK` retry policy is best suited for large batch queries, but this
