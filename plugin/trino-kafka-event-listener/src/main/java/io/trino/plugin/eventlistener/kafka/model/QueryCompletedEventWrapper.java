@@ -14,6 +14,7 @@
 
 package io.trino.plugin.eventlistener.kafka.model;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 
 import java.util.Map;
@@ -25,6 +26,6 @@ public record QueryCompletedEventWrapper(QueryCompletedEvent eventPayload, Map<S
     public QueryCompletedEventWrapper
     {
         requireNonNull(eventPayload, "eventPayload is null");
-        requireNonNull(eventMetadata, "eventMetadata is null");
+        eventMetadata = ImmutableMap.copyOf(requireNonNull(eventMetadata, "eventMetadata is null"));
     }
 }
