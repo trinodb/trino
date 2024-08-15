@@ -17,7 +17,6 @@ import com.google.inject.Inject;
 import io.openlineage.client.transports.HttpConfig;
 import io.openlineage.client.transports.HttpTransport;
 import io.openlineage.client.transports.TokenProvider;
-import io.trino.plugin.openlineage.config.http.OpenLineageClientHttpTransportConfig;
 import io.trino.plugin.openlineage.transport.OpenLineageTransport;
 
 import java.net.URI;
@@ -36,7 +35,7 @@ public class OpenLineageHttpTransport
     private final Map<String, String> headers;
 
     @Inject
-    public OpenLineageHttpTransport(OpenLineageClientHttpTransportConfig config)
+    public OpenLineageHttpTransport(OpenLineageHttpTransportConfig config)
     {
         this.url = config.getUrl();
         this.endpoint = config.getEndpoint();

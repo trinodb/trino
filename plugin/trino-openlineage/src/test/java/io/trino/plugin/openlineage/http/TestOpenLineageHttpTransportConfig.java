@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.openlineage;
+package io.trino.plugin.openlineage.http;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import io.trino.plugin.openlineage.config.http.OpenLineageClientHttpTransportConfig;
+import io.trino.plugin.openlineage.transport.http.OpenLineageHttpTransportConfig;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -26,12 +26,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-final class TestOpenLineageClientHttpTransportConfig
+final class TestOpenLineageHttpTransportConfig
 {
     @Test
     void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(OpenLineageClientHttpTransportConfig.class)
+        assertRecordedDefaults(recordDefaults(OpenLineageHttpTransportConfig.class)
                 .setUrl(null)
                 .setEndpoint(null)
                 .setTimeout(Duration.valueOf("5s"))
@@ -54,7 +54,7 @@ final class TestOpenLineageClientHttpTransportConfig
 
                 .buildOrThrow();
 
-        OpenLineageClientHttpTransportConfig expected = new OpenLineageClientHttpTransportConfig()
+        OpenLineageHttpTransportConfig expected = new OpenLineageHttpTransportConfig()
                 .setUrl(new URI("http://testurl"))
                 .setEndpoint("/test/endpoint")
                 .setApiKey("dummy")

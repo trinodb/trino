@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.openlineage.config.http;
+package io.trino.plugin.openlineage.transport.http;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 
-public class OpenLineageClientHttpTransportConfig
+public class OpenLineageHttpTransportConfig
 {
     private URI url;
     private String endpoint;
@@ -48,7 +48,7 @@ public class OpenLineageClientHttpTransportConfig
 
     @Config("openlineage-event-listener.transport.url")
     @ConfigDescription("URL of receiving server. Explicitly set the scheme https:// to use symmetric encryption")
-    public OpenLineageClientHttpTransportConfig setUrl(URI url)
+    public OpenLineageHttpTransportConfig setUrl(URI url)
     {
         this.url = url;
         return this;
@@ -61,7 +61,7 @@ public class OpenLineageClientHttpTransportConfig
 
     @Config("openlineage-event-listener.transport.endpoint")
     @ConfigDescription("Custom path for API receiving the events.")
-    public OpenLineageClientHttpTransportConfig setEndpoint(String endpoint)
+    public OpenLineageHttpTransportConfig setEndpoint(String endpoint)
     {
         this.endpoint = endpoint;
         return this;
@@ -75,7 +75,7 @@ public class OpenLineageClientHttpTransportConfig
     @Config("openlineage-event-listener.transport.api-key")
     @ConfigDescription("API Key to use when authenticating against OpenLineage API")
     @ConfigSecuritySensitive
-    public OpenLineageClientHttpTransportConfig setApiKey(String apiKey)
+    public OpenLineageHttpTransportConfig setApiKey(String apiKey)
     {
         this.apiKey = Optional.ofNullable(apiKey);
         return this;
@@ -90,7 +90,7 @@ public class OpenLineageClientHttpTransportConfig
 
     @Config("openlineage-event-listener.transport.timeout")
     @ConfigDescription("Timeout when making HTTP Requests.")
-    public OpenLineageClientHttpTransportConfig setTimeout(Duration timeout)
+    public OpenLineageHttpTransportConfig setTimeout(Duration timeout)
     {
         this.timeout = timeout;
         return this;
@@ -103,7 +103,7 @@ public class OpenLineageClientHttpTransportConfig
 
     @Config("openlineage-event-listener.transport.headers")
     @ConfigDescription("List of custom custom HTTP headers provided as: \"Header-Name-1: header value 1, Header-Value-2: header value 2, ...\" ")
-    public OpenLineageClientHttpTransportConfig setHeaders(List<String> headers)
+    public OpenLineageHttpTransportConfig setHeaders(List<String> headers)
     {
         try {
             this.headers = headers
@@ -124,7 +124,7 @@ public class OpenLineageClientHttpTransportConfig
 
     @Config("openlineage-event-listener.transport.url-params")
     @ConfigDescription("List of custom custom url params provided as: \"url-param-1: url param value 1, ...\" ")
-    public OpenLineageClientHttpTransportConfig setUrlParams(List<String> urlParas)
+    public OpenLineageHttpTransportConfig setUrlParams(List<String> urlParas)
     {
         try {
             this.urlParams = urlParas
