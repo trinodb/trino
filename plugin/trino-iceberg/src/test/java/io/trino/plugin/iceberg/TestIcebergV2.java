@@ -1467,6 +1467,31 @@ public class TestIcebergV2
     }
 
     @Test
+    void testMapValueSchemaChange()
+    {
+        testMapValueSchemaChange("PARQUET", "map(array[1], array[NULL])");
+        testMapValueSchemaChange("ORC", "map(array[1], array[row(NULL)])");
+        testMapValueSchemaChange("AVRO", "NULL");
+    }
+
+    private void testMapValueSchemaChange(String format, String expectedValue)
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_map_value_schema_change",
+                "WITH (format = '" + format + "') AS SELECT CAST(map(array[1], array[row(2)]) AS map(integer, row(field integer))) col")) {
+            Table icebergTable = loadTable(table.getName());
+            icebergTable.updateSchema()
+                    .addColumn("col.value", "new_field", Types.IntegerType.get())
+                    .deleteColumn("col.value.field")
+                    .commit();
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .as("Format: %s", format)
+                    .matches("SELECT CAST(" + expectedValue + " AS map(integer, row(new_field integer)))");
+        }
+    }
+
+    @Test
     public void testUpdateAfterEqualityDelete()
             throws Exception
     {
