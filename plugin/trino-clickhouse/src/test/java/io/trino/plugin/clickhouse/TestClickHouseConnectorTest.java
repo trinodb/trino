@@ -346,7 +346,7 @@ public class TestClickHouseConnectorTest
     @Test
     public void testDifferentEngine()
     {
-        String tableName = "test_add_column_" + randomNameSuffix();
+        String tableName = "test_different_engine_" + randomNameSuffix();
         // MergeTree
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'])");
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
@@ -379,7 +379,7 @@ public class TestClickHouseConnectorTest
     @Test
     public void testTableProperty()
     {
-        String tableName = "test_add_column_" + randomNameSuffix();
+        String tableName = "test_table_property_" + randomNameSuffix();
         // no table property, it should create a table with default Log engine table
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR)");
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
