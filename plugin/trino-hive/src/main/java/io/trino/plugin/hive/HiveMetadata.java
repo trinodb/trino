@@ -224,6 +224,7 @@ import static io.trino.plugin.hive.HiveTableProperties.CSV_ESCAPE;
 import static io.trino.plugin.hive.HiveTableProperties.CSV_QUOTE;
 import static io.trino.plugin.hive.HiveTableProperties.CSV_SEPARATOR;
 import static io.trino.plugin.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
+import static io.trino.plugin.hive.HiveTableProperties.EXTERNAL_TABLE_PURGE;
 import static io.trino.plugin.hive.HiveTableProperties.NULL_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
@@ -252,6 +253,7 @@ import static io.trino.plugin.hive.HiveTableProperties.getParquetBloomFilterColu
 import static io.trino.plugin.hive.HiveTableProperties.getPartitionedBy;
 import static io.trino.plugin.hive.HiveTableProperties.getRegexPattern;
 import static io.trino.plugin.hive.HiveTableProperties.getSingleCharacterProperty;
+import static io.trino.plugin.hive.HiveTableProperties.isExternalTablePurge;
 import static io.trino.plugin.hive.HiveTableProperties.isRegexCaseInsensitive;
 import static io.trino.plugin.hive.HiveTableProperties.isTransactional;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
@@ -380,6 +382,7 @@ public class HiveMetadata
     private static final String REGEX_CASE_SENSITIVE_KEY = "input.regex.case.insensitive";
 
     private static final String AUTO_PURGE_KEY = "auto.purge";
+    private static final String EXTERNAL_TABLE_PURGE_KEY = "external.table.purge";
 
     public static final String MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE = "Modifying Hive table rows is only supported for transactional tables";
 
@@ -766,6 +769,11 @@ public class HiveMetadata
             properties.put(AUTO_PURGE, true);
         }
 
+        String externalTablePurgeProperty = table.getParameters().get(EXTERNAL_TABLE_PURGE_KEY);
+        if (parseBoolean(externalTablePurgeProperty)) {
+            properties.put(EXTERNAL_TABLE_PURGE, true);
+        }
+
         // Partition Projection specific properties
         properties.putAll(getPartitionProjectionTrinoTableProperties(table));
 
@@ -1078,6 +1086,10 @@ public class HiveMetadata
         }
         else {
             external = false;
+            if (isExternalTablePurge(tableMetadata.getProperties()).orElse(false)) {
+                throw new TrinoException(NOT_SUPPORTED, "Cannot declare property external_table_purge on managed Hive table");
+            }
+
             if (isTransactional && isDelegateTransactionalManagedTableLocationToMetastore(session)) {
                 targetPath = Optional.empty();
             }
@@ -1125,6 +1137,9 @@ public class HiveMetadata
 
         boolean autoPurgeEnabled = HiveTableProperties.isAutoPurge(tableMetadata.getProperties()).orElse(false);
         tableProperties.put(AUTO_PURGE_KEY, String.valueOf(autoPurgeEnabled));
+
+        boolean externalTablePurgeEnabled = isExternalTablePurge(tableMetadata.getProperties()).orElse(false);
+        tableProperties.put(EXTERNAL_TABLE_PURGE_KEY, String.valueOf(externalTablePurgeEnabled));
 
         bucketInfo.ifPresent(info -> tableProperties.put(BUCKETING_VERSION, String.valueOf(info.bucketingVersion().getVersion())));
 

@@ -800,6 +800,9 @@ WITH (format='CSV',
   - Indicates to the configured metastore to perform a purge when a table or
     partition is deleted instead of a soft deletion using the trash.
   -
+* - `external_table_purge`
+  - Indicates to the configured metastore to delete data when external table is dropped.
+  - false
 * - `avro_schema_url`
   - The URI pointing to [](hive-avro-schema) for the table.
   -

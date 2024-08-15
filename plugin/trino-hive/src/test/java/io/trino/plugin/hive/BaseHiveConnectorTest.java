@@ -149,6 +149,7 @@ import static io.trino.plugin.hive.HiveStorageFormat.REGEX;
 import static io.trino.plugin.hive.HiveTableProperties.AUTO_PURGE;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static io.trino.plugin.hive.HiveTableProperties.EXTERNAL_TABLE_PURGE;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
@@ -9030,6 +9031,64 @@ public abstract class BaseHiveConnectorTest
         assertThat(tableMetadataWithPurge.metadata().getProperties()).containsEntry(AUTO_PURGE, true);
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testExternalTablePurgeProperty()
+            throws IOException {
+
+        TrinoFileSystem fileSystem = getTrinoFileSystem();
+        Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
+        fileSystem.createDirectory(tempDir);
+        Location dataFile = tempDir.appendPath("text.text");
+        try (OutputStream out = fileSystem.newOutputFile(dataFile).create()) {
+            out.write("helloXworld\nbyeXworld".getBytes(UTF_8));
+        }
+
+        String tableName = "test_external_purge_table" + randomNameSuffix();
+        String schema = getSession().getSchema().get();
+        StringJoiner propertiesSql = new StringJoiner(",\n   ");
+        propertiesSql.add(format("external_location = '%s'", tempDir));
+        propertiesSql.add("format = 'TEXTFILE'");
+
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.%s (col1 varchar, col2 varchar)" +
+                        "WITH (" +
+                        " %s " +
+                        ")",
+                catalog,
+                schema,
+                tableName,
+                propertiesSql);
+        assertUpdate(createTableSql);
+
+        TableMetadata tableMetadataDefaults = getTableMetadata(catalog, schema, tableName);
+        assertThat(tableMetadataDefaults.metadata().getProperties()).doesNotContainKey(EXTERNAL_TABLE_PURGE);
+
+        assertUpdate("DROP TABLE " + tableName);
+
+        propertiesSql.add("external_table_purge = true");
+        @Language("SQL") String createTableSqlWithTablePurge = format("" +
+                        "CREATE TABLE %s.%s.%s (col1 varchar, col2 varchar)" +
+                        " WITH (" +
+                        " %s " +
+                        ")",
+                catalog,
+                schema,
+                tableName,
+                propertiesSql);
+        assertUpdate(createTableSqlWithTablePurge);
+
+        TableMetadata tableMetadataWithPurge = getTableMetadata(catalog, schema, tableName);
+        assertThat(tableMetadataWithPurge.metadata().getProperties()).containsEntry(EXTERNAL_TABLE_PURGE, true);
+
+        assertUpdate("DROP TABLE " + tableName);
+
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " (col1 varchar, col2 varchar) WITH ( external_table_purge = true )",
+                "Cannot declare property external_table_purge on managed Hive table");
+
+        fileSystem.deleteDirectory(tempDir);
     }
 
     @Test
