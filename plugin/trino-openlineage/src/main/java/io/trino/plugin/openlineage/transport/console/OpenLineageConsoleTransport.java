@@ -11,9 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.openlineage.transport;
+package io.trino.plugin.openlineage.transport.console;
 
 import io.openlineage.client.transports.ConsoleTransport;
+import io.trino.plugin.openlineage.transport.OpenLineageTransport;
 
 public class OpenLineageConsoleTransport
         implements OpenLineageTransport
