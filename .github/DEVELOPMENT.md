@@ -240,17 +240,17 @@ folder). You must have [Node.js](https://nodejs.org/en/download/) and
 [Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update
 this folder after making changes, simply run:
 
-    yarn --cwd core/trino-main/src/main/resources/webapp/src install
+    yarn --cwd core/trino-web-ui/src/main/resources/webapp/src install
 
 If no Javascript dependencies have changed (i.e., no changes to `package.json`),
 it is faster to run:
 
-    yarn --cwd core/trino-main/src/main/resources/webapp/src run package
+    yarn --cwd core/trino-web-ui/src/main/resources/webapp/src run package
 
 To simplify iteration, you can also run in `watch` mode, which automatically
 re-compiles when changes to source files are detected:
 
-    yarn --cwd core/trino-main/src/main/resources/webapp/src run watch
+    yarn --cwd core/trino-web-ui/src/main/resources/webapp/src run watch
 
 To iterate quickly, simply re-build the project in IntelliJ after packaging is
 complete. Project resources will be hot-reloaded and changes are reflected on
