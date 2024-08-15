@@ -192,6 +192,9 @@ values. Typical usage does not require you to configure them.
     the [VACUUM](delta-lake-vacuum) procedure. The equivalent catalog session
     property is `vacuum_min_retention`.
   - `7 DAYS`
+* - `delta.deletion-vectors-enabled`
+  - Set to `true` for enabling deletion vectors by default when creating new tables.
+  - `false`
 :::
 
 ### Catalog session properties
@@ -687,6 +690,8 @@ The following table properties are available for use:
     * `NONE`
 
     Defaults to `NONE`.
+* - `deletion_vectors_enabled`
+  - Enables deletion vectors.
 :::
 
 The following example uses all available table properties:
@@ -698,7 +703,8 @@ WITH (
   partitioned_by = ARRAY['regionkey'],
   checkpoint_interval = 5,
   change_data_feed_enabled = false,
-  column_mapping_mode = 'name'
+  column_mapping_mode = 'name',
+  deletion_vectors_enabled = false
 )
 AS SELECT name, comment, regionkey FROM tpch.tiny.nation;
 ```

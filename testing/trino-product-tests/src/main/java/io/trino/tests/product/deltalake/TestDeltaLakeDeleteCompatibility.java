@@ -39,6 +39,7 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICK
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertiesOnDelta;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertyOnDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -179,6 +180,27 @@ public class TestDeltaLakeDeleteCompatibility
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES 4, 5, 6");
             onDelta().executeQuery("TRUNCATE TABLE default." + tableName);
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).hasNoRows();
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoDeletionVectors()
+    {
+        String tableName = "test_trino_deletion_vectors_" + randomNameSuffix();
+        onTrino().executeQuery("" +
+                "CREATE TABLE delta.default." + tableName +
+                "(a INT)" +
+                "WITH (deletion_vectors_enabled = true, location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "')");
+        try {
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES 1, 2");
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 2");
+
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).containsOnly(row(1));
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).containsOnly(row(1));
+            assertThat(getTablePropertyOnDelta("default", tableName, "delta.enableDeletionVectors")).isEqualTo("true");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
