@@ -21,14 +21,17 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.openlineage.client.OpenLineageClient;
 import io.trino.plugin.openlineage.config.OpenLineageListenerConfig;
 import io.trino.plugin.openlineage.config.http.OpenLineageClientHttpTransportConfig;
+import io.trino.plugin.openlineage.config.kafka.OpenLineageClientKafkaTransportConfig;
 import io.trino.plugin.openlineage.transport.OpenLineageConsoleTransport;
 import io.trino.plugin.openlineage.transport.OpenLineageTransport;
 import io.trino.plugin.openlineage.transport.http.OpenLineageHttpTransport;
+import io.trino.plugin.openlineage.transport.kafka.OpenLineageKafkaTransport;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.openlineage.OpenLineageTransport.CONSOLE;
 import static io.trino.plugin.openlineage.OpenLineageTransport.HTTP;
+import static io.trino.plugin.openlineage.OpenLineageTransport.KAFKA;
 
 public class OpenLineageListenerModule
         extends AbstractConfigurationAwareModule
@@ -51,6 +54,14 @@ public class OpenLineageListenerModule
                 internalBinder -> {
                     configBinder(internalBinder).bindConfig(OpenLineageClientHttpTransportConfig.class);
                     internalBinder.bind(OpenLineageTransport.class).to(OpenLineageHttpTransport.class);
+                }));
+
+        install(conditionalModule(
+                OpenLineageListenerConfig.class,
+                config -> config.getTransport().equals(KAFKA),
+                internalBinder -> {
+                    configBinder(internalBinder).bindConfig(OpenLineageClientKafkaTransportConfig.class);
+                    internalBinder.bind(OpenLineageTransport.class).to(OpenLineageKafkaTransport.class);
                 }));
     }
 
