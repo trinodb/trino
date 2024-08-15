@@ -102,7 +102,7 @@ public final class DeltaLakeSchemaSupport
     public static final String COLUMN_MAPPING_PHYSICAL_NAME_CONFIGURATION_KEY = "delta.columnMapping.physicalName";
     public static final String MAX_COLUMN_ID_CONFIGURATION_KEY = "delta.columnMapping.maxColumnId";
     public static final String ISOLATION_LEVEL_CONFIGURATION_KEY = "delta.isolationLevel";
-    private static final String DELETION_VECTORS_CONFIGURATION_KEY = "delta.enableDeletionVectors";
+    public static final String DELETION_VECTORS_CONFIGURATION_KEY = "delta.enableDeletionVectors";
     // https://github.com/delta-io/delta/blob/master/docs/source/delta-uniform.md
     private static final String UNIVERSAL_FORMAT_CONFIGURATION_KEY = "delta.universalFormat.enabledFormats";
 

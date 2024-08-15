@@ -84,6 +84,7 @@ public class DeltaLakeConfig
     private boolean registerTableProcedureEnabled;
     private boolean projectionPushdownEnabled = true;
     private boolean queryPartitionFilterRequired;
+    private boolean deletionVectorsEnabled;
 
     public Duration getMetadataCacheTtl()
     {
@@ -516,6 +517,19 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setQueryPartitionFilterRequired(boolean queryPartitionFilterRequired)
     {
         this.queryPartitionFilterRequired = queryPartitionFilterRequired;
+        return this;
+    }
+
+    public boolean isDeletionVectorsEnabled()
+    {
+        return deletionVectorsEnabled;
+    }
+
+    @Config("delta.deletion-vectors-enabled")
+    @ConfigDescription("Enable deletion vectors by default for new tables")
+    public DeltaLakeConfig setDeletionVectorsEnabled(boolean deletionVectorsEnabled)
+    {
+        this.deletionVectorsEnabled = deletionVectorsEnabled;
         return this;
     }
 }

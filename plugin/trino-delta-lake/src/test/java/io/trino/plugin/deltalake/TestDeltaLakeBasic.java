@@ -42,6 +42,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
+import io.trino.testing.sql.TestTable;
 import org.apache.parquet.schema.PrimitiveType;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
@@ -59,6 +60,7 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -79,6 +81,7 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
+import static org.assertj.core.util.Files.fileNamesIn;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -1045,6 +1048,71 @@ public class TestDeltaLakeBasic
         assertQueryFails("INSERT INTO allow_column_defaults (a) VALUES (2)", "\\QUnsupported writer features: [allowColumnDefaults]");
     }
 
+    @Test
+    public void testDeletionVectorsEnabledCreateTable()
+            throws Exception
+    {
+        testDeletionVectorsEnabledCreateTable("(x int) WITH (deletion_vectors_enabled = true)");
+        testDeletionVectorsEnabledCreateTable("WITH (deletion_vectors_enabled = true) AS SELECT 1 x");
+    }
+
+    private void testDeletionVectorsEnabledCreateTable(String tableDefinition)
+            throws Exception
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "deletion_vectors", tableDefinition)) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("deletion_vectors_enabled = true");
+
+            String tableLocation = getTableLocation(table.getName());
+            List<DeltaLakeTransactionLogEntry> transactionLogs = getEntriesFromJson(0, tableLocation + "/_delta_log", FILE_SYSTEM).orElseThrow();
+            assertThat(transactionLogs.get(1).getProtocol())
+                    .isEqualTo(new ProtocolEntry(3, 7, Optional.of(Set.of("deletionVectors")), Optional.of(Set.of("deletionVectors"))));
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2, 3", 2);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
+
+            assertThat(fileNamesIn(new URI(tableLocation).getPath(), false))
+                    .anyMatch(path -> path.matches(".*/deletion_vector_.*.bin"));
+
+            // TODO Allow disabling deletion_vectors_enabled table property. Delta Lake allows the operation.
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES deletion_vectors_enabled = false",
+                    "The following properties cannot be updated: deletion_vectors_enabled");
+        }
+    }
+
+    @Test
+    public void testDeletionVectorsDisabledCreateTable()
+            throws Exception
+    {
+        testDeletionVectorsDisabledCreateTable("(x int) WITH (deletion_vectors_enabled = false)");
+        testDeletionVectorsDisabledCreateTable("WITH (deletion_vectors_enabled = false) AS SELECT 1 x");
+    }
+
+    private void testDeletionVectorsDisabledCreateTable(String tableDefinition)
+            throws Exception
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "deletion_vectors", tableDefinition)) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("deletion_vectors_enabled");
+
+            String tableLocation = getTableLocation(table.getName());
+            List<DeltaLakeTransactionLogEntry> transactionLogs = getEntriesFromJson(0, tableLocation + "/_delta_log", FILE_SYSTEM).orElseThrow();
+            assertThat(transactionLogs.get(1).getProtocol())
+                    .isEqualTo(new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()));
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2, 3", 2);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
+
+            assertThat(fileNamesIn(new URI(tableLocation).getPath(), false))
+                    .noneSatisfy(path -> assertThat(path).matches(".*/deletion_vector_.*.bin"));
+
+            // TODO Allow enabling deletion_vectors_enabled table property. Delta Lake allows the operation.
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES deletion_vectors_enabled = true",
+                    "The following properties cannot be updated: deletion_vectors_enabled");
+        }
+    }
 
     /**
      * @see databricks122.deletion_vectors
@@ -1058,6 +1126,9 @@ public class TestDeltaLakeBasic
         Path tableLocation = catalogDir.resolve(tableName);
         copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("deletion_vectors_enabled = true");
 
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 11)");
 

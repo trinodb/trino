@@ -233,11 +233,13 @@ import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPr
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHANGE_DATA_FEED_ENABLED_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHECKPOINT_INTERVAL_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.COLUMN_MAPPING_MODE_PROPERTY;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.DELETION_VECTORS_ENABLED_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getChangeDataFeedEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getCheckpointInterval;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getColumnMappingMode;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getDeletionVectorsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getLocation;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getPartitionedBy;
 import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.containsSchemaString;
@@ -254,6 +256,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.CO
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.ID;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.DELETION_VECTORS_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.IsolationLevel;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.MAX_COLUMN_ID_CONFIGURATION_KEY;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.TIMESTAMP_NTZ_FEATURE_NAME;
@@ -382,6 +385,8 @@ public class DeltaLakeMetadata
     private static final int COLUMN_MAPPING_MODE_SUPPORTED_WRITER_VERSION = 5;
     private static final int TIMESTAMP_NTZ_SUPPORTED_READER_VERSION = 3;
     private static final int TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION = 7;
+    private static final int DELETION_VECTORS_SUPPORTED_READER_VERSION = 3;
+    private static final int DELETION_VECTORS_SUPPORTED_WRITER_VERSION = 7;
     private static final RetryPolicy<Object> TRANSACTION_CONFLICT_RETRY_POLICY = RetryPolicy.builder()
             .handleIf(throwable -> Throwables.getCausalChain(throwable).stream().anyMatch(TransactionConflictException.class::isInstance))
             .withDelay(Duration.ofMillis(400))
@@ -750,6 +755,10 @@ public class DeltaLakeMetadata
 
         changeDataFeedEnabled(metadataEntry, protocolEntry)
                 .ifPresent(value -> properties.put(CHANGE_DATA_FEED_ENABLED_PROPERTY, value));
+
+        if (isDeletionVectorEnabled(metadataEntry, protocolEntry)) {
+            properties.put(DELETION_VECTORS_ENABLED_PROPERTY, true);
+        }
 
         ColumnMappingMode columnMappingMode = getColumnMappingMode(metadataEntry, protocolEntry);
         if (columnMappingMode != NONE) {
@@ -1154,6 +1163,7 @@ public class DeltaLakeMetadata
         Optional<Long> checkpointInterval = getCheckpointInterval(tableMetadata.getProperties());
         Optional<Boolean> changeDataFeedEnabled = getChangeDataFeedEnabled(tableMetadata.getProperties());
         ColumnMappingMode columnMappingMode = getColumnMappingMode(tableMetadata.getProperties());
+        boolean deletionVectorsEnabled = getDeletionVectorsEnabled(tableMetadata.getProperties());
         AtomicInteger fieldId = new AtomicInteger();
 
         validateTableColumns(tableMetadata);
@@ -1224,7 +1234,7 @@ public class DeltaLakeMetadata
                                 .setDescription(tableMetadata.getComment())
                                 .setSchemaString(serializeSchemaAsJson(deltaTable.build()))
                                 .setPartitionColumns(getPartitionedBy(tableMetadata.getProperties()))
-                                .setConfiguration(configurationForNewTable(checkpointInterval, changeDataFeedEnabled, columnMappingMode, maxFieldId)));
+                                .setConfiguration(configurationForNewTable(checkpointInterval, changeDataFeedEnabled, deletionVectorsEnabled, columnMappingMode, maxFieldId)));
 
                 transactionLogWriter.flush();
 
@@ -1407,6 +1417,7 @@ public class DeltaLakeMetadata
                 external,
                 tableMetadata.getComment(),
                 getChangeDataFeedEnabled(tableMetadata.getProperties()),
+                getDeletionVectorsEnabled(tableMetadata.getProperties()),
                 serializeSchemaAsJson(deltaTable.build()),
                 columnMappingMode,
                 maxFieldId,
@@ -1584,7 +1595,7 @@ public class DeltaLakeMetadata
                             .setDescription(handle.comment())
                             .setSchemaString(schemaString)
                             .setPartitionColumns(handle.partitionedBy())
-                            .setConfiguration(configurationForNewTable(handle.checkpointInterval(), handle.changeDataFeedEnabled(), columnMappingMode, handle.maxColumnId())));
+                            .setConfiguration(configurationForNewTable(handle.checkpointInterval(), handle.changeDataFeedEnabled(), handle.deletionVectorsEnabled(), columnMappingMode, handle.maxColumnId())));
             appendAddFileEntries(transactionLogWriter, dataFileInfos, physicalPartitionNames, columnNames, true);
             if (handle.readVersion().isPresent()) {
                 long writeTimestamp = Instant.now().toEpochMilli();
@@ -2902,6 +2913,12 @@ public class DeltaLakeMetadata
             writerVersion = max(writerVersion, TIMESTAMP_NTZ_SUPPORTED_WRITER_VERSION);
             readerFeatures.add(TIMESTAMP_NTZ_FEATURE_NAME);
             writerFeatures.add(TIMESTAMP_NTZ_FEATURE_NAME);
+        }
+        if (getDeletionVectorsEnabled(properties)) {
+            readerVersion = max(readerVersion, DELETION_VECTORS_SUPPORTED_READER_VERSION);
+            writerVersion = max(writerVersion, DELETION_VECTORS_SUPPORTED_WRITER_VERSION);
+            readerFeatures.add(DELETION_VECTORS_FEATURE_NAME);
+            writerFeatures.add(DELETION_VECTORS_FEATURE_NAME);
         }
         return new ProtocolEntry(
                 readerVersion,

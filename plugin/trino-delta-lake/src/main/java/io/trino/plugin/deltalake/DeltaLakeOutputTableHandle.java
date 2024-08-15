@@ -36,6 +36,7 @@ public record DeltaLakeOutputTableHandle(
         boolean external,
         Optional<String> comment,
         Optional<Boolean> changeDataFeedEnabled,
+        boolean deletionVectorsEnabled,
         String schemaString,
         ColumnMappingMode columnMappingMode,
         OptionalInt maxColumnId,
