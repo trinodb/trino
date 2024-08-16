@@ -79,7 +79,7 @@ public class TestTrinoRestCatalog
 
         restSessionCatalog.initialize(catalogName, properties);
 
-        return new TrinoRestCatalog(restSessionCatalog, new CatalogName(catalogName), NONE, "test", new TestingTypeManager(), useUniqueTableLocations);
+        return new TrinoRestCatalog(restSessionCatalog, new CatalogName(catalogName), NONE, ImmutableMap.of(), "test", new TestingTypeManager(), useUniqueTableLocations);
     }
 
     @Test

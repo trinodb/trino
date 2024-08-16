@@ -105,6 +105,7 @@ public class TrinoRestCatalog
     private final CatalogName catalogName;
     private final TypeManager typeManager;
     private final SessionType sessionType;
+    private final Map<String, String> credentials;
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
 
@@ -116,6 +117,7 @@ public class TrinoRestCatalog
             RESTSessionCatalog restSessionCatalog,
             CatalogName catalogName,
             SessionType sessionType,
+            Map<String, String> credentials,
             String trinoVersion,
             TypeManager typeManager,
             boolean useUniqueTableLocation)
@@ -123,6 +125,7 @@ public class TrinoRestCatalog
         this.restSessionCatalog = requireNonNull(restSessionCatalog, "restSessionCatalog is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.sessionType = requireNonNull(sessionType, "sessionType is null");
+        this.credentials = ImmutableMap.copyOf(requireNonNull(credentials, "credentials is null"));
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
@@ -613,7 +616,7 @@ public class TrinoRestCatalog
     private SessionCatalog.SessionContext convert(ConnectorSession session)
     {
         return switch (sessionType) {
-            case NONE -> new SessionContext(randomUUID().toString(), null, null, ImmutableMap.of(), session.getIdentity());
+            case NONE -> new SessionContext(randomUUID().toString(), null, credentials, ImmutableMap.of(), session.getIdentity());
             case USER -> {
                 String sessionId = format("%s-%s", session.getUser(), session.getSource().orElse("default"));
 
