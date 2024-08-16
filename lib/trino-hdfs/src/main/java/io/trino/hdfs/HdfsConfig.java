@@ -41,6 +41,7 @@ public class HdfsConfig
     private List<File> resourceConfigFiles = ImmutableList.of();
     private String newDirectoryPermissions = "0777";
     private boolean newFileInheritOwnership;
+    private boolean newFileInheritPermissions = false;
     private boolean verifyChecksum = true;
     private Duration ipcPingInterval = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsTimeout = new Duration(60, TimeUnit.SECONDS);
@@ -100,6 +101,19 @@ public class HdfsConfig
     public HdfsConfig setNewFileInheritOwnership(boolean newFileInheritOwnership)
     {
         this.newFileInheritOwnership = newFileInheritOwnership;
+        return this;
+    }
+
+    public boolean isNewFileInheritPermissions()
+    {
+        return newFileInheritPermissions;
+    }
+
+    @Config("hive.fs.new-file-inherit-permissions")
+    @ConfigDescription("Flag to determine if new files inherit the permissions information from the directory.")
+    public HdfsConfig setNewFileInheritPermissions(boolean newFileInheritPermissions)
+    {
+        this.newFileInheritPermissions = newFileInheritPermissions;
         return this;
     }
 

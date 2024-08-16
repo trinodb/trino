@@ -53,6 +53,7 @@ public class HdfsEnvironment
     private final HdfsAuthentication hdfsAuthentication;
     private final Optional<FsPermission> newDirectoryPermissions;
     private final boolean newFileInheritOwnership;
+    private final boolean newFileInheritPermissions;
     private final boolean verifyChecksum;
     private final Optional<GcsStorageFactory> gcsStorageFactory;
 
@@ -73,6 +74,7 @@ public class HdfsEnvironment
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
         this.newFileInheritOwnership = config.isNewFileInheritOwnership();
+        this.newFileInheritPermissions = config.isNewFileInheritPermissions();
         this.verifyChecksum = config.isVerifyChecksum();
         this.hdfsAuthentication = requireNonNull(hdfsAuthentication, "hdfsAuthentication is null");
         this.newDirectoryPermissions = config.getNewDirectoryFsPermissions();
@@ -125,6 +127,11 @@ public class HdfsEnvironment
     public boolean isNewFileInheritOwnership()
     {
         return newFileInheritOwnership;
+    }
+
+    public boolean isNewFileInheritPermissions()
+    {
+        return newFileInheritPermissions;
     }
 
     public <T> T doAs(ConnectorIdentity identity, ExceptionAction<T> action)

@@ -28,6 +28,7 @@ import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -143,5 +144,38 @@ public class TestHdfsFileSystemHdfs
         Path path = new Path(location.toString());
         FileStatus status = hdfsEnvironment.getFileSystem(hdfsContext, path).getFileStatus(path);
         assertThat(status.getPermission().toOctal()).isEqualTo(permission);
+    }
+
+    @Test
+    public void testInheritNewDirectoryPermissions()
+            throws Exception
+    {
+        HdfsConfig configWithInherit = new HdfsConfig()
+                .setNewDirectoryPermissions(HdfsConfig.SKIP_DIR_PERMISSIONS)
+                .setNewFileInheritPermissions(true);
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, configWithInherit, new NoHdfsAuthentication());
+        TrinoFileSystem fileSystem = new HdfsFileSystem(hdfsEnvironment, hdfsContext, new TrinoHdfsFileSystemStats());
+
+        short testPermission = (short) 740;
+
+        // create parent directory
+        Location parentLocation = getRootLocation().appendPath("test");
+        fileSystem.createDirectory(parentLocation);
+        Path path = new Path(parentLocation.toString());
+        hdfsEnvironment.getFileSystem(hdfsContext, path).setPermission(path, new FsPermission(testPermission));
+
+        // test single directory
+        Location inheritLocation = parentLocation.appendPath("inherit");
+        fileSystem.createDirectory(inheritLocation);
+        Path inheritPath = new Path(inheritLocation.toString());
+        FileStatus inheritStatus = hdfsEnvironment.getFileSystem(hdfsContext, inheritPath).getFileStatus(inheritPath);
+        assertThat(inheritStatus.getPermission().toOctal()).isEqualTo(testPermission);
+
+        // test multi directories
+        Location inheritMultiLocation = parentLocation.appendPath("partition/inherit");
+        fileSystem.createDirectory(inheritMultiLocation);
+        Path inheritMultiPath = new Path(inheritMultiLocation.toString());
+        FileStatus inheritMultiStatus = hdfsEnvironment.getFileSystem(hdfsContext, inheritMultiPath).getFileStatus(inheritMultiPath);
+        assertThat(inheritMultiStatus .getPermission().toOctal()).isEqualTo(testPermission);
     }
 }
