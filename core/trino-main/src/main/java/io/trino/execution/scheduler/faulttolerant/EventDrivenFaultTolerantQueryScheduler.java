@@ -2461,7 +2461,8 @@ public class EventDrivenFaultTolerantQueryScheduler
             MemoryRequirements newMemoryLimits = partitionMemoryEstimator.getNextRetryMemoryRequirements(
                     partition.getMemoryRequirements(),
                     taskStatus.getPeakMemoryReservation(),
-                    errorCode);
+                    errorCode,
+                    partition.getRemainingAttempts());
             partition.setPostFailureMemoryRequirements(newMemoryLimits);
 
             if (errorCode != null && isOutOfMemoryError(errorCode)) {

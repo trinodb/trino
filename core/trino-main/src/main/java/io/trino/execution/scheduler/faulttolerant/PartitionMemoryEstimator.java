@@ -26,7 +26,7 @@ public interface PartitionMemoryEstimator
 {
     MemoryRequirements getInitialMemoryRequirements();
 
-    MemoryRequirements getNextRetryMemoryRequirements(MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode);
+    MemoryRequirements getNextRetryMemoryRequirements(MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, ErrorCode errorCode, int remainingAttempts);
 
     void registerPartitionFinished(MemoryRequirements previousMemoryRequirements, DataSize peakMemoryUsage, boolean success, Optional<ErrorCode> errorCode);
 
