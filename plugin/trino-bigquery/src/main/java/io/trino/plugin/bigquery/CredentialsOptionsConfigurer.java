@@ -36,7 +36,7 @@ public class CredentialsOptionsConfigurer
     @Inject
     public CredentialsOptionsConfigurer(BigQueryConfig bigQueryConfig, BigQueryCredentialsSupplier credentialsSupplier)
     {
-        this.parentProjectId = requireNonNull(bigQueryConfig, "bigQueryConfig is null").getParentProjectId();
+        this.parentProjectId = bigQueryConfig.getParentProjectId();
         this.credentialsSupplier = requireNonNull(credentialsSupplier, "credentialsSupplier is null");
     }
 
