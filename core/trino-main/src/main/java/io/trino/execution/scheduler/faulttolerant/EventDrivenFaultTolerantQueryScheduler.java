@@ -2447,13 +2447,18 @@ public class EventDrivenFaultTolerantQueryScheduler
                     taskStatus.getPeakMemoryReservation(),
                     errorCode);
             partition.setPostFailureMemoryRequirements(newMemoryLimits);
-            log.debug(
-                    "Computed next memory requirements for task from stage %s; previous=%s; new=%s; peak=%s; estimator=%s",
-                    stage.getStageId(),
-                    currentMemoryLimits,
-                    newMemoryLimits,
-                    taskStatus.getPeakMemoryReservation(),
-                    partitionMemoryEstimator);
+
+            if (errorCode != null && isOutOfMemoryError(errorCode)) {
+                log.info(
+                        "Computed next memory requirements for tasks from %s.%s; previous=%s; new=%s; peak=%s; estimator=%s; failingTask=%s",
+                        stage.getStageId(),
+                        partitionId,
+                        currentMemoryLimits,
+                        newMemoryLimits,
+                        taskStatus.getPeakMemoryReservation(),
+                        partitionMemoryEstimator,
+                        taskId);
+            }
 
             if (errorCode != null && isOutOfMemoryError(errorCode) && newMemoryLimits.getRequiredMemory().toBytes() * 0.99 <= taskStatus.getPeakMemoryReservation().toBytes()) {
                 String message = format(
