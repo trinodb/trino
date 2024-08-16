@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.trino.plugin.hive.NodeVersion;
@@ -31,9 +32,13 @@ import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
+import static org.apache.iceberg.rest.auth.OAuth2Properties.TOKEN;
 
 public class TrinoIcebergRestCatalogFactory
         implements TrinoCatalogFactory
@@ -108,6 +113,17 @@ public class TrinoIcebergRestCatalogFactory
             icebergCatalog = icebergCatalogInstance;
         }
 
-        return new TrinoRestCatalog(icebergCatalog, catalogName, sessionType, trinoVersion, typeManager, uniqueTableLocation);
+        // `OAuth2Properties.SCOPE` is not set as scope passed through credentials is unused in
+        // https://github.com/apache/iceberg/blob/229d8f6fcd109e6c8943ea7cbb41dab746c6d0ed/core/src/main/java/org/apache/iceberg/rest/auth/OAuth2Util.java#L714-L721
+        Map<String, String> credentials = Maps.filterKeys(securityProperties.get(), key -> Set.of(TOKEN, CREDENTIAL).contains(key));
+
+        return new TrinoRestCatalog(
+                icebergCatalog,
+                catalogName,
+                sessionType,
+                credentials,
+                trinoVersion,
+                typeManager,
+                uniqueTableLocation);
     }
 }
