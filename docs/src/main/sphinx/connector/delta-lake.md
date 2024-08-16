@@ -134,7 +134,10 @@ values. Typical usage does not require you to configure them.
 * - ``delta.checkpoint-filtering.enabled``
   - Enable pruning of data file entries as well as data file statistics
     columns which are irrelevant for the query when reading Delta Lake
-    checkpoint files.
+    checkpoint files. Reading only the relevant active file data from
+    the checkpoint, directly from the storage, instead of relying on
+    the active files caching, will likely result in decreased memory
+    pressure on the coordinator.
     The equivalent catalog session property is ``checkpoint_filtering_enabled``.
   - ``true``
 * - `delta.dynamic-filtering.wait-timeout`
