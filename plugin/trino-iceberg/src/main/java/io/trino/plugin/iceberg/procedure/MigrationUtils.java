@@ -94,7 +94,7 @@ public final class MigrationUtils
                 throw new TrinoException(NOT_SUPPORTED, "Recursive directory must not exist when recursive_directory argument is 'fail': " + file.location());
             }
 
-            Metrics metrics = loadMetrics(fileSystem.newInputFile(file.location()), format, schema);
+            Metrics metrics = loadMetrics(fileSystem.newInputFile(file.location(), file.length()), format, schema);
             DataFile dataFile = buildDataFile(fileLocation, file.length(), partition, partitionSpec, format.name(), metrics);
             dataFilesBuilder.add(dataFile);
         }
