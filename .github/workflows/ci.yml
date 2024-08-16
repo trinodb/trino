@@ -371,6 +371,7 @@ jobs:
             !:trino-hive,
             !:trino-hsqldb,
             !:trino-hive-formats,
+            !:trino-hsqldb,
             !:trino-hudi,
             !:trino-iceberg,
             !:trino-ignite,
