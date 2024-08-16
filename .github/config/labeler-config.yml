@@ -37,4 +37,4 @@ release-notes:
 
 ui:
   - changed-files:
-    - any-glob-to-any-file: 'core/trino-main/src/main/resources/webapp/**'
+    - any-glob-to-any-file: 'core/trino-web-ui/**'
