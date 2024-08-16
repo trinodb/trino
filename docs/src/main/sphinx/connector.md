@@ -17,6 +17,7 @@ Druid           <connector/druid>
 Elasticsearch   <connector/elasticsearch>
 Exasol          <connector/exasol>
 Google Sheets   <connector/googlesheets>
+HsqlDB          <connector/hsqldb>
 Hive            <connector/hive>
 Hudi            <connector/hudi>
 Iceberg         <connector/iceberg>
