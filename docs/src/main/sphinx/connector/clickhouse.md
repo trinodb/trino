@@ -154,13 +154,13 @@ WITH (
 
 The following are supported ClickHouse table properties from [https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/](https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/)
 
-| Property name  | Default value | Description                                                                                                             |
-| -------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `engine`       | `Log`         | Name and parameters of the engine.                                                                                      |
-| `order_by`     | (none)        | Array of columns or expressions to concatenate to create the sorting key. Required if `engine` is `MergeTree`.          |
-| `partition_by` | (none)        | Array of columns or expressions to use as nested partition keys. Optional.                                              |
-| `primary_key`  | (none)        | Array of columns or expressions to concatenate to create the primary key. Optional.                                     |
-| `sample_by`    | (none)        | An expression to use for [sampling](https://clickhouse.tech/docs/en/sql-reference/statements/select/sample/). Optional. |
+| Property name  | Default value | Description                                                                                                                            |
+| -------------- | ------------- |----------------------------------------------------------------------------------------------------------------------------------------|
+| `engine`       | `Log`         | Name and parameters of the engine.                                                                                                     |
+| `order_by`     | (none)        | Array of columns or expressions to concatenate to create the sorting key. `tuple()` is used by default if `order_by is` not specified. |
+| `partition_by` | (none)        | Array of columns or expressions to use as nested partition keys. Optional.                                                             |
+| `primary_key`  | (none)        | Array of columns or expressions to concatenate to create the primary key. Optional.                                                    |
+| `sample_by`    | (none)        | An expression to use for [sampling](https://clickhouse.tech/docs/en/sql-reference/statements/select/sample/). Optional.                |
 
 Currently the connector only supports `Log` and `MergeTree` table engines
 in create table statement. `ReplicatedMergeTree` engine is not yet supported.

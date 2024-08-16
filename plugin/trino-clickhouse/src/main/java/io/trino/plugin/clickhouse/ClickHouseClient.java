@@ -157,7 +157,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
@@ -401,9 +400,8 @@ public class ClickHouseClient
         ClickHouseEngineType engine = ClickHouseTableProperties.getEngine(tableProperties);
         tableOptions.add("ENGINE = " + engine.getEngineType());
         if (engine == ClickHouseEngineType.MERGETREE && formatProperty(ClickHouseTableProperties.getOrderBy(tableProperties)).isEmpty()) {
-            // order_by property is required
-            throw new TrinoException(INVALID_TABLE_PROPERTY,
-                    format("The property of %s is required for table engine %s", ClickHouseTableProperties.ORDER_BY_PROPERTY, engine.getEngineType()));
+            // https://clickhouse.com/docs/en/engines/table-engines/mergetree-family/mergetree#order_by
+            tableOptions.add("ORDER BY tuple()");
         }
         formatProperty(ClickHouseTableProperties.getOrderBy(tableProperties)).ifPresent(value -> tableOptions.add("ORDER BY " + value));
         formatProperty(ClickHouseTableProperties.getPrimaryKey(tableProperties)).ifPresent(value -> tableOptions.add("PRIMARY KEY " + value));
