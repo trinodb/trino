@@ -359,7 +359,9 @@ public class AdaptivePlanner
                     node.getId(),
                     node.getExchangeType(),
                     REMOTE,
-                    partitioningScheme,
+                    // We need to translate the output layout of the partitioning scheme to the output layout
+                    // of the RemoteSourceNode.
+                    partitioningScheme.translateOutputLayout(node.getOutputSymbols()),
                     sourceNodes,
                     inputs,
                     node.getOrderingScheme());
