@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -21,6 +22,8 @@ import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.client.QueryResults;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorCode;
@@ -43,6 +46,7 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.execution.QueryState.FAILED;
+import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.server.TestQueryResource.BASIC_QUERY_INFO_CODEC;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.VIEW_QUERY;
@@ -65,11 +69,15 @@ public class TestQueryStateInfoResource
     private TestingTrinoServer server;
     private HttpClient client;
     private QueryResults queryResults;
+    private QueryResults createCatalogResults;
 
     @BeforeAll
     public void setUp()
     {
         server = TestingTrinoServer.create();
+        server.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withSecuritySensitivePropertyNames(ImmutableSet.of("password"))
+                .build()));
         server.installPlugin(new TpchPlugin());
         server.createCatalog("tpch", "tpch");
         client = new JettyHttpClient();
@@ -90,6 +98,19 @@ public class TestQueryStateInfoResource
         QueryResults queryResults2 = client.execute(request2, createJsonResponseHandler(jsonCodec(QueryResults.class)));
         client.execute(prepareGet().setUri(queryResults2.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
 
+        Request createCatalogRequest = preparePost()
+                .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
+                .setBodyGenerator(createStaticBodyGenerator("""
+                CREATE CATALOG test_catalog USING mock
+                WITH (
+                   "user" = 'bob',
+                   "password" = '1234'
+                )""", UTF_8))
+                .setHeader(TRINO_HEADERS.requestUser(), "catalogCreator")
+                .build();
+        createCatalogResults = client.execute(createCatalogRequest, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        client.execute(prepareGet().setUri(createCatalogResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+
         // queries are started in the background, so they may not all be immediately visible
         long start = System.nanoTime();
         while (Duration.nanosSince(start).compareTo(new Duration(5, MINUTES)) < 0) {
@@ -99,8 +120,8 @@ public class TestQueryStateInfoResource
                             .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                             .build(),
                     createJsonResponseHandler(BASIC_QUERY_INFO_CODEC));
-            if (queryInfos.size() == 2) {
-                if (queryInfos.stream().allMatch(info -> info.getState() == RUNNING)) {
+            if (queryInfos.size() == 3) {
+                if (queryInfos.stream().allMatch(info -> info.getState() == RUNNING || info.getState() == FINISHING)) {
                     break;
                 }
 
@@ -137,7 +158,12 @@ public class TestQueryStateInfoResource
                         .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
-        assertThat(infos.size()).isEqualTo(2);
+        assertThat(infos.size()).isEqualTo(3);
+        QueryStateInfo createCatalogInfo = infos.stream()
+                .filter(info -> info.getQueryId().getId().equals(createCatalogResults.getId()))
+                .findFirst()
+                .orElse(null);
+        assertCreateCatalogQueryIsRedacted(createCatalogInfo);
     }
 
     @Test
@@ -180,6 +206,19 @@ public class TestQueryStateInfoResource
     }
 
     @Test
+    public void testGetQueryStateInfoWithRedactedSecrets()
+    {
+        QueryStateInfo info = client.execute(
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState/" + createCatalogResults.getId()))
+                        .setHeader(TRINO_HEADERS.requestUser(), "unknown")
+                        .build(),
+                createJsonResponseHandler(jsonCodec(QueryStateInfo.class)));
+
+        assertCreateCatalogQueryIsRedacted(info);
+    }
+
+    @Test
     public void testGetAllQueryStateInfosDenied()
     {
         List<QueryStateInfo> infos = client.execute(
@@ -188,7 +227,7 @@ public class TestQueryStateInfoResource
                         .setHeader(TRINO_HEADERS.requestUser(), "any-other-user")
                         .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
-        assertThat(infos.size()).isEqualTo(2);
+        assertThat(infos.size()).isEqualTo(3);
 
         testGetAllQueryStateInfosDenied("user1", 1);
         testGetAllQueryStateInfosDenied("any-other-user", 0);
@@ -242,5 +281,16 @@ public class TestQueryStateInfoResource
                 createJsonResponseHandler(jsonCodec(QueryStateInfo.class))))
                 .isInstanceOf(UnexpectedResponseException.class)
                 .hasMessageMatching("Expected response code .*, but was 404");
+    }
+
+    private static void assertCreateCatalogQueryIsRedacted(QueryStateInfo info)
+    {
+        assertThat(info).isNotNull();
+        assertThat(info.getQuery()).isEqualTo("""
+                CREATE CATALOG test_catalog USING mock
+                WITH (
+                   "user" = 'bob',
+                   "password" = '***'
+                )""");
     }
 }

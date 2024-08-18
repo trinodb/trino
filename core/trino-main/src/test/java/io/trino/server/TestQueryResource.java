@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Key;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
@@ -25,6 +26,8 @@ import io.airlift.json.ObjectMapperProvider;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.QueryResults;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.execution.QueryInfo;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
@@ -61,6 +64,7 @@ import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.KILL_QUERY;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.VIEW_QUERY;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -84,6 +88,9 @@ public class TestQueryResource
     {
         client = new JettyHttpClient();
         server = TestingTrinoServer.create();
+        server.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withSecuritySensitivePropertyNames(ImmutableSet.of("password"))
+                .build()));
         server.installPlugin(new TpchPlugin());
         server.createCatalog("tpch", "tpch");
     }
@@ -215,6 +222,47 @@ public class TestQueryResource
         assertThat(info.isScheduled()).isTrue();
         assertThat(info.getFailureInfo()).isNotNull();
         assertThat(info.getFailureInfo().getErrorCode()).isEqualTo(DIVISION_BY_ZERO.toErrorCode());
+    }
+
+    @Test
+    public void testGetQueryInfosWithRedactedSecrets()
+    {
+        String catalog = "catalog_" + randomNameSuffix();
+        runToCompletion("""
+                CREATE CATALOG %s USING mock
+                WITH (
+                   "user" = 'bob',
+                   "password" = '1234'
+                )""".formatted(catalog));
+
+        List<BasicQueryInfo> infos = getQueryInfos("/v1/query");
+        assertThat(infos.size()).isEqualTo(1);
+        assertThat(infos.getFirst().getQuery()).isEqualTo("""
+                CREATE CATALOG %s USING mock
+                WITH (
+                   "user" = 'bob',
+                   "password" = '***'
+                )""".formatted(catalog));
+    }
+
+    @Test
+    public void testGetQueryInfoWithRedactedSecrets()
+    {
+        String catalog = "catalog_" + randomNameSuffix();
+        String queryId = runToCompletion("""
+                CREATE CATALOG %s USING mock
+                WITH (
+                   "user" = 'bob',
+                   "password" = '1234'
+                )""".formatted(catalog));
+
+        QueryInfo queryInfo = getQueryInfo(queryId);
+        assertThat(queryInfo.getQuery()).isEqualTo("""
+                CREATE CATALOG %s USING mock
+                WITH (
+                   "user" = 'bob',
+                   "password" = '***'
+                )""".formatted(catalog));
     }
 
     @Test

@@ -13,6 +13,7 @@
  */
 package io.trino.server.ui;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.execution.QueryState;
@@ -52,6 +53,43 @@ public class TrimmedBasicQueryInfo
     private final Optional<ErrorCode> errorCode;
     private final Optional<QueryType> queryType;
     private final RetryPolicy retryPolicy;
+
+    @JsonCreator
+    public TrimmedBasicQueryInfo(
+            @JsonProperty("queryId") QueryId queryId,
+            @JsonProperty("sessionUser") String sessionUser,
+            @JsonProperty("sessionPrincipal") Optional<String> sessionPrincipal,
+            @JsonProperty("sessionSource") Optional<String> sessionSource,
+            @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
+            @JsonProperty("state") QueryState state,
+            @JsonProperty("scheduled") boolean scheduled,
+            @JsonProperty("self") URI self,
+            @JsonProperty("queryTextPreview") String queryTextPreview,
+            @JsonProperty("updateType") Optional<String> updateType,
+            @JsonProperty("preparedQuery") Optional<String> preparedQuery,
+            @JsonProperty("queryStats") BasicQueryStats queryStats,
+            @JsonProperty("errorType") Optional<ErrorType> errorType,
+            @JsonProperty("errorCode") Optional<ErrorCode> errorCode,
+            @JsonProperty("queryType") Optional<QueryType> queryType,
+            @JsonProperty("retryPolicy") RetryPolicy retryPolicy)
+    {
+        this.queryId = requireNonNull(queryId, "queryId is null");
+        this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
+        this.sessionPrincipal = requireNonNull(sessionPrincipal, "sessionPrincipal is null");
+        this.sessionSource = requireNonNull(sessionSource, "sessionSource is null");
+        this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
+        this.state = requireNonNull(state, "state is null");
+        this.scheduled = scheduled;
+        this.self = requireNonNull(self, "self is null");
+        this.queryTextPreview = requireNonNull(queryTextPreview, "queryTextPreview is null");
+        this.updateType = requireNonNull(updateType, "updateType is null");
+        this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
+        this.queryStats = requireNonNull(queryStats, "queryStats is null");
+        this.errorType = requireNonNull(errorType, "errorType is null");
+        this.errorCode = requireNonNull(errorCode, "errorCode is null");
+        this.queryType = requireNonNull(queryType, "queryType is null");
+        this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+    }
 
     public TrimmedBasicQueryInfo(BasicQueryInfo queryInfo)
     {
