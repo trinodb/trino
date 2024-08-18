@@ -73,6 +73,18 @@ public class CreateCatalog
         this.comment = requireNonNull(comment, "comment is null");
     }
 
+    public CreateCatalog withProperties(List<Property> properties)
+    {
+        return new CreateCatalog(
+                getLocation(),
+                catalogName,
+                notExists,
+                connectorName,
+                properties,
+                principal,
+                comment);
+    }
+
     public Identifier getCatalogName()
     {
         return catalogName;

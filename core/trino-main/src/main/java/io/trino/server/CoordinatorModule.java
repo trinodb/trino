@@ -112,6 +112,7 @@ import io.trino.server.ui.WebUiModule;
 import io.trino.server.ui.WorkerResource;
 import io.trino.spi.VersionEmbedder;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.SensitiveStatementRedactor;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.planner.OptimizerStatsMBeanExporter;
@@ -303,6 +304,9 @@ public class CoordinatorModule
         rewriteBinder.addBinding().to(ShowQueriesRewrite.class).in(Scopes.SINGLETON);
         rewriteBinder.addBinding().to(ShowStatsRewrite.class).in(Scopes.SINGLETON);
         rewriteBinder.addBinding().to(ExplainRewrite.class).in(Scopes.SINGLETON);
+
+        // security-sensitive statement redactor
+        binder.bind(SensitiveStatementRedactor.class).in(Scopes.SINGLETON);
 
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);

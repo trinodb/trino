@@ -44,6 +44,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
+import io.trino.sql.SensitiveStatementRedactor;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Flatten;
@@ -83,6 +84,7 @@ public class DispatchManager
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final SessionPropertyManager sessionPropertyManager;
     private final Tracer tracer;
+    private final SensitiveStatementRedactor sensitiveStatementRedactor;
 
     private final int maxQueryLength;
 
@@ -106,6 +108,7 @@ public class DispatchManager
             SessionPropertyDefaults sessionPropertyDefaults,
             SessionPropertyManager sessionPropertyManager,
             Tracer tracer,
+            SensitiveStatementRedactor sensitiveStatementRedactor,
             QueryManagerConfig queryManagerConfig,
             DispatchExecutor dispatchExecutor,
             QueryMonitor queryMonitor)
@@ -120,6 +123,7 @@ public class DispatchManager
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.sessionPropertyManager = sessionPropertyManager;
         this.tracer = requireNonNull(tracer, "tracer is null");
+        this.sensitiveStatementRedactor = requireNonNull(sensitiveStatementRedactor, "sensitiveStatementRedactor is null");
 
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
 
@@ -206,6 +210,7 @@ public class DispatchManager
     {
         Session session = null;
         PreparedQuery preparedQuery = null;
+        String redactedQuery = null;
         try {
             if (query.length() > maxQueryLength) {
                 int queryLength = query.length();
@@ -221,6 +226,9 @@ public class DispatchManager
 
             // prepare query
             preparedQuery = queryPreparer.prepareQuery(session, query);
+
+            // redact security-sensitive information that query may contain
+            redactedQuery = sensitiveStatementRedactor.redact(query, preparedQuery.getStatement());
 
             // select resource group
             Optional<String> queryType = getQueryType(preparedQuery.getStatement()).map(Enum::name);
@@ -239,7 +247,7 @@ public class DispatchManager
             DispatchQuery dispatchQuery = dispatchQueryFactory.createDispatchQuery(
                     session,
                     sessionContext.getTransactionId(),
-                    query,
+                    redactedQuery,
                     preparedQuery,
                     slug,
                     selectionContext.getResourceGroupId());
@@ -265,8 +273,16 @@ public class DispatchManager
                         .setSource(sessionContext.getSource().orElse(null))
                         .build();
             }
+            if (redactedQuery == null) {
+                redactedQuery = sensitiveStatementRedactor.redact(query);
+            }
             Optional<String> preparedSql = Optional.ofNullable(preparedQuery).flatMap(PreparedQuery::getPrepareSql);
-            DispatchQuery failedDispatchQuery = failedDispatchQueryFactory.createFailedDispatchQuery(session, query, preparedSql, Optional.empty(), throwable);
+            DispatchQuery failedDispatchQuery = failedDispatchQueryFactory.createFailedDispatchQuery(
+                    session,
+                    redactedQuery,
+                    preparedSql,
+                    Optional.empty(),
+                    throwable);
             queryCreated(failedDispatchQuery);
             // maintain proper order of calls such that EventListener has access to QueryInfo
             // - add query to tracker

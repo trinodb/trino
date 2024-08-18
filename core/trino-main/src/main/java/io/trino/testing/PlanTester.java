@@ -29,6 +29,7 @@ import io.trino.SystemSessionProperties;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogServiceProviderModule;
+import io.trino.connector.ConnectorSensitivePropertiesRegistry;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.CoordinatorDynamicCatalogManager;
 import io.trino.connector.DefaultCatalogFactory;
@@ -464,7 +465,8 @@ public class PlanTester
                 typeRegistry,
                 blockEncodingManager,
                 new HandleResolver(),
-                exchangeManagerRegistry);
+                exchangeManagerRegistry,
+                new ConnectorSensitivePropertiesRegistry());
 
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
         languageFunctionManager.setPlannerContext(plannerContext);

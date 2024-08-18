@@ -34,6 +34,7 @@ import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
+import io.trino.connector.ConnectorSensitivePropertiesRegistry;
 import io.trino.connector.system.SystemConnectorModule;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.event.SplitMonitor;
@@ -236,6 +237,8 @@ public class ServerMainModule
         binder.bind(StatementAnalyzerFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, SessionTimeProvider.class)
                 .setDefault().toInstance(SessionTimeProvider.DEFAULT);
+
+        binder.bind(ConnectorSensitivePropertiesRegistry.class).in(Scopes.SINGLETON);
 
         // GC Monitor
         binder.bind(GcMonitor.class).to(JmxGcMonitor.class).in(Scopes.SINGLETON);

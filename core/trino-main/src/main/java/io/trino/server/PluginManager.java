@@ -19,6 +19,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogStoreManager;
+import io.trino.connector.ConnectorSensitivePropertiesRegistry;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
@@ -93,6 +94,7 @@ public class PluginManager
     private final TypeRegistry typeRegistry;
     private final BlockEncodingManager blockEncodingManager;
     private final HandleResolver handleResolver;
+    private final ConnectorSensitivePropertiesRegistry connectorSensitivePropertiesRegistry;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
 
     @Inject
@@ -112,7 +114,8 @@ public class PluginManager
             TypeRegistry typeRegistry,
             BlockEncodingManager blockEncodingManager,
             HandleResolver handleResolver,
-            ExchangeManagerRegistry exchangeManagerRegistry)
+            ExchangeManagerRegistry exchangeManagerRegistry,
+            ConnectorSensitivePropertiesRegistry connectorSensitivePropertiesRegistry)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.catalogStoreManager = requireNonNull(catalogStoreManager, "catalogStoreManager is null");
@@ -130,6 +133,7 @@ public class PluginManager
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+        this.connectorSensitivePropertiesRegistry = requireNonNull(connectorSensitivePropertiesRegistry, "connectorSensitivePropertiesRegistry is null");
     }
 
     @Override
@@ -209,6 +213,7 @@ public class PluginManager
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {
             log.info("Registering connector %s", connectorFactory.getName());
             this.connectorFactory.addConnectorFactory(connectorFactory);
+            connectorSensitivePropertiesRegistry.addSensitivePropertyNames(connectorFactory.getName(), connectorFactory.getSecuritySensitivePropertyNames());
         }
 
         Set<Class<?>> functions = plugin.getFunctions();
