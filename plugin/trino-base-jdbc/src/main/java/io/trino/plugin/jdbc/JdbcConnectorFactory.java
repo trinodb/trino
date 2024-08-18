@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
@@ -26,6 +27,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -35,6 +37,10 @@ import static java.util.Objects.requireNonNull;
 public class JdbcConnectorFactory
         implements ConnectorFactory
 {
+    private static final Set<String> SENSITIVE_PROPERTY_NAMES = ImmutableSet.of(
+            "connection-password",
+            "keystore-password");
+
     private final String name;
     private final Module module;
 
@@ -73,5 +79,11 @@ public class JdbcConnectorFactory
                 .initialize();
 
         return injector.getInstance(JdbcConnector.class);
+    }
+
+    @Override
+    public Set<String> getSecuritySensitivePropertyNames()
+    {
+        return SENSITIVE_PROPERTY_NAMES;
     }
 }
