@@ -140,6 +140,7 @@ public class MockConnectorFactory
     private final Supplier<List<PropertyMetadata<?>>> columnProperties;
     private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
     private final Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources;
+    private final Set<String> securitySensitivePropertyNames;
 
     // access control
     private final ListRoleGrants roleGrants;
@@ -196,6 +197,7 @@ public class MockConnectorFactory
             Supplier<List<PropertyMetadata<?>>> tableProperties,
             Supplier<List<PropertyMetadata<?>>> columnProperties,
             Optional<ConnectorNodePartitioningProvider> partitioningProvider,
+            Set<String> securitySensitivePropertyNames,
             ListRoleGrants roleGrants,
             Optional<ConnectorAccessControl> accessControl,
             boolean allowMissingColumnsOnInsert,
@@ -244,6 +246,7 @@ public class MockConnectorFactory
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
         this.columnProperties = requireNonNull(columnProperties, "columnProperties is null");
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
+        this.securitySensitivePropertyNames = requireNonNull(securitySensitivePropertyNames, "securitySensitivePropertyNames is null");
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.data = requireNonNull(data, "data is null");
@@ -323,6 +326,12 @@ public class MockConnectorFactory
                 writerScalingOptions,
                 capabilities,
                 allowSplittingReadIntoMultipleSubQueries);
+    }
+
+    @Override
+    public Set<String> getSecuritySensitivePropertyNames()
+    {
+        return securitySensitivePropertyNames;
     }
 
     public static MockConnectorFactory create()
@@ -465,6 +474,7 @@ public class MockConnectorFactory
         private Supplier<List<PropertyMetadata<?>>> columnProperties = ImmutableList::of;
         private Optional<ConnectorNodePartitioningProvider> partitioningProvider = Optional.empty();
         private Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources = handle -> null;
+        private Set<String> securitySensitivePropertyNames = ImmutableSet.of();
 
         // access control
         private boolean provideAccessControl;
@@ -844,6 +854,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withSecuritySensitivePropertyNames(Set<String> securitySensitivePropertyNames)
+        {
+            this.securitySensitivePropertyNames = securitySensitivePropertyNames;
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
             Optional<ConnectorAccessControl> accessControl = Optional.empty();
@@ -895,6 +911,7 @@ public class MockConnectorFactory
                     tableProperties,
                     columnProperties,
                     partitioningProvider,
+                    securitySensitivePropertyNames,
                     roleGrants,
                     accessControl,
                     allowMissingColumnsOnInsert,

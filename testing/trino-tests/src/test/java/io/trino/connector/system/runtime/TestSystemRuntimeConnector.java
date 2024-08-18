@@ -15,6 +15,7 @@ package io.trino.connector.system.runtime;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
@@ -48,6 +49,7 @@ import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
@@ -89,6 +91,7 @@ public class TestSystemRuntimeConnector
                         .withGetViews((session, schemaTablePrefix) -> ImmutableMap.of())
                         .withListTables((session, s) -> ImmutableList.of("test_table"))
                         .withGetColumns(tableName -> getColumns.apply(tableName))
+                        .withSecuritySensitivePropertyNames(ImmutableSet.of("password"))
                         .build();
                 return ImmutableList.of(connectorFactory);
             }
@@ -290,6 +293,27 @@ public class TestSystemRuntimeConnector
     {
         getQueryRunner().execute("SELECT 1");
         getQueryRunner().execute("SELECT * FROM system.runtime.tasks");
+    }
+
+    @Test
+    public void testRedactedRuntimeQueries()
+    {
+        String catalog = "catalog_" + randomNameSuffix();
+        getQueryRunner().execute("""
+                CREATE CATALOG %s USING mock
+                WITH (
+                   "user" = 'bob',
+                   "password" = '1234'
+                )""".formatted(catalog));
+
+        assertQuery(
+                format("SELECT query FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", catalog),
+                """
+                        VALUES 'CREATE CATALOG %s USING mock
+                        WITH (
+                           "user" = ''bob'',
+                           "password" = ''***''
+                        )'""".formatted(catalog));
     }
 
     private static void run(int repetitions, double successRate, Runnable test)
