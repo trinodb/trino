@@ -16,6 +16,9 @@ package io.trino.spi.connector;
 import com.google.errorprone.annotations.CheckReturnValue;
 
 import java.util.Map;
+import java.util.Set;
+
+import static java.util.Collections.emptySet;
 
 public interface ConnectorFactory
 {
@@ -23,4 +26,14 @@ public interface ConnectorFactory
 
     @CheckReturnValue
     Connector create(String catalogName, Map<String, String> config, ConnectorContext context);
+
+    /**
+     * Returns the names of configuration properties for the connector this factory creates
+     * that may contain security-sensitive values. The engine will use these names to mask
+     * the corresponding property values to prevent the leakage of security-sensitive information.
+     */
+    default Set<String> getSecuritySensitivePropertyNames()
+    {
+        return emptySet();
+    }
 }
