@@ -27,6 +27,12 @@ system support:
     authentication used with `NONE`. Use `ACCESS_KEY` for
     [](azure-access-key-authentication) or and `OAUTH` for
     [](azure-oauth-authentication).
+* - `azure.endpoint`
+  - Hostname suffix of the Azure storage endpoint.
+    Defaults to `core.windows.net` for the global Azure cloud.
+    Use `core.usgovcloudapi.net` for the Azure US Government cloud,
+    `core.cloudapi.de` for the Azure Germany cloud,
+    or `core.chinacloudapi.cn` for the Azure China cloud.
 * - `azure.read-block-size`
   - [Data size](prop-type-data-size) for blocks during read operations. Defaults
     to `4MB`.

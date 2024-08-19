@@ -16,6 +16,7 @@ package io.trino.filesystem.azure;
 import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 public class AzureFileSystemConfig
@@ -28,7 +29,7 @@ public class AzureFileSystemConfig
     }
 
     private AuthType authType = AuthType.DEFAULT;
-
+    private String endpoint = "core.windows.net";
     private DataSize readBlockSize = DataSize.of(4, Unit.MEGABYTE);
     private DataSize writeBlockSize = DataSize.of(4, Unit.MEGABYTE);
     private int maxWriteConcurrency = 8;
@@ -44,6 +45,19 @@ public class AzureFileSystemConfig
     public AzureFileSystemConfig setAuthType(AuthType authType)
     {
         this.authType = authType;
+        return this;
+    }
+
+    @NotEmpty
+    public String getEndpoint()
+    {
+        return endpoint;
+    }
+
+    @Config("azure.endpoint")
+    public AzureFileSystemConfig setEndpoint(String endpoint)
+    {
+        this.endpoint = endpoint;
         return this;
     }
 

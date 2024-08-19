@@ -63,6 +63,7 @@ public class AzureFileSystem
     private final HttpClient httpClient;
     private final TracingOptions tracingOptions;
     private final AzureAuth azureAuth;
+    private final String endpoint;
     private final int readBlockSizeBytes;
     private final long writeBlockSizeBytes;
     private final int maxWriteConcurrency;
@@ -72,6 +73,7 @@ public class AzureFileSystem
             HttpClient httpClient,
             TracingOptions tracingOptions,
             AzureAuth azureAuth,
+            String endpoint,
             DataSize readBlockSize,
             DataSize writeBlockSize,
             int maxWriteConcurrency,
@@ -80,6 +82,7 @@ public class AzureFileSystem
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.tracingOptions = requireNonNull(tracingOptions, "tracingOptions is null");
         this.azureAuth = requireNonNull(azureAuth, "azureAuth is null");
+        this.endpoint = requireNonNull(endpoint, "endpoint is null");
         this.readBlockSizeBytes = toIntExact(readBlockSize.toBytes());
         this.writeBlockSizeBytes = writeBlockSize.toBytes();
         checkArgument(maxWriteConcurrency >= 0, "maxWriteConcurrency is negative");
@@ -450,6 +453,14 @@ public class AzureFileSystem
         }
     }
 
+    private String validatedEndpoint(AzureLocation location)
+    {
+        if (!location.endpoint().equals(endpoint)) {
+            throw new IllegalArgumentException("Location does not match configured Azure endpoint: " + location);
+        }
+        return location.endpoint();
+    }
+
     private BlobClient createBlobClient(AzureLocation location)
     {
         return createBlobContainerClient(location).getBlobClient(location.path());
@@ -462,7 +473,7 @@ public class AzureFileSystem
         BlobContainerClientBuilder builder = new BlobContainerClientBuilder()
                 .httpClient(httpClient)
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
-                .endpoint(String.format("https://%s.blob.core.windows.net", location.account()));
+                .endpoint("https://%s.blob.%s".formatted(location.account(), validatedEndpoint(location)));
         azureAuth.setAuth(location.account(), builder);
         location.container().ifPresent(builder::containerName);
         return builder.buildClient();
@@ -475,7 +486,7 @@ public class AzureFileSystem
         DataLakeServiceClientBuilder builder = new DataLakeServiceClientBuilder()
                 .httpClient(httpClient)
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
-                .endpoint(String.format("https://%s.dfs.core.windows.net", location.account()));
+                .endpoint("https://%s.dfs.%s".formatted(location.account(), validatedEndpoint(location)));
         azureAuth.setAuth(location.account(), builder);
         DataLakeServiceClient client = builder.buildClient();
         DataLakeFileSystemClient fileSystemClient = client.getFileSystemClient(location.container().orElseThrow());

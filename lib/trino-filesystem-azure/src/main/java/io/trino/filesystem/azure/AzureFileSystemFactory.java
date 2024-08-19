@@ -38,6 +38,7 @@ public class AzureFileSystemFactory
         implements TrinoFileSystemFactory
 {
     private final AzureAuth auth;
+    private final String endpoint;
     private final DataSize readBlockSize;
     private final DataSize writeBlockSize;
     private final int maxWriteConcurrency;
@@ -51,6 +52,7 @@ public class AzureFileSystemFactory
     {
         this(openTelemetry,
                 azureAuth,
+                config.getEndpoint(),
                 config.getReadBlockSize(),
                 config.getWriteBlockSize(),
                 config.getMaxWriteConcurrency(),
@@ -60,12 +62,14 @@ public class AzureFileSystemFactory
     public AzureFileSystemFactory(
             OpenTelemetry openTelemetry,
             AzureAuth azureAuth,
+            String endpoint,
             DataSize readBlockSize,
             DataSize writeBlockSize,
             int maxWriteConcurrency,
             DataSize maxSingleUploadSize)
     {
         this.auth = requireNonNull(azureAuth, "azureAuth is null");
+        this.endpoint = requireNonNull(endpoint, "endpoint is null");
         this.readBlockSize = requireNonNull(readBlockSize, "readBlockSize is null");
         this.writeBlockSize = requireNonNull(writeBlockSize, "writeBlockSize is null");
         checkArgument(maxWriteConcurrency >= 0, "maxWriteConcurrency is negative");
@@ -89,7 +93,7 @@ public class AzureFileSystemFactory
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new AzureFileSystem(httpClient, tracingOptions, auth, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize);
+        return new AzureFileSystem(httpClient, tracingOptions, auth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize);
     }
 
     public static HttpClient createAzureHttpClient(OkHttpClient okHttpClient, HttpClientOptions clientOptions)
