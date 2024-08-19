@@ -23,7 +23,7 @@ import static java.util.Objects.requireNonNull;
 
 class AzureLocation
 {
-    private static final String INVALID_LOCATION_MESSAGE = "Invalid Azure location. Expected form is 'abfs://[<containerName>@]<accountName>.dfs.core.windows.net/<filePath>': %s";
+    private static final String INVALID_LOCATION_MESSAGE = "Invalid Azure location. Expected form is 'abfs://[<containerName>@]<accountName>.dfs.<endpoint>/<filePath>': %s";
 
     // https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
     private static final CharMatcher CONTAINER_VALID_CHARACTERS = CharMatcher.inRange('a', 'z').or(CharMatcher.inRange('0', '9')).or(CharMatcher.is('-'));
@@ -32,7 +32,15 @@ class AzureLocation
     private final Location location;
     private final String scheme;
     private final String account;
+    private final String endpoint;
 
+    /**
+     * Creates a new location based on the endpoint, storage account, container and blob path parsed from the location.
+     * <p>
+     * Locations use the
+     * <a href="https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri">ABFS URI</a> syntax:
+     * <pre>{@code abfs://<container-name>@<storage-account-name>.dfs.<endpoint>/<blob_path>}</pre>
+     */
     public AzureLocation(Location location)
     {
         this.location = requireNonNull(location, "location is null");
@@ -67,26 +75,17 @@ class AzureLocation
                 this.location);
         this.account = host.substring(0, accountSplit);
 
-        // host must end with ".dfs.core.windows.net"
-        checkArgument(host.substring(accountSplit).equals(".dfs.core.windows.net"), INVALID_LOCATION_MESSAGE, location);
+        // host must contain ".dfs." before endpoint
+        checkArgument(host.substring(accountSplit).startsWith(".dfs."), INVALID_LOCATION_MESSAGE, location);
+
+        // endpoint is the part after ".dfs."
+        this.endpoint = host.substring(accountSplit + ".dfs.".length());
+        checkArgument(!endpoint.isEmpty(), INVALID_LOCATION_MESSAGE, location);
 
         // storage account is interpolated into URL host name, so perform extra checks
         checkArgument(STORAGE_ACCOUNT_VALID_CHARACTERS.matchesAllOf(account),
                 "Invalid Azure storage account name. Valid characters are 'a-z' and '0-9': %s",
                 location);
-    }
-
-    /**
-     * Creates a new {@link AzureLocation} based on the storage account, container and blob path parsed from the location.
-     * <p>
-     * Locations follow the conventions used by
-     * <a href="https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri">ABFS URI</a>
-     * that follows the following convention
-     * <pre>{@code abfs://<container-name>@<storage-account-name>.dfs.core.windows.net/<blob_path>}</pre>
-     */
-    public static AzureLocation from(String location)
-    {
-        return new AzureLocation(Location.of(location));
     }
 
     public Location location()
@@ -102,6 +101,11 @@ class AzureLocation
     public String account()
     {
         return account;
+    }
+
+    public String endpoint()
+    {
+        return endpoint;
     }
 
     public String path()
@@ -126,9 +130,10 @@ class AzureLocation
 
     public Location baseLocation()
     {
-        return Location.of("%s://%s%s.dfs.core.windows.net/".formatted(
+        return Location.of("%s://%s%s.dfs.%s/".formatted(
                 scheme,
                 container().map(container -> container + "@").orElse(""),
-                account()));
+                account(),
+                endpoint));
     }
 }
