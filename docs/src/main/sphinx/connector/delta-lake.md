@@ -131,15 +131,14 @@ values. Typical usage does not require you to configure them.
 * - `delta.checkpoint-row-statistics-writing.enabled`
   - Enable writing row statistics to checkpoint files.
   - `true`
-* - ``delta.checkpoint-filtering.enabled``
-  - Enable pruning of data file entries as well as data file statistics
-    columns which are irrelevant for the query when reading Delta Lake
-    checkpoint files. Reading only the relevant active file data from
-    the checkpoint, directly from the storage, instead of relying on
-    the active files caching, will likely result in decreased memory
-    pressure on the coordinator.
-    The equivalent catalog session property is ``checkpoint_filtering_enabled``.
-  - ``true``
+* - `delta.checkpoint-filtering.enabled`
+  - Enable pruning of data file entries as well as data file statistics columns
+    which are irrelevant for the query when reading Delta Lake checkpoint files.
+    Reading only the relevant active file data from the checkpoint, directly
+    from the storage, instead of relying on the active files caching, likely
+    results in decreased memory pressure on the coordinator. The equivalent
+    catalog session property is `checkpoint_filtering_enabled`.
+  - `true`
 * - `delta.dynamic-filtering.wait-timeout`
   - Duration to wait for completion of [dynamic
     filtering](/admin/dynamic-filtering) during split generation. The equivalent
@@ -441,7 +440,7 @@ if the data has since been modified or deleted.
 The historical data of the table can be retrieved by specifying the version
 number corresponding to the version of the table to be retrieved:
 
-```
+```sql
 SELECT *
 FROM example.testdb.customer_orders FOR VERSION AS OF 3
 ```
@@ -449,7 +448,7 @@ FROM example.testdb.customer_orders FOR VERSION AS OF 3
 Use the `$history` metadata table to determine the snapshot ID of the
 table like in the following query:
 
-```
+```sql
 SELECT version, operation
 FROM example.testdb."customer_orders$history"
 ORDER BY version DESC
@@ -462,7 +461,7 @@ administrative tasks. Procedures are available in the system schema of each
 catalog. The following code snippet displays how to call the
 `example_procedure` in the `examplecatalog` catalog:
 
-```
+```sql
 CALL examplecatalog.system.example_procedure()
 ```
 
@@ -520,7 +519,7 @@ parameter.
 Users with `INSERT` and `DELETE` permissions on a table can run `VACUUM`
 as follows:
 
-```shell
+```sql
 CALL example.system.vacuum('exampleschemaname', 'exampletablename', '7d');
 ```
 
@@ -581,7 +580,7 @@ You can create a schema with the {doc}`/sql/create-schema` statement and the
 subdirectory under the schema location. Data files for tables in this schema
 using the default location are cleaned up if the table is dropped:
 
-```
+```sql
 CREATE SCHEMA example.example_schema
 WITH (location = 's3://my-bucket/a/path');
 ```
@@ -590,14 +589,14 @@ Optionally, the location can be omitted. Tables in this schema must have a
 location included when you create them. The data files for these tables are not
 removed if the table is dropped:
 
-```
+```sql
 CREATE SCHEMA example.example_schema;
 ```
 
 When Delta Lake tables exist in storage but not in the metastore, Trino can be
 used to register the tables:
 
-```
+```sql
 CALL example.system.register_table(schema_name => 'testdb', table_name => 'example_table', table_location => 's3://my-bucket/a/path')
 ```
 
@@ -606,15 +605,15 @@ schema is changed by an external system, Trino automatically uses the new
 schema.
 
 :::{warning}
-Using ``CREATE TABLE`` with an existing table content is disallowed,
-use the ``system.register_table`` procedure instead.
+Using `CREATE TABLE` with an existing table content is disallowed,
+use the `system.register_table` procedure instead.
 :::
 
 If the specified location does not already contain a Delta table, the connector
 automatically writes the initial transaction log entries and registers the table
 in the metastore. As a result, any Databricks engine can write to the table:
 
-```
+```sql
 CREATE TABLE example.default.new_table (id BIGINT, address VARCHAR);
 ```
 
@@ -692,7 +691,7 @@ The following table properties are available for use:
 
 The following example uses all available table properties:
 
-```
+```sql
 CREATE TABLE example.default.example_partitioned_table
 WITH (
   location = 's3://my-bucket/a/path',
@@ -711,7 +710,7 @@ These metadata tables contain information about the internal structure
 of the Delta Lake table. You can query each metadata table by appending the
 metadata table name to the table name:
 
-```
+```sql
 SELECT * FROM "test_table$history"
 ```
 
@@ -724,7 +723,7 @@ the Delta Lake table.
 You can retrieve the changelog of the Delta Lake table `test_table`
 by using the following query:
 
-```
+```sql
 SELECT * FROM "test_table$history"
 ```
 
@@ -786,7 +785,7 @@ Delta Lake table.
 You can retrieve the information about the partitions of the Delta Lake table
 `test_table` by using the following query:
 
-```
+```sql
 SELECT * FROM "test_table$partitions"
 ```
 
@@ -829,7 +828,7 @@ table features and table properties. The table rows are key/value pairs.
 You can retrieve the properties of the Delta
 table `test_table` by using the following query:
 
-```
+```sql
 SELECT * FROM "test_table$properties"
 ```
 
@@ -1031,7 +1030,7 @@ statistics.
 
 To collect statistics for a table, execute the following statement:
 
-```
+```sql
 ANALYZE table_schema.table_name;
 ```
 
@@ -1051,7 +1050,7 @@ The `files_modified_after` property is useful if you want to run the
 `ANALYZE` statement on a table that was previously analyzed. You can use it to
 limit the amount of data used to generate the table statistics:
 
-```SQL
+```sql
 ANALYZE example_table WITH(files_modified_after = TIMESTAMP '2021-08-23
 16:43:01.321 Z')
 ```
@@ -1062,7 +1061,7 @@ analysis.
 You can also specify a set or subset of columns to analyze using the `columns`
 property:
 
-```SQL
+```sql
 ANALYZE example_table WITH(columns = ARRAY['nationkey', 'regionkey'])
 ```
 
@@ -1085,7 +1084,7 @@ drop the extended statistics and analyze the table again.
 Use the `system.drop_extended_stats` procedure in the catalog to drop the
 extended statistics for a specified table in a specified schema:
 
-```
+```sql
 CALL example.system.drop_extended_stats('example_schema', 'example_table')
 ```
 
@@ -1112,7 +1111,7 @@ JMX bean.
 You can access it with any standard monitoring software with JMX support, or use
 the {doc}`/connector/jmx` with the following query:
 
-```
+```sql
 SELECT * FROM jmx.current."*.plugin.deltalake.transactionlog:name=<catalog-name>,type=transactionlogaccess"
 ```
 
