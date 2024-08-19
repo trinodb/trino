@@ -2375,25 +2375,37 @@ class StatementAnalyzer
 
         private void analyzeFiltersAndMasks(Table table, QualifiedObjectName name, RelationType relationType, Scope accessControlScope)
         {
-            ImmutableList.Builder<ColumnSchema> columnSchemaBuilder = ImmutableList.builder();
+            ImmutableMap.Builder<String, ColumnSchema> columnSchemaBuilder = ImmutableMap.builder();
             for (int index = 0; index < relationType.getAllFieldCount(); index++) {
                 Field field = relationType.getFieldByIndex(index);
-                field.getName().ifPresent(fieldName -> columnSchemaBuilder.add(ColumnSchema.builder()
+                field.getName().ifPresent(fieldName -> columnSchemaBuilder.put(fieldName, ColumnSchema.builder()
                         .setName(fieldName)
                         .setType(field.getType())
                         .setHidden(field.isHidden())
                         .build()));
             }
-            List<ColumnSchema> columnSchemas = columnSchemaBuilder.build();
+            Map<String, ColumnSchema> columnSchemas = columnSchemaBuilder.buildOrThrow();
 
-            Map<ColumnSchema, ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, columnSchemas);
+            Map<ColumnSchema, ViewExpression> masks = accessControl.getColumnMasks(session.toSecurityContext(), name, ImmutableList.copyOf(columnSchemas.values()));
 
-            for (ColumnSchema columnSchema : columnSchemas) {
-                Optional.ofNullable(masks.get(columnSchema)).ifPresent(mask -> {
-                    if (checkCanSelectFromColumn(name, columnSchema.getName())) {
+            // check for fast path: a single bulk check of all columns
+            if (checkCanSelectFromColumns(name, columnSchemas.keySet())) {
+                for (ColumnSchema columnSchema : columnSchemas.values()) {
+                    Optional.ofNullable(masks.get(columnSchema)).ifPresent(mask -> {
                         analyzeColumnMask(session.getIdentity().getUser(), table, name, columnSchema, accessControlScope, mask);
-                    }
-                });
+                    });
+                }
+            }
+            else {
+                // slow path: if any column is inaccessible, we need to analyze all the accessible ones
+                // to see if they reference any other column(s)
+                for (ColumnSchema columnSchema : columnSchemas.values()) {
+                    Optional.ofNullable(masks.get(columnSchema)).ifPresent(mask -> {
+                        if (checkCanSelectFromColumns(name, ImmutableSet.of(columnSchema.getName()))) {
+                            analyzeColumnMask(session.getIdentity().getUser(), table, name, columnSchema, accessControlScope, mask);
+                        }
+                    });
+                }
             }
 
             accessControl.getRowFilters(session.toSecurityContext(), name)
@@ -2412,10 +2424,10 @@ class StatementAnalyzer
             }
         }
 
-        private boolean checkCanSelectFromColumn(QualifiedObjectName name, String column)
+        private boolean checkCanSelectFromColumns(QualifiedObjectName name, Set<String> columns)
         {
             try {
-                accessControl.checkCanSelectFromColumns(session.toSecurityContext(), name, ImmutableSet.of(column));
+                accessControl.checkCanSelectFromColumns(session.toSecurityContext(), name, columns);
                 return true;
             }
             catch (AccessDeniedException e) {
