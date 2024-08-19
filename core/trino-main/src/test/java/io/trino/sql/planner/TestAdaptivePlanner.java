@@ -29,6 +29,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.Patterns;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import org.junit.jupiter.api.Test;
 
@@ -270,6 +271,64 @@ public class TestAdaptivePlanner
                         new PlanFragmentId("4"), createRuntimeStats(ImmutableLongArray.of(10000L, 10000L, 10000L), 10000),
                         new PlanFragmentId("2"), createRuntimeStats(ImmutableLongArray.of(200L, 2000L, 1000L), 500)),
                 matcher,
+                false);
+    }
+
+    @Test
+    public void testWhenSimilarColumnIsProjectedTwice()
+    {
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty("join_distribution_type", "PARTITIONED")
+                // This is to ensure that the plan is not optimized to use partial aggregation
+                .setSystemProperty("prefer_partial_aggregation", "false")
+                .build();
+
+        assertAdaptivePlan(
+                    """
+                    SELECT
+                        sum(sales),
+                        sum(another_sales),
+                        sum(acctbal)
+                    FROM (
+                    SELECT
+                        CAST(0 AS DECIMAL(7,2)) "sales",
+                        CAST(0 AS DECIMAL(7,2)) "another_sales",
+                        cast("acctbal" as DECIMAL(7,2)) "acctbal"
+                    FROM customer
+                    UNION ALL
+                    SELECT
+                        cast("acctbal" as DECIMAL(7,2)) "sales",
+                        CAST(0 AS DECIMAL(7,2)) "another_sales",
+                        CAST(0 AS DECIMAL(7,2)) "acctbal"
+                    FROM customer
+                    ) test_table
+                """,
+                session,
+                ImmutableList.of(new IterativeOptimizer(
+                        getPlanTester().getPlannerContext(),
+                        new RuleStatsRecorder(),
+                        getPlanTester().getStatsCalculator(),
+                        getPlanTester().getCostCalculator(),
+                        ImmutableSet.<Rule<?>>builder()
+                                .add(new TestJoinOrderSwitchRule())
+                                .build())),
+                ImmutableMap.of(),
+                SubPlanMatcher.builder()
+                        .fragmentMatcher(fm -> fm
+                                .fragmentId(0)
+                                .planPattern(
+                                        output(
+                                                node(AggregationNode.class,
+                                                        exchange(
+                                                                remoteSource(ImmutableList.of(new PlanFragmentId("1"), new PlanFragmentId("2"))))))))
+                        .children(
+                                spb -> spb.fragmentMatcher(fm -> fm
+                                        .fragmentId(1)
+                                        .planPattern(node(ProjectNode.class, node(TableScanNode.class)))),
+                                spb -> spb.fragmentMatcher(fm -> fm
+                                        .fragmentId(2)
+                                        .planPattern(node(ProjectNode.class, node(TableScanNode.class)))))
+                        .build(),
                 false);
     }
 
