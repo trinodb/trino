@@ -23,6 +23,7 @@ import io.trino.plugin.eventlistener.kafka.producer.KafkaProducerFactory;
 import io.trino.plugin.eventlistener.kafka.producer.SSLKafkaProducerFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
+import io.trino.spi.eventlistener.SplitCompletedEvent;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.InvalidRecordException;
@@ -54,13 +55,14 @@ public class KafkaEventPublisher
 
         String createdTopic = config.getCreatedTopicName().orElse("");
         String completedTopic = config.getCompletedTopicName().orElse("");
+        String splitCompletedTopic = config.getSplitCompletedTopicName().orElse("");
 
         Map<String, String> configOverrides = config.getKafkaClientOverrides();
         LOG.info("Creating Kafka publisher (SSL=%s) for topics: %s/%s with excluded fields: %s and kafka config overrides: %s",
                 producerFactory instanceof SSLKafkaProducerFactory, createdTopic, completedTopic, config.getExcludedFields(), configOverrides);
         kafkaProducer = producerFactory.producer(configOverrides);
         checkConnectivityToBrokers(config.getPublishCreatedEvent() ? createdTopic : completedTopic, config.getRequestTimeout().toMillis());
-        kafkaRecordBuilder = new KafkaRecordBuilder(createdTopic, completedTopic, config.getExcludedFields(), metadataProvider(config));
+        kafkaRecordBuilder = new KafkaRecordBuilder(createdTopic, completedTopic, splitCompletedTopic, config.getExcludedFields(), metadataProvider(config));
         LOG.info("Successfully created Kafka publisher.");
     }
 
@@ -142,6 +144,39 @@ public class KafkaEventPublisher
                 else {
                     stats.createdEventSuccessfulDispatch();
                     LOG.debug("successfully sent QueryCreatedEvent for query id: %s", queryId);
+                }
+            });
+        }
+    }
+
+    public void publishSplitCompletedEvent(SplitCompletedEvent splitCompletedEvent)
+    {
+        stats.splitCompletedEventReceived();
+        String queryId = splitCompletedEvent.getQueryId();
+        LOG.debug("preparing to send SplitCompletedEvent for query id: %s", queryId);
+        ProducerRecord<String, String> record = null;
+        try {
+            record = kafkaRecordBuilder.buildSplitCompletedRecord(splitCompletedEvent);
+        }
+        catch (Exception e) {
+            stats.splitCompletedEventBuildFailure();
+            LOG.warn(e, "unable to build SplitCompletedEvent for query id: %s", queryId);
+        }
+        if (record != null) {
+            kafkaProducer.send(record, (metadata, exception) -> {
+                if (exception != null) {
+                    switch (exception) {
+                        case TimeoutException e -> stats.splitCompletedEventSendFailureTimeout();
+                        case RecordTooLargeException e -> stats.splitCompletedEventSendFailureTooLarge();
+                        case InvalidRecordException e -> stats.splitCompletedEventSendFailureInvalidRecord();
+                        default -> stats.splitCompletedEventSendFailureOther();
+                    }
+                    LOG.warn(exception, "failed to send SplitCompletedEvent for query id: %s. Uncompressed message size: %s. Partition: %s",
+                            queryId, metadata.serializedValueSize(), metadata.partition());
+                }
+                else {
+                    stats.splitCompletedEventSuccessfulDispatch();
+                    LOG.debug("successfully sent SplitCompletedEvent for query id: %s", queryId);
                 }
             });
         }

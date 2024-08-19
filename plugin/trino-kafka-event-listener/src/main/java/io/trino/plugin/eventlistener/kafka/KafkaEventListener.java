@@ -35,6 +35,7 @@ public class KafkaEventListener
     private final KafkaEventListenerJmxStats stats = new KafkaEventListenerJmxStats();
     private final boolean publishCreatedEvent;
     private final boolean publishCompletedEvent;
+    private final boolean publishSplitCompletedEvent;
     private final boolean isAnonymizationEnabled;
     @Nullable
     private KafkaEventPublisher kafkaPublisher;
@@ -45,6 +46,7 @@ public class KafkaEventListener
     {
         publishCreatedEvent = config.getPublishCreatedEvent();
         publishCompletedEvent = config.getPublishCompletedEvent();
+        publishSplitCompletedEvent = config.getPublishSplitCompletedEvent();
         isAnonymizationEnabled = config.isAnonymizationEnabled();
 
         try {
@@ -90,7 +92,9 @@ public class KafkaEventListener
     @Override
     public void splitCompleted(SplitCompletedEvent event)
     {
-        // not implemented
+        if (kafkaPublisher != null && publishSplitCompletedEvent) {
+            kafkaPublisher.publishSplitCompletedEvent(event);
+        }
     }
 
     @Override

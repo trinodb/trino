@@ -43,6 +43,7 @@ final class TestKafkaEventListenerPlugin
 {
     private static final String CREATED_TOPIC = "query_created";
     private static final String COMPLETED_TOPIC = "query_completed";
+    private static final String SPLIT_COMPLETED_TOPIC = "split_completed";
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static TestingKafka testingKafka;
 
@@ -53,6 +54,7 @@ final class TestKafkaEventListenerPlugin
         testingKafka.start();
         testingKafka.createTopic(CREATED_TOPIC);
         testingKafka.createTopic(COMPLETED_TOPIC);
+        testingKafka.createTopic(SPLIT_COMPLETED_TOPIC);
     }
 
     @AfterAll
@@ -73,9 +75,11 @@ final class TestKafkaEventListenerPlugin
                 ImmutableMap.<String, String>builder()
                         .put("kafka-event-listener.publish-created-event", "true")
                         .put("kafka-event-listener.publish-completed-event", "true")
+                        .put("kafka-event-listener.publish-split-completed-event", "true")
                         .put("kafka-event-listener.broker-endpoints", testingKafka.getConnectString())
                         .put("kafka-event-listener.created-event.topic", CREATED_TOPIC)
                         .put("kafka-event-listener.completed-event.topic", COMPLETED_TOPIC)
+                        .put("kafka-event-listener.split-completed-event.topic", SPLIT_COMPLETED_TOPIC)
                         .put("kafka-event-listener.env-var-prefix", "INSIGHTS_")
                         .put("kafka-event-listener.request-timeout", "30s")
                         .put("kafka-event-listener.excluded-fields", "ioMetadata")
@@ -108,6 +112,23 @@ final class TestKafkaEventListenerPlugin
             // ioMetadata is excluded via config
             assertThat(jsonEvent.get("ioMetadata")).isNull();
             assertThat(jsonEvent.get("metadata").get("queryId").textValue()).isEqualTo(TestUtils.queryCompletedEvent.getMetadata().getQueryId());
+
+            // produce and consume a test split completed event
+            eventListener.splitCompleted(TestUtils.splitCompletedEvent);
+            record = getOnlyElement(pollJsonRecords(SPLIT_COMPLETED_TOPIC));
+            jsonNode = MAPPER.readTree(record.value());
+            jsonEvent = jsonNode.get("eventPayload");
+            assertThat(jsonEvent).isNotNull();
+            assertThat(jsonEvent.get("catalogName")).isNotNull();
+            assertThat(jsonEvent.get("startTime")).isNotNull();
+            assertThat(jsonEvent.get("endTime")).isNotNull();
+            assertThat(jsonEvent.get("createTime")).isNotNull();
+            assertThat(jsonEvent.get("statistics")).isNotNull();
+            assertThat(jsonEvent.get("failureInfo")).isNull();
+            assertThat(jsonEvent.get("payload")).isNotNull();
+            assertThat(jsonEvent.get("queryId").textValue()).isEqualTo(TestUtils.splitCompletedEvent.getQueryId());
+            assertThat(jsonEvent.get("stageId").textValue()).isEqualTo(TestUtils.splitCompletedEvent.getStageId());
+            assertThat(jsonEvent.get("taskId").textValue()).isEqualTo(TestUtils.splitCompletedEvent.getTaskId());
         }
         finally {
             eventListener.shutdown();
