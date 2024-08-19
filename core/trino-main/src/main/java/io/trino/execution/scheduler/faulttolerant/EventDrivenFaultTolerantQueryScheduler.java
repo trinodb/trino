@@ -2449,6 +2449,8 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
 
             RuntimeException failure = failureInfo.toException();
+            recordTaskFailureInLog(taskId, failure);
+
             ErrorCode errorCode = failureInfo.getErrorCode();
             partitionMemoryEstimator.registerPartitionFinished(
                     partition.getMemoryRequirements(),
@@ -2492,8 +2494,6 @@ public class EventDrivenFaultTolerantQueryScheduler
                 // stage failed, don't reschedule
                 return ImmutableList.of();
             }
-
-            recordTaskFailureInLog(taskId, failure);
 
             if (!partition.isSealed()) {
                 // don't reschedule speculative tasks
