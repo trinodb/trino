@@ -196,6 +196,7 @@ import io.trino.sql.planner.iterative.rule.RemoveEmptyTableExecute;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyUnionBranches;
 import io.trino.sql.planner.iterative.rule.RemoveFullSample;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantDateTrunc;
+import io.trino.sql.planner.iterative.rule.RemoveRedundantDistinctAggregation;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantEnforceSingleRowNode;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantExists;
@@ -461,7 +462,8 @@ public class PlanOptimizers
                                         new PruneOrderByInAggregation(metadata),
                                         new RewriteSpatialPartitioningAggregation(plannerContext),
                                         new SimplifyCountOverConstant(plannerContext),
-                                        new PreAggregateCaseAggregations(plannerContext)))
+                                        new PreAggregateCaseAggregations(plannerContext),
+                                        new RemoveRedundantDistinctAggregation()))
                                 .build()),
                 // MergeUnion and related projection pruning rules must run before limit pushdown rules, otherwise
                 // an intermediate limit node will prevent unions from being merged later on
@@ -596,7 +598,8 @@ public class PlanOptimizers
                                 new RemoveEmptyExceptBranches(),
                                 new PushFilterIntoValues(plannerContext), // must run after de-correlation
                                 new ReplaceJoinOverConstantWithProject(),
-                                new TransformFilteringSemiJoinToInnerJoin())), // must run after PredicatePushDown
+                                new TransformFilteringSemiJoinToInnerJoin(), // must run after PredicatePushDown
+                                new RemoveRedundantDistinctAggregation())), // must also be run after TransformFilteringSemiJoinToInnerJoin
                 new IterativeOptimizer(
                         plannerContext,
                         ruleStats,
