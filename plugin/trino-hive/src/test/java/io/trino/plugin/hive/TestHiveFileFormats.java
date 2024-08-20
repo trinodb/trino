@@ -1386,7 +1386,7 @@ public final class TestHiveFileFormats
         hiveFileWriter.commit();
     }
 
-    private static void writeValue(Type type, BlockBuilder builder, Object object)
+    static void writeValue(Type type, BlockBuilder builder, Object object)
     {
         requireNonNull(builder, "builder is null");
 

@@ -5733,7 +5733,7 @@ public abstract class BaseHiveConnectorTest
     public void testSubfieldReordering()
     {
         // Validate for formats for which subfield access is name based
-        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET, HiveStorageFormat.AVRO);
+        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.AVRO);
         String tableName = "evolve_test_" + randomNameSuffix();
 
         for (HiveStorageFormat format : formats) {

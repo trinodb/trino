@@ -175,7 +175,9 @@ public class AvroPageSourceFactory
         }
 
         try {
-            return Optional.of(new ReaderPageSource(new AvroPageSource(inputFile, maskedSchema, new HiveAvroTypeBlockHandler(createTimestampType(hiveTimestampPrecision.getPrecision())), start, length), readerProjections));
+            return Optional.of(
+                    new ReaderPageSource(
+                            new AvroPageSource(inputFile, maskedSchema,  new HiveAvroTypeBlockHandler(createTimestampType(hiveTimestampPrecision.getPrecision())), start, length), readerProjections));
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);
