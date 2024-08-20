@@ -51,7 +51,11 @@ import io.trino.plugin.jdbc.aggregation.ImplementCountDistinct;
 import io.trino.plugin.jdbc.aggregation.ImplementCovariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementCovarianceSamp;
 import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
+import io.trino.plugin.jdbc.aggregation.ImplementStddevPop;
+import io.trino.plugin.jdbc.aggregation.ImplementStddevSamp;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
+import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
+import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
@@ -221,6 +225,10 @@ public class DatabendClient
                 .add(new ImplementAvgBigint())
                 .add(new ImplementCorr())
                 .add(new ImplementCovarianceSamp())
+                .add(new ImplementStddevSamp())
+                .add(new ImplementStddevPop())
+                .add(new ImplementVarianceSamp())
+                .add(new ImplementVariancePop())
                 .add(new ImplementCovariancePop()).build());
     }
 
