@@ -2301,6 +2301,16 @@
         </dependencies>
     </dependencyManagement>
 
+    <repositories>
+        <repository>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <id>iceberg-1.6.1-rc1</id>
+            <url>https://repository.apache.org/content/repositories/orgapacheiceberg-1170/</url>
+        </repository>
+    </repositories>
+
     <build>
         <pluginManagement>
             <plugins>
