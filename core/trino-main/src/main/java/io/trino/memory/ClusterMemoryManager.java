@@ -33,6 +33,7 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
+import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.LowMemoryKiller.ForQueryLowMemoryKiller;
 import io.trino.memory.LowMemoryKiller.ForTaskLowMemoryKiller;
 import io.trino.memory.LowMemoryKiller.RunningQueryInfo;
@@ -100,6 +101,7 @@ public class ClusterMemoryManager
     private final JsonCodec<MemoryInfo> memoryInfoCodec;
     private final DataSize maxQueryMemory;
     private final DataSize maxQueryTotalMemory;
+    private final boolean includeCoordinator;
     private final List<LowMemoryKiller> lowMemoryKillers;
     private final AtomicLong totalAvailableProcessors = new AtomicLong();
     private final AtomicLong clusterUserMemoryReservation = new AtomicLong();
@@ -129,7 +131,8 @@ public class ClusterMemoryManager
             @ForTaskLowMemoryKiller LowMemoryKiller taskLowMemoryKiller,
             @ForQueryLowMemoryKiller LowMemoryKiller queryLowMemoryKiller,
             ServerConfig serverConfig,
-            MemoryManagerConfig config)
+            MemoryManagerConfig config,
+            NodeSchedulerConfig nodeSchedulerConfig)
     {
         checkState(serverConfig.isCoordinator(), "ClusterMemoryManager must not be bound on worker");
 
@@ -145,6 +148,7 @@ public class ClusterMemoryManager
                 queryLowMemoryKiller);
         this.maxQueryMemory = config.getMaxQueryMemory();
         this.maxQueryTotalMemory = config.getMaxQueryTotalMemory();
+        this.includeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
 
         verify(maxQueryMemory.toBytes() <= maxQueryTotalMemory.toBytes(),
                 "maxQueryMemory cannot be greater than maxQueryTotalMemory");
@@ -485,6 +489,9 @@ public class ClusterMemoryManager
     {
         Map<String, Optional<MemoryInfo>> memoryInfo = new HashMap<>();
         for (Entry<String, RemoteNodeMemory> entry : nodes.entrySet()) {
+            if (!includeCoordinator && entry.getValue().getNode().isCoordinator()) {
+                continue;
+            }
             String workerId = entry.getKey();
             memoryInfo.put(workerId, entry.getValue().getInfo());
         }
