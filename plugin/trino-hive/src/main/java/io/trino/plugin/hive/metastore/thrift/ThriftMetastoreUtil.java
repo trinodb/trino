@@ -192,7 +192,7 @@ public final class ThriftMetastoreUtil
         result.setTableType(table.getTableType());
         result.setParameters(table.getParameters());
         result.setPartitionKeys(table.getPartitionColumns().stream().map(ThriftMetastoreUtil::toMetastoreApiFieldSchema).collect(toImmutableList()));
-        result.setSd(makeStorageDescriptor(table.getTableName(), table.getDataColumns(), table.getStorage()));
+        result.setSd(makeStorageDescriptor(table.getDataColumns(), table.getStorage()));
         result.setViewOriginalText(table.getViewOriginalText().orElse(null));
         result.setViewExpandedText(table.getViewExpandedText().orElse(null));
         table.getWriteId().ifPresent(result::setWriteId);
@@ -350,7 +350,7 @@ public final class ThriftMetastoreUtil
         result.setDbName(partition.getDatabaseName());
         result.setTableName(partition.getTableName());
         result.setValues(partition.getValues());
-        result.setSd(makeStorageDescriptor(partition.getTableName(), partition.getColumns(), partition.getStorage()));
+        result.setSd(makeStorageDescriptor(partition.getColumns(), partition.getStorage()));
         result.setParameters(partition.getParameters());
         writeId.ifPresent(result::setWriteId);
         return result;
@@ -679,10 +679,9 @@ public final class ThriftMetastoreUtil
                 .setSerdeParameters(serdeInfo.getParameters() == null ? ImmutableMap.of() : serdeInfo.getParameters());
     }
 
-    private static StorageDescriptor makeStorageDescriptor(String tableName, List<Column> columns, Storage storage)
+    private static StorageDescriptor makeStorageDescriptor(List<Column> columns, Storage storage)
     {
         SerDeInfo serdeInfo = new SerDeInfo();
-        serdeInfo.setName(tableName);
         serdeInfo.setSerializationLib(storage.getStorageFormat().getSerDeNullable());
         serdeInfo.setParameters(storage.getSerdeParameters());
 

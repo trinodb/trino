@@ -97,7 +97,7 @@ public class TestThriftMetastoreUtil
             "com.facebook.hive.orc.OrcOutputFormat",
             false,
             100,
-            new SerDeInfo("table_name", "com.facebook.hive.orc.OrcSerde", ImmutableMap.of("sdk1", "sdv1", "sdk2", "sdv2")),
+            new SerDeInfo(null, "com.facebook.hive.orc.OrcSerde", ImmutableMap.of("sdk1", "sdv1", "sdk2", "sdv2")),
             ImmutableList.of("col2", "col3"),
             ImmutableList.of(new Order("col2", 1)),
             ImmutableMap.of());
@@ -136,7 +136,7 @@ public class TestThriftMetastoreUtil
             "com.facebook.hive.orc.OrcOutputFormat",
             false,
             100,
-            new SerDeInfo("table_name", "com.facebook.hive.orc.OrcSerde", ImmutableMap.of("sdk1", "sdv1", "sdk2", "sdv2")),
+            new SerDeInfo(null, "com.facebook.hive.orc.OrcSerde", ImmutableMap.of("sdk1", "sdv1", "sdk2", "sdv2")),
             ImmutableList.of("col2", "col3"),
             ImmutableList.of(new Order("col2", 0), new Order("col3", 1)),
             ImmutableMap.of("sk1", "sv1"));
