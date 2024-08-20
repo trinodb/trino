@@ -13,6 +13,7 @@
  */
 package io.trino.hive.formats.encodings.text;
 
+import io.trino.hive.formats.SparseRowType;
 import io.trino.hive.formats.encodings.ColumnEncodingFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
@@ -135,6 +136,21 @@ public class TextColumnEncodingFactory
                     textEncodingOptions.getEscapeByte(),
                     keyEncoding,
                     valueEncoding);
+        }
+        if (type instanceof SparseRowType sparseRowType) {
+            List<TextColumnEncoding> fieldEncodings = sparseRowType.getSparseFields().stream()
+                    .map(RowType.Field::getType)
+                    .map(fieldType -> getEncoding(fieldType, depth + 1))
+                    .collect(toImmutableList());
+            List<Integer> fieldOffsets = sparseRowType.getOffsets();
+            return new StructEncoding(
+                    sparseRowType,
+                    textEncodingOptions.getNullSequence(),
+                    getSeparator(depth + 1),
+                    textEncodingOptions.getEscapeByte(),
+                    textEncodingOptions.isLastColumnTakesRest(),
+                    fieldEncodings,
+                    fieldOffsets);
         }
         if (type instanceof RowType rowType) {
             List<TextColumnEncoding> fieldEncodings = rowType.getTypeParameters().stream()

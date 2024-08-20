@@ -23,6 +23,7 @@ import io.trino.spi.block.SqlRow;
 import io.trino.spi.type.RowType;
 
 import java.util.List;
+import java.util.stream.IntStream;
 
 public class StructEncoding
         extends BlockEncoding
@@ -31,6 +32,7 @@ public class StructEncoding
     private final byte separator;
     private final boolean lastColumnTakesRest;
     private final List<TextColumnEncoding> structFields;
+    private final List<Integer> fieldOffsets;
 
     public StructEncoding(
             RowType rowType,
@@ -45,6 +47,26 @@ public class StructEncoding
         this.separator = separator;
         this.lastColumnTakesRest = lastColumnTakesRest;
         this.structFields = structFields;
+        this.fieldOffsets = IntStream.range(0, structFields.size())
+                .boxed()
+                .toList();
+    }
+
+    public StructEncoding(
+            RowType rowType,
+            Slice nullSequence,
+            byte separator,
+            Byte escapeByte,
+            boolean lastColumnTakesRest,
+            List<TextColumnEncoding> structFields,
+            List<Integer> fieldOffsets)
+    {
+        super(rowType, nullSequence, escapeByte);
+        this.rowType = rowType;
+        this.separator = separator;
+        this.lastColumnTakesRest = lastColumnTakesRest;
+        this.structFields = structFields;
+        this.fieldOffsets = fieldOffsets;
     }
 
     @Override
@@ -80,7 +102,10 @@ public class StructEncoding
             while (currentOffset < end) {
                 byte currentByte = slice.getByte(currentOffset);
                 if (currentByte == separator) {
-                    decodeElementValueInto(fieldIndex, fieldBuilders.get(fieldIndex), slice, elementOffset, currentOffset - elementOffset);
+                    Integer fieldOffset = fieldOffsets.get(fieldIndex);
+                    if (fieldOffset != null) {
+                        decodeElementValueInto(fieldIndex, fieldBuilders.get(fieldOffset), slice, elementOffset, currentOffset - elementOffset);
+                    }
                     elementOffset = currentOffset + 1;
                     fieldIndex++;
                     if (lastColumnTakesRest && fieldIndex == structFields.size() - 1) {
@@ -98,7 +123,10 @@ public class StructEncoding
                 }
                 currentOffset++;
             }
-            decodeElementValueInto(fieldIndex, fieldBuilders.get(fieldIndex), slice, elementOffset, end - elementOffset);
+            Integer fieldOffset = fieldOffsets.get(fieldIndex);
+            if (fieldOffset != null) {
+                decodeElementValueInto(fieldIndex, fieldBuilders.get(fieldOffset), slice, elementOffset, end - elementOffset);
+            }
             fieldIndex++;
 
             // missing fields are null

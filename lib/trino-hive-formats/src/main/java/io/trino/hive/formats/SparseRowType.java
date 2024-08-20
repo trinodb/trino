@@ -33,9 +33,9 @@ public class SparseRowType
         extends RowType
 {
     private final List<Field> sparseFields;
-    private final int[] offsets;
+    private final List<Integer> offsets;
 
-    private SparseRowType(List<Field> sparseFields, List<Field> denseFields, int[] offsets)
+    private SparseRowType(List<Field> sparseFields, List<Field> denseFields, List<Integer> offsets)
     {
         super(makeSignature(denseFields), denseFields);
         this.sparseFields = sparseFields;
@@ -49,21 +49,21 @@ public class SparseRowType
     {
         checkArgument(fields.size() == mask.length);
 
-        int[] offsets = new int[fields.size()];
+        ImmutableList.Builder<Integer> offsets = ImmutableList.builder();
         ImmutableList.Builder<Field> denseFields = ImmutableList.builder();
 
         int offset = 0;
         for (int i = 0; i < mask.length; i++) {
             if (mask[i]) {
                 denseFields.add(fields.get(i));
-                offsets[i] = offset++;
+                offsets.add(offset++);
             }
             else {
-                offsets[i] = -1;
+                offsets.add(-1);
             }
         }
 
-        return new SparseRowType(ImmutableList.copyOf(fields), denseFields.build(), offsets);
+        return new SparseRowType(ImmutableList.copyOf(fields), denseFields.build(), offsets.build());
     }
 
     public static SparseRowType initial(List<Field> fields, Integer activeField)
@@ -83,8 +83,13 @@ public class SparseRowType
      */
     public Integer getOffset(int sparsePosition)
     {
-        return offsets[sparsePosition] >= 0
-                ? offsets[sparsePosition]
+        return offsets.get(sparsePosition) >= 0
+                ? offsets.get(sparsePosition)
                 : null;
+    }
+
+    public List<Integer> getOffsets()
+    {
+        return offsets.stream().map(i -> i >= 0 ? i : null).toList();
     }
 }
