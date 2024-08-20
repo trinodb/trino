@@ -224,6 +224,10 @@ public class DamengClient
             case "bigint":
                 return Optional.of(bigintColumnMapping());
 //                Optional.of(decimalColumnMapping(createDecimalType(20)));
+            case "blob":
+            case "clob":
+            case "nclob":
+                return Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
         }
 
         switch (typeHandle.jdbcType()) {
