@@ -29,7 +29,8 @@ public final class HadoopPaths
         // hack to preserve the original path for S3 if necessary
         String path = location.toString();
         Path hadoopPath = new Path(path);
-        if ("s3".equals(hadoopPath.toUri().getScheme()) && !path.equals(hadoopPath.toString())) {
+        String scheme = hadoopPath.toUri().getScheme();
+        if (("s3".equals(scheme) || "s3a".equals(scheme) || "s3n".equals(scheme)) && !path.equals(hadoopPath.toString())) {
             return new Path(toPathEncodedUri(location));
         }
         return hadoopPath;

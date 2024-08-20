@@ -57,6 +57,12 @@ public class TestS3HadoopPaths
                 .hasToString("s3://test/abc/xyz.csv#abc//xyz.csv")
                 .extracting(TrinoS3FileSystem::keyFromPath)
                 .isEqualTo("abc//xyz.csv");
+        assertThat(hadoopPath(Location.of("s3a://test/abc//xyz.csv")))
+                .isEqualTo(new Path(URI.create("s3a://test/abc/xyz.csv#abc//xyz.csv")))
+                .hasToString("s3a://test/abc/xyz.csv#abc//xyz.csv");
+        assertThat(hadoopPath(Location.of("s3n://test/abc//xyz.csv")))
+                .isEqualTo(new Path(URI.create("s3n://test/abc/xyz.csv#abc//xyz.csv")))
+                .hasToString("s3n://test/abc/xyz.csv#abc//xyz.csv");
     }
 
     @Test
