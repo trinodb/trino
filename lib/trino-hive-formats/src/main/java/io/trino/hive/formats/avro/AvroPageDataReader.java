@@ -37,17 +37,11 @@ public class AvroPageDataReader
     private RowBlockBuildingDecoder rowBlockBuildingDecoder;
     private final AvroTypeBlockHandler typeManager;
 
-    public AvroPageDataReader(Schema schema, AvroTypeBlockHandler typeManager)
-            throws AvroTypeException
-    {
-        this(schema, schema, typeManager);
-    }
-
-    public AvroPageDataReader(Schema writerSchema, Schema readerSchema, AvroTypeBlockHandler typeManager)
+    public AvroPageDataReader(Schema readerSchema, AvroTypeBlockHandler typeManager)
             throws AvroTypeException
     {
         this.readerSchema = requireNonNull(readerSchema, "readerSchema is null");
-        this.writerSchema = requireNonNull(writerSchema, "writerSchema is null");
+        writerSchema = this.readerSchema;
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         verifyNoCircularReferences(readerSchema);
         try {

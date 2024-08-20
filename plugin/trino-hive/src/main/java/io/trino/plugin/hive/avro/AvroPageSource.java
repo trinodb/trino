@@ -50,19 +50,6 @@ public class AvroPageSource
         avroFileReader = new AvroFileReader(inputFile, schema, avroTypeManager, offset, OptionalLong.of(length));
     }
 
-    public AvroPageSource(
-            TrinoInputFile inputFile,
-            Schema writerSchema,
-            Schema readerSchema,
-            AvroTypeBlockHandler avroTypeManager,
-            long offset,
-            long length)
-            throws IOException, AvroTypeException
-    {
-        fileName = requireNonNull(inputFile, "inputFile is null").location().fileName();
-        avroFileReader = new AvroFileReader(inputFile, writerSchema, readerSchema, avroTypeManager, offset, OptionalLong.of(length));
-    }
-
     @Override
     public long getCompletedBytes()
     {

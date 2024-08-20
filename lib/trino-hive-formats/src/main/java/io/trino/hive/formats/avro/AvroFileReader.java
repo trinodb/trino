@@ -58,22 +58,8 @@ public class AvroFileReader
             OptionalLong length)
             throws IOException, AvroTypeException
     {
-        this(inputFile, schema, schema, avroTypeBlockHandler, offset, length);
-    }
-
-    public AvroFileReader(
-            TrinoInputFile inputFile,
-            Schema writerSchema,
-            Schema readerSchema,
-            AvroTypeBlockHandler avroTypeBlockHandler,
-            long offset,
-            OptionalLong length)
-            throws IOException, AvroTypeException
-    {
         requireNonNull(inputFile, "inputFile is null");
-        requireNonNull(readerSchema, "reader schema is null");
-        requireNonNull(writerSchema, "writer schema is null");
-
+        requireNonNull(schema, "schema is null");
         requireNonNull(avroTypeBlockHandler, "avroTypeBlockHandler is null");
         long fileSize = inputFile.length();
 
@@ -83,7 +69,7 @@ public class AvroFileReader
         end = length.stream().map(l -> l + offset).findFirst();
         end.ifPresent(endLong -> verify(endLong <= fileSize, "offset plus length is greater than data size"));
         input = new TrinoDataInputStream(inputFile.newStream());
-        dataReader = new AvroPageDataReader(writerSchema, readerSchema, avroTypeBlockHandler);
+        dataReader = new AvroPageDataReader(schema, avroTypeBlockHandler);
         try {
             fileReader = new DataFileReader<>(new TrinoDataInputStreamAsAvroSeekableInput(input, fileSize), dataReader);
             fileReader.sync(offset);

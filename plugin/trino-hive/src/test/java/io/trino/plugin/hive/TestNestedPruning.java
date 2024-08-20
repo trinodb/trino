@@ -22,21 +22,13 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.metastore.HiveType;
-import io.trino.metastore.StorageFormat;
-import io.trino.plugin.hive.avro.AvroFileWriterFactory;
-import io.trino.plugin.hive.avro.AvroPageSourceFactory;
-import io.trino.plugin.hive.line.OpenXJsonFileWriterFactory;
 import io.trino.plugin.hive.line.OpenXJsonPageSourceFactory;
-import io.trino.plugin.hive.util.HiveTypeTranslator;
-import io.trino.spi.Page;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.MaterializedResult;
 import org.junit.jupiter.api.Assertions;
@@ -54,19 +46,16 @@ import java.util.stream.Collectors;
 
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildColumnMappings;
-import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.OPENX_JSON;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTestUtils.projectedColumn;
 import static io.trino.plugin.hive.HiveTestUtils.toHiveBaseColumnHandle;
-import static io.trino.plugin.hive.TestHiveFileFormats.writeValue;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static java.util.stream.Collectors.toList;
 
 /**
  * This test proves that non-dereferenced fields are pruned from nested RowTypes.
@@ -205,67 +194,18 @@ public class TestNestedPruning
                 List.of(false, 31));
     }
 
-    @Test
-    public void testWriteThenRead()
-        throws IOException
-    {
-        HiveColumnHandle someOtherColumn = toHiveBaseColumnHandle("something_else", VarcharType.VARCHAR, 1);
-        List<HiveColumnHandle> writeColumns = List.of(tableColumns.get(0), someOtherColumn);
-
-        assertRoundTrip(
-                writeColumns,
-                List.of(
-                        List.of(List.of(true, "bar", 31), "spam")),
-                writeColumns,
-                List.of(
-                        someOtherColumn,
-                        projectedColumn(tableColumns.get(0), "basic_int"),
-                        projectedColumn(tableColumns.get(0), "basic_bool")),
-                List.of("spam", 31, true));
-    }
-
     private void assertValues(List<HiveColumnHandle> projectedColumns, String text, List<Object> expected)
             throws IOException
     {
         TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
-        Location location = Location.of("memory:///test");
+        Location location = Location.of("memory:///test.ion");
 
         final ConnectorSession session = getHiveSession(new HiveConfig());
 
         writeTextFile(text, location, fileSystemFactory.create(session));
-        HivePageSourceFactory pageSourceFactory = new OpenXJsonPageSourceFactory(fileSystemFactory, new HiveConfig());
 
-        try (ConnectorPageSource pageSource = createPageSource(pageSourceFactory, OPENX_JSON, fileSystemFactory, location, tableColumns, projectedColumns, session)) {
+        try (ConnectorPageSource pageSource = createPageSource(fileSystemFactory, location, tableColumns, projectedColumns, session)) {
             final MaterializedResult result = MaterializedResult.materializeSourceDataStream(session, pageSource, projectedColumns.stream().map(HiveColumnHandle::getType).toList());
-            Assertions.assertEquals(1, result.getRowCount());
-            Assertions.assertEquals(expected, result.getMaterializedRows().getFirst().getFields());
-        }
-    }
-
-    private void assertRoundTrip(
-            List<HiveColumnHandle> writeColumns,
-            List<Object> writeValues,
-            List<HiveColumnHandle> readColumns,
-            List<HiveColumnHandle> projections,
-            List<Object> expected)
-            throws IOException
-    {
-        TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
-        Location location = Location.of("memory:///test");
-
-        final ConnectorSession session = getHiveSession(new HiveConfig());
-
-        writeObjectsToFile(
-                new AvroFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, new NodeVersion("test_version")),
-                AVRO,
-                writeValues,
-                writeColumns,
-                location,
-                session);
-
-        HivePageSourceFactory pageSourceFactory = new AvroPageSourceFactory(fileSystemFactory);
-        try (ConnectorPageSource pageSource = createPageSource(pageSourceFactory, AVRO, fileSystemFactory, location, readColumns, projections, session)) {
-            final MaterializedResult result = MaterializedResult.materializeSourceDataStream(session, pageSource, projections.stream().map(HiveColumnHandle::getType).toList());
             Assertions.assertEquals(1, result.getRowCount());
             Assertions.assertEquals(expected, result.getMaterializedRows().getFirst().getFields());
         }
@@ -285,64 +225,10 @@ public class TestNestedPruning
         return written;
     }
 
-    private void writeObjectsToFile(
-            HiveFileWriterFactory fileWriterFactory,
-            HiveStorageFormat storageFormat,
-            List<Object> objects,
-            List<HiveColumnHandle> columns,
-            Location location,
-            ConnectorSession session) {
-
-        columns = columns.stream()
-                .filter(c -> c.getColumnType().equals(HiveColumnHandle.ColumnType.REGULAR))
-                .toList();
-        List<Type> types = columns.stream()
-                .map(HiveColumnHandle::getType)
-                .collect(toList());
-
-        PageBuilder pageBuilder = new PageBuilder(types);
-        for (Object row : objects) {
-            pageBuilder.declarePosition();
-            for (int col = 0; col < columns.size(); col++) {
-                Type type = types.get(col);
-                Object value = ((List<?>)row).get(col);
-
-                writeValue(type, pageBuilder.getBlockBuilder(col), value);
-            }
-        }
-        Page page = pageBuilder.build();
-
-        Map<String, String> tableProperties = ImmutableMap.<String, String>builder()
-                .put(LIST_COLUMNS, columns.stream().map(HiveColumnHandle::getName).collect(Collectors.joining(",")))
-                .put(LIST_COLUMN_TYPES, columns.stream().map(HiveColumnHandle::getType).map(HiveTypeTranslator::toHiveType).map(HiveType::toString).collect(Collectors.joining(",")))
-                .buildOrThrow();
-
-
-        Optional<FileWriter> fileWriter = fileWriterFactory.createFileWriter(
-                location,
-                columns.stream()
-                        .map(HiveColumnHandle::getName)
-                        .toList(),
-                storageFormat.toStorageFormat(),
-                HiveCompressionCodec.NONE,
-                tableProperties,
-                session,
-                OptionalInt.empty(),
-                NO_ACID_TRANSACTION,
-                false,
-                WriterKind.INSERT);
-
-        FileWriter hiveFileWriter = fileWriter.orElseThrow(() -> new IllegalArgumentException("fileWriterFactory"));
-        hiveFileWriter.appendRows(page);
-        hiveFileWriter.commit();
-    }
-
     /**
      * todo: this is very similar to what's in TestOrcPredicates, factor out.
      */
     private static ConnectorPageSource createPageSource(
-            HivePageSourceFactory pageSourceFactory,
-            HiveStorageFormat storageFormat,
             TrinoFileSystemFactory fileSystemFactory,
             Location location,
             List<HiveColumnHandle> tableColumns,
@@ -350,6 +236,8 @@ public class TestNestedPruning
             ConnectorSession session)
             throws IOException
     {
+        OpenXJsonPageSourceFactory factory = new OpenXJsonPageSourceFactory(fileSystemFactory, new HiveConfig());
+
         long length = fileSystemFactory.create(session).newInputFile(location).length();
 
         List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
@@ -364,14 +252,14 @@ public class TestNestedPruning
                 Instant.now().toEpochMilli());
 
         final Map<String, String> tableProperties = ImmutableMap.<String, String>builder()
-                .put(FILE_INPUT_FORMAT, storageFormat.getInputFormat())
-                .put(SERIALIZATION_LIB, storageFormat.getSerde())
+                .put(FILE_INPUT_FORMAT, OPENX_JSON.getInputFormat())
+                .put(SERIALIZATION_LIB, OPENX_JSON.getSerde())
                 .put(LIST_COLUMNS, tableColumns.stream().map(HiveColumnHandle::getName).collect(Collectors.joining(",")))
                 .put(LIST_COLUMN_TYPES, tableColumns.stream().map(HiveColumnHandle::getHiveType).map(HiveType::toString).collect(Collectors.joining(",")))
                 .buildOrThrow();
 
         return HivePageSourceProvider.createHivePageSource(
-                        ImmutableSet.of(pageSourceFactory),
+                        ImmutableSet.of(factory),
                         session,
                         location,
                         OptionalInt.empty(),
