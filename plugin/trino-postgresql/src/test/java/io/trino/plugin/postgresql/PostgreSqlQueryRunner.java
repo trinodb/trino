@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.plugin.postgresql.TestingPostgreSqlServer.DEFAULT_IMAGE_NAME;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -102,7 +103,7 @@ public final class PostgreSqlQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        QueryRunner queryRunner = builder(new TestingPostgreSqlServer(true))
+        QueryRunner queryRunner = builder(new TestingPostgreSqlServer(System.getProperty("testing.postgresql-image-name", DEFAULT_IMAGE_NAME), true))
                 .addCoordinatorProperty("http-server.http.port", "8080")
                 .setInitialTables(TpchTable.getTables())
                 .build();
