@@ -192,3 +192,54 @@ CREATE TABLE hive.abfs_export.orders_abfs
 WITH (format = 'ORC')
 AS SELECT * FROM tpch.sf1.orders;
 ```
+
+(fs-legacy-azure-migration)=
+## Migration to Azure Storage file system
+
+Trino includes a [native implementation to access Azure
+Storage](/object-storage/file-system-azure) with a catalog using the Delta Lake,
+Hive, Hudi, or Iceberg connectors. Upgrading existing deployments to the new
+native implementation is recommended. Legacy support will be deprecated and
+removed.
+
+To migrate a catalog to use the native file system implementation for Azure,
+make the following edits to your catalog configuration:
+
+1. Add the `fs.native-azure.enabled=true` catalog configuration property.
+2. Configure the `azure.auth-type` catalog configuration property.
+3. Refer to the following table to rename your existing legacy catalog
+   configuration properties to the corresponding native configuration
+   properties. Supported configuration values are identical unless otherwise
+   noted.
+
+  :::{list-table}
+  :widths: 35, 35, 65
+  :header-rows: 1
+   * - Legacy property
+     - Native property
+     - Notes
+   * - `hive.azure.abfs-access-key`
+     - `azure.access-key`
+     -
+   * - `hive.azure.abfs.oauth.endpoint`
+     - `azure.oauth.endpoint`
+     - Also see `azure.oauth.tenant-id` in [](azure-oauth-authentication).
+   * - `hive.azure.abfs.oauth.client-id`
+     - `azure.oauth.client-id`
+     -
+   * - `hive.azure.abfs.oauth.secret`
+     - `azure.oauth.secret`
+     -
+   * - `hive.azure.abfs.oauth2.passthrough`
+     - `azure.use-oauth-passthrough-token`
+     -
+  :::
+
+4. Remove the following legacy configuration properties if they exist in your
+   catalog configuration:
+
+      * `hive.azure.abfs-storage-account`
+      * `hive.azure.wasb-access-key`
+      * `hive.azure.wasb-storage-account`
+
+For more information, see the [](/object-storage/file-system-azure).
