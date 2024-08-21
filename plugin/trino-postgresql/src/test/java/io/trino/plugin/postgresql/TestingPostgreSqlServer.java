@@ -53,6 +53,8 @@ import static org.testcontainers.containers.PostgreSQLContainer.POSTGRESQL_PORT;
 public class TestingPostgreSqlServer
         implements AutoCloseable
 {
+    public static final String DEFAULT_IMAGE_NAME = "postgres:11";
+
     private static final String USER = "test";
     private static final String PASSWORD = "test";
     private static final String DATABASE = "tpch";
@@ -77,7 +79,7 @@ public class TestingPostgreSqlServer
     public TestingPostgreSqlServer(boolean shouldExposeFixedPorts)
     {
         // Use the oldest supported PostgreSQL version
-        this("postgres:11", shouldExposeFixedPorts);
+        this(DEFAULT_IMAGE_NAME, shouldExposeFixedPorts);
     }
 
     public TestingPostgreSqlServer(String dockerImageName, boolean shouldExposeFixedPorts)
