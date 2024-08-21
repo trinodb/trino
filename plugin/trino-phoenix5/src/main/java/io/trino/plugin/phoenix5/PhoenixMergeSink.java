@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcPageSink;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.Page;
@@ -50,8 +51,7 @@ import static org.apache.phoenix.util.SchemaUtil.getEscapedArgument;
 public class PhoenixMergeSink
         implements ConnectorMergeSink
 {
-    private final String schemaName;
-    private final String tableName;
+    private final RemoteTableName remoteTableName;
     private final boolean hasRowKey;
     private final int columnCount;
     private final List<String> mergeRowIdFieldNames;
@@ -64,8 +64,7 @@ public class PhoenixMergeSink
     {
         PhoenixMergeTableHandle phoenixMergeTableHandle = (PhoenixMergeTableHandle) mergeHandle;
         PhoenixOutputTableHandle phoenixOutputTableHandle = phoenixMergeTableHandle.phoenixOutputTableHandle();
-        this.schemaName = phoenixOutputTableHandle.getSchemaName();
-        this.tableName = phoenixOutputTableHandle.getTableName();
+        this.remoteTableName = phoenixOutputTableHandle.getRemoteTableName();
         this.hasRowKey = phoenixOutputTableHandle.rowkeyColumn().isPresent();
         this.columnCount = phoenixOutputTableHandle.getColumnNames().size();
 
@@ -101,8 +100,7 @@ public class PhoenixMergeSink
         }
 
         PhoenixOutputTableHandle updateOutputTableHandle = new PhoenixOutputTableHandle(
-                schemaName,
-                tableName,
+                remoteTableName,
                 columnNamesBuilder.build(),
                 columnTypesBuilder.build(),
                 Optional.empty(),
@@ -119,8 +117,7 @@ public class PhoenixMergeSink
     {
         checkArgument(mergeRowIdFieldNames.size() == mergeRowIdFieldTypes.size(), "Wrong merge row column, columns and types size not match");
         JdbcOutputTableHandle deleteOutputTableHandle = new PhoenixOutputTableHandle(
-                schemaName,
-                tableName,
+                remoteTableName,
                 mergeRowIdFieldNames,
                 mergeRowIdFieldTypes,
                 Optional.empty(),
@@ -146,7 +143,7 @@ public class PhoenixMergeSink
             checkArgument(!conjuncts.isEmpty(), "Merge row id fields should not empty");
             String whereCondition = Joiner.on(" AND ").join(conjuncts);
 
-            return format("DELETE FROM %s.%s WHERE %s", schemaName, tableName, whereCondition);
+            return format("DELETE FROM %s.%s WHERE %s", remoteTableName.getSchemaName().orElseThrow(), remoteTableName.getTableName(), whereCondition);
         }
     }
 

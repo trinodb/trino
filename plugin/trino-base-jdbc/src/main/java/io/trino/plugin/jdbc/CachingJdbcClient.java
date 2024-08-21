@@ -388,7 +388,7 @@ public class CachingJdbcClient
     public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
         delegate.commitCreateTable(session, handle, pageSinkIds);
-        invalidateTableCaches(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+        invalidateTableCaches(handle.getRemoteTableName().getSchemaTableName());
     }
 
     @Override
@@ -401,7 +401,7 @@ public class CachingJdbcClient
     public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
     {
         delegate.finishInsertTable(session, handle, pageSinkIds);
-        onDataChanged(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+        onDataChanged(handle.getRemoteTableName().getSchemaTableName());
     }
 
     @Override

@@ -17,6 +17,7 @@ package io.trino.plugin.jdbc;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -56,6 +57,11 @@ public final class RemoteTableName
     public String getTableName()
     {
         return tableName;
+    }
+
+    public SchemaTableName getSchemaTableName()
+    {
+        return new SchemaTableName(schemaName.orElseThrow(), tableName);
     }
 
     @Override

@@ -238,8 +238,7 @@ public class PhoenixMetadata
 
         RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         return new PhoenixOutputTableHandle(
-                remoteTableName.getSchemaName().orElse(null),
-                remoteTableName.getTableName(),
+                remoteTableName,
                 columnHandles.stream().map(JdbcColumnHandle::getColumnName).collect(toImmutableList()),
                 columnHandles.stream().map(JdbcColumnHandle::getColumnType).collect(toImmutableList()),
                 Optional.of(columnHandles.stream().map(JdbcColumnHandle::getJdbcTypeHandle).collect(toImmutableList())),

@@ -931,9 +931,7 @@ public abstract class BaseJdbcClient
         }
 
         return new JdbcOutputTableHandle(
-                catalog,
-                remoteSchema,
-                remoteTable,
+                new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), remoteTable),
                 columnNames.build(),
                 columnTypes.build(),
                 Optional.empty(),
@@ -1015,9 +1013,7 @@ public abstract class BaseJdbcClient
 
         if (isNonTransactionalInsert(session)) {
             return new JdbcOutputTableHandle(
-                    catalog,
-                    remoteSchema,
-                    remoteTable,
+                    new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), remoteTable),
                     columnNames.build(),
                     columnTypes.build(),
                     Optional.of(jdbcColumnTypes.build()),
@@ -1039,9 +1035,7 @@ public abstract class BaseJdbcClient
         }
 
         return new JdbcOutputTableHandle(
-                catalog,
-                remoteSchema,
-                remoteTable,
+                new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), remoteTable),
                 columnNames.build(),
                 columnTypes.build(),
                 Optional.of(jdbcColumnTypes.build()),
@@ -1075,10 +1069,10 @@ public abstract class BaseJdbcClient
         else {
             renameTable(
                     session,
-                    handle.getCatalogName(),
-                    handle.getSchemaName(),
+                    handle.getRemoteTableName().getCatalogName().orElse(null),
+                    handle.getRemoteTableName().getSchemaName().orElse(null),
                     handle.getTemporaryTableName().orElseThrow(() -> new IllegalStateException("Temporary table name missing")),
-                    new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+                    handle.getRemoteTableName().getSchemaTableName());
         }
     }
 
@@ -1123,8 +1117,8 @@ public abstract class BaseJdbcClient
         verify(handle.getPageSinkIdColumnName().isPresent(), "Output table handle's pageSinkIdColumn is empty");
 
         RemoteTableName pageSinkTable = new RemoteTableName(
-                Optional.ofNullable(handle.getCatalogName()),
-                Optional.ofNullable(handle.getSchemaName()),
+                handle.getRemoteTableName().getCatalogName(),
+                handle.getRemoteTableName().getSchemaName(),
                 generateTemporaryTableName(session));
 
         int maxBatchSize = getWriteBatchSize(session);
@@ -1173,13 +1167,9 @@ public abstract class BaseJdbcClient
         }
 
         RemoteTableName temporaryTable = new RemoteTableName(
-                Optional.ofNullable(handle.getCatalogName()),
-                Optional.ofNullable(handle.getSchemaName()),
+                handle.getRemoteTableName().getCatalogName(),
+                handle.getRemoteTableName().getSchemaName(),
                 handle.getTemporaryTableName().orElseThrow());
-        RemoteTableName targetTable = new RemoteTableName(
-                Optional.ofNullable(handle.getCatalogName()),
-                Optional.ofNullable(handle.getSchemaName()),
-                handle.getTableName());
 
         // We conditionally create more than the one table, so keep a list of the tables that need to be dropped.
         Closer closer = Closer.create();
@@ -1192,7 +1182,7 @@ public abstract class BaseJdbcClient
                     .collect(joining(", "));
 
             String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s temp_table",
-                    postProcessInsertTableNameClause(session, quoted(targetTable)),
+                    postProcessInsertTableNameClause(session, quoted(handle.getRemoteTableName())),
                     columns,
                     columns,
                     quoted(temporaryTable));
@@ -1358,8 +1348,8 @@ public abstract class BaseJdbcClient
         if (handle.getTemporaryTableName().isPresent()) {
             dropTable(session,
                     new RemoteTableName(
-                            Optional.ofNullable(handle.getCatalogName()),
-                            Optional.ofNullable(handle.getSchemaName()),
+                            handle.getRemoteTableName().getCatalogName(),
+                            handle.getRemoteTableName().getSchemaName(),
                             handle.getTemporaryTableName().get()),
                     true);
         }
@@ -1383,7 +1373,10 @@ public abstract class BaseJdbcClient
         checkArgument(handle.getColumnNames().size() == columnWriters.size(), "handle and columnWriters mismatch: %s, %s", handle, columnWriters);
         return format(
                 "INSERT INTO %s (%s%s) VALUES (%s%s)",
-                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName().orElseGet(handle::getTableName)),
+                quoted(
+                        handle.getRemoteTableName().getCatalogName().orElse(null),
+                        handle.getRemoteTableName().getSchemaName().orElse(null),
+                        handle.getTemporaryTableName().orElseGet(() -> handle.getRemoteTableName().getTableName())),
                 handle.getColumnNames().stream()
                         .map(this::quoted)
                         .collect(joining(", ")),
