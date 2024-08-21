@@ -18,6 +18,7 @@ admin/graceful-shutdown
 admin/fault-tolerant-execution
 ```
 
+(admin-event-listeners)=
 ## Event listeners
 
 ```{toctree}
