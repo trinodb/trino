@@ -29,9 +29,7 @@ public class TestJdbcOutputTableHandle
     public void testJsonRoundTrip()
     {
         JdbcOutputTableHandle handleForCreate = new JdbcOutputTableHandle(
-                "catalog",
-                "schema",
-                "table",
+                new RemoteTableName(Optional.of("catalog"), Optional.of("schema"), "table"),
                 ImmutableList.of("abc", "xyz"),
                 ImmutableList.of(VARCHAR, VARCHAR),
                 Optional.empty(),
@@ -41,9 +39,7 @@ public class TestJdbcOutputTableHandle
         assertJsonRoundTrip(OUTPUT_TABLE_CODEC, handleForCreate);
 
         JdbcOutputTableHandle handleForInsert = new JdbcOutputTableHandle(
-                "catalog",
-                "schema",
-                "table",
+                new RemoteTableName(Optional.of("catalog"), Optional.of("schema"), "table"),
                 ImmutableList.of("abc", "xyz"),
                 ImmutableList.of(VARCHAR, VARCHAR),
                 Optional.of(ImmutableList.of(JDBC_VARCHAR, JDBC_VARCHAR)),

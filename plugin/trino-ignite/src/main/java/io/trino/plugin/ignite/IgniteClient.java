@@ -37,6 +37,7 @@ import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
@@ -415,8 +416,7 @@ public class IgniteClient
             execute(session, connection, sql);
 
             return new IgniteOutputTableHandle(
-                    schemaTableName.getSchemaName(),
-                    schemaTableName.getTableName(),
+                    new RemoteTableName(Optional.empty(), Optional.of(schemaTableName.getSchemaName()), schemaTableName.getTableName()),
                     columnNames,
                     columnTypes.build(),
                     Optional.empty(),
@@ -568,7 +568,7 @@ public class IgniteClient
         }
         return format(
                 "INSERT INTO %s (%s) VALUES (%s)",
-                quoted(null, handle.getSchemaName(), handle.getTableName()),
+                quoted(handle.getRemoteTableName()),
                 columns,
                 params);
     }

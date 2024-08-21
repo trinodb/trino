@@ -19,22 +19,18 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.type.Type;
-import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcOutputTableHandle
         implements ConnectorOutputTableHandle, ConnectorInsertTableHandle
 {
-    private final String catalogName;
-    private final String schemaName;
-    private final String tableName;
+    private final RemoteTableName remoteTableName;
     private final List<String> columnNames;
     private final List<Type> columnTypes;
     private final Optional<List<JdbcTypeHandle>> jdbcColumnTypes;
@@ -43,18 +39,14 @@ public class JdbcOutputTableHandle
 
     @JsonCreator
     public JdbcOutputTableHandle(
-            @JsonProperty("catalogName") @Nullable String catalogName,
-            @JsonProperty("schemaName") @Nullable String schemaName,
-            @JsonProperty("tableName") String tableName,
+            @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("columnTypes") List<Type> columnTypes,
             @JsonProperty("jdbcColumnTypes") Optional<List<JdbcTypeHandle>> jdbcColumnTypes,
             @JsonProperty("temporaryTableName") Optional<String> temporaryTableName,
             @JsonProperty("pageSinkIdColumnName") Optional<String> pageSinkIdColumnName)
     {
-        this.catalogName = catalogName;
-        this.schemaName = schemaName;
-        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
         this.temporaryTableName = requireNonNull(temporaryTableName, "temporaryTableName is null");
 
         requireNonNull(columnNames, "columnNames is null");
@@ -68,23 +60,9 @@ public class JdbcOutputTableHandle
     }
 
     @JsonProperty
-    @Nullable
-    public String getCatalogName()
+    public RemoteTableName getRemoteTableName()
     {
-        return catalogName;
-    }
-
-    @JsonProperty
-    @Nullable
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
+        return remoteTableName;
     }
 
     @JsonProperty
@@ -120,16 +98,14 @@ public class JdbcOutputTableHandle
     @Override
     public String toString()
     {
-        return format("jdbc:%s.%s.%s", catalogName, schemaName, tableName);
+        return "jdbc:%s".formatted(remoteTableName);
     }
 
     @Override
     public int hashCode()
     {
         return Objects.hash(
-                catalogName,
-                schemaName,
-                tableName,
+                remoteTableName,
                 columnNames,
                 columnTypes,
                 jdbcColumnTypes,
@@ -147,9 +123,7 @@ public class JdbcOutputTableHandle
             return false;
         }
         JdbcOutputTableHandle other = (JdbcOutputTableHandle) obj;
-        return Objects.equals(this.catalogName, other.catalogName) &&
-                Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName) &&
+        return Objects.equals(this.remoteTableName, other.remoteTableName) &&
                 Objects.equals(this.columnNames, other.columnNames) &&
                 Objects.equals(this.columnTypes, other.columnTypes) &&
                 Objects.equals(this.jdbcColumnTypes, other.jdbcColumnTypes) &&

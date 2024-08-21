@@ -104,8 +104,7 @@ public class IgniteMetadata
 
         RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         return new IgniteOutputTableHandle(
-                remoteTableName.getSchemaName().orElse(null),
-                remoteTableName.getTableName(),
+                remoteTableName,
                 columnNames.build(),
                 columnTypes.build(),
                 Optional.of(columnJdbcTypeHandles.build()),

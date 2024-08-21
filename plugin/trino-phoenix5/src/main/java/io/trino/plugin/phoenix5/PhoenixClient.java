@@ -410,13 +410,13 @@ public class PhoenixClient
         if (outputHandle.rowkeyColumn().isPresent()) {
             String nextId = format(
                     "NEXT VALUE FOR %s, ",
-                    quoted(null, handle.getSchemaName(), handle.getTableName() + "_sequence"));
+                    quoted(null, handle.getRemoteTableName().getSchemaName().orElse(null), handle.getRemoteTableName().getTableName() + "_sequence"));
             params = nextId + params;
             columns = outputHandle.rowkeyColumn().get() + ", " + columns;
         }
         return format(
                 "UPSERT INTO %s (%s) VALUES (%s)",
-                quoted(null, handle.getSchemaName(), handle.getTableName()),
+                quoted(handle.getRemoteTableName()),
                 columns,
                 params);
     }
@@ -696,8 +696,7 @@ public class PhoenixClient
             execute(session, sql);
 
             return new PhoenixOutputTableHandle(
-                    schema,
-                    table,
+                    new RemoteTableName(Optional.empty(), Optional.ofNullable(schema), table),
                     columnNames.build(),
                     columnTypes.build(),
                     Optional.empty(),
