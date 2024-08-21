@@ -34,3 +34,7 @@ product-test-reports
 **/dependency-reduced-pom.xml
 core/trino-web-ui/src/main/resources/webapp/dist/
 .node
+
+# Local plugins added for testing should be excluded
+testing/trino-server-dev/etc/plugin/*
+!testing/trino-server-dev/etc/plugin/README.md

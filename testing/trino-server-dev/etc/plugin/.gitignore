@@ -1,0 +1,5 @@
+# Keep this placeholder directory as a place to add plugins.
+# Ignore everything in this directory ...
+*
+# ... except this file
+!.gitignore
