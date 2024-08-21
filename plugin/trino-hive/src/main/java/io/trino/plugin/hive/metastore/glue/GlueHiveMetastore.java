@@ -430,6 +430,9 @@ public class GlueHiveMetastore
             // Database might have been deleted concurrently.
             return ImmutableList.of();
         }
+        catch (SdkException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
     }
 
     @Override
