@@ -441,7 +441,6 @@ public class TestJsonOperators
                 .binding("a", "cast(null as varbinary)"))
                 .isNull(JSON);
 
-
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "128"))
                 .hasType(JSON)
@@ -463,7 +462,7 @@ public class TestJsonOperators
                 .isEqualTo("127");
 
         assertThat(assertions.expression("cast(a as JSON)")
-                .binding("a", "VARBINARY X'4F'"))
+                .binding("a", "VARBINARY '4F'"))
                 .hasType(JSON)
                 .isEqualTo("Tw==");
     }
