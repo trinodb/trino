@@ -246,6 +246,7 @@ public class DamengClient
             case Types.BIGINT:
                 return Optional.of(bigintColumnMapping());
 
+            case Types.FLOAT:
             case Types.REAL:
                 // Disable pushdown because floating-point values are approximate and not stored as exact values,
                 // attempts to treat them as exact in comparisons may lead to problems
