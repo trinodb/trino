@@ -25,6 +25,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
 import org.assertj.core.util.Files;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Isolated;
@@ -180,6 +181,7 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
 
     @Test
     @Override
+    @Disabled("Disable as register table is broken with S3 in Polaris. More info at https://github.com/trinodb/trino/pull/23099")
     public void testRegisterTableWithTrailingSpaceInLocation()
     {
         assertThatThrownBy(super::testRegisterTableWithTrailingSpaceInLocation)
