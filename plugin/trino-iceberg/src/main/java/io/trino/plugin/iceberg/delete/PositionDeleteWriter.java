@@ -32,8 +32,8 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.io.LocationProvider;
 
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -54,8 +54,6 @@ public class PositionDeleteWriter
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final IcebergFileWriter writer;
     private final IcebergFileFormat fileFormat;
-
-    private boolean writtenData;
 
     public PositionDeleteWriter(
             String dataFilePath,
@@ -91,35 +89,24 @@ public class PositionDeleteWriter
         blocks[0] = RunLengthEncodedBlock.create(nativeValueToBlock(VARCHAR, utf8Slice(dataFilePath)), page.getPositionCount());
         blocks[1] = page.getBlock(0);
         writer.appendRows(new Page(blocks));
-
-        writtenData = true;
     }
 
     public Collection<Slice> finish()
     {
-        Collection<Slice> commitTasks = new ArrayList<>();
-        if (writtenData) {
-            writer.commit();
-            CommitTaskData task = new CommitTaskData(
-                    outputPath,
-                    fileFormat,
-                    writer.getWrittenBytes(),
-                    new MetricsWrapper(writer.getFileMetrics().metrics()),
-                    PartitionSpecParser.toJson(partitionSpec),
-                    partition.map(PartitionData::toJson),
-                    FileContent.POSITION_DELETES,
-                    Optional.of(dataFilePath),
-                    writer.getFileMetrics().splitOffsets());
-            Long recordCount = task.metrics().recordCount();
-            if (recordCount != null && recordCount > 0) {
-                commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
-            }
-        }
-        else {
-            // clean up the empty delete file
-            writer.rollback();
-        }
-        return commitTasks;
+        writer.commit();
+
+        CommitTaskData task = new CommitTaskData(
+                outputPath,
+                fileFormat,
+                writer.getWrittenBytes(),
+                new MetricsWrapper(writer.getFileMetrics().metrics()),
+                PartitionSpecParser.toJson(partitionSpec),
+                partition.map(PartitionData::toJson),
+                FileContent.POSITION_DELETES,
+                Optional.of(dataFilePath),
+                writer.getFileMetrics().splitOffsets());
+
+        return List.of(wrappedBuffer(jsonCodec.toJsonBytes(task)));
     }
 
     public void abort()
