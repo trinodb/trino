@@ -24,6 +24,7 @@ import io.trino.plugin.iceberg.IcebergFileWriterFactory;
 import io.trino.plugin.iceberg.MetricsWrapper;
 import io.trino.plugin.iceberg.PartitionData;
 import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
@@ -31,16 +32,17 @@ import org.apache.iceberg.FileContent;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.io.LocationProvider;
+import org.roaringbitmap.longlong.ImmutableLongBitmapDataProvider;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -48,6 +50,7 @@ import static java.util.UUID.randomUUID;
 public class PositionDeleteWriter
 {
     private final String dataFilePath;
+    private final Block dataFilePathBlock;
     private final PartitionSpec partitionSpec;
     private final Optional<PartitionData> partition;
     private final String outputPath;
@@ -68,6 +71,7 @@ public class PositionDeleteWriter
             Map<String, String> storageProperties)
     {
         this.dataFilePath = requireNonNull(dataFilePath, "dataFilePath is null");
+        this.dataFilePathBlock = nativeValueToBlock(VARCHAR, utf8Slice(dataFilePath));
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
         this.partition = requireNonNull(partition, "partition is null");
@@ -82,18 +86,9 @@ public class PositionDeleteWriter
         this.writer = fileWriterFactory.createPositionDeleteWriter(fileSystem, Location.of(outputPath), session, fileFormat, storageProperties);
     }
 
-    public void appendPage(Page page)
+    public Collection<Slice> write(ImmutableLongBitmapDataProvider rowsToDelete)
     {
-        checkArgument(page.getChannelCount() == 1, "IcebergPositionDeletePageSink expected a Page with only one channel, but got " + page.getChannelCount());
-
-        Block[] blocks = new Block[2];
-        blocks[0] = RunLengthEncodedBlock.create(nativeValueToBlock(VARCHAR, utf8Slice(dataFilePath)), page.getPositionCount());
-        blocks[1] = page.getBlock(0);
-        writer.appendRows(new Page(blocks));
-    }
-
-    public Collection<Slice> finish()
-    {
+        writeDeletes(rowsToDelete);
         writer.commit();
 
         CommitTaskData task = new CommitTaskData(
@@ -113,5 +108,30 @@ public class PositionDeleteWriter
     public void abort()
     {
         writer.rollback();
+    }
+
+    private void writeDeletes(ImmutableLongBitmapDataProvider rowsToDelete)
+    {
+        PageBuilder pageBuilder = new PageBuilder(List.of(BIGINT));
+
+        rowsToDelete.forEach(rowPosition -> {
+            pageBuilder.declarePosition();
+            BIGINT.writeLong(pageBuilder.getBlockBuilder(0), rowPosition);
+            if (pageBuilder.isFull()) {
+                writePage(pageBuilder.build());
+                pageBuilder.reset();
+            }
+        });
+
+        if (!pageBuilder.isEmpty()) {
+            writePage(pageBuilder.build());
+        }
+    }
+
+    private void writePage(Page page)
+    {
+        writer.appendRows(new Page(
+                RunLengthEncodedBlock.create(dataFilePathBlock, page.getPositionCount()),
+                page.getBlock(0)));
     }
 }
