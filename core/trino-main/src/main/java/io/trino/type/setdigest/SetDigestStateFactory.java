@@ -66,11 +66,11 @@ public class SetDigestStateFactory
         @Override
         public void setDigest(SetDigest value)
         {
-            if (getDigest() != null) {
-                size -= getDigest().estimatedInMemorySize();
-            }
+            SetDigest previous = digests.getAndSet(groupId, value);
             size += value.estimatedInMemorySize();
-            digests.set(groupId, value);
+            if (previous != null) {
+                size -= previous.estimatedInMemorySize();
+            }
         }
 
         @Override
