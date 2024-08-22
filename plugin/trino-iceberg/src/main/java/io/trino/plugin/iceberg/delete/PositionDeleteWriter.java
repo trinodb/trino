@@ -26,7 +26,6 @@ import io.trino.plugin.iceberg.PartitionData;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.PartitionSpec;
@@ -37,7 +36,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -46,10 +44,8 @@ import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 
-public class IcebergPositionDeletePageSink
-        implements ConnectorPageSink
+public class PositionDeleteWriter
 {
     private final String dataFilePath;
     private final PartitionSpec partitionSpec;
@@ -59,10 +55,9 @@ public class IcebergPositionDeletePageSink
     private final IcebergFileWriter writer;
     private final IcebergFileFormat fileFormat;
 
-    private long validationCpuNanos;
     private boolean writtenData;
 
-    public IcebergPositionDeletePageSink(
+    public PositionDeleteWriter(
             String dataFilePath,
             PartitionSpec partitionSpec,
             Optional<PartitionData> partition,
@@ -88,26 +83,7 @@ public class IcebergPositionDeletePageSink
         this.writer = fileWriterFactory.createPositionDeleteWriter(fileSystem, Location.of(outputPath), session, fileFormat, storageProperties);
     }
 
-    @Override
-    public long getCompletedBytes()
-    {
-        return writer.getWrittenBytes();
-    }
-
-    @Override
-    public long getMemoryUsage()
-    {
-        return writer.getMemoryUsage();
-    }
-
-    @Override
-    public long getValidationCpuNanos()
-    {
-        return validationCpuNanos;
-    }
-
-    @Override
-    public CompletableFuture<?> appendPage(Page page)
+    public void appendPage(Page page)
     {
         checkArgument(page.getChannelCount() == 1, "IcebergPositionDeletePageSink expected a Page with only one channel, but got " + page.getChannelCount());
 
@@ -117,11 +93,9 @@ public class IcebergPositionDeletePageSink
         writer.appendRows(new Page(blocks));
 
         writtenData = true;
-        return NOT_BLOCKED;
     }
 
-    @Override
-    public CompletableFuture<Collection<Slice>> finish()
+    public Collection<Slice> finish()
     {
         Collection<Slice> commitTasks = new ArrayList<>();
         if (writtenData) {
@@ -140,16 +114,14 @@ public class IcebergPositionDeletePageSink
             if (recordCount != null && recordCount > 0) {
                 commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
             }
-            validationCpuNanos = writer.getValidationCpuNanos();
         }
         else {
             // clean up the empty delete file
             writer.rollback();
         }
-        return completedFuture(commitTasks);
+        return commitTasks;
     }
 
-    @Override
     public void abort()
     {
         writer.rollback();
