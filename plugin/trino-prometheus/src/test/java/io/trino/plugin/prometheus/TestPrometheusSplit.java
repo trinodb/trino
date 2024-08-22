@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
@@ -26,6 +27,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.testing.TestingConnectorSession;
 import org.apache.http.NameValuePair;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Disabled;
@@ -124,9 +126,13 @@ public class TestPrometheusSplit
         PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
         PrometheusTable table = client.getTable("default", "up now");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, fixedClockAt(now), config);
+        PrometheusSessionProperties sessionProperties = new PrometheusSessionProperties(config);
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(sessionProperties.getSessionProperties())
+                .build();
         ConnectorSplitSource splits = splitManager.getSplits(
                 null,
-                null,
+                session,
                 newTableHandle("default", table.name()),
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
@@ -148,9 +154,13 @@ public class TestPrometheusSplit
         PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
         PrometheusTable table = client.getTable("default", "up");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, fixedClockAt(now), config);
+        PrometheusSessionProperties sessionProperties = new PrometheusSessionProperties(config);
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(sessionProperties.getSessionProperties())
+                .build();
         ConnectorSplitSource splits = splitManager.getSplits(
                 null,
-                null,
+                session,
                 newTableHandle("default", table.name()),
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
@@ -172,9 +182,13 @@ public class TestPrometheusSplit
         PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
         PrometheusTable table = client.getTable("default", "up");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, fixedClockAt(now), config);
+        PrometheusSessionProperties sessionProperties = new PrometheusSessionProperties(config);
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(sessionProperties.getSessionProperties())
+                .build();
         ConnectorSplitSource splitsMaybe = splitManager.getSplits(
                 null,
-                null,
+                session,
                 newTableHandle("default", table.name()),
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
@@ -197,9 +211,13 @@ public class TestPrometheusSplit
         PrometheusClient client = new PrometheusClient(config, METRIC_CODEC, TESTING_TYPE_MANAGER);
         PrometheusTable table = client.getTable("default", "up");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, fixedClockAt(now), config);
+        PrometheusSessionProperties sessionProperties = new PrometheusSessionProperties(config);
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(sessionProperties.getSessionProperties())
+                .build();
         ConnectorSplitSource splits = splitManager.getSplits(
                 null,
-                null,
+                session,
                 newTableHandle("default", table.name()),
                 (DynamicFilter) null,
                 Constraint.alwaysTrue());
