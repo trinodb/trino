@@ -13,14 +13,12 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.delete.PositionDeleteWriter;
 import io.trino.spi.Page;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.connector.ConnectorMergeSink;
@@ -171,32 +169,12 @@ public class IcebergMergeSink
     private static Collection<Slice> writePositionDeletes(PositionDeleteWriter writer, ImmutableLongBitmapDataProvider rowsToDelete)
     {
         try {
-            return doWritePositionDeletes(writer, rowsToDelete);
+            return writer.write(rowsToDelete);
         }
         catch (Throwable t) {
             closeAllSuppress(t, writer::abort);
             throw t;
         }
-    }
-
-    private static Collection<Slice> doWritePositionDeletes(PositionDeleteWriter writer, ImmutableLongBitmapDataProvider rowsToDelete)
-    {
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(BIGINT));
-
-        rowsToDelete.forEach(rowPosition -> {
-            BIGINT.writeLong(pageBuilder.getBlockBuilder(0), rowPosition);
-            pageBuilder.declarePosition();
-            if (pageBuilder.isFull()) {
-                writer.appendPage(pageBuilder.build());
-                pageBuilder.reset();
-            }
-        });
-
-        if (!pageBuilder.isEmpty()) {
-            writer.appendPage(pageBuilder.build());
-        }
-
-        return writer.finish();
     }
 
     private static class FileDeletion
