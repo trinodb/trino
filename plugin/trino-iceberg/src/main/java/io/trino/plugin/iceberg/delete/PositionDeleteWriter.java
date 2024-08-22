@@ -72,8 +72,9 @@ public class PositionDeleteWriter
         this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
         this.partition = requireNonNull(partition, "partition is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
-        // prepend query id to a file name so we can determine which files were written by which query. This is needed for opportunistic cleanup of extra files
-        // which may be present for successfully completing query in presence of failure recovery mechanisms.
+        // Prepend query ID to the file name, allowing us to determine the files written by a query.
+        // This is necessary for opportunistic cleanup of extra files, which may be present for
+        // successfully completed queries in the presence of failure recovery mechanisms.
         String fileName = fileFormat.toIceberg().addExtension(session.getQueryId() + "-" + randomUUID());
         this.outputPath = partition
                 .map(partitionData -> locationProvider.newDataLocation(partitionSpec, partitionData, fileName))
