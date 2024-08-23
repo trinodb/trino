@@ -14,6 +14,7 @@
 package io.trino.server.testing;
 
 import com.google.inject.Key;
+import io.trino.connector.CatalogStoreManager;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.CoordinatorDynamicCatalogManager;
 import io.trino.connector.FileCatalogStore;
@@ -39,6 +40,8 @@ final class TestTestingTrinoServer
             assertThat(server.getInstance(Key.get(CatalogManager.class)))
                     .isInstanceOf(CoordinatorDynamicCatalogManager.class);
             assertThat(server.getInstance(Key.get(CatalogStore.class)))
+                    .isInstanceOf(CatalogStoreManager.class)
+                    .extracting(catalogStore -> ((CatalogStoreManager) catalogStore).getCatalogStore())
                     .isInstanceOf(InMemoryCatalogStore.class);
         }
     }
@@ -71,6 +74,8 @@ final class TestTestingTrinoServer
     {
         try (TestingTrinoServer server = TestingTrinoServer.builder().build()) {
             assertThat(server.getInstance(Key.get(CatalogStore.class)))
+                    .isInstanceOf(CatalogStoreManager.class)
+                    .extracting(catalogStore -> ((CatalogStoreManager) catalogStore).getCatalogStore())
                     .isInstanceOf(InMemoryCatalogStore.class);
         }
     }
