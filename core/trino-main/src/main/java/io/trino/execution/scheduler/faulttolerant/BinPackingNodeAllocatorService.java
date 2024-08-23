@@ -121,7 +121,7 @@ public class BinPackingNodeAllocatorService
             MemoryManagerConfig memoryManagerConfig)
     {
         this(nodeManager,
-                clusterMemoryManager::getWorkerMemoryInfo,
+                clusterMemoryManager::getAllNodesMemoryInfo,
                 nodeSchedulerConfig.isIncludeCoordinator(),
                 Duration.ofMillis(nodeSchedulerConfig.getAllowedNoMatchingNodePeriod().toMillis()),
                 nodeSchedulerConfig.getOptimizedLocalScheduling(),

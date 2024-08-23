@@ -485,13 +485,23 @@ public class ClusterMemoryManager
         }
     }
 
-    public synchronized Map<String, Optional<MemoryInfo>> getWorkerMemoryInfo()
+    public synchronized Map<String, Optional<MemoryInfo>> getWorkersMemoryInfo()
     {
         Map<String, Optional<MemoryInfo>> memoryInfo = new HashMap<>();
         for (Entry<String, RemoteNodeMemory> entry : nodes.entrySet()) {
             if (!includeCoordinator && entry.getValue().getNode().isCoordinator()) {
                 continue;
             }
+            String workerId = entry.getKey();
+            memoryInfo.put(workerId, entry.getValue().getInfo());
+        }
+        return memoryInfo;
+    }
+
+    public synchronized Map<String, Optional<MemoryInfo>> getAllNodesMemoryInfo()
+    {
+        Map<String, Optional<MemoryInfo>> memoryInfo = new HashMap<>();
+        for (Entry<String, RemoteNodeMemory> entry : nodes.entrySet()) {
             String workerId = entry.getKey();
             memoryInfo.put(workerId, entry.getValue().getInfo());
         }
