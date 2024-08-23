@@ -88,6 +88,8 @@ final class TestTestingTrinoServer
                 .addProperty("catalog.store", "file")
                 .build()) {
             assertThat(server.getInstance(Key.get(CatalogStore.class)))
+                    .isInstanceOf(CatalogStoreManager.class)
+                    .extracting(catalogStore -> ((CatalogStoreManager) catalogStore).getCatalogStore())
                     .isInstanceOf(FileCatalogStore.class);
         }
     }

@@ -55,6 +55,7 @@ public class CatalogStoreManager
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
         this.catalogStoreKind = requireNonNull(catalogStoreConfig.getCatalogStoreKind(), "catalogStoreKind is null");
         addCatalogStoreFactory(new InMemoryCatalogStoreFactory());
+        addCatalogStoreFactory(new FileCatalogStoreFactory());
     }
 
     public void addCatalogStoreFactory(CatalogStoreFactory catalogStoreFactory)
