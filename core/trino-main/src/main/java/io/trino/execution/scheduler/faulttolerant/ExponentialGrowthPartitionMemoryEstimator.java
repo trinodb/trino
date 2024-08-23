@@ -71,7 +71,7 @@ public class ExponentialGrowthPartitionMemoryEstimator
                 MemoryManagerConfig memoryManagerConfig)
         {
             this(
-                    clusterMemoryManager::getWorkerMemoryInfo,
+                    clusterMemoryManager::getWorkersMemoryInfo,
                     memoryManagerConfig.isFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled());
         }
 
