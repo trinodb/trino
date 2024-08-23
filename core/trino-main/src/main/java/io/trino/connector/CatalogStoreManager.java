@@ -54,6 +54,7 @@ public class CatalogStoreManager
     {
         this.secretsResolver = requireNonNull(secretsResolver, "secretsResolver is null");
         this.catalogStoreKind = requireNonNull(catalogStoreConfig.getCatalogStoreKind(), "catalogStoreKind is null");
+        addCatalogStoreFactory(new InMemoryCatalogStoreFactory());
     }
 
     public void addCatalogStoreFactory(CatalogStoreFactory catalogStoreFactory)
@@ -139,7 +140,8 @@ public class CatalogStoreManager
         getCatalogStore().removeCatalog(catalogName);
     }
 
-    private CatalogStore getCatalogStore()
+    @VisibleForTesting
+    public CatalogStore getCatalogStore()
     {
         return configuredCatalogStore.get().orElseThrow(() -> new IllegalStateException("Catalog store is not configured"));
     }
