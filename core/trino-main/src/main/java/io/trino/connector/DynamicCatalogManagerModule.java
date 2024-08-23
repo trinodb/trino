@@ -22,8 +22,6 @@ import io.trino.metadata.CatalogManager;
 import io.trino.server.ServerConfig;
 import io.trino.spi.catalog.CatalogStore;
 
-import java.util.Locale;
-
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class DynamicCatalogManagerModule
@@ -34,17 +32,9 @@ public class DynamicCatalogManagerModule
     {
         if (buildConfigObject(ServerConfig.class).isCoordinator()) {
             binder.bind(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
-            CatalogStoreConfig config = buildConfigObject(CatalogStoreConfig.class);
-            switch (config.getCatalogStoreKind().toLowerCase(Locale.ROOT)) {
-                case "file" -> {
-                    configBinder(binder).bindConfig(FileCatalogStoreConfig.class);
-                    binder.bind(CatalogStore.class).to(FileCatalogStore.class).in(Scopes.SINGLETON);
-                }
-                default -> {
-                    binder.bind(CatalogStoreManager.class).in(Scopes.SINGLETON);
-                    binder.bind(CatalogStore.class).to(CatalogStoreManager.class).in(Scopes.SINGLETON);
-                }
-            }
+            configBinder(binder).bindConfig(CatalogStoreConfig.class);
+            binder.bind(CatalogStoreManager.class).in(Scopes.SINGLETON);
+            binder.bind(CatalogStore.class).to(CatalogStoreManager.class).in(Scopes.SINGLETON);
             binder.bind(ConnectorServicesProvider.class).to(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
             binder.bind(CatalogManager.class).to(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
             binder.bind(CoordinatorLazyRegister.class).asEagerSingleton();
