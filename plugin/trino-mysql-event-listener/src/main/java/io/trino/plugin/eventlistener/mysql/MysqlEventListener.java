@@ -137,6 +137,7 @@ public class MysqlEventListener
                 stats.getAnalysisTime().map(Duration::toMillis).orElse(0L),
                 stats.getPlanningTime().map(Duration::toMillis).orElse(0L),
                 stats.getPlanningCpuTime().map(Duration::toMillis).orElse(0L),
+                stats.getStartingTime().map(Duration::toMillis).orElse(0L),
                 stats.getExecutionTime().map(Duration::toMillis).orElse(0L),
                 stats.getInputBlockedTime().map(Duration::toMillis).orElse(0L),
                 stats.getFailedInputBlockedTime().map(Duration::toMillis).orElse(0L),
