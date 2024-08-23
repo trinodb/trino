@@ -266,6 +266,9 @@ public class TrinoStatement
                 currentResult.set(resultSet);
                 return true;
             }
+            else {
+                currentResult.set(resultSet);
+            }
 
             // this is an update, not a query
             while (resultSet.next()) {
