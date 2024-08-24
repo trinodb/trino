@@ -12,6 +12,8 @@ inputs:
     description: "Should any heap dump files (hprof) be uploaded"
     required: false
     default: false
+  slack-bot-token:
+    description: "Slack bot token used to send notifications to Slack"
 
 runs:
   using: composite
@@ -49,3 +51,14 @@ runs:
       path: |
         **/*.hprof
       retention-days: 14
+  - name: Slack notify failed tests
+    if: format('{0}', inputs.has-failed-tests) == 'true' && github.event.push.organization == 'trinodb' && github.ref_name == github.event.repository.default_branch
+    uses: slackapi/slack-github-action@v1.26.0
+    env:
+      SLACK_BOT_TOKEN: ${{ inputs.slack-bot-token }}
+    with:
+      # core-dev channel
+      channel-id: "C07ABNN828M"
+      slack-message: |
+        GitHub job result: ${{ job.status }}
+        ${{ github.event.pull_request.html_url || github.event.head_commit.url }}

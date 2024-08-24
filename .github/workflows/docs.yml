@@ -100,6 +100,7 @@ jobs:
         with:
           artifact-name: ${{ env.ARTIFACT_NAME }}
           has-failed-tests: ${{ steps.tests.outcome == 'failure' }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
         if: steps.cache.outputs.cache-hit != 'true'

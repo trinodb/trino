@@ -241,6 +241,7 @@ jobs:
         with:
           has-failed-tests: ${{ steps.tests-old.outcome == 'failure' || steps.tests-current.outcome == 'failure' }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
 
   hive-tests:
     runs-on: ubuntu-latest
@@ -295,6 +296,7 @@ jobs:
         with:
           has-failed-tests: ${{ steps.tests.outcome == 'failure' }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
       - name: Update PR check
         uses: ./.github/actions/update-check
         if: >-
@@ -387,6 +389,7 @@ jobs:
         with:
           has-failed-tests: ${{ steps.tests.outcome == 'failure' }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
 
   build-test-matrix:
     runs-on: ubuntu-latest
@@ -789,6 +792,7 @@ jobs:
               || steps.tests-snowflake.outcome == 'failure'
             }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
       - name: Update PR check
         uses: ./.github/actions/update-check
         if: >-
@@ -1081,6 +1085,7 @@ jobs:
           artifact-name: pt (${{ matrix.config }}, ${{ matrix.suite }}, ${{ matrix.jdk }})
           has-failed-tests: ${{ steps.tests.outcome == 'failure' }}
           upload-heap-dump: ${{ env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
       - name: Update PR check
         uses: ./.github/actions/update-check
         if: >-
