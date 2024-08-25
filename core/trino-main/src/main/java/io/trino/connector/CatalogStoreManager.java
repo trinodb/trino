@@ -27,6 +27,7 @@ import io.trino.spi.connector.ConnectorName;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -65,21 +66,24 @@ public class CatalogStoreManager
     }
 
     public void loadConfiguredCatalogStore()
-            throws IOException
     {
         loadConfiguredCatalogStore(catalogStoreKind, CATALOG_STORE_CONFIGURATION);
     }
 
     @VisibleForTesting
     void loadConfiguredCatalogStore(String catalogStoreName, File catalogStoreFile)
-            throws IOException
     {
         if (configuredCatalogStore.get().isPresent()) {
             return;
         }
         Map<String, String> properties = new HashMap<>();
         if (catalogStoreFile.exists()) {
-            properties = new HashMap<>(loadPropertiesFrom(catalogStoreFile.getPath()));
+            try {
+                properties = new HashMap<>(loadPropertiesFrom(catalogStoreFile.getPath()));
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException("Failed to read configuration file: " + catalogStoreFile, e);
+            }
         }
         setConfiguredCatalogStore(catalogStoreName, properties);
     }
