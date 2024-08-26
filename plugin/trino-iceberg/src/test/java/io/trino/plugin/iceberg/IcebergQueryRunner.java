@@ -481,10 +481,11 @@ public final class IcebergQueryRunner
         {
             Logger log = Logger.get(IcebergQueryRunnerWithTaskRetries.class);
 
-            Path exchangeManagerDirectory = createTempDirectory("exchange_manager");
+            File exchangeManagerDirectory = createTempDirectory("exchange_manager").toFile();
             Map<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
-                    .put("exchange.base-directories", exchangeManagerDirectory.toAbsolutePath().toString())
+                    .put("exchange.base-directories", exchangeManagerDirectory.getAbsolutePath())
                     .buildOrThrow();
+            exchangeManagerDirectory.deleteOnExit();
 
             File metastoreDir = createTempDirectory("iceberg_query_runner").toFile();
             metastoreDir.deleteOnExit();
