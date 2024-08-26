@@ -113,6 +113,7 @@ public final class MetastoreUtil
     public static final String NUM_FILES = "numFiles";
     public static final String RAW_DATA_SIZE = "rawDataSize";
     public static final String TOTAL_SIZE = "totalSize";
+    public static final String TRANSIENT_LAST_DDL_TIME = "transient_lastDdlTime";
     public static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
 
     public static Map<String, String> getHiveSchema(Table table)
@@ -514,6 +515,14 @@ public final class MetastoreUtil
         statistics.getOnDiskDataSizeInBytes().ifPresent(size -> result.put(TOTAL_SIZE, Long.toString(size)));
 
         return result.buildOrThrow();
+    }
+
+    public static Map<String, String> updateKeyWithTimestamp(Map<String, String> parameters, String key)
+    {
+        if (parameters.containsKey(key)) {
+            parameters.put(key, Long.toString(System.currentTimeMillis() / 1000));
+        }
+        return parameters;
     }
 
     private static OptionalLong toLong(@Nullable String parameterValue)

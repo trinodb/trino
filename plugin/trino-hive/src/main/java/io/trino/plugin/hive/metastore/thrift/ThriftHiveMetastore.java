@@ -117,9 +117,11 @@ import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_LOCK_NOT_ACQUIRED;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.TRANSIENT_LAST_DDL_TIME;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.adjustRowCount;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToStringList;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.updateKeyWithTimestamp;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.metastore.SparkMetastoreUtil.getSparkTableStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.createMetastoreColumnStatistics;
@@ -407,7 +409,8 @@ public final class ThriftHiveMetastore
         PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(currentStatistics, statisticsUpdate);
 
         Table modifiedTable = originalTable.deepCopy();
-        modifiedTable.setParameters(updateStatisticsParameters(modifiedTable.getParameters(), updatedStatistics.basicStatistics()));
+        Map<String, String> parameters = updateKeyWithTimestamp(modifiedTable.getParameters(), TRANSIENT_LAST_DDL_TIME);
+        modifiedTable.setParameters(updateStatisticsParameters(parameters, updatedStatistics.basicStatistics()));
         if (acidWriteId.isPresent()) {
             modifiedTable.setWriteId(acidWriteId.getAsLong());
         }
@@ -524,7 +527,8 @@ public final class ThriftHiveMetastore
 
         Partition modifiedPartition = originalPartition.deepCopy();
         HiveBasicStatistics basicStatistics = updatedStatistics.basicStatistics();
-        modifiedPartition.setParameters(updateStatisticsParameters(modifiedPartition.getParameters(), basicStatistics));
+        Map<String, String> parameters = updateKeyWithTimestamp(modifiedPartition.getParameters(), TRANSIENT_LAST_DDL_TIME);
+        modifiedPartition.setParameters(updateStatisticsParameters(parameters, basicStatistics));
         alterPartitionWithoutStatistics(table.getDbName(), table.getTableName(), modifiedPartition);
 
         Map<String, HiveType> columns = modifiedPartition.getSd().getCols().stream()
