@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -613,6 +614,12 @@ public class TestDynamicPageFilter
         public int hashCode()
         {
             return Objects.hash(isBlocked, currentPredicate, futuresLeft);
+        }
+
+        @Override
+        public OptionalLong getPreferredDynamicFilterTimeout()
+        {
+            return OptionalLong.of(0L);
         }
     }
 }

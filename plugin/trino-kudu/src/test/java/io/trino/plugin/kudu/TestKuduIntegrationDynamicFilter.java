@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Timeout;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -142,6 +143,12 @@ public class TestKuduIntegrationDynamicFilter
         public TupleDomain<ColumnHandle> getCurrentPredicate()
         {
             return TupleDomain.all();
+        }
+
+        @Override
+        public OptionalLong getPreferredDynamicFilterTimeout()
+        {
+            return OptionalLong.of(0L);
         }
     }
 

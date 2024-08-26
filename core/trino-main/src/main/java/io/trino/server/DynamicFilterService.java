@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -70,6 +71,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static com.google.common.base.Functions.identity;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -286,10 +288,10 @@ public class DynamicFilterService
             return EMPTY;
         }
 
-        List<ListenableFuture<Void>> lazyDynamicFilterFutures = dynamicFilters.stream()
-                .map(context.getLazyDynamicFilters()::get)
-                .filter(Objects::nonNull)
-                .collect(toImmutableList());
+        Map<DynamicFilterId, ListenableFuture<Void>> lazyDynamicFilterFutures = dynamicFilters.stream()
+                .filter(dynamicFilterId -> context.getLazyDynamicFilters().containsKey(dynamicFilterId))
+                .collect(toImmutableMap(Function.identity(), dynamicFilterId -> context.getLazyDynamicFilters().get(dynamicFilterId)));
+
         AtomicReference<CurrentDynamicFilter> currentDynamicFilter = new AtomicReference<>(new CurrentDynamicFilter(0, TupleDomain.all()));
 
         Set<ColumnHandle> columnsCovered = symbolsMap.values().stream()
@@ -297,6 +299,22 @@ public class DynamicFilterService
                 .map(Symbol::from)
                 .map(probeSymbol -> requireNonNull(columnHandles.get(probeSymbol), () -> "Missing probe column for " + probeSymbol))
                 .collect(toImmutableSet());
+
+        Map<DynamicFilterId, OptionalLong> dynamicFilterTimeouts = dynamicFilterDescriptors.stream()
+                .collect(toImmutableMap(
+                        DynamicFilters.Descriptor::getId,
+                        DynamicFilters.Descriptor::getPreferredTimeout,
+                        (timeout1, timeout2) -> {
+                            if (timeout1.isPresent() && timeout2.isPresent()) {
+                                return OptionalLong.of(Long.max(timeout1.getAsLong(), timeout2.getAsLong()));
+                            }
+                            else if (timeout1.isPresent()) {
+                                return timeout1;
+                            }
+                            else {
+                                return timeout2;
+                            }
+                        }));
 
         return new DynamicFilter()
         {
@@ -310,7 +328,7 @@ public class DynamicFilterService
             public CompletableFuture<?> isBlocked()
             {
                 // wait for any of the requested dynamic filter domains to be completed
-                List<ListenableFuture<Void>> undoneFutures = lazyDynamicFilterFutures.stream()
+                List<ListenableFuture<Void>> undoneFutures = lazyDynamicFilterFutures.values().stream()
                         .filter(future -> !future.isDone())
                         .collect(toImmutableList());
 
@@ -331,7 +349,7 @@ public class DynamicFilterService
             @Override
             public boolean isAwaitable()
             {
-                return lazyDynamicFilterFutures.stream()
+                return lazyDynamicFilterFutures.values().stream()
                         .anyMatch(future -> !future.isDone());
             }
 
@@ -362,6 +380,33 @@ public class DynamicFilterService
                 // will be updated again with most accurate dynamic filter.
                 currentDynamicFilter.set(new CurrentDynamicFilter(completedDynamicFilters.size(), dynamicFilter));
                 return dynamicFilter;
+            }
+
+            @Override
+            public OptionalLong getPreferredDynamicFilterTimeout()
+            {
+                long longestPreferredTimeout = -1;
+                boolean unestimatedDynamicFilter = false;
+
+                for (Map.Entry<DynamicFilterId, ListenableFuture<Void>> lazyDynamicFilterFuture : lazyDynamicFilterFutures.entrySet()) {
+                    if (!lazyDynamicFilterFuture.getValue().isDone()) {
+                        OptionalLong preferredTimeout = dynamicFilterTimeouts.get(lazyDynamicFilterFuture.getKey());
+                        if (preferredTimeout != null) {
+                            if (preferredTimeout.isPresent()) {
+                                longestPreferredTimeout = Long.max(preferredTimeout.getAsLong(), longestPreferredTimeout);
+                            }
+                            else {
+                                unestimatedDynamicFilter = true;
+                            }
+                        }
+                    }
+                }
+
+                if (longestPreferredTimeout == -1 || (unestimatedDynamicFilter && longestPreferredTimeout == 0)) {
+                    // at least one unestimated dynamic filter timeout was found and rest of DF are not awaitable
+                    return OptionalLong.empty();
+                }
+                return OptionalLong.of(longestPreferredTimeout);
             }
         };
     }
