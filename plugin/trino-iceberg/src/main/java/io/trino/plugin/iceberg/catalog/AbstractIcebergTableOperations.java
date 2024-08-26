@@ -21,15 +21,14 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.StorageFormat;
+import io.trino.plugin.iceberg.IcebergExceptions;
 import io.trino.plugin.iceberg.util.HiveSchemaUtil;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.exceptions.CommitFailedException;
-import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.io.OutputFile;
@@ -48,9 +47,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveClassNames.FILE_INPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.FILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
-import static io.trino.plugin.iceberg.IcebergExceptions.isNotFoundException;
+import static io.trino.plugin.iceberg.IcebergExceptions.translateMetadataException;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
@@ -261,19 +258,12 @@ public abstract class AbstractIcebergTableOperations
                             .withMaxRetries(3)
                             .withBackoff(100, 5000, MILLIS, 4.0)
                             .withMaxDuration(Duration.ofMinutes(3))
-                            .handleIf(failure -> !(failure instanceof ValidationException) && !isNotFoundException(failure))
-                            .abortOn(TrinoFileSystem::isUnrecoverableException)
+                            .abortOn(throwable -> TrinoFileSystem.isUnrecoverableException(throwable) || IcebergExceptions.isFatalException(throwable))
                             .build())
                     .get(() -> metadataLoader.apply(newLocation));
         }
         catch (Throwable failure) {
-            if (isNotFoundException(failure)) {
-                throw new TrinoException(ICEBERG_MISSING_METADATA, "Metadata not found in metadata location for table " + getSchemaTableName(), failure);
-            }
-            if (failure instanceof ValidationException) {
-                throw new TrinoException(ICEBERG_INVALID_METADATA, "Invalid metadata file for table " + getSchemaTableName(), failure);
-            }
-            throw failure;
+            throw translateMetadataException(failure, getSchemaTableName().toString());
         }
 
         String newUUID = newMetadata.uuid();

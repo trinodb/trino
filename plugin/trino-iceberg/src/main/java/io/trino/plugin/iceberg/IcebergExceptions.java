@@ -13,18 +13,44 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
+import org.apache.iceberg.exceptions.ValidationException;
+
 import java.io.FileNotFoundException;
 
 import static com.google.common.base.Throwables.getCausalChain;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
 
 public final class IcebergExceptions
 {
     private IcebergExceptions() {}
 
-    public static boolean isNotFoundException(Throwable failure)
+    private static boolean isNotFoundException(Throwable failure)
     {
         return getCausalChain(failure).stream().anyMatch(e ->
                 e instanceof org.apache.iceberg.exceptions.NotFoundException
                         || e instanceof FileNotFoundException);
+    }
+
+    public static boolean isFatalException(Throwable failure)
+    {
+        return isNotFoundException(failure) || failure instanceof ValidationException;
+    }
+
+    public static RuntimeException translateMetadataException(Throwable failure, String tableName)
+    {
+        if (failure instanceof TrinoException trinoException) {
+            return trinoException;
+        }
+        if (isNotFoundException(failure)) {
+            throw new TrinoException(ICEBERG_MISSING_METADATA, "Metadata not found in metadata location for table " + tableName, failure);
+        }
+        if (failure instanceof ValidationException) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, "Invalid metadata file for table " + tableName, failure);
+        }
+
+        return new TrinoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Error processing metadata for table " + tableName, failure);
     }
 }
