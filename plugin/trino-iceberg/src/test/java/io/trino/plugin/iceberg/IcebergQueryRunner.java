@@ -479,13 +479,20 @@ public final class IcebergQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
-            Path exchangeManagerDirectory = createTempDirectory(null);
+            Logger log = Logger.get(IcebergQueryRunnerWithTaskRetries.class);
+
+            Path exchangeManagerDirectory = createTempDirectory("exchange_manager");
             Map<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
                     .put("exchange.base-directories", exchangeManagerDirectory.toAbsolutePath().toString())
                     .buildOrThrow();
 
+            File metastoreDir = createTempDirectory("iceberg_query_runner").toFile();
+            metastoreDir.deleteOnExit();
+
+            @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
                     .addCoordinatorProperty("http-server.http.port", "8080")
+                    .addIcebergProperty("hive.metastore.catalog.dir", metastoreDir.toURI().toString())
                     .setExtraProperties(ImmutableMap.<String, String>builder()
                             .put("retry-policy", "TASK")
                             .put("fault-tolerant-execution-task-memory", "1GB")
@@ -497,7 +504,6 @@ public final class IcebergQueryRunner
                     })
                     .build();
 
-            Logger log = Logger.get(IcebergQueryRunnerWithTaskRetries.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
