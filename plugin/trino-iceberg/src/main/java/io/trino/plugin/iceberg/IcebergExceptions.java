@@ -15,15 +15,16 @@ package io.trino.plugin.iceberg;
 
 import java.io.FileNotFoundException;
 
+import static com.google.common.base.Throwables.getCausalChain;
+
 public final class IcebergExceptions
 {
     private IcebergExceptions() {}
 
     public static boolean isNotFoundException(Throwable failure)
     {
-        // qualified name, as this is NOT the io.trino.spi.connector.NotFoundException
-        return failure instanceof org.apache.iceberg.exceptions.NotFoundException ||
-                // This is used in context where the code cannot throw a checked exception, so FileNotFoundException would need to be wrapped
-                failure.getCause() instanceof FileNotFoundException;
+        return getCausalChain(failure).stream().anyMatch(e ->
+                e instanceof org.apache.iceberg.exceptions.NotFoundException
+                        || e instanceof FileNotFoundException);
     }
 }
