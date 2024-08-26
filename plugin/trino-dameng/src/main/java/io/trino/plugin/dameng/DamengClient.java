@@ -170,6 +170,16 @@ public class DamengClient
     }
 
     @Override
+    protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
+            throws SQLException
+    {
+        execute(session, connection, format(
+                "ALTER TABLE %s RENAME %s",
+                quoted(catalogName, remoteSchemaName, remoteTableName),
+                quoted(newRemoteTableName)));
+    }
+
+    @Override
     public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
