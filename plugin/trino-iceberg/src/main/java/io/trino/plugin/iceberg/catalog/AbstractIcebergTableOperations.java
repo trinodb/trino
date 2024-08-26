@@ -35,7 +35,6 @@ import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.io.OutputFile;
 import org.apache.iceberg.types.Types.NestedField;
 
-import java.io.FileNotFoundException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +50,7 @@ import static io.trino.hive.formats.HiveClassNames.FILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
+import static io.trino.plugin.iceberg.IcebergExceptions.isNotFoundException;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
@@ -286,14 +286,6 @@ public abstract class AbstractIcebergTableOperations
         currentMetadataLocation = newLocation;
         version = OptionalInt.of(parseVersion(Location.of(newLocation).fileName()));
         shouldRefresh = false;
-    }
-
-    private static boolean isNotFoundException(Throwable failure)
-    {
-        // qualified name, as this is NOT the io.trino.spi.connector.NotFoundException
-        return failure instanceof org.apache.iceberg.exceptions.NotFoundException ||
-               // This is used in context where the code cannot throw a checked exception, so FileNotFoundException would need to be wrapped
-               failure.getCause() instanceof FileNotFoundException;
     }
 
     protected static String newTableMetadataFilePath(TableMetadata meta, int newVersion)
