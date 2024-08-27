@@ -46,7 +46,7 @@ import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Objects.requireNonNull;
 
 /**
- * The S3 Native synhcornizer is a {@link TransactionLogSynchronizer} for S3 that requires no other dependencies.
+ * The S3 Native synchronizer is a {@link TransactionLogSynchronizer} for S3 that requires no other dependencies.
  */
 public class S3NativeTransactionLogSynchronizer
         implements TransactionLogSynchronizer
