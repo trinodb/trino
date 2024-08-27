@@ -64,12 +64,6 @@ public class TestMemoryFileSystemCache
     }
 
     @Override
-    protected boolean supportsCreateExclusive()
-    {
-        return true;
-    }
-
-    @Override
     protected TrinoFileSystem getFileSystem()
     {
         return fileSystem;

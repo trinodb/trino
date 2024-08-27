@@ -82,6 +82,12 @@ public class TestHdfsFileSystemLocal
         Files.delete(tempDirectory);
     }
 
+    @Override
+    protected boolean supportsCreateExclusive()
+    {
+        return false;
+    }
+
     private void cleanupFiles()
             throws IOException
     {

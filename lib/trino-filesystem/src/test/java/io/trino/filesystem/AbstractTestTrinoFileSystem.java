@@ -85,7 +85,7 @@ public abstract class AbstractTestTrinoFileSystem
      */
     protected boolean supportsCreateExclusive()
     {
-        return false;
+        return true;
     }
 
     protected boolean supportsRenameFile()

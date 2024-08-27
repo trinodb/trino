@@ -66,7 +66,8 @@ public class TestS3FileSystemConfig
                 .setNonProxyHosts(null)
                 .setHttpProxyUsername(null)
                 .setHttpProxyPassword(null)
-                .setHttpProxyPreemptiveBasicProxyAuth(false));
+                .setHttpProxyPreemptiveBasicProxyAuth(false)
+                .setSupportsExclusiveCreate(true));
     }
 
     @Test
@@ -103,6 +104,7 @@ public class TestS3FileSystemConfig
                 .put("s3.http-proxy.username", "test")
                 .put("s3.http-proxy.password", "test")
                 .put("s3.http-proxy.preemptive-basic-auth", "true")
+                .put("s3.exclusive-create", "false")
                 .buildOrThrow();
 
         S3FileSystemConfig expected = new S3FileSystemConfig()
@@ -135,7 +137,8 @@ public class TestS3FileSystemConfig
                 .setNonProxyHosts("test1, test2, test3")
                 .setHttpProxyUsername("test")
                 .setHttpProxyPassword("test")
-                .setHttpProxyPreemptiveBasicProxyAuth(true);
+                .setHttpProxyPreemptiveBasicProxyAuth(true)
+                .setSupportsExclusiveCreate(false);
 
         assertFullMapping(properties, expected);
     }

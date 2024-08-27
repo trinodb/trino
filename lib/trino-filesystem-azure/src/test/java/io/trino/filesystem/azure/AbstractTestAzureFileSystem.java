@@ -197,12 +197,6 @@ public abstract class AbstractTestAzureFileSystem
         assertThat(blobContainerClient.listBlobs()).map(BlobItem::getName).isEmpty();
     }
 
-    @Override
-    protected boolean supportsCreateExclusive()
-    {
-        return true;
-    }
-
     @Test
     @Override
     public void testPaths()

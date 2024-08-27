@@ -89,12 +89,6 @@ public class TestAlluxioCacheFileSystem
     }
 
     @Override
-    protected boolean supportsCreateExclusive()
-    {
-        return true;
-    }
-
-    @Override
     protected TrinoFileSystem getFileSystem()
     {
         return fileSystem;

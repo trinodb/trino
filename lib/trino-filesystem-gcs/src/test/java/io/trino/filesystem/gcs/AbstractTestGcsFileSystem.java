@@ -126,12 +126,6 @@ public abstract class AbstractTestGcsFileSystem
     }
 
     @Override
-    protected final boolean supportsCreateExclusive()
-    {
-        return true;
-    }
-
-    @Override
     protected final boolean supportsRenameFile()
     {
         return false;
