@@ -730,14 +730,9 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
-
-        onTrino().executeQuery("CREATE TABLE " + trinoTableName + " (doc_id VARCHAR) " +
-                        "WITH (extra_properties = MAP(ARRAY['custom.table-property'], ARRAY['my_custom_value']))");
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + " (doc_id VARCHAR) WITH (extra_properties = MAP(ARRAY['custom.table-property'], ARRAY['my_custom_value']))");
 
         assertThat(onSpark().executeQuery("SHOW TBLPROPERTIES " + sparkTableName)).contains(row("custom.table-property", "my_custom_value"));
-
-        onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")

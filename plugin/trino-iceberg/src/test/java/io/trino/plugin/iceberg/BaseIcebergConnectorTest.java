@@ -8368,9 +8368,9 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " +  tableName + " WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two'])) " +
                 "AS SELECT 1 as c1", 1);
 
-        assertQuery(
-            "SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.one', 'extra.property.two')",
-            "VALUES ('extra.property.one', 'one'), ('extra.property.two', 'two')");
+        assertThat(query("SELECT key, value FROM \"" + tableName + "$properties\" WHERE key IN ('extra.property.one', 'extra.property.two')"))
+                .skippingTypesCheck()
+                .matches("VALUES ('extra.property.one', 'one'), ('extra.property.two', 'two')");
 
         assertUpdate("DROP TABLE " + tableName);
     }
