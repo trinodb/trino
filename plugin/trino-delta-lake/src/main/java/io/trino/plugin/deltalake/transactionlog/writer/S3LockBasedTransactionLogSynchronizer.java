@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
@@ -254,53 +252,26 @@ public class S3LockBasedTransactionLogSynchronizer
 
         public String getClusterId()
         {
-            return contents.getClusterId();
+            return contents.clusterId();
         }
 
         public String getOwningQuery()
         {
-            return contents.getOwningQuery();
+            return contents.owningQuery();
         }
 
         public Instant getExpirationTime()
         {
-            return Instant.ofEpochMilli(contents.getExpirationEpochMillis());
+            return Instant.ofEpochMilli(contents.expirationEpochMillis());
         }
     }
 
-    public static class LockFileContents
+    public record LockFileContents(String clusterId, String owningQuery, long expirationEpochMillis)
     {
-        private final String clusterId;
-        private final String owningQuery;
-        private final long expirationEpochMillis;
-
-        @JsonCreator
-        public LockFileContents(
-                @JsonProperty("clusterId") String clusterId,
-                @JsonProperty("owningQuery") String owningQuery,
-                @JsonProperty("expirationEpochMillis") long expirationEpochMillis)
+        public LockFileContents
         {
-            this.clusterId = requireNonNull(clusterId, "clusterId is null");
-            this.owningQuery = requireNonNull(owningQuery, "owningQuery is null");
-            this.expirationEpochMillis = expirationEpochMillis;
-        }
-
-        @JsonProperty
-        public String getClusterId()
-        {
-            return clusterId;
-        }
-
-        @JsonProperty
-        public String getOwningQuery()
-        {
-            return owningQuery;
-        }
-
-        @JsonProperty
-        public long getExpirationEpochMillis()
-        {
-            return expirationEpochMillis;
+            requireNonNull(clusterId, "clusterId is null");
+            requireNonNull(owningQuery, "owningQuery is null");
         }
     }
 }
