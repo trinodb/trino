@@ -849,7 +849,7 @@
             <dependency>
                 <groupId>io.minio</groupId>
                 <artifactId>minio</artifactId>
-                <version>8.5.11</version>
+                <version>8.5.12</version>
             </dependency>
 
             <dependency>
