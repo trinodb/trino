@@ -44,6 +44,18 @@ public class TestS3FileSystemLocalStack
     }
 
     @Override
+    protected boolean isCreateExclusive()
+    {
+        return false; // not supported by localstack
+    }
+
+    @Override
+    protected boolean supportsCreateExclusive()
+    {
+        return false; // not supported by localstack
+    }
+
+    @Override
     protected String bucket()
     {
         return BUCKET;
@@ -68,6 +80,7 @@ public class TestS3FileSystemLocalStack
                 .setAwsSecretKey(LOCALSTACK.getSecretKey())
                 .setEndpoint(LOCALSTACK.getEndpointOverride(Service.S3).toString())
                 .setRegion(LOCALSTACK.getRegion())
-                .setStreamingPartSize(DataSize.valueOf("5.5MB")));
+                .setStreamingPartSize(DataSize.valueOf("5.5MB"))
+                .setSupportsExclusiveCreate(false));
     }
 }

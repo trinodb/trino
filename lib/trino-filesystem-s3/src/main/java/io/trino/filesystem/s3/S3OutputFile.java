@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.concurrent.Executor;
 
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.util.Objects.requireNonNull;
 
 final class S3OutputFile
@@ -45,7 +46,20 @@ final class S3OutputFile
     public void createOrOverwrite(byte[] data)
             throws IOException
     {
-        try (OutputStream out = create()) {
+        try (OutputStream out = create(newSimpleAggregatedMemoryContext(), false)) {
+            out.write(data);
+        }
+    }
+
+    @Override
+    public void createExclusive(byte[] data)
+            throws IOException
+    {
+        if (!context.exclusiveWriteSupported()) {
+            throw new UnsupportedOperationException("createExclusive not supported by " + getClass());
+        }
+
+        try (OutputStream out = create(newSimpleAggregatedMemoryContext(), true)) {
             out.write(data);
         }
     }
@@ -53,7 +67,12 @@ final class S3OutputFile
     @Override
     public OutputStream create(AggregatedMemoryContext memoryContext)
     {
-        return new S3OutputStream(memoryContext, uploadExecutor, client, context, location);
+        return create(memoryContext, context.exclusiveWriteSupported());
+    }
+
+    public OutputStream create(AggregatedMemoryContext memoryContext, boolean exclusive)
+    {
+        return new S3OutputStream(memoryContext, uploadExecutor, client, context, location, exclusive);
     }
 
     @Override

@@ -114,6 +114,7 @@ public class S3FileSystemConfig
     private ObjectCannedAcl objectCannedAcl = ObjectCannedAcl.NONE;
     private RetryMode retryMode = RetryMode.LEGACY;
     private int maxErrorRetries = 10;
+    private boolean supportsExclusiveCreate = true;
 
     public String getAwsAccessKey()
     {
@@ -495,6 +496,19 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setNonProxyHosts(String nonProxyHosts)
     {
         this.nonProxyHosts = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(nullToEmpty(nonProxyHosts)));
+        return this;
+    }
+
+    public boolean isSupportsExclusiveCreate()
+    {
+        return supportsExclusiveCreate;
+    }
+
+    @Config("s3.exclusive-create")
+    @ConfigDescription("Whether S3-compatible storage supports exclusive create (true for Minio and AWS S3)")
+    public S3FileSystemConfig setSupportsExclusiveCreate(boolean supportsExclusiveCreate)
+    {
+        this.supportsExclusiveCreate = supportsExclusiveCreate;
         return this;
     }
 }

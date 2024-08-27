@@ -86,6 +86,12 @@ public class TestHdfsFileSystemHdfs
     }
 
     @Override
+    protected boolean supportsCreateExclusive()
+    {
+        return false;
+    }
+
+    @Override
     protected boolean supportsIncompleteWriteNoClobber()
     {
         return false;

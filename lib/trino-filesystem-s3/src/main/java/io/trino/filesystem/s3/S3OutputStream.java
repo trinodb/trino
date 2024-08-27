@@ -26,6 +26,7 @@ import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.model.UploadPartResponse;
 
@@ -33,6 +34,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -46,6 +48,7 @@ import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.System.arraycopy;
+import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static software.amazon.awssdk.services.s3.model.ServerSideEncryption.AES256;
@@ -65,6 +68,7 @@ final class S3OutputStream
     private final S3SseType sseType;
     private final String sseKmsKeyId;
     private final ObjectCannedACL cannedAcl;
+    private final boolean exclusiveCreate;
 
     private int currentPartNumber;
     private byte[] buffer = new byte[0];
@@ -81,12 +85,13 @@ final class S3OutputStream
     // Visibility is ensured by calling get() on inProgressUploadFuture.
     private Optional<String> uploadId = Optional.empty();
 
-    public S3OutputStream(AggregatedMemoryContext memoryContext, Executor uploadExecutor, S3Client client, S3Context context, S3Location location)
+    public S3OutputStream(AggregatedMemoryContext memoryContext, Executor uploadExecutor, S3Client client, S3Context context, S3Location location, boolean exclusiveCreate)
     {
         this.memoryContext = memoryContext.newLocalMemoryContext(S3OutputStream.class.getSimpleName());
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         this.client = requireNonNull(client, "client is null");
         this.location = requireNonNull(location, "location is null");
+        this.exclusiveCreate = exclusiveCreate;
         this.context = requireNonNull(context, "context is null");
         this.partSize = context.partSize();
         this.requestPayer = context.requestPayer();
@@ -208,6 +213,9 @@ final class S3OutputStream
                     .key(location.key())
                     .contentLength((long) bufferSize)
                     .applyMutation(builder -> {
+                        if (exclusiveCreate) {
+                            builder.ifNoneMatch("*");
+                        }
                         switch (sseType) {
                             case NONE -> { /* ignored */ }
                             case S3 -> builder.serverSideEncryption(AES256);
@@ -221,6 +229,14 @@ final class S3OutputStream
             try {
                 client.putObject(request, RequestBody.fromByteBuffer(bytes));
                 return;
+            }
+            catch (S3Exception e) {
+                failed = true;
+                // when `location` already exists, the operation will fail with `412 Precondition Failed`
+                if (e.statusCode() == HTTP_PRECON_FAILED) {
+                    throw new FileAlreadyExistsException(location.toString());
+                }
+                throw new IOException("Put failed for bucket [%s] key [%s]: %s".formatted(location.bucket(), location.key(), e), e);
             }
             catch (SdkException e) {
                 failed = true;
@@ -329,6 +345,11 @@ final class S3OutputStream
                 .key(location.key())
                 .uploadId(uploadId)
                 .multipartUpload(x -> x.parts(parts))
+                .applyMutation(builder -> {
+                    if (exclusiveCreate) {
+                        builder.ifNoneMatch("*");
+                    }
+                })
                 .build();
 
         client.completeMultipartUpload(request);
