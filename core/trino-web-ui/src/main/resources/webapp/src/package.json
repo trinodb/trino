@@ -30,8 +30,8 @@
     ]
   },
   "scripts": {
-    "package": "npm install && webpack --config webpack.config.js",
-    "watch": "npm install && webpack --config webpack.config.js --watch",
+    "package": "npm clean-install && webpack --config webpack.config.js",
+    "watch": "npm clean-install && webpack --config webpack.config.js --watch",
     "flow": "flow",
     "check": "flow && prettier --check **/*.js **/*.jsx",
     "lint": "prettier --check **/*.js **/*.jsx"
