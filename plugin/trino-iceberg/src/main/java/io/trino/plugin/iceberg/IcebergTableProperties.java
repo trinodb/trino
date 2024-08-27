@@ -61,6 +61,8 @@ public class IcebergTableProperties
     public static final String PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY = "parquet_bloom_filter_columns";
     public static final String OBJECT_STORE_LAYOUT_ENABLED_PROPERTY = "object_store_layout_enabled";
     public static final String DATA_LOCATION_PROPERTY = "data_location";
+    public static final String METADATA_DELETE_AFTER_COMMIT_ENABLED_PROPERTY = "metadata_delete_after_commit_enabled";
+    public static final String METADATA_PREVIOUS_VERSIONS_MAX_PROPERTY = "metadata_previous_versions_max";
     public static final String EXTRA_PROPERTIES_PROPERTY = "extra_properties";
 
     public static final Set<String> SUPPORTED_PROPERTIES = ImmutableSet.<String>builder()
@@ -73,6 +75,8 @@ public class IcebergTableProperties
             .add(ORC_BLOOM_FILTER_FPP_PROPERTY)
             .add(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)
             .add(DATA_LOCATION_PROPERTY)
+            .add(METADATA_DELETE_AFTER_COMMIT_ENABLED_PROPERTY)
+            .add(METADATA_PREVIOUS_VERSIONS_MAX_PROPERTY)
             .add(EXTRA_PROPERTIES_PROPERTY)
             .add(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
             .build();
@@ -188,6 +192,15 @@ public class IcebergTableProperties
                 .add(stringProperty(
                         DATA_LOCATION_PROPERTY,
                         "File system location URI for the table's data files",
+                        null,
+                        false))
+                .add(booleanProperty(
+                        METADATA_DELETE_AFTER_COMMIT_ENABLED_PROPERTY,
+                        "Delete old tracked metadata files after each table commit",
+                        null,
+                        false))
+                .add(integerProperty(METADATA_PREVIOUS_VERSIONS_MAX_PROPERTY,
+                        "The number of old metadata files to keep",
                         null,
                         false))
                 .build();

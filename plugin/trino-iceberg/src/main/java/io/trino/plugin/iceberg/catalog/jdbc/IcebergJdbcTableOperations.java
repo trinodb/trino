@@ -24,6 +24,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.CatalogUtil.deleteRemovedMetadataFiles;
 
 public class IcebergJdbcTableOperations
         extends AbstractIcebergTableOperations
@@ -65,6 +66,7 @@ public class IcebergJdbcTableOperations
         checkState(currentMetadataLocation != null, "No current metadata location for existing table");
         String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);
         jdbcClient.alterTable(database, tableName, newMetadataLocation, currentMetadataLocation);
+        deleteRemovedMetadataFiles(io(), base, metadata);
         shouldRefresh = true;
     }
 

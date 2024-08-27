@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -119,6 +120,8 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.EXTENDED_STATISTI
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
+import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FILE_EXTENSION;
+import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_USER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.getLatestMetadataLocation;
@@ -156,6 +159,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
+import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.offset;
@@ -7461,6 +7465,158 @@ public abstract class BaseIcebergConnectorTest
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
                     .contains("partitioning = ARRAY['bucket(part, 10)']");
         }
+    }
+
+    @Test
+    public void testMetadataWriteProperties()
+    {
+        String tableName = "test_metadata_write_properties_" + randomNameSuffix();
+        String createTableWithMetadatWriteProperties = """
+                CREATE TABLE %s (a bigint) WITH (
+                    metadata_delete_after_commit_enabled = true,
+                    metadata_previous_versions_max = 5
+                )""";
+        String createTableSql = format(createTableWithMetadatWriteProperties, tableName);
+        assertUpdate(createTableSql);
+
+        assertThat(query("SELECT * FROM \"" + tableName + "$properties\""))
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('write.metadata.delete-after-commit.enabled', 'true')," +
+                        "('write.metadata.previous-versions-max', '5')");
+
+        assertThat(getTablePropertiesString(tableName)).contains(
+                   "metadata_delete_after_commit_enabled = true",
+                   "metadata_previous_versions_max = 5");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testAlterTableMetadataWriteProperties()
+    {
+        String tableName = "test_alter_table_metadata_write_properties_" + randomNameSuffix();
+        assertUpdate(format("CREATE TABLE %s (a bigint)", tableName));
+        assertThat(getTablePropertiesString(tableName)).doesNotContain(
+                "metadata_delete_after_commit_enabled",
+                "metadata_previous_versions_max");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES metadata_delete_after_commit_enabled = true");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES metadata_previous_versions_max = 3");
+        assertThat(query("SELECT * FROM \"" + tableName + "$properties\""))
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('write.metadata.delete-after-commit.enabled', 'true')," +
+                        "('write.metadata.previous-versions-max', '3')");
+        assertThat(getTablePropertiesString(tableName)).contains(
+                "metadata_delete_after_commit_enabled = true",
+                "metadata_previous_versions_max = 3");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES metadata_delete_after_commit_enabled = false");
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES metadata_previous_versions_max = 12");
+        assertThat(query("SELECT * FROM \"" + tableName + "$properties\""))
+                .skippingTypesCheck()
+                .containsAll("VALUES " +
+                        "('write.metadata.delete-after-commit.enabled', 'false')," +
+                        "('write.metadata.previous-versions-max', '12')");
+        assertThat(getTablePropertiesString(tableName)).contains(
+                "metadata_delete_after_commit_enabled = false",
+                "metadata_previous_versions_max = 12");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMetadataWritePropertiesPreviousVersionsMax()
+            throws IOException
+    {
+        String tableName = "test_metadata_write_properties_previous_version_max_" + randomNameSuffix();
+        String createTableWithMetadatWriteProperties = """
+                CREATE TABLE %s (a bigint) WITH (
+                    metadata_previous_versions_max = 6
+                )""";
+        String createTableSql = format(createTableWithMetadatWriteProperties, tableName);
+        assertUpdate(createTableSql);
+
+        // CREATE TABLE create one metadata file
+        // INSERT create two metadata files (https://github.com/trinodb/trino/issues/15439)
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
+        assertThat(query("SELECT * FROM \"" + tableName + "$metadata_log_entries\""))
+                .result().rowCount().isEqualTo(5);
+        assertThat(getMetadataFileList(tableName).size()).isEqualTo(5);
+
+        // test metadata log entries are capped (Current metadata log file + previous versions)
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
+        assertThat(query("SELECT * FROM \"" + tableName + "$metadata_log_entries\""))
+                .result().rowCount().isEqualTo(7);
+        assertThat(getMetadataFileList(tableName).size()).isEqualTo(7);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
+        assertThat(query("SELECT * FROM \"" + tableName + "$metadata_log_entries\""))
+                .result().rowCount().isEqualTo(7);
+
+        // by default metadata_delete_after_commit_enabled=false, thus old metadata files keeps growing
+        assertThat(getMetadataFileList(tableName).size()).isEqualTo(9);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMetadataWritePropertiesDeleteAfterCommit()
+            throws Exception
+    {
+        String tableName = "test_metadata_write_properties_delete_after_commit_" + randomNameSuffix();
+        String createTableWithMetadatWriteProperties = """
+                CREATE TABLE %s (a bigint) WITH (
+                    metadata_delete_after_commit_enabled = true,
+                    metadata_previous_versions_max = 3
+                )""";
+        String createTableSql = format(createTableWithMetadatWriteProperties, tableName);
+        assertUpdate(createTableSql);
+
+        assertThat(getMetadataFileList(tableName).size()).isEqualTo(1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
+
+        assertThat(query("SELECT * FROM \"" + tableName + "$metadata_log_entries\""))
+                .result().rowCount().isEqualTo(3);
+        assertThat(getMetadataFileList(tableName).size()).isEqualTo(3);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
+
+        // current metadata log file + previous metadata log files (capped at 3) = 4
+        assertThat(query("SELECT * FROM \"" + tableName + "$metadata_log_entries\""))
+                .result().rowCount().isEqualTo(4);
+
+        // check old metadata files get deleted
+        List<Location> metadataFileList = getMetadataFileList(tableName);
+        assertThat(metadataFileList.size()).isEqualTo(4);
+
+        // check metadata files in $metadata_log_entries are still exist, only those non-tracked files were deleted
+        List<String> metadataFilenames = metadataFileList.stream().map(Location::path).collect(toImmutableList());
+        MaterializedResult result = computeActual("SELECT file FROM \"" + tableName + "$metadata_log_entries\" ORDER BY timestamp");
+        List<MaterializedRow> materializedRows = result.getMaterializedRows();
+        for (int i = 0; i < result.getRowCount(); i++) {
+            assertThat(metadataFilenames).contains(
+                    Location.of(materializedRows.get(i).getField(0).toString()).path());
+        }
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private List<Location> getMetadataFileList(String tableName)
+            throws IOException
+    {
+        String tableLocation = getTableLocation(tableName);
+        String metadataDirectoryLocation = format("%s/%s", stripTrailingSlash(tableLocation), METADATA_FOLDER_NAME);
+        FileIterator fileIterator = fileSystem.listFiles(Location.of(metadataDirectoryLocation));
+
+        ImmutableList.Builder<Location> locations = ImmutableList.builder();
+        while (fileIterator.hasNext()) {
+            FileEntry fileEntry = fileIterator.next();
+            Location fileLocation = fileEntry.location();
+            String fileName = fileLocation.fileName();
+            if (fileName.endsWith(METADATA_FILE_EXTENSION)) {
+                locations.add(fileLocation);
+            }
+        }
+        return locations.build();
     }
 
     @Test

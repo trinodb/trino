@@ -271,6 +271,8 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.DATA_LOCATION_PROPE
 import static io.trino.plugin.iceberg.IcebergTableProperties.EXTRA_PROPERTIES_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.METADATA_PREVIOUS_VERSIONS_MAX_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.OBJECT_STORE_LAYOUT_ENABLED_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
@@ -359,6 +361,8 @@ import static org.apache.iceberg.SnapshotSummary.TOTAL_RECORDS_PROP;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
+import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
+import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
@@ -383,6 +387,8 @@ public class IcebergMetadata
             .add(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)
             .add(DATA_LOCATION_PROPERTY)
             .add(PARTITIONING_PROPERTY)
+            .add(METADATA_PREVIOUS_VERSIONS_MAX_PROPERTY)
+            .add(METADATA_DELETE_AFTER_COMMIT_ENABLED_PROPERTY)
             .add(SORTED_BY_PROPERTY)
             .build();
 
@@ -2176,6 +2182,17 @@ public class IcebergMetadata
                     Optional.of(Boolean.parseBoolean(icebergTable.properties().get(OBJECT_STORE_ENABLED)))).orElseThrow();
             if (!objectStoreEnabled) {
                 throw new TrinoException(INVALID_TABLE_PROPERTY, "Data location can only be set when object store layout is enabled");
+            }
+            if (properties.containsKey(METADATA_DELETE_AFTER_COMMIT_ENABLED_PROPERTY)) {
+                boolean commitEnabled = (boolean) properties.get(METADATA_DELETE_AFTER_COMMIT_ENABLED_PROPERTY)
+                        .orElseThrow(() -> new IllegalArgumentException("The metadata_delete_after_commit_enabled property cannot be empty"));
+                updateProperties.set(METADATA_DELETE_AFTER_COMMIT_ENABLED, String.valueOf(commitEnabled));
+            }
+
+            if (properties.containsKey(METADATA_PREVIOUS_VERSIONS_MAX_PROPERTY)) {
+                int metadataPerviousVersionMax = (int) properties.get(METADATA_PREVIOUS_VERSIONS_MAX_PROPERTY)
+                        .orElseThrow(() -> new IllegalArgumentException("The metadata_previous_versions_max property cannot be empty"));
+                updateProperties.set(METADATA_PREVIOUS_VERSIONS_MAX, Integer.toString(metadataPerviousVersionMax));
             }
             updateProperties.set(WRITE_DATA_LOCATION, dataLocation);
         }
