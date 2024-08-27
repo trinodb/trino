@@ -223,7 +223,8 @@ public class TestDeltaLakeConnectorTest
                 "|Target file already exists: .*/_delta_log/\\d+.json" +
                 "|Conflicting concurrent writes found\\..*" +
                 "|Multiple live locks found for:.*" +
-                "|Target file was created during locking: .*";
+                "|Target file was created during locking: .*" +
+                "|Conflict detected while writing Transaction Log .* to S3";
     }
 
     @Override
