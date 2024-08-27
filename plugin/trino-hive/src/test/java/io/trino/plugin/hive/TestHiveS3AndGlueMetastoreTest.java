@@ -313,7 +313,7 @@ public class TestHiveS3AndGlueMetastoreTest
                     .cause()
                     .cause().hasMessageMatching("Put failed for bucket \\[\\S+] key \\[\\.\\./test_create_schema_invalid_location_\\w+/test_table_schema_invalid_location_\\w+/\\S+]: .*")
                     // The message could be better. In AWS SDK v1 it used to be "Invalid URI".
-                    .cause().hasMessageMatching("null \\(Service: S3, Status Code: 400, Request ID: .*");
+                    .cause().hasMessageMatching("\\(Service: S3, Status Code: 400, Request ID: .*");
         }
     }
 
