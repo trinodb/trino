@@ -63,7 +63,7 @@ public class DeltaLakeGlueV1MetastoreTableOperations
         ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
         parameters.putAll(getTableParameters(currentTable));
         parameters.putAll(tableMetadataParameters(version, schemaString, tableComment));
-        tableInput.withParameters(parameters.buildOrThrow());
+        tableInput.withParameters(parameters.buildKeepingLast());
 
         UpdateTableRequest updateTableRequest = new UpdateTableRequest()
                 .withDatabaseName(schemaTableName.getSchemaName())
