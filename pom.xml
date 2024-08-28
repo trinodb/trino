@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>168</version>
+        <version>170</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -192,7 +192,6 @@
         <dep.confluent.version>7.5.1</dep.confluent.version>
         <dep.docker.images.version>100</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
-        <dep.errorprone.version>2.29.2</dep.errorprone.version>
         <dep.flyway.version>10.17.2</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.0</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v20.15.1</dep.frontend-node.version>
@@ -204,8 +203,6 @@
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.kafka-clients.version>3.8.0</dep.kafka-clients.version>
         <dep.okio.version>3.9.0</dep.okio.version>
-        <!-- temporary: required to be in sync with version pulled by libraries-bom -->
-        <dep.opentelemetry.version>1.40.0</dep.opentelemetry.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.14.1</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
@@ -234,7 +231,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.44.0</version>
+                <version>26.45.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -928,11 +925,11 @@
                 <version>${dep.tcnative.version}</version>
             </dependency>
 
-            <!-- temporary to settle a version between airbase and airlift -->
+            <!-- temporary to settle a version between airbase and google cloud sdk -->
             <dependency>
-                <groupId>io.opentelemetry.semconv</groupId>
-                <artifactId>opentelemetry-semconv</artifactId>
-                <version>${dep.opentelemetry-semconv-incubating.version}</version>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-api-incubator</artifactId>
+                <version>${dep.opentelemetry.version}-alpha</version>
             </dependency>
 
             <dependency>
