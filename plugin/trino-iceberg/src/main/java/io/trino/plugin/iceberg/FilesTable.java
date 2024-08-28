@@ -68,6 +68,20 @@ import static java.util.Objects.requireNonNull;
 public class FilesTable
         implements SystemTable
 {
+    private static final String CONTENT_COLUMN_NAME = "content";
+    private static final String FILE_PATH_COLUMN_NAME = "file_path";
+    private static final String FILE_FORMAT_COLUMN_NAME = "file_format";
+    private static final String RECORD_COUNT_COLUMN_NAME = "record_count";
+    private static final String FILE_SIZE_IN_BYTES_COLUMN_NAME = "file_size_in_bytes";
+    private static final String COLUMN_SIZES_COLUMN_NAME = "column_sizes";
+    private static final String VALUE_COUNTS_COLUMN_NAME = "value_counts";
+    private static final String NULL_VALUE_COUNTS_COLUMN_NAME = "null_value_counts";
+    private static final String NAN_VALUE_COUNTS_COLUMN_NAME = "nan_value_counts";
+    private static final String LOWER_BOUNDS_COLUMN_NAME = "lower_bounds";
+    private static final String UPPER_BOUNDS_COLUMN_NAME = "upper_bounds";
+    private static final String KEY_METADATA_COLUMN_NAME = "key_metadata";
+    private static final String SPLIT_OFFSETS_COLUMN_NAME = "split_offsets";
+    private static final String EQUALITY_IDS_COLUMN_NAME = "equality_ids";
     private final ConnectorTableMetadata tableMetadata;
     private final TypeManager typeManager;
     private final Table icebergTable;
@@ -80,20 +94,20 @@ public class FilesTable
 
         tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
                 ImmutableList.<ColumnMetadata>builder()
-                        .add(new ColumnMetadata("content", INTEGER))
-                        .add(new ColumnMetadata("file_path", VARCHAR))
-                        .add(new ColumnMetadata("file_format", VARCHAR))
-                        .add(new ColumnMetadata("record_count", BIGINT))
-                        .add(new ColumnMetadata("file_size_in_bytes", BIGINT))
-                        .add(new ColumnMetadata("column_sizes", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("null_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("nan_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("lower_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
-                        .add(new ColumnMetadata("upper_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
-                        .add(new ColumnMetadata("key_metadata", VARBINARY))
-                        .add(new ColumnMetadata("split_offsets", new ArrayType(BIGINT)))
-                        .add(new ColumnMetadata("equality_ids", new ArrayType(INTEGER)))
+                        .add(new ColumnMetadata(CONTENT_COLUMN_NAME, INTEGER))
+                        .add(new ColumnMetadata(FILE_PATH_COLUMN_NAME, VARCHAR))
+                        .add(new ColumnMetadata(FILE_FORMAT_COLUMN_NAME, VARCHAR))
+                        .add(new ColumnMetadata(RECORD_COUNT_COLUMN_NAME, BIGINT))
+                        .add(new ColumnMetadata(FILE_SIZE_IN_BYTES_COLUMN_NAME, BIGINT))
+                        .add(new ColumnMetadata(COLUMN_SIZES_COLUMN_NAME, typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
+                        .add(new ColumnMetadata(VALUE_COUNTS_COLUMN_NAME, typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
+                        .add(new ColumnMetadata(NULL_VALUE_COUNTS_COLUMN_NAME, typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
+                        .add(new ColumnMetadata(NAN_VALUE_COUNTS_COLUMN_NAME, typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
+                        .add(new ColumnMetadata(LOWER_BOUNDS_COLUMN_NAME, typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
+                        .add(new ColumnMetadata(UPPER_BOUNDS_COLUMN_NAME, typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
+                        .add(new ColumnMetadata(KEY_METADATA_COLUMN_NAME, VARBINARY))
+                        .add(new ColumnMetadata(SPLIT_OFFSETS_COLUMN_NAME, new ArrayType(BIGINT)))
+                        .add(new ColumnMetadata(EQUALITY_IDS_COLUMN_NAME, new ArrayType(INTEGER)))
                         .build());
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
     }
@@ -153,7 +167,8 @@ public class FilesTable
         public RecordCursor cursor()
         {
             CloseableIterator<List<Object>> iterator = this.iterator();
-            return new InMemoryRecordSet.InMemoryRecordCursor(types, iterator) {
+            return new InMemoryRecordSet.InMemoryRecordCursor(types, iterator)
+            {
                 @Override
                 public void close()
                 {
@@ -173,7 +188,8 @@ public class FilesTable
             final CloseableIterator<FileScanTask> planFilesIterator = planFiles.iterator();
             addCloseable(planFilesIterator);
 
-            return new CloseableIterator<>() {
+            return new CloseableIterator<>()
+            {
                 @Override
                 public boolean hasNext()
                 {
