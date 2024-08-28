@@ -22,6 +22,7 @@ import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
+import com.azure.storage.blob.specialized.BlockBlobClient;
 import com.azure.storage.file.datalake.DataLakeDirectoryClient;
 import com.azure.storage.file.datalake.DataLakeFileClient;
 import com.azure.storage.file.datalake.DataLakeFileSystemClient;
@@ -445,8 +446,10 @@ public class AzureFileSystem
             throws IOException
     {
         try {
-            DataLakeFileSystemClient fileSystemClient = createFileSystemClient(location);
-            return fileSystemClient.getDirectoryClient("/").exists();
+            BlockBlobClient blockBlobClient = createBlobContainerClient(location)
+                    .getBlobClient("/")
+                    .getBlockBlobClient();
+            return blockBlobClient.exists();
         }
         catch (RuntimeException e) {
             throw new IOException("Checking whether hierarchical namespace is enabled for the location %s failed".formatted(location), e);
