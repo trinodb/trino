@@ -622,7 +622,9 @@ public final class TestHiveFileFormats
         assertThatFileFormat(PARQUET)
                 .withWriteColumns(ImmutableList.of(writeColumnA, writeColumnB))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .withSession(PARQUET_SESSION_USE_NAME)
+                // Parquet writer validation will attempt to read back all written columns, while the reader is case-insensitive and does not support reading all columns for this case.
+                // Since this is not a valid scenario for Trino parquet writer, we disable parquet writer validation to avoid test failures
+                .withSession(getHiveSession(createParquetHiveConfig(true), new ParquetWriterConfig().setValidationPercentage(0)))
                 .withRowsCount(rowCount)
                 .withFileWriterFactory(fileSystemFactory -> new ParquetFileWriterFactory(fileSystemFactory, new NodeVersion("test-version"), TESTING_TYPE_MANAGER, new HiveConfig(), STATS))
                 .isReadableByPageSource(fileSystemFactory -> new ParquetPageSourceFactory(fileSystemFactory, STATS, new ParquetReaderConfig(), new HiveConfig()));
