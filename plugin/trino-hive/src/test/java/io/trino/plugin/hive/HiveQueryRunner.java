@@ -222,6 +222,9 @@ public final class HiveQueryRunner
                     hiveProperties.put("hive.metastore", "file");
                     hiveProperties.put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toString());
                 }
+                if (!hiveProperties.buildOrThrow().containsKey("fs.hadoop.enabled")) {
+                    hiveProperties.put("fs.hadoop.enabled", "true");
+                }
 
                 queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore));
 

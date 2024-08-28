@@ -7626,7 +7626,8 @@ public abstract class BaseIcebergConnectorTest
                 "iceberg",
                 ImmutableMap.of(
                         "iceberg.catalog.type", "TESTING_FILE_METASTORE",
-                        "hive.metastore.catalog.dir", dataDirectory.getPath()));
+                        "hive.metastore.catalog.dir", dataDirectory.getPath(),
+                        "fs.hadoop.enabled", "true"));
 
         queryRunner.installPlugin(new TestingHivePlugin(dataDirectory.toPath()));
         queryRunner.createCatalog(

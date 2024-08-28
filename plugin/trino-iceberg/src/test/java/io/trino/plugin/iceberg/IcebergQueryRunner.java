@@ -148,6 +148,10 @@ public final class IcebergQueryRunner
                 queryRunner.installPlugin(new TpchPlugin());
                 queryRunner.createCatalog("tpch", "tpch");
 
+                if (!icebergProperties.buildOrThrow().containsKey("fs.hadoop.enabled")) {
+                    icebergProperties.put("fs.hadoop.enabled", "true");
+                }
+
                 Path dataDir = metastoreDirectory.map(File::toPath).orElseGet(() -> queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data"));
                 queryRunner.installPlugin(new TestingIcebergPlugin(dataDir));
                 queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties.buildOrThrow());

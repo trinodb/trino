@@ -109,6 +109,7 @@ public class TestDeltaLakeGlueMetastore
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "glue")
                 .put("delta.hide-non-delta-lake-tables", "true")
+                .put("fs.hadoop.enabled", "true")
                 .buildOrThrow();
 
         ConnectorContext context = new TestingConnectorContext();

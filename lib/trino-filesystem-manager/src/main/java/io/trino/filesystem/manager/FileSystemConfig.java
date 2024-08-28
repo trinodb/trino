@@ -17,7 +17,7 @@ import io.airlift.configuration.Config;
 
 public class FileSystemConfig
 {
-    private boolean hadoopEnabled = true;
+    private boolean hadoopEnabled;
     private boolean nativeAzureEnabled;
     private boolean nativeS3Enabled;
     private boolean nativeGcsEnabled;

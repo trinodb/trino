@@ -121,6 +121,7 @@ public class TestTrinoDatabaseMetaData
                 .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toAbsolutePath().toString())
                 .put("hive.security", "sql-standard")
                 .put("bootstrap.quiet", "true")
+                .put("fs.hadoop.enabled", "true")
                 .buildOrThrow());
 
         countingMockConnector = new CountingMockConnector();

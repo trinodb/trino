@@ -161,6 +161,10 @@ public final class DeltaLakeQueryRunner
                 if (!deltaProperties.containsKey("hive.metastore") && !deltaProperties.containsKey("hive.metastore.uri")) {
                     deltaProperties.put("hive.metastore", "file");
                 }
+
+                if (!deltaProperties.containsKey("fs.hadoop.enabled")) {
+                    deltaProperties.put("fs.hadoop.enabled", "true");
+                }
                 queryRunner.createCatalog(DELTA_CATALOG, CONNECTOR_NAME, deltaProperties);
 
                 String schemaName = queryRunner.getDefaultSession().getSchema().orElseThrow();
