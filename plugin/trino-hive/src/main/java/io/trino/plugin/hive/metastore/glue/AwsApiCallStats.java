@@ -19,55 +19,89 @@ import io.airlift.stats.TimeStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import java.util.concurrent.Callable;
+import java.time.Duration;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
 public class AwsApiCallStats
 {
-    private final TimeStat time = new TimeStat(MILLISECONDS);
-    private final CounterStat totalFailures = new CounterStat();
+    private final TimeStat latency = new TimeStat(MILLISECONDS);
+    private final CounterStat calls = new CounterStat();
+    private final CounterStat failures = new CounterStat();
+    private final CounterStat retries = new CounterStat();
+    private final CounterStat throttlingExceptions = new CounterStat();
+    private final CounterStat serverErrors = new CounterStat();
 
-    public <V, E extends Exception> V call(ThrowingCallable<V, E> callable)
-            throws E
+    @Managed
+    @Nested
+    public TimeStat getLatency()
     {
-        try (TimeStat.BlockTimer _ = time.time()) {
-            return callable.call();
-        }
-        catch (Exception e) {
-            totalFailures.update(1);
-            throw e;
-        }
+        return latency;
     }
 
     @Managed
     @Nested
-    public TimeStat getTime()
+    public CounterStat getCalls()
     {
-        return time;
+        return calls;
     }
 
     @Managed
     @Nested
-    public CounterStat getTotalFailures()
+    public CounterStat getFailures()
     {
-        return totalFailures;
+        return failures;
     }
 
-    public void recordCall(long executionTimeNanos, boolean failure)
+    @Managed
+    @Nested
+    public CounterStat getRetries()
     {
-        time.addNanos(executionTimeNanos);
-        if (failure) {
-            totalFailures.update(1);
-        }
+        return retries;
     }
 
-    public interface ThrowingCallable<V, E extends Exception>
-            extends Callable<V>
+    @Managed
+    @Nested
+    public CounterStat getThrottlingExceptions()
     {
-        @Override
-        V call()
-                throws E;
+        return throttlingExceptions;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getServerErrors()
+    {
+        return serverErrors;
+    }
+
+    public void updateLatency(Duration duration)
+    {
+        latency.addNanos(duration.toNanos());
+    }
+
+    public void updateCalls()
+    {
+        calls.update(1);
+    }
+
+    public void updateFailures()
+    {
+        failures.update(1);
+    }
+
+    public void updateRetries(int retryCount)
+    {
+        retries.update(retryCount);
+    }
+
+    public void updateThrottlingExceptions()
+    {
+        throttlingExceptions.update(1);
+    }
+
+    public void updateServerErrors()
+    {
+        serverErrors.update(1);
     }
 }

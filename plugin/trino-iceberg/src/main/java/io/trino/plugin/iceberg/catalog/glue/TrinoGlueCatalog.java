@@ -13,26 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.model.AccessDeniedException;
-import com.amazonaws.services.glue.model.AlreadyExistsException;
-import com.amazonaws.services.glue.model.Column;
-import com.amazonaws.services.glue.model.CreateDatabaseRequest;
-import com.amazonaws.services.glue.model.CreateTableRequest;
-import com.amazonaws.services.glue.model.Database;
-import com.amazonaws.services.glue.model.DatabaseInput;
-import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
-import com.amazonaws.services.glue.model.DeleteTableRequest;
-import com.amazonaws.services.glue.model.EntityNotFoundException;
-import com.amazonaws.services.glue.model.GetDatabaseRequest;
-import com.amazonaws.services.glue.model.GetDatabasesRequest;
-import com.amazonaws.services.glue.model.GetDatabasesResult;
-import com.amazonaws.services.glue.model.GetTableRequest;
-import com.amazonaws.services.glue.model.GetTablesRequest;
-import com.amazonaws.services.glue.model.GetTablesResult;
-import com.amazonaws.services.glue.model.TableInput;
-import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.cache.Cache;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -50,7 +30,6 @@ import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TrinoViewUtil;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
 import io.trino.plugin.hive.ViewReaderUtil;
-import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
@@ -88,6 +67,26 @@ import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.exceptions.NotFoundException;
 import org.apache.iceberg.io.FileIO;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.AccessDeniedException;
+import software.amazon.awssdk.services.glue.model.AlreadyExistsException;
+import software.amazon.awssdk.services.glue.model.Column;
+import software.amazon.awssdk.services.glue.model.CreateDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.CreateTableRequest;
+import software.amazon.awssdk.services.glue.model.Database;
+import software.amazon.awssdk.services.glue.model.DatabaseInput;
+import software.amazon.awssdk.services.glue.model.DeleteDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.DeleteTableRequest;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.GetDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.GetDatabasesRequest;
+import software.amazon.awssdk.services.glue.model.GetDatabasesResponse;
+import software.amazon.awssdk.services.glue.model.GetTableRequest;
+import software.amazon.awssdk.services.glue.model.GetTablesRequest;
+import software.amazon.awssdk.services.glue.model.GetTablesResponse;
+import software.amazon.awssdk.services.glue.model.TableInput;
+import software.amazon.awssdk.services.glue.model.UpdateTableRequest;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -123,11 +122,11 @@ import static io.trino.plugin.hive.TrinoViewUtil.createViewProperties;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
-import static io.trino.plugin.hive.metastore.glue.v1.AwsSdkUtil.getPaginatedResults;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getColumnParameters;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableTypeNullable;
+import static io.trino.plugin.hive.metastore.glue.v2.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.metastore.glue.v2.converter.GlueToTrinoConverter.getColumnParameters;
+import static io.trino.plugin.hive.metastore.glue.v2.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v2.converter.GlueToTrinoConverter.getTableType;
+import static io.trino.plugin.hive.metastore.glue.v2.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -177,12 +176,11 @@ public class TrinoGlueCatalog
     private final boolean cacheTableMetadata;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final Optional<String> defaultSchemaLocation;
-    private final AWSGlueAsync glueClient;
-    private final GlueMetastoreStats stats;
+    private final GlueClient glueClient;
     private final boolean hideMaterializedViewStorageTable;
     private final boolean isUsingSystemSecurity;
 
-    private final Cache<SchemaTableName, com.amazonaws.services.glue.model.Table> glueTableCache = EvictableCacheBuilder.newBuilder()
+    private final Cache<SchemaTableName, software.amazon.awssdk.services.glue.model.Table> glueTableCache = EvictableCacheBuilder.newBuilder()
             // Even though this is query-scoped, this still needs to be bounded. information_schema queries can access large number of tables.
             .maximumSize(Math.max(PER_QUERY_CACHES_SIZE, IcebergMetadata.GET_METADATA_BATCH_SIZE))
             .build();
@@ -204,8 +202,7 @@ public class TrinoGlueCatalog
             boolean cacheTableMetadata,
             IcebergTableOperationsProvider tableOperationsProvider,
             String trinoVersion,
-            AWSGlueAsync glueClient,
-            GlueMetastoreStats stats,
+            GlueClient glueClient,
             boolean isUsingSystemSecurity,
             Optional<String> defaultSchemaLocation,
             boolean useUniqueTableLocation,
@@ -216,7 +213,6 @@ public class TrinoGlueCatalog
         this.cacheTableMetadata = cacheTableMetadata;
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
-        this.stats = requireNonNull(stats, "stats is null");
         this.isUsingSystemSecurity = isUsingSystemSecurity;
         this.defaultSchemaLocation = requireNonNull(defaultSchemaLocation, "defaultSchemaLocation is null");
         this.hideMaterializedViewStorageTable = hideMaterializedViewStorageTable;
@@ -230,18 +226,16 @@ public class TrinoGlueCatalog
             // In fact, Glue stores database names lowercase only (but accepted mixed case on lookup).
             return false;
         }
-        return stats.getGetDatabase().call(() -> {
-            try {
-                glueClient.getDatabase(new GetDatabaseRequest().withName(namespace));
-                return true;
-            }
-            catch (EntityNotFoundException e) {
-                return false;
-            }
-            catch (AmazonServiceException e) {
-                throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
-            }
-        });
+        try {
+            glueClient.getDatabase(GetDatabaseRequest.builder().name(namespace).build());
+            return true;
+        }
+        catch (EntityNotFoundException e) {
+            return false;
+        }
+        catch (AwsServiceException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
+        }
     }
 
     @Override
@@ -249,17 +243,16 @@ public class TrinoGlueCatalog
     {
         try {
             return getPaginatedResults(
-                    glueClient::getDatabases,
-                    new GetDatabasesRequest(),
-                    GetDatabasesRequest::setNextToken,
-                    GetDatabasesResult::getNextToken,
-                    stats.getGetDatabases())
-                    .map(GetDatabasesResult::getDatabaseList)
+                    request -> glueClient.getDatabases(request.build()),
+                    GetDatabasesRequest.builder(),
+                    GetDatabasesRequest.Builder::nextToken,
+                    GetDatabasesResponse::nextToken)
+                    .map(GetDatabasesResponse::databaseList)
                     .flatMap(List::stream)
-                    .map(com.amazonaws.services.glue.model.Database::getName)
+                    .map(Database::name)
                     .collect(toImmutableList());
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
         }
     }
@@ -277,13 +270,12 @@ public class TrinoGlueCatalog
     {
         try {
             glueTableCache.invalidateAll();
-            stats.getDeleteDatabase().call(() ->
-                    glueClient.deleteDatabase(new DeleteDatabaseRequest().withName(namespace)));
+            glueClient.deleteDatabase(DeleteDatabaseRequest.builder().name(namespace).build());
         }
         catch (EntityNotFoundException e) {
             throw new SchemaNotFoundException(namespace, e);
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
         }
     }
@@ -292,22 +284,21 @@ public class TrinoGlueCatalog
     public Map<String, Object> loadNamespaceMetadata(ConnectorSession session, String namespace)
     {
         try {
-            GetDatabaseRequest getDatabaseRequest = new GetDatabaseRequest().withName(namespace);
-            Database database = stats.getGetDatabase().call(() ->
-                    glueClient.getDatabase(getDatabaseRequest).getDatabase());
+            GetDatabaseRequest getDatabaseRequest = GetDatabaseRequest.builder().name(namespace).build();
+            Database database = glueClient.getDatabase(getDatabaseRequest).database();
             ImmutableMap.Builder<String, Object> metadata = ImmutableMap.builder();
-            if (database.getLocationUri() != null) {
-                metadata.put(LOCATION_PROPERTY, database.getLocationUri());
+            if (database.locationUri() != null) {
+                metadata.put(LOCATION_PROPERTY, database.locationUri());
             }
-            if (database.getParameters() != null) {
-                metadata.putAll(database.getParameters());
+            if (database.parameters() != null) {
+                metadata.putAll(database.parameters());
             }
             return metadata.buildOrThrow();
         }
         catch (EntityNotFoundException e) {
             throw new SchemaNotFoundException(namespace, e);
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
         }
     }
@@ -325,29 +316,29 @@ public class TrinoGlueCatalog
         checkArgument(owner.getName().equals(session.getUser().toLowerCase(ENGLISH)), "Explicit schema owner is not supported");
 
         try {
-            stats.getCreateDatabase().call(() ->
-                    glueClient.createDatabase(new CreateDatabaseRequest()
-                            .withDatabaseInput(createDatabaseInput(namespace, properties))));
+            glueClient.createDatabase(CreateDatabaseRequest.builder()
+                            .databaseInput(createDatabaseInput(namespace, properties))
+                            .build());
         }
         catch (AlreadyExistsException e) {
             throw new SchemaAlreadyExistsException(namespace, e);
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
         }
     }
 
     private DatabaseInput createDatabaseInput(String namespace, Map<String, Object> properties)
     {
-        DatabaseInput databaseInput = new DatabaseInput().withName(namespace);
+        DatabaseInput.Builder databaseInput = DatabaseInput.builder().name(namespace);
         properties.forEach((property, value) -> {
             switch (property) {
-                case LOCATION_PROPERTY -> databaseInput.setLocationUri((String) value);
+                case LOCATION_PROPERTY -> databaseInput.locationUri((String) value);
                 default -> throw new IllegalArgumentException("Unrecognized property: " + property);
             }
         });
 
-        return databaseInput;
+        return databaseInput.build();
     }
 
     @Override
@@ -368,7 +359,7 @@ public class TrinoGlueCatalog
         return listNamespaces(session, namespace).stream()
                 .flatMap(glueNamespace -> getGlueTablesWithExceptionHandling(glueNamespace)
                         .map(table -> new TableInfo(
-                                new SchemaTableName(glueNamespace, table.getName()),
+                                new SchemaTableName(glueNamespace, table.name()),
                                 TableInfo.ExtendedRelationType.fromTableTypeAndComment(getTableType(table), getTableParameters(table).get(TABLE_COMMENT)))))
                 .collect(toImmutableList());
     }
@@ -382,22 +373,22 @@ public class TrinoGlueCatalog
     {
         ImmutableList.Builder<RelationColumnsMetadata> unfilteredResult = ImmutableList.builder();
         ImmutableList.Builder<RelationColumnsMetadata> filteredResult = ImmutableList.builder();
-        Map<SchemaTableName, com.amazonaws.services.glue.model.Table> unprocessed = new HashMap<>();
+        Map<SchemaTableName, software.amazon.awssdk.services.glue.model.Table> unprocessed = new HashMap<>();
 
         listNamespaces(session, namespace).stream()
                 .flatMap(glueNamespace -> getGlueTables(glueNamespace)
-                        .map(table -> entry(new SchemaTableName(glueNamespace, table.getName()), table)))
+                        .map(table -> entry(new SchemaTableName(glueNamespace, table.name()), table)))
                 .forEach(entry -> {
                     SchemaTableName name = entry.getKey();
-                    com.amazonaws.services.glue.model.Table table = entry.getValue();
+                    software.amazon.awssdk.services.glue.model.Table table = entry.getValue();
                     String tableType = getTableType(table);
                     Map<String, String> tableParameters = getTableParameters(table);
                     if (isTrinoMaterializedView(tableType, tableParameters)) {
-                        IcebergMaterializedViewDefinition definition = decodeMaterializedViewData(table.getViewOriginalText());
+                        IcebergMaterializedViewDefinition definition = decodeMaterializedViewData(table.viewOriginalText());
                         unfilteredResult.add(RelationColumnsMetadata.forMaterializedView(name, toSpiMaterializedViewColumns(definition.columns())));
                     }
                     else if (isTrinoView(tableType, tableParameters)) {
-                        ConnectorViewDefinition definition = ViewReaderUtil.PrestoViewReader.decodeViewData(table.getViewOriginalText());
+                        ConnectorViewDefinition definition = ViewReaderUtil.PrestoViewReader.decodeViewData(table.viewOriginalText());
                         unfilteredResult.add(RelationColumnsMetadata.forView(name, definition.getColumns()));
                     }
                     else if (isRedirected.test(name)) {
@@ -439,12 +430,12 @@ public class TrinoGlueCatalog
 
     private void getColumnsFromIcebergMetadata(
             ConnectorSession session,
-            Map<SchemaTableName, com.amazonaws.services.glue.model.Table> glueTables, // only Iceberg tables
+            Map<SchemaTableName, software.amazon.awssdk.services.glue.model.Table> glueTables, // only Iceberg tables
             UnaryOperator<Set<SchemaTableName>> relationFilter,
             Consumer<RelationColumnsMetadata> resultsCollector)
     {
         for (SchemaTableName tableName : relationFilter.apply(glueTables.keySet())) {
-            com.amazonaws.services.glue.model.Table table = glueTables.get(tableName);
+            software.amazon.awssdk.services.glue.model.Table table = glueTables.get(tableName);
             // potentially racy with invalidation, but TrinoGlueCatalog is session-scoped
             uncheckedCacheGet(glueTableCache, tableName, () -> table);
             List<ColumnMetadata> columns;
@@ -474,22 +465,22 @@ public class TrinoGlueCatalog
 
         ImmutableList.Builder<RelationCommentMetadata> unfilteredResult = ImmutableList.builder();
         ImmutableList.Builder<RelationCommentMetadata> filteredResult = ImmutableList.builder();
-        Map<SchemaTableName, com.amazonaws.services.glue.model.Table> unprocessed = new HashMap<>();
+        Map<SchemaTableName, software.amazon.awssdk.services.glue.model.Table> unprocessed = new HashMap<>();
 
         listNamespaces(session, namespace).stream()
                 .flatMap(glueNamespace -> getGlueTables(glueNamespace)
-                        .map(table -> entry(new SchemaTableName(glueNamespace, table.getName()), table)))
+                        .map(table -> entry(new SchemaTableName(glueNamespace, table.name()), table)))
                 .forEach(entry -> {
                     SchemaTableName name = entry.getKey();
-                    com.amazonaws.services.glue.model.Table table = entry.getValue();
+                    software.amazon.awssdk.services.glue.model.Table table = entry.getValue();
                     String tableType = getTableType(table);
                     Map<String, String> tableParameters = getTableParameters(table);
                     if (isTrinoMaterializedView(tableType, tableParameters)) {
-                        Optional<String> comment = decodeMaterializedViewData(table.getViewOriginalText()).comment();
+                        Optional<String> comment = decodeMaterializedViewData(table.viewOriginalText()).comment();
                         unfilteredResult.add(RelationCommentMetadata.forRelation(name, comment));
                     }
                     else if (isTrinoView(tableType, tableParameters)) {
-                        Optional<String> comment = ViewReaderUtil.PrestoViewReader.decodeViewData(table.getViewOriginalText()).getComment();
+                        Optional<String> comment = ViewReaderUtil.PrestoViewReader.decodeViewData(table.viewOriginalText()).getComment();
                         unfilteredResult.add(RelationCommentMetadata.forRelation(name, comment));
                     }
                     else if (isRedirected.test(name)) {
@@ -535,12 +526,12 @@ public class TrinoGlueCatalog
 
     private void getCommentsFromIcebergMetadata(
             ConnectorSession session,
-            Map<SchemaTableName, com.amazonaws.services.glue.model.Table> glueTables, // only Iceberg tables
+            Map<SchemaTableName, software.amazon.awssdk.services.glue.model.Table> glueTables, // only Iceberg tables
             UnaryOperator<Set<SchemaTableName>> relationFilter,
             Consumer<RelationCommentMetadata> resultsCollector)
     {
         for (SchemaTableName tableName : relationFilter.apply(glueTables.keySet())) {
-            com.amazonaws.services.glue.model.Table table = glueTables.get(tableName);
+            software.amazon.awssdk.services.glue.model.Table table = glueTables.get(tableName);
             // potentially racy with invalidation, but TrinoGlueCatalog is session-scoped
             uncheckedCacheGet(glueTableCache, tableName, () -> table);
             Optional<String> comment;
@@ -626,11 +617,11 @@ public class TrinoGlueCatalog
             return Optional.empty();
         }
 
-        com.amazonaws.services.glue.model.Table glueTable = getTable(tableName, false);
+        software.amazon.awssdk.services.glue.model.Table glueTable = getTable(tableName, false);
         return getCachedColumnMetadata(glueTable);
     }
 
-    private Optional<List<ColumnMetadata>> getCachedColumnMetadata(com.amazonaws.services.glue.model.Table glueTable)
+    private Optional<List<ColumnMetadata>> getCachedColumnMetadata(software.amazon.awssdk.services.glue.model.Table glueTable)
     {
         if (!cacheTableMetadata) {
             return Optional.empty();
@@ -640,12 +631,12 @@ public class TrinoGlueCatalog
         String metadataLocation = tableParameters.get(METADATA_LOCATION_PROP);
         String metadataValidForMetadata = tableParameters.get(TRINO_TABLE_METADATA_INFO_VALID_FOR);
         if (metadataLocation == null || !metadataLocation.equals(metadataValidForMetadata) ||
-                glueTable.getStorageDescriptor() == null ||
-                glueTable.getStorageDescriptor().getColumns() == null) {
+                glueTable.storageDescriptor() == null ||
+                glueTable.storageDescriptor().columns() == null) {
             return Optional.empty();
         }
 
-        List<Column> glueColumns = glueTable.getStorageDescriptor().getColumns();
+        List<Column> glueColumns = glueTable.storageDescriptor().columns();
         if (glueColumns.stream().noneMatch(column -> getColumnParameters(column).containsKey(COLUMN_TRINO_TYPE_ID_PROPERTY))) {
             // No column has type parameter, maybe the parameters were erased
             return Optional.empty();
@@ -654,13 +645,13 @@ public class TrinoGlueCatalog
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(glueColumns.size());
         for (Column glueColumn : glueColumns) {
             Map<String, String> columnParameters = getColumnParameters(glueColumn);
-            String trinoTypeId = columnParameters.getOrDefault(COLUMN_TRINO_TYPE_ID_PROPERTY, glueColumn.getType());
+            String trinoTypeId = columnParameters.getOrDefault(COLUMN_TRINO_TYPE_ID_PROPERTY, glueColumn.type());
             boolean notNull = parseBoolean(columnParameters.getOrDefault(COLUMN_TRINO_NOT_NULL_PROPERTY, "false"));
             Type type = typeManager.getType(TypeId.of(trinoTypeId));
             columns.add(ColumnMetadata.builder()
-                    .setName(glueColumn.getName())
+                    .setName(glueColumn.name())
                     .setType(type)
-                    .setComment(Optional.ofNullable(glueColumn.getComment()))
+                    .setComment(Optional.ofNullable(glueColumn.comment()))
                     .setNullable(!notNull)
                     .build());
         }
@@ -675,7 +666,7 @@ public class TrinoGlueCatalog
         try {
             deleteTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         try {
@@ -693,7 +684,7 @@ public class TrinoGlueCatalog
     @Override
     public void dropCorruptedTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        com.amazonaws.services.glue.model.Table table = dropTableFromMetastore(session, schemaTableName);
+        software.amazon.awssdk.services.glue.model.Table table = dropTableFromMetastore(session, schemaTableName);
         String metadataLocation = getTableParameters(table).get(METADATA_LOCATION_PROP);
         if (metadataLocation == null) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table %s is missing [%s] property", schemaTableName, METADATA_LOCATION_PROP));
@@ -767,9 +758,9 @@ public class TrinoGlueCatalog
         invalidateTableCache(schemaTableName);
     }
 
-    private com.amazonaws.services.glue.model.Table dropTableFromMetastore(ConnectorSession session, SchemaTableName schemaTableName)
+    private software.amazon.awssdk.services.glue.model.Table dropTableFromMetastore(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        com.amazonaws.services.glue.model.Table table = getTableAndCacheMetadata(session, schemaTableName)
+        software.amazon.awssdk.services.glue.model.Table table = getTableAndCacheMetadata(session, schemaTableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
         if (!isIcebergTable(getTableParameters(table))) {
             throw new UnknownTableTypeException(schemaTableName);
@@ -778,7 +769,7 @@ public class TrinoGlueCatalog
         try {
             deleteTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         return table;
@@ -789,7 +780,7 @@ public class TrinoGlueCatalog
     {
         boolean newTableCreated = false;
         try {
-            com.amazonaws.services.glue.model.Table table = getTableAndCacheMetadata(session, from)
+            software.amazon.awssdk.services.glue.model.Table table = getTableAndCacheMetadata(session, from)
                     .orElseThrow(() -> new TableNotFoundException(from));
             Map<String, String> tableParameters = new HashMap<>(getTableParameters(table));
             FileIO io = loadTable(session, from).io();
@@ -801,7 +792,7 @@ public class TrinoGlueCatalog
             TableInput tableInput = getTableInput(
                     typeManager,
                     to.getTableName(),
-                    Optional.ofNullable(table.getOwner()),
+                    Optional.ofNullable(table.owner()),
                     metadata,
                     metadataLocation,
                     tableParameters,
@@ -826,9 +817,9 @@ public class TrinoGlueCatalog
         }
     }
 
-    private Optional<com.amazonaws.services.glue.model.Table> getTableAndCacheMetadata(ConnectorSession session, SchemaTableName schemaTableName)
+    private Optional<software.amazon.awssdk.services.glue.model.Table> getTableAndCacheMetadata(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        com.amazonaws.services.glue.model.Table table;
+        software.amazon.awssdk.services.glue.model.Table table;
         try {
             table = getTable(schemaTableName, false);
         }
@@ -878,10 +869,10 @@ public class TrinoGlueCatalog
 
             try {
                 TrinoViewUtil.getView(
-                                Optional.ofNullable(table.getViewOriginalText()),
+                                Optional.ofNullable(table.viewOriginalText()),
                                 tableType,
                                 parameters,
-                                Optional.ofNullable(table.getOwner()))
+                                Optional.ofNullable(table.owner()))
                         .ifPresent(viewDefinition -> {
                             // Note: this is racy from cache invalidation perspective, but it should not matter here
                             uncheckedCacheGet(viewCache, schemaTableName, () -> viewDefinition);
@@ -898,12 +889,12 @@ public class TrinoGlueCatalog
     @Override
     public String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        GetDatabaseRequest getDatabaseRequest = new GetDatabaseRequest()
-                .withName(schemaTableName.getSchemaName());
-        String databaseLocation = stats.getGetDatabase().call(() ->
-                glueClient.getDatabase(getDatabaseRequest)
-                        .getDatabase()
-                        .getLocationUri());
+        GetDatabaseRequest getDatabaseRequest = GetDatabaseRequest.builder()
+                .name(schemaTableName.getSchemaName())
+                .build();
+        String databaseLocation = glueClient.getDatabase(getDatabaseRequest)
+                        .database()
+                        .locationUri();
 
         String tableName = createNewTableName(schemaTableName.getTableName());
 
@@ -949,7 +940,7 @@ public class TrinoGlueCatalog
 
     private void doCreateView(ConnectorSession session, SchemaTableName schemaViewName, TableInput viewTableInput, boolean replace)
     {
-        Optional<com.amazonaws.services.glue.model.Table> existing = getTableAndCacheMetadata(session, schemaViewName);
+        Optional<software.amazon.awssdk.services.glue.model.Table> existing = getTableAndCacheMetadata(session, schemaViewName);
         if (existing.isPresent()) {
             if (!replace || !isTrinoView(getTableType(existing.get()), getTableParameters(existing.get()))) {
                 // TODO: ViewAlreadyExists is misleading if the name is used by a table https://github.com/trinodb/trino/issues/10037
@@ -973,13 +964,13 @@ public class TrinoGlueCatalog
     {
         boolean newTableCreated = false;
         try {
-            com.amazonaws.services.glue.model.Table existingView = getTableAndCacheMetadata(session, source)
+            software.amazon.awssdk.services.glue.model.Table existingView = getTableAndCacheMetadata(session, source)
                     .orElseThrow(() -> new TableNotFoundException(source));
             viewCache.invalidate(source);
             TableInput viewTableInput = getViewTableInput(
                     target.getTableName(),
-                    existingView.getViewOriginalText(),
-                    existingView.getOwner(),
+                    existingView.viewOriginalText(),
+                    existingView.owner(),
                     createViewProperties(session, trinoVersion, TRINO_CREATED_BY_VALUE));
             createTable(target.getSchemaName(), viewTableInput);
             newTableCreated = true;
@@ -1017,7 +1008,7 @@ public class TrinoGlueCatalog
             viewCache.invalidate(schemaViewName);
             deleteTable(schemaViewName.getSchemaName(), schemaViewName.getTableName());
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -1035,16 +1026,16 @@ public class TrinoGlueCatalog
             return Optional.empty();
         }
 
-        Optional<com.amazonaws.services.glue.model.Table> table = getTableAndCacheMetadata(session, viewName);
+        Optional<software.amazon.awssdk.services.glue.model.Table> table = getTableAndCacheMetadata(session, viewName);
         if (table.isEmpty()) {
             return Optional.empty();
         }
-        com.amazonaws.services.glue.model.Table viewDefinition = table.get();
+        software.amazon.awssdk.services.glue.model.Table viewDefinition = table.get();
         return TrinoViewUtil.getView(
-                Optional.ofNullable(viewDefinition.getViewOriginalText()),
+                Optional.ofNullable(viewDefinition.viewOriginalText()),
                 getTableType(viewDefinition),
                 getTableParameters(viewDefinition),
-                Optional.ofNullable(viewDefinition.getOwner()));
+                Optional.ofNullable(viewDefinition.owner()));
     }
 
     @Override
@@ -1096,7 +1087,7 @@ public class TrinoGlueCatalog
         try {
             updateTable(viewName.getSchemaName(), viewTableInput);
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
         }
     }
@@ -1110,7 +1101,7 @@ public class TrinoGlueCatalog
             boolean replace,
             boolean ignoreExisting)
     {
-        Optional<com.amazonaws.services.glue.model.Table> existing = getTableAndCacheMetadata(session, viewName);
+        Optional<software.amazon.awssdk.services.glue.model.Table> existing = getTableAndCacheMetadata(session, viewName);
 
         if (existing.isPresent()) {
             if (!isTrinoMaterializedView(getTableType(existing.get()), getTableParameters(existing.get()))) {
@@ -1164,7 +1155,7 @@ public class TrinoGlueCatalog
             SchemaTableName viewName,
             ConnectorMaterializedViewDefinition definition,
             Map<String, Object> materializedViewProperties,
-            Optional<com.amazonaws.services.glue.model.Table> existing)
+            Optional<software.amazon.awssdk.services.glue.model.Table> existing)
     {
         // Create the storage table
         SchemaTableName storageTable = createMaterializedViewStorageTable(session, viewName, definition, materializedViewProperties);
@@ -1221,16 +1212,16 @@ public class TrinoGlueCatalog
 
     private void updateMaterializedView(SchemaTableName viewName, ConnectorMaterializedViewDefinition newDefinition)
     {
-        com.amazonaws.services.glue.model.Table table = getTable(viewName, false);
+        software.amazon.awssdk.services.glue.model.Table table = getTable(viewName, false);
         TableInput materializedViewTableInput = getMaterializedViewTableInput(
                 viewName.getTableName(),
                 encodeMaterializedViewData(fromConnectorMaterializedViewDefinition(newDefinition)),
-                table.getOwner(),
+                table.owner(),
                 getTableParameters(table));
         try {
             updateTable(viewName.getSchemaName(), materializedViewTableInput);
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
         }
     }
@@ -1238,39 +1229,39 @@ public class TrinoGlueCatalog
     @Override
     public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        com.amazonaws.services.glue.model.Table view = getTableAndCacheMetadata(session, viewName)
+        software.amazon.awssdk.services.glue.model.Table view = getTableAndCacheMetadata(session, viewName)
                 .orElseThrow(() -> new MaterializedViewNotFoundException(viewName));
 
         if (!isTrinoMaterializedView(getTableType(view), getTableParameters(view))) {
-            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + view.getDatabaseName() + "." + view.getName());
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + view.databaseName() + "." + view.name());
         }
         materializedViewCache.invalidate(viewName);
         dropMaterializedViewStorage(session, view);
-        deleteTable(view.getDatabaseName(), view.getName());
+        deleteTable(view.databaseName(), view.name());
     }
 
-    private void dropMaterializedViewStorage(ConnectorSession session, com.amazonaws.services.glue.model.Table view)
+    private void dropMaterializedViewStorage(ConnectorSession session, software.amazon.awssdk.services.glue.model.Table view)
     {
         Map<String, String> parameters = getTableParameters(view);
         String storageTableName = parameters.get(STORAGE_TABLE);
         if (storageTableName != null) {
             String storageSchema = Optional.ofNullable(parameters.get(STORAGE_SCHEMA))
-                    .orElse(view.getDatabaseName());
+                    .orElse(view.databaseName());
             try {
                 dropTable(session, new SchemaTableName(storageSchema, storageTableName));
             }
             catch (TrinoException e) {
-                LOG.warn(e, "Failed to drop storage table '%s.%s' for materialized view '%s'", storageSchema, storageTableName, view.getName());
+                LOG.warn(e, "Failed to drop storage table '%s.%s' for materialized view '%s'", storageSchema, storageTableName, view.name());
             }
         }
         else {
             String storageMetadataLocation = parameters.get(METADATA_LOCATION_PROP);
-            checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view " + view.getName());
+            checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view " + view.name());
             try {
                 dropMaterializedViewStorage(fileSystemFactory.create(session), storageMetadataLocation);
             }
             catch (IOException e) {
-                LOG.warn(e, "Failed to delete storage table metadata '%s' for materialized view '%s'", storageMetadataLocation, view.getName());
+                LOG.warn(e, "Failed to delete storage table metadata '%s' for materialized view '%s'", storageMetadataLocation, view.name());
             }
         }
     }
@@ -1288,12 +1279,12 @@ public class TrinoGlueCatalog
             return Optional.empty();
         }
 
-        Optional<com.amazonaws.services.glue.model.Table> maybeTable = getTableAndCacheMetadata(session, viewName);
+        Optional<software.amazon.awssdk.services.glue.model.Table> maybeTable = getTableAndCacheMetadata(session, viewName);
         if (maybeTable.isEmpty()) {
             return Optional.empty();
         }
 
-        com.amazonaws.services.glue.model.Table table = maybeTable.get();
+        software.amazon.awssdk.services.glue.model.Table table = maybeTable.get();
         if (!isTrinoMaterializedView(getTableType(table), getTableParameters(table))) {
             return Optional.empty();
         }
@@ -1303,7 +1294,7 @@ public class TrinoGlueCatalog
 
     private ConnectorMaterializedViewDefinition createMaterializedViewDefinition(
             SchemaTableName viewName,
-            com.amazonaws.services.glue.model.Table table)
+            software.amazon.awssdk.services.glue.model.Table table)
     {
         Map<String, String> materializedViewParameters = getTableParameters(table);
         String storageTable = materializedViewParameters.get(STORAGE_TABLE);
@@ -1319,20 +1310,20 @@ public class TrinoGlueCatalog
                     .orElse(viewName.getSchemaName());
             SchemaTableName storageTableName = new SchemaTableName(storageSchema, storageTable);
 
-            String viewOriginalText = table.getViewOriginalText();
+            String viewOriginalText = table.viewOriginalText();
             if (viewOriginalText == null) {
                 throw new TrinoException(ICEBERG_BAD_DATA, "Materialized view did not have original text " + viewName);
             }
             return getMaterializedViewDefinition(
-                    Optional.ofNullable(table.getOwner()),
+                    Optional.ofNullable(table.owner()),
                     viewOriginalText,
                     storageTableName);
         }
 
         SchemaTableName storageTableName = new SchemaTableName(viewName.getSchemaName(), tableNameWithType(viewName.getTableName(), MATERIALIZED_VIEW_STORAGE));
         return getMaterializedViewDefinition(
-                Optional.ofNullable(table.getOwner()),
-                table.getViewOriginalText(),
+                Optional.ofNullable(table.owner()),
+                table.viewOriginalText(),
                 storageTableName);
     }
 
@@ -1342,17 +1333,17 @@ public class TrinoGlueCatalog
         String storageMetadataLocation;
         MaterializedViewData materializedViewData = materializedViewCache.getIfPresent(viewName);
         if (materializedViewData == null) {
-            Optional<com.amazonaws.services.glue.model.Table> maybeTable = getTableAndCacheMetadata(session, viewName);
+            Optional<software.amazon.awssdk.services.glue.model.Table> maybeTable = getTableAndCacheMetadata(session, viewName);
             if (maybeTable.isEmpty()) {
                 return Optional.empty();
             }
-            com.amazonaws.services.glue.model.Table materializedView = maybeTable.get();
+            software.amazon.awssdk.services.glue.model.Table materializedView = maybeTable.get();
             verify(isTrinoMaterializedView(getTableType(materializedView), getTableParameters(materializedView)),
                     "getMaterializedViewStorageTable received a table, not a materialized view");
 
             // TODO getTableAndCacheMetadata saved the value in materializedViewCache, so we could just use that, except when conversion fails
             storageMetadataLocation = getTableParameters(materializedView).get(METADATA_LOCATION_PROP);
-            checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view " + materializedView.getName());
+            checkState(storageMetadataLocation != null, "Storage location missing in definition of materialized view " + materializedView.name());
         }
         else {
             storageMetadataLocation = materializedViewData.storageMetadataLocation
@@ -1394,14 +1385,14 @@ public class TrinoGlueCatalog
     {
         boolean newTableCreated = false;
         try {
-            com.amazonaws.services.glue.model.Table glueTable = getTableAndCacheMetadata(session, source)
+            software.amazon.awssdk.services.glue.model.Table glueTable = getTableAndCacheMetadata(session, source)
                     .orElseThrow(() -> new TableNotFoundException(source));
             materializedViewCache.invalidate(source);
             Map<String, String> tableParameters = getTableParameters(glueTable);
             if (!isTrinoMaterializedView(getTableType(glueTable), tableParameters)) {
                 throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + source);
             }
-            TableInput tableInput = getMaterializedViewTableInput(target.getTableName(), glueTable.getViewOriginalText(), glueTable.getOwner(), tableParameters);
+            TableInput tableInput = getMaterializedViewTableInput(target.getTableName(), glueTable.viewOriginalText(), glueTable.owner(), tableParameters);
             createTable(target.getSchemaName(), tableInput);
             newTableCreated = true;
             deleteTable(source.getSchemaName(), source.getTableName());
@@ -1438,7 +1429,7 @@ public class TrinoGlueCatalog
                 tableName.getSchemaName(),
                 tableName.getTableName().substring(0, metadataMarkerIndex));
 
-        Optional<com.amazonaws.services.glue.model.Table> table = getTableAndCacheMetadata(session, new SchemaTableName(tableNameBase.getSchemaName(), tableNameBase.getTableName()));
+        Optional<software.amazon.awssdk.services.glue.model.Table> table = getTableAndCacheMetadata(session, new SchemaTableName(tableNameBase.getSchemaName(), tableNameBase.getTableName()));
 
         if (table.isEmpty() || VIRTUAL_VIEW.name().equals(getTableTypeNullable(table.get()))) {
             return Optional.empty();
@@ -1456,7 +1447,7 @@ public class TrinoGlueCatalog
         tableMetadataCache.invalidate(schemaTableName);
     }
 
-    com.amazonaws.services.glue.model.Table getTable(SchemaTableName tableName, boolean invalidateCaches)
+    software.amazon.awssdk.services.glue.model.Table getTable(SchemaTableName tableName, boolean invalidateCaches)
     {
         if (invalidateCaches) {
             glueTableCache.invalidate(tableName);
@@ -1465,15 +1456,16 @@ public class TrinoGlueCatalog
         try {
             return uncheckedCacheGet(glueTableCache, tableName, () -> {
                 try {
-                    GetTableRequest getTableRequest = new GetTableRequest()
-                            .withDatabaseName(tableName.getSchemaName())
-                            .withName(tableName.getTableName());
-                    return stats.getGetTable().call(() -> glueClient.getTable(getTableRequest).getTable());
+                    GetTableRequest getTableRequest = GetTableRequest.builder()
+                            .databaseName(tableName.getSchemaName())
+                            .name(tableName.getTableName())
+                            .build();
+                    return glueClient.getTable(getTableRequest).table();
                 }
                 catch (EntityNotFoundException e) {
                     throw new TableNotFoundException(tableName, e);
                 }
-                catch (AmazonServiceException e) {
+                catch (AwsServiceException e) {
                     throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
                 }
             });
@@ -1484,14 +1476,14 @@ public class TrinoGlueCatalog
         }
     }
 
-    private Stream<com.amazonaws.services.glue.model.Table> getGlueTablesWithExceptionHandling(String glueNamespace)
+    private Stream<software.amazon.awssdk.services.glue.model.Table> getGlueTablesWithExceptionHandling(String glueNamespace)
     {
         return stream(new AbstractIterator<>()
         {
-            private Iterator<com.amazonaws.services.glue.model.Table> delegate;
+            private Iterator<software.amazon.awssdk.services.glue.model.Table> delegate;
 
             @Override
-            protected com.amazonaws.services.glue.model.Table computeNext()
+            protected software.amazon.awssdk.services.glue.model.Table computeNext()
             {
                 boolean firstCall = (delegate == null);
                 try {
@@ -1516,50 +1508,49 @@ public class TrinoGlueCatalog
                     }
                     return endOfData();
                 }
-                catch (AmazonServiceException e) {
+                catch (AwsServiceException e) {
                     throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
                 }
             }
         });
     }
 
-    private Stream<com.amazonaws.services.glue.model.Table> getGlueTables(String glueNamespace)
+    private Stream<software.amazon.awssdk.services.glue.model.Table> getGlueTables(String glueNamespace)
     {
         return getPaginatedResults(
-                glueClient::getTables,
-                new GetTablesRequest().withDatabaseName(glueNamespace),
-                GetTablesRequest::setNextToken,
-                GetTablesResult::getNextToken,
-                stats.getGetTables())
-                .map(GetTablesResult::getTableList)
+                request -> glueClient.getTables(request.build()),
+                GetTablesRequest.builder().databaseName(glueNamespace),
+                GetTablesRequest.Builder::nextToken,
+                GetTablesResponse::nextToken)
+                .map(GetTablesResponse::tableList)
                 .flatMap(List::stream);
     }
 
     private void createTable(String schemaName, TableInput tableInput)
     {
         glueTableCache.invalidateAll();
-        stats.getCreateTable().call(() ->
-                glueClient.createTable(new CreateTableRequest()
-                        .withDatabaseName(schemaName)
-                        .withTableInput(tableInput)));
+        glueClient.createTable(CreateTableRequest.builder()
+                    .databaseName(schemaName)
+                    .tableInput(tableInput)
+                    .build());
     }
 
     private void updateTable(String schemaName, TableInput tableInput)
     {
         glueTableCache.invalidateAll();
-        stats.getUpdateTable().call(() ->
-                glueClient.updateTable(new UpdateTableRequest()
-                        .withDatabaseName(schemaName)
-                        .withTableInput(tableInput)));
+        glueClient.updateTable(UpdateTableRequest.builder()
+                        .databaseName(schemaName)
+                        .tableInput(tableInput)
+                        .build());
     }
 
     private void deleteTable(String schema, String table)
     {
         glueTableCache.invalidateAll();
-        stats.getDeleteTable().call(() ->
-                glueClient.deleteTable(new DeleteTableRequest()
-                        .withDatabaseName(schema)
-                        .withName(table)));
+        glueClient.deleteTable(DeleteTableRequest.builder()
+                .databaseName(schema)
+                .name(table)
+                .build());
     }
 
     private record MaterializedViewData(

@@ -62,7 +62,7 @@ public enum GlueMetastoreMethod
 
     public int getInvocationCount(GlueMetastoreStats stats)
     {
-        double count = this.getStatFrom(stats).getTime().getAllTime().getCount();
+        double count = this.getStatFrom(stats).getCalls().getTotalCount();
         return DoubleMath.roundToInt(count, RoundingMode.UNNECESSARY);
     }
 }

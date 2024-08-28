@@ -13,17 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
-import com.amazonaws.services.glue.model.DeleteTableRequest;
-import com.amazonaws.services.glue.model.EntityNotFoundException;
-import com.amazonaws.services.glue.model.GetTableRequest;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import com.amazonaws.services.s3.model.ListObjectsV2Request;
-import com.amazonaws.services.s3.model.ListObjectsV2Result;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.Location;
@@ -37,7 +26,6 @@ import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
-import io.trino.plugin.hive.metastore.glue.AwsApiCallStats;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
@@ -46,12 +34,22 @@ import org.apache.iceberg.FileFormat;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.DeleteTableRequest;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.GetTableRequest;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.Delete;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.metastore.glue.v1.AwsSdkUtil.getPaginatedResults;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v2.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.metastore.glue.v2.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -72,7 +70,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
 {
     private final String bucketName;
     private final String schemaName;
-    private final AWSGlueAsync glueClient;
+    private final GlueClient glueClient;
     private final TrinoFileSystemFactory fileSystemFactory;
 
     public TestIcebergGlueCatalogConnectorSmokeTest()
@@ -80,7 +78,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         super(FileFormat.PARQUET);
         this.bucketName = requireNonNull(System.getenv("S3_BUCKET"), "Environment S3_BUCKET was not set");
         this.schemaName = "test_iceberg_smoke_" + randomNameSuffix();
-        glueClient = AWSGlueAsyncClientBuilder.defaultClient();
+        glueClient = GlueClient.create();
 
         HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of());
         HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
@@ -149,13 +147,15 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     @Override
     protected void dropTableFromMetastore(String tableName)
     {
-        DeleteTableRequest deleteTableRequest = new DeleteTableRequest()
-                .withDatabaseName(schemaName)
-                .withName(tableName);
+        DeleteTableRequest deleteTableRequest = DeleteTableRequest.builder()
+                .databaseName(schemaName)
+                .name(tableName)
+                .build();
         glueClient.deleteTable(deleteTableRequest);
-        GetTableRequest getTableRequest = new GetTableRequest()
-                .withDatabaseName(schemaName)
-                .withName(tableName);
+        GetTableRequest getTableRequest = GetTableRequest.builder()
+                .databaseName(schemaName)
+                .name(tableName)
+                .build();
         assertThatThrownBy(() -> glueClient.getTable(getTableRequest))
                 .isInstanceOf(EntityNotFoundException.class);
     }
@@ -163,36 +163,45 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        GetTableRequest getTableRequest = new GetTableRequest()
-                .withDatabaseName(schemaName)
-                .withName(tableName);
-        return getTableParameters(glueClient.getTable(getTableRequest).getTable())
+        GetTableRequest getTableRequest = GetTableRequest.builder()
+                .databaseName(schemaName)
+                .name(tableName)
+                .build();
+        return getTableParameters(glueClient.getTable(getTableRequest).table())
                 .get("metadata_location");
     }
 
     @Override
     protected void deleteDirectory(String location)
     {
-        AmazonS3 s3 = AmazonS3ClientBuilder.standard().build();
+        try (S3Client s3 = S3Client.create()) {
+            ListObjectsV2Request.Builder listObjectsRequest = ListObjectsV2Request.builder()
+                    .bucket(bucketName)
+                    .prefix(location);
 
-        ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
-                .withBucketName(bucketName)
-                .withPrefix(location);
-        List<DeleteObjectsRequest.KeyVersion> keysToDelete = getPaginatedResults(
-                s3::listObjectsV2,
-                listObjectsRequest,
-                ListObjectsV2Request::setContinuationToken,
-                ListObjectsV2Result::getNextContinuationToken,
-                new AwsApiCallStats())
-                .map(ListObjectsV2Result::getObjectSummaries)
-                .flatMap(objectSummaries -> objectSummaries.stream().map(S3ObjectSummary::getKey))
-                .map(DeleteObjectsRequest.KeyVersion::new)
-                .collect(toImmutableList());
+            List<ObjectIdentifier> keysToDelete = getPaginatedResults(
+                    builder -> s3.listObjectsV2(builder.build()),
+                    listObjectsRequest,
+                    ListObjectsV2Request.Builder::continuationToken,
+                    ListObjectsV2Response::nextContinuationToken)
+                    .flatMap(response -> response.contents().stream())
+                    .map(object -> ObjectIdentifier.builder()
+                            .key(object.key())
+                            .build())
+                    .collect(toImmutableList());
 
-        if (!keysToDelete.isEmpty()) {
-            s3.deleteObjects(new DeleteObjectsRequest(bucketName).withKeys(keysToDelete));
+            Delete delete = Delete.builder().objects(keysToDelete).build();
+
+            if (!keysToDelete.isEmpty()) {
+                s3.deleteObjects(DeleteObjectsRequest.builder().bucket(bucketName).delete(delete).build());
+            }
+            assertThat(s3.listObjectsV2(ListObjectsV2Request.builder()
+                    .bucket(bucketName)
+                    .prefix(location)
+                    .maxKeys(1)
+                    .build())
+                    .contents()).isEmpty();
         }
-        assertThat(s3.listObjects(bucketName, location).getObjectSummaries()).isEmpty();
     }
 
     @Override
@@ -212,12 +221,13 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     protected boolean locationExists(String location)
     {
         String prefix = "s3://" + bucketName + "/";
-        AmazonS3 s3 = AmazonS3ClientBuilder.standard().build();
-        ListObjectsV2Request request = new ListObjectsV2Request()
-                .withBucketName(bucketName)
-                .withPrefix(location.substring(prefix.length()))
-                .withMaxKeys(1);
-        return !s3.listObjectsV2(request)
-                .getObjectSummaries().isEmpty();
+        try (S3Client s3 = S3Client.create()) {
+            ListObjectsV2Request request = ListObjectsV2Request.builder()
+                    .bucket(bucketName)
+                    .prefix(location.substring(prefix.length()))
+                    .maxKeys(1)
+                    .build();
+            return !s3.listObjectsV2(request).contents().isEmpty();
+        }
     }
 }

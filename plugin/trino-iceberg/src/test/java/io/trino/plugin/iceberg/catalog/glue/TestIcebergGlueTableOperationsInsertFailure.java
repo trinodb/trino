@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
@@ -29,6 +28,7 @@ import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
@@ -71,7 +71,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
                 .build();
         QueryRunner queryRunner = new StandaloneQueryRunner(session);
 
-        AWSGlueAsyncAdapterProvider awsGlueAsyncAdapterProvider = delegate -> newProxy(AWSGlueAsync.class, (proxy, method, methodArgs) -> {
+        AWSGlueAsyncAdapterProvider awsGlueAsyncAdapterProvider = delegate -> newProxy(GlueClient.class, (proxy, method, methodArgs) -> {
             Object result;
             try {
                 result = method.invoke(delegate, methodArgs);
