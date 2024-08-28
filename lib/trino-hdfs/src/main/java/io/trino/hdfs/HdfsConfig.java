@@ -41,7 +41,7 @@ public class HdfsConfig
     private List<File> resourceConfigFiles = ImmutableList.of();
     private String newDirectoryPermissions = "0777";
     private boolean newFileInheritOwnership;
-    private boolean newFileInheritPermissions = false;
+    private boolean newFileInheritPermissions;
     private boolean verifyChecksum = true;
     private Duration ipcPingInterval = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsTimeout = new Duration(60, TimeUnit.SECONDS);

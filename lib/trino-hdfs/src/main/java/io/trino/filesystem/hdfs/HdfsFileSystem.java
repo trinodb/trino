@@ -25,7 +25,6 @@ import io.trino.hdfs.FileSystemWithBatchDelete;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
-import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -50,7 +49,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
 import static io.trino.filesystem.hdfs.HdfsFileIterator.listedLocation;
 import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.groupingBy;
@@ -303,11 +301,11 @@ class HdfsFileSystem
             if (environment.getNewDirectoryPermissions().isPresent()) {
                 permission = environment.getNewDirectoryPermissions();
             }
-            else if (environment.isNewFileInheritPermissions()){
+            else if (environment.isNewFileInheritPermissions()) {
                 permission = Optional.of(getExistingParentDirectoryPermission(fileSystem, directory));
             }
 
-           try (TimeStat.BlockTimer _ = stats.getCreateDirectoryCalls().time()) {
+            try (TimeStat.BlockTimer _ = stats.getCreateDirectoryCalls().time()) {
                 if (!fileSystem.mkdirs(directory, permission.orElse(null))) {
                     throw new IOException("mkdirs failed");
                 }
@@ -474,7 +472,7 @@ class HdfsFileSystem
         try {
             // find the parent-directory where it exists
             Path checkPath = path;
-            while (!fileSystem.exists(checkPath)){
+            while (!fileSystem.exists(checkPath)) {
                 checkPath = checkPath.getParent();
             }
 
