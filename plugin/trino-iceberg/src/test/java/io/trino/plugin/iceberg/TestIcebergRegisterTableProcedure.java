@@ -94,7 +94,7 @@ public class TestIcebergRegisterTableProcedure
 
         dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
         queryRunner.installPlugin(new TestingIcebergPlugin(dataDir, Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore))));
-        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of("iceberg.register-table-procedure.enabled", "true"));
+        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.of("fs.hadoop.enabled", "true", "iceberg.register-table-procedure.enabled", "true"));
         queryRunner.execute("CREATE SCHEMA iceberg.tpch");
         return queryRunner;
     }

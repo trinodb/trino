@@ -105,6 +105,7 @@ public class TestDeltaLakeProjectionPushdownPlans
         planTester.createCatalog(DELTA_CATALOG, "delta_lake", ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", baseDir.toString())
+                .put("fs.hadoop.enabled", "true")
                 .buildOrThrow());
 
         HiveMetastore metastore = TestingDeltaLakeUtils.getConnectorService(planTester, HiveMetastoreFactory.class)

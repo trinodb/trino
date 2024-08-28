@@ -77,7 +77,7 @@ public class EnvSinglenodeCompatibility
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath(jvmConfig)), containerConfigDir + "jvm.config")
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getConfigFileFor(dockerImage))), containerConfigDir + "config.properties")
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getHiveConfigFor(dockerImage))), containerConfigDir + "catalog/hive.properties")
-                .withCopyFileToContainer(forHostPath(configDir.getPath("iceberg.properties")), containerConfigDir + "catalog/iceberg.properties")
+                .withCopyFileToContainer(forHostPath(configDir.getPath(getIcebergConfigFor(dockerImage))), containerConfigDir + "catalog/iceberg.properties")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())
@@ -118,6 +118,14 @@ public class EnvSinglenodeCompatibility
             return "hive-hadoop2.properties";
         }
         return "hive.properties";
+    }
+
+    private String getIcebergConfigFor(String dockerImage)
+    {
+        if (getVersionFromDockerImageName(dockerImage) < 359) {
+            return "iceberg_old.properties";
+        }
+        return "iceberg.properties";
     }
 
     private void configureTestsContainer(Environment.Builder builder, Config config)

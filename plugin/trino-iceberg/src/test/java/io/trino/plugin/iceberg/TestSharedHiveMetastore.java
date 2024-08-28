@@ -70,14 +70,16 @@ public class TestSharedHiveMetastore
                 "iceberg",
                 ImmutableMap.of(
                         "iceberg.catalog.type", "TESTING_FILE_METASTORE",
-                        "hive.metastore.catalog.dir", dataDirectory.toString()));
+                        "hive.metastore.catalog.dir", dataDirectory.toString(),
+                        "fs.hadoop.enabled", "true"));
         queryRunner.createCatalog(
                 "iceberg_with_redirections",
                 "iceberg",
                 ImmutableMap.of(
                         "iceberg.catalog.type", "TESTING_FILE_METASTORE",
                         "hive.metastore.catalog.dir", dataDirectory.toString(),
-                        "iceberg.hive-catalog-name", "hive"));
+                        "iceberg.hive-catalog-name", "hive",
+                        "fs.hadoop.enabled", "true"));
 
         queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
         queryRunner.createCatalog(HIVE_CATALOG, "hive");

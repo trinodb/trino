@@ -62,7 +62,8 @@ public class TestIcebergGlueCatalogMaterializedView
                 .setIcebergProperties(
                         ImmutableMap.of(
                                 "iceberg.catalog.type", "glue",
-                                "hive.metastore.glue.default-warehouse-dir", schemaDirectory.getAbsolutePath()))
+                                "hive.metastore.glue.default-warehouse-dir", schemaDirectory.getAbsolutePath(),
+                                "fs.hadoop.enabled", "true"))
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withClonedTpchTables(ImmutableList.of())
@@ -73,7 +74,8 @@ public class TestIcebergGlueCatalogMaterializedView
             queryRunner.createCatalog("iceberg_legacy_mv", "iceberg", Map.of(
                     "iceberg.catalog.type", "glue",
                     "hive.metastore.glue.default-warehouse-dir", schemaDirectory.getAbsolutePath(),
-                    "iceberg.materialized-views.hide-storage-table", "false"));
+                    "iceberg.materialized-views.hide-storage-table", "false",
+                    "fs.hadoop.enabled", "true"));
 
             queryRunner.installPlugin(createMockConnectorPlugin());
             queryRunner.createCatalog("mock", "mock");
