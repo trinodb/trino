@@ -117,7 +117,7 @@ public abstract class AbstractTestAzureFileSystem
             return fileSystemClient.getDirectoryClient("/").exists();
         }
         catch (RuntimeException e) {
-            throw new IOException("Failed to check whether hierarchical namespaces is enabled for the storage account %s and container %s".formatted(account, containerName));
+            throw new IOException("Failed to check whether hierarchical namespaces is enabled for the storage account %s and container %s".formatted(account, containerName), e);
         }
     }
 

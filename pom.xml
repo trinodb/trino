@@ -222,10 +222,11 @@
 
     <dependencyManagement>
         <dependencies>
+
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.25</version>
+                <version>1.2.27</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -452,6 +453,13 @@
                         <artifactId>azure-core</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <!-- temporary to allow updating azure-sdk -->
+            <dependency>
+                <groupId>com.azure</groupId>
+                <artifactId>azure-storage-file-datalake</artifactId>
+                <version>12.21.0-beta.1</version>
             </dependency>
 
             <dependency>
