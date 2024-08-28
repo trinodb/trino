@@ -141,25 +141,25 @@ public final class SimpleSliceInputStream
 
     public int readIntUnchecked()
     {
-        int value = slice.getIntUnchecked(offset);
+        int value = slice.getInt(offset);
         offset += Integer.BYTES;
         return value;
     }
 
     public long readLongUnchecked()
     {
-        long value = slice.getLongUnchecked(offset);
+        long value = slice.getLong(offset);
         offset += Long.BYTES;
         return value;
     }
 
     public byte getByteUnchecked(int index)
     {
-        return slice.getByteUnchecked(offset + index);
+        return slice.getByte(offset + index);
     }
 
     public int getIntUnchecked(int index)
     {
-        return slice.getIntUnchecked(offset + index);
+        return slice.getInt(offset + index);
     }
 }

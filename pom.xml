@@ -210,6 +210,7 @@
         <dep.parquet.version>1.14.1</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.4</dep.protobuf.version>
+        <dep.slice.version>2.3-SNAPSHOT</dep.slice.version>
         <dep.snowflake.version>3.18.0</dep.snowflake.version>
         <dep.swagger.version>2.2.22</dep.swagger.version>
         <dep.takari.version>2.1.6</dep.takari.version>

@@ -381,6 +381,7 @@ public class PageSerializer
             sinkBuffer.ensureCapacityFor(maxCompressedLength + Integer.BYTES);
 
             int uncompressedSize = sourceBuffer.getPosition();
+            // TODO: use new aircompressor's memorysegment API
             int compressedSize = compressor.compress(
                     sourceBuffer.getSlice().byteArray(),
                     sourceBuffer.getSlice().byteArrayOffset(),

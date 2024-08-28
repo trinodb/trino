@@ -68,7 +68,7 @@ public class TestSliceDictionaryColumnWriter
                 .filter(Character::isValidCodePoint)
                 .toArray();
         Slice randomUtf8Slice = createRandomUtf8Slice(validCodepoints, megabytes(1));
-        Block data = RunLengthEncodedBlock.create(VARCHAR, Slices.wrappedBuffer(randomUtf8Slice.byteArray()), 3000);
+        Block data = RunLengthEncodedBlock.create(VARCHAR, randomUtf8Slice, 3000);
         writer.beginRowGroup();
         writer.writeBlock(data);
         writer.finishRowGroup();

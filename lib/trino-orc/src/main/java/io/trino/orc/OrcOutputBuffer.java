@@ -21,6 +21,7 @@ import io.airlift.compress.zstd.ZstdCompressor;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.trino.orc.checkpoint.InputStreamCheckpoint;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.plugin.base.io.ChunkedSliceOutput;
@@ -235,7 +236,7 @@ public class OrcOutputBuffer
         // Write huge chunks direct to OutputStream
         if (length >= DIRECT_FLUSH_SIZE) {
             flushBufferToOutputStream();
-            writeDirectlyToOutputStream(source.byteArray(), sourceIndex + source.byteArrayOffset(), length);
+            writeDirectlyToOutputStream(source, sourceIndex, length);
             bufferOffset += length;
         }
         else {
@@ -258,7 +259,7 @@ public class OrcOutputBuffer
         if (length >= DIRECT_FLUSH_SIZE) {
             // todo fill buffer before flushing
             flushBufferToOutputStream();
-            writeDirectlyToOutputStream(source, sourceIndex, length);
+            writeDirectlyToOutputStream(Slices.wrappedBuffer(source), sourceIndex, length);
             bufferOffset += length;
         }
         else {
@@ -475,16 +476,16 @@ public class OrcOutputBuffer
     private void flushBufferToOutputStream()
     {
         if (bufferPosition > 0) {
-            writeChunkToOutputStream(buffer, 0, bufferPosition);
+            writeChunkToOutputStream(slice, 0, bufferPosition);
             bufferOffset += bufferPosition;
             bufferPosition = 0;
         }
     }
 
-    private void writeChunkToOutputStream(byte[] chunk, int offset, int length)
+    private void writeChunkToOutputStream(Slice chunk, int offset, int length)
     {
         if (compressor == null) {
-            compressedOutputStream.write(chunk, offset, length);
+            compressedOutputStream.writeBytes(chunk, offset, length);
             return;
         }
 
@@ -495,7 +496,8 @@ public class OrcOutputBuffer
             compressionBuffer = new byte[minCompressionBufferSize];
         }
 
-        int compressedSize = compressor.compress(chunk, offset, length, compressionBuffer, 0, compressionBuffer.length);
+        // TODO: use memory segment based API
+        int compressedSize = compressor.compress(chunk.byteArray(), chunk.byteArrayOffset() + offset, length, compressionBuffer, 0, compressionBuffer.length);
         if (compressedSize < length) {
             int chunkHeader = (compressedSize << 1);
             compressedOutputStream.write(chunkHeader & 0x00_00FF);
@@ -512,18 +514,18 @@ public class OrcOutputBuffer
         }
     }
 
-    private void writeDirectlyToOutputStream(byte[] bytes, int bytesOffset, int length)
+    private void writeDirectlyToOutputStream(Slice slice, int offset, int length)
     {
         if (compressor == null) {
-            compressedOutputStream.writeBytes(bytes, bytesOffset, length);
+            compressedOutputStream.writeBytes(slice, offset, length);
             return;
         }
 
         while (length > 0) {
             int chunkSize = min(length, buffer.length);
-            writeChunkToOutputStream(bytes, bytesOffset, chunkSize);
+            writeChunkToOutputStream(slice, offset, chunkSize);
             length -= chunkSize;
-            bytesOffset += chunkSize;
+            offset += chunkSize;
         }
     }
 

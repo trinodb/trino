@@ -52,7 +52,7 @@ public class Ciphers
 
     public static SecretKeySpec deserializeAesEncryptionKey(Slice key)
     {
-        return new SecretKeySpec(key.byteArray(), key.byteArrayOffset(), key.length(), "AES");
+        return new SecretKeySpec(key.getBytes(), "AES");
     }
 
     public static boolean is256BitSecretKeySpec(SecretKey secretKey)
