@@ -156,7 +156,7 @@ public class TestHdfsFileSystemHdfs
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, configWithInherit, new NoHdfsAuthentication());
         TrinoFileSystem fileSystem = new HdfsFileSystem(hdfsEnvironment, hdfsContext, new TrinoHdfsFileSystemStats());
 
-        short testPermission = 740;
+        String testPermission = "0740";
 
         // create parent directory
         Location parentLocation = getRootLocation().appendPath("test");
@@ -169,13 +169,13 @@ public class TestHdfsFileSystemHdfs
         fileSystem.createDirectory(inheritLocation);
         Path inheritPath = new Path(inheritLocation.toString());
         FileStatus inheritStatus = hdfsEnvironment.getFileSystem(hdfsContext, inheritPath).getFileStatus(inheritPath);
-        assertThat(inheritStatus.getPermission().toOctal()).isEqualTo(testPermission);
+        assertThat(inheritStatus.getPermission().toOctal()).isEqualTo(740);
 
         // test multi directories
         Location inheritMultiLocation = parentLocation.appendPath("partition/inherit");
         fileSystem.createDirectory(inheritMultiLocation);
         Path inheritMultiPath = new Path(inheritMultiLocation.toString());
         FileStatus inheritMultiStatus = hdfsEnvironment.getFileSystem(hdfsContext, inheritMultiPath).getFileStatus(inheritMultiPath);
-        assertThat(inheritMultiStatus .getPermission().toOctal()).isEqualTo(testPermission);
+        assertThat(inheritMultiStatus .getPermission().toOctal()).isEqualTo(740);
     }
 }
