@@ -25,6 +25,7 @@ admin/fault-tolerant-execution
 :titlesonly: true
 
 admin/event-listeners-http
+admin/event-listeners-kafka
 admin/event-listeners-mysql
 admin/event-listeners-openlineage
 ```
