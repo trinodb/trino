@@ -156,7 +156,7 @@ public class TestHdfsFileSystemHdfs
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, configWithInherit, new NoHdfsAuthentication());
         TrinoFileSystem fileSystem = new HdfsFileSystem(hdfsEnvironment, hdfsContext, new TrinoHdfsFileSystemStats());
 
-        short testPermission = (short) 740;
+        short testPermission = 740;
 
         // create parent directory
         Location parentLocation = getRootLocation().appendPath("test");
