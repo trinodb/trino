@@ -141,6 +141,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotRef;
+import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StatisticsFile;
@@ -1037,8 +1038,7 @@ public class IcebergMetadata
             if (fragments.isEmpty()) {
                 // Commit the transaction if the table is being created without data
                 AppendFiles appendFiles = transaction.newFastAppend();
-                commit(appendFiles, session);
-                commitTransaction(transaction, "create table");
+                commitUpdateAndTransaction(appendFiles, session, transaction, "create table");
                 transaction = null;
                 return Optional.empty();
             }
@@ -1221,8 +1221,7 @@ public class IcebergMetadata
             cleanExtraOutputFiles(session, writtenFiles.build());
         }
 
-        commit(appendFiles, session);
-        commitTransaction(transaction, "insert");
+        commitUpdateAndTransaction(appendFiles, session, transaction, "insert");
         // TODO (https://github.com/trinodb/trino/issues/15439) this may not exactly be the snapshot we committed, if there is another writer
         long newSnapshotId = transaction.table().currentSnapshot().snapshotId();
         transaction = null;
@@ -1591,8 +1590,7 @@ public class IcebergMetadata
         // Table.snapshot method returns null if there is no matching snapshot
         Snapshot snapshot = requireNonNull(icebergTable.snapshot(optimizeHandle.snapshotId().get()), "snapshot is null");
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
-        commit(rewriteFiles, session);
-        commitTransaction(transaction, "optimize");
+        commitUpdateAndTransaction(rewriteFiles, session, transaction, "optimize");
 
         // TODO (https://github.com/trinodb/trino/issues/15439) this may not exactly be the snapshot we committed, if there is another writer
         long newSnapshotId = transaction.table().currentSnapshot().snapshotId();
@@ -1620,13 +1618,24 @@ public class IcebergMetadata
         transaction = null;
     }
 
+    private static void commitUpdateAndTransaction(SnapshotUpdate<?> update, ConnectorSession session, Transaction transaction, String operation)
+    {
+        try {
+            commit(update, session);
+            commitTransaction(transaction, operation);
+        }
+        catch (UncheckedIOException e) {
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit during %s: %s", operation, firstNonNull(e.getMessage(), e)), e);
+        }
+    }
+
     private static void commitTransaction(Transaction transaction, String operation)
     {
         try {
             transaction.commitTransaction();
         }
         catch (ValidationException e) {
-            throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit during %s: %s", operation, firstNonNull(e.getMessage(), e)), e);
+            throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit the transaction during %s: %s", operation, firstNonNull(e.getMessage(), e)), e);
         }
     }
 
@@ -2548,8 +2557,7 @@ public class IcebergMetadata
         }
 
         rowDelta.validateDataFilesExist(referencedDataFiles.build());
-        commit(rowDelta, session);
-        commitTransaction(transaction, "write");
+        commitUpdateAndTransaction(rowDelta, session, transaction, "write");
     }
 
     @Override
@@ -3101,9 +3109,7 @@ public class IcebergMetadata
         appendFiles.set(DEPENDS_ON_TABLES, tableDependencies);
         appendFiles.set(DEPENDS_ON_TABLE_FUNCTIONS, Boolean.toString(!sourceTableFunctions.isEmpty()));
         appendFiles.set(TRINO_QUERY_START_TIME, session.getStart().toString());
-        commit(appendFiles, session);
-
-        commitTransaction(transaction, "refresh materialized view");
+        commitUpdateAndTransaction(appendFiles, session, transaction, "refresh materialized view");
         transaction = null;
         fromSnapshotForRefresh = Optional.empty();
         return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
