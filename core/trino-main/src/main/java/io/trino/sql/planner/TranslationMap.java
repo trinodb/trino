@@ -849,7 +849,7 @@ public class TranslationMap
         if (valueType instanceof TimeType type) {
             call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName("$at_timezone")
-                    .addArgument(createTimeWithTimeZoneType(type.getPrecision()), new io.trino.sql.ir.Cast(value, createTimeWithTimeZoneType(((TimeType) valueType).getPrecision())))
+                    .addArgument(createTimeWithTimeZoneType(type.getPrecision()), new io.trino.sql.ir.Cast(value, createTimeWithTimeZoneType(type.getPrecision())))
                     .addArgument(timeZoneType, timeZone)
                     .build();
         }
@@ -863,7 +863,7 @@ public class TranslationMap
         else if (valueType instanceof TimestampType type) {
             call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                     .setName("at_timezone")
-                    .addArgument(createTimestampWithTimeZoneType(type.getPrecision()), new io.trino.sql.ir.Cast(value, createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision())))
+                    .addArgument(createTimestampWithTimeZoneType(type.getPrecision()), new io.trino.sql.ir.Cast(value, createTimestampWithTimeZoneType(type.getPrecision())))
                     .addArgument(timeZoneType, timeZone)
                     .build();
         }
