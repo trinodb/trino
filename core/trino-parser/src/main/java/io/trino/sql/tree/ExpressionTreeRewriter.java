@@ -544,8 +544,7 @@ public final class ExpressionTreeRewriter<C>
 
         private Window rewriteWindow(Window window, Context<C> context)
         {
-            if (window instanceof WindowReference) {
-                WindowReference windowReference = (WindowReference) window;
+            if (window instanceof WindowReference windowReference) {
                 Identifier rewrittenName = rewrite(windowReference.getName(), context.get());
                 if (windowReference.getName() != rewrittenName) {
                     return new WindowReference(rewrittenName);
@@ -986,8 +985,7 @@ public final class ExpressionTreeRewriter<C>
                 if (argument instanceof NumericParameter) {
                     arguments.add(argument);
                 }
-                else if (argument instanceof TypeParameter) {
-                    TypeParameter parameter = (TypeParameter) argument;
+                else if (argument instanceof TypeParameter parameter) {
                     DataType value = (DataType) process(parameter.getValue(), context);
 
                     if (value != parameter.getValue()) {

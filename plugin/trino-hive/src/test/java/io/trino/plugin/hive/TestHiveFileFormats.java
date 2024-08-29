@@ -1427,7 +1427,7 @@ public final class TestHiveFileFormats
             if (object instanceof HiveChar) {
                 object = ((HiveChar) object).getValue();
             }
-            charType.writeSlice(builder, truncateToLengthAndTrimSpaces(utf8Slice((String) object), ((CharType) type).getLength()));
+            charType.writeSlice(builder, truncateToLengthAndTrimSpaces(utf8Slice((String) object), charType.getLength()));
         }
         else if (type == DATE) {
             long days = ((Date) object).toEpochDay();

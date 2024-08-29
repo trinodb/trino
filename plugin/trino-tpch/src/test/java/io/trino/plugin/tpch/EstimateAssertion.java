@@ -63,7 +63,7 @@ class EstimateAssertion
             assertThat(actual.getClass())
                     .describedAs(comparedValue)
                     .isEqualTo(expected.getClass());
-            assertThat(((Slice) actual).toStringUtf8())
+            assertThat(actualSlice.toStringUtf8())
                     .isEqualTo(((Slice) expected).toStringUtf8());
         }
         else if (actual instanceof DoubleRange actualRange) {
