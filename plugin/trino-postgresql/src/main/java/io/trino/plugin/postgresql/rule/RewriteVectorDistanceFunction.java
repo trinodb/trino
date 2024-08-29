@@ -124,12 +124,13 @@ public final class RewriteVectorDistanceFunction
         if (expression instanceof Call call && call.getFunctionName().equals(CAST_FUNCTION_NAME)) {
             ConnectorExpression argument = getOnlyElement(call.getArguments());
             if (argument instanceof Variable variable) {
-                JdbcTypeHandle typeHandle = ((JdbcColumnHandle) context.getAssignment(variable.getName())).getJdbcTypeHandle();
+                JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(variable.getName());
+                JdbcTypeHandle typeHandle = columnHandle.getJdbcTypeHandle();
                 // TODO type.equals("vector") should be improved to support pushdown on vector type which is installed in other schemas
                 if (!typeHandle.jdbcTypeName().map(type -> type.equals("vector")).orElse(false)) {
                     return Optional.empty();
                 }
-                return Optional.of(new ParameterizedExpression(quoted(variable.getName()), ImmutableList.of()));
+                return Optional.of(new ParameterizedExpression(quoted(columnHandle.getColumnName()), ImmutableList.of()));
             }
             return Optional.empty();
         }

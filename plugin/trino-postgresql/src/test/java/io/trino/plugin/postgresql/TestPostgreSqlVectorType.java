@@ -20,6 +20,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import java.util.stream.IntStream;
@@ -376,6 +377,20 @@ final class TestPostgreSqlVectorType
                     .hasMessageContaining("infinite value not allowed in vector");
             assertThatThrownBy(() -> postgreSqlServer.execute("SELECT v <=> '[NULL]' FROM " + table.getName()))
                     .hasMessageContaining("invalid input");
+        }
+    }
+
+    @RepeatedTest(10) // Regression test for https://github.com/trinodb/trino/issues/23152
+    void testDuplicateColumnWithUnion()
+    {
+        try (TestTable table = new TestTable(postgreSqlServer::execute, "test_union", "(id int, v vector(3))")) {
+            postgreSqlServer.execute("INSERT INTO " + table.getName() + " VALUES (1, '[1,2,3]'), (2, '[4,5,6]')");
+
+            assertThat(query("" +
+                    "SELECT id FROM " + table.getName() +
+                    " UNION ALL " +
+                    "(SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, ARRAY[4,5,6]) LIMIT 1)"))
+                    .matches("VALUES 1, 2, 2");
         }
     }
 }
