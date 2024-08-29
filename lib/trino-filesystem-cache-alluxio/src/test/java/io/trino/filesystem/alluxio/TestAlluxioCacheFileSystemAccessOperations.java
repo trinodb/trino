@@ -126,7 +126,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
         }
 
         int readTimes = 3;
-        assertCacheOperations(location, content, readTimes,
+        assertCacheOperations(0, location, content, readTimes,
                 ImmutableMultiset.<CacheOperationSpan>builder()
                         .addCopies(new CacheOperationSpan("Alluxio.readCached", location.toString(), 11), readTimes)
                         .addCopies(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 11), readTimes)
@@ -142,7 +142,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
         cacheKeyProvider.increaseCacheVersion();
 
         readTimes = 7;
-        assertCacheOperations(location, modifiedContent, readTimes,
+        assertCacheOperations(0, location, modifiedContent, readTimes,
                 ImmutableMultiset.<CacheOperationSpan>builder()
                         .add(new CacheOperationSpan("Input.readFully", location.toString(), 16))
                         .add(new CacheOperationSpan("Alluxio.writeCache", location.toString(), 16))
@@ -274,7 +274,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
         }
 
         int readTimes = 3;
-        assertCacheOperations(location, content, readTimes,
+        assertCacheOperations(0, location, content, readTimes,
                 ImmutableMultiset.<CacheOperationSpan>builder()
                         .addCopies(new CacheOperationSpan("Alluxio.readCached", location.toString(), 12), readTimes)
                         .addCopies(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 12), readTimes)
@@ -311,7 +311,7 @@ public class TestAlluxioCacheFileSystemAccessOperations
         }
 
         int readTimes = 3;
-        assertCacheOperations(location, content, readTimes,
+        assertCacheOperations(0, location, content, readTimes,
                 ImmutableMultiset.<CacheOperationSpan>builder()
                         .addCopies(new CacheOperationSpan("Alluxio.readCached", location.toString(), 14), readTimes)
                         .addCopies(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 14), readTimes)
@@ -333,6 +333,28 @@ public class TestAlluxioCacheFileSystemAccessOperations
                         .add(new CacheOperationSpan("Input.readFully", location.toString(), 14))
                         .add(new CacheOperationSpan("Alluxio.writeCache", location.toString(), 14))
                         .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 14))
+                        .build());
+    }
+
+    @Test
+    public void testCacheHitAfterReadFromNoneZeroPosition()
+            throws IOException
+    {
+        Location location = getRootLocation().appendPath("read_from_non_zero_position");
+        byte[] content = "hello world".getBytes(StandardCharsets.UTF_8);
+        try (OutputStream output = fileSystem.newOutputFile(location).create()) {
+            output.write(content);
+        }
+
+        byte[] readContent = "rl".getBytes(StandardCharsets.UTF_8);
+        int readTimes = 5;
+        assertCacheOperations(8, location, readContent, readTimes,
+                ImmutableMultiset.<CacheOperationSpan>builder()
+                        .addCopies(new CacheOperationSpan("Alluxio.readCached", location.toString(), 8, 2), readTimes)
+                        .addCopies(new CacheOperationSpan("AlluxioCacheManager.get", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 11), 2)
+                        .add(new CacheOperationSpan("Input.readFully", location.toString(), 0, 11))
+                        .add(new CacheOperationSpan("AlluxioCacheManager.put", cacheKey(location, cacheKeyProvider.currentCacheVersion()), 0, 11))
+                        .add(new CacheOperationSpan("Alluxio.writeCache", location.toString(), 0, 11))
                         .build());
     }
 
@@ -396,18 +418,18 @@ public class TestAlluxioCacheFileSystemAccessOperations
     private void assertCacheOperations(Location location, byte[] content, Multiset<CacheOperationSpan> cacheOperations)
             throws IOException
     {
-        assertCacheOperations(location, content, 1, cacheOperations);
+        assertCacheOperations(0, location, content, 1, cacheOperations);
     }
 
-    private void assertCacheOperations(Location location, byte[] content, int readTimes, Multiset<CacheOperationSpan> cacheOperations)
+    private void assertCacheOperations(int position, Location location, byte[] content, int readTimes, Multiset<CacheOperationSpan> cacheOperations)
             throws IOException
     {
         List<SpanData> spans = testingTelemetry.captureSpans(() -> {
             TrinoInputFile file = fileSystem.newInputFile(location);
-            int length = content.length; //saturatedCast(file.length());
+            int length = content.length;
             try (TrinoInput input = file.newInput()) {
                 for (int i = 0; i < readTimes; i++) {
-                    assertThat(input.readFully(0, length)).isEqualTo(Slices.wrappedBuffer(content));
+                    assertThat(input.readFully(position, length)).isEqualTo(Slices.wrappedBuffer(content));
                 }
             }
         });
