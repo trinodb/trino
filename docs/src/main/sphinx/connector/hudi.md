@@ -14,8 +14,8 @@ To use the Hudi connector, you need:
 - Network access from the Trino coordinator and workers to the Hudi storage.
 - Access to a Hive metastore service (HMS).
 - Network access from the Trino coordinator to the HMS.
-- Data files stored in the [Parquet file format](hive-parquet-configuration) on
-  a [supported file system](hudi-file-system-configuration).
+- Data files stored in the [Parquet file format](parquet-format-configuration)
+  on a [supported file system](hudi-file-system-configuration).
 
 ## General configuration
 

@@ -21,8 +21,8 @@ To connect to Databricks Delta Lake, you need:
   or a Glue metastore.
 - Network access to the HMS from the coordinator and workers. Port 9083 is the
   default port for the Thrift protocol used by the HMS.
-- Data files stored in the [Parquet file format](hive-parquet-configuration) on
-  a [supported file system](delta-lake-file-system-configuration).
+- Data files stored in the [Parquet file format](parquet-format-configuration)
+  on a [supported file system](delta-lake-file-system-configuration).
 
 ## General configuration
 
