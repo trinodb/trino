@@ -42,6 +42,7 @@ import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
+import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -130,9 +131,14 @@ import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
+import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
+import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
@@ -412,18 +418,25 @@ public class GlueHiveMetastore
     private List<TableInfo> getTablesInternal(Consumer<Table> cacheTable, String databaseName)
     {
         try {
-            return stats.getGetTables()
+            ImmutableList<software.amazon.awssdk.services.glue.model.Table> glueTables = stats.getGetTables()
                     .call(() -> glueClient.getTablesPaginator(builder -> builder
                                     .applyMutation(glueContext::configureClient)
                                     .databaseName(databaseName)).stream()
                             .map(GetTablesResponse::tableList)
                             .flatMap(List::stream))
                     .filter(tableVisibilityFilter)
-                    .map(glueTable -> GlueConverter.fromGlueTable(glueTable, databaseName))
-                    .peek(cacheTable)
+                    .collect(toImmutableList());
+
+            // Store only valid tables in cache
+            for (software.amazon.awssdk.services.glue.model.Table table : glueTables) {
+                convertFromGlueIgnoringErrors(table, databaseName)
+                        .ifPresent(cacheTable);
+            }
+
+            return glueTables.stream()
                     .map(table -> new TableInfo(
-                            new SchemaTableName(databaseName, table.getTableName()),
-                            TableInfo.ExtendedRelationType.fromTableTypeAndComment(table.getTableType(), table.getParameters().get(TABLE_COMMENT))))
+                            new SchemaTableName(databaseName, table.name()),
+                            TableInfo.ExtendedRelationType.fromTableTypeAndComment(table.tableType(), table.parameters().get(TABLE_COMMENT))))
                     .toList();
         }
         catch (EntityNotFoundException _) {
@@ -432,6 +445,37 @@ public class GlueHiveMetastore
         }
         catch (SdkException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    private static Optional<Table> convertFromGlueIgnoringErrors(software.amazon.awssdk.services.glue.model.Table glueTable, String databaseName)
+    {
+        try {
+            return Optional.of(GlueConverter.fromGlueTable(glueTable, databaseName));
+        }
+        catch (RuntimeException e) {
+            handleListingError(e, schemaTableName(glueTable.databaseName(), glueTable.name()));
+            return Optional.empty();
+        }
+    }
+
+    private static void handleListingError(RuntimeException e, SchemaTableName tableName)
+    {
+        boolean silent = false;
+        if (e instanceof TrinoException trinoException) {
+            ErrorCode errorCode = trinoException.getErrorCode();
+            silent = errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode()) ||
+                    // e.g. table deleted concurrently
+                    errorCode.equals(TABLE_NOT_FOUND.toErrorCode()) ||
+                    errorCode.equals(NOT_FOUND.toErrorCode()) ||
+                    // e.g. Iceberg/Delta table being deleted concurrently resulting in failure to load metadata from filesystem
+                    errorCode.getType() == EXTERNAL;
+        }
+        if (silent) {
+            log.debug(e, "Failed to get metadata for table: %s", tableName);
+        }
+        else {
+            log.warn(e, "Failed to get metadata for table: %s", tableName);
         }
     }
 
