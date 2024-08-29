@@ -15,26 +15,41 @@ package io.trino.parquet.reader;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetWriteValidation;
+import io.trino.parquet.crypto.AesCipher;
+import io.trino.parquet.crypto.AesGcmEncryptor;
+import io.trino.parquet.crypto.HiddenColumnChunkMetaData;
+import io.trino.parquet.crypto.InternalColumnDecryptionSetup;
+import io.trino.parquet.crypto.InternalFileDecryptor;
+import io.trino.parquet.crypto.KeyAccessDeniedException;
+import io.trino.parquet.crypto.ModuleCipherFactory.ModuleType;
+import io.trino.parquet.crypto.ParquetCryptoRuntimeException;
+import io.trino.parquet.crypto.TagVerificationException;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.FileMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import org.apache.parquet.CorruptStatistics;
 import org.apache.parquet.column.statistics.BinaryStatistics;
+import org.apache.parquet.format.BlockCipher.Decryptor;
 import org.apache.parquet.format.ColumnChunk;
+import org.apache.parquet.format.ColumnCryptoMetaData;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.Encoding;
+import org.apache.parquet.format.EncryptionWithColumnKey;
+import org.apache.parquet.format.FileCryptoMetaData;
 import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.format.KeyValue;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.SchemaElement;
 import org.apache.parquet.format.Statistics;
+import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
@@ -43,6 +58,7 @@ import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.Types;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -56,7 +72,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetMetadataConverter.convertEncodingStats;
 import static io.trino.parquet.ParquetMetadataConverter.fromParquetStatistics;
 import static io.trino.parquet.ParquetMetadataConverter.getEncoding;
@@ -69,6 +87,7 @@ import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static org.apache.parquet.format.Util.readFileCryptoMetaData;
 import static org.apache.parquet.format.Util.readFileMetaData;
 
 public final class MetadataReader
@@ -76,13 +95,14 @@ public final class MetadataReader
     private static final Logger log = Logger.get(MetadataReader.class);
 
     private static final Slice MAGIC = Slices.utf8Slice("PAR1");
+    private static final Slice EMAGIC = Slices.utf8Slice("PARE");
     private static final int POST_SCRIPT_SIZE = Integer.BYTES + MAGIC.length();
     // Typical 1GB files produced by Trino were found to have footer size between 30-40KB
     private static final int EXPECTED_FOOTER_SIZE = 48 * 1024;
 
     private MetadataReader() {}
 
-    public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<ParquetWriteValidation> parquetWriteValidation)
+    public static ParquetMetadata readFooter(ParquetDataSource dataSource, Optional<ParquetWriteValidation> parquetWriteValidation, Optional<InternalFileDecryptor> fileDecryptor)
             throws IOException
     {
         // Parquet File Layout:
@@ -93,7 +113,9 @@ public final class MetadataReader
         // 4 bytes: MetadataLength
         // MAGIC
 
-        validateParquet(dataSource.getEstimatedSize() >= MAGIC.length() + POST_SCRIPT_SIZE, dataSource.getId(), "%s is not a valid Parquet File", dataSource.getId());
+        validateParquet((dataSource.getEstimatedSize() >= MAGIC.length() + POST_SCRIPT_SIZE) ||
+                (dataSource.getEstimatedSize() >= EMAGIC.length() + POST_SCRIPT_SIZE), dataSource.getId(),
+                "%s is not a valid Parquet File", dataSource.getId());
 
         // Read the tail of the file
         long estimatedFileSize = dataSource.getEstimatedSize();
@@ -101,8 +123,10 @@ public final class MetadataReader
         Slice buffer = dataSource.readTail(toIntExact(expectedReadSize));
 
         Slice magic = buffer.slice(buffer.length() - MAGIC.length(), MAGIC.length());
-        validateParquet(MAGIC.equals(magic), dataSource.getId(), "Expected magic number: %s got: %s", MAGIC.toStringUtf8(), magic.toStringUtf8());
+        validateParquet(MAGIC.equals(magic) || EMAGIC.equals(magic), dataSource.getId(), "Expected magic number: %s or %s got: %s", MAGIC.toStringUtf8(), EMAGIC.toStringUtf8(), magic.toStringUtf8());
 
+        boolean encryptedFooterMode = EMAGIC.equals(magic);
+        checkArgument(!encryptedFooterMode || !(fileDecryptor.isEmpty() || fileDecryptor.get().getDecryptionProperties() == null), "fileDecryptionProperties cannot be null when encryptedFooterMode is true");
         int metadataLength = buffer.getInt(buffer.length() - POST_SCRIPT_SIZE);
         long metadataIndex = estimatedFileSize - POST_SCRIPT_SIZE - metadataLength;
         validateParquet(
@@ -118,13 +142,44 @@ public final class MetadataReader
         }
         InputStream metadataStream = buffer.slice(buffer.length() - completeFooterSize, metadataLength).getInput();
 
-        FileMetaData fileMetaData = readFileMetaData(metadataStream);
-        ParquetMetadata parquetMetadata = createParquetMetadata(fileMetaData, dataSource.getId());
+        Decryptor footerDecryptor = null;
+        byte[] aad = null;
+
+        if (encryptedFooterMode) {
+            FileCryptoMetaData fileCryptoMetaData = readFileCryptoMetaData(metadataStream);
+            fileDecryptor.get().setFileCryptoMetaData(fileCryptoMetaData.getEncryption_algorithm(), true, fileCryptoMetaData.getKey_metadata());
+            footerDecryptor = fileDecryptor.get().fetchFooterDecryptor();
+            aad = AesCipher.createFooterAAD(fileDecryptor.get().getFileAAD());
+        }
+        FileMetaData fileMetaData = readFileMetaData(metadataStream, footerDecryptor, aad);
+        if (!encryptedFooterMode && fileDecryptor.isPresent()) {
+            if (!fileMetaData.isSetEncryption_algorithm()) { // Plaintext file
+                fileDecryptor.get().setPlaintextFile();
+                // Done to detect files that were not encrypted by mistake
+                if (!fileDecryptor.get().plaintextFilesAllowed()) {
+                    throw new ParquetCryptoRuntimeException("Applying decryptor on plaintext file");
+                }
+            }
+            else {  // Encrypted file with plaintext footer
+                // if no fileDecryptor, can still read plaintext columns
+                fileDecryptor.get().setFileCryptoMetaData(fileMetaData.getEncryption_algorithm(), false,
+                        fileMetaData.getFooter_signing_key_metadata());
+                if (fileDecryptor.get().checkFooterIntegrity()) {
+                    verifyFooterIntegrity(metadataStream, fileDecryptor.get(), metadataLength);
+                }
+            }
+        }
+        ParquetDataSourceId id = dataSource.getId();
+        ParquetMetadata parquetMetadata = createParquetMetadata(fileMetaData, id, fileDecryptor, encryptedFooterMode);
+        validateFileMetadata(id, parquetMetadata.getFileMetaData(), parquetWriteValidation);
         validateFileMetadata(dataSource.getId(), parquetMetadata.getFileMetaData(), parquetWriteValidation);
         return parquetMetadata;
     }
 
-    public static ParquetMetadata createParquetMetadata(FileMetaData fileMetaData, ParquetDataSourceId dataSourceId)
+    public static ParquetMetadata createParquetMetadata(FileMetaData fileMetaData,
+                                                        ParquetDataSourceId dataSourceId,
+                                                        Optional<InternalFileDecryptor> fileDecryptor,
+                                                        boolean encryptedFooterMode)
             throws ParquetCorruptionException
     {
         List<SchemaElement> schema = fileMetaData.getSchema();
@@ -138,37 +193,79 @@ public final class MetadataReader
                 List<ColumnChunk> columns = rowGroup.getColumns();
                 validateParquet(!columns.isEmpty(), dataSourceId, "No columns in row group: %s", rowGroup);
                 String filePath = columns.get(0).getFile_path();
+                int columnOrdinal = -1;
                 ImmutableList.Builder<ColumnChunkMetadata> columnMetadataBuilder = ImmutableList.builderWithExpectedSize(columns.size());
                 for (ColumnChunk columnChunk : columns) {
+                    columnOrdinal++;
                     validateParquet(
                             (filePath == null && columnChunk.getFile_path() == null)
                                     || (filePath != null && filePath.equals(columnChunk.getFile_path())),
                             dataSourceId,
                             "all column chunks of the same row group must be in the same file");
+                    ColumnCryptoMetaData cryptoMetaData = columnChunk.getCrypto_metadata();
                     ColumnMetaData metaData = columnChunk.meta_data;
-                    String[] path = metaData.path_in_schema.stream()
-                            .map(value -> value.toLowerCase(Locale.ENGLISH))
-                            .toArray(String[]::new);
-                    ColumnPath columnPath = ColumnPath.get(path);
-                    PrimitiveType primitiveType = messageType.getType(columnPath.toArray()).asPrimitiveType();
-                    ColumnChunkMetadata column = ColumnChunkMetadata.get(
-                            columnPath,
-                            primitiveType,
-                            CompressionCodecName.fromParquet(metaData.codec),
-                            convertEncodingStats(metaData.encoding_stats),
-                            readEncodings(metaData.encodings),
-                            readStats(Optional.ofNullable(fileMetaData.getCreated_by()), Optional.ofNullable(metaData.statistics), primitiveType),
-                            metaData.data_page_offset,
-                            metaData.dictionary_page_offset,
-                            metaData.num_values,
-                            metaData.total_compressed_size,
-                            metaData.total_uncompressed_size);
-                    column.setColumnIndexReference(toColumnIndexReference(columnChunk));
-                    column.setOffsetIndexReference(toOffsetIndexReference(columnChunk));
-                    column.setBloomFilterOffset(metaData.bloom_filter_offset);
-                    columnMetadataBuilder.add(column);
+                    ColumnPath columnPath = null;
+                    boolean encryptedMetadata = false;
+                    if (cryptoMetaData == null) {
+                        columnPath = getPath(metaData);
+                        if (fileDecryptor.isPresent() && !fileDecryptor.get().plaintextFile()) {
+                            // mark this column as plaintext in encrypted file decryptor
+                            fileDecryptor.get().setColumnCryptoMetadata(columnPath, false, false, (byte[]) null, columnOrdinal);
+                        }
+                    }
+                    else { // Encrypted column
+                        if (cryptoMetaData.isSetENCRYPTION_WITH_FOOTER_KEY()) { // Column encrypted with footer key
+                            if (!encryptedFooterMode) {
+                                throw new ParquetCryptoRuntimeException("Column encrypted with footer key in file with plaintext footer");
+                            }
+                            if (null == metaData) {
+                                throw new ParquetCryptoRuntimeException("ColumnMetaData not set in Encryption with Footer key");
+                            }
+                            if (fileDecryptor.isEmpty()) {
+                                throw new ParquetCryptoRuntimeException("Column encrypted with footer key: No keys available");
+                            }
+                            columnPath = getPath(metaData);
+                            fileDecryptor.get().setColumnCryptoMetadata(columnPath, true, true, (byte[]) null, columnOrdinal);
+                        }
+                        else { // Column encrypted with column key
+                            encryptedMetadata = true;
+                        }
+                    }
+                    try {
+                        if (encryptedMetadata) {
+                            // TODO: We decrypted data before filter projection. This could send unnecessary traffic to KMS.
+                            //  In parquet-mr, it uses lazy decyrption but that required to change ColumnChunkMetadata. We will improve it alter.
+                            metaData = decryptMetadata(rowGroup, cryptoMetaData, columnChunk, fileDecryptor.get(), columnOrdinal);
+                            columnPath = getPath(metaData);
+                        }
+                        PrimitiveType primitiveType = messageType.getType(columnPath.toArray()).asPrimitiveType();
+                        ColumnChunkMetadata column = ColumnChunkMetadata.get(
+                                columnPath,
+                                primitiveType,
+                                CompressionCodecName.fromParquet(metaData.codec),
+                                convertEncodingStats(metaData.encoding_stats),
+                                readEncodings(metaData.encodings),
+                                readStats(Optional.ofNullable(fileMetaData.getCreated_by()), Optional.ofNullable(metaData.statistics), primitiveType),
+                                metaData.data_page_offset,
+                                metaData.dictionary_page_offset,
+                                metaData.num_values,
+                                metaData.total_compressed_size,
+                                metaData.total_uncompressed_size);
+                        column.setColumnIndexReference(toColumnIndexReference(columnChunk));
+                        column.setOffsetIndexReference(toOffsetIndexReference(columnChunk));
+                        column.setBloomFilterOffset(metaData.bloom_filter_offset);
+
+                        if (rowGroup.isSetOrdinal()) {
+                            column.setRowGroupOrdinal(rowGroup.getOrdinal());
+                        }
+                        columnMetadataBuilder.add(column);
+                    }
+                    catch (KeyAccessDeniedException e) {
+                        ColumnChunkMetadata column = new HiddenColumnChunkMetaData(columnPath, filePath);
+                        columnMetadataBuilder.add(column);
+                    }
                 }
-                blocks.add(new BlockMetadata(rowGroup.getNum_rows(), columnMetadataBuilder.build()));
+                blocks.add(new BlockMetadata(rowGroup.getNum_rows(), rowGroup.getTotal_byte_size(), rowGroup.getOrdinal(), columnMetadataBuilder.build()));
             }
         }
 
@@ -274,6 +371,25 @@ public final class MetadataReader
         return columnStatistics;
     }
 
+    /**
+     * If a column is encrypted and user doesn't provide correct key to decrypt, that column is hidden to current request.
+     * This method find out the first non-hidden column.
+     *
+     * @param block BlockMetaData
+     * @return first non hidden column id.
+     */
+    public static Integer findFirstNonHiddenColumnId(BlockMetadata block)
+    {
+        List<ColumnChunkMetadata> columns = block.columns();
+        for (int i = 0; i < columns.size(); i++) {
+            if (!HiddenColumnChunkMetaData.isHiddenColumn(columns.get(i))) {
+                return i;
+            }
+        }
+        // all columns are hidden (encrypted but not accessible to current user)
+        return null;
+    }
+
     private static boolean isStringType(PrimitiveType type)
     {
         if (type.getLogicalTypeAnnotation() == null) {
@@ -372,5 +488,76 @@ public final class MetadataReader
                 dataSourceId,
                 Optional.ofNullable(fileMetaData.getKeyValueMetaData().get("writer.time.zone")));
         writeValidation.validateColumns(dataSourceId, fileMetaData.getSchema());
+    }
+
+    private static ColumnMetaData decryptMetadata(RowGroup rowGroup, ColumnCryptoMetaData cryptoMetaData, ColumnChunk columnChunk, InternalFileDecryptor fileDecryptor, int columnOrdinal)
+    {
+        EncryptionWithColumnKey columnKeyStruct = cryptoMetaData.getENCRYPTION_WITH_COLUMN_KEY();
+        List<String> pathList = columnKeyStruct.getPath_in_schema().stream()
+                .map(value -> value.toLowerCase(Locale.ENGLISH)).collect(Collectors.toList());
+
+        byte[] columnKeyMetadata = columnKeyStruct.getKey_metadata();
+        ColumnPath columnPath = ColumnPath.get(pathList.toArray(new String[pathList.size()]));
+        byte[] encryptedMetadataBuffer = columnChunk.getEncrypted_column_metadata();
+
+        // Decrypt the ColumnMetaData
+        InternalColumnDecryptionSetup columnDecryptionSetup = fileDecryptor.setColumnCryptoMetadata(columnPath, true, false, columnKeyMetadata, columnOrdinal);
+        ByteArrayInputStream tempInputStream = new ByteArrayInputStream(encryptedMetadataBuffer);
+        byte[] columnMetaDataAAD = AesCipher.createModuleAAD(fileDecryptor.getFileAAD(), ModuleType.ColumnMetaData, rowGroup.ordinal, columnOrdinal, -1);
+        try {
+            return Util.readColumnMetaData(tempInputStream, columnDecryptionSetup.getMetaDataDecryptor(), columnMetaDataAAD);
+        }
+        catch (IOException e) {
+            throw new ParquetCryptoRuntimeException(columnPath + ". Failed to decrypt column metadata", e);
+        }
+    }
+
+    /*public static ColumnChunkMetadata buildColumnChunkMetaData(Optional<String> fileCreatedBy, ColumnMetaData metaData, ColumnPath columnPath, PrimitiveType type)
+    {
+        return ColumnChunkMetadata.get(
+                columnPath,
+                type,
+                CompressionCodecName.fromParquet(metaData.codec),
+                PARQUET_METADATA_CONVERTER.convertEncodingStats(metaData.encoding_stats),
+                readEncodings(metaData.encodings),
+                readStats(fileCreatedBy, Optional.ofNullable(metaData.statistics), type),
+                metaData.data_page_offset,
+                metaData.dictionary_page_offset,
+                metaData.num_values,
+                metaData.total_compressed_size,
+                metaData.total_uncompressed_size);
+    }*/
+
+    private static ColumnPath getPath(ColumnMetaData metaData)
+    {
+        String[] path = metaData.path_in_schema.stream()
+                .map(value -> value.toLowerCase(Locale.ENGLISH))
+                .toArray(String[]::new);
+        return ColumnPath.get(path);
+    }
+
+    private static void verifyFooterIntegrity(InputStream metadataStream, InternalFileDecryptor fileDecryptor, int combinedFooterLength)
+            throws IOException
+    {
+        byte[] nonce = new byte[AesCipher.NONCE_LENGTH];
+        metadataStream.read(nonce);
+        byte[] gcmTag = new byte[AesCipher.GCM_TAG_LENGTH];
+        metadataStream.read(gcmTag);
+
+        AesGcmEncryptor footerSigner = fileDecryptor.createSignedFooterEncryptor();
+        int footerSignatureLength = AesCipher.NONCE_LENGTH + AesCipher.GCM_TAG_LENGTH;
+        byte[] serializedFooter = new byte[combinedFooterLength - footerSignatureLength];
+
+        //InputStream doesn't implement reset(). Here is to workaround
+        ((BasicSliceInput) metadataStream).setPosition(0);
+        metadataStream.read(serializedFooter, 0, serializedFooter.length);
+
+        byte[] signedFooterAAD = AesCipher.createFooterAAD(fileDecryptor.getFileAAD());
+        byte[] encryptedFooterBytes = footerSigner.encrypt(false, serializedFooter, nonce, signedFooterAAD);
+        byte[] calculatedTag = new byte[AesCipher.GCM_TAG_LENGTH];
+        System.arraycopy(encryptedFooterBytes, encryptedFooterBytes.length - AesCipher.GCM_TAG_LENGTH, calculatedTag, 0, AesCipher.GCM_TAG_LENGTH);
+        if (!Arrays.equals(gcmTag, calculatedTag)) {
+            throw new TagVerificationException("Signature mismatch in plaintext footer");
+        }
     }
 }

@@ -137,8 +137,9 @@ public class TestFlatColumnReader
                 OptionalLong.empty(),
                 encoding,
                 encoding,
-                PLAIN));
-        return new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, pages.iterator(), false, false);
+                PLAIN,
+                0));
+        return new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, pages.iterator(), false, false, null, null, -1, -1);
     }
 
     private static PageReader getNullOnlyPageReaderMock()
@@ -154,7 +155,8 @@ public class TestFlatColumnReader
                 OptionalLong.empty(),
                 RLE,
                 RLE,
-                PLAIN));
-        return new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, pages.iterator(), false, false);
+                PLAIN,
+                0));
+        return new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, pages.iterator(), false, false, null, null, -1, -1);
     }
 }

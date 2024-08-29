@@ -15,7 +15,7 @@ package io.trino.parquet.metadata;
 
 import java.util.List;
 
-public record BlockMetadata(long rowCount, List<ColumnChunkMetadata> columns)
+public record BlockMetadata(long rowCount, long totalByteSize, short ordinal, List<ColumnChunkMetadata> columns)
 {
     public long getStartingPos()
     {

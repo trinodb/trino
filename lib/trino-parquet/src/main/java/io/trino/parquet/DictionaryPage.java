@@ -43,6 +43,7 @@ public class DictionaryPage
                 encoding);
     }
 
+    @Override
     public Slice getSlice()
     {
         return slice;

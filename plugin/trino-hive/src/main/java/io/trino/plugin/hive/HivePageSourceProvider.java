@@ -195,9 +195,7 @@ public class HivePageSourceProvider
 
         Optional<BucketAdaptation> bucketAdaptation = createBucketAdaptation(bucketConversion, tableBucketNumber, regularAndInterimColumnMappings);
         Optional<BucketValidator> bucketValidator = createBucketValidator(path, bucketValidation, tableBucketNumber, regularAndInterimColumnMappings);
-
         CoercionContext coercionContext = new CoercionContext(getTimestampPrecision(session), extractHiveStorageFormat(getDeserializerClassName(schema)));
-
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
             List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, typeManager, coercionContext);
 

@@ -83,7 +83,7 @@ public final class IcebergParquetFileWriter
     {
         ParquetMetadata parquetMetadata;
         try {
-            parquetMetadata = createParquetMetadata(parquetFileWriter.getFileMetadata(), new ParquetDataSourceId(location.toString()));
+            parquetMetadata = createParquetMetadata(parquetFileWriter.getFileMetadata(), new ParquetDataSourceId(location.toString()), Optional.empty(), false);
         }
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Error creating metadata for Parquet file %s", location), e);

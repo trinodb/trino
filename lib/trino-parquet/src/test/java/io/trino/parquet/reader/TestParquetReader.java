@@ -79,7 +79,7 @@ public class TestParquetReader
                         columnNames,
                         generateInputPages(types, 100, 5)),
                 new ParquetReaderOptions());
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty());
         assertThat(parquetMetadata.getBlocks().size()).isGreaterThan(1);
         // Verify file has only non-dictionary encodings as dictionary memory usage is already tested in TestFlatColumnReader#testMemoryUsage
         parquetMetadata.getBlocks().forEach(block -> {
@@ -132,7 +132,7 @@ public class TestParquetReader
         ParquetDataSource dataSource = new FileParquetDataSource(
                 new File(Resources.getResource("lineitem_sorted_by_shipdate/data.parquet").toURI()),
                 new ParquetReaderOptions());
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty());
         assertThat(parquetMetadata.getBlocks().size()).isEqualTo(2);
         // The predicate and the file are prepared so that page indexes will result in non-overlapping row ranges and eliminate the entire first row group
         // while the second row group still has to be read
@@ -193,7 +193,7 @@ public class TestParquetReader
                 file,
                 new ParquetReaderOptions());
         ConnectorSession session = TestingConnectorSession.builder().build();
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty());
         try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), ImmutableList.of(columnType), columnNames)) {
             Page page = reader.nextPage();
             Iterator<?> expected = expectedValues.iterator();

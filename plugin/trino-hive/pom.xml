@@ -379,6 +379,21 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Below two dependencies are not needed when parquet-kms-apple includes jackson dependency -->
+        <dependency>
+            <groupId>org.codehaus.jackson</groupId>
+            <artifactId>jackson-core-asl</artifactId>
+            <version>1.9.13</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.codehaus.jackson</groupId>
+            <artifactId>jackson-mapper-asl</artifactId>
+            <version>1.9.13</version>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
@@ -659,6 +674,17 @@
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestUnityMetastore.java</exclude>
                             </excludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.basepom.maven</groupId>
+                        <artifactId>duplicate-finder-maven-plugin</artifactId>
+                        <configuration>
+                            <ignoredResourcePatterns>
+                                <ignoredResourcePattern>about.html</ignoredResourcePattern>
+                                <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
+                                <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
+                            </ignoredResourcePatterns>
                         </configuration>
                     </plugin>
                 </plugins>

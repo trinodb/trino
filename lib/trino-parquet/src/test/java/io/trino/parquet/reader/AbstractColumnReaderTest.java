@@ -660,7 +660,8 @@ public abstract class AbstractColumnReaderTest
                     OptionalLong.empty(),
                     getParquetEncoding(repetitionWriter.getEncoding()),
                     getParquetEncoding(definitionWriter.getEncoding()),
-                    encoding);
+                    encoding,
+                    0);
         }
         return new DataPageV2(
                 valueCount,
@@ -673,7 +674,8 @@ public abstract class AbstractColumnReaderTest
                 definitionBytes.length + repetitionBytes.length + valueBytes.length,
                 OptionalLong.empty(),
                 null,
-                false);
+                false,
+                0);
     }
 
     protected static PageReader getPageReaderMock(List<DataPage> dataPages, @Nullable DictionaryPage dictionaryPage)
@@ -699,7 +701,7 @@ public abstract class AbstractColumnReaderTest
                             return ((DataPageV2) page).getDataEncoding();
                         })
                         .allMatch(encoding -> encoding == PLAIN_DICTIONARY || encoding == RLE_DICTIONARY),
-                hasNoNulls);
+                hasNoNulls, null, null, -1, -1);
     }
 
     private DataPage createDataPage(DataPageVersion version, ParquetEncoding encoding, ValuesWriter writer, int valueCount)
@@ -713,7 +715,7 @@ public abstract class AbstractColumnReaderTest
     {
         Slice slice = Slices.wrappedBuffer(writer.getBytes().toByteArray());
         if (version == V1) {
-            return new DataPageV1(slice, valueCount, slice.length(), firstRowIndex, RLE, BIT_PACKED, encoding);
+            return new DataPageV1(slice, valueCount, slice.length(), firstRowIndex, RLE, BIT_PACKED, encoding, 0);
         }
         return new DataPageV2(
                 valueCount,
@@ -726,7 +728,8 @@ public abstract class AbstractColumnReaderTest
                 slice.length(),
                 firstRowIndex,
                 null,
-                false);
+                false,
+                0);
     }
 
     private static ValuesWriter getLevelsWriter(int maxLevel, int valueCount)

@@ -30,6 +30,9 @@ import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.crypto.HiddenColumnChunkMetaData;
+import io.trino.parquet.crypto.InternalFileDecryptor;
+import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.PrunedBlockMetadata;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
@@ -129,6 +132,7 @@ public class ParquetReader
     private final Map<String, Metric<?>> codecMetrics;
 
     private long columnIndexRowsFiltered = -1;
+    private final Optional<InternalFileDecryptor> fileDecryptor;
 
     public ParquetReader(
             Optional<String> fileCreatedBy,
@@ -140,7 +144,8 @@ public class ParquetReader
             ParquetReaderOptions options,
             Function<Exception, RuntimeException> exceptionTransform,
             Optional<TupleDomainParquetPredicate> parquetPredicate,
-            Optional<ParquetWriteValidation> writeValidation)
+            Optional<ParquetWriteValidation> writeValidation,
+            Optional<InternalFileDecryptor> fileDecryptor)
             throws IOException
     {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
@@ -156,6 +161,7 @@ public class ParquetReader
         this.maxBatchSize = options.getMaxReadBlockRowCount();
         this.columnReaders = new HashMap<>();
         this.maxBytesPerCell = new HashMap<>();
+        this.fileDecryptor = fileDecryptor;
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         validateWrite(
@@ -264,7 +270,7 @@ public class ParquetReader
         return firstRowIndexInGroup + nextRowInGroup - batchSize;
     }
 
-    private int nextBatch()
+    public int nextBatch()
             throws IOException
     {
         if (nextRowInGroup >= currentGroupRowCount && !advanceToNextRowGroup()) {
@@ -457,9 +463,16 @@ public class ParquetReader
                 offsetIndex = getFilteredOffsetIndex(rowRanges, currentRowGroup, currentBlockMetadata.getRowCount(), metadata.getPath());
             }
             ChunkedInputStream columnChunkInputStream = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup));
-            columnReader.setPageReader(
-                    createPageReader(dataSource.getId(), columnChunkInputStream, metadata, columnDescriptor, offsetIndex, fileCreatedBy),
-                    Optional.ofNullable(rowRanges));
+            if (isEncryptedColumn(fileDecryptor, columnDescriptor)) {
+                columnReader.setPageReader(
+                        createPageReader(dataSource.getId(), columnChunkInputStream, metadata, columnDescriptor, offsetIndex, fileCreatedBy, fileDecryptor),
+                        Optional.ofNullable(rowRanges));
+            }
+            else {
+                columnReader.setPageReader(
+                        createPageReader(dataSource.getId(), columnChunkInputStream, metadata, columnDescriptor, offsetIndex, fileCreatedBy, fileDecryptor),
+                        Optional.ofNullable(rowRanges));
+            }
         }
         ColumnChunk columnChunk = columnReader.readPrimitive();
 
@@ -489,6 +502,19 @@ public class ParquetReader
         }
 
         return new Metrics(metrics.buildOrThrow());
+    }
+
+    private ColumnChunkMetadata getColumnChunkMetaData(BlockMetadata blockMetaData, ColumnDescriptor columnDescriptor)
+            throws IOException
+    {
+        for (ColumnChunkMetadata metadata : blockMetaData.columns()) {
+            if (!HiddenColumnChunkMetaData.isHiddenColumn(metadata)) {
+                if (metadata.getPath().equals(ColumnPath.get(columnDescriptor.getPath()))) {
+                    return metadata;
+                }
+            }
+        }
+        throw new ParquetCorruptionException(dataSource.getId(), "Metadata is missing for column: %s", columnDescriptor);
     }
 
     private void initializeColumnReaders()
@@ -611,5 +637,11 @@ public class ParquetReader
         if (writeValidation.isPresent() && !test.test(writeValidation.get())) {
             throw new ParquetCorruptionException(dataSource.getId(), "Write validation failed: " + messageFormat, args);
         }
+    }
+
+    private boolean isEncryptedColumn(Optional<InternalFileDecryptor> fileDecryptor, ColumnDescriptor columnDescriptor)
+    {
+        ColumnPath columnPath = ColumnPath.get(columnDescriptor.getPath());
+        return fileDecryptor.isPresent() && !fileDecryptor.get().plaintextFile() && fileDecryptor.get().getColumnSetup(columnPath).isEncrypted();
     }
 }

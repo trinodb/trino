@@ -25,6 +25,7 @@ import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.crypto.HiddenColumnChunkMetaData;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.PrunedBlockMetadata;
@@ -230,9 +231,11 @@ public final class PredicateUtils
         ImmutableMap.Builder<ColumnDescriptor, Statistics<?>> statistics = ImmutableMap.builderWithExpectedSize(descriptorsByPath.size());
         for (ColumnDescriptor descriptor : descriptorsByPath.values()) {
             ColumnChunkMetadata columnMetaData = columnsMetadata.getColumnChunkMetaData(descriptor);
-            Statistics<?> columnStatistics = columnMetaData.getStatistics();
-            if (columnStatistics != null) {
-                statistics.put(descriptor, columnStatistics);
+            if (!HiddenColumnChunkMetaData.isHiddenColumn(columnMetaData)) {
+                Statistics<?> columnStatistics = columnMetaData.getStatistics();
+                if (columnStatistics != null) {
+                    statistics.put(descriptor, columnStatistics);
+                }
             }
         }
         return statistics.buildOrThrow();
@@ -260,18 +263,20 @@ public final class PredicateUtils
     {
         for (ColumnDescriptor descriptor : descriptorsByPath.values()) {
             ColumnChunkMetadata columnMetaData = columnsMetadata.getColumnChunkMetaData(descriptor);
-            if (!candidateColumns.contains(descriptor)) {
-                continue;
-            }
-            if (isOnlyDictionaryEncodingPages(columnMetaData)) {
-                Statistics<?> columnStatistics = columnMetaData.getStatistics();
-                boolean nullAllowed = columnStatistics == null || columnStatistics.getNumNulls() != 0;
-                //  Early abort, predicate already filters block so no more dictionaries need be read
-                if (!parquetPredicate.matches(new DictionaryDescriptor(
-                        descriptor,
-                        nullAllowed,
-                        readDictionaryPage(dataSource, columnMetaData, columnIndexStore)))) {
-                    return false;
+            if (!HiddenColumnChunkMetaData.isHiddenColumn(columnMetaData)) {
+                if (!candidateColumns.contains(descriptor)) {
+                    continue;
+                }
+                if (isOnlyDictionaryEncodingPages(columnMetaData)) {
+                    Statistics<?> columnStatistics = columnMetaData.getStatistics();
+                    boolean nullAllowed = columnStatistics == null || columnStatistics.getNumNulls() != 0;
+                    //  Early abort, predicate already filters block so no more dictionaries need be read
+                    if (!parquetPredicate.matches(new DictionaryDescriptor(
+                            descriptor,
+                            nullAllowed,
+                            readDictionaryPage(dataSource, columnMetaData, columnIndexStore)))) {
+                        return false;
+                    }
                 }
             }
         }
