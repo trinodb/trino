@@ -68,6 +68,8 @@ import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.SampleApplicationResult;
+import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -825,6 +827,13 @@ public class BigQueryMetadata
     {
         // TODO Fix BaseBigQueryFailureRecoveryTest when implementing this method
         return ConnectorMetadata.super.getStatisticsCollectionMetadata(session, tableHandle, analyzeProperties);
+    }
+
+    @Override
+    public Optional<SampleApplicationResult<ConnectorTableHandle>> applySample(ConnectorSession session, ConnectorTableHandle handle, SampleType sampleType, double sampleRatio)
+    {
+        // TODO Enable BaseBigQueryConnectorTest.testTableSampleBernoulli when supporting this pushdown
+        return ConnectorMetadata.super.applySample(session, handle, sampleType, sampleRatio);
     }
 
     @Override

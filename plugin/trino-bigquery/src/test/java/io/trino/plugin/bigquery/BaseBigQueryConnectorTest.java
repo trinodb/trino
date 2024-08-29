@@ -96,6 +96,11 @@ public abstract class BaseBigQueryConnectorTest
         };
     }
 
+    @Test
+    @Disabled // Disable this test because this test is slow and BigQuery connector doesn't support sample pushdown
+    @Override
+    public void testTableSampleBernoulli() {}
+
     @Override
     @Test
     public void testShowColumns()
