@@ -42,8 +42,9 @@ To use Iceberg, you need:
   {ref}`Snowflake catalog <iceberg-snowflake-catalog>`.
 
 - Data files stored in the file formats
-  [Parquet](hive-parquet-configuration)(default), [ORC](hive-orc-configuration),
-  or Avro on a [supported file system](iceberg-file-system-configuration).
+  [Parquet](parquet-format-configuration)(default),
+  [ORC](orc-format-configuration), or Avro on a [supported file
+  system](iceberg-file-system-configuration).
 
 ## General configuration
 

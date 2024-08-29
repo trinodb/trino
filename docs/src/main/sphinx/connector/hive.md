@@ -38,8 +38,8 @@ Data files must be in a supported file format. File formats can be
 configured using the [`format` table property](hive-table-properties)
 and other specific properties:
 
-- {ref}`ORC <hive-orc-configuration>`
-- {ref}`Parquet <hive-parquet-configuration>`
+- {ref}`ORC <orc-format-configuration>`
+- {ref}`Parquet <parquet-format-configuration>`
 - Avro
 
 In the case of serializable formats, only specific
@@ -115,6 +115,18 @@ Hive connector documentation.
 * - `hive.storage-format`
   - The default file format used when creating new tables.
   - `ORC`
+* - `hive.orc.use-column-names`
+  - Access ORC columns by name. By default, columns in ORC files are accessed by
+    their ordinal position in the Hive table definition. The equivalent catalog
+    session property is `orc_use_column_names`. See also,
+    [](orc-format-configuration)
+  - `false`
+* - `hive.parquet.use-column-names`
+  - Access Parquet columns by name by default. Set this property to `false` to
+    access columns by their ordinal position in the Hive table definition. The
+    equivalent catalog session property is `parquet_use_column_names`. See also,
+    [](parquet-format-configuration)
+  - `true`
 * - `hive.compression-codec`
   - The compression codec to use when writing files. Possible values are `NONE`,
     `SNAPPY`, `LZ4`, `ZSTD`, or `GZIP`.
