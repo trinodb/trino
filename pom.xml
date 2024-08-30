@@ -201,6 +201,7 @@
         <dep.jna.version>5.14.0</dep.jna.version>
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
+        <dep.jts.version>1.19.0</dep.jts.version>
         <dep.kafka-clients.version>3.8.0</dep.kafka-clients.version>
         <dep.okio.version>3.9.0</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
@@ -2156,13 +2157,13 @@
             <dependency>
                 <groupId>org.locationtech.jts</groupId>
                 <artifactId>jts-core</artifactId>
-                <version>1.19.0</version>
+                <version>${dep.jts.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>org.locationtech.jts.io</groupId>
                 <artifactId>jts-io-common</artifactId>
-                <version>1.19.0</version>
+                <version>${dep.jts.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>junit</groupId>
