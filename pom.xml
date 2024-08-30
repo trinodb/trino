@@ -2430,6 +2430,8 @@
                                     <exclude>javax.inject:javax.inject</exclude>
                                     <!-- use Jakarta version -->
                                     <exclude>javax.annotation:javax.annotation-api</exclude>
+                                    <!-- use io.opentelemetry.semconv:opentelemetry-semconv instead -->
+                                    <exclude>io.opentelemetry:opentelemetry-semconv</exclude>
                                 </excludes>
                                 <includes combine.children="append">
                                     <!-- 2.x versions are not affected by CVE-2022-1471 -->
