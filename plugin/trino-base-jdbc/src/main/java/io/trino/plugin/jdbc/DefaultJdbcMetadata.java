@@ -387,7 +387,7 @@ public class DefaultJdbcMetadata
         Set<ConnectorExpression> translatedExpressions = new HashSet<>();
 
         for (ConnectorExpression projection : ImmutableSet.copyOf(projections)) {
-            RewrittenExpression rewrittenExpression = rewriteExpression(session, nextSyntheticColumnId, projection, assignments, translatedExpressions);
+            RewrittenExpression rewrittenExpression = rewriteExpression(session, handle, nextSyntheticColumnId, projection, assignments, translatedExpressions);
             nextSyntheticColumnId = rewrittenExpression.nextSyntheticColumnId();
             newVariablesBuilder.putAll(rewrittenExpression.syntheticVariables());
             columnExpressionsBuilder.putAll(rewrittenExpression.columnExpressions());
@@ -430,6 +430,7 @@ public class DefaultJdbcMetadata
 
     private RewrittenExpression rewriteExpression(
             ConnectorSession session,
+            JdbcTableHandle handle,
             int nextSyntheticColumnId,
             ConnectorExpression projection,
             Map<String, ColumnHandle> assignments,
@@ -453,7 +454,7 @@ public class DefaultJdbcMetadata
                     ImmutableSet.of((JdbcColumnHandle) assignments.get(variable.getName())),
                     ImmutableList.of(new Assignment(variable.getName(), assignments.get(variable.getName()), variable.getType())));
         }
-        Optional<JdbcExpression> convertedExpression = jdbcClient.convertProjection(session, projection, assignments);
+        Optional<JdbcExpression> convertedExpression = jdbcClient.convertProjection(session, handle, projection, assignments);
         if (convertedExpression.isPresent()) {
             String columnName = SYNTHETIC_COLUMN_NAME_PREFIX + nextSyntheticColumnId;
             JdbcColumnHandle newColumn = JdbcColumnHandle.builder()
@@ -481,6 +482,7 @@ public class DefaultJdbcMetadata
         for (ConnectorExpression child : projection.getChildren()) {
             RewrittenExpression rewrittenExpression = rewriteExpression(
                     session,
+                    handle,
                     nextSyntheticColumnId,
                     child,
                     assignments,

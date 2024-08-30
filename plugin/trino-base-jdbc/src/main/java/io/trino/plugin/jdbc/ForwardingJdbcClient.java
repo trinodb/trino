@@ -163,9 +163,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public Optional<JdbcExpression> convertProjection(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    public Optional<JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
-        return delegate().convertProjection(session, expression, assignments);
+        return delegate().convertProjection(session, handle, expression, assignments);
     }
 
     @Override

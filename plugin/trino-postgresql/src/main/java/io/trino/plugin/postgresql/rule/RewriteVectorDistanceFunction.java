@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.QueryParameter;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -76,7 +77,7 @@ public final class RewriteVectorDistanceFunction
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(ConnectorExpression projectionExpression, Captures captures, RewriteContext<ParameterizedExpression> context)
+    public Optional<JdbcExpression> rewrite(ConnectorTableHandle handle, ConnectorExpression projectionExpression, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         Optional<ParameterizedExpression> leftExpression = rewrite(captures.get(LEFT_ARGUMENT), context);
         if (leftExpression.isEmpty()) {

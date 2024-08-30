@@ -840,9 +840,9 @@ public class PostgreSqlClient
     }
 
     @Override
-    public Optional<JdbcExpression> convertProjection(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    public Optional<JdbcExpression> convertProjection(ConnectorSession session, JdbcTableHandle handle, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
-        return projectFunctionRewriter.rewrite(session, expression, assignments);
+        return projectFunctionRewriter.rewrite(session, handle, expression, assignments);
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)

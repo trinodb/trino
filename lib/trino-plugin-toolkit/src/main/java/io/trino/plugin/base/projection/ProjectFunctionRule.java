@@ -17,6 +17,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.expression.ConnectorExpression;
 
 import java.util.Map;
@@ -34,7 +35,7 @@ public interface ProjectFunctionRule<ProjectionResult, ExpressionResult>
         return true;
     }
 
-    Optional<ProjectionResult> rewrite(ConnectorExpression projectionExpression, Captures captures, RewriteContext<ExpressionResult> context);
+    Optional<ProjectionResult> rewrite(ConnectorTableHandle handle, ConnectorExpression projectionExpression, Captures captures, RewriteContext<ExpressionResult> context);
 
     interface RewriteContext<ExpressionResult>
     {
