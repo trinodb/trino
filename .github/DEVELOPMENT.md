@@ -6,46 +6,10 @@ which covers thing like development philosophy and contribution process.
 More information about the writing and building the documentation can
 be found in the [docs module](../docs).
 
-* [Commits and pull requests](#commits-and-pull-requests)
 * [Code style](#code-style)
 * [Additional IDE configuration](#additional-ide-configuration)
 * [Building the Web UI](#building-the-web-ui)
 * [CI pipeline](#ci-pipeline)
-
-## Commits and pull requests
-
-### Format Git commit messages
-
-When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
-
-### Git merge strategy
-
-Pull requests are usually merged into `master` using the  [`rebase and merge`](https://docs.github.com/en/github/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/about-pull-request-merges#rebase-and-merge-your-pull-request-commits) strategy.
-
-A typical pull request should strive to contain a single logical change (but not
-necessarily a single commit). Unrelated changes should generally be extracted
-into their own PRs.
-
-If a pull request contains a stack of more than one commit, then
-popping any number of commits from the top of the stack, should not
-break the PR, ie. every commit should build and pass all tests.
-
-Commit messages and history are important as well, because they are
-used by other developers to keep track of the motivation behind
-changes. Keep logical diffs grouped together in separate commits and
-order commits in a way that explains by itself the evolution of the
-change. Rewriting and reordering commits is a natural part of the
-review process. Mechanical changes like refactoring, renaming, removing
-duplication, extracting helper methods, static imports should be kept
-separated from logical and functional changes like adding a new feature
-or modifying code behaviour. This makes reviewing the code much easier
-and reduces the chance of introducing unintended changes in behavior.
-
-Whenever in doubt on splitting a change into a separate commit, ask
-yourself the following question: if all other work in the PR needs to
-be reverted after merging to master for some objective reason (eg. a
-bug has been discovered), is it worth keeping that commit still in
-master.
 
 ## Code Style
 
