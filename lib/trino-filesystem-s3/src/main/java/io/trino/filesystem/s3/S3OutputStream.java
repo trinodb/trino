@@ -46,6 +46,7 @@ import java.util.concurrent.Future;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl.getCannedAcl;
+import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.NONE;
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
 import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
 import static java.lang.Math.clamp;
@@ -70,7 +71,7 @@ final class S3OutputStream
     private final int partSize;
     private final RequestPayer requestPayer;
     private final S3SseType sseType;
-    private final String sseKmsKeyId;
+    private final Optional<String> sseKmsKeyId;
     private final ObjectCannedACL cannedAcl;
     private final boolean exclusiveCreate;
     private final Optional<EncryptionKey> key;
@@ -100,12 +101,12 @@ final class S3OutputStream
         this.context = requireNonNull(context, "context is null");
         this.partSize = context.partSize();
         this.requestPayer = context.requestPayer();
-        this.sseType = context.sseType();
-        this.sseKmsKeyId = context.sseKmsKeyId();
+        this.sseType = context.s3SseContext().sseType();
+        this.sseKmsKeyId = context.s3SseContext().sseKmsKeyId();
         this.cannedAcl = getCannedAcl(context.cannedAcl());
         this.key = requireNonNull(key, "key is null");
 
-        verify(key.isEmpty() || sseType == S3SseType.NONE, "Encryption key cannot be used with sse configuration");
+        verify(key.isEmpty() || sseType == NONE, "Encryption key cannot be used with SSE configuration");
     }
 
     @SuppressWarnings("NumericCastThatLosesPrecision")
@@ -232,7 +233,7 @@ final class S3OutputStream
                         switch (sseType) {
                             case NONE -> { /* ignored */ }
                             case S3 -> builder.serverSideEncryption(AES256);
-                            case KMS -> builder.serverSideEncryption(AWS_KMS).ssekmsKeyId(sseKmsKeyId);
+                            case KMS -> sseKmsKeyId.ifPresent(builder.serverSideEncryption(AWS_KMS)::ssekmsKeyId);
                         }
                     })
                     .build();
@@ -322,7 +323,7 @@ final class S3OutputStream
                         switch (sseType) {
                             case NONE -> { /* ignored */ }
                             case S3 -> builder.serverSideEncryption(AES256);
-                            case KMS -> builder.serverSideEncryption(AWS_KMS).ssekmsKeyId(sseKmsKeyId);
+                            case KMS -> sseKmsKeyId.ifPresent(builder.serverSideEncryption(AWS_KMS)::ssekmsKeyId);
                         }
                     })
                     .build();
