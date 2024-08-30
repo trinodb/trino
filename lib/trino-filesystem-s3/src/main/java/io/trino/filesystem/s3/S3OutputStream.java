@@ -95,8 +95,8 @@ final class S3OutputStream
         this.context = requireNonNull(context, "context is null");
         this.partSize = context.partSize();
         this.requestPayer = context.requestPayer();
-        this.sseType = context.sseType();
-        this.sseKmsKeyId = context.sseKmsKeyId();
+        this.sseType = context.s3SseContext().sseType();
+        this.sseKmsKeyId = context.s3SseContext().sseKmsKeyId();
         this.cannedAcl = getCannedAcl(context.cannedAcl());
     }
 
