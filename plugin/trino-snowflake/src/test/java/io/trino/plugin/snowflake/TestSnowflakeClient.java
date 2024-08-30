@@ -45,14 +45,14 @@ public class TestSnowflakeClient
             JdbcColumnHandle.builder()
                     .setColumnName("c_bigint")
                     .setColumnType(BIGINT)
-                    .setJdbcTypeHandle(new JdbcTypeHandle(Types.BIGINT, Optional.of("int8"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                    .setJdbcTypeHandle(new JdbcTypeHandle(Types.BIGINT, Optional.of("int8"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                     .build();
 
     private static final JdbcColumnHandle DOUBLE_COLUMN =
             JdbcColumnHandle.builder()
                     .setColumnName("c_double")
                     .setColumnType(DOUBLE)
-                    .setJdbcTypeHandle(new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                    .setJdbcTypeHandle(new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                     .build();
 
     private static final JdbcClient JDBC_CLIENT = new SnowflakeClient(

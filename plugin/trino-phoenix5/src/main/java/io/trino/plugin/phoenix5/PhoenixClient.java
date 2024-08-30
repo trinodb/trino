@@ -219,7 +219,7 @@ public class PhoenixClient
     public static final String ROWKEY = "ROWKEY";
     public static final JdbcColumnHandle ROWKEY_COLUMN_HANDLE = new JdbcColumnHandle(
             ROWKEY,
-            new JdbcTypeHandle(Types.BIGINT, Optional.of("BIGINT"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+            new JdbcTypeHandle(Types.BIGINT, Optional.of("BIGINT"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
             BIGINT);
 
     private static final String DATE_FORMAT = "y-MM-dd G";
@@ -878,6 +878,7 @@ public class PhoenixClient
                 Optional.of(arrayTypeName),
                 arrayTypeHandle.columnSize(),
                 arrayTypeHandle.decimalDigits(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
     }

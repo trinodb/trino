@@ -312,7 +312,7 @@ public class PhoenixMetadata
 
         return new JdbcColumnHandle(
                 MERGE_ROW_ID_COLUMN_NAME,
-                new JdbcTypeHandle(Types.ROWID, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+                new JdbcTypeHandle(Types.ROWID, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
                 RowType.from(fields));
     }
 

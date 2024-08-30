@@ -27,9 +27,22 @@ public record JdbcTypeHandle(
         Optional<Integer> columnSize,
         Optional<Integer> decimalDigits,
         Optional<Integer> arrayDimensions,
-        Optional<CaseSensitivity> caseSensitivity)
+        Optional<CaseSensitivity> caseSensitivity,
+        Optional<String> characterSet)
 {
     private static final int INSTANCE_SIZE = instanceSize(JdbcTypeHandle.class);
+
+    @Deprecated
+    public JdbcTypeHandle(
+            int jdbcType,
+            Optional<String> jdbcTypeName,
+            Optional<Integer> columnSize,
+            Optional<Integer> decimalDigits,
+            Optional<Integer> arrayDimensions,
+            Optional<CaseSensitivity> caseSensitivity)
+    {
+        this(jdbcType, jdbcTypeName, columnSize, decimalDigits, arrayDimensions, caseSensitivity, Optional.empty());
+    }
 
     public JdbcTypeHandle
     {
@@ -38,6 +51,7 @@ public record JdbcTypeHandle(
         requireNonNull(decimalDigits, "decimalDigits is null");
         requireNonNull(arrayDimensions, "arrayDimensions is null");
         requireNonNull(caseSensitivity, "caseSensitivity is null");
+        requireNonNull(characterSet, "characterSet is null");
     }
 
     public int requiredColumnSize()
