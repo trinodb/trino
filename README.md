@@ -12,7 +12,7 @@
     <img src="https://img.shields.io/maven-central/v/io.trino/trino-server.svg?label=Trino" alt="Trino download" />
   </a>
   <a href="https://github.com/jvm-repo-rebuild/reproducible-central/blob/master/content/io/trino/README.md" style="text-decoration: none">
-    <img src="https://img.shields.io/badge/Reproducible_Builds-ok-success?logoColor=959DA5&labelColor=333a41" alt="Reproducible builds supported" />
+    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jvm-repo-rebuild/reproducible-central/master/content/io/trino/badge.json" alt="Reproducible builds supported" />
   </a>
   <a href="https://trino.io/slack.html"  style="text-decoration: none">
     <img src="https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358" alt="Trino Slack" />
