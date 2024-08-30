@@ -31,6 +31,9 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 
+import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -66,6 +69,9 @@ public class TestShowQueries
                 .withListSchemaNames(session -> ImmutableList.of("mockschema"))
                 .withListTables((session, schemaName) -> ImmutableList.of("mockTable"))
                 .withGetTableHandle((session, schemaTableName) -> {
+                    if (schemaTableName.getTableName().equals("nonexistingtable")) {
+                        return null;
+                    }
                     if (schemaTableName.getTableName().equals("mockview")) {
                         return null;
                     }
@@ -203,6 +209,32 @@ public class TestShowQueries
                 .failure().hasMessage("Escape string must be a single character");
         assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.mockTable LIKE 'cola$_' ESCAPE '$'"))
                 .matches("VALUES (VARCHAR 'cola_', VARCHAR 'bigint' , VARCHAR '', VARCHAR '')");
+    }
+
+    @Test
+    public void testNonExistingRelations()
+    {
+        testNonExistingRelations("TABLE", "Table");
+        testNonExistingRelations("VIEW", "View");
+        testNonExistingRelations("MATERIALIZED VIEW", "Materialized view");
+    }
+
+    private void testNonExistingRelations(String relationType, String relationName)
+    {
+        assertThat(assertions.query("SHOW CREATE " + relationType + " missing.mockSchema.nonExistingTable"))
+                .failure()
+                .hasErrorCode(CATALOG_NOT_FOUND)
+                .hasMessage("line 1:1: Catalog 'missing' does not exist");
+
+        assertThat(assertions.query("SHOW CREATE " + relationType + " mock.missingschema.nonExistingTable"))
+                .failure()
+                .hasErrorCode(SCHEMA_NOT_FOUND)
+                .hasMessage("line 1:1: Schema 'mock.missingschema' does not exist");
+
+        assertThat(assertions.query("SHOW CREATE " + relationType + " mock.mockSchema.nonExistingTable"))
+                .failure()
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:1: " + relationName + " 'mock.mockschema.nonexistingtable' does not exist");
     }
 
     @Test

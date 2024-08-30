@@ -55,7 +55,7 @@ public class TestMemoryConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return MemoryQueryRunner.builder()
+        QueryRunner runner = MemoryQueryRunner.builder()
                 .addExtraProperties(ImmutableMap.<String, String>builder()
                         // Adjust DF limits to test edge cases
                         .put("dynamic-filtering.small.max-distinct-values-per-driver", "100")
@@ -80,6 +80,9 @@ public class TestMemoryConnectorTest
                                 .add(TpchTable.LINE_ITEM)
                                 .build())
                 .build();
+
+        runner.execute("CREATE SCHEMA memory.functions");
+        return runner;
     }
 
     @Override

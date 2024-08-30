@@ -397,6 +397,10 @@ public final class ShowQueriesRewrite
             }
 
             String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().orElseThrow());
+            if (!metadata.catalogExists(session, catalog)) {
+                throw semanticException(CATALOG_NOT_FOUND, node, "Catalog '%s' does not exist", catalog);
+            }
+
             accessControl.checkCanShowSchemas(session.toSecurityContext(), catalog);
 
             Optional<Expression> predicate = Optional.empty();
@@ -525,6 +529,8 @@ public final class ShowQueriesRewrite
         private Query showCreateMaterializedView(ShowCreate node)
         {
             QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+            verifySchemaCatalogExists(node, objectName);
+
             Optional<MaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, objectName);
 
             if (viewDefinition.isEmpty()) {
@@ -567,6 +573,7 @@ public final class ShowQueriesRewrite
         private Query showCreateView(ShowCreate node)
         {
             QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+            verifySchemaCatalogExists(node, objectName);
 
             if (metadata.isMaterializedView(session, objectName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a view", objectName);
@@ -605,9 +612,22 @@ public final class ShowQueriesRewrite
             return singleValueQuery("Create View", sql);
         }
 
+        private void verifySchemaCatalogExists(Node node, QualifiedObjectName objectName)
+        {
+            if (!metadata.catalogExists(session, objectName.catalogName())) {
+                throw semanticException(CATALOG_NOT_FOUND, node, "Catalog '%s' does not exist", objectName.catalogName());
+            }
+
+            CatalogSchemaName catalogSchemaName = new CatalogSchemaName(objectName.catalogName(), objectName.schemaName());
+            if (!metadata.schemaExists(session, catalogSchemaName)) {
+                throw semanticException(SCHEMA_NOT_FOUND, node, "Schema '%s' does not exist", catalogSchemaName);
+            }
+        }
+
         private Query showCreateTable(ShowCreate node)
         {
             QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+            verifySchemaCatalogExists(node, objectName);
 
             if (metadata.isMaterializedView(session, objectName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a table", objectName);
@@ -686,6 +706,7 @@ public final class ShowQueriesRewrite
         private Node showCreateFunction(ShowCreate node)
         {
             QualifiedObjectName functionName = qualifiedFunctionName(functionSchema, node, node.getName());
+            verifySchemaCatalogExists(node, functionName);
 
             accessControl.checkCanShowCreateFunction(session.toSecurityContext(), functionName);
 

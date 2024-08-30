@@ -243,6 +243,9 @@ public abstract class BaseHiveConnectorTest
                 "hive_timestamp_nanos",
                 "hive",
                 ImmutableMap.of("hive.timestamp-precision", "NANOSECONDS"));
+
+        queryRunner.execute("CREATE SCHEMA hive.functions");
+
         return queryRunner;
     }
 
