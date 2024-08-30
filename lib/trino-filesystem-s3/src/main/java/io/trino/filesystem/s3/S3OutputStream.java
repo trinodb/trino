@@ -13,7 +13,6 @@
  */
 package io.trino.filesystem.s3;
 
-import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import software.amazon.awssdk.core.exception.SdkException;
@@ -44,6 +43,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 
 import static io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl.getCannedAcl;
+import static io.trino.filesystem.s3.S3SseRequestConfigurator.addEncryptionSettings;
 import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -51,8 +51,6 @@ import static java.lang.System.arraycopy;
 import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
-import static software.amazon.awssdk.services.s3.model.ServerSideEncryption.AES256;
-import static software.amazon.awssdk.services.s3.model.ServerSideEncryption.AWS_KMS;
 
 final class S3OutputStream
         extends OutputStream
@@ -65,8 +63,6 @@ final class S3OutputStream
     private final S3Context context;
     private final int partSize;
     private final RequestPayer requestPayer;
-    private final S3SseType sseType;
-    private final String sseKmsKeyId;
     private final ObjectCannedACL cannedAcl;
     private final boolean exclusiveCreate;
 
@@ -95,8 +91,6 @@ final class S3OutputStream
         this.context = requireNonNull(context, "context is null");
         this.partSize = context.partSize();
         this.requestPayer = context.requestPayer();
-        this.sseType = context.s3SseContext().sseType();
-        this.sseKmsKeyId = context.s3SseContext().sseKmsKeyId();
         this.cannedAcl = getCannedAcl(context.cannedAcl());
     }
 
@@ -216,11 +210,7 @@ final class S3OutputStream
                         if (exclusiveCreate) {
                             builder.ifNoneMatch("*");
                         }
-                        switch (sseType) {
-                            case NONE -> { /* ignored */ }
-                            case S3 -> builder.serverSideEncryption(AES256);
-                            case KMS -> builder.serverSideEncryption(AWS_KMS).ssekmsKeyId(sseKmsKeyId);
-                        }
+                        addEncryptionSettings(builder, context.s3SseContext());
                     })
                     .build();
 
@@ -301,11 +291,7 @@ final class S3OutputStream
                     .bucket(location.bucket())
                     .key(location.key())
                     .applyMutation(builder -> {
-                        switch (sseType) {
-                            case NONE -> { /* ignored */ }
-                            case S3 -> builder.serverSideEncryption(AES256);
-                            case KMS -> builder.serverSideEncryption(AWS_KMS).ssekmsKeyId(sseKmsKeyId);
-                        }
+                        addEncryptionSettings(builder, context.s3SseContext());
                     })
                     .build();
 
