@@ -71,7 +71,7 @@ are also available. They are discussed later in this topic.
   - `5m`
 * - `hive.metastore-cache-maximum-size`
   - Maximum number of metastore data objects in the Hive metastore cache.
-  - `10000`
+  - `20000`
 * - `hive.metastore-refresh-interval`
   - Asynchronously refresh cached metastore data after access if it is older
     than this but is not yet expired, allowing subsequent accesses to see fresh
