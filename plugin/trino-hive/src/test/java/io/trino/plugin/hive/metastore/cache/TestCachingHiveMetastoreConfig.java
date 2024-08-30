@@ -39,7 +39,7 @@ public class TestCachingHiveMetastoreConfig
                 .setMetastoreCacheTtl(new Duration(0, SECONDS))
                 .setStatsCacheTtl(new Duration(5, MINUTES))
                 .setMetastoreRefreshInterval(null)
-                .setMetastoreCacheMaximumSize(10000)
+                .setMetastoreCacheMaximumSize(20000)
                 .setMaxMetastoreRefreshThreads(10)
                 .setPartitionCacheEnabled(true)
                 .setCacheMissing(true)

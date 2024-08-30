@@ -37,7 +37,7 @@ public class CachingHiveMetastoreConfig
     private Duration metastoreCacheTtl = new Duration(0, SECONDS);
     private Optional<Duration> statsCacheTtl = Optional.empty();
     private Optional<Duration> metastoreRefreshInterval = Optional.empty();
-    private long metastoreCacheMaximumSize = 10000;
+    private long metastoreCacheMaximumSize = 20000;
     private int maxMetastoreRefreshThreads = 10;
     private boolean partitionCacheEnabled = true;
     private boolean cacheMissing = true;
