@@ -64,6 +64,9 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.GroupReference;
+import io.trino.sql.planner.iterative.IterativeOptimizer;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.AdaptivePlanNode;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -143,6 +146,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
@@ -617,6 +621,17 @@ public class PlanPrinter
     public static String graphvizDistributedPlan(SubPlan plan)
     {
         return GraphvizPrinter.printDistributed(plan);
+    }
+
+    public static String printIterativeOptimizerRule(PlanOptimizer optimizer)
+    {
+        if (!(optimizer instanceof IterativeOptimizer)) {
+            return null;
+        }
+        return ((IterativeOptimizer) optimizer).getRules().stream()
+                .map(Rule::getClass)
+                .map(Class::getName)
+                .collect(Collectors.joining("\n\t"));
     }
 
     private class Visitor
