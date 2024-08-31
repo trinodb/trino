@@ -26,6 +26,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -205,7 +206,7 @@ public class TestShardMetadataRecordCursor
 
     private void createTable(ConnectorTableMetadata table)
     {
-        metadata.createTable(SESSION, table, false);
+        metadata.createTable(SESSION, table, SaveMode.FAIL);
     }
 
     private static List<MaterializedRow> getMaterializedResults(RecordCursor cursor, List<ColumnMetadata> columns)
