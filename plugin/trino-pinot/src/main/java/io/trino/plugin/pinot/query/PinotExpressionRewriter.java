@@ -64,7 +64,7 @@ import static org.apache.pinot.common.request.context.ExpressionContext.Type.IDE
 import static org.apache.pinot.common.request.context.ExpressionContext.Type.LITERAL;
 import static org.apache.pinot.common.request.context.ExpressionContext.forFunction;
 import static org.apache.pinot.common.request.context.ExpressionContext.forIdentifier;
-import static org.apache.pinot.common.request.context.ExpressionContext.forLiteralContext;
+import static org.apache.pinot.common.request.context.ExpressionContext.forLiteral;
 import static org.apache.pinot.core.operator.transform.function.DateTruncTransformFunction.EXAMPLE_INVOCATION;
 import static org.apache.pinot.core.operator.transform.transformer.timeunit.TimeUnitTransformerFactory.getTimeUnitTransformer;
 import static org.apache.pinot.segment.spi.AggregationFunctionType.COUNT;
@@ -175,14 +175,14 @@ public class PinotExpressionRewriter
             ImmutableList.Builder<ExpressionContext> argumentsBuilder = ImmutableList.builder();
             argumentsBuilder.add(rewriteExpression(object.getArguments().get(0), context));
             String inputFormat = object.getArguments().get(1).getLiteral().getValue().toString().toUpperCase(ENGLISH);
-            argumentsBuilder.add(forLiteralContext(stringValue(inputFormat)));
+            argumentsBuilder.add(forLiteral(stringValue(inputFormat)));
             String outputFormat = object.getArguments().get(2).getLiteral().getValue().toString().toUpperCase(ENGLISH);
-            argumentsBuilder.add(forLiteralContext(stringValue(outputFormat)));
+            argumentsBuilder.add(forLiteral(stringValue(outputFormat)));
             String granularity = object.getArguments().get(3).getLiteral().getValue().toString().toUpperCase(ENGLISH);
             BaseDateTimeTransformer<?, ?> dateTimeTransformer = DateTimeTransformerFactory.getDateTimeTransformer(inputFormat, outputFormat, granularity);
             // Even if the format is valid, make sure it is not a simple date format: format characters can be ambiguous due to lower casing
             checkState(dateTimeTransformer instanceof EpochToEpochTransformer, "Unsupported date format: simple date format not supported");
-            argumentsBuilder.add(forLiteralContext(stringValue(granularity)));
+            argumentsBuilder.add(forLiteral(stringValue(granularity)));
             return new FunctionContext(object.getType(), object.getFunctionName(), argumentsBuilder.build());
         }
     }
@@ -212,8 +212,8 @@ public class PinotExpressionRewriter
             String outputTimeUnitArgument = object.getArguments().get(2).getLiteral().getValue().toString().toUpperCase(ENGLISH);
             // Check that this is a valid time unit transform
             getTimeUnitTransformer(inputTimeUnit, outputTimeUnitArgument);
-            argumentsBuilder.add(forLiteralContext(stringValue(inputTimeUnitArgument)));
-            argumentsBuilder.add(forLiteralContext(stringValue(outputTimeUnitArgument)));
+            argumentsBuilder.add(forLiteral(stringValue(inputTimeUnitArgument)));
+            argumentsBuilder.add(forLiteral(stringValue(outputTimeUnitArgument)));
             return new FunctionContext(object.getType(), object.getFunctionName(), argumentsBuilder.build());
         }
     }
@@ -239,7 +239,7 @@ public class PinotExpressionRewriter
 
             checkState(arguments.get(0).getType() == LITERAL, "First argument must be a literal");
             String unit = arguments.get(0).getLiteral().getValue().toString().toLowerCase(ENGLISH);
-            argumentsBuilder.add(forLiteralContext(stringValue(unit)));
+            argumentsBuilder.add(forLiteral(stringValue(unit)));
             verifyIsIdentifierOrFunction(object.getArguments().get(1));
             ExpressionContext valueArgument = rewriteExpression(arguments.get(1), context);
             argumentsBuilder.add(valueArgument);
@@ -248,7 +248,7 @@ public class PinotExpressionRewriter
                 String inputTimeUnitArgument = arguments.get(2).getLiteral().getValue().toString().toUpperCase(ENGLISH);
                 // Ensure this is a valid TimeUnit
                 TimeUnit inputTimeUnit = TimeUnit.valueOf(inputTimeUnitArgument);
-                argumentsBuilder.add(forLiteralContext(stringValue(inputTimeUnit.name())));
+                argumentsBuilder.add(forLiteral(stringValue(inputTimeUnit.name())));
                 if (arguments.size() >= 4) {
                     checkState(arguments.get(3).getType() == LITERAL, "Unexpected 4th argument '%s'", arguments.get(3));
                     // Time zone is lower cased inside Pinot
@@ -258,7 +258,7 @@ public class PinotExpressionRewriter
                         String outputTimeUnitArgument = arguments.get(4).getLiteral().getValue().toString().toUpperCase(ENGLISH);
                         // Ensure this is a valid TimeUnit
                         TimeUnit outputTimeUnit = TimeUnit.valueOf(outputTimeUnitArgument);
-                        argumentsBuilder.add(forLiteralContext(stringValue(outputTimeUnit.name())));
+                        argumentsBuilder.add(forLiteral(stringValue(outputTimeUnit.name())));
                     }
                 }
             }
