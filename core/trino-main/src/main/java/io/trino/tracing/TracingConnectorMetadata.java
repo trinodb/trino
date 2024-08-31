@@ -688,18 +688,6 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
-    {
-        Span span = startSpan("finishInsert");
-        if (span.isRecording()) {
-            span.setAttribute(TrinoAttributes.HANDLE, insertHandle.toString());
-        }
-        try (var _ = scopedSpan(span)) {
-            return delegate.finishInsert(session, insertHandle, fragments, computedStatistics);
-        }
-    }
-
-    @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         Span span = startSpan("finishInsert");
