@@ -32,6 +32,7 @@ import io.trino.plugin.pinot.client.PinotGrpcServerQueryClientTlsConfig;
 import io.trino.plugin.pinot.client.PinotHostMapper;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
+import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.utils.DataSchema;
 
 import java.io.IOException;
@@ -90,6 +91,8 @@ public class PinotModule
                 });
 
         jsonBinder(binder).addDeserializerBinding(DataSchema.class).to(DataSchemaDeserializer.class);
+        jsonBinder(binder).addDeserializerBinding(BrokerResponseNative.class).to(BrokerResponseNativeDeserializer.class);
+
         PinotClient.addJsonBinders(jsonCodecBinder(binder));
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(ConnectorNodePartitioningProvider.class).to(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
@@ -117,6 +120,19 @@ public class PinotModule
                 columnNames[i] = columnNamesJson.get(i).asText();
             }
             return new DataSchema(columnNames, columnTypes);
+        }
+    }
+
+    public static class BrokerResponseNativeDeserializer
+            extends JsonDeserializer<BrokerResponseNative>
+    {
+        @Override
+        public BrokerResponseNative deserialize(JsonParser p, DeserializationContext ctxt)
+                throws IOException
+        {
+            JsonNode jsonNode = ctxt.readTree(p);
+            String value = jsonNode.toString();
+            return BrokerResponseNative.fromJsonString(value);
         }
     }
 

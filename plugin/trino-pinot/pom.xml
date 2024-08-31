@@ -13,7 +13,7 @@
     <description>Trino - Pinot connector</description>
 
     <properties>
-        <dep.pinot.version>1.1.0</dep.pinot.version>
+        <dep.pinot.version>1.2.0</dep.pinot.version>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
         <!-- additional JVM flags required by chronicle-hft which is used by pinot-segment spi -->
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}
@@ -25,7 +25,13 @@
             <dependency>
                 <groupId>net.openhft</groupId>
                 <artifactId>posix</artifactId>
-                <version>2.26ea0</version>
+                <version>2.26ea1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-text</artifactId>
+                <version>1.12.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -152,8 +158,12 @@
             <version>${dep.pinot.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>javax.servlet</groupId>
-                    <artifactId>javax.servlet-api</artifactId>
+                    <groupId>jakarta.servlet</groupId>
+                    <artifactId>jakarta.servlet-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>jakarta.ws.rs</groupId>
+                    <artifactId>jakarta.ws.rs-api</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>org.apache.logging.log4j</groupId>
@@ -172,8 +182,36 @@
                     <artifactId>log4j-slf4j2-impl</artifactId>
                 </exclusion>
                 <exclusion>
+                    <groupId>org.glassfish.hk2</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.hk2.external</groupId>
+                    <artifactId>aopalliance-repackaged</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.containers</groupId>
+                    <artifactId>jersey-container-grizzly2-http</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.containers</groupId>
+                    <artifactId>jersey-container-servlet-core</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>org.glassfish.jersey.core</groupId>
-                    <artifactId>jersey-server</artifactId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.ext</groupId>
+                    <artifactId>jersey-entity-filtering</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.inject</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.media</groupId>
+                    <artifactId>*</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -210,6 +248,10 @@
                 <exclusion>
                     <groupId>org.glassfish.hk2</groupId>
                     <artifactId>hk2-locator</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.hk2.external</groupId>
+                    <artifactId>aopalliance-repackaged</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>org.glassfish.hk2.external</groupId>
@@ -328,7 +370,7 @@
         <dependency>
             <groupId>net.openhft</groupId>
             <artifactId>chronicle-core</artifactId>
-            <version>2.25ea15</version>
+            <version>2.26ea1</version>
             <scope>runtime</scope>
         </dependency>
 
