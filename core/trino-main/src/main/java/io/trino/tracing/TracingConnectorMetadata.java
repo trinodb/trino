@@ -818,15 +818,6 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
-    {
-        Span span = startSpan("createView", viewName);
-        try (var _ = scopedSpan(span)) {
-            delegate.createView(session, viewName, definition, replace);
-        }
-    }
-
-    @Override
     public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         Span span = startSpan("renameView", source);
