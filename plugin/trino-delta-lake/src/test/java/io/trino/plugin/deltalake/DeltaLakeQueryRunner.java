@@ -223,6 +223,29 @@ public final class DeltaLakeQueryRunner
         }
     }
 
+    public static final class DeltaLakeSparkQueryRunnerMain
+    {
+        private DeltaLakeSparkQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            String bucketName = "test-bucket";
+            SparkDeltaLake sparkDeltaLake = new SparkDeltaLake(bucketName);
+
+            QueryRunner queryRunner = builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .addMetastoreProperties(sparkDeltaLake.hiveHadoop())
+                    .addS3Properties(sparkDeltaLake.minio(), bucketName)
+                    .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                    .build();
+
+            Logger log = Logger.get(DeltaLakeSparkQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
     public static final class S3DeltaLakeQueryRunnerMain
     {
         private S3DeltaLakeQueryRunnerMain() {}
