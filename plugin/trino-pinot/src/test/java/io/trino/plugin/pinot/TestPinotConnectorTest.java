@@ -21,6 +21,7 @@ import io.trino.testing.kafka.TestingKafka;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,7 +35,7 @@ public class TestPinotConnectorTest
     {
         TestingKafka kafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
         kafka.start();
-        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), false));
+        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(PINOT_LATEST_IMAGE_NAME, kafka.getNetwork(), false));
         pinot.start();
 
         return PinotQueryRunner.builder()
