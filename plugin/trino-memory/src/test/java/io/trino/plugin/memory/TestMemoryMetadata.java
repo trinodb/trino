@@ -59,7 +59,8 @@ public class TestMemoryMetadata
                 SESSION,
                 new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), ImmutableMap.of()),
                 Optional.empty(),
-                NO_RETRIES);
+                NO_RETRIES,
+                false);
 
         metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
 
@@ -132,7 +133,8 @@ public class TestMemoryMetadata
                 SESSION,
                 new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
                 Optional.empty(),
-                NO_RETRIES);
+                NO_RETRIES,
+                false);
 
         List<SchemaTableName> tableNames = metadata.listTables(SESSION, Optional.empty());
         assertThat(tableNames.size())
@@ -287,7 +289,8 @@ public class TestMemoryMetadata
                 SESSION,
                 new ConnectorTableMetadata(table1, ImmutableList.of(), ImmutableMap.of()),
                 Optional.empty(),
-                NO_RETRIES))
+                NO_RETRIES,
+                false))
                 .hasErrorCode(NOT_FOUND)
                 .hasMessage("Schema test1 not found");
         assertThat(metadata.getTableHandle(SESSION, table1, Optional.empty(), Optional.empty())).isNull();
@@ -317,7 +320,8 @@ public class TestMemoryMetadata
                 SESSION,
                 new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
                 Optional.empty(),
-                NO_RETRIES);
+                NO_RETRIES,
+                false);
         metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
 
         // rename table to schema which does not exist

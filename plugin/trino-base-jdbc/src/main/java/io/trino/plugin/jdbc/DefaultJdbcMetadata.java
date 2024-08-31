@@ -1148,9 +1148,12 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode, boolean replace)
     {
         verifyRetryMode(session, retryMode);
+        if (replace) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
+        }
         JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata);
         setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
         return handle;

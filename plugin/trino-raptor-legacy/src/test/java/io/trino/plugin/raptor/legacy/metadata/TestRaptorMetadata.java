@@ -387,7 +387,7 @@ public class TestRaptorMetadata
         RaptorPartitioningHandle partitioning = (RaptorPartitioningHandle) layout.getPartitioning().get();
         assertThat(partitioning.getDistributionId()).isEqualTo(1);
 
-        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, ordersTable, Optional.of(layout), NO_RETRIES);
+        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, ordersTable, Optional.of(layout), NO_RETRIES, false);
         metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of(), ImmutableList.of());
 
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS, Optional.empty(), Optional.empty());
@@ -656,7 +656,7 @@ public class TestRaptorMetadata
     {
         // start table creation
         long transactionId = 1;
-        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable(), Optional.empty(), NO_RETRIES);
+        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable(), Optional.empty(), NO_RETRIES, false);
 
         // transaction is in progress
         assertThat(transactionExists(transactionId)).isTrue();
@@ -696,7 +696,7 @@ public class TestRaptorMetadata
     {
         // start table creation
         long transactionId = 1;
-        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable(), Optional.empty(), NO_RETRIES);
+        ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable(), Optional.empty(), NO_RETRIES, false);
 
         // transaction is in progress
         assertThat(transactionExists(transactionId)).isTrue();
