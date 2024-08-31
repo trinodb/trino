@@ -86,7 +86,7 @@ public class TestingPinotCluster
     private final Closer closer = Closer.create();
     private final boolean secured;
 
-    public TestingPinotCluster(Network network, boolean secured)
+    public TestingPinotCluster(String version, Network network, boolean secured)
     {
         httpClient = closer.register(new JettyHttpClient());
         zookeeper = new GenericContainer<>(parse("zookeeper:3.9"))
@@ -98,7 +98,7 @@ public class TestingPinotCluster
         closer.register(zookeeper::stop);
 
         String controllerConfig = secured ? "/var/pinot/controller/config/pinot-controller-secured.conf" : "/var/pinot/controller/config/pinot-controller.conf";
-        controller = new GenericContainer<>(parse(PINOT_LATEST_IMAGE_NAME))
+        controller = new GenericContainer<>(parse(version))
                 .withStartupAttempts(3)
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-controller", "/var/pinot/controller/config", BindMode.READ_ONLY)
@@ -109,7 +109,7 @@ public class TestingPinotCluster
         closer.register(controller::stop);
 
         String brokerConfig = secured ? "/var/pinot/broker/config/pinot-broker-secured.conf" : "/var/pinot/broker/config/pinot-broker.conf";
-        broker = new GenericContainer<>(parse(PINOT_LATEST_IMAGE_NAME))
+        broker = new GenericContainer<>(parse(version))
                 .withStartupAttempts(3)
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-broker", "/var/pinot/broker/config", BindMode.READ_ONLY)
@@ -120,7 +120,7 @@ public class TestingPinotCluster
         closer.register(broker::stop);
 
         String serverConfig = secured ? "/var/pinot/server/config/pinot-server-secured.conf" : "/var/pinot/server/config/pinot-server.conf";
-        server = new GenericContainer<>(parse(PINOT_LATEST_IMAGE_NAME))
+        server = new GenericContainer<>(parse(version))
                 .withStartupAttempts(3)
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-server", "/var/pinot/server/config", BindMode.READ_ONLY)
