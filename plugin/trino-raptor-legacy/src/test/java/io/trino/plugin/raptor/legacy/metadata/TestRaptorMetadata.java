@@ -597,8 +597,8 @@ public class TestRaptorMetadata
         SchemaTableName test2 = new SchemaTableName("test", "test_view2");
 
         // create views
-        metadata.createView(SESSION, test1, testingViewDefinition("test1"), false);
-        metadata.createView(SESSION, test2, testingViewDefinition("test2"), false);
+        metadata.createView(SESSION, test1, testingViewDefinition("test1"), ImmutableMap.of(), false);
+        metadata.createView(SESSION, test2, testingViewDefinition("test2"), ImmutableMap.of(), false);
 
         // verify listing
         List<SchemaTableName> list = metadata.listViews(SESSION, Optional.of("test"));
@@ -631,8 +631,8 @@ public class TestRaptorMetadata
     public void testCreateViewWithoutReplace()
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
-        metadata.createView(SESSION, test, testingViewDefinition("test"), false);
-        assertThatThrownBy(() -> metadata.createView(SESSION, test, testingViewDefinition("test"), false))
+        metadata.createView(SESSION, test, testingViewDefinition("test"), ImmutableMap.of(), false);
+        assertThatThrownBy(() -> metadata.createView(SESSION, test, testingViewDefinition("test"), ImmutableMap.of(), false))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("View already exists: test.test_view");
     }
@@ -642,8 +642,8 @@ public class TestRaptorMetadata
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
 
-        metadata.createView(SESSION, test, testingViewDefinition("aaa"), true);
-        metadata.createView(SESSION, test, testingViewDefinition("bbb"), true);
+        metadata.createView(SESSION, test, testingViewDefinition("aaa"), ImmutableMap.of(), true);
+        metadata.createView(SESSION, test, testingViewDefinition("bbb"), ImmutableMap.of(), true);
 
         assertThat(metadata.getView(SESSION, test))
                 .map(ConnectorViewDefinition::getOriginalSql)
