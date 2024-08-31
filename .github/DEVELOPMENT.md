@@ -12,7 +12,7 @@ be found in the [docs module](../docs).
 * [Building the Web UI](#building-the-web-ui)
 * [CI pipeline](#ci-pipeline)
 
-## Commits and pull requests
+## Commits and pull requests2
 
 ### Format Git commit messages
 
