@@ -26,6 +26,7 @@ import io.trino.plugin.raptor.legacy.metadata.ShardMetadata;
 import io.trino.plugin.raptor.legacy.metadata.Table;
 import io.trino.plugin.raptor.legacy.metadata.TableColumn;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
 import org.jdbi.v3.core.Handle;
@@ -118,7 +119,7 @@ public class TestShardOrganizerUtil
                         .property("ordering", ImmutableList.of("orderstatus", "orderkey"))
                         .property("temporal_column", "orderdate")
                         .build(),
-                false);
+                SaveMode.FAIL);
         Table tableInfo = metadataDao.getTableInformation(tableName.getSchemaName(), tableName.getTableName());
         List<TableColumn> tableColumns = metadataDao.listTableColumns(tableInfo.getTableId());
         Map<String, TableColumn> tableColumnMap = Maps.uniqueIndex(tableColumns, TableColumn::getColumnName);

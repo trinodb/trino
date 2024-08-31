@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlTimestamp;
@@ -227,7 +228,7 @@ public class TestRaptorConnector
                         new SchemaTableName("test", "test"),
                         ImmutableList.of(new ColumnMetadata("id", BIGINT), new ColumnMetadata("time", temporalType)),
                         ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "time")),
-                false);
+                SaveMode.FAIL);
         connector.commit(transaction);
 
         ConnectorTransactionHandle txn1 = beginTransaction();
@@ -268,7 +269,7 @@ public class TestRaptorConnector
                 new ConnectorTableMetadata(
                         new SchemaTableName("test", name),
                         ImmutableList.of(new ColumnMetadata("id", BIGINT))),
-                false);
+                SaveMode.FAIL);
         connector.commit(transaction);
 
         transaction = beginTransaction();

@@ -34,6 +34,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.BigintType;
 import io.trino.testing.TestingNodeManager;
@@ -110,7 +111,7 @@ public class TestRaptorSplitManager
         CatalogName connectorId = new CatalogName("raptor");
         metadata = new RaptorMetadata(dbi, shardManager);
 
-        metadata.createTable(SESSION, TEST_TABLE, false);
+        metadata.createTable(SESSION, TEST_TABLE, SaveMode.FAIL);
         tableHandle = metadata.getTableHandle(SESSION, TEST_TABLE.getTable(), Optional.empty(), Optional.empty());
 
         List<ShardInfo> shards = ImmutableList.<ShardInfo>builder()
