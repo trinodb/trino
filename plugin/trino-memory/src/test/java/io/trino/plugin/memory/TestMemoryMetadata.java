@@ -171,12 +171,12 @@ public class TestMemoryMetadata
         MemoryMetadata metadata = createMetadata();
         metadata.createSchema(SESSION, "test", ImmutableMap.of(), new TrinoPrincipal(USER, SESSION.getUser()));
         try {
-            metadata.createView(SESSION, test, testingViewDefinition("test"), false);
+            metadata.createView(SESSION, test, testingViewDefinition("test"), ImmutableMap.of(), false);
         }
         catch (Exception e) {
             fail("should have succeeded");
         }
-        assertThatThrownBy(() -> metadata.createView(SESSION, test, testingViewDefinition("test"), false))
+        assertThatThrownBy(() -> metadata.createView(SESSION, test, testingViewDefinition("test"), ImmutableMap.of(), false))
                 .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("View already exists: test\\.test_view");
     }
@@ -188,8 +188,8 @@ public class TestMemoryMetadata
 
         MemoryMetadata metadata = createMetadata();
         metadata.createSchema(SESSION, "test", ImmutableMap.of(), new TrinoPrincipal(USER, SESSION.getUser()));
-        metadata.createView(SESSION, test, testingViewDefinition("aaa"), true);
-        metadata.createView(SESSION, test, testingViewDefinition("bbb"), true);
+        metadata.createView(SESSION, test, testingViewDefinition("aaa"), ImmutableMap.of(), true);
+        metadata.createView(SESSION, test, testingViewDefinition("bbb"), ImmutableMap.of(), true);
 
         assertThat(metadata.getView(SESSION, test))
                 .map(ConnectorViewDefinition::getOriginalSql)
@@ -204,7 +204,7 @@ public class TestMemoryMetadata
 
         MemoryMetadata metadata = createMetadata();
         metadata.createSchema(SESSION, schemaName, ImmutableMap.of(), new TrinoPrincipal(USER, SESSION.getUser()));
-        metadata.createView(SESSION, viewName, testingViewDefinition("aaa"), true);
+        metadata.createView(SESSION, viewName, testingViewDefinition("aaa"), ImmutableMap.of(), true);
 
         assertThat(metadata.listTables(SESSION, Optional.of(schemaName)))
                 .contains(viewName);
@@ -222,8 +222,8 @@ public class TestMemoryMetadata
         metadata.createSchema(SESSION, "test", ImmutableMap.of(), new TrinoPrincipal(USER, SESSION.getUser()));
 
         // create views
-        metadata.createView(SESSION, test1, testingViewDefinition("test1"), false);
-        metadata.createView(SESSION, test2, testingViewDefinition("test2"), false);
+        metadata.createView(SESSION, test1, testingViewDefinition("test1"), ImmutableMap.of(), false);
+        metadata.createView(SESSION, test2, testingViewDefinition("test2"), ImmutableMap.of(), false);
 
         // verify listing
         List<SchemaTableName> list = metadata.listViews(SESSION, Optional.of("test"));
@@ -292,13 +292,13 @@ public class TestMemoryMetadata
         assertThat(metadata.getTableHandle(SESSION, table1, Optional.empty(), Optional.empty())).isNull();
 
         SchemaTableName view2 = new SchemaTableName("test2", "test_schema_view2");
-        assertTrinoExceptionThrownBy(() -> metadata.createView(SESSION, view2, testingViewDefinition("aaa"), false))
+        assertTrinoExceptionThrownBy(() -> metadata.createView(SESSION, view2, testingViewDefinition("aaa"), ImmutableMap.of(), false))
                 .hasErrorCode(NOT_FOUND)
                 .hasMessage("Schema test2 not found");
         assertThat(metadata.getTableHandle(SESSION, view2, Optional.empty(), Optional.empty())).isNull();
 
         SchemaTableName view3 = new SchemaTableName("test3", "test_schema_view3");
-        assertTrinoExceptionThrownBy(() -> metadata.createView(SESSION, view3, testingViewDefinition("bbb"), true))
+        assertTrinoExceptionThrownBy(() -> metadata.createView(SESSION, view3, testingViewDefinition("bbb"), ImmutableMap.of(), true))
                 .hasErrorCode(NOT_FOUND)
                 .hasMessage("Schema test3 not found");
         assertThat(metadata.getTableHandle(SESSION, view3, Optional.empty(), Optional.empty())).isNull();

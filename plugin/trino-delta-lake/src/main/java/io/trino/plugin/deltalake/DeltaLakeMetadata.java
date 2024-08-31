@@ -3128,8 +3128,9 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, Map<String, Object> viewProperties, boolean replace)
     {
+        checkArgument(viewProperties.isEmpty(), "This connector does not support creating views with properties");
         trinoViewHiveMetastore.createView(session, viewName, definition, replace);
     }
 
