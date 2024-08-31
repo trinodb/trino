@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.pinot;
 
-import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
+import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_PREVIOUS_IMAGE_NAME;
 
-public class TestPinotConnectorTest
+public class TestPinotPreviousConnectorTest
         extends BasePinotConnectorTest
 {
     @Override
     String serverVersionUnderTest()
     {
-        return PINOT_LATEST_IMAGE_NAME;
+        return PINOT_PREVIOUS_IMAGE_NAME;
     }
 }
