@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import com.google.common.base.Throwables;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.util.concurrent.UncheckedExecutionException;
@@ -32,10 +31,10 @@ import java.time.Duration;
 import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static java.time.temporal.ChronoUnit.MILLIS;
-import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -67,10 +66,10 @@ public class TokenFetchingMetastoreClientFactory
                 CacheLoader.from(this::loadDelegationToken));
         this.refreshPeriod = Duration.ofMinutes(1).toNanos();
         retryPolicy = RetryPolicy.builder()
-                .withMaxDuration(java.time.Duration.of(30, SECONDS))
+                .withMaxDuration(thriftConfig.getMaxRetryTime().toJavaTime())
                 .withMaxAttempts(thriftConfig.getMaxRetries() + 1)
                 .withBackoff(thriftConfig.getMinBackoffDelay().toMillis(), thriftConfig.getMaxBackoffDelay().toMillis(), MILLIS, thriftConfig.getBackoffScaleFactor())
-                .abortOn(throwable -> Throwables.getCausalChain(throwable).stream().anyMatch(TrinoException.class::isInstance))
+                .abortOn(TException.class)
                 .build();
     }
 
@@ -144,5 +143,14 @@ public class TokenFetchingMetastoreClientFactory
         {
             requireNonNull(delegationToken, "delegationToken is null");
         }
+    }
+
+    private static RuntimeException propagate(Throwable throwable)
+    {
+        if (throwable instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+        }
+        throwIfUnchecked(throwable);
+        throw new RuntimeException(throwable);
     }
 }
