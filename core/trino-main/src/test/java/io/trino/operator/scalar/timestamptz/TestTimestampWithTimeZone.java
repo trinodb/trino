@@ -1798,6 +1798,14 @@ public class TestTimestampWithTimeZone
     }
 
     @Test
+    public void testCastToJson()
+    {
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56 Asia/Kathmandu' AS JSON)")).matches("JSON '\"2020-05-01 12:34:56 Asia/Kathmandu\"'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1 Asia/Kathmandu' AS JSON)")).isEqualTo("JSON '\"2020-05-01 12:34:56.1 Asia/Kathmandu\"'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456789012 Asia/Kathmandu' AS JSON)")).isEqualTo("JSON '\"2020-05-01 12:34:56.123456789012 Asia/Kathmandu\"'");
+    }
+
+    @Test
     public void testCastFromVarchar()
     {
         // round down
