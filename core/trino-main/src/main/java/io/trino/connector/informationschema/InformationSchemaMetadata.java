@@ -131,7 +131,7 @@ public class InformationSchemaMetadata
         InformationSchemaTableHandle informationSchemaTableHandle = (InformationSchemaTableHandle) tableHandle;
         ConnectorTableMetadata tableMetadata = informationSchemaTableHandle.getTable().getTableMetadata();
 
-        String columnName = ((InformationSchemaColumnHandle) columnHandle).getColumnName();
+        String columnName = ((InformationSchemaColumnHandle) columnHandle).columnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
         checkArgument(columnMetadata != null, "Column '%s' on table '%s' does not exist", columnName, tableMetadata.getTable());

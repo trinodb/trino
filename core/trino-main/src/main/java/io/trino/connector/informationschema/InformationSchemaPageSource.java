@@ -103,7 +103,7 @@ public class InformationSchemaPageSource
 
         requiredColumns = columns.stream()
                 .map(columnHandle -> (InformationSchemaColumnHandle) columnHandle)
-                .map(InformationSchemaColumnHandle::getColumnName)
+                .map(InformationSchemaColumnHandle::columnName)
                 .collect(toImmutableSet());
 
         catalogName = tableHandle.getCatalogName();
@@ -143,7 +143,7 @@ public class InformationSchemaPageSource
 
         List<Integer> channels = columns.stream()
                 .map(columnHandle -> (InformationSchemaColumnHandle) columnHandle)
-                .map(columnHandle -> columnNameToChannel.get(columnHandle.getColumnName()))
+                .map(columnHandle -> columnNameToChannel.get(columnHandle.columnName()))
                 .collect(toImmutableList());
 
         projection = page -> {
