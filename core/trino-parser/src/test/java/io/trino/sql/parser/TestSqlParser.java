@@ -3746,12 +3746,12 @@ public class TestSqlParser
         assertStatement("EXPLAIN (TYPE LOGICAL) SELECT * FROM t",
                 new Explain(
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
-                        ImmutableList.of(new ExplainType(ExplainType.Type.LOGICAL))));
+                        ImmutableList.of(new ExplainType(location(1, 1), ExplainType.Type.LOGICAL))));
         assertStatement("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) SELECT * FROM t",
                 new Explain(
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                         ImmutableList.of(
-                                new ExplainType(ExplainType.Type.LOGICAL),
+                                new ExplainType(location(1, 1),ExplainType.Type.LOGICAL),
                                 new ExplainFormat(ExplainFormat.Type.TEXT))));
 
         assertStatementIsInvalid("EXPLAIN VERBOSE SELECT * FROM t")
