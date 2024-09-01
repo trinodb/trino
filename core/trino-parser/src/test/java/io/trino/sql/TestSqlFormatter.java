@@ -469,10 +469,10 @@ public class TestSqlFormatter
     public void testCommentOnTable()
     {
         assertThat(formatSql(
-                new Comment(Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("test"))))
+                new Comment(new NodeLocation(1, 1), Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("test"))))
                 .isEqualTo("COMMENT ON TABLE a IS 'test'");
         assertThat(formatSql(
-                new Comment(Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("攻殻機動隊"))))
+                new Comment(new NodeLocation(1, 1), Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("攻殻機動隊"))))
                 .isEqualTo("COMMENT ON TABLE a IS '攻殻機動隊'");
     }
 
@@ -480,10 +480,10 @@ public class TestSqlFormatter
     public void testCommentOnView()
     {
         assertThat(formatSql(
-                new Comment(Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("test"))))
+                new Comment(new NodeLocation(1, 1), Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("test"))))
                 .isEqualTo("COMMENT ON VIEW a IS 'test'");
         assertThat(formatSql(
-                new Comment(Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("攻殻機動隊"))))
+                new Comment(new NodeLocation(1, 1), Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("攻殻機動隊"))))
                 .isEqualTo("COMMENT ON VIEW a IS '攻殻機動隊'");
     }
 
@@ -491,10 +491,10 @@ public class TestSqlFormatter
     public void testCommentOnColumn()
     {
         assertThat(formatSql(
-                new Comment(Comment.Type.COLUMN, QualifiedName.of("test", "a"), Optional.of("test"))))
+                new Comment(new NodeLocation(1, 1), Comment.Type.COLUMN, QualifiedName.of("test", "a"), Optional.of("test"))))
                 .isEqualTo("COMMENT ON COLUMN test.a IS 'test'");
         assertThat(formatSql(
-                new Comment(Comment.Type.COLUMN, QualifiedName.of("test", "a"), Optional.of("攻殻機動隊"))))
+                new Comment(new NodeLocation(1, 1), Comment.Type.COLUMN, QualifiedName.of("test", "a"), Optional.of("攻殻機動隊"))))
                 .isEqualTo("COMMENT ON COLUMN test.a IS '攻殻機動隊'");
     }
 
