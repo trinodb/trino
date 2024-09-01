@@ -4005,7 +4005,7 @@ public class TestSqlParser
     public void testBinaryLiteralToHex()
     {
         // note that toHexString() always outputs in upper case
-        assertThat(new BinaryLiteral("ab 01").toHexString())
+        assertThat(new BinaryLiteral(location(1, 1), "ab 01").toHexString())
                 .isEqualTo("AB01");
     }
 
