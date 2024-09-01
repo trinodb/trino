@@ -28,19 +28,9 @@ public final class CaseStatementWhenClause
     private final Expression expression;
     private final List<ControlStatement> statements;
 
-    public CaseStatementWhenClause(Expression expression, List<ControlStatement> statements)
-    {
-        this(Optional.empty(), expression, statements);
-    }
-
     public CaseStatementWhenClause(NodeLocation location, Expression expression, List<ControlStatement> statements)
     {
-        this(Optional.of(location), expression, statements);
-    }
-
-    private CaseStatementWhenClause(Optional<NodeLocation> location, Expression expression, List<ControlStatement> statements)
-    {
-        super(location);
+        super(Optional.of(location));
         this.expression = requireNonNull(expression, "expression is null");
         this.statements = requireNonNull(statements, "statements is null");
     }
