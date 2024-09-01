@@ -4542,12 +4542,12 @@ public class TestSqlParser
     @Test
     public void testDropRole()
     {
-        assertStatement("DROP ROLE role", new DropRole(new Identifier("role"), Optional.empty()));
-        assertStatement("DROP ROLE IF EXISTS role", new DropRole(new Identifier("role"), Optional.empty()));
-        assertStatement("DROP ROLE \"role\"", new DropRole(new Identifier("role"), Optional.empty()));
-        assertStatement("DROP ROLE \"ro le\"", new DropRole(new Identifier("ro le"), Optional.empty()));
-        assertStatement("DROP ROLE \"!@#$%^&*'ад\"\"мін\"", new DropRole(new Identifier("!@#$%^&*'ад\"мін"), Optional.empty()));
-        assertStatement("DROP ROLE role IN my_catalog", new DropRole(new Identifier("role"), Optional.of(new Identifier("my_catalog"))));
+        assertStatement("DROP ROLE role", new DropRole(location(1, 1), new Identifier("role"), Optional.empty(), false));
+        assertStatement("DROP ROLE IF EXISTS role", new DropRole(location(1, 1), new Identifier("role"), Optional.empty(), false));
+        assertStatement("DROP ROLE \"role\"", new DropRole(location(1, 1), new Identifier("role"), Optional.empty(), false));
+        assertStatement("DROP ROLE \"ro le\"", new DropRole(location(1, 1), new Identifier("ro le"), Optional.empty(), false));
+        assertStatement("DROP ROLE \"!@#$%^&*'ад\"\"мін\"", new DropRole(location(1, 1), new Identifier("!@#$%^&*'ад\"мін"), Optional.empty(), false));
+        assertStatement("DROP ROLE role IN my_catalog", new DropRole(location(1, 1), new Identifier("role"), Optional.of(new Identifier("my_catalog")), false));
     }
 
     @Test
