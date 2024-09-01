@@ -35,6 +35,7 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Call;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
@@ -143,7 +144,7 @@ public class TestCallTask
                     .build();
             new CallTask(transactionManager, plannerContext, accessControl, procedureRegistry)
                     .execute(
-                            new Call(QualifiedName.of("testing_procedure"), ImmutableList.of()),
+                            new Call(new NodeLocation(1, 1), QualifiedName.of("testing_procedure"), ImmutableList.of()),
                             stateMachine(transactionManager, plannerContext.getMetadata(), accessControl),
                             ImmutableList.of(),
                             WarningCollector.NOOP);

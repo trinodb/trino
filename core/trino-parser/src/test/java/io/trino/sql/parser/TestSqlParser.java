@@ -4012,8 +4012,8 @@ public class TestSqlParser
     @Test
     public void testCall()
     {
-        assertStatement("CALL foo()", new Call(QualifiedName.of("foo"), ImmutableList.of()));
-        assertStatement("CALL foo(123, a => 1, b => 'go', 456)", new Call(QualifiedName.of("foo"), ImmutableList.of(
+        assertStatement("CALL foo()", new Call(location(1, 1), QualifiedName.of("foo"), ImmutableList.of()));
+        assertStatement("CALL foo(123, a => 1, b => 'go', 456)", new Call(location(1, 1), QualifiedName.of("foo"), ImmutableList.of(
                 new CallArgument(new LongLiteral("123")),
                 new CallArgument(identifier("a"), new LongLiteral("1")),
                 new CallArgument(identifier("b"), new StringLiteral("go")),
