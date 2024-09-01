@@ -25,12 +25,7 @@ public class EmptyPattern
 {
     public EmptyPattern(NodeLocation location)
     {
-        this(Optional.of(location));
-    }
-
-    private EmptyPattern(Optional<NodeLocation> location)
-    {
-        super(location);
+        super(Optional.of(location));
     }
 
     @Override
