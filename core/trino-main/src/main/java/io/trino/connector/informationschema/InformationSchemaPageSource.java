@@ -106,11 +106,11 @@ public class InformationSchemaPageSource
                 .map(InformationSchemaColumnHandle::columnName)
                 .collect(toImmutableSet());
 
-        catalogName = tableHandle.getCatalogName();
-        table = tableHandle.getTable();
+        catalogName = tableHandle.catalogName();
+        table = tableHandle.table();
         prefixIterator = Suppliers.memoize(() -> {
-            Set<QualifiedTablePrefix> prefixes = tableHandle.getPrefixes();
-            if (tableHandle.getLimit().isEmpty()) {
+            Set<QualifiedTablePrefix> prefixes = tableHandle.prefixes();
+            if (tableHandle.limit().isEmpty()) {
                 // no limit is used, therefore it doesn't make sense to split information schema query into smaller ones
                 return prefixes.iterator();
             }
@@ -127,7 +127,7 @@ public class InformationSchemaPageSource
             }
             return prefixes.iterator();
         });
-        limit = tableHandle.getLimit();
+        limit = tableHandle.limit();
 
         List<ColumnMetadata> columnMetadata = table.getTableMetadata().getColumns();
 
