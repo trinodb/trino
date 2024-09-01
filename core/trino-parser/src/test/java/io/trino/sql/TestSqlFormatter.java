@@ -443,6 +443,7 @@ public class TestSqlFormatter
     {
         assertThat(formatSql(
                 new AddColumn(
+                        new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
                         new ColumnDefinition(QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),
@@ -453,6 +454,7 @@ public class TestSqlFormatter
                 .isEqualTo("ALTER TABLE foo.t ADD COLUMN c VARCHAR");
         assertThat(formatSql(
                 new AddColumn(
+                        new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
                         new ColumnDefinition(QualifiedName.of("c"),
                                 new GenericDataType(new NodeLocation(1, 1), new Identifier("VARCHAR", false), ImmutableList.of()),

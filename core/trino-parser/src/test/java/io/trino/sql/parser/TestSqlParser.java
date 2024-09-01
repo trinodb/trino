@@ -3136,30 +3136,35 @@ public class TestSqlParser
         assertThat(statement("ALTER TABLE foo.t ADD COLUMN c bigint"))
                 .ignoringLocation()
                 .isEqualTo(new AddColumn(
+                        new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
                         new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, emptyList(), Optional.empty()), false, false));
 
         assertThat(statement("ALTER TABLE foo.t ADD COLUMN d double NOT NULL"))
                 .ignoringLocation()
                 .isEqualTo(new AddColumn(
+                        location(1, 1),
                         QualifiedName.of("foo", "t"),
                         new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), false, false));
 
         assertThat(statement("ALTER TABLE IF EXISTS foo.t ADD COLUMN d double NOT NULL"))
                 .ignoringLocation()
                 .isEqualTo(new AddColumn(
+                        location(1, 1),
                         QualifiedName.of("foo", "t"),
                         new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), true, false));
 
         assertThat(statement("ALTER TABLE foo.t ADD COLUMN IF NOT EXISTS d double NOT NULL"))
                 .ignoringLocation()
                 .isEqualTo(new AddColumn(
+                        location(1, 1),
                         QualifiedName.of("foo", "t"),
                         new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), false, true));
 
         assertThat(statement("ALTER TABLE IF EXISTS foo.t ADD COLUMN IF NOT EXISTS d double NOT NULL"))
                 .ignoringLocation()
                 .isEqualTo(new AddColumn(
+                        location(1, 1),
                         QualifiedName.of("foo", "t"),
                         new ColumnDefinition(QualifiedName.of("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), true, true));
 
