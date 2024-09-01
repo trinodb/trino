@@ -100,7 +100,7 @@ public class SystemTablesMetadata
     {
         ConnectorTableMetadata tableMetadata = checkAndGetTable(session, tableHandle).getTableMetadata();
 
-        String columnName = ((SystemColumnHandle) columnHandle).getColumnName();
+        String columnName = ((SystemColumnHandle) columnHandle).columnName();
 
         ColumnMetadata columnMetadata = findColumnMetadata(tableMetadata, columnName);
         checkArgument(columnMetadata != null, "Column '%s' on table '%s' does not exist", columnName, tableMetadata.getTable());
