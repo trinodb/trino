@@ -69,7 +69,7 @@ public class SystemPageSourceProvider
         requireNonNull(columns, "columns is null");
         SystemTransactionHandle systemTransaction = (SystemTransactionHandle) transaction;
         SystemSplit systemSplit = (SystemSplit) split;
-        SchemaTableName tableName = ((SystemTableHandle) table).getSchemaTableName();
+        SchemaTableName tableName = ((SystemTableHandle) table).schemaTableName();
         SystemTable systemTable = tables.getSystemTable(session, tableName)
                 // table might disappear in the meantime
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Table '%s' not found", tableName)));
