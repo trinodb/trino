@@ -29,12 +29,7 @@ public class ExcludedPattern
 
     public ExcludedPattern(NodeLocation location, RowPattern pattern)
     {
-        this(Optional.of(location), pattern);
-    }
-
-    private ExcludedPattern(Optional<NodeLocation> location, RowPattern pattern)
-    {
-        super(location);
+        super(Optional.of(location));
         this.pattern = requireNonNull(pattern, "pattern is null");
     }
 
