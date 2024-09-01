@@ -121,7 +121,7 @@ class TestSqlParserRoutines
                                         new DeterministicCharacteristic(true),
                                         calledOnNullInput(),
                                         new SecurityCharacteristic(INVOKER),
-                                        new CommentCharacteristic("hello world function")),
+                                        new CommentCharacteristic(new NodeLocation(1, 1), "hello world function")),
                                 new ReturnStatement(location(), functionCall(
                                         "CONCAT",
                                         literal("Hello, "),
