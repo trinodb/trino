@@ -34,28 +34,18 @@ public class BinaryLiteral
 
     private final byte[] value;
 
-    public BinaryLiteral(String value)
+    public BinaryLiteral(NodeLocation location, String value)
     {
-        this(Optional.empty(), value);
-    }
-
-    public BinaryLiteral(Optional<NodeLocation> location, String value)
-    {
-        super(location);
+        super(Optional.of(location));
         requireNonNull(value, "value is null");
         String hexString = WHITESPACE_MATCHER.removeFrom(value).toUpperCase(ENGLISH);
         if (!HEX_DIGIT_MATCHER.matchesAllOf(hexString)) {
-            throw new ParsingException("Binary literal can only contain hexadecimal digits", location.get());
+            throw new ParsingException("Binary literal can only contain hexadecimal digits", location);
         }
         if (hexString.length() % 2 != 0) {
-            throw new ParsingException("Binary literal must contain an even number of digits", location.get());
+            throw new ParsingException("Binary literal must contain an even number of digits", location);
         }
         this.value = BaseEncoding.base16().decode(hexString);
-    }
-
-    public BinaryLiteral(NodeLocation location, String value)
-    {
-        this(Optional.of(location), value);
     }
 
     /**
