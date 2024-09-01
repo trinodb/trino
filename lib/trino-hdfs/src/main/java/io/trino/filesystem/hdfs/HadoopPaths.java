@@ -14,14 +14,18 @@
 package io.trino.filesystem.hdfs;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.Location;
 import org.apache.hadoop.fs.Path;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Set;
 
 public final class HadoopPaths
 {
+    private static final Set<String> S3_SCHEMES = ImmutableSet.of("s3", "s3a", "s3n");
+
     private HadoopPaths() {}
 
     public static Path hadoopPath(Location location)
@@ -29,8 +33,10 @@ public final class HadoopPaths
         // hack to preserve the original path for S3 if necessary
         String path = location.toString();
         Path hadoopPath = new Path(path);
-        if ("s3".equals(hadoopPath.toUri().getScheme()) && !path.equals(hadoopPath.toString())) {
-            return new Path(toPathEncodedUri(location));
+        if (hadoopPath.toUri().getScheme() != null) {
+            if (S3_SCHEMES.contains(hadoopPath.toUri().getScheme()) && !path.equals(hadoopPath.toString())) {
+                return new Path(toPathEncodedUri(location));
+            }
         }
         return hadoopPath;
     }
