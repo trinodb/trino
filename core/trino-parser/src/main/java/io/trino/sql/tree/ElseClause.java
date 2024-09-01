@@ -25,19 +25,9 @@ public final class ElseClause
 {
     private final List<ControlStatement> statements;
 
-    public ElseClause(List<ControlStatement> statements)
-    {
-        this(Optional.empty(), statements);
-    }
-
     public ElseClause(NodeLocation location, List<ControlStatement> statements)
     {
-        this(Optional.of(location), statements);
-    }
-
-    private ElseClause(Optional<NodeLocation> location, List<ControlStatement> statements)
-    {
-        super(location);
+        super(Optional.of(location));
         this.statements = requireNonNull(statements, "statements is null");
     }
 
