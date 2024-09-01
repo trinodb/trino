@@ -4966,13 +4966,13 @@ public class TestSqlParser
     @Test
     public void testDropMaterializedView()
     {
-        assertStatement("DROP MATERIALIZED VIEW a", new DropMaterializedView(QualifiedName.of("a"), false));
-        assertStatement("DROP MATERIALIZED VIEW a.b", new DropMaterializedView(QualifiedName.of("a", "b"), false));
-        assertStatement("DROP MATERIALIZED VIEW a.b.c", new DropMaterializedView(QualifiedName.of("a", "b", "c"), false));
+        assertStatement("DROP MATERIALIZED VIEW a", new DropMaterializedView(location(1, 1), QualifiedName.of("a"), false));
+        assertStatement("DROP MATERIALIZED VIEW a.b", new DropMaterializedView(location(1, 1), QualifiedName.of("a", "b"), false));
+        assertStatement("DROP MATERIALIZED VIEW a.b.c", new DropMaterializedView(location(1, 1), QualifiedName.of("a", "b", "c"), false));
 
-        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a", new DropMaterializedView(QualifiedName.of("a"), true));
-        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b", new DropMaterializedView(QualifiedName.of("a", "b"), true));
-        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b.c", new DropMaterializedView(QualifiedName.of("a", "b", "c"), true));
+        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a", new DropMaterializedView(location(1, 1), QualifiedName.of("a"), true));
+        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b", new DropMaterializedView(location(1, 1), QualifiedName.of("a", "b"), true));
+        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b.c", new DropMaterializedView(location(1, 1), QualifiedName.of("a", "b", "c"), true));
     }
 
     @Test
