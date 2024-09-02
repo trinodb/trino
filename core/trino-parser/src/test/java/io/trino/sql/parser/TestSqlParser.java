@@ -6173,7 +6173,8 @@ public class TestSqlParser
     @Test
     public void testResetSessionAuthorization()
     {
-        assertStatement("RESET SESSION AUTHORIZATION", new ResetSessionAuthorization());
+        assertThat(statement("RESET SESSION AUTHORIZATION"))
+                .isEqualTo(new ResetSessionAuthorization(location(1, 1)));
     }
 
     private static QualifiedName makeQualifiedName(String tableName)
