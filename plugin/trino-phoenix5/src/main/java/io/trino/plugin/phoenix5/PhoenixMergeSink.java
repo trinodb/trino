@@ -51,10 +51,8 @@ import static org.apache.phoenix.util.SchemaUtil.getEscapedArgument;
 public class PhoenixMergeSink
         implements ConnectorMergeSink
 {
-    private final RemoteTableName remoteTableName;
     private final boolean hasRowKey;
     private final int columnCount;
-    private final List<String> mergeRowIdFieldNames;
 
     private final ConnectorPageSink insertSink;
     private final ConnectorPageSink updateSink;
@@ -64,7 +62,6 @@ public class PhoenixMergeSink
     {
         PhoenixMergeTableHandle phoenixMergeTableHandle = (PhoenixMergeTableHandle) mergeHandle;
         PhoenixOutputTableHandle phoenixOutputTableHandle = phoenixMergeTableHandle.phoenixOutputTableHandle();
-        this.remoteTableName = phoenixOutputTableHandle.getRemoteTableName();
         this.hasRowKey = phoenixOutputTableHandle.rowkeyColumn().isPresent();
         this.columnCount = phoenixOutputTableHandle.getColumnNames().size();
 
@@ -79,11 +76,11 @@ public class PhoenixMergeSink
             mergeRowIdFieldNamesBuilder.add(getEscapedArgument(field.getName().get()));
             mergeRowIdFieldTypesBuilder.add(field.getType());
         }
-        this.mergeRowIdFieldNames = mergeRowIdFieldNamesBuilder.build();
-        this.deleteSink = createDeleteSink(session, mergeRowIdFieldTypesBuilder.build(), phoenixClient, pageSinkId, remoteQueryModifier);
+        List<String> mergeRowIdFieldNames = mergeRowIdFieldNamesBuilder.build();
+        this.deleteSink = createDeleteSink(session, mergeRowIdFieldTypesBuilder.build(), phoenixClient, phoenixOutputTableHandle, mergeRowIdFieldNames, pageSinkId, remoteQueryModifier);
     }
 
-    private ConnectorPageSink createUpdateSink(
+    private static ConnectorPageSink createUpdateSink(
             ConnectorSession session,
             PhoenixOutputTableHandle phoenixOutputTableHandle,
             PhoenixClient phoenixClient,
@@ -94,13 +91,13 @@ public class PhoenixMergeSink
         ImmutableList.Builder<Type> columnTypesBuilder = ImmutableList.builder();
         columnNamesBuilder.addAll(phoenixOutputTableHandle.getColumnNames());
         columnTypesBuilder.addAll(phoenixOutputTableHandle.getColumnTypes());
-        if (hasRowKey) {
+        if (phoenixOutputTableHandle.rowkeyColumn().isPresent()) {
             columnNamesBuilder.add(ROWKEY);
             columnTypesBuilder.add(ROWKEY_COLUMN_HANDLE.getColumnType());
         }
 
         PhoenixOutputTableHandle updateOutputTableHandle = new PhoenixOutputTableHandle(
-                remoteTableName,
+                phoenixOutputTableHandle.getRemoteTableName(),
                 columnNamesBuilder.build(),
                 columnTypesBuilder.build(),
                 Optional.empty(),
@@ -108,25 +105,27 @@ public class PhoenixMergeSink
         return new JdbcPageSink(session, updateOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier, JdbcClient::buildInsertSql);
     }
 
-    private ConnectorPageSink createDeleteSink(
+    private static ConnectorPageSink createDeleteSink(
             ConnectorSession session,
             List<Type> mergeRowIdFieldTypes,
             PhoenixClient phoenixClient,
+            PhoenixOutputTableHandle tableHandle,
+            List<String> mergeRowIdFieldNames,
             ConnectorPageSinkId pageSinkId,
             RemoteQueryModifier remoteQueryModifier)
     {
         checkArgument(mergeRowIdFieldNames.size() == mergeRowIdFieldTypes.size(), "Wrong merge row column, columns and types size not match");
         JdbcOutputTableHandle deleteOutputTableHandle = new PhoenixOutputTableHandle(
-                remoteTableName,
+                tableHandle.getRemoteTableName(),
                 mergeRowIdFieldNames,
                 mergeRowIdFieldTypes,
                 Optional.empty(),
                 Optional.empty());
 
-        return new JdbcPageSink(session, deleteOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier, deleteSqlProvider());
+        return new JdbcPageSink(session, deleteOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier, deleteSqlProvider(mergeRowIdFieldNames, tableHandle.getRemoteTableName()));
     }
 
-    private SinkSqlProvider deleteSqlProvider()
+    private static SinkSqlProvider deleteSqlProvider(List<String> mergeRowIdFieldNames, RemoteTableName remoteTableName)
     {
         List<String> conjuncts = mergeRowIdFieldNames.stream()
                 .map(name -> name + " = ? ")
