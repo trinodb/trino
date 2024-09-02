@@ -20,12 +20,12 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.execution.FailureInjector.FAILURE_INJECTION_MESSAGE;
-import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_FAILURE;
-import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_FAILURE;
-import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_TIMEOUT;
-import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_FAILURE;
-import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
+import static io.trino.execution.TestingFailureInjector.FAILURE_INJECTION_MESSAGE;
+import static io.trino.execution.TestingFailureInjector.InjectedFailureType.TASK_FAILURE;
+import static io.trino.execution.TestingFailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_FAILURE;
+import static io.trino.execution.TestingFailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_TIMEOUT;
+import static io.trino.execution.TestingFailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_FAILURE;
+import static io.trino.execution.TestingFailureInjector.InjectedFailureType.TASK_MANAGEMENT_REQUEST_TIMEOUT;
 import static io.trino.operator.RetryPolicy.TASK;
 
 public abstract class BaseIcebergFailureRecoveryTest

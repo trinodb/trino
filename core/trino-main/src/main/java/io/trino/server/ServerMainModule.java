@@ -39,8 +39,6 @@ import io.trino.dispatcher.DispatchManager;
 import io.trino.event.SplitMonitor;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExplainAnalyzeContext;
-import io.trino.execution.FailureInjectionConfig;
-import io.trino.execution.FailureInjector;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.MemoryRevokingScheduler;
 import io.trino.execution.NodeTaskMap;
@@ -49,6 +47,8 @@ import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagementExecutor;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.TestingFailureInjectionConfig;
+import io.trino.execution.TestingFailureInjector;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.dedicated.ThreadPerDriverTaskExecutor;
 import io.trino.execution.executor.timesharing.MultilevelSplitQueue;
@@ -277,8 +277,8 @@ public class ServerMainModule
                 new TopologyAwareNodeSelectorModule()));
 
         // task execution
-        configBinder(binder).bindConfig(FailureInjectionConfig.class);
-        binder.bind(FailureInjector.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(TestingFailureInjectionConfig.class);
+        binder.bind(TestingFailureInjector.class).in(Scopes.SINGLETON);
         jaxrsBinder(binder).bind(TaskResource.class);
         newExporter(binder).export(TaskResource.class).withGeneratedName();
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);

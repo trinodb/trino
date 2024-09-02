@@ -21,7 +21,7 @@ import jakarta.validation.constraints.NotNull;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-public class FailureInjectionConfig
+public class TestingFailureInjectionConfig
 {
     private Duration expirationPeriod = new Duration(10, MINUTES);
     private Duration requestTimeout = new Duration(2, MINUTES);
@@ -35,7 +35,7 @@ public class FailureInjectionConfig
     @ConfigHidden // not supposed to be used outside of tests
     @Config("failure-injection.expiration-period")
     @ConfigDescription("Period after which an injected failure is considered expired and will no longer be triggering a failure")
-    public FailureInjectionConfig setExpirationPeriod(Duration expirationPeriod)
+    public TestingFailureInjectionConfig setExpirationPeriod(Duration expirationPeriod)
     {
         this.expirationPeriod = expirationPeriod;
         return this;
@@ -50,7 +50,7 @@ public class FailureInjectionConfig
     @ConfigHidden // not supposed to be used outside of tests
     @Config("failure-injection.request-timeout")
     @ConfigDescription("Period after which requests blocked to emulate a timeout are released")
-    public FailureInjectionConfig setRequestTimeout(Duration requestTimeout)
+    public TestingFailureInjectionConfig setRequestTimeout(Duration requestTimeout)
     {
         this.requestTimeout = requestTimeout;
         return this;

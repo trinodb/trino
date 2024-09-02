@@ -28,7 +28,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_FAILURE;
+import static io.trino.execution.TestingFailureInjector.InjectedFailureType.TASK_FAILURE;
 import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.ErrorType.INSUFFICIENT_RESOURCES;
 import static io.trino.spi.ErrorType.INTERNAL_ERROR;
@@ -36,7 +36,7 @@ import static io.trino.spi.ErrorType.USER_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class FailureInjector
+public class TestingFailureInjector
 {
     public static final String FAILURE_INJECTION_MESSAGE = "This error is injected by the failure injection service";
 
@@ -44,14 +44,14 @@ public class FailureInjector
     private final Duration requestTimeout;
 
     @Inject
-    public FailureInjector(FailureInjectionConfig config)
+    public TestingFailureInjector(TestingFailureInjectionConfig config)
     {
         this(
                 config.getExpirationPeriod(),
                 config.getRequestTimeout());
     }
 
-    public FailureInjector(Duration expirationPeriod, Duration requestTimeout)
+    public TestingFailureInjector(Duration expirationPeriod, Duration requestTimeout)
     {
         failures = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .expireAfterWrite(expirationPeriod.toMillis(), MILLISECONDS));
