@@ -28,19 +28,9 @@ public class RangeQuantifier
     private final Optional<LongLiteral> atLeast;
     private final Optional<LongLiteral> atMost;
 
-    public RangeQuantifier(boolean greedy, Optional<LongLiteral> atLeast, Optional<LongLiteral> atMost)
-    {
-        this(Optional.empty(), greedy, atLeast, atMost);
-    }
-
     public RangeQuantifier(NodeLocation location, boolean greedy, Optional<LongLiteral> atLeast, Optional<LongLiteral> atMost)
     {
-        this(Optional.of(location), greedy, atLeast, atMost);
-    }
-
-    private RangeQuantifier(Optional<NodeLocation> location, boolean greedy, Optional<LongLiteral> atLeast, Optional<LongLiteral> atMost)
-    {
-        super(location, greedy);
+        super(Optional.of(location), greedy);
         this.atLeast = requireNonNull(atLeast, "atLeast is null");
         this.atMost = requireNonNull(atMost, "atMost is null");
     }
