@@ -28,17 +28,7 @@ public class DescribeInput
 
     public DescribeInput(NodeLocation location, Identifier name)
     {
-        this(Optional.of(location), name);
-    }
-
-    public DescribeInput(Identifier name)
-    {
-        this(Optional.empty(), name);
-    }
-
-    private DescribeInput(Optional<NodeLocation> location, Identifier name)
-    {
-        super(location);
+        super(Optional.of(location));
         this.name = name;
     }
 

@@ -4405,7 +4405,8 @@ public class TestSqlParser
     @Test
     public void testDescribeInput()
     {
-        assertStatement("DESCRIBE INPUT myquery", new DescribeInput(identifier("myquery")));
+        assertThat(statement("DESCRIBE INPUT myquery"))
+                .isEqualTo(new DescribeInput(location(1, 1), new Identifier(location(1, 16), "myquery", false)));
     }
 
     @Test
