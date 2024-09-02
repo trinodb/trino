@@ -23,12 +23,7 @@ public class CurrentCatalog
 {
     public CurrentCatalog(NodeLocation location)
     {
-        this(Optional.of(location));
-    }
-
-    private CurrentCatalog(Optional<NodeLocation> location)
-    {
-        super(location);
+        super(Optional.of(location));
     }
 
     @Override
