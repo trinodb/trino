@@ -279,7 +279,7 @@ public class ServerMainModule
 
         // task execution
         configBinder(binder).bindConfig(TestingFailureInjectionConfig.class);
-        binder.bind(FailureInjector.class).to(TestingFailureInjector.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, FailureInjector.class).setDefault().to(TestingFailureInjector.class).in(Scopes.SINGLETON);
         jaxrsBinder(binder).bind(TaskResource.class);
         newExporter(binder).export(TaskResource.class).withGeneratedName();
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);
