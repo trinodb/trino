@@ -42,14 +42,13 @@ import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.FailureInjector;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.MemoryRevokingScheduler;
+import io.trino.execution.NoOpFailureInjector;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagementExecutor;
 import io.trino.execution.TaskManagerConfig;
-import io.trino.execution.TestingFailureInjectionConfig;
-import io.trino.execution.TestingFailureInjector;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.dedicated.ThreadPerDriverTaskExecutor;
 import io.trino.execution.executor.timesharing.MultilevelSplitQueue;
@@ -278,8 +277,7 @@ public class ServerMainModule
                 new TopologyAwareNodeSelectorModule()));
 
         // task execution
-        configBinder(binder).bindConfig(TestingFailureInjectionConfig.class);
-        newOptionalBinder(binder, FailureInjector.class).setDefault().to(TestingFailureInjector.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, FailureInjector.class).setDefault().to(NoOpFailureInjector.class).in(Scopes.SINGLETON);
         jaxrsBinder(binder).bind(TaskResource.class);
         newExporter(binder).export(TaskResource.class).withGeneratedName();
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);

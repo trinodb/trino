@@ -14,6 +14,7 @@
 package io.trino.plugin.mariadb;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Module;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.jdbc.BaseJdbcFailureRecoveryTest;
@@ -37,7 +38,7 @@ public abstract class BaseMariaDbFailureRecoveryTest
     }
 
     @Override
-    protected QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
+    protected QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties, Module failureInjectionModule)
             throws Exception
     {
         TestingMariaDbServer server = closeAfterClass(new TestingMariaDbServer());
@@ -50,6 +51,7 @@ public abstract class BaseMariaDbFailureRecoveryTest
                     runner.loadExchangeManager("filesystem", ImmutableMap.of(
                             "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
                 })
+                .setAdditionalModule(failureInjectionModule)
                 .build();
     }
 

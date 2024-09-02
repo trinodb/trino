@@ -14,6 +14,7 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Module;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.testing.BaseFailureRecoveryTest;
@@ -39,7 +40,8 @@ public abstract class BaseMongoFailureRecoveryTest
     protected QueryRunner createQueryRunner(
             List<TpchTable<?>> requiredTpchTables,
             Map<String, String> configProperties,
-            Map<String, String> coordinatorProperties)
+            Map<String, String> coordinatorProperties,
+            Module failureInjectionModule)
             throws Exception
     {
         return MongoQueryRunner.builder(closeAfterClass(new MongoServer()))
@@ -50,6 +52,7 @@ public abstract class BaseMongoFailureRecoveryTest
                     runner.loadExchangeManager("filesystem", ImmutableMap.of(
                             "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
                 })
+                .setAdditionalModule(failureInjectionModule)
                 .setInitialTables(requiredTpchTables)
                 .build();
     }
