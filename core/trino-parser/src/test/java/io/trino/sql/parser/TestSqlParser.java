@@ -2820,11 +2820,18 @@ public class TestSqlParser
 
     @Test
     public void testTruncateTable()
-            throws Exception
     {
-        assertStatement("TRUNCATE TABLE a", new TruncateTable(QualifiedName.of("a")));
-        assertStatement("TRUNCATE TABLE a.b", new TruncateTable(QualifiedName.of("a", "b")));
-        assertStatement("TRUNCATE TABLE a.b.c", new TruncateTable(QualifiedName.of("a", "b", "c")));
+        assertThat(statement("TRUNCATE TABLE a"))
+                .isEqualTo(new TruncateTable(location(1, 1), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 16), "a", false)))));
+        assertThat(statement("TRUNCATE TABLE a.b"))
+                .isEqualTo(new TruncateTable(location(1, 1), QualifiedName.of(ImmutableList.of(
+                        new Identifier(location(1, 16), "a", false),
+                        new Identifier(location(1, 18), "b", false)))));
+        assertThat(statement("TRUNCATE TABLE a.b.c"))
+                .isEqualTo(new TruncateTable(location(1, 1), QualifiedName.of(ImmutableList.of(
+                        new Identifier(location(1, 16), "a", false),
+                        new Identifier(location(1, 18), "b", false),
+                        new Identifier(location(1, 20), "c", false)))));
     }
 
     @Test
