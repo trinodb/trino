@@ -172,10 +172,10 @@ public final class MetadataUtil
 
     public static TrinoPrincipal createPrincipal(PrincipalSpecification specification)
     {
-        PrincipalSpecification.Type type = specification.getType();
+        PrincipalSpecification.Type type = specification.type();
         return switch (type) {
-            case UNSPECIFIED, USER -> new TrinoPrincipal(USER, specification.getName().getValue());
-            case ROLE -> new TrinoPrincipal(ROLE, specification.getName().getValue());
+            case UNSPECIFIED, USER -> new TrinoPrincipal(USER, specification.name().getValue());
+            case ROLE -> new TrinoPrincipal(ROLE, specification.name().getValue());
         };
     }
 

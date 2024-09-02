@@ -1664,10 +1664,10 @@ public final class SqlFormatter
 
         private static String formatPrincipal(PrincipalSpecification principal)
         {
-            PrincipalSpecification.Type type = principal.getType();
+            PrincipalSpecification.Type type = principal.type();
             return switch (type) {
-                case UNSPECIFIED -> principal.getName().toString();
-                case USER, ROLE -> type.name() + " " + principal.getName();
+                case UNSPECIFIED -> principal.name().toString();
+                case USER, ROLE -> type.name() + " " + principal.name();
             };
         }
 
