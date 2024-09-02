@@ -16,11 +16,6 @@ package io.trino.sql.tree;
 public final class SetSchemaAuthorization
         extends SetAuthorizationStatement
 {
-    public SetSchemaAuthorization(QualifiedName source, PrincipalSpecification principal)
-    {
-        super(source, principal);
-    }
-
     public SetSchemaAuthorization(NodeLocation location, QualifiedName source, PrincipalSpecification principal)
     {
         super(location, source, principal);
