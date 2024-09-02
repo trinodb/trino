@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.inject.Module;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
@@ -54,7 +55,8 @@ public abstract class BaseDeltaFailureRecoveryTest
     protected QueryRunner createQueryRunner(
             List<TpchTable<?>> requiredTpchTables,
             Map<String, String> configProperties,
-            Map<String, String> coordinatorProperties)
+            Map<String, String> coordinatorProperties,
+            Module failureInjectionModule)
             throws Exception
     {
         HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
@@ -72,6 +74,7 @@ public abstract class BaseDeltaFailureRecoveryTest
                 .addMetastoreProperties(hiveMinioDataLake.getHiveHadoop())
                 .addS3Properties(hiveMinioDataLake.getMinio(), bucketName)
                 .addDeltaProperty("delta.enable-non-concurrent-writes", "true")
+                .setAdditionalModule(failureInjectionModule)
                 .setInitialTables(requiredTpchTables)
                 .build();
     }
