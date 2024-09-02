@@ -30,12 +30,7 @@ public class QuantifiedPattern
 
     public QuantifiedPattern(NodeLocation location, RowPattern pattern, PatternQuantifier patternQuantifier)
     {
-        this(Optional.of(location), pattern, patternQuantifier);
-    }
-
-    private QuantifiedPattern(Optional<NodeLocation> location, RowPattern pattern, PatternQuantifier patternQuantifier)
-    {
-        super(location);
+        super(Optional.of(location));
         this.pattern = requireNonNull(pattern, "pattern is null");
         this.patternQuantifier = requireNonNull(patternQuantifier, "patternQuantifier is null");
     }
