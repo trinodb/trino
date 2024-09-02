@@ -18,19 +18,9 @@ import java.util.Optional;
 public class OneOrMoreQuantifier
         extends PatternQuantifier
 {
-    public OneOrMoreQuantifier(boolean greedy)
-    {
-        this(Optional.empty(), greedy);
-    }
-
     public OneOrMoreQuantifier(NodeLocation location, boolean greedy)
     {
-        this(Optional.of(location), greedy);
-    }
-
-    public OneOrMoreQuantifier(Optional<NodeLocation> location, boolean greedy)
-    {
-        super(location, greedy);
+        super(Optional.of(location), greedy);
     }
 
     @Override
