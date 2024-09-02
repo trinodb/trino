@@ -4399,7 +4399,8 @@ public class TestSqlParser
     @Test
     public void testDescribeOutput()
     {
-        assertStatement("DESCRIBE OUTPUT myquery", new DescribeOutput(identifier("myquery")));
+        assertThat(statement("DESCRIBE OUTPUT myquery"))
+                .isEqualTo(new DescribeOutput(location(1, 1), new Identifier(location(1, 17), "myquery", false)));
     }
 
     @Test
