@@ -208,7 +208,7 @@ public class TestDeltaLakeDeleteCompatibility
     }
 
     // Databricks 12.1 and OSS Delta 2.4.0 added support for deletion vectors
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider")
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingModeDataProvider", invocationCount = 10)
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeletionVectors(String mode)
     {
@@ -267,7 +267,7 @@ public class TestDeltaLakeDeleteCompatibility
                     .containsOnly(row(2, -1), row(30, -1));
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            System.out.println(tableName);
         }
     }
 
