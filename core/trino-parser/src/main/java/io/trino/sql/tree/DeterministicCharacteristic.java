@@ -26,19 +26,9 @@ public final class DeterministicCharacteristic
 {
     private final boolean deterministic;
 
-    public DeterministicCharacteristic(boolean deterministic)
-    {
-        this(Optional.empty(), deterministic);
-    }
-
     public DeterministicCharacteristic(NodeLocation location, boolean deterministic)
     {
-        this(Optional.of(location), deterministic);
-    }
-
-    private DeterministicCharacteristic(Optional<NodeLocation> location, boolean deterministic)
-    {
-        super(location);
+        super(Optional.of(location));
         this.deterministic = deterministic;
     }
 

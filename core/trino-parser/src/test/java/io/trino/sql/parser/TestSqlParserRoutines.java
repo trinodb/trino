@@ -119,7 +119,7 @@ class TestSqlParserRoutines
                                 returns(type("varchar")),
                                 ImmutableList.of(
                                         new LanguageCharacteristic(identifier("SQL")),
-                                        new DeterministicCharacteristic(true),
+                                        new DeterministicCharacteristic(location(), true),
                                         calledOnNullInput(),
                                         new SecurityCharacteristic(INVOKER),
                                         new CommentCharacteristic(new NodeLocation(1, 1), "hello world function")),
