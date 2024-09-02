@@ -3917,8 +3917,8 @@ public class TestSqlParser
     @Test
     public void testCommit()
     {
-        assertStatement("COMMIT", new Commit());
-        assertStatement("COMMIT WORK", new Commit());
+        assertThat(statement("COMMIT")).isEqualTo(new Commit(location(1, 1)));
+        assertThat(statement("COMMIT WORK")).isEqualTo(new Commit(location(1, 1)));
     }
 
     @Test

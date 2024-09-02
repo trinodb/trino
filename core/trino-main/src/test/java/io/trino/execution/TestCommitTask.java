@@ -27,6 +27,7 @@ import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.Commit;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.AfterAll;
@@ -82,7 +83,7 @@ public class TestCommitTask
         assertThat(stateMachine.getSession().getTransactionId().isPresent()).isTrue();
         assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
 
-        getFutureValue(new CommitTask(transactionManager).execute(new Commit(), stateMachine, emptyList(), WarningCollector.NOOP));
+        getFutureValue(new CommitTask(transactionManager).execute(new Commit(new NodeLocation(1, 1)), stateMachine, emptyList(), WarningCollector.NOOP));
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isTrue();
         assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isFalse();
 
@@ -99,7 +100,7 @@ public class TestCommitTask
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, transactionManager);
 
         assertTrinoExceptionThrownBy(
-                () -> getFutureValue(new CommitTask(transactionManager).execute(new Commit(), stateMachine, emptyList(), WarningCollector.NOOP)))
+                () -> getFutureValue(new CommitTask(transactionManager).execute(new Commit(new NodeLocation(1, 1)), stateMachine, emptyList(), WarningCollector.NOOP)))
                 .hasErrorCode(NOT_IN_TRANSACTION);
 
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isFalse();
@@ -118,7 +119,7 @@ public class TestCommitTask
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, transactionManager);
 
-        Future<?> future = new CommitTask(transactionManager).execute(new Commit(), stateMachine, emptyList(), WarningCollector.NOOP);
+        Future<?> future = new CommitTask(transactionManager).execute(new Commit(new NodeLocation(1, 1)), stateMachine, emptyList(), WarningCollector.NOOP);
         assertTrinoExceptionThrownBy(() -> getFutureValue(future))
                 .hasErrorCode(UNKNOWN_TRANSACTION);
 
