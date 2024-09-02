@@ -35,12 +35,7 @@ public class AnchorPattern
 
     public AnchorPattern(NodeLocation location, Type type)
     {
-        this(Optional.of(location), type);
-    }
-
-    private AnchorPattern(Optional<NodeLocation> location, Type type)
-    {
-        super(location);
+        super(Optional.of(location));
         this.type = requireNonNull(type, "type is null");
     }
 
