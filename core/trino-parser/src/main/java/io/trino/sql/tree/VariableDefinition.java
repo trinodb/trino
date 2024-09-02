@@ -28,19 +28,9 @@ public class VariableDefinition
     private final Identifier name;
     private final Expression expression;
 
-    public VariableDefinition(Identifier name, Expression expression)
-    {
-        this(Optional.empty(), name, expression);
-    }
-
     public VariableDefinition(NodeLocation location, Identifier name, Expression expression)
     {
-        this(Optional.of(location), name, expression);
-    }
-
-    private VariableDefinition(Optional<NodeLocation> location, Identifier name, Expression expression)
-    {
-        super(location);
+        super(Optional.of(location));
         this.name = requireNonNull(name, "name is null");
         this.expression = requireNonNull(expression, "expression is null");
     }
