@@ -39,6 +39,7 @@ import io.trino.dispatcher.DispatchManager;
 import io.trino.event.SplitMonitor;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExplainAnalyzeContext;
+import io.trino.execution.FailureInjector;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.MemoryRevokingScheduler;
 import io.trino.execution.NodeTaskMap;
@@ -278,7 +279,7 @@ public class ServerMainModule
 
         // task execution
         configBinder(binder).bindConfig(TestingFailureInjectionConfig.class);
-        binder.bind(TestingFailureInjector.class).in(Scopes.SINGLETON);
+        binder.bind(FailureInjector.class).to(TestingFailureInjector.class).in(Scopes.SINGLETON);
         jaxrsBinder(binder).bind(TaskResource.class);
         newExporter(binder).export(TaskResource.class).withGeneratedName();
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);

@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.execution.TestingFailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_FAILURE;
+import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_GET_RESULTS_REQUEST_FAILURE;
 
 public class TestRedshiftQueryFailureRecoverySmokeTest
         extends BaseRedshiftFailureRecoveryTest
