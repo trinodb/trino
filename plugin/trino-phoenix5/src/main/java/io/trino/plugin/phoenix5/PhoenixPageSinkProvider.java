@@ -61,6 +61,6 @@ public class PhoenixPageSinkProvider
     @Override
     public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle, ConnectorPageSinkId pageSinkId)
     {
-        return new PhoenixMergeSink(jdbcClient, remoteQueryModifier, session, mergeHandle, pageSinkId, queryBuilder);
+        return new PhoenixMergeSink(session, mergeHandle, jdbcClient, pageSinkId, remoteQueryModifier, queryBuilder);
     }
 }
