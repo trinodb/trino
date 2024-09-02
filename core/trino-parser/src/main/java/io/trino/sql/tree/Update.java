@@ -29,19 +29,9 @@ public class Update
     private final List<UpdateAssignment> assignments;
     private final Optional<Expression> where;
 
-    public Update(Table table, List<UpdateAssignment> assignments, Optional<Expression> where)
-    {
-        this(Optional.empty(), table, assignments, where);
-    }
-
     public Update(NodeLocation location, Table table, List<UpdateAssignment> assignments, Optional<Expression> where)
     {
-        this(Optional.of(location), table, assignments, where);
-    }
-
-    private Update(Optional<NodeLocation> location, Table table, List<UpdateAssignment> assignments, Optional<Expression> where)
-    {
-        super(location);
+        super(Optional.of(location));
         this.table = requireNonNull(table, "table is null");
         this.assignments = requireNonNull(assignments, "assignments is null");
         this.where = requireNonNull(where, "where is null");
