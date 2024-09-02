@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
-import io.trino.execution.TestingFailureInjector.InjectedFailureType;
+import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
@@ -127,4 +127,5 @@ public interface QueryRunner
 
     void loadExchangeManager(String name, Map<String, String> properties);
 
-    record MaterializedResultWithPlan(QueryId queryId, Optional<Plan> queryPlan, MaterializedResult result) {}}
+    record MaterializedResultWithPlan(QueryId queryId, Optional<Plan> queryPlan, MaterializedResult result) {}
+}

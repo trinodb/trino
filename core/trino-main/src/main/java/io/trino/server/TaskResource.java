@@ -25,13 +25,13 @@ import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.execution.FailureInjector;
+import io.trino.execution.FailureInjector.InjectedFailure;
 import io.trino.execution.SqlTaskManager;
 import io.trino.execution.SqlTaskManager.SqlTaskWithResults;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskStatus;
-import io.trino.execution.TestingFailureInjector;
-import io.trino.execution.TestingFailureInjector.InjectedFailure;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.metadata.SessionPropertyManager;
@@ -103,7 +103,7 @@ public class TaskResource
     private final SessionPropertyManager sessionPropertyManager;
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
-    private final TestingFailureInjector failureInjector;
+    private final FailureInjector failureInjector;
     private final TimeStat readFromOutputBufferTime = new TimeStat();
     private final TimeStat resultsRequestTime = new TimeStat();
 
@@ -114,7 +114,7 @@ public class TaskResource
             SessionPropertyManager sessionPropertyManager,
             @ForAsyncHttp BoundedExecutor responseExecutor,
             @ForAsyncHttp ScheduledExecutorService timeoutExecutor,
-            TestingFailureInjector failureInjector)
+            FailureInjector failureInjector)
     {
         this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
