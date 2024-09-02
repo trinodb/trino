@@ -38,17 +38,7 @@ public final class Merge
             Expression predicate,
             List<MergeCase> mergeCases)
     {
-        this(Optional.of(location), target, source, predicate, mergeCases);
-    }
-
-    public Merge(
-            Optional<NodeLocation> location,
-            Relation target,
-            Relation source,
-            Expression predicate,
-            List<MergeCase> mergeCases)
-    {
-        super(location);
+        super(Optional.of(location));
         // Check that the target is either a Table or an AliasedRelation
         this.target = requireNonNull(target, "target is null");
         checkArgument(target instanceof Table || target instanceof AliasedRelation, "target (%s) is neither a Table nor an AliasedRelation", target);
