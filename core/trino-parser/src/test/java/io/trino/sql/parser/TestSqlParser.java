@@ -3610,10 +3610,10 @@ public class TestSqlParser
     @Test
     public void testShowRoleGrants()
     {
-        assertStatement("SHOW ROLE GRANTS",
-                new ShowRoleGrants(Optional.empty(), Optional.empty()));
-        assertStatement("SHOW ROLE GRANTS FROM catalog",
-                new ShowRoleGrants(Optional.of(new Identifier("catalog"))));
+        assertThat(statement("SHOW ROLE GRANTS"))
+                .isEqualTo(new ShowRoleGrants(location(1, 1), Optional.empty()));
+        assertThat(statement("SHOW ROLE GRANTS FROM catalog"))
+                .isEqualTo(new ShowRoleGrants(location(1, 1), Optional.of(new Identifier(location(1, 23), "catalog", false))));
     }
 
     @Test
