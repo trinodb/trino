@@ -365,7 +365,7 @@ public class DeltaLakeMergeSink
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
             long rowCount = parquetMetadata.getBlocks().stream().map(BlockMetadata::rowCount).mapToLong(Long::longValue).sum();
             RoaringBitmapArray rowsRetained = new RoaringBitmapArray();
-            rowsRetained.addRange(0, rowCount);
+            rowsRetained.addRange(0, rowCount - 1);
             rowsRetained.andNot(deletedRows);
             if (rowsRetained.isEmpty()) {
                 // No rows are retained in the file, so we don't need to write deletion vectors.
