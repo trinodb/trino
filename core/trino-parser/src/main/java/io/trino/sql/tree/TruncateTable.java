@@ -26,19 +26,9 @@ public class TruncateTable
 {
     private final QualifiedName tableName;
 
-    public TruncateTable(QualifiedName tableName)
-    {
-        this(Optional.empty(), tableName);
-    }
-
     public TruncateTable(NodeLocation location, QualifiedName tableName)
     {
-        this(Optional.of(location), tableName);
-    }
-
-    private TruncateTable(Optional<NodeLocation> location, QualifiedName tableName)
-    {
-        super(location);
+        super(Optional.of(location));
         this.tableName = tableName;
     }
 
