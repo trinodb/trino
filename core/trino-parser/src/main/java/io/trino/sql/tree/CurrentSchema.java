@@ -23,12 +23,7 @@ public class CurrentSchema
 {
     public CurrentSchema(NodeLocation location)
     {
-        this(Optional.of(location));
-    }
-
-    private CurrentSchema(Optional<NodeLocation> location)
-    {
-        super(location);
+        super(Optional.of(location));
     }
 
     @Override
