@@ -38,21 +38,6 @@ public class PatternRecognitionRelation
     private final List<VariableDefinition> variableDefinitions;
 
     public PatternRecognitionRelation(
-            Relation input,
-            List<Expression> partitionBy,
-            Optional<OrderBy> orderBy,
-            List<MeasureDefinition> measures,
-            Optional<RowsPerMatch> rowsPerMatch,
-            Optional<SkipTo> afterMatchSkipTo,
-            Optional<PatternSearchMode> patternSearchMode,
-            RowPattern pattern,
-            List<SubsetDefinition> subsets,
-            List<VariableDefinition> variableDefinitions)
-    {
-        this(Optional.empty(), input, partitionBy, orderBy, measures, rowsPerMatch, afterMatchSkipTo, patternSearchMode, pattern, subsets, variableDefinitions);
-    }
-
-    public PatternRecognitionRelation(
             NodeLocation location,
             Relation input,
             List<Expression> partitionBy,
@@ -65,23 +50,7 @@ public class PatternRecognitionRelation
             List<SubsetDefinition> subsets,
             List<VariableDefinition> variableDefinitions)
     {
-        this(Optional.of(location), input, partitionBy, orderBy, measures, rowsPerMatch, afterMatchSkipTo, patternSearchMode, pattern, subsets, variableDefinitions);
-    }
-
-    private PatternRecognitionRelation(
-            Optional<NodeLocation> location,
-            Relation input,
-            List<Expression> partitionBy,
-            Optional<OrderBy> orderBy,
-            List<MeasureDefinition> measures,
-            Optional<RowsPerMatch> rowsPerMatch,
-            Optional<SkipTo> afterMatchSkipTo,
-            Optional<PatternSearchMode> patternSearchMode,
-            RowPattern pattern,
-            List<SubsetDefinition> subsets,
-            List<VariableDefinition> variableDefinitions)
-    {
-        super(location);
+        super(Optional.of(location));
         this.input = requireNonNull(input, "input is null");
         this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
         this.orderBy = requireNonNull(orderBy, "orderBy is null");
