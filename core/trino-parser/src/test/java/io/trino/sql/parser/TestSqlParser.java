@@ -1739,28 +1739,30 @@ public class TestSqlParser
     @Test
     public void testCreateCatalog()
     {
-        assertStatement("CREATE CATALOG test USING conn",
-                new CreateCatalog(new Identifier("test"), false, new Identifier("conn"), ImmutableList.of(), Optional.empty(), Optional.empty()));
+        assertThat(statement("CREATE CATALOG test USING conn")).isEqualTo(
+                new CreateCatalog(location(1, 1), new Identifier(location(1, 16), "test", false), false, new Identifier(location(1, 27), "conn", false), ImmutableList.of(), Optional.empty(), Optional.empty()));
 
-        assertStatement("CREATE CATALOG IF NOT EXISTS test USING conn",
-                new CreateCatalog(new Identifier("test"), true, new Identifier("conn"), ImmutableList.of(), Optional.empty(), Optional.empty()));
+        assertThat(statement("CREATE CATALOG IF NOT EXISTS test USING conn")).isEqualTo(
+                new CreateCatalog(location(1, 1), new Identifier(location(1, 30), "test", false), true, new Identifier(location(1, 41), "conn", false), ImmutableList.of(), Optional.empty(), Optional.empty()));
 
-        assertStatement("CREATE CATALOG test USING conn COMMENT 'awesome' AUTHORIZATION ROLE dragon WITH (\"a\" = 'apple', \"b\" = 123)",
+        assertThat(statement("CREATE CATALOG test USING conn COMMENT 'awesome' AUTHORIZATION ROLE dragon WITH (\"a\" = 'apple', \"b\" = 123)")).isEqualTo(
                 new CreateCatalog(
-                        new Identifier("test"),
+                        location(1, 1),
+                        new Identifier(location(1, 16), "test", false),
                         false,
-                        new Identifier("conn"),
+                        new Identifier(location(1, 27), "conn", false),
                         ImmutableList.of(
-                                new Property(new Identifier("a"), new StringLiteral("apple")),
-                                new Property(new Identifier("b"), new LongLiteral("123"))),
-                        Optional.of(new PrincipalSpecification(Type.ROLE, new Identifier("dragon"))),
+                                new Property(location(1, 82), new Identifier(location(1, 82), "a", true), new StringLiteral(location(1, 88),  "apple")),
+                                new Property(location(1, 97), new Identifier(location(1, 97), "b", true), new LongLiteral(location(1, 103), "123"))),
+                        Optional.of(new PrincipalSpecification(Type.ROLE, new Identifier(location(1, 69), "dragon", false))),
                         Optional.of("awesome")));
 
-        assertStatement("CREATE CATALOG \"some name that contains space\" USING \"conn-with-dash\"",
+        assertThat(statement("CREATE CATALOG \"some name that contains space\" USING \"conn-with-dash\"")).isEqualTo(
                 new CreateCatalog(
-                        new Identifier("some name that contains space"),
+                        location(1, 1),
+                        new Identifier(location(1, 16), "some name that contains space", true),
                         false,
-                        new Identifier("conn-with-dash"),
+                        new Identifier(location(1, 54), "conn-with-dash", true),
                         ImmutableList.of(),
                         Optional.empty(),
                         Optional.empty()));

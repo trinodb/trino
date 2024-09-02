@@ -184,6 +184,7 @@ public class TestSqlFormatter
     {
         assertThat(formatSql(
                 new CreateCatalog(
+                        new NodeLocation(1, 1),
                         new Identifier("test"),
                         false,
                         new Identifier("conn"),
@@ -193,6 +194,7 @@ public class TestSqlFormatter
                 .isEqualTo("CREATE CATALOG test USING conn");
         assertThat(formatSql(
                 new CreateCatalog(
+                        new NodeLocation(1, 1),
                         new Identifier("test"),
                         false,
                         new Identifier("conn"),
@@ -203,6 +205,7 @@ public class TestSqlFormatter
                         "COMMENT 'test comment'");
         assertThat(formatSql(
                 new CreateCatalog(
+                        new NodeLocation(1, 1),
                         new Identifier("test"),
                         false,
                         new Identifier("conn"),

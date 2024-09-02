@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
@@ -100,7 +101,7 @@ public class TestCreateCatalogTask
     @Test
     public void testDuplicatedCreateCatalog()
     {
-        CreateCatalog statement = new CreateCatalog(new Identifier(TEST_CATALOG), false, new Identifier("tpch"), TPCH_PROPERTIES, Optional.empty(), Optional.empty());
+        CreateCatalog statement = new CreateCatalog(new NodeLocation(1, 1), new Identifier(TEST_CATALOG), false, new Identifier("tpch"), TPCH_PROPERTIES, Optional.empty(), Optional.empty());
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
         assertThatExceptionOfType(TrinoException.class)
@@ -111,7 +112,7 @@ public class TestCreateCatalogTask
     @Test
     public void testCaseInsensitiveDuplicatedCreateCatalog()
     {
-        CreateCatalog statement = new CreateCatalog(new Identifier(TEST_CATALOG.toUpperCase(ENGLISH)), false, new Identifier("tpch"), TPCH_PROPERTIES, Optional.empty(), Optional.empty());
+        CreateCatalog statement = new CreateCatalog(new NodeLocation(1, 1), new Identifier(TEST_CATALOG.toUpperCase(ENGLISH)), false, new Identifier("tpch"), TPCH_PROPERTIES, Optional.empty(), Optional.empty());
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
         assertThatExceptionOfType(TrinoException.class)
@@ -122,7 +123,7 @@ public class TestCreateCatalogTask
     @Test
     public void testDuplicatedCreateCatalogIfNotExists()
     {
-        CreateCatalog statement = new CreateCatalog(new Identifier(TEST_CATALOG), true, new Identifier("tpch"), TPCH_PROPERTIES, Optional.empty(), Optional.empty());
+        CreateCatalog statement = new CreateCatalog(new NodeLocation(1, 1), new Identifier(TEST_CATALOG), true, new Identifier("tpch"), TPCH_PROPERTIES, Optional.empty(), Optional.empty());
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
@@ -135,6 +136,7 @@ public class TestCreateCatalogTask
         assertThatExceptionOfType(IllegalArgumentException.class)
                 .isThrownBy(() -> getFutureValue(task.execute(
                         new CreateCatalog(
+                                new NodeLocation(1, 1),
                                 new Identifier(TEST_CATALOG),
                                 true,
                                 new Identifier("fail"),
