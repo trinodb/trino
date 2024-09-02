@@ -60,11 +60,11 @@ public class PhoenixMergeSink
     private final ConnectorPageSink deleteSink;
 
     public PhoenixMergeSink(
-            PhoenixClient phoenixClient,
-            RemoteQueryModifier remoteQueryModifier,
             ConnectorSession session,
             ConnectorMergeTableHandle mergeHandle,
+            PhoenixClient phoenixClient,
             ConnectorPageSinkId pageSinkId,
+            RemoteQueryModifier remoteQueryModifier,
             QueryBuilder queryBuilder)
     {
         PhoenixMergeTableHandle phoenixMergeTableHandle = (PhoenixMergeTableHandle) mergeHandle;
