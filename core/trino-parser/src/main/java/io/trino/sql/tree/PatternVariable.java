@@ -29,12 +29,7 @@ public class PatternVariable
 
     public PatternVariable(NodeLocation location, Identifier name)
     {
-        this(Optional.of(location), name);
-    }
-
-    private PatternVariable(Optional<NodeLocation> location, Identifier name)
-    {
-        super(location);
+        super(Optional.of(location));
         this.name = requireNonNull(name, "name is null");
     }
 
