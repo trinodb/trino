@@ -3588,12 +3588,12 @@ public class TestSqlParser
     @Test
     public void testShowGrants()
     {
-        assertStatement("SHOW GRANTS ON TABLE t",
-                new ShowGrants(Optional.of(new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of("t")))));
-        assertStatement("SHOW GRANTS ON t",
-                new ShowGrants(Optional.of(new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")))));
-        assertStatement("SHOW GRANTS",
-                new ShowGrants(Optional.empty()));
+        assertThat(statement("SHOW GRANTS ON TABLE t"))
+                .isEqualTo(new ShowGrants(location(1, 1), Optional.of(new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 22), "t", false)))))));
+        assertThat(statement("SHOW GRANTS ON t"))
+                .isEqualTo(new ShowGrants(location(1, 1), Optional.of(new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 16), "t", false)))))));
+        assertThat(statement("SHOW GRANTS"))
+                .isEqualTo(new ShowGrants(location(1, 1), Optional.empty()));
     }
 
     @Test
