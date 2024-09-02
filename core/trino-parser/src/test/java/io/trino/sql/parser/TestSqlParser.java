@@ -4130,7 +4130,8 @@ public class TestSqlParser
     @Test
     public void testDeallocatePrepare()
     {
-        assertStatement("DEALLOCATE PREPARE myquery", new Deallocate(identifier("myquery")));
+        assertThat(statement("DEALLOCATE PREPARE myquery"))
+                .isEqualTo(new Deallocate(location(1, 1), new Identifier(location(1, 20), "myquery", false)));
     }
 
     @Test

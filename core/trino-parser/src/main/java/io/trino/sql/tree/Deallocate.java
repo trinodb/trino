@@ -29,17 +29,7 @@ public class Deallocate
 
     public Deallocate(NodeLocation location, Identifier name)
     {
-        this(Optional.of(location), name);
-    }
-
-    public Deallocate(Identifier name)
-    {
-        this(Optional.empty(), name);
-    }
-
-    private Deallocate(Optional<NodeLocation> location, Identifier name)
-    {
-        super(location);
+        super(Optional.of(location));
         this.name = requireNonNull(name, "name is null");
     }
 
