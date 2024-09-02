@@ -27,19 +27,9 @@ public class SubsetDefinition
     private final Identifier name;
     private final List<Identifier> identifiers;
 
-    public SubsetDefinition(Identifier name, List<Identifier> identifiers)
-    {
-        this(Optional.empty(), name, identifiers);
-    }
-
     public SubsetDefinition(NodeLocation location, Identifier name, List<Identifier> identifiers)
     {
-        this(Optional.of(location), name, identifiers);
-    }
-
-    private SubsetDefinition(Optional<NodeLocation> location, Identifier name, List<Identifier> identifiers)
-    {
-        super(location);
+        super(Optional.of(location));
         this.name = requireNonNull(name, "name is null");
         requireNonNull(identifiers, "identifiers is null");
         checkArgument(!identifiers.isEmpty(), "identifiers is empty");
