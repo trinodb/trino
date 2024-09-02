@@ -69,6 +69,7 @@ import io.trino.sql.ir.optimizer.rule.SimplifyStackedArithmeticNegation;
 import io.trino.sql.ir.optimizer.rule.SimplifyStackedNot;
 import io.trino.sql.ir.optimizer.rule.SpecializeCastWithJsonParse;
 import io.trino.sql.ir.optimizer.rule.SpecializeTransformWithJsonParse;
+import io.trino.sql.ir.optimizer.rule.UnwrapInCast;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -106,6 +107,7 @@ public class IrExpressionOptimizer
                 new EvaluateCase(),
                 new EvaluateCall(context),
                 new EvaluateIn(context),
+                new UnwrapInCast(context),
                 new DesugarBetween(context),
                 new EvaluateCallWithNullInput(),
                 new RemoveRedundantSwitchClauses(context),
