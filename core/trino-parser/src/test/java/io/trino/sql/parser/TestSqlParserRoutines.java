@@ -112,6 +112,7 @@ class TestSqlParserRoutines
                 """))
                 .ignoringLocation()
                 .isEqualTo(new CreateFunction(
+                        location(),
                         new FunctionSpecification(
                                 QualifiedName.of("hello"),
                                 ImmutableList.of(parameter("s", type("VARCHAR"))),
@@ -140,6 +141,7 @@ class TestSqlParserRoutines
                 """))
                 .ignoringLocation()
                 .isEqualTo(new CreateFunction(
+                        location(),
                         new FunctionSpecification(
                                 QualifiedName.of("answer"),
                                 ImmutableList.of(),
@@ -173,6 +175,7 @@ class TestSqlParserRoutines
                 """))
                 .ignoringLocation()
                 .isEqualTo(new CreateFunction(
+                        location(),
                         new FunctionSpecification(
                                 QualifiedName.of("fib"),
                                 ImmutableList.of(parameter("n", type("bigint"))),
@@ -224,6 +227,7 @@ class TestSqlParserRoutines
                 """))
                 .ignoringLocation()
                 .isEqualTo(new CreateFunction(
+                        location(),
                         new FunctionSpecification(
                                 QualifiedName.of("CustomerLevel"),
                                 ImmutableList.of(parameter("p_creditLimit", type("DOUBLE"))),
