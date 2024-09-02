@@ -49,6 +49,8 @@ import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.jdbc.JdbcCatalog;
+import org.apache.iceberg.jdbc.UncheckedInterruptedException;
+import org.apache.iceberg.jdbc.UncheckedSQLException;
 import org.apache.iceberg.view.ReplaceViewVersion;
 import org.apache.iceberg.view.SQLViewRepresentation;
 import org.apache.iceberg.view.UpdateViewProperties;
@@ -64,6 +66,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -184,10 +187,10 @@ public class TrinoJdbcCatalog
         Map<SchemaTableName, TableInfo> tablesListBuilder = new HashMap<>();
         for (String schemaName : namespaces) {
             try {
-                jdbcCatalog.listTables(Namespace.of(schemaName)).stream()
+                listTableIdentifiers(schemaName, () -> jdbcCatalog.listTables(Namespace.of(schemaName))).stream()
                         .map(tableId -> SchemaTableName.schemaTableName(schemaName, tableId.name()))
                         .forEach(schemaTableName -> tablesListBuilder.put(schemaTableName, new TableInfo(schemaTableName, TableInfo.ExtendedRelationType.TABLE)));
-                jdbcCatalog.listViews(Namespace.of(schemaName)).stream()
+                listTableIdentifiers(schemaName, () -> jdbcCatalog.listViews(Namespace.of(schemaName))).stream()
                         .map(tableId -> SchemaTableName.schemaTableName(schemaName, tableId.name()))
                         .forEach(schemaTableName -> tablesListBuilder.put(schemaTableName, new TableInfo(schemaTableName, TableInfo.ExtendedRelationType.OTHER_VIEW)));
             }
@@ -205,11 +208,25 @@ public class TrinoJdbcCatalog
 
         ImmutableList.Builder<SchemaTableName> viewNames = ImmutableList.builder();
         for (String ns : namespaces) {
-            jdbcCatalog.listViews(Namespace.of(ns)).stream()
+            listTableIdentifiers(ns, () -> jdbcCatalog.listViews(Namespace.of(ns))).stream()
                     .map(id -> SchemaTableName.schemaTableName(id.namespace().toString(), id.name()))
                     .forEach(viewNames::add);
         }
         return viewNames.build();
+    }
+
+    private static List<TableIdentifier> listTableIdentifiers(String namespace, Supplier<List<TableIdentifier>> tableIdentifiersProvider)
+    {
+        try {
+            return tableIdentifiersProvider.get();
+        }
+        catch (NoSuchNamespaceException e) {
+            // Namespace may have been deleted during listing
+        }
+        catch (UncheckedSQLException | UncheckedInterruptedException e) {
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to list tables from namespace: " + namespace, e);
+        }
+        return ImmutableList.of();
     }
 
     @Override
