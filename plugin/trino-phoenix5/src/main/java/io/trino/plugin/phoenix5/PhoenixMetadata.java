@@ -14,6 +14,7 @@
 package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.mapping.IdentifierMapping;
@@ -47,6 +48,7 @@ import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.expression.Constant;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -71,6 +73,7 @@ import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_METADATA_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SaveMode.REPLACE;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.phoenix.util.SchemaUtil.getEscapedArgument;
@@ -337,10 +340,19 @@ public class PhoenixMetadata
                 .collect(toImmutableList());
         PhoenixOutputTableHandle phoenixOutputTableHandle = (PhoenixOutputTableHandle) beginInsert(session, plainTable, ImmutableList.copyOf(columns), retryMode);
 
+        // The TupleDomain for building the conjuncts of the primary keys
+        ImmutableMap.Builder<ColumnHandle, Domain> primaryKeysDomainBuilder = ImmutableMap.builder();
+        // This value is to build the TupleDomain, but it won't affect the query field in result of the `DefaultQueryBuilder#prepareDeleteQuery`
+        Domain dummy = Domain.singleValue(BIGINT, 0L);
+        for (JdbcColumnHandle columnHandle : phoenixClient.getPrimaryKeyColumnHandles(session, plainTable)) {
+            primaryKeysDomainBuilder.put(columnHandle, dummy);
+        }
+
         return new PhoenixMergeTableHandle(
                 phoenixClient.updatedScanColumnTable(session, handle, handle.getColumns(), mergeRowIdColumnHandle),
                 phoenixOutputTableHandle,
-                mergeRowIdColumnHandle);
+                mergeRowIdColumnHandle,
+                TupleDomain.withColumnDomains(primaryKeysDomainBuilder.buildOrThrow()));
     }
 
     @Override
