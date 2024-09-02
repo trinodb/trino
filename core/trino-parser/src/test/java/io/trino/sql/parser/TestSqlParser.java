@@ -5080,7 +5080,7 @@ public class TestSqlParser
                         Optional.empty(),
                         false,
                         Optional.empty(),
-                        Optional.of(new ProcessingMode(Optional.empty(), RUNNING)),
+                        Optional.of(new ProcessingMode(location(1, 1), RUNNING)),
                         ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
         assertExpression("FINAL FIRST(x, 1)",
                 new FunctionCall(
@@ -5091,7 +5091,7 @@ public class TestSqlParser
                         Optional.empty(),
                         false,
                         Optional.empty(),
-                        Optional.of(new ProcessingMode(Optional.empty(), FINAL)),
+                        Optional.of(new ProcessingMode(location(1, 1), FINAL)),
                         ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
     }
 
