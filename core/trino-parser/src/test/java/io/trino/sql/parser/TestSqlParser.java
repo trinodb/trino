@@ -1771,20 +1771,20 @@ public class TestSqlParser
     @Test
     public void testDropCatalog()
     {
-        assertStatement("DROP CATALOG test",
-                new DropCatalog(new Identifier("test"), false, false));
+        assertThat(statement("DROP CATALOG test")).isEqualTo(
+                new DropCatalog(location(1, 1), new Identifier(location(1, 14), "test", false), false, false));
 
-        assertStatement("DROP CATALOG test CASCADE",
-                new DropCatalog(new Identifier("test"), false, true));
+        assertThat(statement("DROP CATALOG test CASCADE")).isEqualTo(
+                new DropCatalog(location(1, 1), new Identifier(location(1, 14), "test", false), false, true));
 
-        assertStatement("DROP CATALOG IF EXISTS test",
-                new DropCatalog(new Identifier("test"), true, false));
+        assertThat(statement("DROP CATALOG IF EXISTS test")).isEqualTo(
+                new DropCatalog(location(1, 1), new Identifier(location(1, 24), "test", false), true, false));
 
-        assertStatement("DROP CATALOG IF EXISTS test RESTRICT",
-                new DropCatalog(new Identifier("test"), true, false));
+        assertThat(statement("DROP CATALOG IF EXISTS test RESTRICT")).isEqualTo(
+                new DropCatalog(location(1, 1), new Identifier(location(1, 24), "test", false), true, false));
 
-        assertStatement("DROP CATALOG \"some catalog that contains space\"",
-                new DropCatalog(new Identifier("some catalog that contains space"), false, false));
+        assertThat(statement("DROP CATALOG \"some catalog that contains space\"")).isEqualTo(
+                new DropCatalog(location(1, 1), new Identifier(location(1, 14), "some catalog that contains space", true), false, false));
     }
 
     @Test

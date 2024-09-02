@@ -22,6 +22,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Statement;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
@@ -78,7 +79,7 @@ public class TestDropCatalogTask
         queryRunner.createCatalog(TEST_CATALOG, "tpch", ImmutableMap.of());
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
 
-        DropCatalog statement = new DropCatalog(new Identifier(TEST_CATALOG), false, false);
+        DropCatalog statement = new DropCatalog(new NodeLocation(1, 1), new Identifier(TEST_CATALOG), false, false);
         getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
         assertThatExceptionOfType(TrinoException.class)
@@ -92,7 +93,7 @@ public class TestDropCatalogTask
         queryRunner.createCatalog(TEST_CATALOG, "tpch", ImmutableMap.of());
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
 
-        DropCatalog statement = new DropCatalog(new Identifier(TEST_CATALOG), true, false);
+        DropCatalog statement = new DropCatalog(new NodeLocation(1, 1), new Identifier(TEST_CATALOG), true, false);
         getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
         getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
@@ -105,7 +106,7 @@ public class TestDropCatalogTask
         queryRunner.createCatalog(TEST_CATALOG, "tpch", ImmutableMap.of());
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
 
-        DropCatalog statement = new DropCatalog(new Identifier(TEST_CATALOG.toUpperCase(ENGLISH)), false, false);
+        DropCatalog statement = new DropCatalog(new NodeLocation(1, 1), new Identifier(TEST_CATALOG.toUpperCase(ENGLISH)), false, false);
         getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
     }
