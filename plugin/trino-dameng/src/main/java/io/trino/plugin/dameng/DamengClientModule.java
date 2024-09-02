@@ -27,10 +27,13 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.ptf.Query;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
 import java.sql.SQLException;
 import java.util.Properties;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class DamengClientModule
@@ -42,6 +45,7 @@ public class DamengClientModule
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(DamengClient.class).in(Scopes.SINGLETON);
         binder.install(new DecimalModule());
         configBinder(binder).bindConfig(DamengConfig.class);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Provides

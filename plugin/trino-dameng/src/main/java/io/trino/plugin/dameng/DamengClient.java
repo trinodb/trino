@@ -123,8 +123,8 @@ public class DamengClient
     // 19 characters are used for zero-precision timestamps while others
     // require 19 + precision + 1 characters with the additional character
     // required for the decimal separator.
-//    private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 19;
-    private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 32;
+    private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 19;
+//    private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 32;
     // driver returns width of time types instead of precision, same as the above timestamp type.
     private static final int ZERO_PRECISION_TIME_COLUMN_SIZE = 8;
     private static final int VARCHAR2_MAX_BYTES = 4000;
@@ -238,6 +238,8 @@ public class DamengClient
             case "clob":
             case "nclob":
                 return Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
+            case "text":
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.requiredColumnSize(), false));
         }
 
         switch (typeHandle.jdbcType()) {
@@ -454,7 +456,10 @@ public class DamengClient
             return 0;
         }
         int timestampPrecision = timestampColumnSize - ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE - 1;
-        verify(1 <= timestampPrecision && timestampPrecision <= MAX_SUPPORTED_DATE_TIME_PRECISION, "Unexpected timestamp precision %s calculated from timestamp column size %s", timestampPrecision, timestampColumnSize);
+        if (timestampPrecision > MAX_SUPPORTED_DATE_TIME_PRECISION) {
+            timestampPrecision = MAX_SUPPORTED_DATE_TIME_PRECISION;
+        }
+        verify(1 <= timestampPrecision, "Unexpected timestamp precision %s calculated from timestamp column size %s", timestampPrecision, timestampColumnSize);
         return timestampPrecision;
     }
 
