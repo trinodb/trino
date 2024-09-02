@@ -28,19 +28,9 @@ public class MeasureDefinition
     private final Expression expression;
     private final Identifier name;
 
-    public MeasureDefinition(Expression expression, Identifier name)
-    {
-        this(Optional.empty(), expression, name);
-    }
-
     public MeasureDefinition(NodeLocation location, Expression expression, Identifier name)
     {
-        this(Optional.of(location), expression, name);
-    }
-
-    private MeasureDefinition(Optional<NodeLocation> location, Expression expression, Identifier name)
-    {
-        super(location);
+        super(Optional.of(location));
         this.expression = requireNonNull(expression, "expression is null");
         this.name = requireNonNull(name, "name is null");
     }
