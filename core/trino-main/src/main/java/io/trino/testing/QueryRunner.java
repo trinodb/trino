@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
-import io.trino.execution.FailureInjector.InjectedFailureType;
+import io.trino.execution.TestingFailureInjector.InjectedFailureType;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;

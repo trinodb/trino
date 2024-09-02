@@ -24,12 +24,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-public class TestFailureInjectionConfig
+public class TestTestingFailureInjectionConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(FailureInjectionConfig.class)
+        assertRecordedDefaults(recordDefaults(TestingFailureInjectionConfig.class)
                 .setRequestTimeout(new Duration(2, MINUTES))
                 .setExpirationPeriod(new Duration(10, MINUTES)));
     }
@@ -42,7 +42,7 @@ public class TestFailureInjectionConfig
                 .put("failure-injection.expiration-period", "7m")
                 .buildOrThrow();
 
-        FailureInjectionConfig expected = new FailureInjectionConfig()
+        TestingFailureInjectionConfig expected = new TestingFailureInjectionConfig()
                 .setRequestTimeout(new Duration(12, MINUTES))
                 .setExpirationPeriod(new Duration(7, MINUTES));
 

@@ -55,13 +55,13 @@ import io.trino.dispatcher.DispatchManager;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.exchange.ExchangeManagerRegistry;
-import io.trino.execution.FailureInjector;
-import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.SqlQueryManager;
 import io.trino.execution.SqlTaskManager;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.TestingFailureInjector;
+import io.trino.execution.TestingFailureInjector.InjectedFailureType;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.LocalMemoryManager;
@@ -211,7 +211,7 @@ public class TestingTrinoServer
     private final ShutdownAction shutdownAction;
     private final MBeanServer mBeanServer;
     private final boolean coordinator;
-    private final FailureInjector failureInjector;
+    private final TestingFailureInjector failureInjector;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
 
     public static class TestShutdownAction
@@ -425,7 +425,7 @@ public class TestingTrinoServer
         taskManager = injector.getInstance(SqlTaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
         mBeanServer = injector.getInstance(MBeanServer.class);
-        failureInjector = injector.getInstance(FailureInjector.class);
+        failureInjector = injector.getInstance(TestingFailureInjector.class);
         exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
 
         systemAccessControlConfiguration.ifPresentOrElse(
