@@ -30,12 +30,7 @@ public class PatternPermutation
 
     public PatternPermutation(NodeLocation location, List<RowPattern> patterns)
     {
-        this(Optional.of(location), patterns);
-    }
-
-    private PatternPermutation(Optional<NodeLocation> location, List<RowPattern> patterns)
-    {
-        super(location);
+        super(Optional.of(location));
         this.patterns = requireNonNull(patterns, "patterns is null");
         checkArgument(!patterns.isEmpty(), "patterns list is empty");
     }
