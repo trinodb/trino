@@ -2855,13 +2855,18 @@ public class TestSqlParser
     @Test
     public void testDelete()
     {
-        assertStatement("DELETE FROM t", new Delete(table(QualifiedName.of("t")), Optional.empty()));
-        assertStatement("DELETE FROM \"awesome table\"", new Delete(table(QualifiedName.of("awesome table")), Optional.empty()));
+        assertThat(statement("DELETE FROM t"))
+                .isEqualTo(new Delete(location(1, 1), new Table(location(1, 1), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "t", false)))), Optional.empty()));
+        assertThat(statement("DELETE FROM \"awesome table\""))
+                .isEqualTo(new Delete(location(1, 1), new Table(location(1, 1), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "awesome table", true)))), Optional.empty()));
 
-        assertStatement("DELETE FROM t WHERE a = b", new Delete(table(QualifiedName.of("t")), Optional.of(
-                new ComparisonExpression(ComparisonExpression.Operator.EQUAL,
-                        new Identifier("a"),
-                        new Identifier("b")))));
+        assertThat(statement("DELETE FROM t WHERE a = b"))
+                .isEqualTo(new Delete(location(1, 1), new Table(location(1, 1), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "t", false)))), Optional.of(
+                        new ComparisonExpression(
+                                location(1, 23),
+                                ComparisonExpression.Operator.EQUAL,
+                                new Identifier(location(1, 21), "a", false),
+                                new Identifier(location(1, 25), "b", false)))));
     }
 
     @Test
