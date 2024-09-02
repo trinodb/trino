@@ -20,7 +20,7 @@ import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcPageSink;
 import io.trino.plugin.jdbc.RemoteTableName;
-import io.trino.plugin.jdbc.WriteFunction;
+import io.trino.plugin.jdbc.SinkSqlProvider;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -68,7 +68,7 @@ public class PhoenixMergeSink
         this.hasRowKey = phoenixOutputTableHandle.rowkeyColumn().isPresent();
         this.columnCount = phoenixOutputTableHandle.getColumnNames().size();
 
-        this.insertSink = new JdbcPageSink(session, phoenixOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier);
+        this.insertSink = new JdbcPageSink(session, phoenixOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier, JdbcClient::buildInsertSql);
         this.updateSink = createUpdateSink(session, phoenixOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier);
 
         ImmutableList.Builder<String> mergeRowIdFieldNamesBuilder = ImmutableList.builder();
@@ -105,7 +105,7 @@ public class PhoenixMergeSink
                 columnTypesBuilder.build(),
                 Optional.empty(),
                 Optional.empty());
-        return new JdbcPageSink(session, updateOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier);
+        return new JdbcPageSink(session, updateOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier, JdbcClient::buildInsertSql);
     }
 
     private ConnectorPageSink createDeleteSink(
@@ -123,28 +123,18 @@ public class PhoenixMergeSink
                 Optional.empty(),
                 Optional.empty());
 
-        return new DeleteSink(session, deleteOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier);
+        return new JdbcPageSink(session, deleteOutputTableHandle, phoenixClient, pageSinkId, remoteQueryModifier, deleteSqlProvider());
     }
 
-    private class DeleteSink
-            extends JdbcPageSink
+    private SinkSqlProvider deleteSqlProvider()
     {
-        public DeleteSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient, ConnectorPageSinkId pageSinkId, RemoteQueryModifier remoteQueryModifier)
-        {
-            super(session, handle, jdbcClient, pageSinkId, remoteQueryModifier);
-        }
+        List<String> conjuncts = mergeRowIdFieldNames.stream()
+                .map(name -> name + " = ? ")
+                .collect(toImmutableList());
+        checkArgument(!conjuncts.isEmpty(), "Merge row id fields should not empty");
+        String whereCondition = Joiner.on(" AND ").join(conjuncts);
 
-        @Override
-        protected String getSinkSql(JdbcClient jdbcClient, JdbcOutputTableHandle outputTableHandle, List<WriteFunction> columnWriters)
-        {
-            List<String> conjuncts = mergeRowIdFieldNames.stream()
-                    .map(name -> name + " = ? ")
-                    .collect(toImmutableList());
-            checkArgument(!conjuncts.isEmpty(), "Merge row id fields should not empty");
-            String whereCondition = Joiner.on(" AND ").join(conjuncts);
-
-            return format("DELETE FROM %s.%s WHERE %s", remoteTableName.getSchemaName().orElseThrow(), remoteTableName.getTableName(), whereCondition);
-        }
+        return (_, _, _) -> format("DELETE FROM %s.%s WHERE %s", remoteTableName.getSchemaName().orElseThrow(), remoteTableName.getTableName(), whereCondition);
     }
 
     @Override
