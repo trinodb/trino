@@ -23,12 +23,7 @@ public class CurrentPath
 {
     public CurrentPath(NodeLocation location)
     {
-        this(Optional.of(location));
-    }
-
-    private CurrentPath(Optional<NodeLocation> location)
-    {
-        super(location);
+        super(Optional.of(location));
     }
 
     @Override
