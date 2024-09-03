@@ -14,6 +14,8 @@ plugin](/develop/functions), and [SQL routines](/routines).
 
 For each function returned, the following information is displayed:
 
+- Catalog name
+- Schema name
 - Function name
 - Return type
 - Argument types
@@ -52,11 +54,11 @@ SHOW FUNCTIONS LIKE 'cf%';
 Example output:
 
 ```text
-     Function      | Return Type | Argument Types | Function Type | Deterministic |               Description
- ------------------+-------------+----------------+---------------+---------------+-----------------------------------------
- cf_getgroups      | varchar     |                | scalar        | true          | Returns the current session's groups
- cf_getprincipal   | varchar     |                | scalar        | true          | Returns the current session's principal
- cf_getuser        | varchar     |                | scalar        | true          | Returns the current session's user
+  Catalog |  Schema  |    Function      | Return Type | Argument Types | Function Type | Deterministic |               Description
+ ---------+----------+------------------+-------------+----------------+---------------+---------------+-----------------------------------------
+  example | default  | cf_getgroups     | varchar     |                | scalar        | true          | Returns the current session's groups
+  example | default  | cf_getprincipal  | varchar     |                | scalar        | true          | Returns the current session's principal
+  example | default  | cf_getuser       | varchar     |                | scalar        | true          | Returns the current session's user
 ```
 
 ## See also

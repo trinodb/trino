@@ -6172,56 +6172,56 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         MaterializedResult result = computeActual("SHOW FUNCTIONS");
         ImmutableMultimap<String, MaterializedRow> functions = Multimaps.index(result.getMaterializedRows(), input -> {
-            assertThat(input.getFieldCount()).isEqualTo(6);
-            return (String) input.getField(0);
+            assertThat(input.getFieldCount()).isEqualTo(8);
+            return (String) input.getField(2);
         });
 
         assertThat(functions.containsKey("avg"))
                 .describedAs("Expected function names " + functions + " to contain 'avg'")
                 .isTrue();
         assertThat(functions.get("avg").asList().size()).isEqualTo(6);
-        assertThat(functions.get("avg").asList().get(0).getField(1)).isEqualTo("decimal(p,s)");
-        assertThat(functions.get("avg").asList().get(0).getField(2)).isEqualTo("decimal(p,s)");
-        assertThat(functions.get("avg").asList().get(0).getField(3)).isEqualTo("aggregate");
-        assertThat(functions.get("avg").asList().get(1).getField(1)).isEqualTo("double");
-        assertThat(functions.get("avg").asList().get(1).getField(2)).isEqualTo("bigint");
-        assertThat(functions.get("avg").asList().get(1).getField(3)).isEqualTo("aggregate");
-        assertThat(functions.get("avg").asList().get(2).getField(1)).isEqualTo("double");
-        assertThat(functions.get("avg").asList().get(2).getField(2)).isEqualTo("double");
-        assertThat(functions.get("avg").asList().get(2).getField(3)).isEqualTo("aggregate");
-        assertThat(functions.get("avg").asList().get(3).getField(1)).isEqualTo("interval day to second");
-        assertThat(functions.get("avg").asList().get(3).getField(2)).isEqualTo("interval day to second");
-        assertThat(functions.get("avg").asList().get(3).getField(3)).isEqualTo("aggregate");
-        assertThat(functions.get("avg").asList().get(4).getField(1)).isEqualTo("interval year to month");
-        assertThat(functions.get("avg").asList().get(4).getField(2)).isEqualTo("interval year to month");
-        assertThat(functions.get("avg").asList().get(4).getField(3)).isEqualTo("aggregate");
-        assertThat(functions.get("avg").asList().get(5).getField(1)).isEqualTo("real");
-        assertThat(functions.get("avg").asList().get(5).getField(2)).isEqualTo("real");
-        assertThat(functions.get("avg").asList().get(5).getField(3)).isEqualTo("aggregate");
+        assertThat(functions.get("avg").asList().get(0).getField(3)).isEqualTo("decimal(p,s)");
+        assertThat(functions.get("avg").asList().get(0).getField(4)).isEqualTo("decimal(p,s)");
+        assertThat(functions.get("avg").asList().get(0).getField(5)).isEqualTo("aggregate");
+        assertThat(functions.get("avg").asList().get(1).getField(3)).isEqualTo("double");
+        assertThat(functions.get("avg").asList().get(1).getField(4)).isEqualTo("bigint");
+        assertThat(functions.get("avg").asList().get(1).getField(5)).isEqualTo("aggregate");
+        assertThat(functions.get("avg").asList().get(2).getField(3)).isEqualTo("double");
+        assertThat(functions.get("avg").asList().get(2).getField(4)).isEqualTo("double");
+        assertThat(functions.get("avg").asList().get(2).getField(5)).isEqualTo("aggregate");
+        assertThat(functions.get("avg").asList().get(3).getField(3)).isEqualTo("interval day to second");
+        assertThat(functions.get("avg").asList().get(3).getField(4)).isEqualTo("interval day to second");
+        assertThat(functions.get("avg").asList().get(3).getField(5)).isEqualTo("aggregate");
+        assertThat(functions.get("avg").asList().get(4).getField(3)).isEqualTo("interval year to month");
+        assertThat(functions.get("avg").asList().get(4).getField(4)).isEqualTo("interval year to month");
+        assertThat(functions.get("avg").asList().get(4).getField(5)).isEqualTo("aggregate");
+        assertThat(functions.get("avg").asList().get(5).getField(3)).isEqualTo("real");
+        assertThat(functions.get("avg").asList().get(5).getField(4)).isEqualTo("real");
+        assertThat(functions.get("avg").asList().get(5).getField(5)).isEqualTo("aggregate");
 
         assertThat(functions.containsKey("abs"))
                 .describedAs("Expected function names " + functions + " to contain 'abs'")
                 .isTrue();
-        assertThat(functions.get("abs").asList().get(0).getField(3)).isEqualTo("scalar");
-        assertThat(functions.get("abs").asList().get(0).getField(4)).isEqualTo(true);
+        assertThat(functions.get("abs").asList().get(0).getField(5)).isEqualTo("scalar");
+        assertThat(functions.get("abs").asList().get(0).getField(6)).isEqualTo(true);
 
         assertThat(functions.containsKey("rand"))
                 .describedAs("Expected function names " + functions + " to contain 'rand'")
                 .isTrue();
-        assertThat(functions.get("rand").asList().get(0).getField(3)).isEqualTo("scalar");
-        assertThat(functions.get("rand").asList().get(0).getField(4)).isEqualTo(false);
+        assertThat(functions.get("rand").asList().get(0).getField(5)).isEqualTo("scalar");
+        assertThat(functions.get("rand").asList().get(0).getField(6)).isEqualTo(false);
 
         assertThat(functions.containsKey("rank"))
                 .describedAs("Expected function names " + functions + " to contain 'rank'")
                 .isTrue();
-        assertThat(functions.get("rank").asList().get(0).getField(3)).isEqualTo("window");
+        assertThat(functions.get("rank").asList().get(0).getField(5)).isEqualTo("window");
 
         assertThat(functions.containsKey("rank"))
                 .describedAs("Expected function names " + functions + " to contain 'split_part'")
                 .isTrue();
-        assertThat(functions.get("split_part").asList().get(0).getField(1)).isEqualTo("varchar(x)");
-        assertThat(functions.get("split_part").asList().get(0).getField(2)).isEqualTo("varchar(x), varchar(y), bigint");
-        assertThat(functions.get("split_part").asList().get(0).getField(3)).isEqualTo("scalar");
+        assertThat(functions.get("split_part").asList().get(0).getField(3)).isEqualTo("varchar(x)");
+        assertThat(functions.get("split_part").asList().get(0).getField(4)).isEqualTo("varchar(x), varchar(y), bigint");
+        assertThat(functions.get("split_part").asList().get(0).getField(5)).isEqualTo("scalar");
 
         assertThat(functions.containsKey("like"))
                 .describedAs("Expected function names " + functions + " not to contain 'like'")
@@ -6593,7 +6593,7 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testColumnNames()
     {
         MaterializedResult showFunctionsResult = computeActual("SHOW FUNCTIONS");
-        assertThat(showFunctionsResult.getColumnNames()).isEqualTo(ImmutableList.of("Function", "Return Type", "Argument Types", "Function Type", "Deterministic", "Description"));
+        assertThat(showFunctionsResult.getColumnNames()).isEqualTo(ImmutableList.of("Catalog", "Schema", "Function", "Return Type", "Argument Types", "Function Type", "Deterministic", "Description"));
 
         MaterializedResult showCatalogsResult = computeActual("SHOW CATALOGS");
         assertThat(showCatalogsResult.getColumnNames()).isEqualTo(ImmutableList.of("Catalog"));

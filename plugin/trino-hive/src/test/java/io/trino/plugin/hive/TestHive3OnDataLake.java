@@ -1997,8 +1997,8 @@ public class TestHive3OnDataLake
                 .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
-                        .row(name, "bigint", "integer", "scalar", true, "t42")
-                        .row(name, "double", "double", "scalar", true, "t88")
+                        .row("hive", "functions", name, "bigint", "integer", "scalar", true, "t42")
+                        .row("hive", "functions", name, "double", "double", "scalar", true, "t88")
                         .build());
 
         assertQuery("SELECT " + name + "(99)", "SELECT 4158");
@@ -2016,10 +2016,10 @@ public class TestHive3OnDataLake
                 .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
-                        .row(name, "bigint", "integer", "scalar", true, "t42")
-                        .row(name, "bigint", "bigint", "scalar", true, "")
-                        .row(name, "double", "double", "scalar", true, "t88")
-                        .row(name2, "varchar", "varchar", "scalar", true, "")
+                        .row("hive", "functions", name, "bigint", "integer", "scalar", true, "t42")
+                        .row("hive", "functions", name, "bigint", "bigint", "scalar", true, "")
+                        .row("hive", "functions", name, "double", "double", "scalar", true, "t88")
+                        .row("hive", "functions", name2, "varchar", "varchar", "scalar", true, "")
                         .build());
 
         assertQuery("SELECT " + name + "(99)", "SELECT 4158");

@@ -111,11 +111,11 @@ public class TestShowQueries
         assertThat(assertions.query("SHOW FUNCTIONS LIKE 'split%'"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "('split', 'array(varchar(x))', 'varchar(x), varchar(y)', 'scalar', true, '')," +
-                        "('split', 'array(varchar(x))', 'varchar(x), varchar(y), bigint', 'scalar', true, '')," +
-                        "('split_part', 'varchar(x)', 'varchar(x), varchar(y), bigint', 'scalar', true, 'Splits a string by a delimiter and returns the specified field (counting from one)')," +
-                        "('split_to_map', 'map(varchar,varchar)', 'varchar, varchar, varchar', 'scalar', true, 'Creates a map using entryDelimiter and keyValueDelimiter')," +
-                        "('split_to_multimap', 'map(varchar,array(varchar))', 'varchar, varchar, varchar', 'scalar', true, 'Creates a multimap by splitting a string into key/value pairs')");
+                        "('system', 'builtin', 'split', 'array(varchar(x))', 'varchar(x), varchar(y)', 'scalar', true, '')," +
+                        "('system', 'builtin', 'split', 'array(varchar(x))', 'varchar(x), varchar(y), bigint', 'scalar', true, '')," +
+                        "('system', 'builtin', 'split_part', 'varchar(x)', 'varchar(x), varchar(y), bigint', 'scalar', true, 'Splits a string by a delimiter and returns the specified field (counting from one)')," +
+                        "('system', 'builtin', 'split_to_map', 'map(varchar,varchar)', 'varchar, varchar, varchar', 'scalar', true, 'Creates a map using entryDelimiter and keyValueDelimiter')," +
+                        "('system', 'builtin', 'split_to_multimap', 'map(varchar,array(varchar))', 'varchar, varchar, varchar', 'scalar', true, 'Creates a multimap by splitting a string into key/value pairs')");
     }
 
     @Test
@@ -124,8 +124,8 @@ public class TestShowQueries
         assertThat(assertions.query("SHOW FUNCTIONS LIKE 'split$_to$_%' ESCAPE '$'"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "('split_to_map', 'map(varchar,varchar)', 'varchar, varchar, varchar', 'scalar', true, 'Creates a map using entryDelimiter and keyValueDelimiter')," +
-                        "('split_to_multimap', 'map(varchar,array(varchar))', 'varchar, varchar, varchar', 'scalar', true, 'Creates a multimap by splitting a string into key/value pairs')");
+                        "('system', 'builtin', 'split_to_map', 'map(varchar,varchar)', 'varchar, varchar, varchar', 'scalar', true, 'Creates a map using entryDelimiter and keyValueDelimiter')," +
+                        "('system', 'builtin', 'split_to_multimap', 'map(varchar,array(varchar))', 'varchar, varchar, varchar', 'scalar', true, 'Creates a multimap by splitting a string into key/value pairs')");
     }
 
     @Test

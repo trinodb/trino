@@ -1,91 +1,91 @@
 -- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
- abs | bigint | bigint | scalar | true | Absolute value |
- abs | double | double | scalar | true | Absolute value |
- acos | double | double | scalar | true | Arc cosine |
- approx_distinct | bigint | t | aggregate | true | |
- approx_distinct | bigint | t, double | aggregate | true | |
- approx_percentile | bigint | bigint, double, double | aggregate | true | |
- approx_percentile | bigint | bigint, double | aggregate | true | |
- approx_percentile | double | double, double, double | aggregate | true | |
- approx_percentile | double | double, double | aggregate | true | |
- approx_set | hyperloglog | bigint | aggregate | true | |
- approx_set | hyperloglog | double | aggregate | true | |
- arbitrary | t | t | aggregate | true | Return an arbitrary non-null input value |
- asin | double | double | scalar | true | Arc sine |
- atan | double | double | scalar | true | Arc tangent |
- atan2 | double | double, double | scalar | true | Arc tangent of given fraction |
- avg | double | bigint | aggregate | true | |
- avg | double | double | aggregate | true | |
- bool_and | boolean | boolean | aggregate | true | |
- bool_or | boolean | boolean | aggregate | true | |
- cbrt | double | double | scalar | true | Cube root |
- ceil | bigint | bigint | scalar | true | Round up to nearest integer |
- ceil | double | double | scalar | true | Round up to nearest integer |
- ceiling | bigint | bigint | scalar | true | Round up to nearest integer |
- ceiling | double | double | scalar | true | Round up to nearest integer |
- corr | double | double, double | aggregate | true | |
- cos | double | double | scalar | true | Cosine |
- cosh | double | double | scalar | true | Hyperbolic cosine |
- count | bigint | | aggregate | true | |
- count | bigint | t | aggregate | true | Counts the non-null values |
- count_if | bigint | boolean | aggregate | true | |
- covar_pop | double | double, double | aggregate | true | |
- covar_samp | double | double, double | aggregate | true | |
- cume_dist | double | | window | true | |
- degrees | double | double | scalar | true | Converts an angle in radians to degrees |
- dense_rank | bigint | | window | true | |
- e | double | | scalar | true | Euler's number |
- every | boolean | boolean | aggregate | true | |
- exp | double | double | scalar | true | Euler's number raised to the given power |
- floor | bigint | bigint | scalar | true | Round down to nearest integer |
- floor | double | double | scalar | true | Round down to nearest integer |
- geometric_mean | double | bigint | aggregate | true | |
- geometric_mean | double | double | aggregate | true | |
- greatest | E | E | scalar | true | Get the largest of the given values |
- infinity | double | | scalar | true | Infinity |
- ln | double | double | scalar | true | Natural logarithm |
- log10 | double | double | scalar | true | Logarithm to base 10 |
- log2 | double | double | scalar | true | Logarithm to base 2 |
- max | t | t | aggregate | true | Returns the maximum value of the argument |
- max_by | v | v, k | aggregate | true | Returns the value of the first argument, associated with the maximum value of the second argument |
- min | t | t | aggregate | true | Returns the minimum value of the argument |
- min_by | v | v, k | aggregate | true | Returns the value of the first argument, associated with the minimum value of the second argument |
- mod | bigint | bigint, bigint | scalar | true | Remainder of given quotient |
- mod | double | double, double | scalar | true | Remainder of given quotient |
- nan | double | | scalar | true | Constant representing not-a-number |
- nth_value | t | t, bigint | window | true | |
- ntile | bigint | bigint | window | true | |
- percent_rank | double | | window | true | |
- pi | double | | scalar | true | The constant Pi |
- pow | double | double, double | scalar | true | Value raised to the power of exponent |
- power | double | double, double | scalar | true | Value raised to the power of exponent |
- radians | double | double | scalar | true | Converts an angle in degrees to radians |
- rand | double | | scalar | false | A pseudo-random value |
- random | double | | scalar | false | A pseudo-random value |
- rank | bigint | | window | true | |
- regr_intercept | double | double, double | aggregate | true | |
- regr_slope | double | double, double | aggregate | true | |
- round | bigint | bigint | scalar | true | Round to nearest integer |
- round | bigint | bigint, integer | scalar | true | Round to nearest integer |
- round | double | double | scalar | true | Round to nearest integer |
- round | double | double, integer | scalar | true | Round to given number of decimal places |
- row_number | bigint | | window | true | |
- sin | double | double | scalar | true | Sine |
- sinh | double | double | scalar | true | Hyperbolic sine |
- sqrt | double | double | scalar | true | Square root |
- stddev | double | bigint | aggregate | true | Returns the sample standard deviation of the argument |
- stddev | double | double | aggregate | true | Returns the sample standard deviation of the argument |
- stddev_pop | double | bigint | aggregate | true | Returns the population standard deviation of the argument |
- stddev_pop | double | double | aggregate | true | Returns the population standard deviation of the argument |
- stddev_samp | double | bigint | aggregate | true | Returns the sample standard deviation of the argument |
- stddev_samp | double | double | aggregate | true | Returns the sample standard deviation of the argument |
- sum | bigint | bigint | aggregate | true | |
- sum | double | double | aggregate | true | |
- tan | double | double | scalar | true | Tangent |
- tanh | double | double | scalar | true | Hyperbolic tangent |
- var_pop | double | bigint | aggregate | true | Returns the population variance of the argument |
- var_pop | double | double | aggregate | true | Returns the population variance of the argument |
- var_samp | double | bigint | aggregate | true | Returns the sample variance of the argument |
- var_samp | double | double | aggregate | true | Returns the sample variance of the argument |
- variance | double | bigint | aggregate | true | Returns the sample variance of the argument |
- variance | double | double | aggregate | true | Returns the sample variance of the argument |
+ system | builtin | abs | bigint | bigint | scalar | true | Absolute value |
+ system | builtin | abs | double | double | scalar | true | Absolute value |
+ system | builtin | acos | double | double | scalar | true | Arc cosine |
+ system | builtin | approx_distinct | bigint | t | aggregate | true | |
+ system | builtin | approx_distinct | bigint | t, double | aggregate | true | |
+ system | builtin | approx_percentile | bigint | bigint, double, double | aggregate | true | |
+ system | builtin | approx_percentile | bigint | bigint, double | aggregate | true | |
+ system | builtin | approx_percentile | double | double, double, double | aggregate | true | |
+ system | builtin | approx_percentile | double | double, double | aggregate | true | |
+ system | builtin | approx_set | hyperloglog | bigint | aggregate | true | |
+ system | builtin | approx_set | hyperloglog | double | aggregate | true | |
+ system | builtin | arbitrary | t | t | aggregate | true | Return an arbitrary non-null input value |
+ system | builtin | asin | double | double | scalar | true | Arc sine |
+ system | builtin | atan | double | double | scalar | true | Arc tangent |
+ system | builtin | atan2 | double | double, double | scalar | true | Arc tangent of given fraction |
+ system | builtin | avg | double | bigint | aggregate | true | |
+ system | builtin | avg | double | double | aggregate | true | |
+ system | builtin | bool_and | boolean | boolean | aggregate | true | |
+ system | builtin | bool_or | boolean | boolean | aggregate | true | |
+ system | builtin | cbrt | double | double | scalar | true | Cube root |
+ system | builtin | ceil | bigint | bigint | scalar | true | Round up to nearest integer |
+ system | builtin | ceil | double | double | scalar | true | Round up to nearest integer |
+ system | builtin | ceiling | bigint | bigint | scalar | true | Round up to nearest integer |
+ system | builtin | ceiling | double | double | scalar | true | Round up to nearest integer |
+ system | builtin | corr | double | double, double | aggregate | true | |
+ system | builtin | cos | double | double | scalar | true | Cosine |
+ system | builtin | cosh | double | double | scalar | true | Hyperbolic cosine |
+ system | builtin | count | bigint | | aggregate | true | |
+ system | builtin | count | bigint | t | aggregate | true | Counts the non-null values |
+ system | builtin | count_if | bigint | boolean | aggregate | true | |
+ system | builtin | covar_pop | double | double, double | aggregate | true | |
+ system | builtin | covar_samp | double | double, double | aggregate | true | |
+ system | builtin | cume_dist | double | | window | true | |
+ system | builtin | degrees | double | double | scalar | true | Converts an angle in radians to degrees |
+ system | builtin | dense_rank | bigint | | window | true | |
+ system | builtin | e | double | | scalar | true | Euler's number |
+ system | builtin | every | boolean | boolean | aggregate | true | |
+ system | builtin | exp | double | double | scalar | true | Euler's number raised to the given power |
+ system | builtin | floor | bigint | bigint | scalar | true | Round down to nearest integer |
+ system | builtin | floor | double | double | scalar | true | Round down to nearest integer |
+ system | builtin | geometric_mean | double | bigint | aggregate | true | |
+ system | builtin | geometric_mean | double | double | aggregate | true | |
+ system | builtin | greatest | E | E | scalar | true | Get the largest of the given values |
+ system | builtin | infinity | double | | scalar | true | Infinity |
+ system | builtin | ln | double | double | scalar | true | Natural logarithm |
+ system | builtin | log10 | double | double | scalar | true | Logarithm to base 10 |
+ system | builtin | log2 | double | double | scalar | true | Logarithm to base 2 |
+ system | builtin | max | t | t | aggregate | true | Returns the maximum value of the argument |
+ system | builtin | max_by | v | v, k | aggregate | true | Returns the value of the first argument, associated with the maximum value of the second argument |
+ system | builtin | min | t | t | aggregate | true | Returns the minimum value of the argument |
+ system | builtin | min_by | v | v, k | aggregate | true | Returns the value of the first argument, associated with the minimum value of the second argument |
+ system | builtin | mod | bigint | bigint, bigint | scalar | true | Remainder of given quotient |
+ system | builtin | mod | double | double, double | scalar | true | Remainder of given quotient |
+ system | builtin | nan | double | | scalar | true | Constant representing not-a-number |
+ system | builtin | nth_value | t | t, bigint | window | true | |
+ system | builtin | ntile | bigint | bigint | window | true | |
+ system | builtin | percent_rank | double | | window | true | |
+ system | builtin | pi | double | | scalar | true | The constant Pi |
+ system | builtin | pow | double | double, double | scalar | true | Value raised to the power of exponent |
+ system | builtin | power | double | double, double | scalar | true | Value raised to the power of exponent |
+ system | builtin | radians | double | double | scalar | true | Converts an angle in degrees to radians |
+ system | builtin | rand | double | | scalar | false | A pseudo-random value |
+ system | builtin | random | double | | scalar | false | A pseudo-random value |
+ system | builtin | rank | bigint | | window | true | |
+ system | builtin | regr_intercept | double | double, double | aggregate | true | |
+ system | builtin | regr_slope | double | double, double | aggregate | true | |
+ system | builtin | round | bigint | bigint | scalar | true | Round to nearest integer |
+ system | builtin | round | bigint | bigint, integer | scalar | true | Round to nearest integer |
+ system | builtin | round | double | double | scalar | true | Round to nearest integer |
+ system | builtin | round | double | double, integer | scalar | true | Round to given number of decimal places |
+ system | builtin | row_number | bigint | | window | true | |
+ system | builtin | sin | double | double | scalar | true | Sine |
+ system | builtin | sinh | double | double | scalar | true | Hyperbolic sine |
+ system | builtin | sqrt | double | double | scalar | true | Square root |
+ system | builtin | stddev | double | bigint | aggregate | true | Returns the sample standard deviation of the argument |
+ system | builtin | stddev | double | double | aggregate | true | Returns the sample standard deviation of the argument |
+ system | builtin | stddev_pop | double | bigint | aggregate | true | Returns the population standard deviation of the argument |
+ system | builtin | stddev_pop | double | double | aggregate | true | Returns the population standard deviation of the argument |
+ system | builtin | stddev_samp | double | bigint | aggregate | true | Returns the sample standard deviation of the argument |
+ system | builtin | stddev_samp | double | double | aggregate | true | Returns the sample standard deviation of the argument |
+ system | builtin | sum | bigint | bigint | aggregate | true | |
+ system | builtin | sum | double | double | aggregate | true | |
+ system | builtin | tan | double | double | scalar | true | Tangent |
+ system | builtin | tanh | double | double | scalar | true | Hyperbolic tangent |
+ system | builtin | var_pop | double | bigint | aggregate | true | Returns the population variance of the argument |
+ system | builtin | var_pop | double | double | aggregate | true | Returns the population variance of the argument |
+ system | builtin | var_samp | double | bigint | aggregate | true | Returns the sample variance of the argument |
+ system | builtin | var_samp | double | double | aggregate | true | Returns the sample variance of the argument |
+ system | builtin | variance | double | bigint | aggregate | true | Returns the sample variance of the argument |
+ system | builtin | variance | double | double | aggregate | true | Returns the sample variance of the argument |

@@ -1,6 +1,6 @@
 -- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
- cardinality | bigint | map(k,v) | scalar | true | Returns the cardinality (the number of key-value pairs) of the map |
- map | map(K,V) | array(K), array(V) | scalar | true | Constructs a map from the given key/value arrays |
- map_agg | map(k,v) | k, v | aggregate | true | Aggregates all the rows (key/value pairs) into a single map |
- map_keys | array(k) | map(k,v) | scalar | true | Returns the keys of the given map(K,V) as an array |
- map_values | array(v) | map(k,v) | scalar | true | Returns the values of the given map(K,V) as an array |
+ system | builtin | cardinality | bigint | map(k,v) | scalar | true | Returns the cardinality (the number of key-value pairs) of the map |
+ system | builtin | map | map(K,V) | array(K), array(V) | scalar | true | Constructs a map from the given key/value arrays |
+ system | builtin | map_agg | map(k,v) | k, v | aggregate | true | Aggregates all the rows (key/value pairs) into a single map |
+ system | builtin | map_keys | array(k) | map(k,v) | scalar | true | Returns the keys of the given map(K,V) as an array |
+ system | builtin | map_values | array(v) | map(k,v) | scalar | true | Returns the values of the given map(K,V) as an array |

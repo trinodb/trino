@@ -20,6 +20,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogInfo;
@@ -113,6 +114,7 @@ import static io.trino.connector.informationschema.InformationSchemaTable.TABLES
 import static io.trino.connector.informationschema.InformationSchemaTable.TABLE_PRIVILEGES;
 import static io.trino.execution.CreateFunctionTask.defaultFunctionSchema;
 import static io.trino.execution.CreateFunctionTask.qualifiedFunctionName;
+import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
 import static io.trino.metadata.MetadataListing.listCatalogs;
 import static io.trino.metadata.MetadataListing.listSchemas;
@@ -706,22 +708,26 @@ public final class ShowQueriesRewrite
         @Override
         protected Node visitShowFunctions(ShowFunctions node, Void context)
         {
-            Collection<FunctionMetadata> functions;
+            Collection<CatalogSchemaFunction> functions;
             if (node.getSchema().isPresent()) {
                 CatalogSchemaName schema = createCatalogSchemaName(session, node, node.getSchema());
                 accessControl.checkCanShowFunctions(session.toSecurityContext(), schema);
-                functions = listFunctions(schema);
+                functions = listFunctions(schema).stream()
+                        .map(function -> new CatalogSchemaFunction(schema, function))
+                        .collect(toImmutableList());
             }
             else {
                 functions = listFunctions();
             }
 
             List<Expression> rows = functions.stream()
-                    .filter(function -> !function.isHidden())
-                    .flatMap(metadata -> metadata.getNames().stream().map(alias -> toRow(alias, metadata)))
+                    .filter(function -> !function.metadata.isHidden())
+                    .flatMap(function -> function.metadata.getNames().stream().map(alias -> toRow(function.catalogSchema, alias, function.metadata)))
                     .collect(toImmutableList());
 
             Map<String, String> columns = ImmutableMap.<String, String>builder()
+                    .put("catalog_name", "Catalog")
+                    .put("schema_name", "Schema")
                     .put("function_name", "Function")
                     .put("return_type", "Return Type")
                     .put("argument_types", "Argument Types")
@@ -731,7 +737,7 @@ public final class ShowQueriesRewrite
                     .buildOrThrow();
 
             if (rows.isEmpty()) {
-                return emptyQuery(ImmutableList.copyOf(columns.values()), ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, BOOLEAN, VARCHAR));
+                return emptyQuery(ImmutableList.copyOf(columns.values()), ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BOOLEAN, VARCHAR));
             }
 
             return simpleQuery(
@@ -748,6 +754,14 @@ public final class ShowQueriesRewrite
                             .orElse(TRUE_LITERAL),
                     ordering(
                             new SortItem(
+                                    functionCall("lower", identifier("catalog_name")),
+                                    SortItem.Ordering.ASCENDING,
+                                    SortItem.NullOrdering.UNDEFINED),
+                            new SortItem(
+                                    functionCall("lower", identifier("schema_name")),
+                                    SortItem.Ordering.ASCENDING,
+                                    SortItem.NullOrdering.UNDEFINED),
+                            new SortItem(
                                     functionCall("lower", identifier("function_name")),
                                     SortItem.Ordering.ASCENDING,
                                     SortItem.NullOrdering.UNDEFINED),
@@ -756,9 +770,11 @@ public final class ShowQueriesRewrite
                             ascending("function_type")));
         }
 
-        private static Row toRow(String alias, FunctionMetadata function)
+        private static Row toRow(CatalogSchemaName catalogSchema, String alias, FunctionMetadata function)
         {
             return row(
+                    new StringLiteral(catalogSchema.getCatalogName()),
+                    new StringLiteral(catalogSchema.getSchemaName()),
                     new StringLiteral(alias),
                     new StringLiteral(function.getSignature().getReturnType().toString()),
                     new StringLiteral(Joiner.on(", ").join(function.getSignature().getArgumentTypes())),
@@ -767,12 +783,12 @@ public final class ShowQueriesRewrite
                     new StringLiteral(nullToEmpty(function.getDescription())));
         }
 
-        private Collection<FunctionMetadata> listFunctions()
+        private Collection<CatalogSchemaFunction> listFunctions()
         {
-            ImmutableList.Builder<FunctionMetadata> functions = ImmutableList.builder();
-            functions.addAll(metadata.listGlobalFunctions(session));
+            ImmutableList.Builder<CatalogSchemaFunction> functions = ImmutableList.builder();
+            metadata.listGlobalFunctions(session).forEach(function -> functions.add(new CatalogSchemaFunction(new CatalogSchemaName(GlobalSystemConnector.NAME, BUILTIN_SCHEMA), function)));
             for (CatalogSchemaName name : session.getPath().getPath()) {
-                functions.addAll(metadata.listFunctions(session, name));
+                metadata.listFunctions(session, name).forEach(function -> functions.add(new CatalogSchemaFunction(name, function)));
             }
             return functions.build();
         }
@@ -891,6 +907,15 @@ public final class ShowQueriesRewrite
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty()));
+        }
+    }
+
+    private record CatalogSchemaFunction(CatalogSchemaName catalogSchema, FunctionMetadata metadata)
+    {
+        private CatalogSchemaFunction
+        {
+            requireNonNull(catalogSchema, "catalogSchema is null");
+            requireNonNull(metadata, "metadata is null");
         }
     }
 }

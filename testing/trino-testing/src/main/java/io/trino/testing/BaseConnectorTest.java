@@ -6705,8 +6705,8 @@ public abstract class BaseConnectorTest
     @Test
     public void testCreateFunction()
     {
+        String catalog = getQueryRunner().getDefaultSession().getCatalog().orElseThrow();
         if (!hasBehavior(SUPPORTS_CREATE_FUNCTION)) {
-            String catalog = getQueryRunner().getDefaultSession().getCatalog().orElseThrow();
             String schema = getQueryRunner().getDefaultSession().getSchema().orElseThrow();
             assertQueryFails(
                     "CREATE FUNCTION " + catalog + "." + schema + ".test_create_function" + randomNameSuffix() + "(x integer) RETURNS bigint COMMENT 't42' RETURN x * 42",
@@ -6731,8 +6731,8 @@ public abstract class BaseConnectorTest
                 .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
-                        .row(name, "bigint", "integer", "scalar", true, "t42")
-                        .row(name, "double", "double", "scalar", true, "t88")
+                        .row(catalog, "functions", name, "bigint", "integer", "scalar", true, "t42")
+                        .row(catalog, "functions", name, "double", "double", "scalar", true, "t88")
                         .build());
 
         String integerFunctionSql = """
@@ -6765,10 +6765,10 @@ public abstract class BaseConnectorTest
                 .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
-                        .row(name, "bigint", "integer", "scalar", true, "t42")
-                        .row(name, "bigint", "bigint", "scalar", true, "")
-                        .row(name, "double", "double", "scalar", true, "t88")
-                        .row(name2, "varchar", "varchar", "scalar", true, "")
+                        .row(catalog, "functions", name, "bigint", "integer", "scalar", true, "t42")
+                        .row(catalog, "functions", name, "bigint", "bigint", "scalar", true, "")
+                        .row(catalog, "functions", name, "double", "double", "scalar", true, "t88")
+                        .row(catalog, "functions", name2, "varchar", "varchar", "scalar", true, "")
                         .build());
 
         String bigintFunctionSql = """
@@ -6792,18 +6792,18 @@ public abstract class BaseConnectorTest
                 .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
-                        .row(name3, "double", "", "scalar", false, "")
+                        .row(catalog, "functions", name3, "double", "", "scalar", false, "")
                         .build());
 
         assertThat(query("SHOW FUNCTIONS FROM " + computeScalar("SELECT current_path")))
                 .result()
                 .skippingTypesCheck()
                 .matches(resultBuilder(getSession())
-                        .row(name, "bigint", "integer", "scalar", true, "t42")
-                        .row(name, "bigint", "bigint", "scalar", true, "")
-                        .row(name, "double", "double", "scalar", true, "t88")
-                        .row(name2, "varchar", "varchar", "scalar", true, "")
-                        .row(name3, "double", "", "scalar", false, "")
+                        .row(catalog, "functions", name, "bigint", "integer", "scalar", true, "t42")
+                        .row(catalog, "functions", name, "bigint", "bigint", "scalar", true, "")
+                        .row(catalog, "functions", name, "double", "double", "scalar", true, "t88")
+                        .row(catalog, "functions", name2, "varchar", "varchar", "scalar", true, "")
+                        .row(catalog, "functions", name3, "double", "", "scalar", false, "")
                         .build());
 
         assertThat(computeActual("SHOW CREATE FUNCTION " + name3).getOnlyValue())
