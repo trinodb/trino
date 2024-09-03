@@ -60,6 +60,7 @@ compatible replacements:
 * [](/object-storage/file-system-azure)
 * [](/object-storage/file-system-gcs)
 * [](/object-storage/file-system-s3)
+* [](/object-storage/file-system-alluxio)
 
 The native support is available in all four connectors, but must be activated
 for use.
@@ -90,6 +91,7 @@ Trino also provides the following additional support and features for object
 storage:
 
 * [](/object-storage/file-system-cache)
+* [](/object-storage/file-system-alluxio)
 * [](/object-storage/metastores)
 * [](/object-storage/file-formats)
 
@@ -106,6 +108,7 @@ storage:
 /object-storage/legacy-gcs
 /object-storage/legacy-s3
 /object-storage/file-system-cache
+/object-storage/file-system-alluxio
 /object-storage/metastores
 /object-storage/file-formats
 ```
