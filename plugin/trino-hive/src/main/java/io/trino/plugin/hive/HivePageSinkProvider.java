@@ -74,7 +74,7 @@ public class HivePageSinkProvider
     private final HiveSessionProperties hiveSessionProperties;
     private final HiveWriterStats hiveWriterStats;
     private final long perTransactionMetastoreCacheMaximumSize;
-    private final boolean temporaryStagingDirectoryDirectoryEnabled;
+    private final boolean temporaryStagingDirectoryEnabled;
     private final String temporaryStagingDirectoryPath;
 
     @Inject
@@ -111,7 +111,7 @@ public class HivePageSinkProvider
         this.hiveSessionProperties = requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
         this.perTransactionMetastoreCacheMaximumSize = config.getPerTransactionMetastoreCacheMaximumSize();
-        this.temporaryStagingDirectoryDirectoryEnabled = config.isTemporaryStagingDirectoryEnabled();
+        this.temporaryStagingDirectoryEnabled = config.isTemporaryStagingDirectoryEnabled();
         this.temporaryStagingDirectoryPath = config.getTemporaryStagingDirectoryPath();
     }
 
@@ -182,7 +182,7 @@ public class HivePageSinkProvider
                 eventClient,
                 hiveSessionProperties,
                 hiveWriterStats,
-                temporaryStagingDirectoryDirectoryEnabled,
+                temporaryStagingDirectoryEnabled,
                 temporaryStagingDirectoryPath);
 
         return new HivePageSink(
