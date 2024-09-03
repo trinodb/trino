@@ -26,6 +26,8 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
+import static java.util.Objects.requireNonNull;
+
 public class PhoenixPageSinkProvider
         implements ConnectorPageSinkProvider
 {
@@ -37,8 +39,8 @@ public class PhoenixPageSinkProvider
     public PhoenixPageSinkProvider(PhoenixClient jdbcClient, RemoteQueryModifier remoteQueryModifier)
     {
         this.delegate = new JdbcPageSinkProvider(jdbcClient, remoteQueryModifier);
-        this.jdbcClient = jdbcClient;
-        this.remoteQueryModifier = remoteQueryModifier;
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.remoteQueryModifier = requireNonNull(remoteQueryModifier, "remoteQueryModifier is null");
     }
 
     @Override
