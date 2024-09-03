@@ -21,13 +21,30 @@ Versions before 350 are not supported.
 
 Download {maven_download}`jdbc` and add it to the classpath of your Java application.
 
-The driver is also available from Maven Central:
+The driver is available from Maven Central as a fat JAR archive that contains
+all classes. The archives includes the Trino JDBC driver classes, as well as any
+necessary third-party classes from transitive dependencies as shaded classes.
+This JAR archive is suitable for any usage without managing these transitive
+dependencies.
 
 ```xml
 <dependency>
     <groupId>io.trino</groupId>
     <artifactId>trino-jdbc</artifactId>
     <version>|trino_version|</version>
+</dependency>
+```
+
+Alternatively, use the non-shaded version in your application development as
+dependency and pull in transitive dependencies with your build tool. This also
+allows you to control the versions of these dependencies:
+
+```xml
+<dependency>
+    <groupId>io.trino</groupId>
+    <artifactId>trino-jdbc</artifactId>
+    <version>|trino_version|</version>
+    <classifier>non-shaded</version>
 </dependency>
 ```
 
