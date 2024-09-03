@@ -109,7 +109,7 @@ public class SkewedPartitionRebalancer
         // In case of connector partitioning, check if bucketToPartitions has fixed mapping or not. If it is fixed
         // then we can't distribute a bucket across multiple tasks.
         boolean hasFixedNodeMapping = partitioningHandle.getCatalogHandle()
-                .map(handle -> nodePartitioningManager.getConnectorBucketNodeMap(session, partitioningHandle)
+                .map(_ -> nodePartitioningManager.getConnectorBucketNodeMap(session, partitioningHandle)
                         .map(ConnectorBucketNodeMap::hasFixedMapping)
                         .orElse(false))
                 .orElse(false);
