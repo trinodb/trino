@@ -617,3 +617,10 @@ from all worker nodes.
 exchange-manager.name=filesystem
 exchange.base-directories=/tmp/trino-exchange-manager
 ```
+
+## Adaptive plan optimizations
+
+Fault-tolerant execution mode offers several adaptive plan 
+optimizations that adjust query execution plans dynamically based on 
+runtime statistics. For more information, see 
+[](/optimizer/adaptive-plan-optimizations).
