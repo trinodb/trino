@@ -39,6 +39,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.indexOf;
 import static io.trino.plugin.phoenix5.PhoenixClient.MERGE_ROW_ID_COLUMN_NAME;
 import static io.trino.plugin.phoenix5.PhoenixPageSource.ColumnAdaptation;
+import static java.util.Objects.requireNonNull;
 
 public class PhoenixPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -50,7 +51,7 @@ public class PhoenixPageSourceProvider
     public PhoenixPageSourceProvider(PhoenixClient phoenixClient, @ForRecordCursor ExecutorService executor)
     {
         this.recordSetProvider = new JdbcRecordSetProvider(phoenixClient, executor);
-        this.phoenixClient = phoenixClient;
+        this.phoenixClient = requireNonNull(phoenixClient, "phoenixClient is null");
     }
 
     @Override
