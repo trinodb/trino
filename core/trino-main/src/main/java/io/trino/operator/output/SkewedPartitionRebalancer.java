@@ -295,6 +295,7 @@ public class SkewedPartitionRebalancer
         dataProcessedAtLastRebalance.set(dataProcessed);
     }
 
+    @GuardedBy("this")
     private void calculatePartitionDataSize(long dataProcessed)
     {
         long totalPartitionRowCount = 0;
@@ -315,6 +316,7 @@ public class SkewedPartitionRebalancer
         }
     }
 
+    @GuardedBy("this")
     private long calculateTaskBucketDataSizeSinceLastRebalance(IndexedPriorityQueue<Integer> maxPartitions)
     {
         long estimatedDataSizeSinceLastRebalance = 0;
@@ -324,6 +326,7 @@ public class SkewedPartitionRebalancer
         return estimatedDataSizeSinceLastRebalance;
     }
 
+    @GuardedBy("this")
     private void rebalanceBasedOnTaskBucketSkewness(
             IndexedPriorityQueue<TaskBucket> maxTaskBuckets,
             IndexedPriorityQueue<TaskBucket> minTaskBuckets,
@@ -376,6 +379,7 @@ public class SkewedPartitionRebalancer
         }
     }
 
+    @GuardedBy("this")
     private List<TaskBucket> findSkewedMinTaskBuckets(TaskBucket maxTaskBucket, IndexedPriorityQueue<TaskBucket> minTaskBuckets)
     {
         ImmutableList.Builder<TaskBucket> minSkewedTaskBuckets = ImmutableList.builder();
@@ -395,6 +399,7 @@ public class SkewedPartitionRebalancer
         return minSkewedTaskBuckets.build();
     }
 
+    @GuardedBy("this")
     private boolean rebalancePartition(
             int partitionId,
             TaskBucket toTaskBucket,
