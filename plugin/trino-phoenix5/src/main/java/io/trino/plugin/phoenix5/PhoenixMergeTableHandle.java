@@ -19,6 +19,8 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 
+import static java.util.Objects.requireNonNull;
+
 public record PhoenixMergeTableHandle(JdbcTableHandle tableHandle, PhoenixOutputTableHandle phoenixOutputTableHandle, JdbcColumnHandle mergeRowIdColumnHandle)
         implements ConnectorMergeTableHandle
 {
@@ -28,9 +30,9 @@ public record PhoenixMergeTableHandle(JdbcTableHandle tableHandle, PhoenixOutput
             @JsonProperty("phoenixOutputTableHandle") PhoenixOutputTableHandle phoenixOutputTableHandle,
             @JsonProperty("mergeRowIdColumnHandle") JdbcColumnHandle mergeRowIdColumnHandle)
     {
-        this.tableHandle = tableHandle;
-        this.phoenixOutputTableHandle = phoenixOutputTableHandle;
-        this.mergeRowIdColumnHandle = mergeRowIdColumnHandle;
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        this.phoenixOutputTableHandle = requireNonNull(phoenixOutputTableHandle, "phoenixOutputTableHandle is null");
+        this.mergeRowIdColumnHandle = requireNonNull(mergeRowIdColumnHandle, "mergeRowIdColumnHandle is null");
     }
 
     @JsonProperty
