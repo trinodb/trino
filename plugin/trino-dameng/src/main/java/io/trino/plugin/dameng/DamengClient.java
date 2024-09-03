@@ -469,7 +469,10 @@ public class DamengClient
             return 0;
         }
         int timePrecision = timeColumnSize - ZERO_PRECISION_TIME_COLUMN_SIZE - 1;
-        verify(1 <= timePrecision && timePrecision <= MAX_SUPPORTED_DATE_TIME_PRECISION, "Unexpected time precision %s calculated from time column size %s", timePrecision, timeColumnSize);
+        if (timePrecision > MAX_SUPPORTED_DATE_TIME_PRECISION) {
+            timePrecision = MAX_SUPPORTED_DATE_TIME_PRECISION;
+        }
+        verify(1 <= timePrecision, "Unexpected time precision %s calculated from time column size %s", timePrecision, timeColumnSize);
         return timePrecision;
     }
 }
