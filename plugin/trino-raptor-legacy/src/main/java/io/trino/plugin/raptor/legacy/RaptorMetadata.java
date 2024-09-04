@@ -741,7 +741,8 @@ public class RaptorMetadata
                 table.getPartitioningHandle().get(),
                 getBucketColumnHandles(table.getTableId()).stream()
                         .map(RaptorColumnHandle::getColumnName)
-                        .collect(toImmutableList())));
+                        .collect(toImmutableList()),
+                false));
     }
 
     @Override

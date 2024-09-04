@@ -85,7 +85,7 @@ public class TestInsert
                             }
 
                             if (tableName.getTableName().equals("test_table_required_partitioning")) {
-                                return Optional.of(new ConnectorTableLayout(new TpchPartitioningHandle("orders", 10), ImmutableList.of("column1")));
+                                return Optional.of(new ConnectorTableLayout(new TpchPartitioningHandle("orders", 10), ImmutableList.of("column1"), false));
                             }
 
                             return Optional.empty();
@@ -96,7 +96,7 @@ public class TestInsert
                             }
 
                             if (tableMetadata.getTable().getTableName().equals("new_test_table_required_partitioning")) {
-                                return Optional.of(new ConnectorTableLayout(new TpchPartitioningHandle("orders", 10), ImmutableList.of("column1")));
+                                return Optional.of(new ConnectorTableLayout(new TpchPartitioningHandle("orders", 10), ImmutableList.of("column1"), false));
                             }
 
                             if (tableMetadata.getTable().getTableName().equals("new_test_table_unpartitioned")) {
