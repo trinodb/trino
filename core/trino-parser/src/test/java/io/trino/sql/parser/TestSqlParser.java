@@ -4155,14 +4155,21 @@ public class TestSqlParser
     @Test
     public void testExecute()
     {
-        assertStatement("EXECUTE myquery", new Execute(identifier("myquery"), emptyList()));
+        assertThat(statement("EXECUTE myquery")).isEqualTo(
+                new Execute(location(1, 1), new Identifier(location(1, 9), "myquery", false), emptyList()));
     }
 
     @Test
     public void testExecuteWithUsing()
     {
-        assertStatement("EXECUTE myquery USING 1, 'abc', ARRAY ['hello']",
-                new Execute(identifier("myquery"), ImmutableList.of(new LongLiteral("1"), new StringLiteral("abc"), new Array(ImmutableList.of(new StringLiteral("hello"))))));
+        assertThat(statement("EXECUTE myquery USING 1, 'abc', ARRAY ['hello']")).isEqualTo(
+                new Execute(
+                        location(1, 1),
+                        new Identifier(location(1, 9), "myquery", false),
+                        ImmutableList.of(
+                                new LongLiteral(location(1, 23), "1"),
+                                new StringLiteral(location(1, 26), "abc"),
+                                new Array(location(1, 33), ImmutableList.of(new StringLiteral(location(1, 40), "hello"))))));
     }
 
     @Test
