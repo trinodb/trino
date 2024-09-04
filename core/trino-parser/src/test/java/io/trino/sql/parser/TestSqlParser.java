@@ -3430,26 +3430,30 @@ public class TestSqlParser
     @Test
     public void testDeny()
     {
-        assertStatement("DENY INSERT, DELETE ON t TO u",
+        assertThat(statement("DENY INSERT, DELETE ON t TO u")).isEqualTo(
                 new Deny(
+                        location(1, 1),
                         Optional.of(ImmutableList.of("INSERT", "DELETE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u"))));
-        assertStatement("DENY UPDATE ON t TO u",
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(List.of(new Identifier(location(1, 24), "t", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 29), "u", false))));
+        assertThat(statement("DENY UPDATE ON t TO u")).isEqualTo(
                 new Deny(
+                        location(1, 1),
                         Optional.of(ImmutableList.of("UPDATE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u"))));
-        assertStatement("DENY ALL PRIVILEGES ON TABLE t TO USER u",
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(List.of(new Identifier(location(1, 16), "t", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 21), "u", false))));
+        assertThat(statement("DENY ALL PRIVILEGES ON TABLE t TO USER u")).isEqualTo(
                 new Deny(
+                        location(1, 1),
                         Optional.empty(),
-                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of("t")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u"))));
-        assertStatement("DENY SELECT ON SCHEMA s TO USER u",
+                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(List.of(new Identifier(location(1, 30), "t", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 40), "u", false))));
+        assertThat(statement("DENY SELECT ON SCHEMA s TO USER u")).isEqualTo(
                 new Deny(
+                        location(1, 1),
                         Optional.of(ImmutableList.of("SELECT")),
-                        new GrantObject(location(1, 1), Optional.of("SCHEMA"), QualifiedName.of("s")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u"))));
+                        new GrantObject(location(1, 1), Optional.of("SCHEMA"), QualifiedName.of(List.of(new Identifier(location(1, 23), "s", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 33), "u", false))));
     }
 
     @Test
