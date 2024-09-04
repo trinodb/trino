@@ -106,7 +106,7 @@ public class TestLimitMaxWriterNodesCount
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("column_a")));
                     }
                     if (tableMetadata.getTableName().equals(bucketedTable)) {
-                        return Optional.of(new ConnectorTableLayout(SINGLE_BUCKET_HANDLE, ImmutableList.of("column_a")));
+                        return Optional.of(new ConnectorTableLayout(SINGLE_BUCKET_HANDLE, ImmutableList.of("column_a"), false));
                     }
                     return Optional.empty();
                 })
@@ -115,7 +115,7 @@ public class TestLimitMaxWriterNodesCount
                         return Optional.of(new ConnectorTableLayout(ImmutableList.of("column_a")));
                     }
                     if (tableMetadata.getTable().getTableName().equals(bucketedTable)) {
-                        return Optional.of(new ConnectorTableLayout(SINGLE_BUCKET_HANDLE, ImmutableList.of("column_a")));
+                        return Optional.of(new ConnectorTableLayout(SINGLE_BUCKET_HANDLE, ImmutableList.of("column_a"), false));
                     }
                     return Optional.empty();
                 })
