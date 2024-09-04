@@ -271,7 +271,7 @@ public class OrderingCompiler
             comparator = pageWithPositionsComparatorClass.getConstructor().newInstance();
         }
         catch (Throwable t) {
-            log.error(t, "Error compiling comparator for channels %s with order %s", sortChannels, sortChannels);
+            log.error(t, "Error compiling comparator for channels %s with order %s", sortChannels, sortOrders);
             comparator = new SimplePageWithPositionComparator(types, sortChannels, sortOrders, typeOperators);
         }
         return comparator;
