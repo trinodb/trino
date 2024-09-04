@@ -118,7 +118,7 @@ class TestSqlParserRoutines
                                 ImmutableList.of(parameter("s", type("VARCHAR"))),
                                 returns(type("varchar")),
                                 ImmutableList.of(
-                                        new LanguageCharacteristic(identifier("SQL")),
+                                        new LanguageCharacteristic(location(), identifier("SQL")),
                                         new DeterministicCharacteristic(location(), true),
                                         calledOnNullInput(),
                                         new SecurityCharacteristic(INVOKER),
