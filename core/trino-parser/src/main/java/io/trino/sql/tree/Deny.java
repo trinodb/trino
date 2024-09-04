@@ -29,19 +29,9 @@ public class Deny
     private final GrantObject grantObject;
     private final PrincipalSpecification grantee;
 
-    public Deny(Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee)
-    {
-        this(Optional.empty(), privileges, grantObject, grantee);
-    }
-
     public Deny(NodeLocation location, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee)
     {
-        this(Optional.of(location), privileges, grantObject, grantee);
-    }
-
-    private Deny(Optional<NodeLocation> location, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee)
-    {
-        super(location);
+        super(Optional.of(location));
         requireNonNull(privileges, "privileges is null");
         this.privileges = privileges.map(ImmutableList::copyOf);
         this.grantObject = requireNonNull(grantObject, "grantScope is null");
