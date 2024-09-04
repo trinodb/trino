@@ -29,19 +29,9 @@ public final class DropSchema
     private final boolean exists;
     private final boolean cascade;
 
-    public DropSchema(QualifiedName schemaName, boolean exists, boolean cascade)
-    {
-        this(Optional.empty(), schemaName, exists, cascade);
-    }
-
     public DropSchema(NodeLocation location, QualifiedName schemaName, boolean exists, boolean cascade)
     {
-        this(Optional.of(location), schemaName, exists, cascade);
-    }
-
-    private DropSchema(Optional<NodeLocation> location, QualifiedName schemaName, boolean exists, boolean cascade)
-    {
-        super(location);
+        super(Optional.of(location));
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.exists = exists;
         this.cascade = cascade;

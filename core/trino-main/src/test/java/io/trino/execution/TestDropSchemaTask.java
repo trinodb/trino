@@ -52,13 +52,13 @@ public class TestDropSchemaTask
         assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isTrue();
 
         DropSchemaTask dropSchemaTask = getDropSchemaTask();
-        DropSchema dropSchema = new DropSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, false);
+        DropSchema dropSchema = new DropSchema(new NodeLocation(1, 1), QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, false);
         getFutureValue(dropSchemaTask.execute(dropSchema, queryStateMachine, emptyList(), NOOP));
         assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isFalse();
 
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(dropSchemaTask.execute(dropSchema, queryStateMachine, emptyList(), NOOP)))
-                .withMessage("Schema 'test_catalog.test_db' does not exist");
+                .withMessageContaining("Schema 'test_catalog.test_db' does not exist");
     }
 
     @Test
@@ -69,14 +69,14 @@ public class TestDropSchemaTask
         getFutureValue(createSchemaTask.execute(createSchema, queryStateMachine, emptyList(), NOOP));
 
         DropSchemaTask dropSchemaTask = getDropSchemaTask();
-        DropSchema dropSchema = new DropSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, false);
+        DropSchema dropSchema = new DropSchema(new NodeLocation(1, 1), QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, false);
 
         QualifiedObjectName tableName = new QualifiedObjectName(CATALOG_SCHEMA_NAME.getCatalogName(), CATALOG_SCHEMA_NAME.getSchemaName(), "test_table");
         metadata.createTable(testSession, CATALOG_SCHEMA_NAME.getCatalogName(), someTable(tableName), FAIL);
 
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(dropSchemaTask.execute(dropSchema, queryStateMachine, emptyList(), NOOP)))
-                .withMessage("Cannot drop non-empty schema 'test_db'");
+                .withMessageContaining("Cannot drop non-empty schema 'test_db'");
         assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isTrue();
     }
 
@@ -88,7 +88,7 @@ public class TestDropSchemaTask
         assertThat(metadata.schemaExists(testSession, schema)).isFalse();
         DropSchemaTask dropSchemaTask = getDropSchemaTask();
 
-        DropSchema dropSchema = new DropSchema(QualifiedName.of("test_if_exists_restrict"), true, false);
+        DropSchema dropSchema = new DropSchema(new NodeLocation(1, 1), QualifiedName.of("test_if_exists_restrict"), true, false);
         getFutureValue(dropSchemaTask.execute(dropSchema, queryStateMachine, emptyList(), NOOP));
     }
 
@@ -101,7 +101,7 @@ public class TestDropSchemaTask
         assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isTrue();
 
         DropSchemaTask dropSchemaTask = getDropSchemaTask();
-        DropSchema dropSchema = new DropSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, true);
+        DropSchema dropSchema = new DropSchema(new NodeLocation(1, 1), QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, true);
 
         getFutureValue(dropSchemaTask.execute(dropSchema, queryStateMachine, emptyList(), NOOP));
         assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isFalse();
@@ -115,7 +115,7 @@ public class TestDropSchemaTask
         getFutureValue(createSchemaTask.execute(createSchema, queryStateMachine, emptyList(), NOOP));
 
         DropSchemaTask dropSchemaTask = getDropSchemaTask();
-        DropSchema dropSchema = new DropSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, true);
+        DropSchema dropSchema = new DropSchema(new NodeLocation(1, 1), QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, true);
 
         QualifiedObjectName tableName = new QualifiedObjectName(CATALOG_SCHEMA_NAME.getCatalogName(), CATALOG_SCHEMA_NAME.getSchemaName(), "test_table");
         metadata.createTable(testSession, CATALOG_SCHEMA_NAME.getCatalogName(), someTable(tableName), FAIL);
@@ -132,7 +132,7 @@ public class TestDropSchemaTask
         assertThat(metadata.schemaExists(testSession, schema)).isFalse();
         DropSchemaTask dropSchemaTask = getDropSchemaTask();
 
-        DropSchema dropSchema = new DropSchema(QualifiedName.of("test_if_exists_cascade"), true, false);
+        DropSchema dropSchema = new DropSchema(new NodeLocation(1, 1), QualifiedName.of("test_if_exists_cascade"), true, false);
         getFutureValue(dropSchemaTask.execute(dropSchema, queryStateMachine, emptyList(), NOOP));
     }
 
