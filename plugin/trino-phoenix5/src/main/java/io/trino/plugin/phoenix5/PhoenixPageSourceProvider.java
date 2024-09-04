@@ -37,6 +37,7 @@ import java.util.concurrent.ExecutorService;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.indexOf;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.phoenix5.PhoenixClient.MERGE_ROW_ID_COLUMN_NAME;
 import static io.trino.plugin.phoenix5.PhoenixPageSource.ColumnAdaptation;
 
@@ -57,42 +58,44 @@ public class PhoenixPageSourceProvider
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
-        List<JdbcColumnHandle> columnHandles = columns.stream()
+        Optional<JdbcColumnHandle> mergeRowId = columns.stream()
                 .map(JdbcColumnHandle.class::cast)
-                .collect(toImmutableList());
-        int mergeRowIdChannel = indexOf(columnHandles.iterator(), column -> column.getColumnName().equalsIgnoreCase(MERGE_ROW_ID_COLUMN_NAME));
-        Optional<List<JdbcColumnHandle>> scanColumnHandles = Optional.of(columnHandles);
-        if (mergeRowIdChannel != -1) {
-            JdbcColumnHandle mergeRowIdColumn = columnHandles.get(mergeRowIdChannel);
-            tableHandle = phoenixClient.updatedScanColumnTable(session, tableHandle, scanColumnHandles, mergeRowIdColumn);
-            scanColumnHandles = tableHandle.getColumns();
+                .filter(column -> column.getColumnName().equalsIgnoreCase(MERGE_ROW_ID_COLUMN_NAME))
+                .collect(toOptional());
+        if (mergeRowId.isEmpty()) {
+            return new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, tableHandle, columns));
         }
+
+        List<JdbcColumnHandle> dataColumns = phoenixClient.getColumns(
+                session,
+                new JdbcTableHandle(tableHandle.getRequiredNamedRelation().getSchemaTableName(), tableHandle.getRequiredNamedRelation().getRemoteTableName(), Optional.empty()));
+
+        ImmutableList.Builder<ColumnAdaptation> columnAdaptationBuilder = ImmutableList.builder();
+        for (ColumnHandle columnHandle : columns) {
+            JdbcColumnHandle column = (JdbcColumnHandle) columnHandle;
+            if (column.getColumnName().equalsIgnoreCase(MERGE_ROW_ID_COLUMN_NAME)) {
+                columnAdaptationBuilder.add(buildMergeIdColumnAdaptation(dataColumns, mergeRowId.get()));
+            }
+            else {
+                columnAdaptationBuilder.add(ColumnAdaptation.sourceColumn(dataColumns.indexOf(column)));
+            }
+        }
+
+        tableHandle = new JdbcTableHandle(
+                tableHandle.getRelationHandle(),
+                tableHandle.getConstraint(),
+                tableHandle.getConstraintExpressions(),
+                tableHandle.getSortOrder(),
+                tableHandle.getLimit(),
+                Optional.of(dataColumns),
+                tableHandle.getOtherReferencedTables(),
+                tableHandle.getNextSyntheticColumnId(),
+                tableHandle.getAuthorization(),
+                tableHandle.getUpdateAssignments());
 
         return new PhoenixPageSource(
-                new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, tableHandle, scanColumnHandles.orElse(ImmutableList.of()))),
-                getColumnAdaptations(scanColumnHandles, mergeRowIdChannel, columnHandles));
-    }
-
-    private List<ColumnAdaptation> getColumnAdaptations(Optional<List<JdbcColumnHandle>> scanColumnHandles, int mergeRowIdChannel, List<JdbcColumnHandle> columnHandles)
-    {
-        if (mergeRowIdChannel == -1) {
-            return ImmutableList.of();
-        }
-
-        List<JdbcColumnHandle> scanColumns = scanColumnHandles.get();
-        checkArgument(!scanColumns.isEmpty(), "Scan column handles is empty");
-        JdbcColumnHandle mergeRowIdColumn = columnHandles.get(mergeRowIdChannel);
-        ImmutableList.Builder<ColumnAdaptation> columnAdaptationBuilder = ImmutableList.builder();
-        for (int index = 0; index < scanColumns.size(); index++) {
-            if (mergeRowIdChannel == index) {
-                columnAdaptationBuilder.add(buildMergeIdColumnAdaptation(scanColumns, mergeRowIdColumn));
-            }
-            columnAdaptationBuilder.add(ColumnAdaptation.sourceColumn(index));
-        }
-        if (mergeRowIdChannel == scanColumns.size()) {
-            columnAdaptationBuilder.add(buildMergeIdColumnAdaptation(scanColumns, mergeRowIdColumn));
-        }
-        return columnAdaptationBuilder.build();
+                new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, tableHandle, ImmutableList.copyOf(dataColumns))),
+                columnAdaptationBuilder.build());
     }
 
     private ColumnAdaptation buildMergeIdColumnAdaptation(List<JdbcColumnHandle> scanColumns, JdbcColumnHandle mergeRowIdColumn)
