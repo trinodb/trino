@@ -323,7 +323,11 @@ public class HttpRequestSessionContextFactory
 
     private static Map<String, String> parseExtraCredentials(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
-        return parseProperty(headers, protocolHeaders.requestExtraCredential());
+        Map<String, String> credentials = parseProperty(headers, protocolHeaders.requestExtraCredential());
+        for (String name : credentials.keySet()) {
+            assertRequest(!name.startsWith("internal$"), "Invalid extra credential name: %s", name);
+        }
+        return credentials;
     }
 
     private static Map<String, String> parseProperty(MultivaluedMap<String, String> headers, String headerName)
