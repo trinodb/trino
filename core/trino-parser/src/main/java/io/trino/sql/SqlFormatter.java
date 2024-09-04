@@ -1655,10 +1655,10 @@ public final class SqlFormatter
 
         private static String formatGrantor(GrantorSpecification grantor)
         {
-            GrantorSpecification.Type type = grantor.getType();
+            GrantorSpecification.Type type = grantor.type();
             return switch (type) {
                 case CURRENT_ROLE, CURRENT_USER -> type.name();
-                case PRINCIPAL -> formatPrincipal(grantor.getPrincipal().get());
+                case PRINCIPAL -> formatPrincipal(grantor.principal().get());
             };
         }
 
