@@ -178,8 +178,14 @@ public class CachingJdbcClient
         if (tableHandle.getColumns().isPresent()) {
             return tableHandle.getColumns().get();
         }
-        ColumnsCacheKey key = new ColumnsCacheKey(getIdentityKey(session), getSessionProperties(session), tableHandle.getRequiredNamedRelation().getSchemaTableName());
-        return get(columnsCache, key, () -> delegate.getColumns(session, tableHandle));
+        return getColumns(session, tableHandle.getRequiredNamedRelation().getRemoteTableName());
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        ColumnsCacheKey key = new ColumnsCacheKey(getIdentityKey(session), getSessionProperties(session), remoteTableName.getSchemaTableName());
+        return get(columnsCache, key, () -> delegate.getColumns(session, remoteTableName));
     }
 
     @Override

@@ -312,12 +312,18 @@ public abstract class BaseJdbcClient
         }
         checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
         verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(tableHandle));
-        SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
         RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
 
+        return getColumns(session, remoteTableName);
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        SchemaTableName schemaTableName = remoteTableName.getSchemaTableName();
         try (Connection connection = connectionFactory.openConnection(session);
-                ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
-            Map<String, CaseSensitivity> caseSensitivityMapping = getCaseSensitivityForColumns(session, connection, tableHandle);
+                ResultSet resultSet = getColumns(remoteTableName, connection.getMetaData())) {
+            Map<String, CaseSensitivity> caseSensitivityMapping = getCaseSensitivityForColumns(session, connection, remoteTableName);
             int allColumns = 0;
             List<JdbcColumnHandle> columns = new ArrayList<>();
             while (resultSet.next()) {
@@ -544,7 +550,13 @@ public abstract class BaseJdbcClient
         }
     }
 
+    @Deprecated
     protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, JdbcTableHandle tableHandle)
+    {
+        return ImmutableMap.of();
+    }
+
+    protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, RemoteTableName remoteTableName)
     {
         return ImmutableMap.of();
     }
@@ -559,10 +571,21 @@ public abstract class BaseJdbcClient
         return Optional.of(value);
     }
 
+    @Deprecated
     protected ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
             throws SQLException
     {
         RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
+        return metadata.getColumns(
+                remoteTableName.getCatalogName().orElse(null),
+                escapeObjectNameForMetadataQuery(remoteTableName.getSchemaName(), metadata.getSearchStringEscape()).orElse(null),
+                escapeObjectNameForMetadataQuery(remoteTableName.getTableName(), metadata.getSearchStringEscape()),
+                null);
+    }
+
+    protected ResultSet getColumns(RemoteTableName remoteTableName, DatabaseMetaData metadata)
+            throws SQLException
+    {
         return metadata.getColumns(
                 remoteTableName.getCatalogName().orElse(null),
                 escapeObjectNameForMetadataQuery(remoteTableName.getSchemaName(), metadata.getSearchStringEscape()).orElse(null),
