@@ -953,64 +953,6 @@ public class PhoenixClient
         return new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty());
     }
 
-    public JdbcTableHandle updatedScanColumnTable(ConnectorSession session, ConnectorTableHandle table, Optional<List<JdbcColumnHandle>> originalColumns, JdbcColumnHandle mergeRowIdColumnHandle)
-    {
-        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
-        if (originalColumns.isEmpty()) {
-            return tableHandle;
-        }
-        List<JdbcColumnHandle> scanColumnHandles = originalColumns.get();
-        checkArgument(!scanColumnHandles.isEmpty(), "Scan columns should not empty");
-        checkArgument(tryFind(scanColumnHandles.iterator(), column -> MERGE_ROW_ID_COLUMN_NAME.equalsIgnoreCase(column.getColumnName())).isPresent(), "Merge row id column must exist in original columns");
-
-        return new JdbcTableHandle(
-                tableHandle.getRelationHandle(),
-                tableHandle.getConstraint(),
-                tableHandle.getConstraintExpressions(),
-                tableHandle.getSortOrder(),
-                tableHandle.getLimit(),
-                Optional.of(getUpdatedScanColumnHandles(session, tableHandle, scanColumnHandles, mergeRowIdColumnHandle)),
-                tableHandle.getOtherReferencedTables(),
-                tableHandle.getNextSyntheticColumnId(),
-                tableHandle.getAuthorization(),
-                tableHandle.getUpdateAssignments());
-    }
-
-    private List<JdbcColumnHandle> getUpdatedScanColumnHandles(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> scanColumnHandles, JdbcColumnHandle mergeRowIdColumnHandle)
-    {
-        RowType columnType = (RowType) mergeRowIdColumnHandle.getColumnType();
-        List<JdbcColumnHandle> primaryKeyColumnHandles = getPrimaryKeyColumnHandles(session, tableHandle);
-        Set<String> mergeRowIdFieldNames = columnType.getFields().stream()
-                .map(RowType.Field::getName)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(toImmutableSet());
-        Set<String> primaryKeyColumnNames = primaryKeyColumnHandles.stream()
-                .map(JdbcColumnHandle::getColumnName)
-                .collect(toImmutableSet());
-        checkArgument(mergeRowIdFieldNames.containsAll(primaryKeyColumnNames), "Merge row id fields should contains all primary keys");
-
-        ImmutableList.Builder<JdbcColumnHandle> columnHandleBuilder = ImmutableList.builder();
-        scanColumnHandles.stream()
-                .filter(jdbcColumnHandle -> !MERGE_ROW_ID_COLUMN_NAME.equalsIgnoreCase(jdbcColumnHandle.getColumnName()))
-                .forEach(columnHandleBuilder::add);
-        // Add merge row id fields
-        for (JdbcColumnHandle columnHandle : primaryKeyColumnHandles) {
-            String columnName = columnHandle.getColumnName();
-            if (ROWKEY.equalsIgnoreCase(columnName)) {
-                checkArgument(primaryKeyColumnHandles.size() == 1, "Wrong primary keys");
-                columnHandleBuilder.add(ROWKEY_COLUMN_HANDLE);
-                break;
-            }
-
-            if (!tryFind(scanColumnHandles.iterator(), column -> column.getColumnName().equalsIgnoreCase(columnName)).isPresent()) {
-                columnHandleBuilder.add(columnHandle);
-            }
-        }
-
-        return columnHandleBuilder.build();
-    }
-
     public List<JdbcColumnHandle> getPrimaryKeyColumnHandles(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         if (tableHandle.getColumns().isPresent()) {
