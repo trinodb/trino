@@ -30,8 +30,7 @@
 * Add support for reading tables with [v2
   checkpoints](https://github.com/delta-io/delta/blob/master/PROTOCOL.md#v2-spec).
   ({issue}`19345`)
-* Add support for reading [shallow cloned
-  tables](https://docs.databricks.com/sql/language-manual/delta-clone.html).
+* Add support for reading [shallow cloned tables](delta-lake-shallow-clone).
   ({issue}`17011`)
 * {{breaking}} Remove support for split size configuration with the catalog
   properties `delta.max-initial-splits` and `delta.max-initial-split-size`, and
