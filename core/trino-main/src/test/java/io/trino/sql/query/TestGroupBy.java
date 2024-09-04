@@ -160,4 +160,129 @@ public class TestGroupBy
                 "SELECT null GROUP BY 1, 1"))
                 .matches("VALUES null");
     }
+
+    @Test
+    void testGroupByAll()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT *
+                FROM (VALUES 1) t(a)
+                GROUP BY ALL
+                """))
+                .matches("VALUES 1");
+
+        assertThat(assertions.query(
+                """
+                SELECT *
+                FROM (VALUES 1, 2) t(a)
+                GROUP BY ALL
+                """))
+                .matches("VALUES 1, 2");
+
+        assertThat(assertions.query(
+                """
+                SELECT sum(a)
+                FROM (VALUES (1), (2)) t(a)
+                GROUP BY ALL
+                """))
+                .matches("VALUES BIGINT '3'");
+
+        assertThat(assertions.query(
+                """
+                SELECT a, sum(b)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY ALL
+                """))
+                .matches("VALUES (1, BIGINT '30')");
+
+        assertThat(assertions.query(
+                """
+                SELECT a AS new_a, sum(b) AS sum_b
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY ALL
+                """))
+                .matches("VALUES (1, BIGINT '30')");
+
+        assertThat(assertions.query(
+                """
+                SELECT a + 1, sum(b)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY ALL
+                """))
+                .matches("VALUES (2, BIGINT '30')");
+
+        assertThat(assertions.query(
+                """
+                SELECT abs(a), sum(b)
+                FROM (VALUES (-1, 10), (-1, 20)) t(a, b)
+                GROUP BY ALL
+                """))
+                .matches("VALUES (1, BIGINT '30')");
+
+        assertThat(assertions.query(
+                """
+                SELECT sum(b), a
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY ALL
+                """))
+                .matches("VALUES (BIGINT '30', 1)");
+
+        assertThat(assertions.query(
+                """
+                SELECT sum(a)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY ALL
+                """))
+                .matches("VALUES (BIGINT '2')");
+
+        assertThat(assertions.query(
+                """
+                SELECT a, count(*)
+                FROM (VALUES 1, 2, 2) t(a)
+                GROUP BY ALL a
+                """))
+                .matches("VALUES (1, BIGINT '1'), (2, BIGINT '2')");
+
+        assertThat(assertions.query(
+                """
+                SELECT a, b, count(*)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY ALL a, b
+                """))
+                .matches("VALUES (1, 10, BIGINT '1'), (1, 20, BIGINT '1')");
+
+        // empty grouping set
+        assertThat(assertions.query(
+                """
+                SELECT count(*)
+                FROM (VALUES 1, 2, 3) t(a)
+                GROUP BY ALL ()
+                """))
+                .matches("VALUES BIGINT '3'");
+
+        // grouping element list doesn't specify all target column names
+        assertThat(assertions.query("""
+                SELECT a, b, count(*)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY ALL a
+                """))
+                .failure().hasMessage("line 1:11: 'b' must be an aggregate expression or appear in GROUP BY clause");
+
+        // GROUP BY without set quantifier should fail
+        assertThat(assertions.query("""
+                SELECT a, count(*)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY
+                """))
+                .failure().hasMessage("line 1:8: 'a' must be an aggregate expression or appear in GROUP BY clause");
+
+        // GROUP BY DISTINCT must have grouping element list
+        assertThat(assertions.query("""
+                SELECT a, count(*)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY DISTINCT
+                """))
+                .nonTrinoExceptionFailure().hasMessage("groupingElements must not be empty when type is DISTINCT");
+    }
 }
