@@ -595,6 +595,12 @@
                                     <old>interface io.trino.spi.exchange.ExchangeManagerHandleResolver</old>
                                     <justification>cleanup</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.type.TypeSignature io.trino.spi.type.TypeNotFoundException::getType()</old>
+                                    <justification>remove unused method to expand constructor parameters</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
