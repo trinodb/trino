@@ -1813,20 +1813,20 @@ public class TestSqlParser
     @Test
     public void testDropSchema()
     {
-        assertStatement("DROP SCHEMA test",
-                new DropSchema(QualifiedName.of("test"), false, false));
+        assertThat(statement("DROP SCHEMA test")).isEqualTo(
+                new DropSchema(location(1, 1), QualifiedName.of(List.of(new Identifier(location(1, 13), "test", false))), false, false));
 
-        assertStatement("DROP SCHEMA test CASCADE",
-                new DropSchema(QualifiedName.of("test"), false, true));
+        assertThat(statement("DROP SCHEMA test CASCADE")).isEqualTo(
+                new DropSchema(location(1, 1), QualifiedName.of(List.of(new Identifier(location(1, 13), "test", false))), false, true));
 
-        assertStatement("DROP SCHEMA IF EXISTS test",
-                new DropSchema(QualifiedName.of("test"), true, false));
+        assertThat(statement("DROP SCHEMA IF EXISTS test")).isEqualTo(
+                new DropSchema(location(1, 1), QualifiedName.of(List.of(new Identifier(location(1, 23), "test", false))), true, false));
 
-        assertStatement("DROP SCHEMA IF EXISTS test RESTRICT",
-                new DropSchema(QualifiedName.of("test"), true, false));
+        assertThat(statement("DROP SCHEMA IF EXISTS test RESTRICT")).isEqualTo(
+                new DropSchema(location(1, 1), QualifiedName.of(List.of(new Identifier(location(1, 23), "test", false))), true, false));
 
-        assertStatement("DROP SCHEMA \"some schema that contains space\"",
-                new DropSchema(QualifiedName.of("some schema that contains space"), false, false));
+        assertThat(statement("DROP SCHEMA \"some schema that contains space\"")).isEqualTo(
+                new DropSchema(location(1, 1), QualifiedName.of(List.of(new Identifier(location(1, 13), "some schema that contains space", true))), false, false));
     }
 
     @Test
