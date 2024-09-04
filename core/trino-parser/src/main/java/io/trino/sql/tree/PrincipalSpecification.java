@@ -15,7 +15,7 @@ package io.trino.sql.tree;
 
 import static java.util.Objects.requireNonNull;
 
-public record PrincipalSpecification(io.trino.sql.tree.PrincipalSpecification.Type type, Identifier name)
+public record PrincipalSpecification(Type type, Identifier name)
 {
     public enum Type
     {
