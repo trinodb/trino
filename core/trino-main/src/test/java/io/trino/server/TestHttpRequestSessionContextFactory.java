@@ -164,6 +164,18 @@ public class TestHttpRequestSessionContextFactory
                 .hasMessageMatching("Invalid " + protocolHeaders.requestPreparedStatement() + " header: line 1:1: mismatched input 'abcdefg'. Expecting: .*");
     }
 
+    @Test
+    public void testInternalExtraCredentialName()
+    {
+        MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
+                .put(TRINO_HEADERS.requestUser(), "testUser")
+                .put(TRINO_HEADERS.requestExtraCredential(), "internal$abc=xyz")
+                .build());
+
+        assertInvalidSession(TRINO_HEADERS, headers)
+                .hasMessage("Invalid extra credential name: internal$abc");
+    }
+
     private static AbstractThrowableAssert<?, ? extends Throwable> assertInvalidSession(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
         return assertThatThrownBy(
