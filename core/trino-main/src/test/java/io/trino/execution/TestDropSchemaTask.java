@@ -23,8 +23,11 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.DropSchema;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
+
+import java.util.Optional;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
@@ -44,7 +47,7 @@ public class TestDropSchemaTask
     public void testDropSchemaRestrict()
     {
         CreateSchemaTask createSchemaTask = getCreateSchemaTask();
-        CreateSchema createSchema = new CreateSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, ImmutableList.of());
+        CreateSchema createSchema = new CreateSchema(new NodeLocation(1, 1), QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, ImmutableList.of(), Optional.empty());
         getFutureValue(createSchemaTask.execute(createSchema, queryStateMachine, emptyList(), NOOP));
         assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isTrue();
 
@@ -62,7 +65,7 @@ public class TestDropSchemaTask
     public void testDropNonEmptySchemaRestrict()
     {
         CreateSchemaTask createSchemaTask = getCreateSchemaTask();
-        CreateSchema createSchema = new CreateSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, ImmutableList.of());
+        CreateSchema createSchema = new CreateSchema(new NodeLocation(1, 1), QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, ImmutableList.of(), Optional.empty());
         getFutureValue(createSchemaTask.execute(createSchema, queryStateMachine, emptyList(), NOOP));
 
         DropSchemaTask dropSchemaTask = getDropSchemaTask();
@@ -93,7 +96,7 @@ public class TestDropSchemaTask
     public void testDropSchemaCascade()
     {
         CreateSchemaTask createSchemaTask = getCreateSchemaTask();
-        CreateSchema createSchema = new CreateSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, ImmutableList.of());
+        CreateSchema createSchema = new CreateSchema(new NodeLocation(1, 1), QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, ImmutableList.of(), Optional.empty());
         getFutureValue(createSchemaTask.execute(createSchema, queryStateMachine, emptyList(), NOOP));
         assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isTrue();
 
@@ -108,7 +111,7 @@ public class TestDropSchemaTask
     public void testDropNonEmptySchemaCascade()
     {
         CreateSchemaTask createSchemaTask = getCreateSchemaTask();
-        CreateSchema createSchema = new CreateSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, ImmutableList.of());
+        CreateSchema createSchema = new CreateSchema(new NodeLocation(1, 1), QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, ImmutableList.of(), Optional.empty());
         getFutureValue(createSchemaTask.execute(createSchema, queryStateMachine, emptyList(), NOOP));
 
         DropSchemaTask dropSchemaTask = getDropSchemaTask();
