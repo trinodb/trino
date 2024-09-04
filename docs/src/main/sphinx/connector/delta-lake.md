@@ -709,6 +709,17 @@ WITH (
 AS SELECT name, comment, regionkey FROM tpch.tiny.nation;
 ```
 
+(delta-lake-shallow-clone)=
+#### Shallow cloned tables
+
+The connector supports read and write operations on shallow cloned tables. Trino
+does not support creating shallow clone tables. More information about shallow
+cloning is available in the [Delta Lake
+documentation](https://docs.delta.io/latest/delta-utility.html#shallow-clone-a-delta-table).
+
+Shallow cloned tables let you test queries or experiment with changes to a table
+without duplicating data.
+
 #### Metadata tables
 
 The connector exposes several metadata tables for each Delta Lake table.
