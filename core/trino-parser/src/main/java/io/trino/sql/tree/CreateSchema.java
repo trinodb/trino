@@ -30,24 +30,9 @@ public class CreateSchema
     private final List<Property> properties;
     private final Optional<PrincipalSpecification> principal;
 
-    public CreateSchema(QualifiedName schemaName, boolean notExists, List<Property> properties)
-    {
-        this(Optional.empty(), schemaName, notExists, properties, Optional.empty());
-    }
-
-    public CreateSchema(QualifiedName schemaName, boolean notExists, List<Property> properties, Optional<PrincipalSpecification> principal)
-    {
-        this(Optional.empty(), schemaName, notExists, properties, principal);
-    }
-
     public CreateSchema(NodeLocation location, QualifiedName schemaName, boolean notExists, List<Property> properties, Optional<PrincipalSpecification> principal)
     {
-        this(Optional.of(location), schemaName, notExists, properties, principal);
-    }
-
-    private CreateSchema(Optional<NodeLocation> location, QualifiedName schemaName, boolean notExists, List<Property> properties, Optional<PrincipalSpecification> principal)
-    {
-        super(location);
+        super(Optional.of(location));
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.notExists = notExists;
         this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));

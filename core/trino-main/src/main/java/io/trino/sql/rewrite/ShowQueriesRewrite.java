@@ -676,6 +676,7 @@ public final class ShowQueriesRewrite
             Optional<PrincipalSpecification> owner = metadata.getSchemaOwner(session, schemaName).map(MetadataUtil::createPrincipal);
 
             CreateSchema createSchema = new CreateSchema(
+                    node.getLocation().orElseThrow(),
                     qualifiedSchemaName,
                     false,
                     propertyNodes,

@@ -1790,22 +1790,24 @@ public class TestSqlParser
     @Test
     public void testCreateSchema()
     {
-        assertStatement("CREATE SCHEMA test",
-                new CreateSchema(QualifiedName.of("test"), false, ImmutableList.of()));
+        assertThat(statement("CREATE SCHEMA test"))
+                .isEqualTo(new CreateSchema(location(1, 1), QualifiedName.of(List.of(new Identifier(location(1, 15), "test", false))), false, ImmutableList.of(), Optional.empty()));
 
-        assertStatement("CREATE SCHEMA IF NOT EXISTS test",
-                new CreateSchema(QualifiedName.of("test"), true, ImmutableList.of()));
+        assertThat(statement("CREATE SCHEMA IF NOT EXISTS test"))
+                .isEqualTo(new CreateSchema(location(1, 1), QualifiedName.of(List.of(new Identifier(location(1, 29), "test", false))), true, ImmutableList.of(), Optional.empty()));
 
-        assertStatement("CREATE SCHEMA test WITH (a = 'apple', b = 123)",
+        assertThat(statement("CREATE SCHEMA test WITH (a = 'apple', b = 123)")).isEqualTo(
                 new CreateSchema(
-                        QualifiedName.of("test"),
+                        location(1, 1),
+                        QualifiedName.of(List.of(new Identifier(location(1, 15), "test", false))),
                         false,
                         ImmutableList.of(
-                                new Property(new Identifier("a"), new StringLiteral("apple")),
-                                new Property(new Identifier("b"), new LongLiteral("123")))));
+                                new Property(location(1, 26), new Identifier(location(1, 26), "a", false), new StringLiteral(location(1, 30), "apple")),
+                                new Property(location(1, 39), new Identifier(location(1, 39), "b", false), new LongLiteral(location(1, 43), "123"))),
+                        Optional.empty()));
 
-        assertStatement("CREATE SCHEMA \"some name that contains space\"",
-                new CreateSchema(QualifiedName.of("some name that contains space"), false, ImmutableList.of()));
+        assertThat(statement("CREATE SCHEMA \"some name that contains space\""))
+                .isEqualTo(new CreateSchema(location(1, 1), QualifiedName.of(List.of(new Identifier(location(1, 15), "some name that contains space", true))), false, ImmutableList.of(), Optional.empty()));
     }
 
     @Test
