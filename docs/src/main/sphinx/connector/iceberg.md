@@ -187,7 +187,15 @@ implementation is used:
   - Set to `false` to disable in-memory caching of metadata files on the 
     coordinator. This cache is not used when `fs.cache.enabled` is set to true.
   - `true`
-
+* - `iceberg.object-store.enabled`
+  - Set to `true` to enable Iceberg's [object store file layout](https://iceberg.apache.org/docs/latest/aws/#object-store-file-layout). 
+    Enabling the object store file layout appends a deterministic hash directly after the 
+    data write path, configured via `iceberg.data-location`, to ensure data files are equally
+    distributed across multiple paths in a cloud storage service to avoid request throttling.
+  - `false`
+*  - `iceberg.data-location`
+   - Sets the path that data files will be written to
+   - table location + /data
 :::
 
 (iceberg-fte-support)=
