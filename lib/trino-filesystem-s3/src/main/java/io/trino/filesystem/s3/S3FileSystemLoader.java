@@ -79,6 +79,7 @@ final class S3FileSystemLoader
                 config.getSseType(),
                 config.getSseKmsKeyId(),
                 Optional.empty(),
+                Optional.empty(),
                 config.getCannedAcl(),
                 config.isSupportsExclusiveCreate());
     }

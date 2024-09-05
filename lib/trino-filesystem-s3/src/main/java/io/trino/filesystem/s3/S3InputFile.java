@@ -30,7 +30,9 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
 
+import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.CUSTOMER;
 import static java.util.Objects.requireNonNull;
+import static software.amazon.awssdk.services.s3.model.ServerSideEncryption.AES256;
 
 final class S3InputFile
         implements TrinoInputFile
@@ -104,6 +106,14 @@ final class S3InputFile
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
+                .applyMutation(builder -> {
+                    if (context.sseType() == CUSTOMER) {
+                        builder
+                                .sseCustomerKey(context.encryptionKey().get())
+                                .sseCustomerAlgorithm(AES256.toString())
+                                .sseCustomerKeyMD5(context.encryptionKeyMd5().get());
+                    }
+                })
                 .build();
     }
 
@@ -115,6 +125,14 @@ final class S3InputFile
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
+                .applyMutation(builder -> {
+                    if (context.sseType() == CUSTOMER) {
+                        builder
+                                .sseCustomerKey(context.encryptionKey().get())
+                                .sseCustomerAlgorithm(AES256.toString())
+                                .sseCustomerKeyMD5(context.encryptionKeyMd5().get());
+                    }
+                })
                 .build();
 
         try {

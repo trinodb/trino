@@ -22,15 +22,20 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 
+import java.util.Base64;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
+import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.CUSTOMER;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
+import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SSEC_KEY;
 import static java.util.Objects.requireNonNull;
+import static software.amazon.awssdk.utils.Md5Utils.md5AsBase64;
 
-record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String sseKmsKeyId, Optional<AwsCredentialsProvider> credentialsProviderOverride, ObjectCannedAcl cannedAcl, boolean exclusiveWriteSupported)
+record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String sseKmsKeyId, Optional<AwsCredentialsProvider> credentialsProviderOverride, Optional<String> encryptionKey, ObjectCannedAcl cannedAcl, boolean exclusiveWriteSupported)
 {
     private static final int MIN_PART_SIZE = 5 * 1024 * 1024; // S3 requirement
 
@@ -49,7 +54,7 @@ record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String 
 
     public S3Context withKmsKeyId(String kmsKeyId)
     {
-        return new S3Context(partSize, requesterPays, sseType, kmsKeyId, credentialsProviderOverride, cannedAcl, exclusiveWriteSupported);
+        return new S3Context(partSize, requesterPays, sseType, kmsKeyId, credentialsProviderOverride, encryptionKey, cannedAcl, exclusiveWriteSupported);
     }
 
     public S3Context withCredentials(ConnectorIdentity identity)
@@ -61,6 +66,13 @@ record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String 
                     identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY)));
             return withCredentialsProviderOverride(credentialsProvider);
         }
+
+        if (identity.getExtraCredentials().containsKey(EXTRA_CREDENTIALS_SSEC_KEY)) {
+            byte[] decodedKey = Base64.getDecoder().decode(identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SSEC_KEY));
+            verify(decodedKey.length == 32, "AES encryption key must be 256 bits long");
+            return withCustomerEncryptionKey(identity.getExtraCredentials().get(EXTRA_CREDENTIALS_SSEC_KEY));
+        }
+
         return this;
     }
 
@@ -72,6 +84,21 @@ record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String 
                 sseType,
                 sseKmsKeyId,
                 Optional.of(credentialsProviderOverride),
+                encryptionKey,
+                cannedAcl,
+                exclusiveWriteSupported);
+    }
+
+    public S3Context withCustomerEncryptionKey(String serializedKey)
+    {
+        verify(sseType == S3SseType.NONE, "encryption key can only be set when S3SseType is NONE");
+        return new S3Context(
+                partSize,
+                requesterPays,
+                CUSTOMER,
+                sseKmsKeyId,
+                credentialsProviderOverride,
+                Optional.of(serializedKey),
                 cannedAcl,
                 exclusiveWriteSupported);
     }
@@ -79,5 +106,15 @@ record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String 
     public void applyCredentialProviderOverride(AwsRequestOverrideConfiguration.Builder builder)
     {
         credentialsProviderOverride.ifPresent(builder::credentialsProvider);
+    }
+
+    public Optional<String> encryptionKeyMd5()
+    {
+        return encryptionKey.map(S3Context::md5Sum);
+    }
+
+    private static String md5Sum(String key)
+    {
+        return md5AsBase64(Base64.getDecoder().decode(key));
     }
 }

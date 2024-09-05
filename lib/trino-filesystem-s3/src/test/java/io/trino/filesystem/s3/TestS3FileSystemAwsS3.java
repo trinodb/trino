@@ -13,9 +13,14 @@
  */
 package io.trino.filesystem.s3;
 
+import com.google.common.io.ByteStreams;
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.FileEntry;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputStream;
+import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -25,12 +30,19 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.ObjectStorageClass;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+import javax.crypto.KeyGenerator;
+
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestS3FileSystemAwsS3
         extends AbstractTestS3FileSystem
@@ -105,6 +117,52 @@ public class TestS3FileSystemAwsS3
             finally {
                 s3Client.deleteObject(delete -> delete.bucket(bucket()).key(key));
             }
+        }
+    }
+
+    @Test
+    public void testSseCEncryptionRoundTrip()
+            throws NoSuchAlgorithmException, IOException
+    {
+        KeyGenerator generator = KeyGenerator.getInstance("AES");
+        generator.init(256);
+
+        String customerKey = Base64.getEncoder().encodeToString(generator.generateKey().getEncoded());
+        Location encryptedLocation = createLocation("encrypted");
+
+        TrinoFileSystem encryptedFileSystem = createS3FileSystemFactory().create(ConnectorIdentity
+                .forUser("test")
+                .withExtraCredentials(Map.of(S3FileSystemConstants.EXTRA_CREDENTIALS_SSEC_KEY, customerKey))
+                .build());
+
+        encryptedFileSystem.newOutputFile(encryptedLocation).createOrOverwrite("encoded content".getBytes(UTF_8));
+
+        // GET without key
+        assertThatThrownBy(() -> readFully(getFileSystem().newInputFile(encryptedLocation).newStream()))
+                .isInstanceOf(IOException.class)
+                .hasStackTraceContaining("The object was stored using a form of Server Side Encryption")
+                .hasMessage("Failed to open S3 file: s3://%s/encrypted".formatted(bucket()));
+
+        // HEAD without key
+        assertThatThrownBy(() -> getFileSystem().newInputFile(encryptedLocation).exists())
+                .isInstanceOf(IOException.class)
+                .hasMessage("S3 HEAD request failed for file: s3://%s/encrypted".formatted(bucket()));
+
+        // GET with key
+        assertThat(new String(readFully(encryptedFileSystem.newInputFile(encryptedLocation).newStream()), UTF_8))
+                .isEqualTo("encoded content");
+
+        // HEAD with key
+        assertThat(encryptedFileSystem.newInputFile(encryptedLocation).exists()).isTrue();
+
+        encryptedFileSystem.deleteFile(encryptedLocation);
+    }
+
+    private static byte[] readFully(TrinoInputStream inputStream)
+            throws IOException
+    {
+        try (inputStream) {
+            return ByteStreams.toByteArray(inputStream);
         }
     }
 }

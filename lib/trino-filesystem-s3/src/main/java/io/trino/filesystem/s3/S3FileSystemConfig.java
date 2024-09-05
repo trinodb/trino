@@ -41,7 +41,7 @@ public class S3FileSystemConfig
 {
     public enum S3SseType
     {
-        NONE, S3, KMS
+        NONE, S3, KMS, CUSTOMER;
     }
 
     public enum ObjectCannedAcl

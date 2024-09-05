@@ -220,6 +220,10 @@ final class S3OutputStream
                             case NONE -> { /* ignored */ }
                             case S3 -> builder.serverSideEncryption(AES256);
                             case KMS -> builder.serverSideEncryption(AWS_KMS).ssekmsKeyId(sseKmsKeyId);
+                            case CUSTOMER -> builder
+                                    .sseCustomerAlgorithm(AES256.toString())
+                                    .sseCustomerKey(context.encryptionKey().orElseThrow())
+                                    .sseCustomerKeyMD5(context.encryptionKeyMd5().orElseThrow());
                         }
                     })
                     .build();
@@ -305,6 +309,10 @@ final class S3OutputStream
                             case NONE -> { /* ignored */ }
                             case S3 -> builder.serverSideEncryption(AES256);
                             case KMS -> builder.serverSideEncryption(AWS_KMS).ssekmsKeyId(sseKmsKeyId);
+                            case CUSTOMER -> builder
+                                    .sseCustomerAlgorithm(AES256.toString())
+                                    .sseCustomerKey(context.encryptionKey().orElseThrow())
+                                    .sseCustomerKeyMD5(context.encryptionKeyMd5().orElseThrow());
                         }
                     })
                     .build();
