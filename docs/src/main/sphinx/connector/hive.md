@@ -127,6 +127,9 @@ Hive connector documentation.
     equivalent catalog session property is `parquet_use_column_names`. See also,
     [](parquet-format-configuration)
   - `true`
+* - `hive.parquet.time-zone`
+  - Time zone for Parquet read and write.
+  - JVM default
 * - `hive.compression-codec`
   - The compression codec to use when writing files. Possible values are `NONE`,
     `SNAPPY`, `LZ4`, `ZSTD`, or `GZIP`.
