@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake.metastore.glue.v1;
 
-import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
@@ -24,8 +23,9 @@ import io.trino.plugin.deltalake.MaxTableParameterLength;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableOperationsProvider;
 import io.trino.plugin.deltalake.metastore.glue.DeltaLakeGlueMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
-import io.trino.plugin.hive.metastore.glue.v1.ForGlueHiveMetastore;
-import io.trino.plugin.hive.metastore.glue.v1.GlueMetastoreModule;
+import io.trino.plugin.hive.metastore.glue.v2.ForGlueHiveMetastore;
+import io.trino.plugin.hive.metastore.glue.v2.GlueMetastoreModule;
+import software.amazon.awssdk.services.glue.model.Table;
 
 import java.util.function.Predicate;
 

@@ -11,12 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue.v1;
+package io.trino.plugin.hive.metastore.glue.v2;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.handlers.RequestHandler2;
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
@@ -30,11 +26,16 @@ import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.instrumentation.awssdk.v1_11.AwsSdkTelemetry;
+import io.opentelemetry.instrumentation.awssdk.v2_2.AwsSdkTelemetry;
 import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.Table;
 
 import java.lang.annotation.Annotation;
 import java.util.concurrent.Executor;
@@ -59,11 +60,11 @@ public class GlueMetastoreModule
     protected void setup(Binder binder)
     {
         GlueHiveMetastoreConfig glueConfig = buildConfigObject(GlueHiveMetastoreConfig.class);
-        Multibinder<RequestHandler2> requestHandlers = newSetBinder(binder, RequestHandler2.class, ForGlueHiveMetastore.class);
-        glueConfig.getCatalogId().ifPresent(catalogId -> requestHandlers.addBinding().toInstance(new GlueCatalogIdRequestHandler(catalogId)));
-        glueConfig.getGlueProxyApiId().ifPresent(glueProxyApiId -> requestHandlers.addBinding()
+        Multibinder<ExecutionInterceptor> interceptors = newSetBinder(binder, ExecutionInterceptor.class, ForGlueHiveMetastore.class);
+        glueConfig.getCatalogId().ifPresent(catalogId -> interceptors.addBinding().toInstance(new GlueCatalogIdRequestHandler(catalogId)));
+        glueConfig.getGlueProxyApiId().ifPresent(glueProxyApiId -> interceptors.addBinding()
                 .toInstance(new ProxyApiRequestHandler(glueProxyApiId)));
-        binder.bind(AWSCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
+        binder.bind(AwsCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, Key.get(new TypeLiteral<Predicate<Table>>() {}, ForGlueHiveMetastore.class))
                 .setDefault().toProvider(DefaultGlueMetastoreTableFilterProvider.class).in(Scopes.SINGLETON);
@@ -77,8 +78,10 @@ public class GlueMetastoreModule
         // export under the old name, for backwards compatibility
         binder.bind(GlueHiveMetastoreFactory.class).in(Scopes.SINGLETON);
         binder.bind(Key.get(GlueMetastoreStats.class, ForGlueHiveMetastore.class)).toInstance(new GlueMetastoreStats());
-        binder.bind(AWSGlueAsync.class).toProvider(HiveGlueClientProvider.class).in(Scopes.SINGLETON);
-        closingBinder(binder).registerResource(AWSGlueAsync.class, AWSGlueAsync::shutdown);
+        binder.bind(GlueAsyncClient.class).toProvider(HiveGlueAsyncClientProvider.class).in(Scopes.SINGLETON);
+        binder.bind(GlueClient.class).toProvider(HiveGlueClientProvider.class).in(Scopes.SINGLETON);
+        closingBinder(binder).registerResource(GlueAsyncClient.class, GlueAsyncClient::close);
+        closingBinder(binder).registerResource(GlueClient.class, GlueClient::close);
         newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
 
         binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(false);
@@ -94,12 +97,13 @@ public class GlueMetastoreModule
     @ProvidesIntoSet
     @Singleton
     @ForGlueHiveMetastore
-    public RequestHandler2 createRequestHandler(OpenTelemetry openTelemetry)
+    public ExecutionInterceptor telemetryInterceptor(OpenTelemetry openTelemetry)
     {
-        return AwsSdkTelemetry.builder(openTelemetry)
+        return AwsSdkTelemetry
+                .builder(openTelemetry)
                 .setCaptureExperimentalSpanAttributes(true)
                 .build()
-                .newRequestHandler();
+                .newExecutionInterceptor();
     }
 
     private void createExecutor(Class<? extends Annotation> annotationClass, String nameTemplate, Function<GlueHiveMetastoreConfig, Integer> threads)

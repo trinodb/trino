@@ -13,32 +13,32 @@
  */
 package io.trino.plugin.deltalake.metastore.glue.v1;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.model.EntityNotFoundException;
-import com.amazonaws.services.glue.model.GetTableRequest;
-import com.amazonaws.services.glue.model.Table;
-import com.amazonaws.services.glue.model.TableInput;
-import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableOperations;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.GetTableRequest;
+import software.amazon.awssdk.services.glue.model.Table;
+import software.amazon.awssdk.services.glue.model.TableInput;
+import software.amazon.awssdk.services.glue.model.UpdateTableRequest;
 
 import java.util.Optional;
 
 import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.tableMetadataParameters;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter.convertGlueTableToTableInput;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v2.converter.GlueInputConverter.convertGlueTableToTableInput;
+import static io.trino.plugin.hive.metastore.glue.v2.converter.GlueToTrinoConverter.getTableParameters;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeGlueV1MetastoreTableOperations
         implements DeltaLakeTableOperations
 {
-    private final AWSGlueAsync glueClient;
+    private final GlueClient glueClient;
     private final GlueMetastoreStats stats;
 
-    public DeltaLakeGlueV1MetastoreTableOperations(AWSGlueAsync glueClient, GlueMetastoreStats stats)
+    public DeltaLakeGlueV1MetastoreTableOperations(GlueClient glueClient, GlueMetastoreStats stats)
     {
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.stats = requireNonNull(stats, "stats is null");
@@ -47,28 +47,33 @@ public class DeltaLakeGlueV1MetastoreTableOperations
     @Override
     public void commitToExistingTable(SchemaTableName schemaTableName, long version, String schemaString, Optional<String> tableComment)
     {
-        GetTableRequest getTableRequest = new GetTableRequest()
-                .withDatabaseName(schemaTableName.getSchemaName())
-                .withName(schemaTableName.getTableName());
+        GetTableRequest getTableRequest = GetTableRequest.builder()
+                .databaseName(schemaTableName.getSchemaName())
+                .name(schemaTableName.getTableName())
+                .build();
         Table currentTable;
         try {
-            currentTable = glueClient.getTable(getTableRequest).getTable();
+            currentTable = glueClient.getTable(getTableRequest).table();
         }
         catch (EntityNotFoundException e) {
             throw new TableNotFoundException(schemaTableName);
         }
-        String glueVersionId = currentTable.getVersionId();
+        String glueVersionId = currentTable.versionId();
 
-        TableInput tableInput = convertGlueTableToTableInput(currentTable);
         ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
         parameters.putAll(getTableParameters(currentTable));
         parameters.putAll(tableMetadataParameters(version, schemaString, tableComment));
-        tableInput.withParameters(parameters.buildKeepingLast());
 
-        UpdateTableRequest updateTableRequest = new UpdateTableRequest()
-                .withDatabaseName(schemaTableName.getSchemaName())
-                .withTableInput(tableInput)
-                .withVersionId(glueVersionId);
+        TableInput tableInput = convertGlueTableToTableInput(currentTable)
+                .toBuilder()
+                .parameters(parameters.buildKeepingLast())
+                .build();
+
+        UpdateTableRequest updateTableRequest = UpdateTableRequest.builder()
+                .databaseName(schemaTableName.getSchemaName())
+                .tableInput(tableInput)
+                .versionId(glueVersionId)
+                .build();
         stats.getUpdateTable().call(() -> glueClient.updateTable(updateTableRequest));
     }
 }

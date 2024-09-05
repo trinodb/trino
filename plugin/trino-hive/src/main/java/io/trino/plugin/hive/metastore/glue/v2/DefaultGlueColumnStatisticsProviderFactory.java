@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue.v1;
+package io.trino.plugin.hive.metastore.glue.v2;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.inject.Inject;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.util.concurrent.Executor;
 
@@ -37,7 +37,7 @@ public class DefaultGlueColumnStatisticsProviderFactory
     }
 
     @Override
-    public GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(AWSGlueAsync glueClient, GlueMetastoreStats stats)
+    public GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(GlueClient glueClient, GlueMetastoreStats stats)
     {
         return new DefaultGlueColumnStatisticsProvider(
                 glueClient,

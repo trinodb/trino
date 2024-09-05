@@ -11,16 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue.v1;
+package io.trino.plugin.hive.metastore.glue.v2;
 
-import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.trino.plugin.hive.HideDeltaLakeTables;
+import software.amazon.awssdk.services.glue.model.Table;
 
 import java.util.function.Predicate;
 
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v2.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static java.util.function.Predicate.not;
 

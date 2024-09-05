@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue.v1;
+package io.trino.plugin.hive.metastore.glue.v2;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import software.amazon.awssdk.services.glue.GlueClient;
 
 public interface GlueColumnStatisticsProviderFactory
 {
-    GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(AWSGlueAsync glueClient, GlueMetastoreStats stats);
+    GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(GlueClient glueClient, GlueMetastoreStats stats);
 }

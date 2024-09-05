@@ -11,45 +11,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue.v1;
+package io.trino.plugin.hive.metastore.glue.v2;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.handlers.RequestHandler2;
-import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.util.Set;
 
-import static io.trino.plugin.hive.metastore.glue.v1.GlueClientUtil.createAsyncGlueClient;
+import static io.trino.plugin.hive.metastore.glue.v2.GlueClientUtil.createGlueClient;
 import static java.util.Objects.requireNonNull;
 
 public class HiveGlueClientProvider
-        implements Provider<AWSGlueAsync>
+        implements Provider<GlueClient>
 {
     private final GlueMetastoreStats stats;
-    private final AWSCredentialsProvider credentialsProvider;
+    private final AwsCredentialsProvider credentialsProvider;
     private final GlueHiveMetastoreConfig glueConfig; // TODO do not keep mutable config instance on a field
-    private final Set<RequestHandler2> requestHandlers;
+    private final Set<ExecutionInterceptor> interceptors;
 
     @Inject
     public HiveGlueClientProvider(
             @ForGlueHiveMetastore GlueMetastoreStats stats,
-            AWSCredentialsProvider credentialsProvider,
-            @ForGlueHiveMetastore Set<RequestHandler2> requestHandlers,
-            GlueHiveMetastoreConfig glueConfig)
+            AwsCredentialsProvider credentialsProvider,
+            GlueHiveMetastoreConfig glueConfig,
+            @ForGlueHiveMetastore Set<ExecutionInterceptor> interceptors)
     {
         this.stats = requireNonNull(stats, "stats is null");
         this.credentialsProvider = requireNonNull(credentialsProvider, "credentialsProvider is null");
-        this.requestHandlers = ImmutableSet.copyOf(requireNonNull(requestHandlers, "requestHandlers is null"));
         this.glueConfig = glueConfig;
+        this.interceptors = ImmutableSet.copyOf(interceptors);
     }
 
     @Override
-    public AWSGlueAsync get()
+    public GlueClient get()
     {
-        return createAsyncGlueClient(glueConfig, credentialsProvider, requestHandlers, stats.newRequestMetricsCollector());
+        return createGlueClient(glueConfig, credentialsProvider, interceptors, stats.newRequestMetricsCollector());
     }
 }

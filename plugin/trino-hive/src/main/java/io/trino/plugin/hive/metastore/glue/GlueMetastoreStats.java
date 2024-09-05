@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.metrics.RequestMetricCollector;
-import io.trino.plugin.hive.metastore.glue.v1.AwsSdkClientCoreStats;
+import io.trino.plugin.hive.metastore.glue.v2.AwsSdkClientCoreStats;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
+import software.amazon.awssdk.metrics.MetricPublisher;
 
 public class GlueMetastoreStats
 {
@@ -263,7 +263,7 @@ public class GlueMetastoreStats
         return clientCoreStats;
     }
 
-    public RequestMetricCollector newRequestMetricsCollector()
+    public MetricPublisher newRequestMetricsCollector()
     {
         return clientCoreStats.newRequestMetricCollector();
     }

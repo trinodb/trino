@@ -11,16 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue.v1;
+package io.trino.plugin.hive.metastore.glue.v2;
 
-import com.amazonaws.AmazonWebServiceRequest;
-import com.amazonaws.Request;
-import com.amazonaws.handlers.RequestHandler2;
+import software.amazon.awssdk.core.interceptor.Context;
+import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.http.SdkHttpRequest;
+
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
 public class ProxyApiRequestHandler
-        extends RequestHandler2
+        implements ExecutionInterceptor
 {
     private final String proxyApiId;
 
@@ -30,19 +33,19 @@ public class ProxyApiRequestHandler
     }
 
     @Override
-    public AmazonWebServiceRequest beforeExecution(AmazonWebServiceRequest request)
+    public SdkHttpRequest modifyHttpRequest(Context.ModifyHttpRequest context, ExecutionAttributes executionAttributes)
     {
-        request.putCustomRequestHeader("x-apigw-api-id", proxyApiId);
-        return request;
-    }
+        SdkHttpRequest.Builder builder = (SdkHttpRequest.Builder) context.request()
+                .toBuilder();
 
-    @Override
-    public void beforeRequest(Request<?> request)
-    {
+        builder.appendHeader("x-apigw-api-id", proxyApiId);
+
         // AWS Glue SDK will append "X-Amz-Target" header to requests (with "AWSGlue" prefix).
         // This misleads API Gateway (Glue proxy) that it's not the target of the REST call. Therefore, we
         // need to pass "X-Amz-Target" value in a special HTTP header that is translated back to "X-Amz-Target"
         // when API Gateway makes request to AWSGlue.
-        request.getHeaders().put("X-Trino-Amz-Target-Proxy", request.getHeaders().remove("X-Amz-Target"));
+        List<String> amzTarget = builder.headers().get("X-Amz-Target");
+        builder.appendHeader("X-Trino-Amz-Target-Proxy", amzTarget.getFirst());
+        return builder.build();
     }
 }

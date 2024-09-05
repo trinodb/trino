@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore.glue.v1;
+package io.trino.plugin.hive.metastore.glue.v2;
 
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
 import com.google.common.base.Suppliers;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 
 import java.util.function.Supplier;
 
@@ -41,7 +41,7 @@ final class AwsCurrentRegionHolder
 
     private static Region loadCurrentRegion()
     {
-        Region result = Regions.getCurrentRegion();
+        Region result = DefaultAwsRegionProviderChain.builder().build().getRegion();
         if (result == null) {
             throw new IllegalStateException("Failed to resolve current AWS region from EC2 metadata");
         }

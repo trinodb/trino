@@ -13,23 +13,23 @@
  */
 package io.trino.plugin.deltalake.metastore.glue.v1;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.inject.Inject;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableOperations;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableOperationsProvider;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.spi.connector.ConnectorSession;
+import software.amazon.awssdk.services.glue.GlueClient;
 
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeGlueV1MetastoreTableOperationsProvider
         implements DeltaLakeTableOperationsProvider
 {
-    private final AWSGlueAsync glueClient;
+    private final GlueClient glueClient;
     private final GlueMetastoreStats stats;
 
     @Inject
-    public DeltaLakeGlueV1MetastoreTableOperationsProvider(AWSGlueAsync glueClient, GlueMetastoreStats stats)
+    public DeltaLakeGlueV1MetastoreTableOperationsProvider(GlueClient glueClient, GlueMetastoreStats stats)
     {
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.stats = requireNonNull(stats, "stats is null");
