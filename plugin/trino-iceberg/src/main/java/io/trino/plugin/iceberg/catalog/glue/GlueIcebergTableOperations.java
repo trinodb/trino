@@ -160,7 +160,7 @@ public class GlueIcebergTableOperations
         commitTableUpdate(
                 getTable(database, tableName, false),
                 metadata,
-                (table, newMetadataLocation) ->
+                (_, newMetadataLocation) ->
                         getTableInput(
                                 typeManager,
                                 tableName,
