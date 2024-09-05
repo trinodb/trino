@@ -512,11 +512,13 @@ the property may be configured for:
   - HDFS
 :::
 
-It is recommended to set the `exchange.compression-codec` property to
-`LZ4` in the cluster's `config.properties` file, to reduce the exchange
-manager's overall I/O load. It is also recommended to configure a bucket
-lifecycle rule to automatically expire abandoned objects in the event of a node
-crash.
+It is recommended to set the `exchange.compression-codec` property to `LZ4` in
+the cluster's `config.properties` file, to reduce the exchange manager's overall
+I/O load. [](file-compression) is automatically performed and some details can
+be configured.
+
+It is also recommended to configure a bucket lifecycle rule to automatically
+expire abandoned objects in the event of a node crash.
 
 (fte-exchange-aws-s3)=
 #### AWS S3

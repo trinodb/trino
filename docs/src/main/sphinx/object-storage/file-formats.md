@@ -28,6 +28,9 @@ with ORC files performed by supported object storage connectors:
   - `false`
 :::
 
+[](file-compression) is automatically performed and some details can be
+configured.
+
 (parquet-format-configuration)=
 ## Parquet format configuration properties
 
@@ -95,3 +98,6 @@ with Parquet files performed by supported object storage connectors:
     `parquet_vectorized_decoding_enabled`.
   - `true`
 :::
+
+[](file-compression) is automatically performed and some details can be
+configured.
