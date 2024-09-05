@@ -49,7 +49,7 @@ record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String 
 
     public S3Context withKmsKeyId(String kmsKeyId)
     {
-        return new S3Context(partSize, requesterPays, sseType, kmsKeyId, credentialsProviderOverride, cannedAcl, exclusiveWriteSupported);
+        return new S3Context(partSize, requesterPays, S3SseType.KMS, kmsKeyId, credentialsProviderOverride, cannedAcl, exclusiveWriteSupported);
     }
 
     public S3Context withCredentials(ConnectorIdentity identity)
