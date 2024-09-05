@@ -33,7 +33,7 @@ public class KafkaEventListenerFactory
     @Override
     public String getName()
     {
-        return "kafka-event-listener";
+        return "kafka";
     }
 
     @Override
