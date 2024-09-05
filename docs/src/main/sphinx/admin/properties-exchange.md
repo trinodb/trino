@@ -41,8 +41,9 @@ network utilization.
 - **Allowed values:** `NONE`, `LZ4`, `ZSTD`
 - **Default value:** `NONE`
 
-The compression codec to use when exchanging data between nodes.
-Defaults to `LZ4` with [](/admin/fault-tolerant-execution) mode.
+The compression codec to use for [](file-compression) when exchanging data
+between nodes and the exchange storage with [](/admin/fault-tolerant-execution)
+mode. Defaults to `LZ4`.
 
 ## `exchange.data-integrity-verification`
 

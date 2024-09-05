@@ -166,7 +166,8 @@ terminate the process when this occurs.
 #### Temporary directory
 
 The temporary directory used by the JVM must allow execution of code, because
-Trino accesses and uses shared library binaries.
+Trino accesses and uses shared library binaries for purposes such as
+[](file-compression).
 
 Specifically, the partition mount and directory must not have the `noexec` flag
 set. The default `/tmp` directory is mounted with this flag in some operating
