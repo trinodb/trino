@@ -1624,7 +1624,7 @@ public class IcebergMetadata
             commit(update, session);
             commitTransaction(transaction, operation);
         }
-        catch (UncheckedIOException e) {
+        catch (UncheckedIOException | ValidationException e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, format("Failed to commit during %s: %s", operation, firstNonNull(e.getMessage(), e)), e);
         }
     }
