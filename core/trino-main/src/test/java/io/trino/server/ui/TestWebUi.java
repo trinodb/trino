@@ -307,7 +307,7 @@ public class TestWebUi
 
         String body = assertOk(client, getLoginHtmlLocation(baseUri))
                 .orElseThrow(() -> new AssertionError("No response body"));
-        assertThat(body).contains("action=\"/ui/login\"");
+        assertThat(body).contains("action=\"login\"");
         assertThat(body).contains("method=\"post\"");
 
         assertThat(body).doesNotContain("<!-- This value will be replaced -->");
