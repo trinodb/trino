@@ -83,6 +83,8 @@ public class DirectExchangeClient
     @GuardedBy("this")
     private long averageBytesPerRequest;
     @GuardedBy("this")
+    private long reservedBytesForScheduledClients;
+    @GuardedBy("this")
     private boolean closed;
     @GuardedBy("this")
     private final TDigest requestDuration = new TDigest();
@@ -277,10 +279,6 @@ public class DirectExchangeClient
             return 0;
         }
 
-        long reservedBytesForScheduledClients = allClients.values().stream()
-                .filter(client -> !queuedClients.contains(client) && !completedClients.contains(client))
-                .mapToLong(HttpPageBufferClient::getAverageRequestSizeInBytes)
-                .sum();
         long projectedBytesToBeRequested = 0;
         int clientCount = 0;
 
@@ -299,6 +297,7 @@ public class DirectExchangeClient
 
             clientCount++;
         }
+        reservedBytesForScheduledClients += projectedBytesToBeRequested;
 
         return clientCount;
     }
@@ -381,6 +380,7 @@ public class DirectExchangeClient
         requestDuration.add(client.getLastRequestDurationMillis());
         if (!completedClients.contains(client) && !queuedClients.contains(client)) {
             queuedClients.add(client);
+            reservedBytesForScheduledClients -= client.getAverageRequestSizeInBytes();
         }
         scheduleRequestIfNecessary();
     }
@@ -390,6 +390,7 @@ public class DirectExchangeClient
         requireNonNull(client, "client is null");
         if (completedClients.add(client)) {
             buffer.taskFinished(client.getRemoteTaskId());
+            reservedBytesForScheduledClients -= client.getAverageRequestSizeInBytes();
         }
         scheduleRequestIfNecessary();
     }
@@ -399,6 +400,7 @@ public class DirectExchangeClient
         requireNonNull(client, "client is null");
         if (completedClients.add(client)) {
             buffer.taskFailed(client.getRemoteTaskId(), cause);
+            reservedBytesForScheduledClients -= client.getAverageRequestSizeInBytes();
             scheduledExecutor.execute(() -> taskFailureListener.onTaskFailed(client.getRemoteTaskId(), cause));
             closeQuietly(client);
         }
