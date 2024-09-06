@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
-import io.trino.client.spooling.encoding.QueryDataDecoders;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.plugin.memory.MemoryQueryRunner;
@@ -105,7 +104,11 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
             @Override
             public StatementClient create(OkHttpClient httpClient, Session session, ClientSession clientSession, String query)
             {
-                return newStatementClient(httpClient, QueryDataDecoders.get(encodingId), clientSession, query, Optional.empty());
+                ClientSession clientSessionSpooled = ClientSession
+                        .builder(clientSession)
+                        .encodingId(Optional.ofNullable(encodingId))
+                        .build();
+                return newStatementClient(httpClient, clientSessionSpooled, query, Optional.empty());
             }
         }, session, new OkHttpClient());
     }

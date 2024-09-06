@@ -32,9 +32,4 @@ public final class StatementClientFactory
     {
         return new StatementClientV1((Call.Factory) httpClient, session, query, clientCapabilities);
     }
-
-    public static StatementClient newStatementClient(OkHttpClient httpClient, QueryDataDecoder.Factory decoderFactory, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
-    {
-        return new StatementClientV1((Call.Factory) httpClient, Optional.of(decoderFactory), session, query, clientCapabilities);
-    }
 }

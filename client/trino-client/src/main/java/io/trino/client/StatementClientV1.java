@@ -24,6 +24,7 @@ import io.airlift.units.Duration;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
 import io.trino.client.spooling.SegmentLoader;
+import io.trino.client.spooling.encoding.QueryDataDecoders;
 import jakarta.annotation.Nullable;
 import okhttp3.Call;
 import okhttp3.Headers;
@@ -108,16 +109,10 @@ class StatementClientV1
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
     // Encoded data
-    private final Optional<QueryDataDecoder.Factory> queryDataDecoderFactory;
     private final SegmentLoader segmentDownloader;
     private final AtomicReference<QueryDataDecoder> decoder = new AtomicReference<>();
 
     public StatementClientV1(Call.Factory httpCallFactory, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
-    {
-        this(httpCallFactory, Optional.empty(), session, query, clientCapabilities);
-    }
-
-    public StatementClientV1(Call.Factory httpCallFactory, Optional<QueryDataDecoder.Factory> queryDataDecoder, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
     {
         requireNonNull(httpCallFactory, "httpCallFactory is null");
         requireNonNull(session, "session is null");
@@ -139,10 +134,9 @@ class StatementClientV1
                 .map(Enum::name)
                 .collect(toImmutableSet())));
         this.compressionDisabled = session.isCompressionDisabled();
-        this.queryDataDecoderFactory = requireNonNull(queryDataDecoder, "queryDataDecoder is null");
         this.segmentDownloader = new SegmentLoader();
 
-        Request request = buildQueryRequest(session, query, queryDataDecoder.map(QueryDataDecoder.Factory::encodingId));
+        Request request = buildQueryRequest(session, query, session.getEncodingId());
         // Pass empty as materializedJsonSizeLimit to always materialize the first response
         // to avoid losing the response body if the initial response parsing fails
         executeRequest(request, "starting query", OptionalLong.empty(), this::isTransient);
@@ -520,8 +514,9 @@ class StatementClientV1
             EncodedQueryData encodedData = (EncodedQueryData) results.getData();
             DataAttributes queryAttributed = encodedData.getMetadata();
             if (decoder.get() == null) {
-                QueryDataDecoder queryDataDecoder = queryDataDecoderFactory
-                        .orElseThrow(() -> new IllegalStateException("Received encoded data format but there is no decoder"))
+                verify(QueryDataDecoders.exists(encodedData.getEncodingId()), "Received encoded data format but there is no decoder matching %s", encodedData.getEncodingId());
+                QueryDataDecoder queryDataDecoder = QueryDataDecoders
+                        .get(encodedData.getEncodingId())
                         .create(results.getColumns(), queryAttributed);
                 decoder.set(queryDataDecoder);
             }
