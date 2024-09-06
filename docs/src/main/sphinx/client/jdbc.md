@@ -17,7 +17,8 @@ The JDBC driver version should be identical to the version of the Trino cluster,
 or newer. Older versions typically work, but only a subset is regularly tested.
 Versions before 350 are not supported.
 
-## Installing
+(jdbc-installation)=
+## Installation
 
 Download {maven_download}`jdbc` and add it to the classpath of your Java application.
 
