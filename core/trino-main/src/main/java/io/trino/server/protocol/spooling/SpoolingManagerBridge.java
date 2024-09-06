@@ -139,6 +139,13 @@ public class SpoolingManagerBridge
         }
     }
 
+    @Override
+    public void close()
+            throws IOException
+    {
+        delegate().close();
+    }
+
     private SpoolingManager delegate()
     {
         return registry

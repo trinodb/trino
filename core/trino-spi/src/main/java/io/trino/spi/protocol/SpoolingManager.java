@@ -15,12 +15,14 @@ package io.trino.spi.protocol;
 
 import io.trino.spi.protocol.SpooledLocation.DirectLocation;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Optional;
 
 public interface SpoolingManager
+        extends Closeable
 {
     SpooledSegmentHandle create(SpoolingContext context);
 
@@ -47,5 +49,11 @@ public interface SpoolingManager
     default SpooledSegmentHandle handle(SpooledLocation location)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    default void close()
+            throws IOException
+    {
     }
 }

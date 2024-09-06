@@ -228,4 +228,10 @@ public class FileSystemSpoolingManager
     {
         return wrappedBuffer(Base64.getDecoder().decode(base64));
     }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+    }
 }
