@@ -512,9 +512,9 @@ the property may be configured for:
   - HDFS
 :::
 
-It is recommended to set the `exchange.compression-codec` property to `LZ4` in
-the cluster's `config.properties` file, to reduce the exchange manager's overall
-I/O load. [](file-compression) is automatically performed and some details can
+To reduce the exchange manager's overall I/O load, the
+[](prop-exchange-compression-codec) configuration property defaults to `LZ4`. In
+addition, [](file-compression) is automatically performed and some details can
 be configured.
 
 It is also recommended to configure a bucket lifecycle rule to automatically
