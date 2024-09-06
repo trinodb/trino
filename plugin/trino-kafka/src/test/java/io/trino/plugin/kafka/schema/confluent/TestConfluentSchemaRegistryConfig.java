@@ -47,6 +47,8 @@ public class TestConfluentSchemaRegistryConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kafka.confluent-schema-registry-url", "http://schema-registry-a:8081, http://schema-registry-b:8081")
                 .put("kafka.confluent-schema-registry-client-cache-size", "1500")
+                .put("kafka.confluent-schema-registry-username", null)
+                .put("kafka.confluent-schema-registry-password", null)
                 .put("kafka.empty-field-strategy", "MARK")
                 .put("kafka.confluent-subjects-cache-refresh-interval", "2s")
                 .buildOrThrow();
