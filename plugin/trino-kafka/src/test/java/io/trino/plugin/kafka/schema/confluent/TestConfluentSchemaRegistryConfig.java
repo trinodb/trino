@@ -34,6 +34,8 @@ public class TestConfluentSchemaRegistryConfig
     {
         assertRecordedDefaults(recordDefaults(ConfluentSchemaRegistryConfig.class)
                 .setConfluentSchemaRegistryUrls(ImmutableSet.of())
+                .setConfluentSchemaRegistryUsername(null)
+                .setConfluentSchemaRegistryPassword(null)
                 .setConfluentSchemaRegistryClientCacheSize(1000)
                 .setEmptyFieldStrategy(IGNORE)
                 .setConfluentSubjectsCacheRefreshInterval(new Duration(1, SECONDS)));
