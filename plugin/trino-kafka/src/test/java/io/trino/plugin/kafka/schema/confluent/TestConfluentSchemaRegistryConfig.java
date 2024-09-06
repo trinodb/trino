@@ -42,7 +42,7 @@ public class TestConfluentSchemaRegistryConfig
     }
 
     @Test
-    public void testExplicitPropertyMappings()
+    public void testExplicitPropertyMappingsWithoutAuthorization()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kafka.confluent-schema-registry-url", "http://schema-registry-a:8081, http://schema-registry-b:8081")
@@ -61,7 +61,7 @@ public class TestConfluentSchemaRegistryConfig
     }
 
     @Test
-    public void testExplicitPropertyMappingsWithAuthorization()
+    public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kafka.confluent-schema-registry-url", "http://schema-registry-a:8081, http://schema-registry-b:8081")
