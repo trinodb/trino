@@ -15,12 +15,14 @@ package io.trino.cli;
 
 import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
+import io.trino.client.spooling.encoding.QueryDataDecoders;
 import io.trino.client.uri.HttpClientFactory;
 import io.trino.client.uri.TrinoUri;
 import okhttp3.Call;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.client.ClientSession.stripTransactionId;
@@ -68,6 +70,9 @@ public class QueryRunner
 
     private StatementClient startInternalQuery(ClientSession session, String query)
     {
+        if (session.getEncodingId().isPresent()) {
+            return newStatementClient(httpClient, QueryDataDecoders.get(session.getEncodingId().get()), session, query, Optional.empty());
+        }
         return newStatementClient((Call.Factory) httpClient, session, query);
     }
 

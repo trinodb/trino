@@ -45,6 +45,11 @@ public class QueryDataDecoders
         return factory;
     }
 
+    public static boolean exists(String encodingId)
+    {
+        return encodingMap.containsKey(encodingId);
+    }
+
     private static Map<String, Factory> factoriesMap()
     {
         return decoders.stream()

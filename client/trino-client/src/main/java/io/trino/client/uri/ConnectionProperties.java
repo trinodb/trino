@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.DnsResolver;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
+import io.trino.client.spooling.encoding.QueryDataDecoders;
 import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
@@ -69,6 +70,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, HostAndPort> HTTP_PROXY = new HttpProxy();
     public static final ConnectionProperty<String, String> APPLICATION_NAME_PREFIX = new ApplicationNamePrefix();
     public static final ConnectionProperty<String, Boolean> DISABLE_COMPRESSION = new DisableCompression();
+    public static final ConnectionProperty<String, String> ENCODING_ID = new EncodingId();
     public static final ConnectionProperty<String, Boolean> ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS = new AssumeLiteralNamesInMetadataCallsForNonConformingClients();
     public static final ConnectionProperty<String, Boolean> ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS = new AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients();
     public static final ConnectionProperty<String, Boolean> SSL = new Ssl();
@@ -128,6 +130,7 @@ final class ConnectionProperties
             .add(DISABLE_COMPRESSION)
             .add(DNS_RESOLVER)
             .add(DNS_RESOLVER_CONTEXT)
+            .add(ENCODING_ID)
             .add(EXPLICIT_PREPARE)
             .add(EXTERNAL_AUTHENTICATION)
             .add(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
@@ -375,6 +378,21 @@ final class ConnectionProperties
         public DisableCompression()
         {
             super(PropertyName.DISABLE_COMPRESSION, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class EncodingId
+            extends AbstractConnectionProperty<String, String>
+    {
+        public EncodingId()
+        {
+            super(PropertyName.ENCODING_ID, NOT_REQUIRED, validator(EncodingId::encodingExists, "Unknown encoding id"), STRING_CONVERTER);
+        }
+
+        private static boolean encodingExists(Properties properties)
+        {
+            String encodingId = ENCODING_ID.getRequiredValue(properties);
+            return QueryDataDecoders.exists(encodingId);
         }
     }
 
