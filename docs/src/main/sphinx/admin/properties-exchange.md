@@ -39,11 +39,11 @@ network utilization.
 
 - **Type:** {ref}`prop-type-string`
 - **Allowed values:** `NONE`, `LZ4`, `ZSTD`
-- **Default value:** `NONE`
+- **Default value:** `LZ4`
 
 The compression codec to use for [](file-compression) when exchanging data
 between nodes and the exchange storage with [](/admin/fault-tolerant-execution)
-mode. Defaults to `LZ4`.
+mode.
 
 ## `exchange.data-integrity-verification`
 
