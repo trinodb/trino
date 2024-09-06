@@ -13,7 +13,6 @@
  */
 package io.trino.server;
 
-import com.google.common.net.UrlEscapers;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
@@ -41,7 +40,7 @@ public class ExternalUriInfo
     public ExternalUriInfo(@Context UriInfo uriInfo, @HeaderParam(X_FORWARDED_PREFIX) String forwardedPrefix)
     {
         this.uriInfo = requireNonNull(uriInfo, "uriInfo is null");
-        this.forwardedPrefix = UrlEscapers.urlPathSegmentEscaper().escape(requireNonNullElse(forwardedPrefix, ""));
+        this.forwardedPrefix = requireNonNullElse(forwardedPrefix, "");
     }
 
     public static ExternalUriInfo from(ContainerRequestContext requestContext)
