@@ -17,7 +17,6 @@ import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
 import io.trino.client.uri.HttpClientFactory;
 import io.trino.client.uri.TrinoUri;
-import okhttp3.Call;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
@@ -68,7 +67,7 @@ public class QueryRunner
 
     private StatementClient startInternalQuery(ClientSession session, String query)
     {
-        return newStatementClient((Call.Factory) httpClient, session, query);
+        return newStatementClient(httpClient, session, query);
     }
 
     @Override

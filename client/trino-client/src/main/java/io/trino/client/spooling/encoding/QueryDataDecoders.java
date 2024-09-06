@@ -18,6 +18,7 @@ import io.trino.client.QueryDataDecoder.Factory;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -43,6 +44,16 @@ public class QueryDataDecoders
         Factory factory = encodingMap.get(encodingId);
         verify(factory.encodingId().equals(encodingId), "Factory has wrong encoding id, expected %s, got %s", encodingId, factory.encodingId());
         return factory;
+    }
+
+    public static boolean exists(String encodingId)
+    {
+        return encodingMap.containsKey(encodingId);
+    }
+
+    public static Set<String> getSupportedEncodings()
+    {
+        return encodingMap.keySet();
     }
 
     private static Map<String, Factory> factoriesMap()
