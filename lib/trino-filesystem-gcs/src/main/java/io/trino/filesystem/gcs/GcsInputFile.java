@@ -38,15 +38,16 @@ public class GcsInputFile
     private final int readBlockSize;
     private final OptionalLong predeclaredLength;
     private OptionalLong length;
-    private Optional<Instant> lastModified = Optional.empty();
+    private Optional<Instant> lastModified;
 
-    public GcsInputFile(GcsLocation location, Storage storage, int readBockSize, OptionalLong predeclaredLength)
+    public GcsInputFile(GcsLocation location, Storage storage, int readBockSize, OptionalLong predeclaredLength, Optional<Instant> lastModified)
     {
         this.location = requireNonNull(location, "location is null");
         this.storage = requireNonNull(storage, "storage is null");
         this.readBlockSize = readBockSize;
         this.predeclaredLength = requireNonNull(predeclaredLength, "length is null");
         this.length = OptionalLong.empty();
+        this.lastModified = requireNonNull(lastModified, "lastModified is null");
     }
 
     @Override
@@ -108,7 +109,9 @@ public class GcsInputFile
         Blob blob = getBlobOrThrow(storage, location);
         try {
             length = OptionalLong.of(blob.getSize());
-            lastModified = Optional.of(Instant.from(blob.getUpdateTimeOffsetDateTime()));
+            if (lastModified.isEmpty()) {
+                lastModified = Optional.of(Instant.from(blob.getUpdateTimeOffsetDateTime()));
+            }
         }
         catch (RuntimeException e) {
             throw handleGcsException(e, "fetching properties for file", location);

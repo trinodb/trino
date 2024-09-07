@@ -229,6 +229,39 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     @Test
+    void testInputFileWithLastModifiedMetadata()
+            throws IOException
+    {
+        try (TempBlob tempBlob = randomBlobLocation("inputFileWithLastModifiedMetadata")) {
+            TrinoInputFile inputFile = getFileSystem().newInputFile(tempBlob.location(), 22, Instant.ofEpochMilli(12345));
+            assertThat(inputFile.exists()).isFalse();
+
+            // getting length for non-existent file returns pre-declared length
+            assertThat(inputFile.length()).isEqualTo(22);
+            // getting modified time for non-existent file returns pre-declared modified time
+            assertThat(inputFile.lastModified()).isEqualTo(Instant.ofEpochMilli(12345));
+            // double-check the length did not change in call above
+            assertThat(inputFile.length()).isEqualTo(22);
+
+            tempBlob.createOrOverwrite("123456");
+
+            // length always returns the pre-declared length
+            assertThat(inputFile.length()).isEqualTo(22);
+            // modified time always returns the pre-declared length
+            assertThat(inputFile.lastModified()).isEqualTo(Instant.ofEpochMilli(12345));
+            // double-check the length did not change when metadata was loaded
+            assertThat(inputFile.length()).isEqualTo(22);
+
+            // delete file and verify that exists check is not cached
+            tempBlob.close();
+            assertThat(inputFile.exists()).isFalse();
+            // input file caches metadata, so results will be unchanged after delete
+            assertThat(inputFile.length()).isEqualTo(22);
+            assertThat(inputFile.lastModified()).isEqualTo(Instant.ofEpochMilli(12345));
+        }
+    }
+
+    @Test
     public void testInputFile()
             throws IOException
     {

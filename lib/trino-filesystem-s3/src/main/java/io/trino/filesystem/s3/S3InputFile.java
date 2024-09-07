@@ -42,13 +42,14 @@ final class S3InputFile
     private Long length;
     private Instant lastModified;
 
-    public S3InputFile(S3Client client, S3Context context, S3Location location, Long length)
+    public S3InputFile(S3Client client, S3Context context, S3Location location, Long length, Instant lastModified)
     {
         this.client = requireNonNull(client, "client is null");
         this.location = requireNonNull(location, "location is null");
         this.context = requireNonNull(context, "context is null");
         this.requestPayer = context.requestPayer();
         this.length = length;
+        this.lastModified = lastModified;
         location.location().verifyValidFileLocation();
     }
 

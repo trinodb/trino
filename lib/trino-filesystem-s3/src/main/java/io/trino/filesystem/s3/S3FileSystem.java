@@ -41,6 +41,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -79,13 +80,19 @@ final class S3FileSystem
     @Override
     public TrinoInputFile newInputFile(Location location)
     {
-        return new S3InputFile(client, context, new S3Location(location), null);
+        return new S3InputFile(client, context, new S3Location(location), null, null);
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
-        return new S3InputFile(client, context, new S3Location(location), length);
+        return new S3InputFile(client, context, new S3Location(location), length, null);
+    }
+
+    @Override
+    public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
+    {
+        return new S3InputFile(client, context, new S3Location(location), length, lastModified);
     }
 
     @Override

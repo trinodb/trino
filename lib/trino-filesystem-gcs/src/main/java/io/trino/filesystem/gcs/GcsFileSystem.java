@@ -37,6 +37,7 @@ import io.trino.filesystem.UriLocation;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -84,7 +85,7 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty());
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty());
     }
 
     @Override
@@ -92,7 +93,15 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length));
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty());
+    }
+
+    @Override
+    public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
+    {
+        GcsLocation gcsLocation = new GcsLocation(location);
+        checkIsValidFile(gcsLocation);
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified));
     }
 
     @Override
