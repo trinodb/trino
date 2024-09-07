@@ -31,6 +31,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.io.File;
 import java.net.URI;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -45,6 +46,7 @@ import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.CDF_DATA;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.CHECKPOINT;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.DATA;
+import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.DELETION_VECTOR;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.LAST_CHECKPOINT;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.STARBURST_EXTENDED_STATS_JSON;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.TRANSACTION_LOG_JSON;
@@ -53,6 +55,7 @@ import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryConte
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 
@@ -924,6 +927,40 @@ public class TestDeltaLakeFileOperations
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testDeletionVectors()
+    {
+        String tableName = "test_deletion_vectors_" + randomNameSuffix();
+        registerTable(tableName, "databricks122/deletion_vectors");
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '%s')".formatted(tableName));
+        assertFileSystemAccesses(
+                "SELECT * FROM " + tableName,
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.newStream"))
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation(DELETION_VECTOR, "deletion_vector_a52eda8c-0a57-4636-814b-9c165388f7ca.bin", "InputFile.newStream"))
+                        .add(new FileOperation(DATA, "no partition", "InputFile.newInput"))
+                        .build());
+        assertFileSystemAccesses(
+                "EXPLAIN ANALYZE SELECT * FROM " + tableName,
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.newStream"))
+                        .add(new FileOperation(STARBURST_EXTENDED_STATS_JSON, "extendeded_stats.json", "InputFile.newStream"))
+                        .add(new FileOperation(TRINO_EXTENDED_STATS_JSON, "extended_stats.json", "InputFile.newStream"))
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                        .add(new FileOperation(DELETION_VECTOR, "deletion_vector_a52eda8c-0a57-4636-814b-9c165388f7ca.bin", "InputFile.newStream"))
+                        .add(new FileOperation(DATA, "no partition", "InputFile.newInput"))
+                        .build());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private int countCdfFilesForKey(String partitionValue)
     {
         String path = (String) computeScalar("SELECT \"$path\" FROM table_changes_file_system_access WHERE key = '" + partitionValue + "'");
@@ -979,6 +1016,9 @@ public class TestDeltaLakeFileOperations
             if (path.matches(".*/_delta_log/_starburst_meta/extendeded_stats.json")) {
                 return new FileOperation(STARBURST_EXTENDED_STATS_JSON, fileName, operationType);
             }
+            if (path.contains("/deletion_vector_")) {
+                return new FileOperation(DELETION_VECTOR, fileName, operationType);
+            }
             Pattern dataFilePattern = Pattern.compile(".*?/(?<partition>key=[^/]*/)?[^/]+");
             if (path.matches(".*/_change_data/.*")) {
                 Matcher matcher = dataFilePattern.matcher(path);
@@ -1012,6 +1052,18 @@ public class TestDeltaLakeFileOperations
         STARBURST_EXTENDED_STATS_JSON,
         DATA,
         CDF_DATA,
+        DELETION_VECTOR,
         /**/;
+    }
+
+    private void registerTable(String name, String resourcePath)
+    {
+        String dataPath = getResourceLocation(resourcePath).toExternalForm();
+        getQueryRunner().execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", name, dataPath));
+    }
+
+    private URL getResourceLocation(String resourcePath)
+    {
+        return getClass().getClassLoader().getResource(resourcePath);
     }
 }
