@@ -14,6 +14,7 @@
 package io.trino.spooling.filesystem;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -32,13 +33,24 @@ import io.trino.spi.protocol.SpoolingManager;
 import io.trino.spi.protocol.SpoolingManagerContext;
 
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.trino.plugin.base.ClosingBinder.closingBinder;
 
 public class FilesystemSpoolingModule
         extends AbstractConfigurationAwareModule
 {
+    private final boolean coordinator;
+
+    public FilesystemSpoolingModule(boolean coordinator)
+    {
+        this.coordinator = coordinator;
+    }
+
     @Override
     protected void setup(Binder binder)
     {
@@ -57,6 +69,15 @@ public class FilesystemSpoolingModule
             factories.addBinding("gs").to(GcsFileSystemFactory.class);
         }
         binder.bind(SpoolingManager.class).to(FileSystemSpoolingManager.class).in(Scopes.SINGLETON);
+
+        if (coordinator) {
+            binder.bind(FileSystemSegmentPruner.class).asEagerSingleton();
+            binder.bind(ScheduledExecutorService.class)
+                    .annotatedWith(ForSegmentPruner.class)
+                    .toInstance(Executors.newScheduledThreadPool(1, threadsNamed("segment-pruner-%d")));
+
+            closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForSegmentPruner.class));
+        }
     }
 
     @Provides

@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpooledLocation;
 import io.trino.spi.protocol.SpooledSegmentHandle;
 import io.trino.spi.protocol.SpoolingContext;
@@ -38,6 +39,8 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -45,7 +48,6 @@ import static io.trino.spi.protocol.SpooledLocation.coordinatorLocation;
 import static io.trino.spooling.filesystem.encryption.EncryptionUtils.decryptingInputStream;
 import static io.trino.spooling.filesystem.encryption.EncryptionUtils.encryptingOutputStream;
 import static io.trino.spooling.filesystem.encryption.EncryptionUtils.generateRandomKey;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemSpoolingManager
@@ -60,6 +62,7 @@ public class FileSystemSpoolingManager
     private final TrinoFileSystem fileSystem;
     private final Duration ttl;
     private final boolean encryptionEnabled;
+    private final Random random = ThreadLocalRandom.current();
 
     @Inject
     public FileSystemSpoolingManager(FileSystemSpoolingConfig config, TrinoFileSystemFactory fileSystemFactory)
@@ -87,10 +90,12 @@ public class FileSystemSpoolingManager
     @Override
     public FileSystemSpooledSegmentHandle create(SpoolingContext context)
     {
+        Instant expireAt = Instant.now().plusMillis(ttl.toMillis());
+
         if (encryptionEnabled) {
-            return FileSystemSpooledSegmentHandle.random(context, ttl, Optional.of(generateRandomKey()));
+            return FileSystemSpooledSegmentHandle.random(random, context.queryId(), expireAt, Optional.of(generateRandomKey()));
         }
-        return FileSystemSpooledSegmentHandle.random(context, ttl);
+        return FileSystemSpooledSegmentHandle.random(random, context.queryId(), expireAt);
     }
 
     @Override
@@ -127,16 +132,16 @@ public class FileSystemSpoolingManager
     {
         // Identifier layout:
         //
-        // ttl: long
-        // nameLength: int
-        // name: byte[]
+        // ulid: byte[16]
+        // queryIdLength: byte
+        // queryId: string
         // hasEncryptionKey: boolean
         // encryptionKeyHash: long
         FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
         DynamicSliceOutput output = new DynamicSliceOutput(64);
-        output.writeLong(fileHandle.validUntil().toEpochMilli());
-        output.writeInt(fileHandle.objectName().length());
-        output.writeBytes(utf8Slice(fileHandle.objectName()));
+        output.writeBytes(fileHandle.uuid());
+        output.writeShort(fileHandle.queryId().toString().length());
+        output.writeBytes(utf8Slice(fileHandle.queryId().toString()));
         output.writeBoolean(fileHandle.encryptionKey().isPresent());
         if (fileHandle.encryptionKey().isPresent()) {
             output.writeLong(XxHash64.hash(fileHandle.encryptionKey().orElseThrow()));
@@ -153,12 +158,13 @@ public class FileSystemSpoolingManager
         }
 
         SliceInput input = coordinatorLocation.identifier().getInput();
-        Instant validUntil = Instant.ofEpochMilli(input.readLong());
-        int nameLength = input.readInt();
-        byte[] name = new byte[nameLength];
-        input.readBytes(name);
+        byte[] uuid = new byte[16];
+        input.readBytes(uuid);
+        short length = input.readShort();
+        QueryId queryId = QueryId.valueOf(input.readSlice(length).toStringUtf8());
+
         if (!input.readBoolean()) {
-            return new FileSystemSpooledSegmentHandle(new String(name, UTF_8), validUntil, Optional.empty());
+            return FileSystemSpooledSegmentHandle.of(queryId, uuid, Optional.empty());
         }
 
         long encryptionKeyHash = input.readLong();
@@ -180,7 +186,7 @@ public class FileSystemSpoolingManager
             throw new IllegalArgumentException("Encryption key checksum mismatch");
         }
 
-        return new FileSystemSpooledSegmentHandle(new String(name, UTF_8), validUntil, Optional.of(key));
+        return FileSystemSpooledSegmentHandle.of(queryId, uuid, Optional.of(key));
     }
 
     private Map<String, List<String>> headers(SpooledSegmentHandle handle)
@@ -194,22 +200,17 @@ public class FileSystemSpoolingManager
         return Map.of();
     }
 
-    private static String safeString(String value)
-    {
-        return value.replaceAll("[^a-zA-Z0-9-_/]", "-");
-    }
-
     private Location location(FileSystemSpooledSegmentHandle handle)
             throws IOException
     {
         checkExpiration(handle);
-        return Location.of(location + "/" + safeString(handle.objectName()));
+        return Location.of(location + "/" + handle.storageObjectName());
     }
 
     private void checkExpiration(FileSystemSpooledSegmentHandle handle)
             throws IOException
     {
-        if (handle.validUntil().isBefore(Instant.now())) {
+        if (handle.expirationTime().isBefore(Instant.now())) {
             throw new IOException("Segment not found or expired");
         }
     }

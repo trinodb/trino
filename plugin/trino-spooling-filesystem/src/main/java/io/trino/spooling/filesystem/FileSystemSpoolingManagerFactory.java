@@ -39,9 +39,8 @@ public class FileSystemSpoolingManagerFactory
     public SpoolingManager create(Map<String, String> config, SpoolingManagerContext context)
     {
         requireNonNull(config, "requiredConfig is null");
-
         Bootstrap app = new Bootstrap(
-                new FilesystemSpoolingModule(),
+                new FilesystemSpoolingModule(context.isCoordinator()),
                 new MBeanModule(),
                 new MBeanServerModule(),
                 binder -> {

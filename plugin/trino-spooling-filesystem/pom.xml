@@ -23,6 +23,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
         </dependency>
@@ -34,12 +39,27 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>concurrent</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>log</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.azam.ulidj</groupId>
+            <artifactId>ulidj</artifactId>
         </dependency>
 
         <dependency>
@@ -65,6 +85,11 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-plugin-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
         <dependency>

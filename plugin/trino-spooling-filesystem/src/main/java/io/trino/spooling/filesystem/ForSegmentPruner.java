@@ -11,25 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.protocol;
+package io.trino.spooling.filesystem;
 
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.trace.Tracer;
+import com.google.inject.BindingAnnotation;
 
-public interface SpoolingManagerContext
+import java.lang.annotation.Retention;
+
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@BindingAnnotation
+@Retention(RUNTIME)
+public @interface ForSegmentPruner
 {
-    default OpenTelemetry getOpenTelemetry()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    default Tracer getTracer()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    default boolean isCoordinator()
-    {
-        throw new UnsupportedOperationException();
-    }
 }

@@ -35,7 +35,10 @@ class TestFileSystemSpoolingConfig
                 .setS3Enabled(false)
                 .setLocation(null)
                 .setEncryptionEnabled(true)
-                .setTtl(new Duration(2, TimeUnit.HOURS)));
+                .setTtl(new Duration(2, TimeUnit.HOURS))
+                .setPruningEnabled(true)
+                .setPruningInterval(new Duration(5, TimeUnit.MINUTES))
+                .setPruningBatchSize(250));
     }
 
     @Test
@@ -48,6 +51,9 @@ class TestFileSystemSpoolingConfig
                 .put("fs.location", "test")
                 .put("fs.segment.encryption", "false")
                 .put("fs.segment.ttl", "1h")
+                .put("fs.segment.pruning.enabled", "false")
+                .put("fs.segment.pruning.interval", "12h")
+                .put("fs.segment.pruning.batch-size", "5")
                 .buildOrThrow();
 
         FileSystemSpoolingConfig expected = new FileSystemSpoolingConfig()
@@ -56,7 +62,10 @@ class TestFileSystemSpoolingConfig
                 .setS3Enabled(true)
                 .setLocation("test")
                 .setEncryptionEnabled(false)
-                .setTtl(new Duration(1, TimeUnit.HOURS));
+                .setTtl(new Duration(1, TimeUnit.HOURS))
+                .setPruningEnabled(false)
+                .setPruningInterval(new Duration(12, TimeUnit.HOURS))
+                .setPruningBatchSize(5);
 
         assertFullMapping(properties, expected);
     }

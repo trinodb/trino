@@ -124,6 +124,7 @@ import io.trino.operator.table.ExcludeColumnsFunction;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.PluginManager;
+import io.trino.server.ServerConfig;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.protocol.spooling.PreferredQueryDataEncoderSelector;
 import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
@@ -452,7 +453,7 @@ public class PlanTester
                 ImmutableSet.of(new ExcludeColumnsFunction()));
 
         exchangeManagerRegistry = new ExchangeManagerRegistry(noop(), noopTracer(), secretsResolver);
-        spoolingManagerRegistry = new SpoolingManagerRegistry(new SpoolingEnabledConfig(), noop(), noopTracer());
+        spoolingManagerRegistry = new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer());
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 Optional.empty(),
@@ -723,7 +724,7 @@ public class PlanTester
             throw new AssertionError("Expected sub-plan to have no children");
         }
 
-        SpoolingManagerRegistry spoolingManagerRegistry = new SpoolingManagerRegistry(new SpoolingEnabledConfig(), noop(), noopTracer());
+        SpoolingManagerRegistry spoolingManagerRegistry = new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer());
         TaskContext taskContext = createTaskContext(notificationExecutor, yieldExecutor, session);
         TableExecuteContextManager tableExecuteContextManager = new TableExecuteContextManager();
         tableExecuteContextManager.registerTableExecuteContextForQuery(taskContext.getQueryContext().getQueryId());
@@ -883,7 +884,7 @@ public class PlanTester
                 new PlanSanityChecker(true),
                 idAllocator,
                 getPlannerContext(),
-                new SpoolingManagerRegistry(new SpoolingEnabledConfig(), noop(), noopTracer()),
+                new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer()),
                 statsCalculator,
                 costCalculator,
                 warningCollector,
