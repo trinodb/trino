@@ -135,8 +135,8 @@ public class FileSystemSpoolingManager
         FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
         DynamicSliceOutput output = new DynamicSliceOutput(64);
         output.writeLong(fileHandle.validUntil().toEpochMilli());
-        output.writeInt(fileHandle.name().length());
-        output.writeBytes(utf8Slice(fileHandle.name()));
+        output.writeInt(fileHandle.objectName().length());
+        output.writeBytes(utf8Slice(fileHandle.objectName()));
         output.writeBoolean(fileHandle.encryptionKey().isPresent());
         if (fileHandle.encryptionKey().isPresent()) {
             output.writeLong(XxHash64.hash(fileHandle.encryptionKey().orElseThrow()));
@@ -203,7 +203,7 @@ public class FileSystemSpoolingManager
             throws IOException
     {
         checkExpiration(handle);
-        return Location.of(location + "/" + safeString(handle.name()));
+        return Location.of(location + "/" + safeString(handle.objectName()));
     }
 
     private void checkExpiration(FileSystemSpooledSegmentHandle handle)
