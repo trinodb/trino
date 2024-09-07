@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
@@ -60,6 +61,12 @@ final class SwitchingFileSystem
     public TrinoInputFile newInputFile(Location location, long length)
     {
         return fileSystem(location).newInputFile(location, length);
+    }
+
+    @Override
+    public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
+    {
+        return fileSystem(location).newInputFile(location, length, lastModified);
     }
 
     @Override

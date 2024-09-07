@@ -43,6 +43,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -96,7 +97,7 @@ public class AzureFileSystem
     {
         AzureLocation azureLocation = new AzureLocation(location);
         BlobClient client = createBlobClient(azureLocation);
-        return new AzureInputFile(azureLocation, OptionalLong.empty(), client, readBlockSizeBytes);
+        return new AzureInputFile(azureLocation, OptionalLong.empty(), Optional.empty(), client, readBlockSizeBytes);
     }
 
     @Override
@@ -104,7 +105,15 @@ public class AzureFileSystem
     {
         AzureLocation azureLocation = new AzureLocation(location);
         BlobClient client = createBlobClient(azureLocation);
-        return new AzureInputFile(azureLocation, OptionalLong.of(length), client, readBlockSizeBytes);
+        return new AzureInputFile(azureLocation, OptionalLong.of(length), Optional.empty(), client, readBlockSizeBytes);
+    }
+
+    @Override
+    public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
+    {
+        AzureLocation azureLocation = new AzureLocation(location);
+        BlobClient client = createBlobClient(azureLocation);
+        return new AzureInputFile(azureLocation, OptionalLong.of(length), Optional.of(lastModified), client, readBlockSizeBytes);
     }
 
     @Override

@@ -21,6 +21,7 @@ import io.trino.filesystem.TrinoOutputFile;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -45,13 +46,19 @@ public final class CacheFileSystem
     @Override
     public TrinoInputFile newInputFile(Location location)
     {
-        return new CacheInputFile(delegate.newInputFile(location), cache, keyProvider, OptionalLong.empty());
+        return new CacheInputFile(delegate.newInputFile(location), cache, keyProvider, OptionalLong.empty(), Optional.empty());
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
-        return new CacheInputFile(delegate.newInputFile(location, length), cache, keyProvider, OptionalLong.of(length));
+        return new CacheInputFile(delegate.newInputFile(location, length), cache, keyProvider, OptionalLong.of(length), Optional.empty());
+    }
+
+    @Override
+    public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
+    {
+        return new CacheInputFile(delegate.newInputFile(location, length, lastModified), cache, keyProvider, OptionalLong.of(length), Optional.of(lastModified));
     }
 
     @Override

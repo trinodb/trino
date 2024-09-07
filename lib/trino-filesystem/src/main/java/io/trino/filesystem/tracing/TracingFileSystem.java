@@ -24,6 +24,7 @@ import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
@@ -46,13 +47,19 @@ final class TracingFileSystem
     @Override
     public TrinoInputFile newInputFile(Location location)
     {
-        return new TracingInputFile(tracer, delegate.newInputFile(location), Optional.empty());
+        return new TracingInputFile(tracer, delegate.newInputFile(location), Optional.empty(), Optional.empty());
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
-        return new TracingInputFile(tracer, delegate.newInputFile(location, length), Optional.of(length));
+        return new TracingInputFile(tracer, delegate.newInputFile(location, length), Optional.of(length), Optional.empty());
+    }
+
+    @Override
+    public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
+    {
+        return new TracingInputFile(tracer, delegate.newInputFile(location, length, lastModified), Optional.of(length), Optional.of(lastModified));
     }
 
     @Override

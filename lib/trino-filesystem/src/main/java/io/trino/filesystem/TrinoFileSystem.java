@@ -18,6 +18,7 @@ import io.airlift.units.Duration;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
@@ -71,6 +72,17 @@ public interface TrinoFileSystem
      * @throws IllegalArgumentException if location is not valid for this file system
      */
     TrinoInputFile newInputFile(Location location, long length);
+
+    /**
+     * Creates a TrinoInputFile with a predeclared length and lastModifiedTime which can be used to read the file data.
+     * The length will be returned from {@link TrinoInputFile#length()} and the actual file length
+     * will never be checked. The lastModified will be returned from {@link TrinoInputFile#lastModified()} and the
+     * actual file last modified time will never be checked. The file location path cannot be empty, and must not end
+     * with a slash or whitespace.
+     *
+     * @throws IllegalArgumentException if location is not valid for this file system
+     */
+    TrinoInputFile newInputFile(Location location, long length, Instant lastModified);
 
     /**
      * Creates a TrinoOutputFile which can be used to create or overwrite the file. The file
