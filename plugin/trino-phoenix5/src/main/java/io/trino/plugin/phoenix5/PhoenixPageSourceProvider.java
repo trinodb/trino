@@ -15,6 +15,7 @@ package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import dev.failsafe.RetryPolicy;
 import io.trino.plugin.jdbc.ForRecordCursor;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcRecordSetProvider;
@@ -48,9 +49,9 @@ public class PhoenixPageSourceProvider
     private final PhoenixClient phoenixClient;
 
     @Inject
-    public PhoenixPageSourceProvider(PhoenixClient phoenixClient, @ForRecordCursor ExecutorService executor)
+    public PhoenixPageSourceProvider(PhoenixClient phoenixClient, @ForRecordCursor ExecutorService executor, RetryPolicy<Object> policy)
     {
-        this.recordSetProvider = new JdbcRecordSetProvider(phoenixClient, executor);
+        this.recordSetProvider = new JdbcRecordSetProvider(phoenixClient, executor, policy);
         this.phoenixClient = requireNonNull(phoenixClient, "phoenixClient is null");
     }
 
