@@ -14,6 +14,7 @@
 package io.trino.spooling.filesystem;
 
 import io.airlift.units.DataSize;
+import io.azam.ulidj.ULID;
 import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.spi.QueryId;
@@ -30,7 +31,6 @@ import org.junit.jupiter.api.TestInstance;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.time.Instant;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -104,10 +104,15 @@ public class TestFileSystemSpoolingManager
     @Test
     public void testHandleRoundTrip()
     {
-        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("test", Instant.now(), Optional.of(utf8Slice("superSecretKey")));
-
+        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.of(QueryId.valueOf("a"), ULID.randomBinary(), Optional.of(utf8Slice("superSecretKey")));
         SpooledLocation location = getSpoolingManager().location(handle);
-        assertThat(getSpoolingManager().handle(location)).isEqualTo(handle);
+        FileSystemSpooledSegmentHandle handle2 = (FileSystemSpooledSegmentHandle) getSpoolingManager().handle(location);
+
+        assertThat(handle.queryId()).isEqualTo(handle2.queryId());
+        assertThat(handle.storageObjectName()).isEqualTo(handle2.storageObjectName());
+        assertThat(handle.uuid()).isEqualTo(handle2.uuid());
+        assertThat(handle.expirationTime()).isEqualTo(handle2.expirationTime());
+        assertThat(handle.encryptionKey()).isEqualTo(handle2.encryptionKey());
     }
 
     private SpoolingManager getSpoolingManager()

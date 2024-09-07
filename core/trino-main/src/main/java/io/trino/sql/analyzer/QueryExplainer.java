@@ -20,6 +20,7 @@ import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.server.ServerConfig;
 import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
 import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.spi.TrinoException;
@@ -172,7 +173,7 @@ public class QueryExplainer
                 planOptimizers,
                 idAllocator,
                 plannerContext,
-                new SpoolingManagerRegistry(new SpoolingEnabledConfig(), noop(), noopTracer()),
+                new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer()),
                 statsCalculator,
                 costCalculator,
                 warningCollector,

@@ -19,6 +19,7 @@ import io.airlift.units.Duration;
 import jakarta.validation.constraints.AssertTrue;
 
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class FileSystemSpoolingConfig
 {
@@ -28,6 +29,9 @@ public class FileSystemSpoolingConfig
     private String location;
     private Duration ttl = new Duration(2, HOURS);
     private boolean encryptionEnabled = true;
+    private boolean pruningEnabled = true;
+    private Duration pruningInterval = new Duration(5, MINUTES);
+    private long pruningBatchSize = 250;
 
     public boolean isAzureEnabled()
     {
@@ -100,6 +104,45 @@ public class FileSystemSpoolingConfig
     public FileSystemSpoolingConfig setEncryptionEnabled(boolean encryptionEnabled)
     {
         this.encryptionEnabled = encryptionEnabled;
+        return this;
+    }
+
+    public boolean isPruningEnabled()
+    {
+        return pruningEnabled;
+    }
+
+    @ConfigDescription("Prune expired segments periodically")
+    @Config("fs.segment.pruning.enabled")
+    public FileSystemSpoolingConfig setPruningEnabled(boolean pruningEnabled)
+    {
+        this.pruningEnabled = pruningEnabled;
+        return this;
+    }
+
+    public Duration getPruningInterval()
+    {
+        return pruningInterval;
+    }
+
+    @ConfigDescription("Interval to prune expired segments")
+    @Config("fs.segment.pruning.interval")
+    public FileSystemSpoolingConfig setPruningInterval(Duration pruningInterval)
+    {
+        this.pruningInterval = pruningInterval;
+        return this;
+    }
+
+    public long getPruningBatchSize()
+    {
+        return pruningBatchSize;
+    }
+
+    @ConfigDescription("Prune expired segments in batches of provided size")
+    @Config("fs.segment.pruning.batch-size")
+    public FileSystemSpoolingConfig setPruningBatchSize(long pruningBatchSize)
+    {
+        this.pruningBatchSize = pruningBatchSize;
         return this;
     }
 

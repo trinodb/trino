@@ -790,6 +790,12 @@
             </dependency>
 
             <dependency>
+                <groupId>io.azam.ulidj</groupId>
+                <artifactId>ulidj</artifactId>
+                <version>1.0.4</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.confluent</groupId>
                 <artifactId>kafka-avro-serializer</artifactId>
                 <version>${dep.confluent.version}</version>

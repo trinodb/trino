@@ -17,6 +17,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.server.ServerConfig;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.protocol.SpoolingManager;
 import io.trino.spi.protocol.SpoolingManagerContext;
@@ -47,14 +48,16 @@ public class SpoolingManagerRegistry
     private static final String SPOOLING_MANAGER_NAME_PROPERTY = "spooling-manager.name";
 
     private final boolean enabled;
+    private final boolean coordinator;
     private final OpenTelemetry openTelemetry;
     private final Tracer tracer;
     private volatile SpoolingManager spoolingManager;
 
     @Inject
-    public SpoolingManagerRegistry(SpoolingEnabledConfig config, OpenTelemetry openTelemetry, Tracer tracer)
+    public SpoolingManagerRegistry(ServerConfig serverConfig, SpoolingEnabledConfig config, OpenTelemetry openTelemetry, Tracer tracer)
     {
         this.enabled = config.isEnabled();
+        this.coordinator = serverConfig.isCoordinator();
         this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
     }
@@ -108,6 +111,12 @@ public class SpoolingManagerRegistry
             public Tracer getTracer()
             {
                 return tracer;
+            }
+
+            @Override
+            public boolean isCoordinator()
+            {
+                return coordinator;
             }
         };
 

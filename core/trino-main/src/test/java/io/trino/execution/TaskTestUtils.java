@@ -39,6 +39,7 @@ import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
+import io.trino.server.ServerConfig;
 import io.trino.server.protocol.spooling.PreferredQueryDataEncoderSelector;
 import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
 import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
@@ -160,7 +161,7 @@ public final class TaskTestUtils
 
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
         ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
-        SpoolingManagerRegistry spoolingManagerRegistry = new SpoolingManagerRegistry(new SpoolingEnabledConfig(), noop(), noopTracer());
+        SpoolingManagerRegistry spoolingManagerRegistry = new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer());
         return new LocalExecutionPlanner(
                 PLANNER_CONTEXT,
                 Optional.empty(),

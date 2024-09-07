@@ -13,42 +13,98 @@
  */
 package io.trino.spooling.filesystem;
 
+import com.google.common.base.Splitter;
 import io.airlift.slice.Slice;
-import io.airlift.units.Duration;
+import io.azam.ulidj.ULID;
+import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpooledSegmentHandle;
-import io.trino.spi.protocol.SpoolingContext;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import java.util.HexFormat;
+import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
-import static java.util.UUID.randomUUID;
 
-public record FileSystemSpooledSegmentHandle(String objectName, Instant validUntil, Optional<Slice> encryptionKey)
+public record FileSystemSpooledSegmentHandle(QueryId queryId, byte[] uuid, Optional<Slice> encryptionKey)
         implements SpooledSegmentHandle
 {
+    private static final String OBJECT_NAME_SEPARATOR = "::";
+
     public FileSystemSpooledSegmentHandle
     {
-        requireNonNull(objectName, "objectName is null");
-        validUntil = requireNonNull(validUntil, "validUntil is null").truncatedTo(ChronoUnit.MILLIS);
+        requireNonNull(queryId, "queryId is null");
+        requireNonNull(encryptionKey, "encryptionKey is null");
+        verify(uuid.length == 16, "uuid must be 128 bits");
     }
 
-    public static FileSystemSpooledSegmentHandle random(SpoolingContext context, Duration ttl)
+    public static FileSystemSpooledSegmentHandle random(Random random, QueryId queryId, Instant expireAt)
     {
-        return random(context, ttl, Optional.empty());
+        return random(random, queryId, expireAt, Optional.empty());
     }
 
-    public static FileSystemSpooledSegmentHandle random(SpoolingContext context, Duration ttl, Optional<Slice> encryptionKey)
+    public static FileSystemSpooledSegmentHandle random(Random random, QueryId queryId, Instant expireAt, Optional<Slice> encryptionKey)
     {
         return new FileSystemSpooledSegmentHandle(
-                context.queryId().getId() + "/" + randomObjectName(),
-                Instant.now().plusMillis(ttl.toMillis()),
+                queryId,
+                ULID.generateBinary(expireAt.toEpochMilli(), entropy(random)),
                 encryptionKey);
     }
 
-    private static String randomObjectName()
+    public Instant expirationTime()
     {
-        return randomUUID().toString().replace("-", "");
+        return Instant.ofEpochMilli(ULID.getTimestampBinary(uuid()));
+    }
+
+    /**
+     * Storage object name starts with the ULID which is ordered lexicographically
+     * by the time of the expiration, which makes it possible to find the expired
+     * segments by listing the storage objects. This is crucial for the storage
+     * cleanup process to be able to efficiently delete the expired segments.
+     *
+     * @return String lexicographically sortable storage object name
+     * @see <a href="https://github.com/ulid/spec">ULID specification</a>
+     */
+    public String storageObjectName()
+    {
+        return ULID.fromBinary(uuid) + OBJECT_NAME_SEPARATOR + queryId;
+    }
+
+    public static FileSystemSpooledSegmentHandle fromStorageObjectName(String objectName)
+    {
+        List<String> parts = Splitter.on(OBJECT_NAME_SEPARATOR).limit(2).splitToList(objectName);
+        byte[] uuid = ULID.toBinary(parts.get(0));
+        QueryId queryId = QueryId.valueOf(parts.get(1));
+
+        return new FileSystemSpooledSegmentHandle(queryId, uuid, Optional.empty());
+    }
+
+    public static FileSystemSpooledSegmentHandle of(QueryId queryId, byte[] ulid, Optional<Slice> encryptionKey)
+    {
+        if (!ULID.isValidBinary(ulid)) {
+            throw new IllegalArgumentException("Invalid ULID: " + HexFormat.of().formatHex(ulid));
+        }
+        return new FileSystemSpooledSegmentHandle(queryId, ulid, encryptionKey);
+    }
+
+    private static byte[] entropy(Random random)
+    {
+        byte[] entropy = new byte[16];
+        random.nextBytes(entropy);
+        return entropy;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("queryId", queryId)
+                .add("expiresAt", Instant.ofEpochMilli(ULID.getTimestampBinary(uuid)))
+                .add("storageObjectName", storageObjectName())
+                .add("encryptionKey", encryptionKey.map(_ -> "[redacted]").orElse("[none"))
+                .toString();
     }
 }
