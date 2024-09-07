@@ -349,6 +349,7 @@ import static io.trino.operator.window.FrameInfo.Ordering.ASCENDING;
 import static io.trino.operator.window.FrameInfo.Ordering.DESCENDING;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.CLASSIFIER;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER;
+import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_SYMBOL;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
@@ -4172,6 +4173,7 @@ public class LocalExecutionPlanner
     private static Function<Page, Page> enforceLoadedLayoutProcessor(List<Symbol> expectedLayout, Map<Symbol, Integer> inputLayout)
     {
         int[] channels = expectedLayout.stream()
+                .filter(symbol -> !symbol.equals(SPOOLING_METADATA_SYMBOL))
                 .peek(symbol -> checkArgument(inputLayout.containsKey(symbol), "channel not found for symbol: %s", symbol))
                 .mapToInt(inputLayout::get)
                 .toArray();
