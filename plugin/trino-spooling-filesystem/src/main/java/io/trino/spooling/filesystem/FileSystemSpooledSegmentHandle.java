@@ -25,12 +25,12 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
-public record FileSystemSpooledSegmentHandle(String name, Instant validUntil, Optional<Slice> encryptionKey)
+public record FileSystemSpooledSegmentHandle(String objectName, Instant validUntil, Optional<Slice> encryptionKey)
         implements SpooledSegmentHandle
 {
     public FileSystemSpooledSegmentHandle
     {
-        requireNonNull(name, "name is null");
+        requireNonNull(objectName, "objectName is null");
         validUntil = requireNonNull(validUntil, "validUntil is null").truncatedTo(ChronoUnit.MILLIS);
     }
 
