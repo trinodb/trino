@@ -76,9 +76,6 @@
 * Remove the deprecated `ConnectorMetadata.createTable(ConnectorSession session,
   ConnectorTableMetadata tableMetadata, boolean ignoreExisting)` method.
   ({issue}`23209`)
-* Remove the deprecated `ConnectorMetadata.createTable(ConnectorSession session,
-  ConnectorTableMetadata tableMetadata, boolean ignoreExisting)` method.
-  ({issue}`23209`)
 * Remove the deprecated `ConnectorMetadata.beginCreateTable` method. ({issue}`23211`)
 * Remove the deprecated `ConnectorSplit.getInfo` method. ({issue}`23271`)
 * Remove the deprecated `DecimalConversions.realToShortDecimal(long value, long
