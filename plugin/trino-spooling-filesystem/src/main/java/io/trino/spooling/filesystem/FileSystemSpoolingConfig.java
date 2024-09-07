@@ -26,9 +26,7 @@ public class FileSystemSpoolingConfig
     private boolean nativeS3Enabled;
     private boolean nativeGcsEnabled;
     private String location;
-
     private Duration ttl = new Duration(2, HOURS);
-
     private boolean encryptionEnabled = true;
 
     public boolean isNativeAzureEnabled()
