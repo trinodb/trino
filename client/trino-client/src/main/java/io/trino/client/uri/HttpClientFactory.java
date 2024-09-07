@@ -64,7 +64,7 @@ public class HttpClientFactory
             if (!uri.isUseSecureConnection()) {
                 throw new RuntimeException("TLS/SSL is required for authentication with username and password");
             }
-            builder.addInterceptor(basicAuth(uri.getRequiredUser(), uri.getPassword().orElseThrow(() -> new RuntimeException("Password expected"))));
+            builder.addNetworkInterceptor(basicAuth(uri.getRequiredUser(), uri.getPassword().orElseThrow(() -> new RuntimeException("Password expected"))));
         }
 
         if (uri.isUseSecureConnection()) {
@@ -117,7 +117,7 @@ public class HttpClientFactory
             if (!uri.isUseSecureConnection()) {
                 throw new RuntimeException("TLS/SSL required for authentication using an access token");
             }
-            builder.addInterceptor(tokenAuth(uri.getAccessToken().get()));
+            builder.addNetworkInterceptor(tokenAuth(uri.getAccessToken().get()));
         }
 
         if (uri.isExternalAuthenticationEnabled()) {
@@ -144,7 +144,7 @@ public class HttpClientFactory
                     redirectHandler, poller, knownTokenCache.create(), timeout);
 
             builder.authenticator(authenticator);
-            builder.addInterceptor(authenticator);
+            builder.addNetworkInterceptor(authenticator);
         }
 
         uri.getDnsResolver().ifPresent(resolverClass -> builder.dns(instantiateDnsResolver(resolverClass, uri.getDnsResolverContext())::lookup));
