@@ -44,15 +44,15 @@ public class FilesystemSpoolingModule
     {
         FileSystemSpoolingConfig config = buildConfigObject(FileSystemSpoolingConfig.class);
         var factories = newMapBinder(binder, String.class, TrinoFileSystemFactory.class);
-        if (config.isNativeAzureEnabled()) {
+        if (config.isAzureEnabled()) {
             install(new AzureFileSystemModule());
             factories.addBinding("abfs").to(AzureFileSystemFactory.class);
         }
-        if (config.isNativeS3Enabled()) {
+        if (config.isS3Enabled()) {
             install(new S3FileSystemModule());
             factories.addBinding("s3").to(S3FileSystemFactory.class);
         }
-        if (config.isNativeGcsEnabled()) {
+        if (config.isGcsEnabled()) {
             install(new GcsFileSystemModule());
             factories.addBinding("gs").to(GcsFileSystemFactory.class);
         }

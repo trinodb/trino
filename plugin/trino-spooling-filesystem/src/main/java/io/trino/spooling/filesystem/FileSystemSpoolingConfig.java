@@ -22,46 +22,46 @@ import static java.util.concurrent.TimeUnit.HOURS;
 
 public class FileSystemSpoolingConfig
 {
-    private boolean nativeAzureEnabled;
-    private boolean nativeS3Enabled;
-    private boolean nativeGcsEnabled;
+    private boolean azureEnabled;
+    private boolean s3Enabled;
+    private boolean gcsEnabled;
     private String location;
     private Duration ttl = new Duration(2, HOURS);
     private boolean encryptionEnabled = true;
 
-    public boolean isNativeAzureEnabled()
+    public boolean isAzureEnabled()
     {
-        return nativeAzureEnabled;
+        return azureEnabled;
     }
 
-    @Config("fs.native-azure.enabled")
-    public FileSystemSpoolingConfig setNativeAzureEnabled(boolean nativeAzureEnabled)
+    @Config("fs.azure.enabled")
+    public FileSystemSpoolingConfig setAzureEnabled(boolean azureEnabled)
     {
-        this.nativeAzureEnabled = nativeAzureEnabled;
+        this.azureEnabled = azureEnabled;
         return this;
     }
 
-    public boolean isNativeS3Enabled()
+    public boolean isS3Enabled()
     {
-        return nativeS3Enabled;
+        return s3Enabled;
     }
 
-    @Config("fs.native-s3.enabled")
-    public FileSystemSpoolingConfig setNativeS3Enabled(boolean nativeS3Enabled)
+    @Config("fs.s3.enabled")
+    public FileSystemSpoolingConfig setS3Enabled(boolean nativeS3Enabled)
     {
-        this.nativeS3Enabled = nativeS3Enabled;
+        this.s3Enabled = nativeS3Enabled;
         return this;
     }
 
-    public boolean isNativeGcsEnabled()
+    public boolean isGcsEnabled()
     {
-        return nativeGcsEnabled;
+        return gcsEnabled;
     }
 
-    @Config("fs.native-gcs.enabled")
-    public FileSystemSpoolingConfig setNativeGcsEnabled(boolean nativeGcsEnabled)
+    @Config("fs.gcs.enabled")
+    public FileSystemSpoolingConfig setGcsEnabled(boolean gcsEnabled)
     {
-        this.nativeGcsEnabled = nativeGcsEnabled;
+        this.gcsEnabled = gcsEnabled;
         return this;
     }
 
@@ -70,7 +70,7 @@ public class FileSystemSpoolingConfig
         return location;
     }
 
-    @Config("location")
+    @Config("fs.location")
     public FileSystemSpoolingConfig setLocation(String location)
     {
         this.location = location;
@@ -82,8 +82,8 @@ public class FileSystemSpoolingConfig
         return ttl;
     }
 
-    @ConfigDescription("Maximum duration for the client to retrieve spooled segment")
-    @Config("ttl")
+    @ConfigDescription("Maximum duration for the client to retrieve spooled segment before it expires")
+    @Config("fs.segment.ttl")
     public FileSystemSpoolingConfig setTtl(Duration ttl)
     {
         this.ttl = ttl;
@@ -95,17 +95,17 @@ public class FileSystemSpoolingConfig
         return encryptionEnabled;
     }
 
-    @ConfigDescription("Encrypt segments with ephemeral encryption keys")
-    @Config("encryption")
+    @ConfigDescription("Encrypt segments with ephemeral keys")
+    @Config("fs.segment.encryption")
     public FileSystemSpoolingConfig setEncryptionEnabled(boolean encryptionEnabled)
     {
         this.encryptionEnabled = encryptionEnabled;
         return this;
     }
 
-    @AssertTrue(message = "At least one native file system must be enabled")
+    @AssertTrue(message = "At least one storage file system must be enabled")
     public boolean isEitherNativeFileSystemEnabled()
     {
-        return nativeAzureEnabled || nativeS3Enabled || nativeGcsEnabled;
+        return azureEnabled || s3Enabled || gcsEnabled;
     }
 }

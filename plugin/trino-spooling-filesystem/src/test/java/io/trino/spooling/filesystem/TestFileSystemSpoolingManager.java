@@ -113,7 +113,7 @@ public class TestFileSystemSpoolingManager
     private SpoolingManager getSpoolingManager()
     {
         FileSystemSpoolingConfig spoolingConfig = new FileSystemSpoolingConfig();
-        spoolingConfig.setNativeS3Enabled(true);
+        spoolingConfig.setS3Enabled(true);
         spoolingConfig.setLocation("s3://test");
         S3FileSystemConfig filesystemConfig = new S3FileSystemConfig()
                 .setEndpoint(minio.getMinioAddress())
