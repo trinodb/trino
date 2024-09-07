@@ -509,7 +509,7 @@ FROM
 
 The connector includes a number of performance improvements, detailed in the
 following sections.
-
+    
 ### Synonyms
 
 Based on performance reasons, Trino disables support for Oracle `SYNONYM`. To
@@ -600,3 +600,44 @@ SHOW CREATE TABLE nation;
 SELECT * FROM nation WHERE name > 'CANADA';
 SELECT * FROM nation WHERE name = 'CANADA';
 ```
+
+### Table splitting
+
+The connector supports table splitting, that could improve performance for large tables by doing parallel read on such tables. If some tables causing out of memory errors in Trino workers when doing processing on them, carefully doing table splitting might help. 
+The master switch to enable table splitting is the configuration oracle.experimental_split :
+```
+oracle.experimental.split=true
+```
+This is overridable in the session property experimental_split :
+```
+set session oraclecatalog.experimental_split=true;
+```
+
+There are currently three methods to split a table :
+
+#### Rowid-based splitting
+Rowid-based splitting splits the table into near-equal parts by using ntile function over the rowid pseudocolumn.
+To invoke rowid-based splitting, set session property split_rule before doing the query :
+```
+set session oraclecatalog.split_rule = 'ROWID:TABLENAME(400)';
+select * from oraclecatalog.schema.tablename
+```
+After setting the session property split_rule, the oracle plugin will split the table TABLENAME into 400 near-equal parts based on rowid.
+
+#### Splitting based on integer index
+If the table has a single column integer index, the oracle plugin could perform table splitting based on such table. It works best on autoincrement columns. In order to perform table split based on the index, set the split_rule like this :
+```
+set session oracecatalog.split_rule = 'INDEX:TABLENAME(FIELDNAME,1000)';
+create newtable as select * from oraclecatalog.schema.tablename;
+```
+After setting the session property split_rule, the oracle plugin will split the table TABLENAME using ranges such as 1..1000, 1001..2000, 2001..3000, and so on. FIELDNAME could also be substituted by index name. 
+
+#### Splitting based on integer index and ntile function
+For the same case of integer index column being present on a table, the oracle plugin could split the table to near-equal splits by using ntile function.
+```
+set session oracecatalog.split_rule = 'NTILE:TABLENAME(FIELDNAME,300)';
+create table newtable as select * from oraclecatalog.schema.tablename;
+```
+The command above will make the oracle plugin split using ntile function on the field FIELDNAME, splitting into 300 near-equal splits.
+
+Note that the oracle plugin will do matches based on table names before applying the splitting rule, so it doesn't happen by default. When the table names being queried doesn't match the splitting rule, then no splitting will be performed. For join queries, the oracle plugin would prefer to do split on the build side (right-side) of the join if both sides has split rules to apply, but otherwise the plugin would choose to split on whatever side has split rules.
