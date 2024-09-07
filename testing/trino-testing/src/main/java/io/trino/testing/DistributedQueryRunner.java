@@ -717,7 +717,7 @@ public class DistributedQueryRunner
         private List<EventListener> eventListeners = ImmutableList.of();
         private ImmutableList.Builder<AutoCloseable> extraCloseables = ImmutableList.builder();
         private TestingTrinoClientFactory testingTrinoClientFactory = TestingTrinoClient::new;
-        private Optional<String> encodingId = Optional.empty();
+        private Optional<String> encodingId = Optional.of("json+zstd");
 
         protected Builder(Session defaultSession)
         {
@@ -915,6 +915,7 @@ public class DistributedQueryRunner
                 addExtraProperty("protocol.spooling.maximum-segment-size", "32MB");
                 addExtraProperty("protocol.spooling.shared-secret-key", randomAESKey());
                 setAdditionalSetup(queryRunner -> {
+                    log.info("Spooled protocol enabled with encoding id: %s and local disk-based spooling for %s", encodingId.get(), queryRunner);
                     queryRunner.installPlugin(new LocalSpoolingPlugin());
                     queryRunner.loadSpoolingManager("test-local", Map.of());
                 });
