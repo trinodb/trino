@@ -17,7 +17,7 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
-import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.plugin.iceberg.util.FileOperationUtils;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -32,14 +32,14 @@ import java.util.Map;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
+import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.getFileLocation;
+import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.isTrinoSchemaOrPermissions;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DATA;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.MANIFEST;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.SNAPSHOT;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 
 @Execution(ExecutionMode.SAME_THREAD)
@@ -81,13 +81,14 @@ public class TestIcebergMemoryCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .addCopies(new CacheOperation("MemoryFileSystemCache.loadCache", DATA), 2)
+                        .addCopies(new CacheOperation("Input.readTail", DATA), 2)
                         .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 2)
-                        .add(new CacheOperation("MemoryFileSystemCache.loadCache", METADATA_JSON))
+                        .add(new CacheOperation("Input.readTail", METADATA_JSON))
+                        .add(new CacheOperation("InputFile.length", METADATA_JSON))
                         .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
                         .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
                         .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
-                        .add(new CacheOperation("MemoryFileSystemCache.loadCache", MANIFEST))
+                        .add(new CacheOperation("Input.readTail", MANIFEST))
                         .addCopies(new CacheOperation("FileSystemCache.cacheStream", MANIFEST), 2)
                         .build());
 
@@ -108,15 +109,17 @@ public class TestIcebergMemoryCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .addCopies(new CacheOperation("MemoryFileSystemCache.loadCache", DATA), 3)
+                        .addCopies(new CacheOperation("Input.readTail", DATA), 3)
                         .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 5)
-                        .add(new CacheOperation("MemoryFileSystemCache.loadCache", METADATA_JSON))
+                        .add(new CacheOperation("Input.readTail", METADATA_JSON))
+                        .add(new CacheOperation("InputFile.length", METADATA_JSON))
                         .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
                         .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
                         .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
-                        .add(new CacheOperation("MemoryFileSystemCache.loadCache", MANIFEST))
+                        .add(new CacheOperation("Input.readTail", MANIFEST))
                         .addCopies(new CacheOperation("FileSystemCache.cacheStream", MANIFEST), 5)
                         .build());
+
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
@@ -135,13 +138,24 @@ public class TestIcebergMemoryCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM test_select_with_filter WHERE col_name = 1",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("MemoryFileSystemCache.loadCache", METADATA_JSON))
+                        .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
+                        .add(new CacheOperation("Input.readTail", METADATA_JSON))
+                        .add(new CacheOperation("InputFile.length", METADATA_JSON))
+                        .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
+                        .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
+                        .add(new CacheOperation("FileSystemCache.cacheStream", MANIFEST))
+                        .add(new CacheOperation("Input.readTail", MANIFEST))
+                        .add(new CacheOperation("FileSystemCache.cacheInput", DATA))
+                        .add(new CacheOperation("Input.readTail", DATA))
+                        .build());
+
+        assertFileSystemAccesses(
+                "SELECT * FROM test_select_with_filter WHERE col_name = 1",
+                ImmutableMultiset.<CacheOperation>builder()
                         .add(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON))
                         .add(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT))
                         .add(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT))
-                        .add(new CacheOperation("MemoryFileSystemCache.loadCache", MANIFEST))
                         .add(new CacheOperation("FileSystemCache.cacheStream", MANIFEST))
-                        .add(new CacheOperation("MemoryFileSystemCache.loadCache", DATA))
                         .add(new CacheOperation("FileSystemCache.cacheInput", DATA))
                         .build());
     }
@@ -154,13 +168,23 @@ public class TestIcebergMemoryCacheFileOperations
 
         assertFileSystemAccesses("SELECT name, age FROM test_join_t1 JOIN test_join_t2 ON test_join_t2.id = test_join_t1.id",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .addCopies(new CacheOperation("MemoryFileSystemCache.loadCache", METADATA_JSON), 2)
+                        .addCopies(new CacheOperation("Input.readTail", METADATA_JSON), 2)
+                        .addCopies(new CacheOperation("InputFile.length", METADATA_JSON), 2)
                         .addCopies(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON), 2)
                         .addCopies(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT), 2)
                         .addCopies(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT), 2)
-                        .addCopies(new CacheOperation("MemoryFileSystemCache.loadCache", MANIFEST), 2)
+                        .addCopies(new CacheOperation("Input.readTail", MANIFEST), 2)
                         .addCopies(new CacheOperation("FileSystemCache.cacheStream", MANIFEST), 4)
-                        .addCopies(new CacheOperation("MemoryFileSystemCache.loadCache", DATA), 2)
+                        .addCopies(new CacheOperation("Input.readTail", DATA), 2)
+                        .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 2)
+                        .build());
+
+        assertFileSystemAccesses("SELECT name, age FROM test_join_t1 JOIN test_join_t2 ON test_join_t2.id = test_join_t1.id",
+                ImmutableMultiset.<CacheOperation>builder()
+                        .addCopies(new CacheOperation("FileSystemCache.cacheStream", METADATA_JSON), 2)
+                        .addCopies(new CacheOperation("FileSystemCache.cacheStream", SNAPSHOT), 2)
+                        .addCopies(new CacheOperation("FileSystemCache.cacheLength", SNAPSHOT), 2)
+                        .addCopies(new CacheOperation("FileSystemCache.cacheStream", MANIFEST), 4)
                         .addCopies(new CacheOperation("FileSystemCache.cacheInput", DATA), 2)
                         .build());
     }
@@ -175,23 +199,19 @@ public class TestIcebergMemoryCacheFileOperations
     private Multiset<CacheOperation> getCacheOperations()
     {
         return getQueryRunner().getSpans().stream()
-                .filter(span -> span.getName().startsWith("FileSystemCache.") || span.getName().startsWith("MemoryFileSystemCache."))
-                .filter(span -> !isTrinoSchemaOrPermissions(requireNonNull(span.getAttributes().get(CACHE_FILE_LOCATION))))
-                .map(span -> CacheOperation.create(span.getName(), span.getAttributes()))
+                .filter(span -> span.getName().startsWith("Input.") || span.getName().startsWith("InputFile.") || span.getName().startsWith("FileSystemCache."))
+                .filter(span -> !span.getName().startsWith("InputFile.newInput"))
+                .filter(span -> !isTrinoSchemaOrPermissions(getFileLocation(span)))
+                .map(CacheOperation::create)
                 .collect(toCollection(HashMultiset::create));
     }
 
     private record CacheOperation(String operationName, FileOperationUtils.FileType fileType)
     {
-        public static CacheOperation create(String operationName, Attributes attributes)
+        public static CacheOperation create(SpanData span)
         {
-            String path = requireNonNull(attributes.get(CACHE_FILE_LOCATION));
-            return new CacheOperation(operationName, FileOperationUtils.FileType.fromFilePath(path));
+            String path = getFileLocation(span);
+            return new CacheOperation(span.getName(), FileOperationUtils.FileType.fromFilePath(path));
         }
-    }
-
-    private static boolean isTrinoSchemaOrPermissions(String path)
-    {
-        return path.endsWith(".trinoSchema") || path.contains(".trinoPermissions");
     }
 }

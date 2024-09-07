@@ -139,7 +139,7 @@ public class AlluxioInputStream
             return 0;
         }
 
-        Span span = tracer.spanBuilder("Alluxio.readExternal")
+        Span span = tracer.spanBuilder("Alluxio.readExternalStream")
                 .setAttribute(CACHE_KEY, key)
                 .setAttribute(CACHE_FILE_LOCATION, inputFile.location().toString())
                 .setAttribute(CACHE_FILE_READ_SIZE, (long) length)
