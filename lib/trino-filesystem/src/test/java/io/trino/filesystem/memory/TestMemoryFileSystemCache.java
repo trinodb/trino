@@ -31,7 +31,6 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.UUID;
 
-import static io.airlift.tracing.Tracing.noopTracer;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -52,7 +51,7 @@ public class TestMemoryFileSystemCache
                 .setMaxContentLength(DataSize.ofBytes(MAX_CONTENT_LENGTH))
                 .setCacheTtl(new Duration(8, HOURS));
         delegate = new MemoryFileSystem();
-        cache = new MemoryFileSystemCache(noopTracer(), configuration);
+        cache = new MemoryFileSystemCache(configuration);
         cacheKeyProvider = new DefaultCacheKeyProvider();
         fileSystem = new CacheFileSystem(delegate, cache, cacheKeyProvider);
     }

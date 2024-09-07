@@ -96,6 +96,8 @@ public class TestIcebergFileOperations
         queryRunner.installPlugin(new TestingIcebergPlugin(dataDirectory));
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.<String, String>builder()
                 .put("iceberg.split-manager-threads", "0")
+                // FS accesses with metadata cache are tested separately in io.trino.plugin.iceberg.TestIcebergMemoryCacheFileOperations
+                .put("iceberg.metadata-cache.enabled", "false")
                 .buildOrThrow());
 
         metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()

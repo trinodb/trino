@@ -20,8 +20,6 @@ import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.Tracer;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
@@ -46,30 +44,23 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
-import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_SIZE;
-import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_KEY;
-import static io.trino.filesystem.tracing.Tracing.withTracing;
 import static java.lang.Math.toIntExact;
-import static java.util.Objects.requireNonNull;
 
 public final class MemoryFileSystemCache
         implements TrinoFileSystemCache
 {
-    private final Tracer tracer;
     private final Cache<String, Optional<Slice>> cache;
     private final int maxContentLengthBytes;
     private final AtomicLong largeFileSkippedCount = new AtomicLong();
 
     @Inject
-    public MemoryFileSystemCache(Tracer tracer, MemoryFileSystemCacheConfig config)
+    public MemoryFileSystemCache(MemoryFileSystemCacheConfig config)
     {
-        this(tracer, config.getCacheTtl(), config.getMaxSize(), config.getMaxContentLength());
+        this(config.getCacheTtl(), config.getMaxSize(), config.getMaxContentLength());
     }
 
-    private MemoryFileSystemCache(Tracer tracer, Duration expireAfterWrite, DataSize maxSize, DataSize maxContentLength)
+    private MemoryFileSystemCache(Duration expireAfterWrite, DataSize maxSize, DataSize maxContentLength)
     {
-        this.tracer = requireNonNull(tracer, "tracer is null");
         checkArgument(maxContentLength.compareTo(DataSize.of(1, GIGABYTE)) <= 0, "maxContentLength must be less than or equal to 1GB");
         this.cache = EvictableCacheBuilder.newBuilder()
                 .maximumWeight(maxSize.toBytes())
@@ -88,8 +79,7 @@ public final class MemoryFileSystemCache
         Optional<Slice> cachedEntry = getOrLoadFromCache(key, delegate);
         if (cachedEntry.isEmpty()) {
             largeFileSkippedCount.incrementAndGet();
-            Span span = createSpan(key, delegate.location(), "delegateInput");
-            return withTracing(span, delegate::newInput);
+            return delegate.newInput();
         }
 
         return new MemoryInput(delegate.location(), cachedEntry.get());
@@ -102,8 +92,7 @@ public final class MemoryFileSystemCache
         Optional<Slice> cachedEntry = getOrLoadFromCache(key, delegate);
         if (cachedEntry.isEmpty()) {
             largeFileSkippedCount.incrementAndGet();
-            Span span = createSpan(key, delegate.location(), "delegateStream");
-            return withTracing(span, delegate::newStream);
+            return delegate.newStream();
         }
 
         return new MemoryInputStream(delegate.location(), cachedEntry.get());
@@ -116,8 +105,7 @@ public final class MemoryFileSystemCache
         Optional<Slice> cachedEntry = getOrLoadFromCache(key, delegate);
         if (cachedEntry.isEmpty()) {
             largeFileSkippedCount.incrementAndGet();
-            Span span = createSpan(key, delegate.location(), "delegateLength");
-            return withTracing(span, delegate::length);
+            return delegate.length();
         }
 
         return cachedEntry.get().length();
@@ -178,35 +166,23 @@ public final class MemoryFileSystemCache
             throws IOException
     {
         try {
-            return cache.get(key, () -> load(key, delegate));
+            return cache.get(key, () -> load(delegate));
         }
         catch (ExecutionException e) {
             throw handleException(delegate.location(), e.getCause());
         }
     }
 
-    private Optional<Slice> load(String key, TrinoInputFile delegate)
+    private Optional<Slice> load(TrinoInputFile delegate)
             throws IOException
     {
-        Span span = createSpan(key, delegate.location(), "loadCache");
-        return withTracing(span, () -> {
-            long fileSize = delegate.length();
-            span.setAttribute(CACHE_FILE_READ_SIZE, fileSize);
-            if (fileSize > maxContentLengthBytes) {
-                return Optional.empty();
-            }
-            try (TrinoInput trinoInput = delegate.newInput()) {
-                return Optional.of(trinoInput.readTail(toIntExact(fileSize)));
-            }
-        });
-    }
-
-    private Span createSpan(String key, Location location, String name)
-    {
-        return tracer.spanBuilder("MemoryFileSystemCache." + name)
-                .setAttribute(CACHE_KEY, key)
-                .setAttribute(CACHE_FILE_LOCATION, location.toString())
-                .startSpan();
+        long fileSize = delegate.length();
+        if (fileSize > maxContentLengthBytes) {
+            return Optional.empty();
+        }
+        try (TrinoInput trinoInput = delegate.newInput()) {
+            return Optional.of(trinoInput.readTail(toIntExact(fileSize)));
+        }
     }
 
     private static IOException handleException(Location location, Throwable cause)

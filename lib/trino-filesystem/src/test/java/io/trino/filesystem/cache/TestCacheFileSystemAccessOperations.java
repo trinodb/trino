@@ -40,7 +40,6 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -60,7 +59,7 @@ public class TestCacheFileSystemAccessOperations
         tracingFileSystemFactory = new TracingFileSystemFactory(telemetry.getTracer(), new MemoryFileSystemFactory());
         MemoryFileSystemCacheConfig configuration = new MemoryFileSystemCacheConfig()
                 .setCacheTtl(new Duration(24, HOURS));
-        fileSystem = new CacheFileSystem(tracingFileSystemFactory.create(TestingSession.SESSION), new MemoryFileSystemCache(noopTracer(), configuration), new DefaultCacheKeyProvider());
+        fileSystem = new CacheFileSystem(tracingFileSystemFactory.create(TestingSession.SESSION), new MemoryFileSystemCache(configuration), new DefaultCacheKeyProvider());
     }
 
     @AfterAll
