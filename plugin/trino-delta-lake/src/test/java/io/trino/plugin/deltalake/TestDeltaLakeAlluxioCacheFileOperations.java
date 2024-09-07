@@ -200,8 +200,6 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                 "SELECT * FROM checkpoint_and_extended_stats",
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000003.checkpoint.parquet", 0, 7077), 2)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000003.checkpoint.parquet", 706, 972), 1)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000003.checkpoint.parquet", 4, 624), 1)
                         .addCopies(new CacheOperation("InputFile.length", "00000000000000000003.checkpoint.parquet"), 2)
                         .add(new CacheOperation("InputFile.length", "00000000000000000004.json"))
                         .addAll(Stream.of("int_part=10/string_part=part1/", "int_part=20/string_part=part2/", "int_part=__HIVE_DEFAULT_PARTITION__/string_part=__HIVE_DEFAULT_PARTITION__/")
@@ -217,8 +215,6 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                 "EXPLAIN ANALYZE SELECT * FROM checkpoint_and_extended_stats",
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000003.checkpoint.parquet", 0, 7077), 3)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000003.checkpoint.parquet", 706, 972), 2)
-                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000003.checkpoint.parquet", 4, 624), 1)
                         .addCopies(new CacheOperation("InputFile.length", "00000000000000000003.checkpoint.parquet"), 3)
                         .add(new CacheOperation("InputFile.length", "00000000000000000004.json"))
                         .addAll(Stream.of("int_part=10/string_part=part1/", "int_part=20/string_part=part2/", "int_part=__HIVE_DEFAULT_PARTITION__/string_part=__HIVE_DEFAULT_PARTITION__/")
@@ -340,8 +336,6 @@ public class TestDeltaLakeAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM time_travel_with_last_checkpoint FOR VERSION AS OF 2",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 4, 561))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 643, 767))
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
                         .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.checkpoint.parquet"), 2)
                         .add(new CacheOperation("InputFile.exists", "00000000000000000002.json"))
@@ -353,8 +347,6 @@ public class TestDeltaLakeAlluxioCacheFileOperations
         assertFileSystemAccesses(
                 "SELECT * FROM time_travel_with_last_checkpoint FOR VERSION AS OF 2",
                 ImmutableMultiset.<CacheOperation>builder()
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 4, 561))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 643, 767))
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
                         .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.checkpoint.parquet"), 2)
                         .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 3)
@@ -396,8 +388,6 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Input.readFully", "00000000000000000002.checkpoint.parquet", 0, 5884))
                         .add(new CacheOperation("Alluxio.writeCache", "00000000000000000002.checkpoint.parquet", 0, 5884))
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 4, 561))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 643, 767))
                         .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.checkpoint.parquet"), 2)
                         .add(new CacheOperation("InputFile.exists", "00000000000000000002.json"))
                         .add(new CacheOperation("Input.readFully", "data", 0, 199))
@@ -409,8 +399,6 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                 "SELECT * FROM time_travel_without_last_checkpoint FOR VERSION AS OF 2",
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 4, 561))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 643, 767))
                         .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.checkpoint.parquet"), 2)
                         .add(new CacheOperation("InputFile.exists", "00000000000000000002.json"))
                         .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 3)
@@ -444,9 +432,6 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 0, 9176))
                         .add(new CacheOperation("Input.readFully", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 0, 9176))
                         .add(new CacheOperation("Alluxio.writeCache", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 0, 9176))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 1224, 143))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 4, 727))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 1994, 188))
                         .add(new CacheOperation("InputFile.length", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet"))
                         .add(new CacheOperation("InputFile.length", "00000000000000000002.json"))
                         .add(new CacheOperation("InputFile.newStream", "_last_checkpoint"))
@@ -460,9 +445,6 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.73a4ddb8-2bfc-40d8-b09f-1b6a0abdfb04.json", 0, 765), 2)
                         .addCopies(new CacheOperation("InputFile.length", "00000000000000000001.checkpoint.73a4ddb8-2bfc-40d8-b09f-1b6a0abdfb04.json"), 2)
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 0, 9176))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 1224, 143))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 4, 727))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet", 1994, 188))
                         .add(new CacheOperation("InputFile.length", "00000000000000000001.checkpoint.0000000001.0000000001.90cf4e21-dbaa-41d6-8ae5-6709cfbfbfe0.parquet"))
                         .add(new CacheOperation("InputFile.length", "00000000000000000002.json"))
                         .add(new CacheOperation("InputFile.newStream", "_last_checkpoint"))
@@ -483,8 +465,6 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .add(new CacheOperation("Input.readFully", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 0, 19019))
                         .addCopies(new CacheOperation("InputFile.length", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet"), 2)
                         .add(new CacheOperation("Alluxio.writeCache", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 0, 19019))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 1304, 1266))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 3155, 87))
                         .build());
 
         assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'v2_checkpoint_parquet')");
@@ -492,15 +472,8 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                 "SELECT * FROM v2_checkpoint_parquet",
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 0, 19019), 2)
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 100, 2470))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 1304, 1266))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 3155, 87))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 3829, 143))
                         .addCopies(new CacheOperation("InputFile.length", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet"), 4)
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 0, 9415))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 4, 758))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 1255, 143))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 2040, 199))
                         .add(new CacheOperation("InputFile.length", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet"))
                         .add(new CacheOperation("Input.readFully", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 0, 9415))
                         .add(new CacheOperation("Alluxio.writeCache", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 0, 9415))
@@ -514,15 +487,8 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                 "SELECT * FROM v2_checkpoint_parquet",
                 ImmutableMultiset.<CacheOperation>builder()
                         .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 0, 19019), 2)
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 100, 2470))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 1304, 1266))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 3155, 87))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet", 3829, 143))
                         .addCopies(new CacheOperation("InputFile.length", "00000000000000000001.checkpoint.156b3304-76b2-49c3-a9a1-626f07df27c9.parquet"), 4)
                         .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 0, 9415))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 4, 758))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 1255, 143))
-                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet", 2040, 199))
                         .add(new CacheOperation("InputFile.length", "00000000000000000001.checkpoint.0000000001.0000000001.03288d7e-af16-44ed-829c-196064a71812.parquet"))
                         .add(new CacheOperation("InputFile.length", "00000000000000000002.json"))
                         .add(new CacheOperation("InputFile.newStream", "_last_checkpoint"))

@@ -230,7 +230,7 @@ public class CheckpointEntryIterator
                 parquetReaderOptions,
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.empty());
+                OptionalLong.of(fileSize));
 
         this.pageSource = (ParquetPageSource) pageSource.get();
         try {
