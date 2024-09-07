@@ -30,9 +30,9 @@ class TestFileSystemSpoolingConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(FileSystemSpoolingConfig.class)
-                .setNativeAzureEnabled(false)
-                .setNativeGcsEnabled(false)
-                .setNativeS3Enabled(false)
+                .setAzureEnabled(false)
+                .setGcsEnabled(false)
+                .setS3Enabled(false)
                 .setLocation(null)
                 .setEncryptionEnabled(true)
                 .setTtl(new Duration(2, TimeUnit.HOURS)));
@@ -42,18 +42,18 @@ class TestFileSystemSpoolingConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("fs.native-azure.enabled", "true")
-                .put("fs.native-gcs.enabled", "true")
-                .put("fs.native-s3.enabled", "true")
-                .put("location", "test")
-                .put("encryption", "false")
-                .put("ttl", "1h")
-                .build();
+                .put("fs.azure.enabled", "true")
+                .put("fs.gcs.enabled", "true")
+                .put("fs.s3.enabled", "true")
+                .put("fs.location", "test")
+                .put("fs.segment.encryption", "false")
+                .put("fs.segment.ttl", "1h")
+                .buildOrThrow();
 
         FileSystemSpoolingConfig expected = new FileSystemSpoolingConfig()
-                .setNativeAzureEnabled(true)
-                .setNativeGcsEnabled(true)
-                .setNativeS3Enabled(true)
+                .setAzureEnabled(true)
+                .setGcsEnabled(true)
+                .setS3Enabled(true)
                 .setLocation("test")
                 .setEncryptionEnabled(false)
                 .setTtl(new Duration(1, TimeUnit.HOURS));

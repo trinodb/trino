@@ -27,6 +27,6 @@ public class TestJsonSpooledUnencryptedDistributedQueries
     @Override
     protected Map<String, String> spoolingConfig()
     {
-        return Map.of("encryption", "false");
+        return Map.of("fs.segment.encryption", "false");
     }
 }

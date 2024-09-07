@@ -74,8 +74,8 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FilesystemSpoolingPlugin());
                     Map<String, String> spoolingConfig = ImmutableMap.<String, String>builder()
-                            .put("fs.native-s3.enabled", "true")
-                            .put("location", "s3://" + bucketName)
+                            .put("fs.s3.enabled", "true")
+                            .put("fs.location", "s3://" + bucketName)
                             .put("s3.endpoint", minio.getMinioAddress())
                             .put("s3.region", MINIO_REGION)
                             .put("s3.aws-access-key", MINIO_ACCESS_KEY)
