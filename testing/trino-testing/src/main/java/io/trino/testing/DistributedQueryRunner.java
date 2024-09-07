@@ -708,7 +708,7 @@ public class DistributedQueryRunner
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private Optional<Map<String, String>> backupCoordinatorProperties = Optional.empty();
-        private Consumer<QueryRunner> additionalSetup = queryRunner -> {};
+        private Consumer<QueryRunner> additionalSetup = _ -> {};
         private String environment = ENVIRONMENT;
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();
@@ -791,8 +791,23 @@ public class DistributedQueryRunner
         @CanIgnoreReturnValue
         public SELF setAdditionalSetup(Consumer<QueryRunner> additionalSetup)
         {
+            this.additionalSetup = combine(this.additionalSetup, requireNonNull(additionalSetup, "additionalSetup is null"));
+            return self();
+        }
+
+        @CanIgnoreReturnValue
+        public SELF withAdditionalSetup(Consumer<QueryRunner> additionalSetup)
+        {
             this.additionalSetup = requireNonNull(additionalSetup, "additionalSetup is null");
             return self();
+        }
+
+        private Consumer<QueryRunner> combine(Consumer<QueryRunner> first, Consumer<QueryRunner> second)
+        {
+            return queryRunner -> {
+                first.accept(queryRunner);
+                second.accept(queryRunner);
+            };
         }
 
         @CanIgnoreReturnValue
@@ -894,7 +909,7 @@ public class DistributedQueryRunner
 
         public SELF withProtocolSpooling(String encodingId)
         {
-            this.encodingId = Optional.of(encodingId);
+            this.encodingId = Optional.ofNullable(encodingId);
             return self();
         }
 

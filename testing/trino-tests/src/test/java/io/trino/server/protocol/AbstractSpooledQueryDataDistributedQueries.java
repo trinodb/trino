@@ -68,10 +68,11 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
 
         DistributedQueryRunner queryRunner = MemoryQueryRunner.builder()
                 .setInitialTables(TpchTable.getTables())
+                .withProtocolSpooling(null) // we will configure it on our own
                 .setTestingTrinoClientFactory((trinoServer, session) -> createClient(trinoServer, session, encodingId()))
-                //.addExtraProperty("experimental.protocol.spooling.enabled", "true")
+                .addExtraProperty("experimental.protocol.spooling.enabled", "true")
                 .addExtraProperty("protocol.spooling.shared-secret-key", randomAES256Key())
-                .setAdditionalSetup(runner -> {
+                .withAdditionalSetup(runner -> {
                     runner.installPlugin(new FilesystemSpoolingPlugin());
                     Map<String, String> spoolingConfig = ImmutableMap.<String, String>builder()
                             .put("fs.native-s3.enabled", "true")
