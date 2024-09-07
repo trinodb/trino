@@ -84,9 +84,10 @@ public class FileSystemSpoolingConfig
 
     @ConfigDescription("Maximum duration for the client to retrieve spooled segment")
     @Config("ttl")
-    public void setTtl(Duration ttl)
+    public FileSystemSpoolingConfig setTtl(Duration ttl)
     {
         this.ttl = ttl;
+        return this;
     }
 
     public boolean isEncryptionEnabled()
@@ -96,9 +97,10 @@ public class FileSystemSpoolingConfig
 
     @ConfigDescription("Encrypt segments with ephemeral encryption keys")
     @Config("encryption")
-    public void setEncryptionEnabled(boolean encryptionEnabled)
+    public FileSystemSpoolingConfig setEncryptionEnabled(boolean encryptionEnabled)
     {
         this.encryptionEnabled = encryptionEnabled;
+        return this;
     }
 
     @AssertTrue(message = "At least one native file system must be enabled")
