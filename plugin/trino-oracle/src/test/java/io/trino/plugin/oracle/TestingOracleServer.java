@@ -14,7 +14,6 @@
 package io.trino.plugin.oracle;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
@@ -22,7 +21,6 @@ import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.RetryingConnectionFactory;
-import io.trino.plugin.jdbc.RetryingConnectionFactory.DefaultRetryStrategy;
 import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import oracle.jdbc.OracleDriver;
@@ -135,7 +133,7 @@ public class TestingOracleServer
     {
         StatisticsAwareConnectionFactory connectionFactory = new StatisticsAwareConnectionFactory(
                 DriverConnectionFactory.builder(new OracleDriver(), connectionUrl, StaticCredentialProvider.of(username, password)).build());
-        return new RetryingConnectionFactory(connectionFactory, ImmutableSet.of(new DefaultRetryStrategy()));
+        return new RetryingConnectionFactory(connectionFactory, RetryPolicy.ofDefaults());
     }
 
     @Override
