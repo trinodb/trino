@@ -81,6 +81,7 @@ public class TrinoEventData
         queryMetadata = new QueryMetadata(
                 "queryId",
                 Optional.empty(),
+                Optional.empty(),
                 "create table b.c as select * from y.z",
                 Optional.of("updateType"),
                 Optional.of("preparedQuery"),
