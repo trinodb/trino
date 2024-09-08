@@ -1390,6 +1390,14 @@ export class QueryDetail extends React.Component {
                                     <td className="info-text">{query.session.clientTags.join(', ')}</td>
                                 </tr>
                                 <tr>
+                                    <td className="info-title">Protocol Encoding</td>
+                                    <td className="info-text">
+                                        {query.session.queryDataEncodingId
+                                            ? 'spooled ' + query.session.queryDataEncodingId
+                                            : 'non-spooled'}
+                                    </td>
+                                </tr>
+                                <tr>
                                     <td className="info-title">Session Properties</td>
                                     <td className="info-text wrap-text">{this.renderSessionProperties()}</td>
                                 </tr>
