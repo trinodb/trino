@@ -95,6 +95,7 @@ final class ParquetUtil
                         0,
                         parquetFile.length(),
                         parquetFile.length(),
+                        parquetFile.lastModified(),
                         ImmutableMap.of(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerde()),
                         columns,
                         domain,

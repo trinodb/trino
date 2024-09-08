@@ -87,6 +87,7 @@ public class AvroPageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
+            long fileModifiedTime,
             Map<String, String> schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,

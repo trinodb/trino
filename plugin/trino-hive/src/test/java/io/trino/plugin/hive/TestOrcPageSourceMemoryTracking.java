@@ -577,6 +577,7 @@ public class TestOrcPageSourceMemoryTracking
                     fileSplit.getStart(),
                     fileSplit.getLength(),
                     fileSplit.getLength(),
+                    12345,
                     schema,
                     TupleDomain.all(),
                     TESTING_TYPE_MANAGER,

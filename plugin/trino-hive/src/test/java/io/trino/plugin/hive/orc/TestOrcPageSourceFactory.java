@@ -256,6 +256,7 @@ public class TestOrcPageSourceFactory
                 0,
                 fileSize,
                 fileSize,
+                12345,
                 createSchema(),
                 columnHandles,
                 tupleDomain,

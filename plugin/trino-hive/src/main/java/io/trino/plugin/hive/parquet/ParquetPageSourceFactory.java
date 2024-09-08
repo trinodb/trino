@@ -61,6 +61,7 @@ import org.apache.parquet.schema.Type;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -160,6 +161,7 @@ public class ParquetPageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
+            long fileModifiedTime,
             Map<String, String> schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -175,7 +177,7 @@ public class ParquetPageSourceFactory
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        TrinoInputFile inputFile = fileSystem.newInputFile(path, estimatedFileSize);
+        TrinoInputFile inputFile = fileSystem.newInputFile(path, estimatedFileSize, Instant.ofEpochMilli(fileModifiedTime));
 
         return Optional.of(createPageSource(
                 inputFile,

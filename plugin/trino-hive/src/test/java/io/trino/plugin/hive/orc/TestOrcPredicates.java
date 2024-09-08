@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.metastore.HiveType;
 import io.trino.orc.OrcReaderOptions;
@@ -160,7 +161,8 @@ class TestOrcPredicates
     {
         OrcPageSourceFactory readerFactory = new OrcPageSourceFactory(new OrcReaderOptions(), fileSystemFactory, STATS, UTC);
 
-        long length = fileSystemFactory.create(session).newInputFile(location).length();
+        TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(location);
+        long length = inputFile.length();
         List<HivePageSourceProvider.ColumnMapping> columnMappings = buildColumnMappings(
                 "",
                 ImmutableList.of(),
@@ -180,6 +182,7 @@ class TestOrcPredicates
                         0,
                         length,
                         length,
+                        inputFile.lastModified().toEpochMilli(),
                         getTableProperties(),
                         effectivePredicate,
                         TESTING_TYPE_MANAGER,

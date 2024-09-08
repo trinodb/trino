@@ -55,6 +55,7 @@ import io.trino.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -173,6 +174,7 @@ public class OrcPageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
+            long fileModifiedTime,
             Map<String, String> schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -200,6 +202,7 @@ public class OrcPageSourceFactory
                 start,
                 length,
                 estimatedFileSize,
+                fileModifiedTime,
                 readerColumnHandles,
                 columns,
                 isUseOrcColumnNames(session),
@@ -230,6 +233,7 @@ public class OrcPageSourceFactory
             long start,
             long length,
             long estimatedFileSize,
+            long fileModifiedTime,
             List<HiveColumnHandle> columns,
             List<HiveColumnHandle> projections,
             boolean useOrcColumnNames,
@@ -253,7 +257,7 @@ public class OrcPageSourceFactory
         boolean originalFilesPresent = acidInfo.isPresent() && !acidInfo.get().getOriginalFiles().isEmpty();
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            TrinoInputFile inputFile = fileSystem.newInputFile(path, estimatedFileSize);
+            TrinoInputFile inputFile = fileSystem.newInputFile(path, estimatedFileSize, Instant.ofEpochMilli(fileModifiedTime));
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     estimatedFileSize,
