@@ -213,6 +213,19 @@ export class QueryListItem extends React.Component {
                         </div>
                         <div className="row stat-row">
                             <div className="col-xs-12">
+                                <span data-toggle="tooltip" data-placement="right" title="Protocol Encoding">
+                                    <span className="glyphicon glyphicon-cloud-download" style={GLYPHICON_DEFAULT} />
+                                    &nbsp;&nbsp;
+                                    <span>
+                                        {query.queryDataEncodingId
+                                            ? 'spooled ' + query.queryDataEncodingId
+                                            : 'non-spooled'}
+                                    </span>
+                                </span>
+                            </div>
+                        </div>
+                        <div className="row stat-row">
+                            <div className="col-xs-12">
                                 <span data-toggle="tooltip" data-placement="right" title="Resource Group">
                                     <span className="glyphicon glyphicon-road" style={GLYPHICON_DEFAULT} />
                                     &nbsp;&nbsp;
