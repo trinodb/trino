@@ -33,8 +33,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Optional;
 
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.opentelemetry.api.OpenTelemetry.noop;
+import static io.trino.spooling.filesystem.encryption.EncryptionUtils.generateRandomKey;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -104,7 +104,7 @@ public class TestFileSystemSpoolingManager
     @Test
     public void testHandleRoundTrip()
     {
-        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.of(QueryId.valueOf("a"), ULID.randomBinary(), Optional.of(utf8Slice("superSecretKey")));
+        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.of(QueryId.valueOf("a"), ULID.randomBinary(), Optional.of(generateRandomKey()));
         SpooledLocation location = getSpoolingManager().location(handle);
         FileSystemSpooledSegmentHandle handle2 = (FileSystemSpooledSegmentHandle) getSpoolingManager().handle(location);
 

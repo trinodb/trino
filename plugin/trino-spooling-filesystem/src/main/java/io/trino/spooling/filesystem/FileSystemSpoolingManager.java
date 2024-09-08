@@ -13,11 +13,11 @@
  */
 package io.trino.spooling.filesystem;
 
+import com.google.common.hash.Hashing;
 import com.google.inject.Inject;
+import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceInput;
-import io.airlift.slice.XxHash64;
 import io.airlift.units.Duration;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -53,8 +53,10 @@ import static java.util.Objects.requireNonNull;
 public class FileSystemSpoolingManager
         implements SpoolingManager
 {
-    private static final String ENCRYPTION_KEY_HEADER = "X-Trino-Server-Side-Encryption-Key";
-    private static final String ENCRYPTION_KEY_CIPHER = "X-Trino-Server-Side-Encryption";
+    private static final String ENCRYPTION_KEY_HEADER_PREFIX = "X-Trino-SSE-C-";
+    private static final String ENCRYPTION_KEY_HEADER = ENCRYPTION_KEY_HEADER_PREFIX + "Key";
+    private static final String ENCRYPTION_KEY_CHECKSUM_HEADER = ENCRYPTION_KEY_HEADER_PREFIX + "SHA256";
+    private static final String ENCRYPTION_KEY_CIPHER = ENCRYPTION_KEY_HEADER_PREFIX + "Cipher";
 
     private static final String ENCRYPTION_CIPHER_NAME = "AES256";
 
@@ -135,18 +137,13 @@ public class FileSystemSpoolingManager
         // ulid: byte[16]
         // queryIdLength: byte
         // queryId: string
-        // hasEncryptionKey: boolean
-        // encryptionKeyHash: long
+        // isEncrypted: boolean
         FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
         DynamicSliceOutput output = new DynamicSliceOutput(64);
         output.writeBytes(fileHandle.uuid());
         output.writeShort(fileHandle.queryId().toString().length());
         output.writeBytes(utf8Slice(fileHandle.queryId().toString()));
         output.writeBoolean(fileHandle.encryptionKey().isPresent());
-        if (fileHandle.encryptionKey().isPresent()) {
-            output.writeLong(XxHash64.hash(fileHandle.encryptionKey().orElseThrow()));
-        }
-
         return coordinatorLocation(output.slice(), headers(fileHandle));
     }
 
@@ -157,7 +154,7 @@ public class FileSystemSpoolingManager
             throw new IllegalArgumentException("Cannot convert direct location to handle");
         }
 
-        SliceInput input = coordinatorLocation.identifier().getInput();
+        BasicSliceInput input = coordinatorLocation.identifier().getInput();
         byte[] uuid = new byte[16];
         input.readBytes(uuid);
         short length = input.readShort();
@@ -167,8 +164,13 @@ public class FileSystemSpoolingManager
             return FileSystemSpooledSegmentHandle.of(queryId, uuid, Optional.empty());
         }
 
-        long encryptionKeyHash = input.readLong();
-        List<String> encryptionCipher = location.headers().get(ENCRYPTION_KEY_CIPHER);
+        Slice key = getEncryptionKey(location.headers());
+        return FileSystemSpooledSegmentHandle.of(queryId, uuid, Optional.of(key));
+    }
+
+    private static Slice getEncryptionKey(Map<String, List<String>> headers)
+    {
+        List<String> encryptionCipher = headers.get(ENCRYPTION_KEY_CIPHER);
         if (encryptionCipher == null || encryptionCipher.isEmpty()) {
             throw new IllegalArgumentException("Header %s is missing".formatted(ENCRYPTION_KEY_CIPHER));
         }
@@ -176,17 +178,21 @@ public class FileSystemSpoolingManager
             throw new IllegalArgumentException("Unsupported encryption cipher %s".formatted(encryptionCipher));
         }
 
-        List<String> encryptionKey = location.headers().get(ENCRYPTION_KEY_HEADER);
+        List<String> encryptionKey = headers.get(ENCRYPTION_KEY_HEADER);
         if (encryptionKey == null || encryptionKey.isEmpty()) {
             throw new IllegalArgumentException("Header %s is missing".formatted(ENCRYPTION_KEY_HEADER));
         }
 
-        Slice key = base64Decode(encryptionKey.getFirst());
-        if (encryptionKeyChecksum(key) != encryptionKeyHash) {
+        List<String> keyChecksum = headers.get(ENCRYPTION_KEY_CHECKSUM_HEADER);
+        if (keyChecksum == null || keyChecksum.isEmpty()) {
+            throw new IllegalArgumentException("Header %s is missing".formatted(ENCRYPTION_KEY_CHECKSUM_HEADER));
+        }
+
+        if (!sha256Checksum(base64Decode(encryptionKey.getFirst())).contentEquals(keyChecksum.getFirst())) {
             throw new IllegalArgumentException("Encryption key checksum mismatch");
         }
 
-        return FileSystemSpooledSegmentHandle.of(queryId, uuid, Optional.of(key));
+        return base64Decode(encryptionKey.getFirst());
     }
 
     private Map<String, List<String>> headers(SpooledSegmentHandle handle)
@@ -195,7 +201,8 @@ public class FileSystemSpoolingManager
         if (encryptionEnabled) {
             return Map.of(
                     ENCRYPTION_KEY_CIPHER, List.of(ENCRYPTION_CIPHER_NAME),
-                    ENCRYPTION_KEY_HEADER, List.of(base64Encode(fileHandle.encryptionKey().orElseThrow())));
+                    ENCRYPTION_KEY_HEADER, List.of(base64Encode(fileHandle.encryptionKey().orElseThrow())),
+                    ENCRYPTION_KEY_CHECKSUM_HEADER, List.of(sha256Checksum(fileHandle.encryptionKey().orElseThrow())));
         }
         return Map.of();
     }
@@ -215,11 +222,6 @@ public class FileSystemSpoolingManager
         }
     }
 
-    private static long encryptionKeyChecksum(Slice key)
-    {
-        return XxHash64.hash(key);
-    }
-
     private static String base64Encode(Slice slice)
     {
         return Base64.getEncoder().encodeToString(slice.getBytes());
@@ -228,5 +230,10 @@ public class FileSystemSpoolingManager
     private static Slice base64Decode(String base64)
     {
         return wrappedBuffer(Base64.getDecoder().decode(base64));
+    }
+
+    private static String sha256Checksum(Slice slice)
+    {
+        return Hashing.sha256().hashBytes(slice.getBytes()).toString();
     }
 }
