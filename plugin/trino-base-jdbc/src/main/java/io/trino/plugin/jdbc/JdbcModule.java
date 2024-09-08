@@ -86,7 +86,7 @@ public class JdbcModule
         newExporter(binder).export(DynamicFilteringStats.class)
                 .as(generator -> generator.generatedNameOf(DynamicFilteringStats.class, catalogName.get().toString()));
 
-        binder.bind(JdbcClient.class).annotatedWith(StatsCollecting.class).to(Key.get(StatisticsAwareJdbcClient.class)).in(Scopes.SINGLETON);
+        binder.bind(JdbcClient.class).annotatedWith(ForCaching.class).to(Key.get(StatisticsAwareJdbcClient.class)).in(Scopes.SINGLETON);
         binder.bind(CachingJdbcClient.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).to(Key.get(CachingJdbcClient.class)).in(Scopes.SINGLETON);
 

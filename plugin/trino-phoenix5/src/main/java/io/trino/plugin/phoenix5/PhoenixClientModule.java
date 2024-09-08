@@ -49,11 +49,11 @@ import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RetryingConnectionFactoryModule;
 import io.trino.plugin.jdbc.ReusableConnectionFactoryModule;
-import io.trino.plugin.jdbc.StatsCollecting;
 import io.trino.plugin.jdbc.TimestampTimeZoneDomain;
 import io.trino.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
+import io.trino.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifierModule;
 import io.trino.plugin.jdbc.procedure.ExecuteProcedure;
 import io.trino.spi.TrinoException;
@@ -132,7 +132,7 @@ public class PhoenixClientModule
 
         binder.bind(PhoenixClient.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(Key.get(PhoenixClient.class)).in(Scopes.SINGLETON);
-        binder.bind(JdbcClient.class).to(Key.get(JdbcClient.class, StatsCollecting.class)).in(Scopes.SINGLETON);
+        binder.bind(JdbcClient.class).to(StatisticsAwareJdbcClient.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixMetadata.class).in(Scopes.SINGLETON);
         binder.bind(TimestampTimeZoneDomain.class).toInstance(TimestampTimeZoneDomain.ANY);
         binder.bind(ConnectorMetadata.class).to(ClassLoaderSafeConnectorMetadata.class).in(Scopes.SINGLETON);

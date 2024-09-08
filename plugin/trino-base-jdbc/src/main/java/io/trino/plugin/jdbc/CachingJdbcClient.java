@@ -93,7 +93,7 @@ public class CachingJdbcClient
 
     @Inject
     public CachingJdbcClient(
-            @StatsCollecting JdbcClient delegate,
+            @ForCaching JdbcClient delegate,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             IdentityCacheMapping identityMapping,
             BaseJdbcConfig config)
