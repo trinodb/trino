@@ -71,6 +71,7 @@ final class TestMysqlEventListener
     private static final QueryMetadata FULL_QUERY_METADATA = new QueryMetadata(
             "full_query",
             Optional.of("transactionId"),
+            Optional.of("encodingId"),
             "query",
             Optional.of("updateType"),
             Optional.of("preparedQuery"),
@@ -230,6 +231,7 @@ final class TestMysqlEventListener
 
     private static final QueryMetadata MINIMAL_QUERY_METADATA = new QueryMetadata(
             "minimal_query",
+            Optional.empty(),
             Optional.empty(),
             "query",
             Optional.empty(),

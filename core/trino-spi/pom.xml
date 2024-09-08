@@ -601,6 +601,13 @@
                                     <old>method io.trino.spi.type.TypeSignature io.trino.spi.type.TypeNotFoundException::getType()</old>
                                     <justification>remove unused method to expand constructor parameters</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.eventlistener.QueryMetadata::&lt;init&gt;(java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.lang.String, java.util.List&lt;io.trino.spi.eventlistener.TableInfo&gt;, java.util.List&lt;io.trino.spi.eventlistener.RoutineInfo&gt;, java.net.URI, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.function.Supplier&lt;java.util.Optional&lt;java.lang.String&gt;&gt;)</old>
+                                    <new>method void io.trino.spi.eventlistener.QueryMetadata::&lt;init&gt;(java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.lang.String, java.util.List&lt;io.trino.spi.eventlistener.TableInfo&gt;, java.util.List&lt;io.trino.spi.eventlistener.RoutineInfo&gt;, java.net.URI, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.function.Supplier&lt;java.util.Optional&lt;java.lang.String&gt;&gt;)</new>
+                                    <justification>introduction of spooled protocol</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

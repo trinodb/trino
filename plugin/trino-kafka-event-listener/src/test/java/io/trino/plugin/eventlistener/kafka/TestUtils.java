@@ -93,6 +93,7 @@ public final class TestUtils
         queryMetadata = new QueryMetadata(
                 "queryId",
                 Optional.empty(),
+                Optional.empty(),
                 "query",
                 Optional.of("updateType"),
                 Optional.of("preparedQuery"),

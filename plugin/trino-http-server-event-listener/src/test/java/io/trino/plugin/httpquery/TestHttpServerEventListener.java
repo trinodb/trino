@@ -94,6 +94,7 @@ final class TestHttpServerEventListener
         QueryMetadata queryMetadata = new QueryMetadata(
                 "queryId",
                 Optional.empty(),
+                Optional.empty(),
                 "query",
                 Optional.of("updateType"),
                 Optional.of("preparedQuery"),
@@ -107,6 +108,7 @@ final class TestHttpServerEventListener
 
         QueryMetadata queryMetadata2 = new QueryMetadata(
                 "queryId2",
+                Optional.empty(),
                 Optional.empty(),
                 "query",
                 Optional.of("updateType"),
