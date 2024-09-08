@@ -625,6 +625,7 @@ public class QueryMonitor
             logQueryTimeline(
                     queryInfo.getQueryId(),
                     queryInfo.getState(),
+                    queryInfo.getSession().getQueryDataEncodingId(),
                     Optional.ofNullable(queryInfo.getErrorCode()),
                     elapsed,
                     planning,
@@ -655,6 +656,7 @@ public class QueryMonitor
         logQueryTimeline(
                 queryInfo.getQueryId(),
                 queryInfo.getState(),
+                queryInfo.getSession().getQueryDataEncodingId(),
                 Optional.ofNullable(queryInfo.getErrorCode()),
                 elapsed,
                 elapsed,
@@ -669,6 +671,7 @@ public class QueryMonitor
     private static void logQueryTimeline(
             QueryId queryId,
             QueryState queryState,
+            Optional<String> encodingId,
             Optional<ErrorCode> errorCode,
             long elapsedMillis,
             long planningMillis,
@@ -679,7 +682,7 @@ public class QueryMonitor
             DateTime queryStartTime,
             DateTime queryEndTime)
     {
-        log.info("TIMELINE: Query %s :: %s%s :: elapsed %sms :: planning %sms :: waiting %sms :: scheduling %sms :: running %sms :: finishing %sms :: begin %s :: end %s",
+        log.info("TIMELINE: Query %s :: %s%s :: elapsed %sms :: planning %sms :: waiting %sms :: scheduling %sms :: running %sms :: finishing %sms :: begin %s :: end %s%s",
                 queryId,
                 queryState,
                 errorCode.map(code -> " (%s)".formatted(code.getName())).orElse(""),
@@ -690,7 +693,8 @@ public class QueryMonitor
                 runningMillis,
                 finishingMillis,
                 queryStartTime,
-                queryEndTime);
+                queryEndTime,
+                encodingId.map(id -> " :: " + id).orElse(""));
     }
 
     private static List<StageCpuDistribution> getCpuDistributions(QueryInfo queryInfo)
