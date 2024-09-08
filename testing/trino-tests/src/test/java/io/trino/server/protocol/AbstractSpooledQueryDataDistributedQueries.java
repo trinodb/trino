@@ -21,7 +21,7 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.plugin.memory.MemoryQueryRunner;
 import io.trino.server.testing.TestingTrinoServer;
-import io.trino.spooling.filesystem.FilesystemSpoolingPlugin;
+import io.trino.spooling.filesystem.FileSystemSpoolingPlugin;
 import io.trino.testing.AbstractTestEngineOnlyQueries;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -71,7 +71,7 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
                 .addExtraProperty("experimental.protocol.spooling.enabled", "true")
                 .addExtraProperty("protocol.spooling.shared-secret-key", randomAES256Key())
                 .setAdditionalSetup(runner -> {
-                    runner.installPlugin(new FilesystemSpoolingPlugin());
+                    runner.installPlugin(new FileSystemSpoolingPlugin());
                     Map<String, String> spoolingConfig = ImmutableMap.<String, String>builder()
                             .put("fs.s3.enabled", "true")
                             .put("fs.location", "s3://" + bucketName)

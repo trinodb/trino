@@ -41,12 +41,12 @@ import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
 
-public class FilesystemSpoolingModule
+public class FileSystemSpoolingModule
         extends AbstractConfigurationAwareModule
 {
     private final boolean coordinator;
 
-    public FilesystemSpoolingModule(boolean coordinator)
+    public FileSystemSpoolingModule(boolean coordinator)
     {
         this.coordinator = coordinator;
     }

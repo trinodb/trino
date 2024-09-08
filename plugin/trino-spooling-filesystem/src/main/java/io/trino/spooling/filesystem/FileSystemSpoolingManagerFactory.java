@@ -40,7 +40,7 @@ public class FileSystemSpoolingManagerFactory
     {
         requireNonNull(config, "requiredConfig is null");
         Bootstrap app = new Bootstrap(
-                new FilesystemSpoolingModule(context.isCoordinator()),
+                new FileSystemSpoolingModule(context.isCoordinator()),
                 new MBeanModule(),
                 new MBeanServerModule(),
                 binder -> {

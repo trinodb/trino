@@ -18,7 +18,7 @@ import io.trino.spi.protocol.SpoolingManagerFactory;
 
 import java.util.List;
 
-public class FilesystemSpoolingPlugin
+public class FileSystemSpoolingPlugin
         implements Plugin
 {
     @Override
