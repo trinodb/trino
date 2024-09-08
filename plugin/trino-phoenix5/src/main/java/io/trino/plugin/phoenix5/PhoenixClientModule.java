@@ -34,6 +34,7 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.DynamicFilteringStats;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
+import io.trino.plugin.jdbc.ForLazyConnectionFactory;
 import io.trino.plugin.jdbc.ForRecordCursor;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcDiagnosticModule;
@@ -47,6 +48,7 @@ import io.trino.plugin.jdbc.JdbcWriteSessionProperties;
 import io.trino.plugin.jdbc.LazyConnectionFactory;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.QueryBuilder;
+import io.trino.plugin.jdbc.RetryingConnectionFactory;
 import io.trino.plugin.jdbc.RetryingConnectionFactoryModule;
 import io.trino.plugin.jdbc.ReusableConnectionFactoryModule;
 import io.trino.plugin.jdbc.TimestampTimeZoneDomain;
@@ -138,6 +140,7 @@ public class PhoenixClientModule
         binder.bind(ConnectorMetadata.class).to(ClassLoaderSafeConnectorMetadata.class).in(Scopes.SINGLETON);
         newSetBinder(binder, Procedure.class).addBinding().toProvider(ExecuteProcedure.class).in(Scopes.SINGLETON);
 
+        binder.bind(ConnectionFactory.class).annotatedWith(ForLazyConnectionFactory.class).to(Key.get(RetryingConnectionFactory.class)).in(Scopes.SINGLETON);
         install(conditionalModule(
                 PhoenixConfig.class,
                 PhoenixConfig::isReuseConnection,
