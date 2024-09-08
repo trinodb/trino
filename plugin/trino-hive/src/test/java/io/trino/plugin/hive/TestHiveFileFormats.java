@@ -1007,6 +1007,7 @@ public final class TestHiveFileFormats
                 0,
                 fileSize,
                 paddedFileSize,
+                12345,
                 splitProperties,
                 TupleDomain.all(),
                 TESTING_TYPE_MANAGER,

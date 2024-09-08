@@ -84,16 +84,12 @@ public class TestHiveAlluxioCacheFileOperations
                         .add(new CacheOperation("Input.readFully", "key=p2/"))
                         .add(new CacheOperation("Alluxio.writeCache", "key=p1/"))
                         .add(new CacheOperation("Alluxio.writeCache", "key=p2/"))
-                        .add(new CacheOperation("InputFile.lastModified", "key=p1/"))
-                        .add(new CacheOperation("InputFile.lastModified", "key=p2/"))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
                 ImmutableMultiset.<CacheOperation>builder()
                         .add(new CacheOperation("Alluxio.readCached", "key=p1/"))
                         .add(new CacheOperation("Alluxio.readCached", "key=p2/"))
-                        .add(new CacheOperation("InputFile.lastModified", "key=p1/"))
-                        .add(new CacheOperation("InputFile.lastModified", "key=p2/"))
                         .build());
         assertUpdate("INSERT INTO test_cache_file_operations VALUES ('3-xyz', 'p3')", 1);
         assertUpdate("INSERT INTO test_cache_file_operations VALUES ('4-xyz', 'p4')", 1);
@@ -112,11 +108,6 @@ public class TestHiveAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.writeCache", "key=p3/"))
                         .add(new CacheOperation("Alluxio.writeCache", "key=p4/"))
                         .add(new CacheOperation("Alluxio.writeCache", "key=p5/"))
-                        .add(new CacheOperation("InputFile.lastModified", "key=p1/"))
-                        .add(new CacheOperation("InputFile.lastModified", "key=p2/"))
-                        .add(new CacheOperation("InputFile.lastModified", "key=p3/"))
-                        .add(new CacheOperation("InputFile.lastModified", "key=p4/"))
-                        .add(new CacheOperation("InputFile.lastModified", "key=p5/"))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_cache_file_operations",
@@ -126,11 +117,6 @@ public class TestHiveAlluxioCacheFileOperations
                         .add(new CacheOperation("Alluxio.readCached", "key=p3/"))
                         .add(new CacheOperation("Alluxio.readCached", "key=p4/"))
                         .add(new CacheOperation("Alluxio.readCached", "key=p5/"))
-                        .add(new CacheOperation("InputFile.lastModified", "key=p1/"))
-                        .add(new CacheOperation("InputFile.lastModified", "key=p2/"))
-                        .add(new CacheOperation("InputFile.lastModified", "key=p3/"))
-                        .add(new CacheOperation("InputFile.lastModified", "key=p4/"))
-                        .add(new CacheOperation("InputFile.lastModified", "key=p5/"))
                         .build());
     }
 

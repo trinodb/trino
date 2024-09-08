@@ -144,6 +144,7 @@ public class HivePageSourceProvider
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
                 hiveSplit.getEstimatedFileSize(),
+                hiveSplit.getFileModifiedTime(),
                 hiveSplit.getSchema(),
                 hiveTable.getCompactEffectivePredicate().intersect(
                                 dynamicFilter.getCurrentPredicate().transformKeys(HiveColumnHandle.class::cast))
@@ -175,6 +176,7 @@ public class HivePageSourceProvider
             long start,
             long length,
             long estimatedFileSize,
+            long fileModifiedTime,
             Map<String, String> schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             TypeManager typeManager,
@@ -205,6 +207,7 @@ public class HivePageSourceProvider
                     start,
                     length,
                     estimatedFileSize,
+                    fileModifiedTime,
                     schema,
                     desiredColumns,
                     effectivePredicate,
