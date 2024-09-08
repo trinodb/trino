@@ -18,6 +18,7 @@ import com.google.crypto.tink.CleartextKeysetHandle;
 import com.google.crypto.tink.KeyTemplates;
 import com.google.crypto.tink.KeysetHandle;
 import com.google.crypto.tink.StreamingAead;
+import com.google.crypto.tink.mac.MacConfig;
 import com.google.crypto.tink.streamingaead.StreamingAeadConfig;
 import io.airlift.slice.Slice;
 
@@ -50,7 +51,7 @@ public class EncryptionUtils
         }
     }
 
-    private static KeysetHandle readKey(Slice key)
+    public static KeysetHandle readKey(Slice key)
     {
         try {
             return CleartextKeysetHandle.read(BinaryKeysetReader.withBytes(key.getBytes()));
@@ -103,6 +104,8 @@ public class EncryptionUtils
 
             try {
                 StreamingAeadConfig.register();
+
+                MacConfig.register();
                 initialized = true;
             }
             catch (GeneralSecurityException e) {
