@@ -16,6 +16,7 @@ package io.trino.spooling.filesystem;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
+import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpooledLocation;
 import io.trino.spi.protocol.SpooledSegmentHandle;
@@ -122,6 +123,6 @@ public class TestFileSystemSpoolingManager
                 .setAwsAccessKey(Minio.MINIO_ACCESS_KEY)
                 .setAwsSecretKey(Minio.MINIO_SECRET_KEY)
                 .setStreamingPartSize(DataSize.valueOf("5.5MB"));
-        return new FileSystemSpoolingManager(spoolingConfig, new S3FileSystemFactory(noop(), filesystemConfig));
+        return new FileSystemSpoolingManager(spoolingConfig, new S3FileSystemFactory(noop(), filesystemConfig, new S3FileSystemStats()));
     }
 }

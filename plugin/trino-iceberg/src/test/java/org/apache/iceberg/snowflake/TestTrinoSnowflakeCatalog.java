@@ -19,6 +19,7 @@ import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
+import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.ColumnIdentity;
@@ -159,7 +160,7 @@ public class TestTrinoSnowflakeCatalog
                                 .setAwsAccessKey(S3_ACCESS_KEY)
                                 .setAwsSecretKey(S3_SECRET_KEY)
                                 .setRegion(S3_REGION)
-                                .setStreamingPartSize(DataSize.valueOf("5.5MB")));
+                                .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
 
         CatalogName catalogName = new CatalogName("snowflake_test_catalog");
         TrinoIcebergSnowflakeCatalogFileIOFactory catalogFileIOFactory = new TrinoIcebergSnowflakeCatalogFileIOFactory(s3FileSystemFactory, ConnectorIdentity.ofUser("trino"));

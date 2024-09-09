@@ -32,9 +32,9 @@ public final class S3FileSystemFactory
     private final Executor uploadExecutor;
 
     @Inject
-    public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config)
+    public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
     {
-        this.loader = new S3FileSystemLoader(openTelemetry, config);
+        this.loader = new S3FileSystemLoader(openTelemetry, config, stats);
         this.client = loader.createClient();
         this.context = loader.context();
         this.uploadExecutor = loader.uploadExecutor();
