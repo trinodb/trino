@@ -17,10 +17,10 @@ import java.util.Optional;
 
 /**
  * Responsible for choosing a QueryDataEncoder implementation based on a query Session.
- *
+ * <p></p>
  * Important: needs to be stable across runs as it will be executed on multiple nodes participated in query execution
  * and output generation.
- *
+ * <p></p>
  * Returning Optional.empty() fallbacks to the direct protocol.
  */
 @FunctionalInterface
