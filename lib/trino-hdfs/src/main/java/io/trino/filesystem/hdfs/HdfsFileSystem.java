@@ -232,6 +232,7 @@ class HdfsFileSystem
     }
 
     @Override
+    // Warning: HDFS does not guarantee order of the returned files for local ViewFS which breaks the contract of this method.
     public FileIterator listFiles(Location location)
             throws IOException
     {

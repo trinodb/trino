@@ -164,7 +164,8 @@ public interface TrinoFileSystem
      * exact name of the prefix, it is not included in the results.
      * <p>
      * The returned FileEntry locations will start with the specified location exactly
-     * and are lexicographically sorted.
+     * and are lexicographically sorted (except for local HDFS which has the system-dependant
+     * ordering).
      *
      * @param location the directory to list
      * @throws IllegalArgumentException if location is not valid for this file system
