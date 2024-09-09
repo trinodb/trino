@@ -13,6 +13,7 @@
  */
 package io.trino.server.protocol.spooling;
 
+import com.google.common.base.Splitter;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 
@@ -29,13 +30,15 @@ public class PreferredQueryDataEncoderSelector
 {
     private final Logger log = Logger.get(PreferredQueryDataEncoderSelector.class);
 
-    private final Map<String, QueryDataEncoder.Factory> encoder;
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
+    private final Map<String, QueryDataEncoder.Factory> factories;
     private final SpoolingManagerRegistry spoolingManagerRegistry;
 
     @Inject
     public PreferredQueryDataEncoderSelector(Set<QueryDataEncoder.Factory> factories, SpoolingManagerRegistry spoolingManagerRegistry)
     {
-        this.encoder = requireNonNull(factories, "factories is null").stream()
+        this.factories = requireNonNull(factories, "factories is null").stream()
                 .collect(toImmutableMap(QueryDataEncoder.Factory::encodingId, identity()));
         this.spoolingManagerRegistry = requireNonNull(spoolingManagerRegistry, "spoolingManagerRegistry is null");
     }
@@ -48,10 +51,9 @@ public class PreferredQueryDataEncoderSelector
             return Optional.empty();
         }
 
-        for (String encodingId : encodingHeader.split(",")) {
-            QueryDataEncoder.Factory factory = encoder.get(encodingId);
-            if (factory != null) {
-                return Optional.of(factory);
+        for (String encodingId : SPLITTER.splitToList(encodingHeader)) {
+            if (factories.containsKey(encodingId)) {
+                return Optional.of(factories.get(encodingId));
             }
         }
         log.debug("None of the preferred spooled encodings `%s` are known and supported by the server", encodingHeader);
