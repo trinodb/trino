@@ -36,6 +36,7 @@ import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class S3FileSystemModule
         extends AbstractConfigurationAwareModule
@@ -52,6 +53,9 @@ public class S3FileSystemModule
             binder.bind(TrinoFileSystemFactory.class).annotatedWith(FileSystemS3.class)
                     .to(S3FileSystemFactory.class).in(SINGLETON);
         }
+
+        binder.bind(S3FileSystemStats.class).in(SINGLETON);
+        newExporter(binder).export(S3FileSystemStats.class).withGeneratedName();
     }
 
     public static class S3SecurityMappingModule

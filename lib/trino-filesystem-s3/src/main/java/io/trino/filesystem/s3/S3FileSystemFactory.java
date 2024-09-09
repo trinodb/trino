@@ -34,9 +34,9 @@ public final class S3FileSystemFactory
     private final S3Presigner preSigner;
 
     @Inject
-    public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config)
+    public S3FileSystemFactory(OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
     {
-        this.loader = new S3FileSystemLoader(openTelemetry, config);
+        this.loader = new S3FileSystemLoader(openTelemetry, config, stats);
         this.client = loader.createClient();
         this.preSigner = loader.createPreSigner();
         this.context = loader.context();

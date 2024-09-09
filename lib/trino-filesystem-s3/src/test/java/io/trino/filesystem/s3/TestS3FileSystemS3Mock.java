@@ -78,7 +78,7 @@ public class TestS3FileSystemS3Mock
                 .setRegion(Region.US_EAST_1.id())
                 .setPathStyleAccess(true)
                 .setStreamingPartSize(DataSize.valueOf("5.5MB"))
-                .setSupportsExclusiveCreate(false));
+                .setSupportsExclusiveCreate(false), new S3FileSystemStats());
     }
 
     @Test

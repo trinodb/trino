@@ -72,7 +72,7 @@ public class TestS3FileSystemAwsS3
                 .setAwsSecretKey(secretKey)
                 .setRegion(region)
                 .setSupportsExclusiveCreate(true)
-                .setStreamingPartSize(DataSize.valueOf("5.5MB")));
+                .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
     }
 
     private static String environmentVariable(String name)

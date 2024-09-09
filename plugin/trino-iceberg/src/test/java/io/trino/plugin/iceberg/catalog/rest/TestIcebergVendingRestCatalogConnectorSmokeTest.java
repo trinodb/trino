@@ -18,6 +18,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
+import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
@@ -138,7 +139,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                 .setEndpoint(minio.getMinioAddress())
                 .setPathStyleAccess(true)
                 .setAwsAccessKey(MINIO_ACCESS_KEY)
-                .setAwsSecretKey(MINIO_SECRET_KEY)
+                .setAwsSecretKey(MINIO_SECRET_KEY), new S3FileSystemStats()
         ).create(SESSION);
     }
 
