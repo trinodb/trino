@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.tracing;
 
+import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.FileIterator;
@@ -20,6 +21,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.UriLocation;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -157,5 +159,15 @@ final class TracingFileSystem
                 .setAttribute(FileSystemAttributes.FILE_LOCATION, targetPath.toString())
                 .startSpan();
         return withTracing(span, () -> delegate.createTemporaryDirectory(targetPath, temporaryPrefix, relativePrefix));
+    }
+
+    @Override
+    public Optional<UriLocation> preSignedUri(Location location, Duration ttl)
+            throws IOException
+    {
+        Span span = tracer.spanBuilder("FileSystem.preSignedUri")
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location.toString())
+                .startSpan();
+        return withTracing(span, () -> delegate.preSignedUri(location, ttl));
     }
 }
