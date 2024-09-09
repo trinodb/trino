@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
@@ -42,6 +43,7 @@ import java.util.UUID;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -49,6 +51,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -1079,6 +1082,22 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     @Test
+    public void testListLexicographicalOrder()
+            throws IOException
+    {
+        try (Closer closer = Closer.create()) {
+            List<TempBlob> blobs = randomBlobs(closer);
+
+            List<Location> sortedLocations = blobs.stream()
+                        .map(TempBlob::location)
+                        .sorted(comparing(Location::fileName))
+                    .toList();
+
+            assertThat(listPath("")).isEqualTo(sortedLocations);
+        }
+    }
+
+    @Test
     public void testCreateDirectory()
             throws IOException
     {
@@ -1353,6 +1372,24 @@ public abstract class AbstractTestTrinoFileSystem
         TempBlob tempBlob = new TempBlob(createLocation("%s/%s".formatted(nameHint, UUID.randomUUID())));
         assertThat(tempBlob.exists()).isFalse();
         return tempBlob;
+    }
+
+    private List<TempBlob> randomBlobs(Closer closer)
+    {
+        char[] chars = new char[] {'a', 'b', 'c', 'd', 'A', 'B', 'C', 'D'};
+        ImmutableList.Builder<TempBlob> names = ImmutableList.builder();
+        for (int i = 0; i < 100; i++) {
+            StringBuilder name = new StringBuilder();
+            for (int j = 0; j < 10; j++) {
+                name.append(chars[ThreadLocalRandom.current().nextInt(chars.length)]);
+            }
+            TempBlob tempBlob = new TempBlob(createLocation(name.toString()));
+            assertThat(tempBlob.exists()).isFalse();
+            tempBlob.createOrOverwrite(TEST_BLOB_CONTENT_PREFIX + tempBlob.location().toString());
+            closer.register(tempBlob);
+            names.add(tempBlob);
+        }
+        return names.build();
     }
 
     private Set<Location> createTestDirectoryStructure(Closer closer, boolean hierarchicalNamingConstraints)

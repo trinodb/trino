@@ -34,6 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Map.Entry.comparingByKey;
 
 /**
  * A blob file system for testing.
@@ -132,6 +133,7 @@ public class MemoryFileSystem
     {
         String prefix = toBlobPrefix(location);
         Iterator<FileEntry> iterator = blobs.entrySet().stream()
+                .sorted(comparingByKey())
                 .filter(entry -> entry.getKey().startsWith(prefix))
                 .map(entry -> new FileEntry(
                         Location.of("memory:///" + entry.getKey()),
