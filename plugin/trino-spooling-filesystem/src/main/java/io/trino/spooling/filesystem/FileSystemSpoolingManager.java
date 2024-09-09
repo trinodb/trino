@@ -170,29 +170,31 @@ public class FileSystemSpoolingManager
 
     private static Slice getEncryptionKey(Map<String, List<String>> headers)
     {
-        List<String> encryptionCipher = headers.get(ENCRYPTION_KEY_CIPHER);
-        if (encryptionCipher == null || encryptionCipher.isEmpty()) {
-            throw new IllegalArgumentException("Header %s is missing".formatted(ENCRYPTION_KEY_CIPHER));
-        }
-        if (!encryptionCipher.getFirst().contentEquals(ENCRYPTION_CIPHER_NAME)) {
+        String encryptionCipher = getOnlyHeader(headers, ENCRYPTION_KEY_CIPHER);
+        if (!encryptionCipher.contentEquals(ENCRYPTION_CIPHER_NAME)) {
             throw new IllegalArgumentException("Unsupported encryption cipher %s".formatted(encryptionCipher));
         }
 
-        List<String> encryptionKey = headers.get(ENCRYPTION_KEY_HEADER);
-        if (encryptionKey == null || encryptionKey.isEmpty()) {
-            throw new IllegalArgumentException("Header %s is missing".formatted(ENCRYPTION_KEY_HEADER));
-        }
-
-        List<String> keyChecksum = headers.get(ENCRYPTION_KEY_CHECKSUM_HEADER);
-        if (keyChecksum == null || keyChecksum.isEmpty()) {
-            throw new IllegalArgumentException("Header %s is missing".formatted(ENCRYPTION_KEY_CHECKSUM_HEADER));
-        }
-
-        if (!sha256Checksum(base64Decode(encryptionKey.getFirst())).contentEquals(keyChecksum.getFirst())) {
+        String encryptionKey = getOnlyHeader(headers, ENCRYPTION_KEY_HEADER);
+        String keyChecksum = getOnlyHeader(headers, ENCRYPTION_KEY_CHECKSUM_HEADER);
+        if (!sha256Checksum(base64Decode(encryptionKey)).contentEquals(keyChecksum)) {
             throw new IllegalArgumentException("Encryption key checksum mismatch");
         }
+        return base64Decode(encryptionKey);
+    }
 
-        return base64Decode(encryptionKey.getFirst());
+    private static String getOnlyHeader(Map<String, List<String>> headers, String headerName)
+    {
+        List<String> values = headers.get(headerName);
+        if (values == null || values.isEmpty()) {
+            throw new IllegalArgumentException("Header %s is missing".formatted(headerName));
+        }
+
+        if (values.size() > 1) {
+            throw new IllegalArgumentException("Header %s has multiple values".formatted(headerName));
+        }
+
+        return values.getFirst();
     }
 
     private Map<String, List<String>> headers(SpooledSegmentHandle handle)
