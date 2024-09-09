@@ -14,6 +14,7 @@
 package io.trino.filesystem;
 
 import com.google.common.base.Throwables;
+import io.airlift.units.Duration;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -227,6 +228,22 @@ public interface TrinoFileSystem
      */
     Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
             throws IOException;
+
+    /**
+     * Returns the direct pre-signed URI location for the given storage location.
+     * <p></p>
+     * Pre-signed URIs allow for retrieval of the files directly from the storage location.
+     * This is useful for large files where the server would be a bottleneck.
+     *
+     * @throws UnsupportedOperationException if the pre-signed URIs are not supported
+     * @return the pre-signed URI to the storage location or `Optional.empty()`
+     *         if pre-signed URI cannot be generated.
+     */
+    default Optional<UriLocation> preSignedUri(Location location, Duration ttl)
+            throws IOException
+    {
+        throw new UnsupportedOperationException("Pre-signed URIs are not supported");
+    }
 
     /**
      * Checks whether given exception is unrecoverable, so that further retries won't help

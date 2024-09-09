@@ -18,6 +18,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
+import io.airlift.units.Duration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -31,12 +32,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.FileAlreadyExistsException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -48,6 +53,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -99,6 +105,11 @@ public abstract class AbstractTestTrinoFileSystem
     protected boolean supportsIncompleteWriteNoClobber()
     {
         return true;
+    }
+
+    protected boolean supportsPreSignedUri()
+    {
+        return false;
     }
 
     protected boolean normalizesListFilesResult()
@@ -948,6 +959,65 @@ public abstract class AbstractTestTrinoFileSystem
             throws IOException
     {
         testListFiles(isHierarchical());
+    }
+
+    @Test
+    public void testPreSignedUris()
+            throws IOException
+    {
+        try (Closer closer = Closer.create()) {
+            Location location = createBlob(closer, "pre_signed");
+
+            if (!supportsPreSignedUri()) {
+                assertThatThrownBy(() -> getFileSystem().preSignedUri(location, new Duration(1, SECONDS)))
+                        .isInstanceOf(UnsupportedOperationException.class);
+                abort("Generating pre-signed URI is not supported");
+            }
+
+            Optional<UriLocation> directLocation = getFileSystem()
+                    .preSignedUri(location, new Duration(1, SECONDS));
+
+            assertThat(directLocation).isPresent();
+            assertThat(retrieveUri(directLocation.get()))
+                    .isEqualTo(TEST_BLOB_CONTENT_PREFIX + location);
+
+            // Check if it can be retrieved more than once
+            assertThat(retrieveUri(directLocation.get()))
+                    .isEqualTo(TEST_BLOB_CONTENT_PREFIX + location);
+
+            // Check if after a timeout the pre-signed URI is no longer valid
+            assertEventually(new Duration(5, SECONDS), new Duration(1, SECONDS), () -> assertThatThrownBy(() -> retrieveUri(directLocation.get()))
+                    .isInstanceOf(IOException.class));
+        }
+    }
+
+    private static String retrieveUri(UriLocation uriLocation)
+            throws IOException
+    {
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            HttpRequest request = addHeaders(HttpRequest.newBuilder(), uriLocation.headers())
+                    .uri(uriLocation.uri())
+                    .GET()
+                    .build();
+
+            try {
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() != 200) {
+                    throw new IOException("Failed to retrieve");
+                }
+                return response.body();
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private static HttpRequest.Builder addHeaders(HttpRequest.Builder builder, Map<String, List<String>> headers)
+    {
+        headers.forEach((headerName, headerValues) -> headerValues.forEach((headerValue) -> builder.header(headerName, headerValue)));
+        return builder;
     }
 
     protected void testListFiles(boolean hierarchicalNamingConstraints)
