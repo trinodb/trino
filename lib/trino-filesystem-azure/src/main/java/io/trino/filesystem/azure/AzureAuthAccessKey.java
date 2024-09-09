@@ -47,4 +47,10 @@ public class AzureAuthAccessKey
     {
         builder.credential(new StorageSharedKeyCredential(storageAccount, accessKey));
     }
+
+    @Override
+    public boolean supportsPreSignedUri()
+    {
+        return true;
+    }
 }

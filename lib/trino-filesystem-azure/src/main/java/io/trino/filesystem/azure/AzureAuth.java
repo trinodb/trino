@@ -21,4 +21,9 @@ public interface AzureAuth
     void setAuth(String storageAccount, BlobContainerClientBuilder builder);
 
     void setAuth(String storageAccount, DataLakeServiceClientBuilder builder);
+
+    default boolean supportsPreSignedUri()
+    {
+        return false;
+    }
 }
