@@ -48,7 +48,7 @@ public class PreferredQueryDataEncoderSelector
                 return Optional.of(encoders.get(encodingId));
             }
         }
-        log.warn("None of the requested spooled encodings '%s' are known to the server", encodingIds);
+        log.warn("Requested one of the spooled encodings: %s, but these are only available: %s", encodingIds, encoders.getAvailableEncodings());
         return Optional.empty();
     }
 }

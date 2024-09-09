@@ -47,4 +47,9 @@ public class QueryDataEncoders
 
         return factories.get(encodingId);
     }
+
+    public Set<String> getAvailableEncodings()
+    {
+        return factories.keySet();
+    }
 }
