@@ -131,6 +131,12 @@ public abstract class AbstractTestGcsFileSystem
         return false;
     }
 
+    @Override
+    protected boolean supportsPreSignedUri()
+    {
+        return true;
+    }
+
     @Test
     void testExistingFileWithTrailingSlash()
             throws IOException
