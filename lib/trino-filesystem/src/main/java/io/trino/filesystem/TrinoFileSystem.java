@@ -150,7 +150,8 @@ public interface TrinoFileSystem
      * that start with the location are listed. In the rare case that a blob exists with the
      * exact name of the prefix, it is not included in the results.
      * <p>
-     * The returned FileEntry locations will start with the specified location exactly.
+     * The returned FileEntry locations will start with the specified location exactly
+     * and are lexicographically sorted.
      *
      * @param location the directory to list
      * @throws IllegalArgumentException if location is not valid for this file system
