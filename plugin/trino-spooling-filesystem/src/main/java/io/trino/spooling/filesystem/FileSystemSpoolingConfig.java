@@ -151,4 +151,10 @@ public class FileSystemSpoolingConfig
     {
         return azureEnabled || s3Enabled || gcsEnabled;
     }
+
+    @AssertTrue(message = "Location must end with a slash")
+    public boolean locationEndsWithSlash()
+    {
+        return location.endsWith("/");
+    }
 }
