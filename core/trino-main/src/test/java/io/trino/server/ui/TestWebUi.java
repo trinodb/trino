@@ -33,6 +33,7 @@ import io.trino.security.AccessControl;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.protocol.PreparedStatementEncoder;
+import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.server.security.oauth2.ChallengeFailedException;
@@ -425,7 +426,7 @@ public class TestWebUi
                     ImmutableSet::of,
                     accessControl,
                     new ProtocolConfig(),
-                    _ -> Optional.empty());
+                    QueryDataEncoder.EncoderSelector.noEncoder());
         }
 
         @ResourceSecurity(WEB_UI)

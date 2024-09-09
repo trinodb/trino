@@ -13,50 +13,42 @@
  */
 package io.trino.server.protocol.spooling;
 
-import com.google.common.base.Splitter;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 
 public class PreferredQueryDataEncoderSelector
-        implements QueryDataEncoderSelector
+        implements QueryDataEncoder.EncoderSelector
 {
     private final Logger log = Logger.get(PreferredQueryDataEncoderSelector.class);
-
-    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-
-    private final Map<String, QueryDataEncoder.Factory> factories;
+    private final QueryDataEncoders encoders;
     private final SpoolingManagerRegistry spoolingManagerRegistry;
 
     @Inject
-    public PreferredQueryDataEncoderSelector(Set<QueryDataEncoder.Factory> factories, SpoolingManagerRegistry spoolingManagerRegistry)
+    public PreferredQueryDataEncoderSelector(QueryDataEncoders encoders, SpoolingManagerRegistry spoolingManagerRegistry)
     {
-        this.factories = requireNonNull(factories, "factories is null").stream()
-                .collect(toImmutableMap(QueryDataEncoder.Factory::encodingId, identity()));
+        this.encoders = requireNonNull(encoders, "encoders is null");
         this.spoolingManagerRegistry = requireNonNull(spoolingManagerRegistry, "spoolingManagerRegistry is null");
     }
 
     @Override
-    public Optional<QueryDataEncoder.Factory> select(String encodingHeader)
+    public Optional<QueryDataEncoder.Factory> select(List<String> encodingIds)
     {
         if (spoolingManagerRegistry.getSpoolingManager().isEmpty()) {
-            log.debug("Client requested spooled encoding '%s' but spooling is disabled", encodingHeader);
+            log.debug("Client requested one of the spooled encodings '%s' but spooling is disabled", encodingIds);
             return Optional.empty();
         }
 
-        for (String encodingId : SPLITTER.splitToList(encodingHeader)) {
-            if (factories.containsKey(encodingId)) {
-                return Optional.of(factories.get(encodingId));
+        for (String encodingId : encodingIds) {
+            if (encoders.exists(encodingId)) {
+                return Optional.of(encoders.get(encodingId));
             }
         }
-        log.debug("None of the preferred spooled encodings `%s` are known and supported by the server", encodingHeader);
+        log.warn("None of the requested spooled encodings '%s' are known to the server", encodingIds);
         return Optional.empty();
     }
 }

@@ -18,6 +18,7 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
+import io.trino.server.protocol.spooling.QueryDataEncoders;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
@@ -33,5 +34,7 @@ public class QueryDataEncodingModule
         encoderFactories.addBinding().to(JsonQueryDataEncoder.Factory.class).in(Scopes.SINGLETON);
         encoderFactories.addBinding().to(JsonQueryDataEncoder.ZstdFactory.class).in(Scopes.SINGLETON);
         encoderFactories.addBinding().to(JsonQueryDataEncoder.Lz4Factory.class).in(Scopes.SINGLETON);
+
+        binder.bind(QueryDataEncoders.class).in(Scopes.SINGLETON);
     }
 }

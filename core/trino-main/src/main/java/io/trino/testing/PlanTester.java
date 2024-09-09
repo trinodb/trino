@@ -126,7 +126,7 @@ import io.trino.security.GroupProviderManager;
 import io.trino.server.PluginManager;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionPropertyDefaults;
-import io.trino.server.protocol.spooling.PreferredQueryDataEncoderSelector;
+import io.trino.server.protocol.spooling.QueryDataEncoders;
 import io.trino.server.protocol.spooling.SpoolingEnabledConfig;
 import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.server.security.CertificateAuthenticatorManager;
@@ -724,7 +724,6 @@ public class PlanTester
             throw new AssertionError("Expected sub-plan to have no children");
         }
 
-        SpoolingManagerRegistry spoolingManagerRegistry = new SpoolingManagerRegistry(new ServerConfig(), new SpoolingEnabledConfig(), noop(), noopTracer());
         TaskContext taskContext = createTaskContext(notificationExecutor, yieldExecutor, session);
         TableExecuteContextManager tableExecuteContextManager = new TableExecuteContextManager();
         tableExecuteContextManager.registerTableExecuteContextForQuery(taskContext.getQueryContext().getQueryId());
@@ -742,7 +741,7 @@ public class PlanTester
                 new IndexJoinLookupStats(),
                 this.taskManagerConfig,
                 new GenericSpillerFactory(unsupportedSingleStreamSpillerFactory()),
-                new PreferredQueryDataEncoderSelector(Set.of(), spoolingManagerRegistry),
+                new QueryDataEncoders(Set.of()),
                 Optional.empty(),
                 unsupportedSingleStreamSpillerFactory(),
                 unsupportedPartitioningSpillerFactory(),

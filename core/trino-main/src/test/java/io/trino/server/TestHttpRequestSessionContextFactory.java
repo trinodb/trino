@@ -20,6 +20,7 @@ import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
 import io.trino.client.ProtocolHeaders;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.server.protocol.PreparedStatementEncoder;
+import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import jakarta.ws.rs.WebApplicationException;
@@ -193,6 +194,6 @@ public class TestHttpRequestSessionContextFactory
                 new AllowAllAccessControl(),
                 new ProtocolConfig()
                         .setAlternateHeaderName(headers.getProtocolName()),
-                _ -> Optional.empty());
+                QueryDataEncoder.EncoderSelector.noEncoder());
     }
 }
