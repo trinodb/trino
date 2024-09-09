@@ -517,4 +517,10 @@ public final class StatisticsAwareJdbcClient
     {
         return delegate().getMaxColumnNameLength(session);
     }
+
+    @Override
+    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        return stats.getGetPrimaryKeys().wrap(() -> delegate().getPrimaryKeys(session, remoteTableName));
+    }
 }
