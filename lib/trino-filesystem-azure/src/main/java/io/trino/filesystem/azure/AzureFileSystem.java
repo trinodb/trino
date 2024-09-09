@@ -22,6 +22,8 @@ import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
+import com.azure.storage.blob.sas.BlobSasPermission;
+import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import com.azure.storage.blob.specialized.BlockBlobClient;
 import com.azure.storage.file.datalake.DataLakeDirectoryClient;
 import com.azure.storage.file.datalake.DataLakeFileClient;
@@ -35,15 +37,20 @@ import com.azure.storage.file.datalake.models.PathItem;
 import com.azure.storage.file.datalake.options.DataLakePathDeleteOptions;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemException;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.UriLocation;
 
 import java.io.IOException;
+import java.net.URI;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -55,6 +62,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
 import static io.trino.filesystem.azure.AzureUtils.isFileNotFoundException;
 import static java.lang.Math.toIntExact;
+import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.function.Predicate.not;
@@ -414,6 +422,35 @@ public class AzureFileSystem
 
         createDirectory(temporary);
         return Optional.of(temporary);
+    }
+
+    @Override
+    public Optional<UriLocation> preSignedUri(Location location, Duration ttl)
+            throws IOException
+    {
+        if (!azureAuth.supportsPreSignedUri()) {
+            throw new UnsupportedOperationException("Generating pre-signed URIs for Azure with OAuth2 authentication is not supported");
+        }
+        AzureLocation azureLocation = new AzureLocation(location);
+        BlobClient client = createBlobClient(azureLocation);
+        BlobSasPermission blobSasPermission = new BlobSasPermission()
+                .setReadPermission(true);
+
+        OffsetDateTime startTime = OffsetDateTime.now();
+        OffsetDateTime expiryTime = startTime.plus(ttl.toMillis(), MILLIS);
+
+        BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(expiryTime, blobSasPermission)
+                .setStartTime(startTime)
+                .setExpiryTime(expiryTime)
+                .setPermissions(blobSasPermission);
+
+        createBlobContainerClient(azureLocation).generateSas(values);
+        try {
+            return Optional.of(new UriLocation(URI.create(client.getBlobUrl() + "?" + client.generateSas(values)), Map.of()));
+        }
+        catch (Exception e) {
+            throw new IOException("Failed to generate pre-signed URI", e);
+        }
     }
 
     private Set<Location> listGen2Directories(AzureLocation location)
