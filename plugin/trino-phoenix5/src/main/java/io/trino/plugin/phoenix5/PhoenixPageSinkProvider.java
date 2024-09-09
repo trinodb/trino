@@ -40,7 +40,7 @@ public class PhoenixPageSinkProvider
     @Inject
     public PhoenixPageSinkProvider(PhoenixClient jdbcClient, RemoteQueryModifier remoteQueryModifier, QueryBuilder queryBuilder)
     {
-        this.delegate = new JdbcPageSinkProvider(jdbcClient, remoteQueryModifier);
+        this.delegate = new JdbcPageSinkProvider(jdbcClient, remoteQueryModifier, queryBuilder);
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.remoteQueryModifier = requireNonNull(remoteQueryModifier, "remoteQueryModifier is null");
         this.queryBuilder = requireNonNull(queryBuilder, "queryBuilder is null");
