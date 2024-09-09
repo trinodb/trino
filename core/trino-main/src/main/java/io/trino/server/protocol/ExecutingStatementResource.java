@@ -31,7 +31,7 @@ import io.trino.server.ExternalUriInfo;
 import io.trino.server.ForStatementResource;
 import io.trino.server.ServerConfig;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
-import io.trino.server.protocol.spooling.QueryDataEncoderSelector;
+import io.trino.server.protocol.spooling.QueryDataEncoders;
 import io.trino.server.protocol.spooling.RawQueryDataProducer;
 import io.trino.server.protocol.spooling.SpooledQueryDataProducer;
 import io.trino.server.security.ResourceSecurity;
@@ -82,7 +82,7 @@ public class ExecutingStatementResource
     private static final DataSize MAX_TARGET_RESULT_SIZE = DataSize.of(128, MEGABYTE);
 
     private final QueryManager queryManager;
-    private final QueryDataEncoderSelector queryDataEncoderSelector;
+    private final QueryDataEncoders encoders;
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -98,7 +98,7 @@ public class ExecutingStatementResource
     @Inject
     public ExecutingStatementResource(
             QueryManager queryManager,
-            QueryDataEncoderSelector queryDataEncoderSelector,
+            QueryDataEncoders encoders,
             DirectExchangeClientSupplier directExchangeClientSupplier,
             ExchangeManagerRegistry exchangeManagerRegistry,
             BlockEncodingSerde blockEncodingSerde,
@@ -109,7 +109,7 @@ public class ExecutingStatementResource
             ServerConfig serverConfig)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
-        this.queryDataEncoderSelector = requireNonNull(queryDataEncoderSelector, "queryDataEncoderSelector is null");
+        this.encoders = requireNonNull(encoders, "encoders is null");
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
@@ -198,7 +198,7 @@ public class ExecutingStatementResource
         }
 
         Optional<QueryDataEncoder.Factory> encoderFactory = session.getQueryDataEncodingId()
-                .flatMap(queryDataEncoderSelector::select);
+                .map(encoders::get);
 
         query = queries.computeIfAbsent(queryId, _ -> Query.create(
                 session,

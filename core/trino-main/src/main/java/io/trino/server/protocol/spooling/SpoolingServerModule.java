@@ -25,8 +25,6 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.server.ServerConfig;
 import io.trino.server.protocol.spooling.encoding.QueryDataEncodingModule;
 
-import java.util.Optional;
-
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static java.util.Objects.requireNonNull;
@@ -37,18 +35,19 @@ public class SpoolingServerModule
     @Override
     protected void setup(Binder binder)
     {
+        install(new QueryDataEncodingModule());
+
         binder.bind(SpoolingManagerRegistry.class).in(Scopes.SINGLETON);
         OptionalBinder<SpoolingManagerBridge> bridgeBinder = newOptionalBinder(binder, new TypeLiteral<>() {});
         SpoolingEnabledConfig spoolingEnabledConfig = buildConfigObject(SpoolingEnabledConfig.class);
         if (!spoolingEnabledConfig.isEnabled()) {
-            binder.bind(QueryDataEncoderSelector.class).toInstance(_ -> Optional.empty());
+            binder.bind(QueryDataEncoder.EncoderSelector.class).toInstance(QueryDataEncoder.EncoderSelector.noEncoder());
             return;
         }
 
         boolean isCoordinator = buildConfigObject(ServerConfig.class).isCoordinator();
         SpoolingConfig spoolingConfig = buildConfigObject(SpoolingConfig.class);
-        binder.bind(QueryDataEncoderSelector.class).to(PreferredQueryDataEncoderSelector.class).in(Scopes.SINGLETON);
-        install(new QueryDataEncodingModule());
+        binder.bind(QueryDataEncoder.EncoderSelector.class).to(PreferredQueryDataEncoderSelector.class).in(Scopes.SINGLETON);
         if (spoolingConfig.isUseWorkers() || isCoordinator) {
             jaxrsBinder(binder).bind(SegmentResource.class);
         }

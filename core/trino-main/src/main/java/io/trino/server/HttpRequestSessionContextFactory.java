@@ -28,7 +28,6 @@ import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
-import io.trino.server.protocol.spooling.QueryDataEncoderSelector;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
@@ -73,7 +72,7 @@ public class HttpRequestSessionContextFactory
     private final GroupProvider groupProvider;
     private final AccessControl accessControl;
     private final Optional<String> alternateHeaderName;
-    private final QueryDataEncoderSelector queryDataEncoderSelector;
+    private final QueryDataEncoder.EncoderSelector encoderSelector;
 
     @Inject
     public HttpRequestSessionContextFactory(
@@ -82,14 +81,14 @@ public class HttpRequestSessionContextFactory
             GroupProvider groupProvider,
             AccessControl accessControl,
             ProtocolConfig protocolConfig,
-            QueryDataEncoderSelector queryDataEncoderSelector)
+            QueryDataEncoder.EncoderSelector encoderSelector)
     {
         this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
         this.preparedStatementEncoder = requireNonNull(preparedStatementEncoder, "preparedStatementEncoder is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.queryDataEncoderSelector = requireNonNull(queryDataEncoderSelector, "queryDataEncoderSelector is null");
+        this.encoderSelector = requireNonNull(encoderSelector, "encoderSelector is null");
     }
 
     public SessionContext createSessionContext(
@@ -122,7 +121,8 @@ public class HttpRequestSessionContextFactory
         Optional<String> language = Optional.ofNullable(headers.getFirst(protocolHeaders.requestLanguage()));
         Optional<String> clientInfo = Optional.ofNullable(headers.getFirst(protocolHeaders.requestClientInfo()));
         Optional<String> queryDataEncodingId = Optional.ofNullable(headers.getFirst(protocolHeaders.requestQueryDataEncoding()))
-                .flatMap(queryDataEncoderSelector::select)
+                .map(Splitter.on(',').trimResults().omitEmptyStrings()::splitToList)
+                .flatMap(encoderSelector::select)
                 .map(QueryDataEncoder.Factory::encodingId);
 
         Set<String> clientTags = parseClientTags(protocolHeaders, headers);
