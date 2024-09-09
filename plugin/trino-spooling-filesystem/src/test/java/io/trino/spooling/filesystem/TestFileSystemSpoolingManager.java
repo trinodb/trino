@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Optional;
+import java.util.UUID;
 
 import static io.opentelemetry.api.OpenTelemetry.noop;
 import static io.trino.spooling.filesystem.encryption.EncryptionUtils.generateRandomKey;
@@ -44,6 +45,9 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 @TestInstance(PER_CLASS)
 public class TestFileSystemSpoolingManager
 {
+    private static final String BUCKET_NAME = "spooling" + UUID.randomUUID().toString()
+            .replace("-", "");
+
     private Minio minio;
 
     @BeforeAll
@@ -51,7 +55,7 @@ public class TestFileSystemSpoolingManager
     {
         minio = Minio.builder().build();
         minio.start();
-        minio.createBucket("test");
+        minio.createBucket(BUCKET_NAME);
     }
 
     @AfterAll
@@ -119,7 +123,7 @@ public class TestFileSystemSpoolingManager
     {
         FileSystemSpoolingConfig spoolingConfig = new FileSystemSpoolingConfig();
         spoolingConfig.setS3Enabled(true);
-        spoolingConfig.setLocation("s3://test");
+        spoolingConfig.setLocation("s3://%s/".formatted(BUCKET_NAME));
         S3FileSystemConfig filesystemConfig = new S3FileSystemConfig()
                 .setEndpoint(minio.getMinioAddress())
                 .setRegion(MINIO_REGION)

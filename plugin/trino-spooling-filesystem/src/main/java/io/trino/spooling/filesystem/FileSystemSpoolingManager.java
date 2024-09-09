@@ -213,7 +213,8 @@ public class FileSystemSpoolingManager
             throws IOException
     {
         checkExpiration(handle);
-        return Location.of(location + "/" + handle.storageObjectName());
+        return Location.of(location)
+                .appendPath(handle.storageObjectName());
     }
 
     private void checkExpiration(FileSystemSpooledSegmentHandle handle)
