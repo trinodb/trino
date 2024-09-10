@@ -24,7 +24,7 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.List;
 
-import static io.trino.client.FixJsonDataUtils.fixData;
+import static io.trino.client.spooling.encoding.FixJsonDataUtils.fixData;
 import static java.util.Objects.requireNonNull;
 
 public class JsonQueryDataDecoder
