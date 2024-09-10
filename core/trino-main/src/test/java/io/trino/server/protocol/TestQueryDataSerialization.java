@@ -268,7 +268,8 @@ public class TestQueryDataSerialization
         if (data instanceof EncodedQueryData queryDataV2 && queryDataV2.getSegments().getFirst() instanceof InlineSegment inlineSegment) {
             try {
                 return new JsonQueryDataDecoder.Factory().create(columns, empty())
-                        .decode(new ByteArrayInputStream(inlineSegment.getData()), inlineSegment.getMetadata());
+                        .decode(new ByteArrayInputStream(inlineSegment.getData()), inlineSegment.getMetadata())
+                        .toIterable();
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);

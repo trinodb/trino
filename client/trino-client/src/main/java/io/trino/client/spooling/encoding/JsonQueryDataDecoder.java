@@ -40,14 +40,16 @@ public class JsonQueryDataDecoder
     }
 
     @Override
-    public Iterable<List<Object>> decode(InputStream stream, DataAttributes attributes)
+    public QueryDataAccess decode(InputStream stream, DataAttributes attributes)
     {
-        try {
-            return fixData(columns, OBJECT_MAPPER.readValue(stream, TYPE));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return () -> {
+            try {
+                return fixData(columns, OBJECT_MAPPER.readValue(stream, TYPE));
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        };
     }
 
     @Override
