@@ -1875,8 +1875,8 @@ public abstract class BaseJdbcConnectorTest
     public void testConstantUpdateWithVarcharInequalityPredicates()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
-            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
+        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"), "col2")) {
+            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
                 assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
             }
@@ -1890,8 +1890,8 @@ public abstract class BaseJdbcConnectorTest
     public void testConstantUpdateWithVarcharGreaterAndLowerPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
-            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
+        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"), "col2")) {
+            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
                 assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 > 'A'", MODIFYING_ROWS_MESSAGE);
                 assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 < 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
@@ -1943,14 +1943,14 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
+        try (TestTable table = createTestTableForWrites("test_delete_varchar", "(col varchar(1), pk int)", ImmutableList.of("'a', 0", "'A', 1", "null, 2"), "pk")) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_MERGE)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col != 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
             }
 
             assertUpdate("DELETE FROM " + table.getName() + " WHERE col != 'A'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 'A', null");
         }
     }
 
@@ -1959,7 +1959,7 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_varchar", "(col varchar(1))", ImmutableList.of("'0'", "'a'", "'A'", "'b'", "null"))) {
+        try (TestTable table = createTestTableForWrites("test_delete_varchar", "(col varchar(1), pk int)", ImmutableList.of("'0', 0", "'a', 1", "'A', 2", "'b', 3", "null, 4"), "pk")) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_MERGE)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col < 'A'", MODIFYING_ROWS_MESSAGE);
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col > 'A'", MODIFYING_ROWS_MESSAGE);
@@ -1967,9 +1967,9 @@ public abstract class BaseJdbcConnectorTest
             }
 
             assertUpdate("DELETE FROM " + table.getName() + " WHERE col < 'A'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'a', 'A', 'b', null");
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 'a', 'A', 'b', null");
             assertUpdate("DELETE FROM " + table.getName() + " WHERE col > 'A'", 2);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'A', null");
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 'A', null");
         }
     }
 

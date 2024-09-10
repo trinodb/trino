@@ -1585,6 +1585,12 @@ public abstract class BaseJdbcClient
     }
 
     @Override
+    public boolean supportsMerge()
+    {
+        return false;
+    }
+
+    @Override
     public String quoted(String name)
     {
         name = name.replace(identifierQuote, identifierQuote + identifierQuote);

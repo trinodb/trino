@@ -441,6 +441,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public boolean supportsMerge()
+    {
+        return delegate().supportsMerge();
+    }
+
+    @Override
     public void createSchema(ConnectorSession session, String schemaName)
     {
         stats.getCreateSchema().wrap(() -> delegate().createSchema(session, schemaName));
