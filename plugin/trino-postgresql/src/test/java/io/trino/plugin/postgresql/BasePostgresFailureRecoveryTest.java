@@ -15,6 +15,7 @@ package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
+import io.trino.Session;
 import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.jdbc.BaseJdbcFailureRecoveryTest;
@@ -32,6 +33,8 @@ import static org.junit.jupiter.api.Assumptions.abort;
 public abstract class BasePostgresFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
 {
+    private TestingPostgreSqlServer postgreSqlServer;
+
     public BasePostgresFailureRecoveryTest(RetryPolicy retryPolicy)
     {
         super(retryPolicy);
@@ -45,7 +48,8 @@ public abstract class BasePostgresFailureRecoveryTest
             Module failureInjectionModule)
             throws Exception
     {
-        return PostgreSqlQueryRunner.builder(closeAfterClass(new TestingPostgreSqlServer()))
+        this.postgreSqlServer = new TestingPostgreSqlServer();
+        return PostgreSqlQueryRunner.builder(closeAfterClass(this.postgreSqlServer))
                 .setExtraProperties(configProperties)
                 .setCoordinatorProperties(configProperties)
                 .setAdditionalSetup(runner -> {
@@ -60,10 +64,26 @@ public abstract class BasePostgresFailureRecoveryTest
 
     @Test
     @Override
+    protected void testDeleteWithSubquery()
+    {
+        // TODO: support merge with fte https://github.com/trinodb/trino/issues/23345
+        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("Non-transactional MERGE is disabled");
+    }
+
+    @Test
+    @Override
     protected void testUpdateWithSubquery()
     {
         assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("Unexpected Join over for-update table scan");
         abort("skipped");
+    }
+
+    @Test
+    @Override
+    protected void testMerge()
+    {
+        // TODO: support merge with fte https://github.com/trinodb/trino/issues/23345
+        assertThatThrownBy(super::testMerge).hasMessageContaining("Non-transactional MERGE is disabled");
     }
 
     @Test
@@ -80,5 +100,11 @@ public abstract class BasePostgresFailureRecoveryTest
                 .withSetupQuery(setupQuery)
                 .withCleanupQuery(cleanupQuery)
                 .isCoordinatorOnly();
+    }
+
+    @Override
+    protected void addPrimaryKeyForMergeTarget(Session session, String tableName, String primaryKey)
+    {
+        postgreSqlServer.execute("ALTER TABLE %s ADD CONSTRAINT pk_%s PRIMARY KEY (%s)".formatted(tableName, tableName, primaryKey));
     }
 }

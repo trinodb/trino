@@ -355,6 +355,12 @@ public class CachingJdbcClient
     }
 
     @Override
+    public boolean supportsMerge()
+    {
+        return delegate.supportsMerge();
+    }
+
+    @Override
     public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
         TableHandlesByNameCacheKey key = new TableHandlesByNameCacheKey(getIdentityKey(session), schemaTableName);

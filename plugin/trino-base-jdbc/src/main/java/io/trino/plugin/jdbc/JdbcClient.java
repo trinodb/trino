@@ -166,6 +166,8 @@ public interface JdbcClient
 
     boolean isLimitGuaranteed(ConnectorSession session);
 
+    boolean supportsMerge();
+
     default Optional<String> getTableComment(ResultSet resultSet)
             throws SQLException
     {

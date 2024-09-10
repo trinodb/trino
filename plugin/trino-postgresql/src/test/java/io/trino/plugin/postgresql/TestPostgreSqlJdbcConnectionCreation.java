@@ -19,6 +19,7 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectionCreationTest;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
@@ -35,9 +36,10 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
+import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_MERGE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.util.Objects.requireNonNull;
@@ -45,11 +47,14 @@ import static java.util.Objects.requireNonNull;
 public class TestPostgreSqlJdbcConnectionCreation
         extends BaseJdbcConnectionCreationTest
 {
+    protected TestingPostgreSqlServer postgreSqlServer;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         TestingPostgreSqlServer postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
+        this.postgreSqlServer = requireNonNull(postgreSqlServer, "postgreSqlServer is null");
         this.connectionFactory = getConnectionCountingConnectionFactory(postgreSqlServer);
         DistributedQueryRunner queryRunner = PostgreSqlQueryRunner.builder(postgreSqlServer)
                 // to make sure we always open connections in the same way
@@ -65,8 +70,17 @@ public class TestPostgreSqlJdbcConnectionCreation
                             "connection-password", postgreSqlServer.getPassword()));
                 })
                 .build();
-        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, ImmutableList.of(NATION, REGION));
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, ImmutableList.of(CUSTOMER, NATION, REGION));
         return queryRunner;
+    }
+
+    @Override
+    protected Session getSession()
+    {
+        Session session = super.getSession();
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), NON_TRANSACTIONAL_MERGE, "true")
+                .build();
     }
 
     private static ConnectionCountingConnectionFactory getConnectionCountingConnectionFactory(TestingPostgreSqlServer postgreSqlServer)
@@ -100,12 +114,28 @@ public class TestPostgreSqlJdbcConnectionCreation
         assertJdbcConnections("INSERT INTO copy_of_nation SELECT * FROM nation", 6, Optional.empty());
         assertJdbcConnections("DELETE FROM copy_of_nation WHERE nationkey = 3", 1, Optional.empty());
         assertJdbcConnections("UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 1, Optional.empty());
-        assertJdbcConnections("MERGE INTO copy_of_nation n USING region r ON r.regionkey= n.regionkey WHEN MATCHED THEN DELETE", 1, Optional.of(MODIFYING_ROWS_MESSAGE));
         assertJdbcConnections("DROP TABLE copy_of_nation", 1, Optional.empty());
         assertJdbcConnections("SHOW SCHEMAS", 1, Optional.empty());
         assertJdbcConnections("SHOW TABLES", 1, Optional.empty());
         assertJdbcConnections("SHOW STATS FOR nation", 2, Optional.empty());
         assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE table_cat = 'counting_postgresql'", 1, Optional.empty());
+
+        testJdbcMergeConnectionCreations();
+    }
+
+    private void testJdbcMergeConnectionCreations()
+    {
+        assertJdbcConnections("CREATE TABLE copy_of_customer AS SELECT * FROM customer", 6, Optional.empty());
+
+        addPrimaryKeyToCopyTable();
+        assertJdbcConnections("DELETE FROM copy_of_customer WHERE abs(custkey) = 1", 17, Optional.empty());
+        assertJdbcConnections("UPDATE copy_of_customer SET name = 'POLAND' WHERE abs(custkey) = 1", 25, Optional.empty());
+        assertJdbcConnections("MERGE INTO copy_of_customer c USING customer r ON r.custkey = c.custkey WHEN MATCHED THEN DELETE", 18, Optional.empty());
+    }
+
+    private void addPrimaryKeyToCopyTable()
+    {
+        postgreSqlServer.execute("ALTER TABLE copy_of_customer ADD CONSTRAINT t_copy_of_nation PRIMARY KEY (custkey)");
     }
 
     private static final class TestingPostgreSqlModule

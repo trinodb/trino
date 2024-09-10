@@ -114,6 +114,7 @@ import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isComplexJoinPu
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isJoinPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isTopNPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalInsert;
+import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalMerge;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUMNS;
@@ -1297,11 +1298,24 @@ public class DefaultJdbcMetadata
     @Override
     public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateColumnHandles, RetryMode retryMode)
     {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support MERGE with fault-tolerant execution");
+        }
+
+        if (!jdbcClient.supportsMerge()) {
+            throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+        }
+
+        if (!isNonTransactionalMerge(session)) {
+            throw new TrinoException(NOT_SUPPORTED, "Non-transactional MERGE is disabled");
+        }
+
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         checkArgument(handle.isNamedRelation(), "Merge target must be named relation table");
+
         List<JdbcColumnHandle> primaryKeys = jdbcClient.getPrimaryKeys(session, handle.getRequiredNamedRelation().getRemoteTableName());
         if (primaryKeys.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+            throw new TrinoException(NOT_SUPPORTED, "The connector can not perform merge on the target table without primary keys");
         }
 
         SchemaTableName schemaTableName = handle.getRequiredNamedRelation().getSchemaTableName();

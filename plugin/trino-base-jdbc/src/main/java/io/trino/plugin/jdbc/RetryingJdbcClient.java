@@ -273,6 +273,13 @@ public class RetryingJdbcClient
     }
 
     @Override
+    public boolean supportsMerge()
+    {
+        // there should be no remote database interaction
+        return delegate.supportsMerge();
+    }
+
+    @Override
     public Optional<String> getTableComment(ResultSet resultSet)
             throws SQLException
     {

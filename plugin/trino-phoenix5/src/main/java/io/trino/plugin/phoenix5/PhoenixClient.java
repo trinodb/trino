@@ -802,6 +802,12 @@ public class PhoenixClient
     }
 
     @Override
+    public boolean supportsMerge()
+    {
+        return true;
+    }
+
+    @Override
     public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
     {
         JdbcTableHandle plainTable = new JdbcTableHandle(remoteTableName.getSchemaTableName(), remoteTableName, Optional.empty());

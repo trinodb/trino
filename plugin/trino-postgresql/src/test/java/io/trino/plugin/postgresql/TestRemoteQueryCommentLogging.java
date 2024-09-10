@@ -62,7 +62,8 @@ public class TestRemoteQueryCommentLogging
 
         assertThat(postgreSqlServer.recordEventsForOperations(() -> getQueryRunner().execute("DELETE FROM postgresql.tpch.log_nation_test_table"))
                 .stopEventsRecording()
-                .streamQueriesContaining("log_nation_test_table"))
+                // Filter that the identifier not the variable
+                .streamQueriesContaining("\"log_nation_test_table\""))
                 .allMatch(query -> query.endsWith("/*query executed by user*/"))
                 .size()
                 .isEqualTo(1);
