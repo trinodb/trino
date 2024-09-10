@@ -581,6 +581,8 @@ public class PostgreSqlClient
                 return Optional.of(hstoreColumnMapping(session));
             case "vector":
                 return Optional.of(vectorColumnMapping());
+            case "ctid":
+                return Optional.of(ctidColumnMapping());
         }
         if (jdbcTypeName.endsWith("\"vector\"")) {
             // TODO: Find more reliable way to detect vector type. The type name can be "schema-name"."vector"
@@ -1186,6 +1188,14 @@ public class PostgreSqlClient
         }
     }
 
+    @Override
+    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        return ImmutableList.of(new JdbcColumnHandle("ctid",
+                new JdbcTypeHandle(Types.VARCHAR, Optional.of("ctid"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+                VARCHAR));
+    }
+
     private static ColumnMapping charColumnMapping(int charLength)
     {
         if (charLength > CharType.MAX_LENGTH) {
@@ -1627,6 +1637,29 @@ public class PostgreSqlClient
         return ObjectWriteFunction.of(Block.class, (_, _, _) -> {
             throw new TrinoException(NOT_SUPPORTED, "Writing to vector type is unsupported");
         });
+    }
+
+    private static ColumnMapping ctidColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                VARCHAR,
+                varcharReadFunction(VARCHAR),
+                new SliceWriteFunction()
+                {
+                    @Override
+                    public void set(PreparedStatement statement, int index, Slice value)
+                            throws SQLException
+                    {
+                        statement.setString(index, value.toStringUtf8());
+                    }
+
+                    @Override
+                    public String getBindExpression()
+                    {
+                        return "?::tid";
+                    }
+                },
+                FULL_PUSHDOWN);
     }
 
     private static class StatisticsDao
