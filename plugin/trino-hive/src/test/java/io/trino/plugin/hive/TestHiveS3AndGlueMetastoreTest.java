@@ -35,6 +35,7 @@ import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -61,6 +62,7 @@ public class TestHiveS3AndGlueMetastoreTest
                 .addHiveProperty("hive.metastore.glue.default-warehouse-dir", schemaPath())
                 .addHiveProperty("hive.security", "allow-all")
                 .addHiveProperty("hive.non-managed-table-writes-enabled", "true")
+                .addHiveProperty("hive.partition-projection-enabled", "true")
                 .addHiveProperty("fs.hadoop.enabled", "false")
                 .addHiveProperty("fs.native-s3.enabled", "true")
                 .build();
@@ -297,6 +299,49 @@ public class TestHiveS3AndGlueMetastoreTest
                         (null, null, null, null, 4.0, null, null)""");
             }
         }
+    }
+
+    @Test
+    public void testPartitionProjectionWithProvidedTableLocation()
+    {
+        for (LocationPattern locationPattern : LocationPattern.values()) {
+            if (locationPattern == DOUBLE_SLASH || locationPattern == TRIPLE_SLASH || locationPattern == TWO_TRAILING_SLASHES) {
+                assertThatThrownBy(() -> testPartitionProjectionWithProvidedTableLocation(locationPattern))
+                        .hasMessageStartingWith("Unsupported location that cannot be internally represented: ")
+                        .hasStackTraceContaining("SQL: CREATE TABLE");
+                continue;
+            }
+            testPartitionProjectionWithProvidedTableLocation(locationPattern);
+        }
+    }
+
+    private void testPartitionProjectionWithProvidedTableLocation(LocationPattern locationPattern)
+    {
+        String tableName = "test_partition_projection_" + randomNameSuffix();
+        String tableLocation = locationPattern.locationForTable(bucketName, schemaName, tableName);
+
+        computeActual(format("""
+                        CREATE TABLE %s (
+                        name varchar(25),
+                        short_name varchar WITH (
+                            partition_projection_type='date',
+                            partition_projection_format='yyyy-MM-dd HH',
+                            partition_projection_range=ARRAY['2001-01-22 00', '2001-01-22 06'],
+                            partition_projection_interval=1,
+                            partition_projection_interval_unit='HOURS'
+                          )
+                        )
+                        WITH (
+                          partitioned_by=ARRAY['short_name'],
+                          partition_projection_enabled=true,
+                          external_location = '%s'
+                        )""",
+                tableName,
+                tableLocation));
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('name1', '2001-01-22 00')", 1);
+
+        assertQuery(format("SELECT name FROM %s", tableName), "VALUES ('name1')");
     }
 
     @Test
