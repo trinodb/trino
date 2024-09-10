@@ -608,6 +608,24 @@
                                     <new>method void io.trino.spi.eventlistener.QueryMetadata::&lt;init&gt;(java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.lang.String, java.util.List&lt;io.trino.spi.eventlistener.TableInfo&gt;, java.util.List&lt;io.trino.spi.eventlistener.RoutineInfo&gt;, java.net.URI, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.function.Supplier&lt;java.util.Optional&lt;java.lang.String&gt;&gt;)</new>
                                     <justification>introduction of spooled protocol</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>interface io.opentelemetry.api.common.KeyValue</new>
+                                    <justification>New OpenTelemetry version</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>interface io.opentelemetry.api.common.Value&lt;T&gt;</new>
+                                    <justification>New OpenTelemetry version</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>enum io.opentelemetry.api.common.ValueType</new>
+                                    <justification>New OpenTelemetry version</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
