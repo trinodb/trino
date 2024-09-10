@@ -15,25 +15,32 @@ package io.trino.filesystem.s3;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
+import io.airlift.units.Duration;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemException;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.UriLocation;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 import software.amazon.awssdk.services.s3.model.S3Error;
 import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -49,19 +56,22 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Multimaps.toMultimap;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 final class S3FileSystem
         implements TrinoFileSystem
 {
     private final Executor uploadExecutor;
     private final S3Client client;
+    private final S3Presigner preSigner;
     private final S3Context context;
     private final RequestPayer requestPayer;
 
-    public S3FileSystem(Executor uploadExecutor, S3Client client, S3Context context)
+    public S3FileSystem(Executor uploadExecutor, S3Client client, S3Presigner preSigner, S3Context context)
     {
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         this.client = requireNonNull(client, "client is null");
+        this.preSigner = requireNonNull(preSigner, "preSigner is null");
         this.context = requireNonNull(context, "context is null");
         this.requestPayer = context.requestPayer();
     }
@@ -273,6 +283,43 @@ final class S3FileSystem
         validateS3Location(targetPath);
         // S3 does not have directories
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<UriLocation> preSignedUri(Location location, Duration ttl)
+            throws IOException
+    {
+        location.verifyValidFileLocation();
+        S3Location s3Location = new S3Location(location);
+
+        GetObjectRequest request = GetObjectRequest.builder()
+                .overrideConfiguration(context::applyCredentialProviderOverride)
+                .requestPayer(requestPayer)
+                .key(s3Location.key())
+                .bucket(s3Location.bucket())
+                .build();
+
+        GetObjectPresignRequest preSignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(ttl.toJavaTime())
+                .getObjectRequest(request)
+                .build();
+        try {
+            PresignedGetObjectRequest preSigned = preSigner.presignGetObject(preSignRequest);
+            return Optional.of(new UriLocation(preSigned.url().toURI(), filterHeaders(preSigned.httpRequest().headers())));
+        }
+        catch (SdkException e) {
+            throw new IOException("Failed to generate pre-signed URI", e);
+        }
+        catch (URISyntaxException e) {
+            throw new TrinoFileSystemException("Failed to convert pre-signed URI to URI", e);
+        }
+    }
+
+    private static Map<String, List<String>> filterHeaders(Map<String, List<String>> headers)
+    {
+        return headers.entrySet().stream()
+                .filter(entry -> !entry.getKey().equalsIgnoreCase("host"))
+                .collect(toMap(Entry::getKey, Entry::getValue));
     }
 
     @SuppressWarnings("ResultOfObjectAllocationIgnored")

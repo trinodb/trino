@@ -15,6 +15,7 @@ package io.trino.filesystem.s3;
 
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.containers.localstack.LocalStackContainer.Service;
 import org.testcontainers.junit.jupiter.Container;
@@ -24,6 +25,8 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers
 public class TestS3FileSystemLocalStack
@@ -69,5 +72,14 @@ public class TestS3FileSystemLocalStack
                 .setEndpoint(LOCALSTACK.getEndpointOverride(Service.S3).toString())
                 .setRegion(LOCALSTACK.getRegion())
                 .setStreamingPartSize(DataSize.valueOf("5.5MB")));
+    }
+
+    @Test
+    @Override
+    public void testPreSignedUris()
+    {
+        // Localstack doesn't expire pre-signed URLs
+        assertThatThrownBy(super::testPreSignedUris)
+                .hasMessageContaining("Expecting code to raise a throwable");
     }
 }

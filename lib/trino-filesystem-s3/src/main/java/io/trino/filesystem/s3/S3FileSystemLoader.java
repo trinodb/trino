@@ -30,6 +30,8 @@ import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
@@ -52,6 +54,7 @@ final class S3FileSystemLoader
     private final Optional<S3SecurityMappingProvider> mappingProvider;
     private final SdkHttpClient httpClient;
     private final S3ClientFactory clientFactory;
+    private final S3Presigner preSigner;
     private final S3Context context;
     private final ExecutorService uploadExecutor = newCachedThreadPool(daemonThreadsNamed("s3-upload-%s"));
 
@@ -73,6 +76,8 @@ final class S3FileSystemLoader
 
         this.clientFactory = s3ClientFactory(httpClient, openTelemetry, config);
 
+        this.preSigner = s3PreSigner(httpClient, openTelemetry, config);
+
         this.context = new S3Context(
                 toIntExact(config.getStreamingPartSize().toBytes()),
                 config.isRequesterPays(),
@@ -86,7 +91,7 @@ final class S3FileSystemLoader
     @Override
     public TrinoFileSystemFactory apply(Location location)
     {
-        return new S3SecurityMappingFileSystemFactory(mappingProvider.orElseThrow(), clientFactory, context, location, uploadExecutor);
+        return new S3SecurityMappingFileSystemFactory(mappingProvider.orElseThrow(), clientFactory, preSigner, context, location, uploadExecutor);
     }
 
     @PreDestroy
@@ -100,6 +105,11 @@ final class S3FileSystemLoader
     S3Client createClient()
     {
         return clientFactory.create(Optional.empty());
+    }
+
+    S3Presigner createPreSigner()
+    {
+        return preSigner;
     }
 
     S3Context context()
@@ -165,6 +175,49 @@ final class S3FileSystemLoader
 
             return s3.build();
         };
+    }
+
+    private static S3Presigner s3PreSigner(SdkHttpClient httpClient, OpenTelemetry openTelemetry, S3FileSystemConfig config)
+    {
+        Optional<AwsCredentialsProvider> staticCredentialsProvider = createStaticCredentialsProvider(config);
+        Optional<String> staticRegion = Optional.ofNullable(config.getRegion());
+        Optional<String> staticEndpoint = Optional.ofNullable(config.getEndpoint());
+        boolean pathStyleAccess = config.isPathStyleAccess();
+        boolean useWebIdentityTokenCredentialsProvider = config.isUseWebIdentityTokenCredentialsProvider();
+        Optional<String> staticIamRole = Optional.ofNullable(config.getIamRole());
+        String staticRoleSessionName = config.getRoleSessionName();
+        String externalId = config.getExternalId();
+
+        S3Presigner.Builder s3 = S3Presigner.builder();
+        s3.s3Client(s3ClientFactory(httpClient, openTelemetry, config)
+                .create(Optional.empty()));
+
+        staticRegion.map(Region::of).ifPresent(s3::region);
+        staticEndpoint.map(URI::create).ifPresent(s3::endpointOverride);
+        s3.serviceConfiguration(S3Configuration.builder()
+                .pathStyleAccessEnabled(pathStyleAccess)
+                .build());
+
+        if (useWebIdentityTokenCredentialsProvider) {
+            s3.credentialsProvider(WebIdentityTokenFileCredentialsProvider.builder()
+                    .asyncCredentialUpdateEnabled(true)
+                    .build());
+        }
+        else if (staticIamRole.isPresent()) {
+            s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
+                    .refreshRequest(request -> request
+                            .roleArn(staticIamRole.get())
+                            .roleSessionName(staticRoleSessionName)
+                            .externalId(externalId))
+                    .stsClient(createStsClient(config, staticCredentialsProvider))
+                    .asyncCredentialUpdateEnabled(true)
+                    .build());
+        }
+        else {
+            staticCredentialsProvider.ifPresent(s3::credentialsProvider);
+        }
+
+        return s3.build();
     }
 
     private static Optional<AwsCredentialsProvider> createStaticCredentialsProvider(S3FileSystemConfig config)
