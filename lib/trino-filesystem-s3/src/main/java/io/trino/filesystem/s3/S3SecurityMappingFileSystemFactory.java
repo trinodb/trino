@@ -19,6 +19,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemLoader.S3ClientFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import java.util.Map;
 import java.util.Optional;
@@ -32,6 +33,7 @@ final class S3SecurityMappingFileSystemFactory
 {
     private final S3SecurityMappingProvider mappingProvider;
     private final S3ClientFactory clientFactory;
+    private final S3Presigner preSigner;
     private final S3Context context;
     private final Location location;
     private final Executor uploadExecutor;
@@ -40,6 +42,7 @@ final class S3SecurityMappingFileSystemFactory
     public S3SecurityMappingFileSystemFactory(
             S3SecurityMappingProvider mappingProvider,
             S3ClientFactory clientFactory,
+            S3Presigner preSigner,
             S3Context context,
             Location location,
             Executor uploadExecutor)
@@ -47,6 +50,7 @@ final class S3SecurityMappingFileSystemFactory
         this.mappingProvider = requireNonNull(mappingProvider, "mappingProvider is null");
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
+        this.preSigner = requireNonNull(preSigner, "preSigner is null");
         this.location = requireNonNull(location, "location is null");
         this.context = requireNonNull(context, "context is null");
     }
@@ -57,13 +61,12 @@ final class S3SecurityMappingFileSystemFactory
         Optional<S3SecurityMappingResult> mapping = mappingProvider.getMapping(identity, location);
 
         S3Client client = clients.computeIfAbsent(mapping, _ -> clientFactory.create(mapping));
-
         S3Context context = this.context.withCredentials(identity);
 
         if (mapping.isPresent() && mapping.get().kmsKeyId().isPresent()) {
             context = context.withKmsKeyId(mapping.get().kmsKeyId().get());
         }
 
-        return new S3FileSystem(uploadExecutor, client, context);
+        return new S3FileSystem(uploadExecutor, client, preSigner, context);
     }
 }
