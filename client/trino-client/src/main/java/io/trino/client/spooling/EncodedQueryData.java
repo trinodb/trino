@@ -100,7 +100,7 @@ public class EncodedQueryData
             if (segment instanceof InlineSegment) {
                 InlineSegment inline = (InlineSegment) segment;
                 try {
-                    return decoder.decode(new ByteArrayInputStream(inline.getData()), inline.getMetadata());
+                    return decoder.decode(new ByteArrayInputStream(inline.getData()), inline.getMetadata()).toIterable();
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
@@ -110,7 +110,7 @@ public class EncodedQueryData
             if (segment instanceof SpooledSegment) {
                 SpooledSegment spooled = (SpooledSegment) segment;
                 try (InputStream stream = segmentLoader.load(spooled)) {
-                    return decoder.decode(stream, segment.getMetadata());
+                    return decoder.decode(stream, segment.getMetadata()).toIterable();
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);

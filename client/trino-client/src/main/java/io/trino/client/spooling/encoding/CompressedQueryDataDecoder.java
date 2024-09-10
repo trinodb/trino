@@ -19,7 +19,6 @@ import io.trino.client.spooling.DataAttributes;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -38,7 +37,7 @@ public abstract class CompressedQueryDataDecoder
             throws IOException;
 
     @Override
-    public Iterable<List<Object>> decode(InputStream stream, DataAttributes metadata)
+    public QueryDataAccess decode(InputStream stream, DataAttributes metadata)
             throws IOException
     {
         Optional<Integer> expectedDecompressedSize = metadata.getOptional(DataAttribute.UNCOMPRESSED_SIZE, Integer.class);
