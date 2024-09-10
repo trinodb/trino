@@ -32,7 +32,8 @@ public interface QueryDataDecoder
     /**
      * Decodes the input stream into a QueryDataAccess object.
      * <p>
-     * Closing input stream is delegated to the decoder implementation.
+     * Decoder is responsible for closing input stream when
+     * all values are decoded or exception was thrown.
      *
      * @param input Input stream to decode (in memory or over the network)
      * @param segmentAttributes Attributes of the segment

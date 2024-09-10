@@ -119,9 +119,11 @@ public class JsonQueryDataEncoder
                 }
                 generator.writeEndArray();
             }
+            // Interleaved array of key-value pairs, compact and retains key structure
             case Map<?, ?> mapValue -> {
                 generator.writeStartObject();
                 for (Map.Entry<?, ?> entry : mapValue.entrySet()) {
+                    // The original JSON encoding, always converts a key to a String to use it in the JSON object
                     generator.writeFieldName(entry.getKey().toString());
                     writeValue(mapper, generator, entry.getValue());
                 }

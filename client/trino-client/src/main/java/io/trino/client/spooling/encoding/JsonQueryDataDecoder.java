@@ -13,43 +13,31 @@
  */
 package io.trino.client.spooling.encoding;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.trino.client.Column;
 import io.trino.client.QueryDataDecoder;
 import io.trino.client.spooling.DataAttributes;
+import io.trino.client.spooling.encoding.JsonDecodingUtils.TypeDecoder;
 
-import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.util.List;
 
-import static io.trino.client.spooling.encoding.FixJsonDataUtils.fixData;
+import static io.trino.client.spooling.encoding.JsonDecodingUtils.createTypeDecoders;
 import static java.util.Objects.requireNonNull;
 
 public class JsonQueryDataDecoder
         implements QueryDataDecoder
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final TypeReference<List<List<Object>>> TYPE = new TypeReference<List<List<Object>>>() {};
-    private final List<Column> columns;
+    private final TypeDecoder[] decoders;
 
-    public JsonQueryDataDecoder(List<Column> columns)
+    public JsonQueryDataDecoder(TypeDecoder[] decoders)
     {
-        this.columns = requireNonNull(columns, "columns is null");
+        this.decoders = requireNonNull(decoders, "decoders is null");
     }
 
     @Override
     public QueryDataAccess decode(InputStream stream, DataAttributes attributes)
     {
-        return () -> {
-            try {
-                return fixData(columns, OBJECT_MAPPER.readValue(stream, TYPE));
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        };
+        return new JsonQueryDataAccess(decoders, stream);
     }
 
     @Override
@@ -64,7 +52,7 @@ public class JsonQueryDataDecoder
         @Override
         public QueryDataDecoder create(List<Column> columns, DataAttributes queryAttributes)
         {
-            return new JsonQueryDataDecoder(columns);
+            return new JsonQueryDataDecoder(createTypeDecoders(columns));
         }
 
         @Override
