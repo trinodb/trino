@@ -24,7 +24,6 @@ import io.trino.client.RawQueryData;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
@@ -100,7 +99,8 @@ public class EncodedQueryData
             if (segment instanceof InlineSegment) {
                 InlineSegment inline = (InlineSegment) segment;
                 try {
-                    return decoder.decode(new ByteArrayInputStream(inline.getData()), inline.getMetadata()).toIterable();
+                    ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(inline.getData());
+                    return decoder.decode(byteArrayInputStream, inline.getMetadata()).toIterable();
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
@@ -109,8 +109,10 @@ public class EncodedQueryData
 
             if (segment instanceof SpooledSegment) {
                 SpooledSegment spooled = (SpooledSegment) segment;
-                try (InputStream stream = segmentLoader.load(spooled)) {
-                    return decoder.decode(stream, segment.getMetadata()).toIterable();
+                try {
+                    // Since we are returning lazy iterable, decoder is responsible for closing the stream
+                    return decoder.decode(segmentLoader.load(spooled), segment.getMetadata())
+                            .toIterable();
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
