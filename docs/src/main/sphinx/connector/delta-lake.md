@@ -27,15 +27,20 @@ To connect to Databricks Delta Lake, you need:
 ## General configuration
 
 To configure the Delta Lake connector, create a catalog properties file
-`etc/catalog/example.properties` that references the `delta_lake`
-connector and defines a metastore. You must configure a metastore for table
-metadata.  If you are using a {ref}`Hive metastore <hive-thrift-metastore>`,
-`hive.metastore.uri` must be configured:
+`etc/catalog/example.properties` that references the `delta_lake` connector.
+
+You must configure a [metastore for metadata](/object-storage/metastores).
+
+You must select and configure one of the [supported file
+systems](delta-lake-file-system-configuration).
 
 ```properties
 connector.name=delta_lake
 hive.metastore.uri=thrift://example.net:9083
+fs.x.enabled=true
 ```
+
+Replace the `fs.x.enabled` configuration property with the desired file system.
 
 If you are using {ref}`AWS Glue <hive-glue-metastore>` as your metastore, you
 must instead set `hive.metastore` to `glue`:
@@ -55,17 +60,15 @@ visible to the connector.
 (delta-lake-file-system-configuration)=
 ## File system access configuration
 
-The connector supports native, high-performance file system access to object
-storage systems:
+The connector supports accessing the following file systems:
 
-* [](/object-storage)
 * [](/object-storage/file-system-azure)
 * [](/object-storage/file-system-gcs)
 * [](/object-storage/file-system-s3)
+* [](/object-storage/file-system-hdfs)
 
-You must enable and configure the specific native file system access. If none is
-activated, the [legacy support](file-system-legacy) is used and must be
-configured.
+You must enable and configure the specific file system access. [Legacy
+support](file-system-legacy) is not recommended and will be removed.
 
 ### Delta Lake general configuration properties
 

@@ -8,6 +8,13 @@ uses an S3 prefix, rather than an HDFS prefix.
 Trino uses its own S3 filesystem for the URI prefixes
 `s3://`, `s3n://` and  `s3a://`.
 
+:::{warning}
+Legacy support is not recommended and will be removed. Use [](file-system-s3).
+:::
+
+To use legacy support, the `fs.hadoop.enabled` property must be set to `true` in
+your catalog configuration file.
+
 (hive-s3-configuration)=
 ## S3 configuration properties
 
