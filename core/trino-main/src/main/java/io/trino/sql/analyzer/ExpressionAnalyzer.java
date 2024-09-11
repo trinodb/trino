@@ -249,6 +249,7 @@ import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
 import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.FIRST;
 import static io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationAnchor.LAST;
+import static io.trino.sql.analyzer.SemanticExceptions.invalidReferenceException;
 import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -852,7 +853,8 @@ public class ExpressionAnalyzer
             }
 
             if (rowFieldType == null) {
-                throw missingAttributeException(node, qualifiedName);
+                throw invalidReferenceException(node, Optional.ofNullable(qualifiedName)
+                        .orElseGet(() -> QualifiedName.of(fieldName)));
             }
 
             return setExpressionType(node, rowFieldType);

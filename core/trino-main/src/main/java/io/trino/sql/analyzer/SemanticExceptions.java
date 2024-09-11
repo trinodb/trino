@@ -22,6 +22,7 @@ import io.trino.sql.tree.QualifiedName;
 
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static java.lang.String.format;
 
@@ -32,6 +33,11 @@ public final class SemanticExceptions
     public static TrinoException missingAttributeException(Expression node, QualifiedName name)
     {
         throw semanticException(COLUMN_NOT_FOUND, node, "Column '%s' cannot be resolved", name);
+    }
+
+    public static TrinoException invalidReferenceException(Expression node, QualifiedName name)
+    {
+        throw semanticException(INVALID_COLUMN_REFERENCE, node, "Column reference '%s' is invalid", name);
     }
 
     public static TrinoException ambiguousAttributeException(Expression node, QualifiedName name)

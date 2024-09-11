@@ -43,10 +43,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1047,8 +1049,9 @@ public abstract class BaseOpenSearchConnectorTest
                 "SELECT a.b.c FROM nested_variants",
                 "VALUES 'value1', 'value2', 'value3', 'value4'");
 
-        assertThatThrownBy(() -> computeActual("SELECT a.\"b.c\" FROM nested_variants"))
-                .hasMessageContaining("Column 'a.b.c' cannot be resolved");
+        assertTrinoExceptionThrownBy(() -> computeActual("SELECT a.\"b.c\" FROM nested_variants"))
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessageContaining("Column reference 'a.b.c' is invalid");
     }
 
     @Test
