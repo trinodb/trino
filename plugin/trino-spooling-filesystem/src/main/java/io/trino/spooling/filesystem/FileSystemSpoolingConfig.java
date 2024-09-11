@@ -27,7 +27,7 @@ public class FileSystemSpoolingConfig
     private boolean s3Enabled;
     private boolean gcsEnabled;
     private String location;
-    private Duration ttl = new Duration(2, HOURS);
+    private Duration ttl = new Duration(12, HOURS);
     private boolean encryptionEnabled = true;
     private boolean pruningEnabled = true;
     private Duration pruningInterval = new Duration(5, MINUTES);

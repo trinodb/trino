@@ -35,7 +35,7 @@ class TestFileSystemSpoolingConfig
                 .setS3Enabled(false)
                 .setLocation(null)
                 .setEncryptionEnabled(true)
-                .setTtl(new Duration(2, TimeUnit.HOURS))
+                .setTtl(new Duration(12, TimeUnit.HOURS))
                 .setPruningEnabled(true)
                 .setPruningInterval(new Duration(5, TimeUnit.MINUTES))
                 .setPruningBatchSize(250));
