@@ -385,6 +385,14 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testRowReferencesUnknownField()
+    {
+        assertFails("SELECT row('a', 'b', 'c').field")
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 1:8: Column reference 'field' is invalid");
+    }
+
+    @Test
     public void testSelectAllColumns()
     {
         // wildcard without FROM
