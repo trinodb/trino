@@ -95,9 +95,9 @@ ldap.user-bind-pattern=<Refer below for usage>
 * - `ldap.user-bind-pattern`
   - This property can be used to specify the LDAP user bind string for password
     authentication. This property must contain the pattern `${USER}`, which is
-    replaced by the actual username during the password authentication.The
-    property can contain multiple patterns separated by a colon. Each pattern
-    will be checked in order until a login succeeds or all logins fail. Example:
+    replaced by the actual username during the password authentication. The
+    property can contain multiple patterns separated by a colon. Each pattern is
+    checked in order until a login succeeds or all logins fail. Example:
     `${USER}@corp.example.com:${USER}@corp.example.co.uk`
 * - `ldap.ignore-referrals`
   - Ignore referrals to other LDAP servers while performing search queries.
@@ -156,22 +156,22 @@ to the basic LDAP authentication properties.
 * - `ldap.group-auth-pattern`
   - This property is used to specify the LDAP query for the LDAP group
     membership authorization. This query is executed against the LDAP server and
-    if successful, the user is authorized. This property must contain a pattern
-    `${USER}`, which is replaced by the actual username in the group
-    authorization search query. See samples below.
-:::
+    if successful, the user is authorized.
 
-Based on the LDAP server implementation type, the property
-`ldap.group-auth-pattern` can be used as described below.
+    This property must contain a pattern `${USER}`, which is replaced by the
+    actual username in the group authorization search query. See details in the
+    [examples section](ldap-group-auth-examples).
+:::
 
 #### Authorization using Trino LDAP service user
 
-Trino server can use dedicated LDAP service user for doing user group membership queries.
-In such case Trino will first issue a group membership query for a Trino user that needs
-to be authenticated. A user distinguished name will be extracted from a group membership
-query result. Trino then will validate user password by creating LDAP context with
-user distinguished name and user password. In order to use this mechanism `ldap.bind-dn`,
-`ldap.bind-password` and `ldap.group-auth-pattern` properties need to be defined.
+Trino server can use dedicated LDAP service user for doing user group membership
+queries. In such case Trino first issues a group membership query for a Trino
+user that needs to be authenticated. A user distinguished name is extracted from
+a group membership query result. Trino then validates user password by creating
+LDAP context with user distinguished name and user password. In order to use
+this mechanism `ldap.bind-dn`, `ldap.bind-password` and
+`ldap.group-auth-pattern` properties need to be defined.
 
 :::{list-table}
 :widths: 35, 65
@@ -187,16 +187,21 @@ user distinguished name and user password. In order to use this mechanism `ldap.
     `password1234`
 * - `ldap.group-auth-pattern`
   - This property is used to specify the LDAP query for the LDAP group
-    membership authorization. This query will be executed against the LDAP
-    server and if successful, a user distinguished name will be extracted
-    from a query result. Trino will then validate user password by creating LDAP
-    context with user distinguished name and user password.
+    membership authorization. This query is executed against the LDAP server
+    during login to check if the user belongs to the specified group. If
+    successful, a user distinguished name is extracted from the query result.
+    Trino then validates the user and password by creating an LDAP context with
+    the user's distinguished name and password.
+
+    This property must contain a pattern `${USER}`, which is replaced by the
+    actual username in the group authorization search query. See details in the
+    [examples section](ldap-group-auth-examples).
 :::
 
-Based on the LDAP server implementation type, the property
-`ldap.group-auth-pattern` can be used as described below.
+(ldap-group-auth-examples)=
+##### LDAP group authorization examples
 
-##### Active Directory
+With Active Directory, the following syntax can be used:
 
 ```text
 ldap.group-auth-pattern=(&(objectClass=<objectclass_of_user>)(sAMAccountName=${USER})(memberof=<dn_of_the_authorized_group>))
@@ -208,7 +213,7 @@ Example:
 ldap.group-auth-pattern=(&(objectClass=person)(sAMAccountName=${USER})(memberof=CN=AuthorizedGroup,OU=Asia,DC=corp,DC=example,DC=com))
 ```
 
-##### OpenLDAP
+With OpenLDAP, the following syntax can be used:
 
 ```text
 ldap.group-auth-pattern=(&(objectClass=<objectclass_of_user>)(uid=${USER})(memberof=<dn_of_the_authorized_group>))
