@@ -36,8 +36,9 @@ public interface SpoolingManager
     }
 
     default Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
+            throws IOException
     {
-        return Optional.empty();
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     // Converts the handle to a location that client will be redirected to
@@ -47,5 +48,20 @@ public interface SpoolingManager
     default SpooledSegmentHandle handle(SpooledLocation location)
     {
         throw new UnsupportedOperationException();
+    }
+
+    default boolean allowSegmentInlining()
+    {
+        return true;
+    }
+
+    default long initialSegmentSize()
+    {
+        return 4 * 1024 * 1024;
+    }
+
+    default long maximumSegmentSize()
+    {
+        return 32 * 1024 * 1024;
     }
 }

@@ -254,7 +254,7 @@ public interface TrinoFileSystem
     default Optional<UriLocation> preSignedUri(Location location, Duration ttl)
             throws IOException
     {
-        throw new UnsupportedOperationException("Pre-signed URIs are not supported");
+        throw new UnsupportedOperationException("Pre-signed URIs are not supported by " + getClass().getSimpleName());
     }
 
     /**
@@ -270,6 +270,6 @@ public interface TrinoFileSystem
     static boolean isUnrecoverableException(Throwable throwable)
     {
         return Throwables.getCausalChain(throwable).stream()
-                .anyMatch(t -> t instanceof TrinoFileSystemException || t instanceof FileNotFoundException);
+                .anyMatch(t -> t instanceof TrinoFileSystemException || t instanceof FileNotFoundException || t instanceof UnsupportedOperationException);
     }
 }

@@ -24,6 +24,7 @@ import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.server.ServerConfig;
 import io.trino.server.protocol.spooling.encoding.QueryDataEncodingModule;
+import io.trino.spi.protocol.SpoolingManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
@@ -38,7 +39,7 @@ public class SpoolingServerModule
         install(new QueryDataEncodingModule());
 
         binder.bind(SpoolingManagerRegistry.class).in(Scopes.SINGLETON);
-        OptionalBinder<SpoolingManagerBridge> bridgeBinder = newOptionalBinder(binder, new TypeLiteral<>() {});
+        OptionalBinder<SpoolingManager> spoolingManagerBinder = newOptionalBinder(binder, new TypeLiteral<>() {});
         SpoolingEnabledConfig spoolingEnabledConfig = buildConfigObject(SpoolingEnabledConfig.class);
         if (!spoolingEnabledConfig.isEnabled()) {
             binder.bind(QueryDataEncoder.EncoderSelector.class).toInstance(QueryDataEncoder.EncoderSelector.noEncoder());
@@ -52,7 +53,7 @@ public class SpoolingServerModule
             jaxrsBinder(binder).bind(SegmentResource.class);
         }
 
-        bridgeBinder.setBinding().toProvider(SpoolingManagerBridgeProvider.class).in(Scopes.SINGLETON);
+        spoolingManagerBinder.setBinding().toProvider(SpoolingManagerProvider.class).in(Scopes.SINGLETON);
     }
 
     @ProvidesIntoSet
@@ -63,21 +64,21 @@ public class SpoolingServerModule
         return new QueryDataJacksonModule();
     }
 
-    private static class SpoolingManagerBridgeProvider
-            implements Provider<SpoolingManagerBridge>
+    private static class SpoolingManagerProvider
+            implements Provider<SpoolingManager>
     {
         private final SpoolingManagerRegistry registry;
         private final SpoolingConfig config;
 
         @Inject
-        public SpoolingManagerBridgeProvider(SpoolingManagerRegistry registry, SpoolingConfig config)
+        public SpoolingManagerProvider(SpoolingManagerRegistry registry, SpoolingConfig config)
         {
             this.registry = requireNonNull(registry, "registry is null");
             this.config = requireNonNull(config, "config is null");
         }
 
         @Override
-        public SpoolingManagerBridge get()
+        public SpoolingManager get()
         {
             return new SpoolingManagerBridge(config, registry);
         }

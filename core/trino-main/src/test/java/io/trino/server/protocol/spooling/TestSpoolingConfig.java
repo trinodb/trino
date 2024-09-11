@@ -33,7 +33,8 @@ class TestSpoolingConfig
     {
         assertRecordedDefaults(recordDefaults(SpoolingConfig.class)
                 .setUseWorkers(false)
-                .setDirectStorageAccess(false)
+                .setDirectStorageAccess(true)
+                .setDirectStorageFallback(false)
                 .setInlineSegments(true)
                 .setSharedEncryptionKey(null)
                 .setInitialSegmentSize(DataSize.of(8, MEGABYTE))
@@ -47,7 +48,8 @@ class TestSpoolingConfig
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("protocol.spooling.worker-access", "true")
-                .put("protocol.spooling.direct-storage-access", "true")
+                .put("protocol.spooling.direct-storage-access", "false")
+                .put("protocol.spooling.direct-storage-fallback", "true")
                 .put("protocol.spooling.inline-segments", "false")
                 .put("protocol.spooling.shared-secret-key", randomAesEncryptionKey) // 256 bits
                 .put("protocol.spooling.initial-segment-size", "2MB")
@@ -56,7 +58,8 @@ class TestSpoolingConfig
 
         SpoolingConfig expected = new SpoolingConfig()
                 .setUseWorkers(true)
-                .setDirectStorageAccess(true)
+                .setDirectStorageAccess(false)
+                .setDirectStorageFallback(true)
                 .setInlineSegments(false)
                 .setSharedEncryptionKey(randomAesEncryptionKey)
                 .setInitialSegmentSize(DataSize.of(2, MEGABYTE))

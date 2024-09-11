@@ -16,6 +16,7 @@ package io.trino.testing;
 import io.trino.spi.Plugin;
 import io.trino.spi.protocol.SpooledLocation;
 import io.trino.spi.protocol.SpooledLocation.CoordinatorLocation;
+import io.trino.spi.protocol.SpooledLocation.DirectLocation;
 import io.trino.spi.protocol.SpooledSegmentHandle;
 import io.trino.spi.protocol.SpoolingContext;
 import io.trino.spi.protocol.SpoolingManager;
@@ -32,6 +33,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -108,6 +110,12 @@ public class LocalSpoolingManager
         }
 
         Files.delete(localHandle.path());
+    }
+
+    @Override
+    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @PreDestroy

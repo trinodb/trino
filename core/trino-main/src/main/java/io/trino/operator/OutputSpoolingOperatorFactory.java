@@ -23,12 +23,12 @@ import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.server.protocol.OutputColumn;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.SpooledBlock;
-import io.trino.server.protocol.spooling.SpoolingManagerBridge;
 import io.trino.spi.Mergeable;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.protocol.SpooledSegmentHandle;
 import io.trino.spi.protocol.SpoolingContext;
+import io.trino.spi.protocol.SpoolingManager;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -65,11 +65,11 @@ public class OutputSpoolingOperatorFactory
     private final int operatorId;
     private final PlanNodeId planNodeId;
     private final Map<Symbol, Integer> operatorLayout;
-    private final SpoolingManagerBridge spoolingManager;
+    private final SpoolingManager spoolingManager;
     private final QueryDataEncoder queryDataEncoder;
     private boolean closed;
 
-    public OutputSpoolingOperatorFactory(int operatorId, PlanNodeId planNodeId, Map<Symbol, Integer> operatorLayout, QueryDataEncoder queryDataEncoder, SpoolingManagerBridge spoolingManager)
+    public OutputSpoolingOperatorFactory(int operatorId, PlanNodeId planNodeId, Map<Symbol, Integer> operatorLayout, QueryDataEncoder queryDataEncoder, SpoolingManager spoolingManager)
     {
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -144,7 +144,7 @@ public class OutputSpoolingOperatorFactory
         private final OperatorContext operatorContext;
         private final LocalMemoryContext userMemoryContext;
         private final QueryDataEncoder queryDataEncoder;
-        private final SpoolingManagerBridge spoolingManager;
+        private final SpoolingManager spoolingManager;
         private final Map<Symbol, Integer> layout;
         private final PageBuffer buffer = PageBuffer.create();
         private final Block[] emptyBlocks;
@@ -153,11 +153,11 @@ public class OutputSpoolingOperatorFactory
         private final OperationTiming spoolingTiming = new OperationTiming();
         private Page outputPage;
 
-        public OutputSpoolingOperator(OperatorContext operatorContext, QueryDataEncoder queryDataEncoder, SpoolingManagerBridge spoolingManager, Map<Symbol, Integer> layout)
+        public OutputSpoolingOperator(OperatorContext operatorContext, QueryDataEncoder queryDataEncoder, SpoolingManager spoolingManager, Map<Symbol, Integer> layout)
         {
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
             this.controller = new OutputSpoolingController(
-                    spoolingManager.useInlineSegments(),
+                    spoolingManager.allowSegmentInlining(),
                     20,
                     1024,
                     spoolingManager.initialSegmentSize(),
