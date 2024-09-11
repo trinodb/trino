@@ -7,11 +7,13 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "package": "npm clean-install && npm run build",
+    "package": "npm install && npm run build",
+    "package:clean": "npm clean-install && npm run build",
     "preview": "vite preview",
     "prettier:format": "prettier --write \"./src/*.{ts,tsx}\"",
     "prettier:check": "prettier --check \"./src/*.{ts,tsx}\"",
-    "check": "npm clean-install && npm run lint && npm run prettier:check"
+    "check": "npm install && npm run lint && npm run prettier:check",
+    "check:clean": "npm clean-install && npm run lint && npm run prettier:check"
   },
   "dependencies": {
     "@emotion/react": "^11.13.0",

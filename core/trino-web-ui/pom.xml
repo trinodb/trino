@@ -12,6 +12,11 @@
     <artifactId>trino-web-ui</artifactId>
     <description>Trino - Web UI</description>
 
+    <properties>
+        <frontend.package.goal>package</frontend.package.goal>
+        <frontend.check.goal>check</frontend.check.goal>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -94,7 +99,7 @@
                         </goals>
                         <phase>generate-resources</phase>
                         <configuration>
-                            <arguments>run package</arguments>
+                            <arguments>run ${frontend.package.goal}</arguments>
                             <workingDirectory>src/main/resources/webapp/src</workingDirectory>
                         </configuration>
                     </execution>
@@ -105,7 +110,7 @@
                         </goals>
                         <phase>verify</phase>
                         <configuration>
-                            <arguments>run check</arguments>
+                            <arguments>run ${frontend.check.goal}</arguments>
                             <workingDirectory>src/main/resources/webapp/src</workingDirectory>
                         </configuration>
                     </execution>
@@ -116,7 +121,7 @@
                         </goals>
                         <phase>verify</phase>
                         <configuration>
-                            <arguments>run check</arguments>
+                            <arguments>run ${frontend.check.goal}</arguments>
                             <workingDirectory>src/main/resources/webapp-preview</workingDirectory>
                         </configuration>
                     </execution>
@@ -127,7 +132,7 @@
                         </goals>
                         <phase>generate-resources</phase>
                         <configuration>
-                            <arguments>run package</arguments>
+                            <arguments>run ${frontend.package.goal}</arguments>
                             <workingDirectory>src/main/resources/webapp-preview</workingDirectory>
                         </configuration>
                     </execution>
@@ -135,4 +140,19 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>ci</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+                <property>
+                    <name>env.CI</name>
+                </property>
+            </activation>
+            <properties>
+                <frontend.package.goal>package:clean</frontend.package.goal>
+                <frontend.check.goal>check:clean</frontend.check.goal>
+            </properties>
+        </profile>
+    </profiles>
 </project>
