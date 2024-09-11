@@ -13,7 +13,6 @@
  */
 package io.trino.parquet.reader.flat;
 
-import com.google.common.primitives.Ints;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
 
@@ -21,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 
 public class IntColumnAdapter
         implements ColumnAdapter<int[]>
@@ -68,6 +68,21 @@ public class IntColumnAdapter
     @Override
     public int[] merge(List<int[]> buffers)
     {
-        return Ints.concat(buffers.toArray(int[][]::new));
+        return concatIntArrays(buffers);
+    }
+
+    static int[] concatIntArrays(List<int[]> buffers)
+    {
+        long resultSize = 0;
+        for (int[] buffer : buffers) {
+            resultSize += buffer.length;
+        }
+        int[] result = new int[toIntExact(resultSize)];
+        int offset = 0;
+        for (int[] buffer : buffers) {
+            System.arraycopy(buffer, 0, result, offset, buffer.length);
+            offset += buffer.length;
+        }
+        return result;
     }
 }

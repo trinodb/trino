@@ -13,7 +13,6 @@
  */
 package io.trino.parquet.reader.flat;
 
-import com.google.common.primitives.Ints;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.Fixed12Block;
 
@@ -74,6 +73,6 @@ public class Fixed12ColumnAdapter
     @Override
     public int[] merge(List<int[]> buffers)
     {
-        return Ints.concat(buffers.toArray(int[][]::new));
+        return IntColumnAdapter.concatIntArrays(buffers);
     }
 }

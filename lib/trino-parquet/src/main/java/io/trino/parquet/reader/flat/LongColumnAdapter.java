@@ -13,7 +13,6 @@
  */
 package io.trino.parquet.reader.flat;
 
-import com.google.common.primitives.Longs;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlock;
 
@@ -21,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 
 public class LongColumnAdapter
         implements ColumnAdapter<long[]>
@@ -68,6 +68,21 @@ public class LongColumnAdapter
     @Override
     public long[] merge(List<long[]> buffers)
     {
-        return Longs.concat(buffers.toArray(long[][]::new));
+        return concatLongArrays(buffers);
+    }
+
+    static long[] concatLongArrays(List<long[]> buffers)
+    {
+        long resultSize = 0;
+        for (long[] buffer : buffers) {
+            resultSize += buffer.length;
+        }
+        long[] result = new long[toIntExact(resultSize)];
+        int offset = 0;
+        for (long[] buffer : buffers) {
+            System.arraycopy(buffer, 0, result, offset, buffer.length);
+            offset += buffer.length;
+        }
+        return result;
     }
 }

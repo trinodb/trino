@@ -13,7 +13,6 @@
  */
 package io.trino.parquet.reader.flat;
 
-import com.google.common.primitives.Longs;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.Int128ArrayBlock;
 
@@ -72,6 +71,6 @@ public class Int128ColumnAdapter
     @Override
     public long[] merge(List<long[]> buffers)
     {
-        return Longs.concat(buffers.toArray(long[][]::new));
+        return LongColumnAdapter.concatLongArrays(buffers);
     }
 }
