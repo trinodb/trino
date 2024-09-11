@@ -217,6 +217,12 @@
         <dep.wire.version>4.9.9</dep.wire.version>
         <dep.zookeeper.version>3.9.2</dep.zookeeper.version>
         <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
+        <!--
+        Instructs Provisio to write runtime dependencies in the format groupId_artifactId-version.jar.
+        This is important to avoid overwriting dependencies with the same name and version but different groupId.
+        Since 1.1.0, the default behaviour for such conflicts changed from overwriting the artifact to failing the build.
+        -->
+        <provisio.fallbackTargetFileNameMode>GA</provisio.fallbackTargetFileNameMode>
     </properties>
 
     <dependencyManagement>
@@ -2502,7 +2508,7 @@
                 <plugin>
                     <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
                     <artifactId>provisio-maven-plugin</artifactId>
-                    <version>1.0.26</version>
+                    <version>1.1.1</version>
                 </plugin>
 
                 <plugin>
