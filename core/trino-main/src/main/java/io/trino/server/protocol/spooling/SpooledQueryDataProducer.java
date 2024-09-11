@@ -82,9 +82,9 @@ public class SpooledQueryDataProducer
 
                     builder.withSegment(switch (metadata.location()) {
                         case CoordinatorLocation coordinatorLocation ->
-                                spooled(buildSegmentURI(uriBuilder, coordinatorLocation.identifier()), attributes, metadata.location().headers());
+                                spooled(buildSegmentURI(uriBuilder, coordinatorLocation.identifier()), attributes, coordinatorLocation.headers());
                         case DirectLocation directLocation ->
-                                spooled(directLocation.uri(), attributes, metadata.location().headers());
+                                spooled(directLocation.uri(), attributes, directLocation.headers());
                     });
                     currentOffset += attributes.get(ROWS_COUNT, Long.class);
                 }

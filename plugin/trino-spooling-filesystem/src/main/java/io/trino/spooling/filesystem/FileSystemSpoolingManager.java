@@ -24,6 +24,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpooledLocation;
+import io.trino.spi.protocol.SpooledLocation.DirectLocation;
 import io.trino.spi.protocol.SpooledSegmentHandle;
 import io.trino.spi.protocol.SpoolingContext;
 import io.trino.spi.protocol.SpoolingManager;
@@ -48,7 +49,9 @@ import static io.trino.spi.protocol.SpooledLocation.coordinatorLocation;
 import static io.trino.spooling.filesystem.encryption.EncryptionUtils.decryptingInputStream;
 import static io.trino.spooling.filesystem.encryption.EncryptionUtils.encryptingOutputStream;
 import static io.trino.spooling.filesystem.encryption.EncryptionUtils.generateRandomKey;
+import static java.time.Duration.between;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class FileSystemSpoolingManager
         implements SpoolingManager
@@ -93,7 +96,6 @@ public class FileSystemSpoolingManager
     public FileSystemSpooledSegmentHandle create(SpoolingContext context)
     {
         Instant expireAt = Instant.now().plusMillis(ttl.toMillis());
-
         if (encryptionEnabled) {
             return FileSystemSpooledSegmentHandle.random(random, context.queryId(), expireAt, Optional.of(generateRandomKey()));
         }
@@ -127,6 +129,21 @@ public class FileSystemSpoolingManager
             throws IOException
     {
         fileSystem.deleteFile(location((FileSystemSpooledSegmentHandle) handle));
+    }
+
+    @Override
+    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
+            throws IOException
+    {
+        FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
+        Optional<DirectLocation> directLocation = fileSystem
+                .preSignedUri(location(fileHandle), remainingTtl(fileHandle.expirationTime()))
+                .map(location -> SpooledLocation.directLocation(location.uri(), headers(fileHandle)));
+
+        if (directLocation.isEmpty()) {
+            throw new IOException("Failed to generate pre-signed URI for query %s and segment %s".formatted(fileHandle.queryId(), fileHandle.storageObjectName()));
+        }
+        return directLocation;
     }
 
     @Override
@@ -215,6 +232,11 @@ public class FileSystemSpoolingManager
         checkExpiration(handle);
         return Location.of(location)
                 .appendPath(handle.storageObjectName());
+    }
+
+    private Duration remainingTtl(Instant expiresAt)
+    {
+        return new Duration(between(Instant.now(), expiresAt).toMillis(), MILLISECONDS);
     }
 
     private void checkExpiration(FileSystemSpooledSegmentHandle handle)

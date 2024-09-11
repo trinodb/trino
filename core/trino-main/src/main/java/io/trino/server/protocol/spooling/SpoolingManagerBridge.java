@@ -16,6 +16,7 @@ package io.trino.server.protocol.spooling;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import io.trino.spi.TrinoException;
 import io.trino.spi.protocol.SpooledLocation;
 import io.trino.spi.protocol.SpooledSegmentHandle;
 import io.trino.spi.protocol.SpoolingContext;
@@ -32,6 +33,7 @@ import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.protocol.SpooledLocation.CoordinatorLocation;
 import static io.trino.spi.protocol.SpooledLocation.DirectLocation;
 import static io.trino.spi.protocol.SpooledLocation.coordinatorLocation;
@@ -49,6 +51,8 @@ public class SpoolingManagerBridge
     private final DataSize maximumSegmentSize;
     private final boolean inlineSegments;
     private final SecretKey secretKey;
+    private final boolean directStorageAccess;
+    private final boolean directStorageFallback;
 
     @Inject
     public SpoolingManagerBridge(SpoolingConfig spoolingConfig, SpoolingManagerRegistry registry)
@@ -58,30 +62,28 @@ public class SpoolingManagerBridge
         this.initialSegmentSize = spoolingConfig.getInitialSegmentSize();
         this.maximumSegmentSize = spoolingConfig.getMaximumSegmentSize();
         this.inlineSegments = spoolingConfig.isInlineSegments();
+        this.directStorageAccess = spoolingConfig.isDirectStorageAccess();
+        this.directStorageFallback = spoolingConfig.isDirectStorageFallback();
         this.secretKey = spoolingConfig.getSharedEncryptionKey()
                 .orElseThrow(() -> new IllegalArgumentException("protocol.spooling.shared-secret-key is not set"));
     }
 
-    public boolean isLoaded()
-    {
-        return registry
-                .getSpoolingManager()
-                .isPresent();
-    }
-
+    @Override
     public long maximumSegmentSize()
     {
         return maximumSegmentSize.toBytes();
     }
 
+    @Override
     public long initialSegmentSize()
     {
         return initialSegmentSize.toBytes();
     }
 
-    public boolean useInlineSegments()
+    @Override
+    public boolean allowSegmentInlining()
     {
-        return inlineSegments;
+        return inlineSegments && delegate().allowSegmentInlining();
     }
 
     @Override
@@ -95,12 +97,6 @@ public class SpoolingManagerBridge
             throws IOException
     {
         return delegate().createOutputStream(handle);
-    }
-
-    @Override
-    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
-    {
-        return delegate().directLocation(handle);
     }
 
     @Override
@@ -125,6 +121,29 @@ public class SpoolingManagerBridge
             case CoordinatorLocation coordinatorLocation ->
                     coordinatorLocation(toUri(secretKey, coordinatorLocation.identifier()), coordinatorLocation.headers());
         };
+    }
+
+    @Override
+    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
+            throws IOException
+    {
+        if (!directStorageAccess) {
+            // Disabled - client fetches data through the coordinator
+            return Optional.empty();
+        }
+
+        try {
+            return delegate().directLocation(handle);
+        }
+        catch (UnsupportedOperationException e) {
+            throw new TrinoException(CONFIGURATION_INVALID, "Direct storage access is enabled but not supported by " + delegate().getClass().getSimpleName(), e);
+        }
+        catch (IOException e) {
+            if (directStorageFallback) {
+                return Optional.empty();
+            }
+            throw e;
+        }
     }
 
     @Override

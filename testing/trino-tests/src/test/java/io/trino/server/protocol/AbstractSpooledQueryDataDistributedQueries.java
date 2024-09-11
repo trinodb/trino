@@ -75,6 +75,8 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
                     Map<String, String> spoolingConfig = ImmutableMap.<String, String>builder()
                             .put("fs.s3.enabled", "true")
                             .put("fs.location", "s3://" + bucketName + "/")
+                            // Direct storage access with encryption requires SSE-c which is not yet implemented
+                            .put("fs.segment.encryption", "false")
                             .put("s3.endpoint", minio.getMinioAddress())
                             .put("s3.region", MINIO_REGION)
                             .put("s3.aws-access-key", MINIO_ACCESS_KEY)

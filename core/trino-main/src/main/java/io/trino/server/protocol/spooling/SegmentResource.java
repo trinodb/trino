@@ -22,6 +22,7 @@ import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.HostAddress;
 import io.trino.spi.protocol.SpooledLocation.DirectLocation;
 import io.trino.spi.protocol.SpooledSegmentHandle;
+import io.trino.spi.protocol.SpoolingManager;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -51,19 +52,17 @@ import static java.util.Objects.requireNonNull;
 @ResourceSecurity(PUBLIC)
 public class SegmentResource
 {
-    private final SpoolingManagerBridge spoolingManager;
+    private final SpoolingManager spoolingManager;
     private final boolean useWorkers;
     private final InternalNodeManager nodeManager;
     private final AtomicInteger nextWorkerIndex = new AtomicInteger();
-    private final boolean directStorageAccess;
 
     @Inject
-    public SegmentResource(SpoolingManagerBridge spoolingManager, SpoolingConfig config, InternalNodeManager nodeManager)
+    public SegmentResource(SpoolingManager spoolingManager, SpoolingConfig config, InternalNodeManager nodeManager)
     {
         this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.useWorkers = config.isUseWorkers() && nodeManager.getCurrentNode().isCoordinator();
-        this.directStorageAccess = config.isDirectStorageAccess();
     }
 
     @GET
@@ -73,11 +72,13 @@ public class SegmentResource
             throws IOException
     {
         SpooledSegmentHandle handle = handle(identifier, headers);
-        if (directStorageAccess) {
-            Optional<DirectLocation> location = spoolingManager.directLocation(handle);
-            if (location.isPresent()) {
-                return Response.seeOther(location.get().uri()).build();
-            }
+        Optional<DirectLocation> directLocation = spoolingManager.directLocation(handle);
+
+        // Direct access is enabled & supported - redirect user to the spooled location using pre-signed URIs
+        if (directLocation.isPresent()) {
+            return Response
+                    .seeOther(directLocation.get().uri())
+                    .build();
         }
 
         if (useWorkers) {
@@ -89,6 +90,7 @@ public class SegmentResource
                         .build())
                     .build();
         }
+        // Either direct access is not enabled or the fallback to the coordinator access happened
         return Response.ok(spoolingManager.openInputStream(handle)).build();
     }
 
@@ -97,9 +99,8 @@ public class SegmentResource
     public Response acknowledge(@PathParam("identifier") String identifier, @Context HttpHeaders headers)
             throws IOException
     {
-        SpooledSegmentHandle handle = handle(identifier, headers);
         try {
-            spoolingManager.acknowledge(handle);
+            spoolingManager.acknowledge(handle(identifier, headers));
             return Response.ok().build();
         }
         catch (IOException e) {

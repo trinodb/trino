@@ -626,6 +626,33 @@
                                     <new>enum io.opentelemetry.api.common.ValueType</new>
                                     <justification>New OpenTelemetry version</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method java.time.Instant io.trino.spi.protocol.SpooledSegmentHandle::expirationTime()</new>
+                                    <justification>Spooling SPI simplification</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.Optional&lt;io.trino.spi.protocol.SpooledLocation.DirectLocation&gt; io.trino.spi.protocol.SpoolingManager::directLocation(io.trino.spi.protocol.SpooledSegmentHandle)</old>
+                                    <justification>Spooling SPI simplification</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method io.trino.spi.protocol.SpooledLocation io.trino.spi.protocol.SpoolingManager::location(io.trino.spi.protocol.SpooledSegmentHandle)</old>
+                                    <new>method io.trino.spi.protocol.SpooledLocation io.trino.spi.protocol.SpoolingManager::location(io.trino.spi.protocol.SpooledSegmentHandle, boolean)</new>
+                                    <justification>Spooling SPI simplification</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.exception.checkedAdded</code>
+                                    <old>method java.util.Optional&lt;io.trino.spi.protocol.SpooledLocation.DirectLocation&gt; io.trino.spi.protocol.SpoolingManager::directLocation(io.trino.spi.protocol.SpooledSegmentHandle)</old>
+                                    <new>method java.util.Optional&lt;io.trino.spi.protocol.SpooledLocation.DirectLocation&gt; io.trino.spi.protocol.SpoolingManager::directLocation(io.trino.spi.protocol.SpooledSegmentHandle) throws java.io.IOException</new>
+                                    <exception>java.io.IOException</exception>
+                                    <justification>For consistency with other TrinoFileSystem methods</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

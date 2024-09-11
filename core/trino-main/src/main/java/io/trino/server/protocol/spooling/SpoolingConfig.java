@@ -31,7 +31,10 @@ import static java.util.Base64.getDecoder;
 public class SpoolingConfig
 {
     private boolean useWorkers;
-    private boolean directStorageAccess;
+
+    // This is implemented by the S3 and GCS which is the most common use case
+    private boolean directStorageAccess = true;
+    private boolean directStorageFallback;
 
     private boolean inlineSegments = true;
 
@@ -59,10 +62,23 @@ public class SpoolingConfig
     }
 
     @Config("protocol.spooling.direct-storage-access")
-    @ConfigDescription("Allow clients to directly access spooled segments (if supported by spooling manager)")
+    @ConfigDescription("Retrieve segments directly from the spooling location")
     public SpoolingConfig setDirectStorageAccess(boolean directStorageAccess)
     {
         this.directStorageAccess = directStorageAccess;
+        return this;
+    }
+
+    public boolean isDirectStorageFallback()
+    {
+        return directStorageFallback;
+    }
+
+    @Config("protocol.spooling.direct-storage-fallback")
+    @ConfigDescription("Fallback segment retrieval through the coordinator when direct storage access is not possible")
+    public SpoolingConfig setDirectStorageFallback(boolean directStorageFallback)
+    {
+        this.directStorageFallback = directStorageFallback;
         return this;
     }
 

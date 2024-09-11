@@ -154,7 +154,6 @@ import io.trino.operator.window.pattern.SetEvaluator.SetEvaluatorSupplier;
 import io.trino.plugin.base.MappedRecordSet;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoders;
-import io.trino.server.protocol.spooling.SpoolingManagerBridge;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -176,6 +175,7 @@ import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.protocol.SpoolingManager;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -422,7 +422,7 @@ public class LocalExecutionPlanner
     private final DataSize maxLocalExchangeBufferSize;
     private final SpillerFactory spillerFactory;
     private final QueryDataEncoders encoders;
-    private final Optional<SpoolingManagerBridge> spoolingManager;
+    private final Optional<SpoolingManager> spoolingManager;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
     private final PagesIndex.Factory pagesIndexFactory;
@@ -476,7 +476,7 @@ public class LocalExecutionPlanner
             TaskManagerConfig taskManagerConfig,
             SpillerFactory spillerFactory,
             QueryDataEncoders encoders,
-            Optional<SpoolingManagerBridge> spoolingManager,
+            Optional<SpoolingManager> spoolingManager,
             SingleStreamSpillerFactory singleStreamSpillerFactory,
             PartitioningSpillerFactory partitioningSpillerFactory,
             PagesIndex.Factory pagesIndexFactory,
@@ -981,12 +981,8 @@ public class LocalExecutionPlanner
                 return operation;
             }
 
-            SpoolingManagerBridge spoolingManagerBridge = spoolingManager.orElseThrow(() ->
+            SpoolingManager spoolingManagerBridge = spoolingManager.orElseThrow(() ->
                     new IllegalStateException("Query data encoding was requested but spooling manager is not available"));
-
-            if (!spoolingManagerBridge.isLoaded()) {
-                throw new IllegalStateException("Query data encoding was requested but spooling manager is not loaded");
-            }
 
             Map<Symbol, Integer> spooledLayout = layoutUnionWithSpooledMetadata(operation.layout);
             QueryDataEncoder queryDataEncoder = encoderFactory.orElseThrow().create(session, spooledOutputLayout(node, operation.layout));

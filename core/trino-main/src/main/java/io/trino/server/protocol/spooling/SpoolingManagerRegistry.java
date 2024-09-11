@@ -87,6 +87,11 @@ public class SpoolingManagerRegistry
         loadSpoolingManager(name, properties);
     }
 
+    public boolean isLoaded()
+    {
+        return this.spoolingManager != null;
+    }
+
     public synchronized void loadSpoolingManager(String name, Map<String, String> properties)
     {
         SpoolingManagerFactory factory = spoolingManagerFactories.get(name);
