@@ -34,7 +34,9 @@ import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -162,7 +164,7 @@ public class OutputSpoolingOperatorFactory
                     1024,
                     spoolingManager.initialSegmentSize(),
                     spoolingManager.maximumSegmentSize());
-            this.userMemoryContext = operatorContext.localUserMemoryContext();
+            this.userMemoryContext = operatorContext.newLocalUserMemoryContext(OutputSpoolingOperator.class.getSimpleName());
             this.queryDataEncoder = requireNonNull(queryDataEncoder, "queryDataEncoder is null");
             this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
             this.layout = requireNonNull(layout, "layout is null");
@@ -258,25 +260,31 @@ public class OutputSpoolingOperatorFactory
                 controller.recordSpooled(rows, size); // final buffer
             }
 
-            SpoolingContext spoolingContext = new SpoolingContext(operatorContext.getDriverContext().getSession().getQueryId(), rows);
-            SpooledSegmentHandle segmentHandle = spoolingManager.create(spoolingContext);
-
-            try (OutputStream output = spoolingManager.createOutputStream(segmentHandle);
-                    ByteArrayOutputStream bufferedOutput = new ByteArrayOutputStream(toIntExact(controller.getCurrentSpooledSegmentTarget()))) {
+            userMemoryContext.setBytes(controller.getCurrentSpooledSegmentTarget()); // Track allocated memory
+            try (ByteArrayOutputStream bufferedOutput = new ByteArrayOutputStream(toIntExact(controller.getCurrentSpooledSegmentTarget()))) {
                 OperationTimer encodingTimer = new OperationTimer(true);
                 DataAttributes attributes = queryDataEncoder.encodeTo(bufferedOutput, pages)
                         .toBuilder()
                         .set(ROWS_COUNT, rows)
                         .build();
                 encodingTimer.end(encodingTiming);
-                OperationTimer spoolingTimer = new OperationTimer(true);
-                output.write(bufferedOutput.toByteArray());
-                spoolingTimer.end(spoolingTiming);
-                controller.recordEncoded(attributes.get(SEGMENT_SIZE, Integer.class));
-                return emptySingleRowPage(layout, new SpooledBlock(spoolingManager.location(segmentHandle), attributes).serialize());
+
+                userMemoryContext.setBytes(bufferedOutput.size()); // Update memory to actual segment size
+                SpooledSegmentHandle segmentHandle = spoolingManager.create(new SpoolingContext(
+                        queryDataEncoder.encodingId(),
+                        operatorContext.getDriverContext().getSession().getQueryId(),
+                        rows,
+                        bufferedOutput.size()));
+                try (OutputStream output = spoolingManager.createOutputStream(segmentHandle)) {
+                    OperationTimer spoolingTimer = new OperationTimer(true);
+                    output.write(bufferedOutput.toByteArray());
+                    spoolingTimer.end(spoolingTiming);
+                    controller.recordEncoded(attributes.get(SEGMENT_SIZE, Integer.class));
+                    return emptySingleRowPage(layout, new SpooledBlock(spoolingManager.location(segmentHandle), attributes).serialize());
+                }
             }
-            catch (Exception e) {
-                throw new RuntimeException(e);
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
             }
             finally {
                 userMemoryContext.setBytes(0);

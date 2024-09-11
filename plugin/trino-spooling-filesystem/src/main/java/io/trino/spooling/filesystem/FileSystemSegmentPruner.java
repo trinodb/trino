@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static io.trino.spooling.filesystem.FileSystemSpooledSegmentHandle.fromStorageObjectName;
+import static io.trino.spooling.filesystem.FileSystemSpooledSegmentHandle.getExpirationFromLocation;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -100,7 +100,7 @@ public class FileSystemSegmentPruner
             FileIterator iterator = orderDetectingIterator(fileSystem.listFiles(location));
             while (iterator.hasNext()) {
                 FileEntry file = iterator.next();
-                Optional<Instant> handle = parseHandle(file);
+                Optional<Instant> handle = getExpirationFromLocation(file.location());
                 // Not a spooled segment
                 if (handle.isEmpty()) {
                     continue;
@@ -135,8 +135,10 @@ public class FileSystemSegmentPruner
         try {
             int batchSize = expiredSegments.size();
 
-            Instant oldest = getExpiration(expiredSegments.getFirst());
-            Instant newest = getExpiration(expiredSegments.getLast());
+            Instant oldest = getExpirationFromLocation(expiredSegments.getFirst())
+                    .orElseThrow(() -> new IllegalStateException("No expiration time found for " + expiredSegments.getFirst()));
+            Instant newest = getExpirationFromLocation(expiredSegments.getLast())
+                    .orElseThrow(() -> new IllegalStateException("No expiration time found for " + expiredSegments.getLast()));
             fileSystem.deleteFiles(expiredSegments);
             log.info("Pruned %d segments expired before %s [oldest: %s, newest: %s]", batchSize, expiredBefore, oldest, newest);
         }
@@ -146,21 +148,6 @@ public class FileSystemSegmentPruner
         catch (Exception e) {
             log.error(e, "Unexpected error while pruning expired segments");
         }
-    }
-
-    private Optional<Instant> parseHandle(FileEntry file)
-    {
-        try {
-            return Optional.of(getExpiration(file.location()));
-        }
-        catch (Exception e) {
-            return Optional.empty();
-        }
-    }
-
-    private Instant getExpiration(Location location)
-    {
-        return fromStorageObjectName(location.fileName()).expirationTime();
     }
 
     private FileIterator orderDetectingIterator(FileIterator delegate)

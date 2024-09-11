@@ -653,6 +653,30 @@
                                     <exception>java.io.IOException</exception>
                                     <justification>For consistency with other TrinoFileSystem methods</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method java.lang.String io.trino.spi.protocol.SpooledSegmentHandle::encodingId()</new>
+                                    <justification>Spooling tracing</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method java.lang.String io.trino.spi.protocol.SpooledSegmentHandle::identifier()</new>
+                                    <justification>Spooling tracing</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method io.trino.spi.QueryId io.trino.spi.protocol.SpooledSegmentHandle::queryId()</new>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.protocol.SpoolingContext::&lt;init&gt;(io.trino.spi.QueryId, long)</old>
+                                    <new>method void io.trino.spi.protocol.SpoolingContext::&lt;init&gt;(java.lang.String, io.trino.spi.QueryId, long, long)</new>
+                                    <justification>Spooling tracing</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

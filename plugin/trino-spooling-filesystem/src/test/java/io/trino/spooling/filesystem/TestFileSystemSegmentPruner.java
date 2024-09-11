@@ -23,6 +23,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
 import io.trino.spi.QueryId;
+import io.trino.spi.protocol.SpoolingContext;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.containers.Minio;
 import org.junit.jupiter.api.AfterAll;
@@ -149,7 +150,8 @@ class TestFileSystemSegmentPruner
 
     private Location writeNewDummySegment(TrinoFileSystemFactory fileSystemFactory, QueryId queryId, Instant ttl)
     {
-        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(ThreadLocalRandom.current(), queryId, ttl);
+        SpoolingContext context = new SpoolingContext("encodingId", queryId, 100, 1000);
+        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(ThreadLocalRandom.current(), context, ttl);
         try (OutputStream segment = createFileSystem(fileSystemFactory).newOutputFile(LOCATION.appendPath(handle.storageObjectName())).create()) {
             segment.write("dummy".getBytes(UTF_8));
             return LOCATION.appendPath(handle.storageObjectName());

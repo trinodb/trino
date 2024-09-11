@@ -13,15 +13,14 @@
  */
 package io.trino.spooling.filesystem;
 
-import com.google.common.base.Splitter;
 import io.airlift.slice.Slice;
 import io.azam.ulidj.ULID;
+import io.trino.filesystem.Location;
 import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpooledSegmentHandle;
+import io.trino.spi.protocol.SpoolingContext;
 
 import java.time.Instant;
-import java.util.HexFormat;
-import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
@@ -29,7 +28,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
-public record FileSystemSpooledSegmentHandle(QueryId queryId, byte[] uuid, Optional<Slice> encryptionKey)
+public record FileSystemSpooledSegmentHandle(@Override String encodingId, @Override QueryId queryId, byte[] uuid, Optional<Slice> encryptionKey)
         implements SpooledSegmentHandle
 {
     private static final String OBJECT_NAME_SEPARATOR = "::";
@@ -41,19 +40,21 @@ public record FileSystemSpooledSegmentHandle(QueryId queryId, byte[] uuid, Optio
         verify(uuid.length == 16, "uuid must be 128 bits");
     }
 
-    public static FileSystemSpooledSegmentHandle random(Random random, QueryId queryId, Instant expireAt)
+    public static FileSystemSpooledSegmentHandle random(Random random, SpoolingContext context, Instant expireAt)
     {
-        return random(random, queryId, expireAt, Optional.empty());
+        return random(random, context, expireAt, Optional.empty());
     }
 
-    public static FileSystemSpooledSegmentHandle random(Random random, QueryId queryId, Instant expireAt, Optional<Slice> encryptionKey)
+    public static FileSystemSpooledSegmentHandle random(Random random, SpoolingContext context, Instant expireAt, Optional<Slice> encryptionKey)
     {
         return new FileSystemSpooledSegmentHandle(
-                queryId,
+                context.encodingId(),
+                context.queryId(),
                 ULID.generateBinary(expireAt.toEpochMilli(), entropy(random)),
                 encryptionKey);
     }
 
+    @Override
     public Instant expirationTime()
     {
         return Instant.ofEpochMilli(ULID.getTimestampBinary(uuid()));
@@ -73,21 +74,26 @@ public record FileSystemSpooledSegmentHandle(QueryId queryId, byte[] uuid, Optio
         return ULID.fromBinary(uuid) + OBJECT_NAME_SEPARATOR + queryId;
     }
 
-    public static FileSystemSpooledSegmentHandle fromStorageObjectName(String objectName)
+    @Override
+    public String identifier()
     {
-        List<String> parts = Splitter.on(OBJECT_NAME_SEPARATOR).limit(2).splitToList(objectName);
-        byte[] uuid = ULID.toBinary(parts.get(0));
-        QueryId queryId = QueryId.valueOf(parts.get(1));
-
-        return new FileSystemSpooledSegmentHandle(queryId, uuid, Optional.empty());
+        return ULID.fromBinary(uuid) + OBJECT_NAME_SEPARATOR + queryId + "." + encodingId;
     }
 
-    public static FileSystemSpooledSegmentHandle of(QueryId queryId, byte[] ulid, Optional<Slice> encryptionKey)
+    public static Optional<Instant> getExpirationFromLocation(Location location)
     {
-        if (!ULID.isValidBinary(ulid)) {
-            throw new IllegalArgumentException("Invalid ULID: " + HexFormat.of().formatHex(ulid));
+        String filename = location.fileName();
+        int index = filename.indexOf(OBJECT_NAME_SEPARATOR);
+        if (index == -1) {
+            return Optional.empty();
         }
-        return new FileSystemSpooledSegmentHandle(queryId, ulid, encryptionKey);
+
+        String uuid = filename.substring(0, index);
+        if (!ULID.isValid(uuid)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(Instant.ofEpochMilli(ULID.getTimestamp(uuid)));
     }
 
     private static byte[] entropy(Random random)
@@ -102,8 +108,9 @@ public record FileSystemSpooledSegmentHandle(QueryId queryId, byte[] uuid, Optio
     {
         return toStringHelper(this)
                 .add("queryId", queryId)
-                .add("expiresAt", Instant.ofEpochMilli(ULID.getTimestampBinary(uuid)))
-                .add("storageObjectName", storageObjectName())
+                .add("encodingId", encodingId)
+                .add("expires", Instant.ofEpochMilli(ULID.getTimestampBinary(uuid)))
+                .add("identifier", identifier())
                 .add("encryptionKey", encryptionKey.map(_ -> "[redacted]").orElse("[none"))
                 .toString();
     }

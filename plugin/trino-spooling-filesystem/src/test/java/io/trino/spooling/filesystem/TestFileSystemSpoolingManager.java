@@ -69,7 +69,7 @@ public class TestFileSystemSpoolingManager
             throws Exception
     {
         SpoolingManager manager = getSpoolingManager();
-        SpoolingContext context = new SpoolingContext(QueryId.valueOf("a"), 0);
+        SpoolingContext context = new SpoolingContext("json", QueryId.valueOf("a"), 0, 0);
         SpooledSegmentHandle spooledSegmentHandle = manager.create(context);
         try (OutputStream segment = manager.createOutputStream(spooledSegmentHandle)) {
             segment.write("data".getBytes(UTF_8));
@@ -87,7 +87,7 @@ public class TestFileSystemSpoolingManager
             throws Exception
     {
         SpoolingManager manager = getSpoolingManager();
-        SpoolingContext context = new SpoolingContext(QueryId.valueOf("a"), 0);
+        SpoolingContext context = new SpoolingContext("json", QueryId.valueOf("a"), 0, 0);
         SpooledSegmentHandle spooledSegmentHandle = manager.create(context);
         try (OutputStream segment = manager.createOutputStream(spooledSegmentHandle)) {
             segment.write("data".getBytes(UTF_8));
@@ -108,7 +108,7 @@ public class TestFileSystemSpoolingManager
     @Test
     public void testHandleRoundTrip()
     {
-        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.of(QueryId.valueOf("a"), ULID.randomBinary(), Optional.of(generateRandomKey()));
+        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", QueryId.valueOf("a"), ULID.randomBinary(), Optional.of(generateRandomKey()));
         SpooledLocation location = getSpoolingManager().location(handle);
         FileSystemSpooledSegmentHandle handle2 = (FileSystemSpooledSegmentHandle) getSpoolingManager().handle(location);
 

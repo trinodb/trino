@@ -53,6 +53,6 @@ public class FileSystemSpoolingManagerFactory
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 
-        return injector.getInstance(SpoolingManager.class);
+        return new TracingSpoolingManager(context.getTracer(), injector.getInstance(SpoolingManager.class));
     }
 }

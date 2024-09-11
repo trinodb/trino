@@ -43,12 +43,12 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.protocol.SpooledLocation.coordinatorLocation;
 import static io.trino.spooling.filesystem.encryption.EncryptionUtils.decryptingInputStream;
 import static io.trino.spooling.filesystem.encryption.EncryptionUtils.encryptingOutputStream;
 import static io.trino.spooling.filesystem.encryption.EncryptionUtils.generateRandomKey;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Duration.between;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -97,9 +97,9 @@ public class FileSystemSpoolingManager
     {
         Instant expireAt = Instant.now().plusMillis(ttl.toMillis());
         if (encryptionEnabled) {
-            return FileSystemSpooledSegmentHandle.random(random, context.queryId(), expireAt, Optional.of(generateRandomKey()));
+            return FileSystemSpooledSegmentHandle.random(random, context, expireAt, Optional.of(generateRandomKey()));
         }
-        return FileSystemSpooledSegmentHandle.random(random, context.queryId(), expireAt);
+        return FileSystemSpooledSegmentHandle.random(random, context, expireAt);
     }
 
     @Override
@@ -141,7 +141,7 @@ public class FileSystemSpoolingManager
                 .map(location -> SpooledLocation.directLocation(location.uri(), headers(fileHandle)));
 
         if (directLocation.isEmpty()) {
-            throw new IOException("Failed to generate pre-signed URI for query %s and segment %s".formatted(fileHandle.queryId(), fileHandle.storageObjectName()));
+            throw new IOException("Failed to generate pre-signed URI for query %s and segment %s".formatted(fileHandle.queryId(), fileHandle.identifier()));
         }
         return directLocation;
     }
@@ -153,13 +153,17 @@ public class FileSystemSpoolingManager
         //
         // ulid: byte[16]
         // queryIdLength: byte
+        // encodingLength: byte
         // queryId: string
+        // encoding: string
         // isEncrypted: boolean
         FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
         DynamicSliceOutput output = new DynamicSliceOutput(64);
         output.writeBytes(fileHandle.uuid());
         output.writeShort(fileHandle.queryId().toString().length());
-        output.writeBytes(utf8Slice(fileHandle.queryId().toString()));
+        output.writeShort(fileHandle.encodingId().length());
+        output.writeBytes(fileHandle.queryId().toString().getBytes(UTF_8));
+        output.writeBytes(fileHandle.encodingId().getBytes(UTF_8));
         output.writeBoolean(fileHandle.encryptionKey().isPresent());
         return coordinatorLocation(output.slice(), headers(fileHandle));
     }
@@ -174,15 +178,18 @@ public class FileSystemSpoolingManager
         BasicSliceInput input = coordinatorLocation.identifier().getInput();
         byte[] uuid = new byte[16];
         input.readBytes(uuid);
-        short length = input.readShort();
-        QueryId queryId = QueryId.valueOf(input.readSlice(length).toStringUtf8());
+        short queryLength = input.readShort();
+        short encodingLength = input.readShort();
+
+        QueryId queryId = QueryId.valueOf(input.readSlice(queryLength).toStringUtf8());
+        String encodingId = input.readSlice(encodingLength).toStringUtf8();
 
         if (!input.readBoolean()) {
-            return FileSystemSpooledSegmentHandle.of(queryId, uuid, Optional.empty());
+            return new FileSystemSpooledSegmentHandle(encodingId, queryId, uuid, Optional.empty());
         }
 
         Slice key = getEncryptionKey(location.headers());
-        return FileSystemSpooledSegmentHandle.of(queryId, uuid, Optional.of(key));
+        return new FileSystemSpooledSegmentHandle(encodingId, queryId, uuid, Optional.of(key));
     }
 
     private static Slice getEncryptionKey(Map<String, List<String>> headers)
