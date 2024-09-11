@@ -1036,7 +1036,8 @@ public abstract class AbstractTestTrinoFileSystem
             try {
                 HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
                 if (response.statusCode() != 200) {
-                    throw new IOException("Failed to retrieve");
+                    throw new IOException("Failed to retrieve, got response code: %d, body: %s"
+                            .formatted(response.statusCode(), response.body()));
                 }
                 return response.body();
             }
