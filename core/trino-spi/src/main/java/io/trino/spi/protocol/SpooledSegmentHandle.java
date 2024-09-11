@@ -13,6 +13,20 @@
  */
 package io.trino.spi.protocol;
 
+import io.trino.spi.QueryId;
+
+import java.time.Instant;
+
+/**
+ * SpooledSegmentHandle is used to uniquely identify a spooled segment and to manage its lifecycle.
+ */
 public interface SpooledSegmentHandle
 {
+    QueryId queryId();
+
+    String identifier();
+
+    String encodingId();
+
+    Instant expirationTime();
 }

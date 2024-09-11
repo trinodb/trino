@@ -14,6 +14,7 @@
 package io.trino.spooling.filesystem;
 
 import io.trino.spi.QueryId;
+import io.trino.spi.protocol.SpoolingContext;
 import org.junit.jupiter.api.Test;
 
 import java.security.SecureRandom;
@@ -27,6 +28,7 @@ class TestFileSystemSpooledSegmentHandle
 {
     private static final SecureRandom random = new SecureRandom();
     private static final QueryId queryId = new QueryId("query_id");
+    private static final SpoolingContext context = new SpoolingContext("encodingId", queryId, 100, 1000);
 
     private final Instant now = Instant.now()
             .truncatedTo(MILLIS); // ULID retains millisecond precision
@@ -35,30 +37,17 @@ class TestFileSystemSpooledSegmentHandle
     public void testStorageObjectNameStability()
     {
         Instant expireAt = Instant.ofEpochMilli(90000);
-        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(new NotARandomAtAll(), queryId, expireAt);
+        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(new NotARandomAtAll(), context, expireAt);
         assertThat(handle.storageObjectName())
                 .isEqualTo("0000002QWG0G2081040G208104::query_id");
     }
 
     @Test
-    public void testStorageNameRoundTrip()
-    {
-        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(random, queryId, now.plusMillis(2137));
-        FileSystemSpooledSegmentHandle handle2 = FileSystemSpooledSegmentHandle.fromStorageObjectName(handle.storageObjectName());
-
-        assertThat(handle.queryId()).isEqualTo(handle2.queryId());
-        assertThat(handle.expirationTime()).isEqualTo(handle2.expirationTime());
-        assertThat(handle.encryptionKey()).isEqualTo(handle2.encryptionKey());
-        assertThat(handle.uuid()).isEqualTo(handle2.uuid());
-        assertThat(handle.expirationTime()).isEqualTo(now.plusMillis(2137));
-    }
-
-    @Test
     public void testLexicalOrdering()
     {
-        FileSystemSpooledSegmentHandle handle1 = FileSystemSpooledSegmentHandle.random(random, queryId, now.plusMillis(1));
-        FileSystemSpooledSegmentHandle handle2 = FileSystemSpooledSegmentHandle.random(random, queryId, now.plusMillis(3));
-        FileSystemSpooledSegmentHandle handle3 = FileSystemSpooledSegmentHandle.random(random, queryId, now.plusMillis(2));
+        FileSystemSpooledSegmentHandle handle1 = FileSystemSpooledSegmentHandle.random(random, context, now.plusMillis(1));
+        FileSystemSpooledSegmentHandle handle2 = FileSystemSpooledSegmentHandle.random(random, context, now.plusMillis(3));
+        FileSystemSpooledSegmentHandle handle3 = FileSystemSpooledSegmentHandle.random(random, context, now.plusMillis(2));
 
         assertThat(handle2.storageObjectName())
                 .isGreaterThan(handle1.storageObjectName());

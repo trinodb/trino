@@ -13,7 +13,10 @@
  */
 package io.trino.testing;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import io.trino.client.JsonCodec;
 import io.trino.spi.Plugin;
+import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpooledLocation;
 import io.trino.spi.protocol.SpooledLocation.CoordinatorLocation;
 import io.trino.spi.protocol.SpooledLocation.DirectLocation;
@@ -30,7 +33,7 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,12 +42,14 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.client.JsonCodec.jsonCodec;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.util.Objects.requireNonNull;
 
 public class LocalSpoolingManager
         implements SpoolingManager
 {
+    private static final JsonCodec<LocalSpooledSegmentHandle> HANDLE_CODEC = jsonCodec(LocalSpooledSegmentHandle.class);
     private final Path rootPath;
     private final AtomicLong segmentId = new AtomicLong();
 
@@ -61,8 +66,10 @@ public class LocalSpoolingManager
     @Override
     public SpooledSegmentHandle create(SpoolingContext context)
     {
-        return new LocalSpooledSegmentHandle(rootPath
-                .resolve(context.queryId().getId() + "-" + segmentId.incrementAndGet() + "-" + UUID.randomUUID()));
+        return new LocalSpooledSegmentHandle(
+                context.encodingId(),
+                context.queryId(),
+                rootPath.resolve(context.queryId().getId() + "-" + segmentId.incrementAndGet() + "-" + UUID.randomUUID() + "." + context.encodingId()));
     }
 
     @Override
@@ -90,14 +97,19 @@ public class LocalSpoolingManager
         if (!(location instanceof CoordinatorLocation coordinatorLocation)) {
             throw new IllegalArgumentException("Cannot convert direct location to handle");
         }
-        return new LocalSpooledSegmentHandle(Paths.get(coordinatorLocation.identifier().toStringUtf8()));
+        try {
+            return HANDLE_CODEC.fromJson(coordinatorLocation.identifier().toStringUtf8());
+        }
+        catch (JsonProcessingException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override
     public SpooledLocation location(SpooledSegmentHandle handle)
     {
         LocalSpooledSegmentHandle localHandle = (LocalSpooledSegmentHandle) handle;
-        return SpooledLocation.coordinatorLocation(utf8Slice(localHandle.path().toFile().getPath()), Map.of());
+        return SpooledLocation.coordinatorLocation(utf8Slice(HANDLE_CODEC.toJson(localHandle)), Map.of());
     }
 
     @Override
@@ -155,12 +167,26 @@ public class LocalSpoolingManager
         }
     }
 
-    private record LocalSpooledSegmentHandle(Path path)
+    public record LocalSpooledSegmentHandle(@Override String encodingId, @Override QueryId queryId, Path path)
             implements SpooledSegmentHandle
     {
-        private LocalSpooledSegmentHandle
+        public LocalSpooledSegmentHandle
         {
+            requireNonNull(encodingId, "encodingId is null");
+            requireNonNull(queryId, "queryId is null");
             requireNonNull(path, "path is null");
+        }
+
+        @Override
+        public Instant expirationTime()
+        {
+            return Instant.MAX;
+        }
+
+        @Override
+        public String identifier()
+        {
+            return path.getFileName().toString();
         }
     }
 }

@@ -17,13 +17,17 @@ import io.trino.spi.QueryId;
 
 import static java.util.Objects.requireNonNull;
 
-public record SpoolingContext(QueryId queryId, long rowCount)
+public record SpoolingContext(String encodingId, QueryId queryId, long rowCount, long size)
 {
     public SpoolingContext
     {
         requireNonNull(queryId, "queryId is null");
+        requireNonNull(encodingId, "encodingId is null");
         if (rowCount < 0) {
             throw new IllegalArgumentException("rowCount is negative");
+        }
+        if (size < 0) {
+            throw new IllegalArgumentException("size is negative");
         }
     }
 }
