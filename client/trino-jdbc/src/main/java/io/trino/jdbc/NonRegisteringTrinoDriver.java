@@ -72,7 +72,15 @@ public class NonRegisteringTrinoDriver
             OkHttpClient.Builder httpClientBuilder = HttpClientFactory.toHttpClientBuilder(uri, USER_AGENT);
             httpClientBuilder.connectionPool(pool);
             httpClientBuilder.dispatcher(dispatcher);
-            return new TrinoConnection(uri, instrumentClient(httpClientBuilder.build()));
+
+            OkHttpClient.Builder segmentHttpClientBuilder = HttpClientFactory.unauthenticatedClientBuilder(uri, USER_AGENT);
+            segmentHttpClientBuilder.connectionPool(pool);
+            segmentHttpClientBuilder.dispatcher(dispatcher);
+
+            return new TrinoConnection(
+                    uri,
+                    instrumentClient(httpClientBuilder.build()),
+                    instrumentClient(segmentHttpClientBuilder.build()));
         }
         catch (RuntimeException e) {
             throw new SQLException(e.getMessage(), e);

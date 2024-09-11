@@ -52,14 +52,9 @@ public class HttpClientFactory
 
     public static OkHttpClient.Builder toHttpClientBuilder(TrinoUri uri, String userAgent)
     {
-        OkHttpClient.Builder builder = new OkHttpClient.Builder();
+        OkHttpClient.Builder builder = unauthenticatedClientBuilder(uri, userAgent);
         disableHttp2(builder);
-        setupUserAgent(builder, userAgent);
         setupCookieJar(builder);
-        setupSocksProxy(builder, uri.getSocksProxy());
-        setupHttpProxy(builder, uri.getHttpProxy());
-        setupTimeouts(builder, toIntExact(uri.getTimeout().toMillis()), TimeUnit.MILLISECONDS);
-        setupHttpLogging(builder, uri.getHttpLoggingLevel());
 
         if (!uri.isUseSecureConnection()) {
             setupInsecureSsl(builder);
@@ -153,6 +148,17 @@ public class HttpClientFactory
         }
 
         uri.getDnsResolver().ifPresent(resolverClass -> builder.dns(instantiateDnsResolver(resolverClass, uri.getDnsResolverContext())::lookup));
+        return builder;
+    }
+
+    public static OkHttpClient.Builder unauthenticatedClientBuilder(TrinoUri uri, String userAgent)
+    {
+        OkHttpClient.Builder builder = new OkHttpClient.Builder();
+        setupUserAgent(builder, userAgent);
+        setupSocksProxy(builder, uri.getSocksProxy());
+        setupHttpProxy(builder, uri.getHttpProxy());
+        setupTimeouts(builder, toIntExact(uri.getTimeout().toMillis()), TimeUnit.MILLISECONDS);
+        setupHttpLogging(builder, uri.getHttpLoggingLevel());
         return builder;
     }
 

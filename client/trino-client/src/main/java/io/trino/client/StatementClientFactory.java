@@ -23,13 +23,23 @@ public final class StatementClientFactory
 {
     private StatementClientFactory() {}
 
+    public static StatementClient newStatementClient(Call.Factory httpCallFactory, Call.Factory segmentHttpCallFactory, ClientSession session, String query)
+    {
+        return new StatementClientV1(httpCallFactory, segmentHttpCallFactory, session, query, Optional.empty());
+    }
+
+    public static StatementClient newStatementClient(OkHttpClient httpClient, Call.Factory segmentHttpCallFactory, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
+    {
+        return new StatementClientV1((Call.Factory) httpClient, segmentHttpCallFactory, session, query, clientCapabilities);
+    }
+
     public static StatementClient newStatementClient(Call.Factory httpCallFactory, ClientSession session, String query)
     {
-        return new StatementClientV1(httpCallFactory, session, query, Optional.empty());
+        return new StatementClientV1(httpCallFactory, new OkHttpClient(), session, query, Optional.empty());
     }
 
     public static StatementClient newStatementClient(OkHttpClient httpClient, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
     {
-        return new StatementClientV1((Call.Factory) httpClient, session, query, clientCapabilities);
+        return new StatementClientV1((Call.Factory) httpClient, new OkHttpClient(), session, query, clientCapabilities);
     }
 }
