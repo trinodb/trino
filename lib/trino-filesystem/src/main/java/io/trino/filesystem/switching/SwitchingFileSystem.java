@@ -13,12 +13,14 @@
  */
 package io.trino.filesystem.switching;
 
+import io.airlift.units.Duration;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.UriLocation;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
@@ -146,6 +148,13 @@ final class SwitchingFileSystem
             throws IOException
     {
         return fileSystem(targetPath).createTemporaryDirectory(targetPath, temporaryPrefix, relativePrefix);
+    }
+
+    @Override
+    public Optional<UriLocation> preSignedUri(Location targetPath, Duration ttl)
+            throws IOException
+    {
+        return fileSystem(targetPath).preSignedUri(targetPath, ttl);
     }
 
     private TrinoFileSystem fileSystem(Location location)
