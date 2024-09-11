@@ -485,8 +485,12 @@ public final class ThriftMetastoreUtil
         if (storageDescriptor == null) {
             throw new TrinoException(HIVE_INVALID_METADATA, "Partition does not contain a storage descriptor: " + partition);
         }
+        List<FieldSchema> schema = storageDescriptor.getCols();
+        if (schema == null) {
+            throw new TrinoException(HIVE_INVALID_METADATA, "Partition storage descriptor does not contain columns to derive a schema: " + partition);
+        }
 
-        return fromMetastoreApiPartition(partition, storageDescriptor.getCols());
+        return fromMetastoreApiPartition(partition, schema);
     }
 
     public static Partition fromMetastoreApiPartition(io.trino.hive.thrift.metastore.Partition partition, List<FieldSchema> schema)
