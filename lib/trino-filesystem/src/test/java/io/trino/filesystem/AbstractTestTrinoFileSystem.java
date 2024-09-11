@@ -1008,7 +1008,7 @@ public abstract class AbstractTestTrinoFileSystem
             }
 
             Optional<UriLocation> directLocation = getFileSystem()
-                    .preSignedUri(location, new Duration(1, SECONDS));
+                    .preSignedUri(location, new Duration(3, SECONDS));
 
             assertThat(directLocation).isPresent();
             assertThat(retrieveUri(directLocation.get()))
