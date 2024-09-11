@@ -30,10 +30,12 @@
     ]
   },
   "scripts": {
-    "package": "npm clean-install && webpack --config webpack.config.js",
+    "package": "npm install && webpack --config webpack.config.js",
+    "package:clean": "npm clean-install && webpack --config webpack.config.js",
     "watch": "npm clean-install && webpack --config webpack.config.js --watch",
     "flow": "flow",
-    "check": "flow && prettier --check **/*.js **/*.jsx *.js *.jsx",
+    "check": "npm install && flow && prettier --check **/*.js **/*.jsx *.js *.jsx",
+    "check:clean": "npm clean-install && flow && prettier --check **/*.js **/*.jsx *.js *.jsx",
     "format": "prettier --write **/*.js **/*.jsx *.js *.jsx",
     "lint": "prettier --check **/*.js **/*.jsx"
   }
