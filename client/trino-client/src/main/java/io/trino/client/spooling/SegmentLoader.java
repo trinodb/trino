@@ -30,16 +30,23 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class SegmentLoader
         implements AutoCloseable
 {
     private static final Logger logger = Logger.getLogger(SegmentLoader.class.getPackage().getName());
-    private final OkHttpClient client;
+
+    private final Call.Factory callFactory;
 
     public SegmentLoader()
     {
-        this.client = new OkHttpClient();
+        this(new OkHttpClient());
+    }
+
+    public SegmentLoader(Call.Factory callFactory)
+    {
+        this.callFactory = requireNonNull(callFactory, "callFactory is null");
     }
 
     public InputStream load(SpooledSegment segment)
@@ -57,7 +64,7 @@ public class SegmentLoader
                 .headers(requestHeaders)
                 .build();
 
-        Response response = client.newCall(request).execute();
+        Response response = callFactory.newCall(request).execute();
         if (response.body() == null) {
             throw new IOException("Could not open segment for streaming, got empty body");
         }
@@ -76,7 +83,7 @@ public class SegmentLoader
                 .headers(headers)
                 .build();
 
-        client.newCall(deleteRequest).enqueue(new Callback()
+        callFactory.newCall(deleteRequest).enqueue(new Callback()
         {
             @Override
             public void onFailure(Call call, IOException cause)
@@ -117,6 +124,8 @@ public class SegmentLoader
     @Override
     public void close()
     {
-        client.dispatcher().executorService().shutdown();
+        if (callFactory instanceof OkHttpClient) {
+            ((OkHttpClient) callFactory).dispatcher().executorService().shutdown();
+        }
     }
 }
