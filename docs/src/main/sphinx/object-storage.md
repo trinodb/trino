@@ -24,8 +24,10 @@ availability.
 (file-system-configuration)=
 ## Configuration
 
-Use the following properties to control the support for different file systems
-in a catalog. Each catalog can only use one file system.
+By default, no file system support is activated for your catalog. You must
+select and configure one of the following properties to determine the support
+for different file systems in the catalog. Each catalog can only use one file
+system support.
 
 :::{list-table} File system support properties
 :widths: 35, 65
@@ -33,22 +35,19 @@ in a catalog. Each catalog can only use one file system.
 
 * - Property
   - Description
-* - `fs.hadoop.enabled`
-  - Activate the [legacy libraries and implementation based on the Hadoop](file-system-legacy)
-    ecosystem. Defaults to `true`.
 * - `fs.native-azure.enabled`
   - Activate the [native implementation for Azure Storage
-    support](/object-storage/file-system-azure), and deactivate all [legacy
-    support](file-system-legacy). Defaults to `false`.
+    support](/object-storage/file-system-azure). Defaults to `false`.
 * - `fs.native-gcs.enabled`
   - Activate the [native implementation for Google Cloud Storage
-    support](/object-storage/file-system-gcs), and deactivate all [legacy
-    support](file-system-legacy). Defaults to `false`.
+    support](/object-storage/file-system-gcs). Defaults to `false`.
 * - `fs.native-s3.enabled`
   - Activate the [native implementation for S3 storage
-    support](/object-storage/file-system-s3), and deactivate all [legacy
-    support](file-system-legacy) . Defaults to `false`.
-
+    support](/object-storage/file-system-s3). Defaults to `false`.
+* - `fs.hadoop.enabled`
+  - Activate [support for HDFS](/object-storage/file-system-hdfs) and [legacy
+    support for other file systems](file-system-legacy) using the HDFS
+    libraries. Defaults to `false`.
 :::
 
 (file-system-native)=

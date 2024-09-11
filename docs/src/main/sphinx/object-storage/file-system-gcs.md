@@ -19,9 +19,9 @@ Storage file system support:
 * - Property
   - Description
 * - `fs.native-gcs.enabled`
-  - Activate the native implementation for Google Cloud Storage support, and
-    deactivate all [legacy support](file-system-legacy). Defaults to `false`.
-    Must be set to `true` for all other properties be used.
+  - Activate the native implementation for Google Cloud Storage support.
+    Defaults to `false`. Set to `true` to use Google Cloud Storage and enable
+    all other properties.
 * - `gcs.project-id`
   - Identifier for the project on Google Cloud Storage.
 * - `gcs.client.max-retries`

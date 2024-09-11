@@ -19,9 +19,8 @@ system support:
 * - Property
   - Description
 * - `fs.native-azure.enabled`
-  - Activate the native implementation for Azure Storage support, and deactivate
-    all [legacy support](file-system-legacy). Defaults to `false`.
-    Must be set to `true` for all other properties be used.
+  - Activate the native implementation for Azure Storage support. Defaults to
+    `false`. Set to `true` to use Azure Storage and enable all other properties.
 * - `azure.auth-type`
   - Authentication type to use for Azure Storage access. Defaults no
     authentication used with `NONE`. Use `ACCESS_KEY` for
