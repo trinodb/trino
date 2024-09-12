@@ -58,16 +58,16 @@ public class TestSqlFormatter
     public void testShowCatalogs()
     {
         assertThat(formatSql(
-                new ShowCatalogs(Optional.empty(), Optional.empty())))
+                new ShowCatalogs(new NodeLocation(1, 1), Optional.empty(), Optional.empty())))
                 .isEqualTo("SHOW CATALOGS");
         assertThat(formatSql(
-                new ShowCatalogs(Optional.of("%"), Optional.empty())))
+                new ShowCatalogs(new NodeLocation(1, 1), Optional.of("%"), Optional.empty())))
                 .isEqualTo("SHOW CATALOGS LIKE '%'");
         assertThat(formatSql(
-                new ShowCatalogs(Optional.of("%$_%"), Optional.of("$"))))
+                new ShowCatalogs(new NodeLocation(1, 1), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW CATALOGS LIKE '%$_%' ESCAPE '$'");
         assertThat(formatSql(
-                new ShowCatalogs(Optional.of("%機動隊"), Optional.of("😂"))))
+                new ShowCatalogs(new NodeLocation(1, 1), Optional.of("%機動隊"), Optional.of("😂"))))
                 .isEqualTo("SHOW CATALOGS LIKE '%機動隊' ESCAPE '😂'");
     }
 
