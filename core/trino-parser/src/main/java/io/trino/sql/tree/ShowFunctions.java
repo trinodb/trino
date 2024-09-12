@@ -29,19 +29,9 @@ public final class ShowFunctions
     private final Optional<String> likePattern;
     private final Optional<String> escape;
 
-    public ShowFunctions(Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
-    {
-        this(Optional.empty(), schema, likePattern, escape);
-    }
-
     public ShowFunctions(NodeLocation location, Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
     {
-        this(Optional.of(location), schema, likePattern, escape);
-    }
-
-    private ShowFunctions(Optional<NodeLocation> location, Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
-    {
-        super(location);
+        super(Optional.of(location));
         this.schema = requireNonNull(schema, "schema is null");
         this.likePattern = requireNonNull(likePattern, "likePattern is null");
         this.escape = requireNonNull(escape, "escape is null");

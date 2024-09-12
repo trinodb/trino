@@ -1451,10 +1451,30 @@ public class TestSqlParser
     @Test
     public void testShowFunctions()
     {
-        assertStatement("SHOW FUNCTIONS", new ShowFunctions(Optional.empty(), Optional.empty(), Optional.empty()));
-        assertStatement("SHOW FUNCTIONS FROM x", new ShowFunctions(Optional.of(QualifiedName.of("x")), Optional.empty(), Optional.empty()));
-        assertStatement("SHOW FUNCTIONS LIKE '%'", new ShowFunctions(Optional.empty(), Optional.of("%"), Optional.empty()));
-        assertStatement("SHOW FUNCTIONS LIKE '%' ESCAPE '$'", new ShowFunctions(Optional.empty(), Optional.of("%"), Optional.of("$")));
+        assertThat(statement("SHOW FUNCTIONS"))
+                .isEqualTo(new ShowFunctions(
+                        location(1, 1),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThat(statement("SHOW FUNCTIONS FROM x"))
+                .isEqualTo(new ShowFunctions(
+                        location(1, 1),
+                        Optional.of(QualifiedName.of(ImmutableList.of(new Identifier(location(1, 21), "x", false)))),
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThat(statement("SHOW FUNCTIONS LIKE '%'"))
+                .isEqualTo(new ShowFunctions(
+                        location(1, 1),
+                        Optional.empty(),
+                        Optional.of("%"),
+                        Optional.empty()));
+        assertThat(statement("SHOW FUNCTIONS LIKE '%' ESCAPE '$'"))
+                .isEqualTo(new ShowFunctions(
+                        location(1, 1),
+                        Optional.empty(),
+                        Optional.of("%"),
+                        Optional.of("$")));
     }
 
     @Test
