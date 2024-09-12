@@ -16,7 +16,9 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import io.trino.metastore.Table;
+import io.trino.plugin.base.connector.SystemTableProvider;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.InMemoryRecordSet;
@@ -50,8 +52,9 @@ public class PropertiesSystemTableProvider
     }
 
     @Override
-    public Optional<SystemTable> getSystemTable(HiveMetadata metadata, ConnectorSession session, SchemaTableName tableName)
+    public Optional<SystemTable> getSystemTable(ConnectorMetadata connectorMetadata, ConnectorSession session, SchemaTableName tableName)
     {
+        HiveMetadata metadata = (HiveMetadata) connectorMetadata;
         if (!PROPERTIES.matches(tableName)) {
             return Optional.empty();
         }
