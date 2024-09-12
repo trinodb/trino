@@ -14,7 +14,7 @@
 
 package io.trino.plugin.hive.util;
 
-import io.trino.plugin.hive.SystemTableProvider;
+import io.trino.plugin.base.connector.SystemTableProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;

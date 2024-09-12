@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.plugin.base.connector;
 
+import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
@@ -23,5 +24,5 @@ public interface SystemTableProvider
 {
     Optional<SchemaTableName> getSourceTableName(SchemaTableName table);
 
-    Optional<SystemTable> getSystemTable(HiveMetadata metadata, ConnectorSession session, SchemaTableName tableName);
+    Optional<SystemTable> getSystemTable(ConnectorMetadata metadata, ConnectorSession session, SchemaTableName tableName);
 }
