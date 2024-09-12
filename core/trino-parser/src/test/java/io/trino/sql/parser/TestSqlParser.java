@@ -5094,8 +5094,18 @@ public class TestSqlParser
     @Test
     public void testRenameMaterializedView()
     {
-        assertStatement("ALTER MATERIALIZED VIEW a RENAME TO b", new RenameMaterializedView(QualifiedName.of("a"), QualifiedName.of("b"), false));
-        assertStatement("ALTER MATERIALIZED VIEW IF EXISTS a RENAME TO b", new RenameMaterializedView(QualifiedName.of("a"), QualifiedName.of("b"), true));
+        assertThat(statement("ALTER MATERIALIZED VIEW a RENAME TO b"))
+                .isEqualTo(new RenameMaterializedView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "a", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 37), "b", false))),
+                        false));
+        assertThat(statement("ALTER MATERIALIZED VIEW IF EXISTS a RENAME TO b"))
+                .isEqualTo(new RenameMaterializedView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 35), "a", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 47), "b", false))),
+                        true));
     }
 
     @Test
