@@ -41,9 +41,9 @@ public class JdbcMetadataConfig
     // Pushed domains are transformed into SQL IN lists
     // (or sequence of range predicates) in JDBC connectors.
     // Too large IN lists cause significant performance regression.
-    // Use 32 as compaction threshold as it provides reasonable balance
+    // Use 256 as compaction threshold as it provides reasonable balance
     // between performance and pushdown capabilities
-    private int domainCompactionThreshold = 32;
+    private int domainCompactionThreshold = 256;
 
     public boolean isComplexExpressionPushdownEnabled()
     {

@@ -1,7 +1,7 @@
 ---
 myst:
   substitutions:
-    default_domain_compaction_threshold: '`32`'
+    default_domain_compaction_threshold: '`256`'
 ---
 
 # Oracle connector
