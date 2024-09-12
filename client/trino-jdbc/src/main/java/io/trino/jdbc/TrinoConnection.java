@@ -103,7 +103,7 @@ public class TrinoConnection
     private final URI httpUri;
     private final Optional<String> user;
     private final boolean compressionDisabled;
-    private final Optional<String> encodingId;
+    private final Optional<String> encoding;
     private final boolean assumeLiteralNamesInMetadataCallsForNonConformingClients;
     private final boolean assumeLiteralUnderscoreInMetadataCallsForNonConformingClients;
     private final Map<String, String> extraCredentials;
@@ -133,7 +133,7 @@ public class TrinoConnection
         this.source = uri.getSource();
         this.extraCredentials = uri.getExtraCredentials();
         this.compressionDisabled = uri.isCompressionDisabled();
-        this.encodingId = uri.getEncodingId();
+        this.encoding = uri.getEncoding();
         this.assumeLiteralNamesInMetadataCallsForNonConformingClients = uri.isAssumeLiteralNamesInMetadataCallsForNonConformingClients();
 
         if (this.assumeLiteralNamesInMetadataCallsForNonConformingClients) {
@@ -775,7 +775,7 @@ public class TrinoConnection
                 .transactionId(transactionId.get())
                 .clientRequestTimeout(timeout)
                 .compressionDisabled(compressionDisabled)
-                .encodingId(encodingId)
+                .encoding(encoding)
                 .build();
 
         return newStatementClient(httpCallFactory, segmentHttpCallFactory, session, sql);

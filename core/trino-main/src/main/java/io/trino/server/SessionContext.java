@@ -62,7 +62,7 @@ public class SessionContext
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final Optional<String> clientInfo;
-    private final Optional<String> queryDataEncodingId;
+    private final Optional<String> queryDataEncoding;
 
     public SessionContext(
             ProtocolHeaders protocolHeaders,
@@ -88,7 +88,7 @@ public class SessionContext
             Optional<TransactionId> transactionId,
             boolean clientTransactionSupport,
             Optional<String> clientInfo,
-            Optional<String> queryDataEncodingId)
+            Optional<String> queryDataEncoding)
     {
         this.protocolHeaders = requireNonNull(protocolHeaders, "protocolHeaders is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -115,7 +115,7 @@ public class SessionContext
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.clientTransactionSupport = clientTransactionSupport;
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
-        this.queryDataEncodingId = requireNonNull(queryDataEncodingId, "queryDataEncodingId is null");
+        this.queryDataEncoding = requireNonNull(queryDataEncoding, "queryDataEncoding is null");
     }
 
     public ProtocolHeaders getProtocolHeaders()
@@ -233,9 +233,9 @@ public class SessionContext
         return traceToken;
     }
 
-    public Optional<String> getQueryDataEncodingId()
+    public Optional<String> getQueryDataEncoding()
     {
-        return queryDataEncodingId;
+        return queryDataEncoding;
     }
 
     @VisibleForTesting
@@ -279,6 +279,6 @@ public class SessionContext
                 session.getTransactionId(),
                 session.isClientTransactionSupport(),
                 session.getClientInfo(),
-                session.getQueryDataEncodingId());
+                session.getQueryDataEncoding());
     }
 }

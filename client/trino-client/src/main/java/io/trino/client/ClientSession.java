@@ -56,7 +56,7 @@ public class ClientSession
     private final String transactionId;
     private final Duration clientRequestTimeout;
     private final boolean compressionDisabled;
-    private Optional<String> encodingId;
+    private Optional<String> encoding;
 
     public static Builder builder()
     {
@@ -97,7 +97,7 @@ public class ClientSession
             String transactionId,
             Duration clientRequestTimeout,
             boolean compressionDisabled,
-            Optional<String> encodingId)
+            Optional<String> encoding)
     {
         this.server = requireNonNull(server, "server is null");
         this.principal = requireNonNull(principal, "principal is null");
@@ -120,7 +120,7 @@ public class ClientSession
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.clientRequestTimeout = clientRequestTimeout;
         this.compressionDisabled = compressionDisabled;
-        this.encodingId = requireNonNull(encodingId, "encodingId is null");
+        this.encoding = requireNonNull(encoding, "encoding is null");
 
         for (String clientTag : clientTags) {
             checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
@@ -264,9 +264,9 @@ public class ClientSession
         return compressionDisabled;
     }
 
-    public Optional<String> getEncodingId()
+    public Optional<String> getEncoding()
     {
-        return encodingId;
+        return encoding;
     }
 
     @Override
@@ -291,7 +291,7 @@ public class ClientSession
                 .add("resourceEstimates", resourceEstimates)
                 .add("clientRequestTimeout", clientRequestTimeout)
                 .add("compressionDisabled", compressionDisabled)
-                .add("encodingId", encodingId)
+                .add("encoding", encoding)
                 .omitNullValues()
                 .toString();
     }
@@ -319,7 +319,7 @@ public class ClientSession
         private String transactionId;
         private Duration clientRequestTimeout;
         private boolean compressionDisabled;
-        private Optional<String> encodingId = Optional.empty();
+        private Optional<String> encoding = Optional.empty();
 
         private Builder() {}
 
@@ -347,7 +347,7 @@ public class ClientSession
             transactionId = clientSession.getTransactionId();
             clientRequestTimeout = clientSession.getClientRequestTimeout();
             compressionDisabled = clientSession.isCompressionDisabled();
-            encodingId = clientSession.getEncodingId();
+            encoding = clientSession.getEncoding();
         }
 
         public Builder server(URI server)
@@ -476,9 +476,9 @@ public class ClientSession
             return this;
         }
 
-        public Builder encodingId(Optional<String> encodingId)
+        public Builder encoding(Optional<String> encoding)
         {
-            this.encodingId = encodingId;
+            this.encoding = encoding;
             return this;
         }
 
@@ -506,7 +506,7 @@ public class ClientSession
                     transactionId,
                     clientRequestTimeout,
                     compressionDisabled,
-                    encodingId);
+                    encoding);
         }
     }
 }

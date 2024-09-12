@@ -71,7 +71,7 @@ final class TestMysqlEventListener
     private static final QueryMetadata FULL_QUERY_METADATA = new QueryMetadata(
             "full_query",
             Optional.of("transactionId"),
-            Optional.of("encodingId"),
+            Optional.of("encoding"),
             "query",
             Optional.of("updateType"),
             Optional.of("preparedQuery"),

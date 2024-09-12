@@ -28,7 +28,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
-public record FileSystemSpooledSegmentHandle(@Override String encodingId, @Override QueryId queryId, byte[] uuid, Optional<Slice> encryptionKey)
+public record FileSystemSpooledSegmentHandle(@Override String encoding, @Override QueryId queryId, byte[] uuid, Optional<Slice> encryptionKey)
         implements SpooledSegmentHandle
 {
     private static final String OBJECT_NAME_SEPARATOR = "::";
@@ -48,7 +48,7 @@ public record FileSystemSpooledSegmentHandle(@Override String encodingId, @Overr
     public static FileSystemSpooledSegmentHandle random(Random random, SpoolingContext context, Instant expireAt, Optional<Slice> encryptionKey)
     {
         return new FileSystemSpooledSegmentHandle(
-                context.encodingId(),
+                context.encoding(),
                 context.queryId(),
                 ULID.generateBinary(expireAt.toEpochMilli(), entropy(random)),
                 encryptionKey);
@@ -77,7 +77,7 @@ public record FileSystemSpooledSegmentHandle(@Override String encodingId, @Overr
     @Override
     public String identifier()
     {
-        return ULID.fromBinary(uuid) + OBJECT_NAME_SEPARATOR + queryId + "." + encodingId;
+        return ULID.fromBinary(uuid) + OBJECT_NAME_SEPARATOR + queryId + "." + encoding;
     }
 
     public static Optional<Instant> getExpirationFromLocation(Location location)
@@ -108,7 +108,7 @@ public record FileSystemSpooledSegmentHandle(@Override String encodingId, @Overr
     {
         return toStringHelper(this)
                 .add("queryId", queryId)
-                .add("encodingId", encodingId)
+                .add("encoding", encoding)
                 .add("expires", Instant.ofEpochMilli(ULID.getTimestampBinary(uuid)))
                 .add("identifier", identifier())
                 .add("encryptionKey", encryptionKey.map(_ -> "[redacted]").orElse("[none"))

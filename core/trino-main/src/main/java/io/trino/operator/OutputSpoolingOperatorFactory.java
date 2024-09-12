@@ -271,7 +271,7 @@ public class OutputSpoolingOperatorFactory
 
                 userMemoryContext.setBytes(bufferedOutput.size()); // Update memory to actual segment size
                 SpooledSegmentHandle segmentHandle = spoolingManager.create(new SpoolingContext(
-                        queryDataEncoder.encodingId(),
+                        queryDataEncoder.encoding(),
                         operatorContext.getDriverContext().getSession().getQueryId(),
                         rows,
                         bufferedOutput.size()));

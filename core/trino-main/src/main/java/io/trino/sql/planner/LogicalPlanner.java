@@ -909,7 +909,7 @@ public class LogicalPlanner
             columnNumber++;
         }
 
-        if (session.getQueryDataEncodingId().isPresent() && spoolingManagerRegistry.getSpoolingManager().isPresent()) {
+        if (session.getQueryDataEncoding().isPresent() && spoolingManagerRegistry.getSpoolingManager().isPresent()) {
             names.add(SPOOLING_METADATA_SYMBOL.name());
             outputs.add(SPOOLING_METADATA_SYMBOL);
         }

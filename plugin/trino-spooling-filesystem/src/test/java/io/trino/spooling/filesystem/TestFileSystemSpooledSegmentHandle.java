@@ -28,7 +28,7 @@ class TestFileSystemSpooledSegmentHandle
 {
     private static final SecureRandom random = new SecureRandom();
     private static final QueryId queryId = new QueryId("query_id");
-    private static final SpoolingContext context = new SpoolingContext("encodingId", queryId, 100, 1000);
+    private static final SpoolingContext context = new SpoolingContext("encoding", queryId, 100, 1000);
 
     private final Instant now = Instant.now()
             .truncatedTo(MILLIS); // ULID retains millisecond precision

@@ -53,7 +53,7 @@ public class JsonQueryDataDecoder
     }
 
     @Override
-    public String encodingId()
+    public String encoding()
     {
         return "json";
     }
@@ -68,7 +68,7 @@ public class JsonQueryDataDecoder
         }
 
         @Override
-        public String encodingId()
+        public String encoding()
         {
             return "json";
         }
@@ -84,9 +84,9 @@ public class JsonQueryDataDecoder
         }
 
         @Override
-        public String encodingId()
+        public String encoding()
         {
-            return super.encodingId() + "+zstd";
+            return super.encoding() + "+zstd";
         }
     }
 
@@ -100,9 +100,9 @@ public class JsonQueryDataDecoder
         }
 
         @Override
-        public String encodingId()
+        public String encoding()
         {
-            return super.encodingId() + "+lz4";
+            return super.encoding() + "+lz4";
         }
     }
 

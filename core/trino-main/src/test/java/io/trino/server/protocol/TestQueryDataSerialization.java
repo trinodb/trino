@@ -93,7 +93,7 @@ public class TestQueryDataSerialization
         EncodedQueryData queryData = new EncodedQueryData("json", ImmutableMap.of(), ImmutableList.of(Segment.inlined("[[10], [20]]".getBytes(UTF_8), dataAttributes(10, 2, 12))));
         testRoundTrip(COLUMNS_LIST, queryData, """
                 {
-                  "encodingId": "json",
+                  "encoding": "json",
                   "segments": [
                     {
                       "type": "inline",
@@ -114,7 +114,7 @@ public class TestQueryDataSerialization
         EncodedQueryData queryData = new EncodedQueryData("json", ImmutableMap.of("decryptionKey", "secret"), ImmutableList.of(Segment.inlined("[[10], [20]]".getBytes(UTF_8), dataAttributes(10, 2, 12))));
         testRoundTrip(COLUMNS_LIST, queryData, """
                 {
-                  "encodingId": "json",
+                  "encoding": "json",
                   "metadata": {
                     "decryptionKey": "secret"
                   },
@@ -145,7 +145,7 @@ public class TestQueryDataSerialization
                 .build();
         testSerializationRoundTrip(queryData, """
                 {
-                  "encodingId": "json",
+                  "encoding": "json",
                   "metadata": {
                     "schema": "serializedSchema"
                   },
@@ -187,10 +187,10 @@ public class TestQueryDataSerialization
     public void testEncodedQueryDataToString()
     {
         EncodedQueryData inlineQueryData = new EncodedQueryData("json", ImmutableMap.of("decryption_key", "secret"), ImmutableList.of(Segment.inlined("[[10], [20]]".getBytes(UTF_8), dataAttributes(10, 2, 12))));
-        assertThat(inlineQueryData.toString()).isEqualTo("EncodedQueryData{encodingId=json, segments=[InlineSegment{offset=10, rows=2, size=12}], metadata=[decryption_key]}");
+        assertThat(inlineQueryData.toString()).isEqualTo("EncodedQueryData{encoding=json, segments=[InlineSegment{offset=10, rows=2, size=12}], metadata=[decryption_key]}");
 
         EncodedQueryData spooledQueryData = new EncodedQueryData("json+zstd", ImmutableMap.of("decryption_key", "secret"), ImmutableList.of(Segment.spooled(URI.create("http://coordinator:8080/v1/segments/uuid"), dataAttributes(10, 2, 1256), headers())));
-        assertThat(spooledQueryData.toString()).isEqualTo("EncodedQueryData{encodingId=json+zstd, segments=[SpooledSegment{offset=10, rows=2, size=1256, headers=[x-amz-server-side-encryption]}], metadata=[decryption_key]}");
+        assertThat(spooledQueryData.toString()).isEqualTo("EncodedQueryData{encoding=json+zstd, segments=[SpooledSegment{offset=10, rows=2, size=1256, headers=[x-amz-server-side-encryption]}], metadata=[decryption_key]}");
     }
 
     private void testRoundTrip(List<Column> columns, QueryData queryData, String expectedDataRepresentation)

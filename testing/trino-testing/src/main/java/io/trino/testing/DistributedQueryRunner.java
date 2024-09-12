@@ -716,7 +716,7 @@ public class DistributedQueryRunner
         private List<EventListener> eventListeners = ImmutableList.of();
         private ImmutableList.Builder<AutoCloseable> extraCloseables = ImmutableList.builder();
         private TestingTrinoClientFactory testingTrinoClientFactory = TestingTrinoClient::new;
-        private Optional<String> encodingId = Optional.empty();
+        private Optional<String> encoding = Optional.empty();
 
         protected Builder(Session defaultSession)
         {
@@ -891,9 +891,9 @@ public class DistributedQueryRunner
             return self();
         }
 
-        public SELF withProtocolSpooling(String encodingId)
+        public SELF withProtocolSpooling(String encoding)
         {
-            this.encodingId = Optional.of(encodingId);
+            this.encoding = Optional.of(encoding);
             return self();
         }
 
@@ -906,8 +906,8 @@ public class DistributedQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            if (encodingId.isPresent()) {
-                setTestingTrinoClientFactory((server, session) -> createClient(server, session, encodingId.get()));
+            if (encoding.isPresent()) {
+                setTestingTrinoClientFactory((server, session) -> createClient(server, session, encoding.get()));
                 addExtraProperty("experimental.protocol.spooling.enabled", "true");
                 // create smaller number of segments
                 addExtraProperty("protocol.spooling.initial-segment-size", "16MB");
@@ -992,7 +992,7 @@ public class DistributedQueryRunner
         TestingTrinoClient create(TestingTrinoServer server, Session session);
     }
 
-    private static TestingTrinoClient createClient(TestingTrinoServer testingTrinoServer, Session session, String encodingId)
+    private static TestingTrinoClient createClient(TestingTrinoServer testingTrinoServer, Session session, String encoding)
     {
         return new TestingTrinoClient(testingTrinoServer, new TestingStatementClientFactory() {
             @Override
@@ -1000,7 +1000,7 @@ public class DistributedQueryRunner
             {
                 ClientSession clientSessionSpooled = ClientSession
                         .builder(clientSession)
-                        .encodingId(Optional.ofNullable(encodingId))
+                        .encoding(Optional.ofNullable(encoding))
                         .build();
                 return newStatementClient(httpClient, clientSessionSpooled, query, Optional.empty());
             }

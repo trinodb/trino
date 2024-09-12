@@ -504,7 +504,7 @@ public class PlanTester
                 defaultSession.getPreparedStatements(),
                 defaultSession.getProtocolHeaders(),
                 defaultSession.getExchangeEncryptionKey(),
-                defaultSession.getQueryDataEncodingId());
+                defaultSession.getQueryDataEncoding());
     }
 
     private static SessionPropertyManager createSessionPropertyManager(

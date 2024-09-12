@@ -150,7 +150,7 @@ class TestFileSystemSegmentPruner
 
     private Location writeNewDummySegment(TrinoFileSystemFactory fileSystemFactory, QueryId queryId, Instant ttl)
     {
-        SpoolingContext context = new SpoolingContext("encodingId", queryId, 100, 1000);
+        SpoolingContext context = new SpoolingContext("encoding", queryId, 100, 1000);
         FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(ThreadLocalRandom.current(), context, ttl);
         try (OutputStream segment = createFileSystem(fileSystemFactory).newOutputFile(LOCATION.appendPath(handle.storageObjectName())).create()) {
             segment.write("dummy".getBytes(UTF_8));

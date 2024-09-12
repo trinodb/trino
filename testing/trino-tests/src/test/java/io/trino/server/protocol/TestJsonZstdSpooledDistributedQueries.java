@@ -17,7 +17,7 @@ public class TestJsonZstdSpooledDistributedQueries
         extends AbstractSpooledQueryDataDistributedQueries
 {
     @Override
-    protected String encodingId()
+    protected String encoding()
     {
         return "json+zstd";
     }

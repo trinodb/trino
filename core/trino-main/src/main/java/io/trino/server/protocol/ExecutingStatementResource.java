@@ -197,7 +197,7 @@ public class ExecutingStatementResource
             throw new NotFoundException("Query not found");
         }
 
-        Optional<QueryDataEncoder.Factory> encoderFactory = session.getQueryDataEncodingId()
+        Optional<QueryDataEncoder.Factory> encoderFactory = session.getQueryDataEncoding()
                 .map(encoders::get);
 
         query = queries.computeIfAbsent(queryId, _ -> Query.create(

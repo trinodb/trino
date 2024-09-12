@@ -47,7 +47,7 @@ import static java.util.Objects.requireNonNull;
 public class JsonQueryDataEncoder
         implements QueryDataEncoder
 {
-    private static final String ENCODING_ID = "json";
+    private static final String ENCODING = "json";
     private final Session session;
     private final List<OutputColumn> columns;
     private final ObjectMapper mapper;
@@ -132,9 +132,9 @@ public class JsonQueryDataEncoder
     }
 
     @Override
-    public String encodingId()
+    public String encoding()
     {
-        return ENCODING_ID;
+        return ENCODING;
     }
 
     public static class Factory
@@ -157,9 +157,9 @@ public class JsonQueryDataEncoder
         }
 
         @Override
-        public String encodingId()
+        public String encoding()
         {
-            return ENCODING_ID;
+            return ENCODING;
         }
     }
 
@@ -179,9 +179,9 @@ public class JsonQueryDataEncoder
         }
 
         @Override
-        public String encodingId()
+        public String encoding()
         {
-            return super.encodingId() + "+zstd";
+            return super.encoding() + "+zstd";
         }
     }
 
@@ -201,9 +201,9 @@ public class JsonQueryDataEncoder
         }
 
         @Override
-        public String encodingId()
+        public String encoding()
         {
-            return super.encodingId() + "+lz4";
+            return super.encoding() + "+lz4";
         }
     }
 }

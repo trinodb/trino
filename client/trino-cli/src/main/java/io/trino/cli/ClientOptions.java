@@ -52,7 +52,7 @@ import static io.trino.client.uri.PropertyName.CATALOG;
 import static io.trino.client.uri.PropertyName.CLIENT_INFO;
 import static io.trino.client.uri.PropertyName.CLIENT_TAGS;
 import static io.trino.client.uri.PropertyName.DISABLE_COMPRESSION;
-import static io.trino.client.uri.PropertyName.ENCODING_ID;
+import static io.trino.client.uri.PropertyName.ENCODING;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
 import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
@@ -287,9 +287,9 @@ public class ClientOptions
     @Option(names = "--disable-compression", description = "Disable compression of query results")
     public boolean disableCompression;
 
-    @PropertyMapping(ENCODING_ID)
-    @Option(names = "--encoding-id", paramLabel = "<encoding-id>", description = "Experimental spooled protocol encoding [available: ${ENCODINGS}]")
-    public Optional<String> encodingId = Optional.empty();
+    @PropertyMapping(ENCODING)
+    @Option(names = "--encoding", paramLabel = "<encoding>", description = "Experimental spooled protocol encoding [available: ${ENCODINGS}]")
+    public Optional<String> encoding = Optional.empty();
 
     @Option(names = "--editing-mode", paramLabel = "<editing-mode>", defaultValue = "EMACS", description = "Editing mode [${COMPLETION-CANDIDATES}] " + DEFAULT_VALUE)
     public EditingMode editingMode;
@@ -342,7 +342,7 @@ public class ClientOptions
         return uri
                 .toClientSessionBuilder()
                 .source(uri.getSource().orElse(SOURCE_DEFAULT))
-                .encodingId(encodingId)
+                .encoding(encoding)
                 .build();
     }
 

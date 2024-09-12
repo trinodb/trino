@@ -973,7 +973,7 @@ public class LocalExecutionPlanner
         {
             Session session = context.taskContext.getSession();
             Optional<QueryDataEncoder.Factory> encoderFactory = session
-                    .getQueryDataEncodingId()
+                    .getQueryDataEncoding()
                     .map(encoders::get);
             PhysicalOperation operation = node.getSource().accept(this, context);
 

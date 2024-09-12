@@ -39,22 +39,22 @@ import static java.util.Objects.requireNonNull;
 public class EncodedQueryData
         implements QueryData
 {
-    private final String encodingId;
+    private final String encoding;
     private final DataAttributes metadata;
     private final List<Segment> segments;
 
     @JsonCreator
     public EncodedQueryData(
-            @JsonProperty("encodingId") String encodingId,
+            @JsonProperty("encoding") String encoding,
             @JsonProperty("metadata") Map<String, Object> metadata,
             @JsonProperty("segments") List<Segment> segments)
     {
-        this(encodingId, new DataAttributes(metadata), segments);
+        this(encoding, new DataAttributes(metadata), segments);
     }
 
-    public EncodedQueryData(String encodingId, DataAttributes metadata, List<Segment> segments)
+    public EncodedQueryData(String encoding, DataAttributes metadata, List<Segment> segments)
     {
-        this.encodingId = requireNonNull(encodingId, "encodingId is null");
+        this.encoding = requireNonNull(encoding, "encoding is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.segments = ImmutableList.copyOf(requireNonNull(segments, "segments is null"));
     }
@@ -65,10 +65,10 @@ public class EncodedQueryData
         return segments;
     }
 
-    @JsonProperty("encodingId")
-    public String getEncodingId()
+    @JsonProperty("encoding")
+    public String getEncoding()
     {
-        return encodingId;
+        return encoding;
     }
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
@@ -92,8 +92,8 @@ public class EncodedQueryData
 
     public QueryData toRawData(QueryDataDecoder decoder, SegmentLoader segmentLoader)
     {
-        if (!decoder.encodingId().equals(encodingId)) {
-            throw new IllegalArgumentException(format("Invalid decoder supplied, expected %s, got %s", encodingId, decoder.encodingId()));
+        if (!decoder.encoding().equals(encoding)) {
+            throw new IllegalArgumentException(format("Invalid decoder supplied, expected %s, got %s", encoding, decoder.encoding()));
         }
 
         return RawQueryData.of(unmodifiableIterable(concat(transform(segments, segment -> {
@@ -125,7 +125,7 @@ public class EncodedQueryData
     public String toString()
     {
         return toStringHelper(this)
-                .add("encodingId", encodingId)
+                .add("encoding", encoding)
                 .add("segments", segments)
                 .add("metadata", metadata.attributes.keySet())
                 .toString();
@@ -138,13 +138,13 @@ public class EncodedQueryData
 
     public static class Builder
     {
-        private final String encodingId;
+        private final String encoding;
         private final ImmutableList.Builder<Segment> segments = ImmutableList.builder();
         private DataAttributes metadata = DataAttributes.empty();
 
-        private Builder(String encodingId)
+        private Builder(String encoding)
         {
-            this.encodingId = requireNonNull(encodingId, "encodingId is null");
+            this.encoding = requireNonNull(encoding, "encoding is null");
         }
 
         public Builder withSegment(Segment segment)
@@ -161,7 +161,7 @@ public class EncodedQueryData
 
         public EncodedQueryData build()
         {
-            return new EncodedQueryData(encodingId, metadata, segments.build());
+            return new EncodedQueryData(encoding, metadata, segments.build());
         }
     }
 }

@@ -67,9 +67,9 @@ public class LocalSpoolingManager
     public SpooledSegmentHandle create(SpoolingContext context)
     {
         return new LocalSpooledSegmentHandle(
-                context.encodingId(),
+                context.encoding(),
                 context.queryId(),
-                rootPath.resolve(context.queryId().getId() + "-" + segmentId.incrementAndGet() + "-" + UUID.randomUUID() + "." + context.encodingId()));
+                rootPath.resolve(context.queryId().getId() + "-" + segmentId.incrementAndGet() + "-" + UUID.randomUUID() + "." + context.encoding()));
     }
 
     @Override
@@ -167,12 +167,12 @@ public class LocalSpoolingManager
         }
     }
 
-    public record LocalSpooledSegmentHandle(@Override String encodingId, @Override QueryId queryId, Path path)
+    public record LocalSpooledSegmentHandle(@Override String encoding, @Override QueryId queryId, Path path)
             implements SpooledSegmentHandle
     {
         public LocalSpooledSegmentHandle
         {
-            requireNonNull(encodingId, "encodingId is null");
+            requireNonNull(encoding, "encoding is null");
             requireNonNull(queryId, "queryId is null");
             requireNonNull(path, "path is null");
         }

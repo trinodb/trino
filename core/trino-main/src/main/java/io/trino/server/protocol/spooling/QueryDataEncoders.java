@@ -30,22 +30,22 @@ public class QueryDataEncoders
     {
         this.factories = requireNonNull(factories, "factories is null")
                 .stream()
-                .map(factory -> Map.entry(factory.encodingId(), factory))
+                .map(factory -> Map.entry(factory.encoding(), factory))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
-    public boolean exists(String encodingId)
+    public boolean exists(String encoding)
     {
-        return factories.containsKey(encodingId);
+        return factories.containsKey(encoding);
     }
 
-    public QueryDataEncoder.Factory get(String encodingId)
+    public QueryDataEncoder.Factory get(String encoding)
     {
-        if (!exists(encodingId)) {
-            throw new IllegalArgumentException("Unknown query data encoder: " + encodingId);
+        if (!exists(encoding)) {
+            throw new IllegalArgumentException("Unknown encoding: " + encoding);
         }
 
-        return factories.get(encodingId);
+        return factories.get(encoding);
     }
 
     public Set<String> getAvailableEncodings()

@@ -1392,8 +1392,8 @@ export class QueryDetail extends React.Component {
                                 <tr>
                                     <td className="info-title">Protocol Encoding</td>
                                     <td className="info-text">
-                                        {query.session.queryDataEncodingId
-                                            ? 'spooled ' + query.session.queryDataEncodingId
+                                        {query.session.queryDataEncoding
+                                            ? 'spooled ' + query.session.queryDataEncoding
                                             : 'non-spooled'}
                                     </td>
                                 </tr>

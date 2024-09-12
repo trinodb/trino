@@ -113,7 +113,7 @@ public class QuerySessionSupplier
                 .setTraceToken(context.getTraceToken())
                 .setResourceEstimates(context.getResourceEstimates())
                 .setProtocolHeaders(context.getProtocolHeaders())
-                .setQueryDataEncodingId(context.getQueryDataEncodingId());
+                .setQueryDataEncoding(context.getQueryDataEncoding());
 
         if (context.getCatalog().isPresent()) {
             sessionBuilder.setCatalog(context.getCatalog());
