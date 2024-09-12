@@ -3650,19 +3650,19 @@ public class TestSqlParser
     @Test
     public void testShowRoles()
     {
-        assertStatement("SHOW ROLES",
-                new ShowRoles(Optional.empty(), false));
-        assertStatement("SHOW ROLES FROM foo",
-                new ShowRoles(Optional.of(new Identifier("foo")), false));
-        assertStatement("SHOW ROLES IN foo",
-                new ShowRoles(Optional.of(new Identifier("foo")), false));
+        assertThat(statement("SHOW ROLES")).isEqualTo(
+                new ShowRoles(location(1, 1), Optional.empty(), false));
+        assertThat(statement("SHOW ROLES FROM foo")).isEqualTo(
+                new ShowRoles(location(1, 1), Optional.of(new Identifier(location(1, 17), "foo", false)), false));
+        assertThat(statement("SHOW ROLES IN foo")).isEqualTo(
+                new ShowRoles(location(1, 1), Optional.of(new Identifier(location(1, 15), "foo", false)), false));
 
-        assertStatement("SHOW CURRENT ROLES",
-                new ShowRoles(Optional.empty(), true));
-        assertStatement("SHOW CURRENT ROLES FROM foo",
-                new ShowRoles(Optional.of(new Identifier("foo")), true));
-        assertStatement("SHOW CURRENT ROLES IN foo",
-                new ShowRoles(Optional.of(new Identifier("foo")), true));
+        assertThat(statement("SHOW CURRENT ROLES")).isEqualTo(
+                new ShowRoles(location(1, 1), Optional.empty(), true));
+        assertThat(statement("SHOW CURRENT ROLES FROM foo")).isEqualTo(
+                new ShowRoles(location(1, 1), Optional.of(new Identifier(location(1, 25), "foo", false)), true));
+        assertThat(statement("SHOW CURRENT ROLES IN foo")).isEqualTo(
+                new ShowRoles(location(1, 1), Optional.of(new Identifier(location(1, 23), "foo", false)), true));
     }
 
     @Test
