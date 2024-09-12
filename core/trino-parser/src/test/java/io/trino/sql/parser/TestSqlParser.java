@@ -1392,10 +1392,30 @@ public class TestSqlParser
     @Test
     public void testShowSchemas()
     {
-        assertStatement("SHOW SCHEMAS", new ShowSchemas(Optional.empty(), Optional.empty(), Optional.empty()));
-        assertStatement("SHOW SCHEMAS FROM foo", new ShowSchemas(Optional.of(identifier("foo")), Optional.empty(), Optional.empty()));
-        assertStatement("SHOW SCHEMAS IN foo LIKE '%'", new ShowSchemas(Optional.of(identifier("foo")), Optional.of("%"), Optional.empty()));
-        assertStatement("SHOW SCHEMAS IN foo LIKE '%$_%' ESCAPE '$'", new ShowSchemas(Optional.of(identifier("foo")), Optional.of("%$_%"), Optional.of("$")));
+        assertThat(statement("SHOW SCHEMAS"))
+                .isEqualTo(new ShowSchemas(
+                        location(1, 1),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThat(statement("SHOW SCHEMAS FROM foo"))
+                .isEqualTo(new ShowSchemas(
+                        location(1, 1),
+                        Optional.of(new Identifier(location(1, 19), "foo", false)),
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThat(statement("SHOW SCHEMAS IN foo LIKE '%'"))
+                .isEqualTo(new ShowSchemas(
+                        location(1, 1),
+                        Optional.of(new Identifier(location(1, 17), "foo", false)),
+                        Optional.of("%"),
+                        Optional.empty()));
+        assertThat(statement("SHOW SCHEMAS IN foo LIKE '%$_%' ESCAPE '$'"))
+                .isEqualTo(new ShowSchemas(
+                        location(1, 1),
+                        Optional.of(new Identifier(location(1, 17), "foo", false)),
+                        Optional.of("%$_%"),
+                        Optional.of("$")));
     }
 
     @Test

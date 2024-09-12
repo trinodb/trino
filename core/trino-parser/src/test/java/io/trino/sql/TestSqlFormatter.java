@@ -75,16 +75,16 @@ public class TestSqlFormatter
     public void testShowSchemas()
     {
         assertThat(formatSql(
-                new ShowSchemas(Optional.empty(), Optional.empty(), Optional.empty())))
+                new ShowSchemas(new NodeLocation(1, 1), Optional.empty(), Optional.empty(), Optional.empty())))
                 .isEqualTo("SHOW SCHEMAS");
         assertThat(formatSql(
-                new ShowSchemas(Optional.empty(), Optional.of("%"), Optional.empty())))
+                new ShowSchemas(new NodeLocation(1, 1), Optional.empty(), Optional.of("%"), Optional.empty())))
                 .isEqualTo("SHOW SCHEMAS LIKE '%'");
         assertThat(formatSql(
-                new ShowSchemas(Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
+                new ShowSchemas(new NodeLocation(1, 1), Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'");
         assertThat(formatSql(
-                new ShowSchemas(Optional.empty(), Optional.of("%機動隊"), Optional.of("😂"))))
+                new ShowSchemas(new NodeLocation(1, 1), Optional.empty(), Optional.of("%機動隊"), Optional.of("😂"))))
                 .isEqualTo("SHOW SCHEMAS LIKE '%機動隊' ESCAPE '😂'");
     }
 
