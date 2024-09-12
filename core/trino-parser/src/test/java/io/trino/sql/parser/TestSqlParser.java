@@ -3867,6 +3867,7 @@ public class TestSqlParser
     public void testLateral()
     {
         Lateral lateralRelation = new Lateral(
+                location(1, 18),
                 query(new Values(ImmutableList.of(new LongLiteral("1")))));
 
         assertStatement("SELECT * FROM t, LATERAL (VALUES 1) a(x)",
