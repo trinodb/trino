@@ -3012,8 +3012,18 @@ public class TestSqlParser
     @Test
     public void testRenameTable()
     {
-        assertStatement("ALTER TABLE a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b"), false));
-        assertStatement("ALTER TABLE IF EXISTS a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b"), true));
+        assertThat(statement("ALTER TABLE a RENAME TO b"))
+                .isEqualTo(new RenameTable(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "b", false))),
+                        false));
+        assertThat(statement("ALTER TABLE IF EXISTS a RENAME TO b"))
+                .isEqualTo(new RenameTable(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 23), "a", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 35), "b", false))),
+                        true));
     }
 
     @Test
