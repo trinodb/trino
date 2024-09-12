@@ -29,19 +29,9 @@ public class ShowTables
     private final Optional<String> likePattern;
     private final Optional<String> escape;
 
-    public ShowTables(Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
-    {
-        this(Optional.empty(), schema, likePattern, escape);
-    }
-
     public ShowTables(NodeLocation location, Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
     {
-        this(Optional.of(location), schema, likePattern, escape);
-    }
-
-    private ShowTables(Optional<NodeLocation> location, Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
-    {
-        super(location);
+        super(Optional.of(location));
         requireNonNull(schema, "schema is null");
         requireNonNull(likePattern, "likePattern is null");
         requireNonNull(escape, "escape is null");

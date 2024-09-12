@@ -1421,10 +1421,30 @@ public class TestSqlParser
     @Test
     public void testShowTables()
     {
-        assertStatement("SHOW TABLES", new ShowTables(Optional.empty(), Optional.empty(), Optional.empty()));
-        assertStatement("SHOW TABLES FROM a", new ShowTables(Optional.of(QualifiedName.of("a")), Optional.empty(), Optional.empty()));
-        assertStatement("SHOW TABLES FROM \"awesome schema\"", new ShowTables(Optional.of(QualifiedName.of("awesome schema")), Optional.empty(), Optional.empty()));
-        assertStatement("SHOW TABLES IN a LIKE '%$_%' ESCAPE '$'", new ShowTables(Optional.of(QualifiedName.of("a")), Optional.of("%$_%"), Optional.of("$")));
+        assertThat(statement("SHOW TABLES"))
+                .isEqualTo(new ShowTables(
+                        location(1, 1),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThat(statement("SHOW TABLES FROM a"))
+                .isEqualTo(new ShowTables(
+                        location(1, 1),
+                        Optional.of(QualifiedName.of(ImmutableList.of(new Identifier(location(1, 18), "a", false)))),
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThat(statement("SHOW TABLES FROM \"awesome schema\""))
+                .isEqualTo(new ShowTables(
+                        location(1, 1),
+                        Optional.of(QualifiedName.of(ImmutableList.of(new Identifier(location(1, 18), "awesome schema", true)))),
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThat(statement("SHOW TABLES IN a LIKE '%$_%' ESCAPE '$'"))
+                .isEqualTo(new ShowTables(
+                        location(1, 1),
+                        Optional.of(QualifiedName.of(ImmutableList.of(new Identifier(location(1, 16), "a", false)))),
+                        Optional.of("%$_%"),
+                        Optional.of("$")));
     }
 
     @Test
