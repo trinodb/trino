@@ -1354,8 +1354,14 @@ public class TestSqlParser
     @Test
     public void testResetSession()
     {
-        assertStatement("RESET SESSION foo.bar", new ResetSession(QualifiedName.of("foo", "bar")));
-        assertStatement("RESET SESSION foo", new ResetSession(QualifiedName.of("foo")));
+        assertThat(statement("RESET SESSION foo.bar"))
+                .isEqualTo(new ResetSession(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 15), "foo", false), new Identifier(location(1, 19), "bar", false)))));
+        assertThat(statement("RESET SESSION foo"))
+                .isEqualTo(new ResetSession(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 15), "foo", false)))));
     }
 
     @Test
@@ -1366,8 +1372,10 @@ public class TestSqlParser
         assertStatementIsInvalid("SET SESSION foo-bar.name = 'value'")
                 .withMessage("line 1:16: mismatched input '-'. Expecting: '.', '='");
 
-        assertStatement("RESET SESSION \"foo-bar\".baz",
-                new ResetSession(QualifiedName.of("foo-bar", "baz")));
+        assertThat(statement("RESET SESSION \"foo-bar\".baz"))
+                .isEqualTo(new ResetSession(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 15), "foo-bar", true), new Identifier(location(1, 25), "baz", false)))));
         assertStatementIsInvalid("RESET SESSION foo-bar.name")
                 .withMessage("line 1:18: mismatched input '-'. Expecting: '.', <EOF>");
     }
