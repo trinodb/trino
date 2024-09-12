@@ -82,7 +82,7 @@ class TestFileSystemSegmentPruner
             Location _ = writeNewDummySegment(fileSystemFactory, queryId, now.minusSeconds(1));
             Location nonExpiredSegment = writeNewDummySegment(fileSystemFactory, queryId, now.plusSeconds(1));
 
-            pruner.pruneExpiredBefore(now.truncatedTo(MILLIS));
+            pruner.pruneExpiredBefore("00", now.truncatedTo(MILLIS));
 
             List<Location> files = listFiles(fileSystemFactory, queryId);
             assertThat(files)
@@ -105,7 +105,7 @@ class TestFileSystemSegmentPruner
             Location _ = writeNewDummySegment(fileSystemFactory, queryId, now.plusSeconds(1));
             Location _ = writeNewDummySegment(fileSystemFactory, queryId, now.plusSeconds(2));
 
-            pruner.pruneExpiredBefore(now.truncatedTo(MILLIS));
+            pruner.pruneExpiredBefore("00", now.truncatedTo(MILLIS));
 
             List<Location> files = listFiles(fileSystemFactory, queryId);
             assertThat(files)
@@ -127,7 +127,7 @@ class TestFileSystemSegmentPruner
             Location firstSegment = writeNewDummySegment(fileSystemFactory, queryId, now);
             Location secondSegment = writeNewDummySegment(fileSystemFactory, queryId, now);
 
-            pruner.pruneExpiredBefore(now.truncatedTo(MILLIS));
+            pruner.pruneExpiredBefore("00", now.truncatedTo(MILLIS));
 
             List<Location> files = listFiles(fileSystemFactory, queryId);
             assertThat(files)
@@ -151,7 +151,7 @@ class TestFileSystemSegmentPruner
     private Location writeNewDummySegment(TrinoFileSystemFactory fileSystemFactory, QueryId queryId, Instant ttl)
     {
         SpoolingContext context = new SpoolingContext("encodingId", queryId, 100, 1000);
-        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(ThreadLocalRandom.current(), context, ttl);
+        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(ThreadLocalRandom.current(), 1, context, ttl);
         try (OutputStream segment = createFileSystem(fileSystemFactory).newOutputFile(LOCATION.appendPath(handle.storageObjectName())).create()) {
             segment.write("dummy".getBytes(UTF_8));
             return LOCATION.appendPath(handle.storageObjectName());

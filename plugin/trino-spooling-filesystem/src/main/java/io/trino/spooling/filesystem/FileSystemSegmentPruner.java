@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.trino.spooling.filesystem.FileSystemSpooledSegmentHandle.getExpirationFromLocation;
+import static io.trino.spooling.filesystem.PartitionUtils.listPartitions;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -48,6 +49,7 @@ public class FileSystemSegmentPruner
     private final Duration interval;
     private final Location location;
     private final long batchSize;
+    private final int partitions;
     private boolean closed;
 
     private boolean filesAreOrdered = true;
@@ -61,6 +63,7 @@ public class FileSystemSegmentPruner
         this.enabled = config.isPruningEnabled();
         this.interval = config.getPruningInterval();
         this.batchSize = config.getPruningBatchSize();
+        this.partitions = config.getPartitions();
         this.location = Location.of(config.getLocation());
     }
 
@@ -71,7 +74,7 @@ public class FileSystemSegmentPruner
             return;
         }
 
-        log.info("Started expired segment pruning with interval %s and batch size %d", interval, batchSize);
+        log.info("Started expired segment pruning with interval %s and batch size %d for %d partitions", interval, batchSize, partitions);
         executor.scheduleAtFixedRate(this::prune, 0, interval.toMillis(), MILLISECONDS);
     }
 
@@ -86,17 +89,27 @@ public class FileSystemSegmentPruner
 
     private void prune()
     {
-        pruneExpiredBefore(Instant.now().truncatedTo(ChronoUnit.SECONDS));
+        Instant expiredBefore = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+
+        listPartitions(partitions).forEach(partition -> {
+            executor.execute(() -> pruneExpiredBefore(partition, expiredBefore));
+        });
     }
 
     @VisibleForTesting
-    void pruneExpiredBefore(Instant expiredBefore)
+    void pruneExpiredBefore(String prefix, Instant expiredBefore)
     {
         if (closed) {
             return;
         }
         try {
             List<Location> expiredSegments = new ArrayList<>();
+
+            Location partitionDirectory = location.appendPath(prefix);
+            if (!fileSystem.directoryExists(partitionDirectory).orElse(false)) {
+                return;
+            }
+
             FileIterator iterator = orderDetectingIterator(fileSystem.listFiles(location));
             while (iterator.hasNext()) {
                 FileEntry file = iterator.next();

@@ -108,7 +108,7 @@ public class TestFileSystemSpoolingManager
     @Test
     public void testHandleRoundTrip()
     {
-        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", QueryId.valueOf("a"), ULID.randomBinary(), Optional.of(generateRandomKey()));
+        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", QueryId.valueOf("a"), (short) 1, ULID.randomBinary(), Optional.of(generateRandomKey()));
         SpooledLocation location = getSpoolingManager().location(handle);
         FileSystemSpooledSegmentHandle handle2 = (FileSystemSpooledSegmentHandle) getSpoolingManager().handle(location);
 

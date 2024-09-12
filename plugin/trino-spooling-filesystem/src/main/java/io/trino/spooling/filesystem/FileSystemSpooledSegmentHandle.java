@@ -26,30 +26,34 @@ import java.util.Random;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
+import static io.trino.spooling.filesystem.PartitionUtils.partitionToString;
 import static java.util.Objects.requireNonNull;
 
-public record FileSystemSpooledSegmentHandle(@Override String encodingId, @Override QueryId queryId, byte[] uuid, Optional<Slice> encryptionKey)
+public record FileSystemSpooledSegmentHandle(@Override String encodingId, @Override QueryId queryId, short partitionId, byte[] uuid, Optional<Slice> encryptionKey)
         implements SpooledSegmentHandle
 {
     private static final String OBJECT_NAME_SEPARATOR = "::";
+    private static final String PATH_SEPARATOR = "/";
 
     public FileSystemSpooledSegmentHandle
     {
         requireNonNull(queryId, "queryId is null");
+        verify(partitionId >= 0, "partitionId is negative");
         requireNonNull(encryptionKey, "encryptionKey is null");
         verify(uuid.length == 16, "uuid must be 128 bits");
     }
 
-    public static FileSystemSpooledSegmentHandle random(Random random, SpoolingContext context, Instant expireAt)
+    public static FileSystemSpooledSegmentHandle random(Random random, int partitions, SpoolingContext context, Instant expireAt)
     {
-        return random(random, context, expireAt, Optional.empty());
+        return random(random, partitions, context, expireAt, Optional.empty());
     }
 
-    public static FileSystemSpooledSegmentHandle random(Random random, SpoolingContext context, Instant expireAt, Optional<Slice> encryptionKey)
+    public static FileSystemSpooledSegmentHandle random(Random random, int partitions, SpoolingContext context, Instant expireAt, Optional<Slice> encryptionKey)
     {
         return new FileSystemSpooledSegmentHandle(
                 context.encodingId(),
                 context.queryId(),
+                PartitionUtils.random(random, partitions),
                 ULID.generateBinary(expireAt.toEpochMilli(), entropy(random)),
                 encryptionKey);
     }
@@ -71,7 +75,7 @@ public record FileSystemSpooledSegmentHandle(@Override String encodingId, @Overr
      */
     public String storageObjectName()
     {
-        return ULID.fromBinary(uuid) + OBJECT_NAME_SEPARATOR + queryId;
+        return partitionToString(partitionId) + PATH_SEPARATOR + ULID.fromBinary(uuid) + OBJECT_NAME_SEPARATOR + queryId;
     }
 
     @Override

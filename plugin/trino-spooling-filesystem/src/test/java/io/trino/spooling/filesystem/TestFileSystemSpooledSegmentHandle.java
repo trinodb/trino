@@ -37,17 +37,17 @@ class TestFileSystemSpooledSegmentHandle
     public void testStorageObjectNameStability()
     {
         Instant expireAt = Instant.ofEpochMilli(90000);
-        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(new NotARandomAtAll(), context, expireAt);
+        FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(new NotARandomAtAll(), 1, context, expireAt);
         assertThat(handle.storageObjectName())
-                .isEqualTo("0000002QWG0G2081040G208104::query_id");
+                .isEqualTo("00/0000002QWG0G2081040G208104::query_id");
     }
 
     @Test
-    public void testLexicalOrdering()
+    public void testPartitionLocalLexicalOrdering()
     {
-        FileSystemSpooledSegmentHandle handle1 = FileSystemSpooledSegmentHandle.random(random, context, now.plusMillis(1));
-        FileSystemSpooledSegmentHandle handle2 = FileSystemSpooledSegmentHandle.random(random, context, now.plusMillis(3));
-        FileSystemSpooledSegmentHandle handle3 = FileSystemSpooledSegmentHandle.random(random, context, now.plusMillis(2));
+        FileSystemSpooledSegmentHandle handle1 = FileSystemSpooledSegmentHandle.random(random, 1, context, now.plusMillis(1));
+        FileSystemSpooledSegmentHandle handle2 = FileSystemSpooledSegmentHandle.random(random, 1, context, now.plusMillis(3));
+        FileSystemSpooledSegmentHandle handle3 = FileSystemSpooledSegmentHandle.random(random, 1, context, now.plusMillis(2));
 
         assertThat(handle2.storageObjectName())
                 .isGreaterThan(handle1.storageObjectName());

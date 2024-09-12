@@ -72,10 +72,6 @@ public class FileSystemSpoolingModule
 
         if (coordinator) {
             binder.bind(FileSystemSegmentPruner.class).asEagerSingleton();
-            binder.bind(ScheduledExecutorService.class)
-                    .annotatedWith(ForSegmentPruner.class)
-                    .toInstance(Executors.newScheduledThreadPool(1, threadsNamed("segment-pruner-%d")));
-
             closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForSegmentPruner.class));
         }
     }
@@ -91,5 +87,13 @@ public class FileSystemSpoolingModule
                 .orElseThrow(() -> new IllegalArgumentException("No factory for location: " + location));
 
         return new TracingFileSystemFactory(context.getTracer(), new SwitchingFileSystemFactory(loader));
+    }
+
+    @Provides
+    @Singleton
+    @ForSegmentPruner
+    public ScheduledExecutorService createScheduledExecutor(FileSystemSpoolingConfig config)
+    {
+        return Executors.newScheduledThreadPool(config.getPartitions() % 16, threadsNamed("segment-pruner-%d"));
     }
 }

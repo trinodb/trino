@@ -64,6 +64,7 @@ public class FileSystemSpoolingManager
     private static final String ENCRYPTION_CIPHER_NAME = "AES256";
 
     private final String location;
+    private final int partitions;
     private final TrinoFileSystem fileSystem;
     private final Duration ttl;
     private final boolean encryptionEnabled;
@@ -74,6 +75,7 @@ public class FileSystemSpoolingManager
     {
         requireNonNull(config, "config is null");
         this.location = config.getLocation();
+        this.partitions = config.getPartitions();
         this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null")
                 .create(ConnectorIdentity.ofUser("ignored"));
         this.ttl = config.getTtl();
@@ -97,9 +99,9 @@ public class FileSystemSpoolingManager
     {
         Instant expireAt = Instant.now().plusMillis(ttl.toMillis());
         if (encryptionEnabled) {
-            return FileSystemSpooledSegmentHandle.random(random, context, expireAt, Optional.of(generateRandomKey()));
+            return FileSystemSpooledSegmentHandle.random(random, partitions, context, expireAt, Optional.of(generateRandomKey()));
         }
-        return FileSystemSpooledSegmentHandle.random(random, context, expireAt);
+        return FileSystemSpooledSegmentHandle.random(random, partitions, context, expireAt);
     }
 
     @Override
@@ -151,6 +153,7 @@ public class FileSystemSpoolingManager
     {
         // Identifier layout:
         //
+        // partitionId: short
         // ulid: byte[16]
         // queryIdLength: byte
         // encodingLength: byte
@@ -159,6 +162,7 @@ public class FileSystemSpoolingManager
         // isEncrypted: boolean
         FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
         DynamicSliceOutput output = new DynamicSliceOutput(64);
+        output.writeShort(fileHandle.partitionId());
         output.writeBytes(fileHandle.uuid());
         output.writeShort(fileHandle.queryId().toString().length());
         output.writeShort(fileHandle.encodingId().length());
@@ -176,6 +180,7 @@ public class FileSystemSpoolingManager
         }
 
         BasicSliceInput input = coordinatorLocation.identifier().getInput();
+        short partitionId = input.readShort();
         byte[] uuid = new byte[16];
         input.readBytes(uuid);
         short queryLength = input.readShort();
@@ -185,11 +190,11 @@ public class FileSystemSpoolingManager
         String encodingId = input.readSlice(encodingLength).toStringUtf8();
 
         if (!input.readBoolean()) {
-            return new FileSystemSpooledSegmentHandle(encodingId, queryId, uuid, Optional.empty());
+            return new FileSystemSpooledSegmentHandle(encodingId, queryId, partitionId, uuid, Optional.empty());
         }
 
         Slice key = getEncryptionKey(location.headers());
-        return new FileSystemSpooledSegmentHandle(encodingId, queryId, uuid, Optional.of(key));
+        return new FileSystemSpooledSegmentHandle(encodingId, queryId, partitionId, uuid, Optional.of(key));
     }
 
     private static Slice getEncryptionKey(Map<String, List<String>> headers)

@@ -17,6 +17,8 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -32,6 +34,7 @@ public class FileSystemSpoolingConfig
     private boolean pruningEnabled = true;
     private Duration pruningInterval = new Duration(5, MINUTES);
     private long pruningBatchSize = 250;
+    private int partitions = 32;
 
     public boolean isAzureEnabled()
     {
@@ -143,6 +146,21 @@ public class FileSystemSpoolingConfig
     public FileSystemSpoolingConfig setPruningBatchSize(long pruningBatchSize)
     {
         this.pruningBatchSize = pruningBatchSize;
+        return this;
+    }
+
+    @Max(Short.MAX_VALUE)
+    @Min(8)
+    public int getPartitions()
+    {
+        return partitions;
+    }
+
+    @ConfigDescription("Number of storage partitions used")
+    @Config("fs.segment.partitions")
+    public FileSystemSpoolingConfig setPartitions(int partitions)
+    {
+        this.partitions = partitions;
         return this;
     }
 
