@@ -161,9 +161,9 @@ public class FileSystemSpoolingManager
         DynamicSliceOutput output = new DynamicSliceOutput(64);
         output.writeBytes(fileHandle.uuid());
         output.writeShort(fileHandle.queryId().toString().length());
-        output.writeShort(fileHandle.encodingId().length());
+        output.writeShort(fileHandle.encoding().length());
         output.writeBytes(fileHandle.queryId().toString().getBytes(UTF_8));
-        output.writeBytes(fileHandle.encodingId().getBytes(UTF_8));
+        output.writeBytes(fileHandle.encoding().getBytes(UTF_8));
         output.writeBoolean(fileHandle.encryptionKey().isPresent());
         return coordinatorLocation(output.slice(), headers(fileHandle));
     }
@@ -182,14 +182,14 @@ public class FileSystemSpoolingManager
         short encodingLength = input.readShort();
 
         QueryId queryId = QueryId.valueOf(input.readSlice(queryLength).toStringUtf8());
-        String encodingId = input.readSlice(encodingLength).toStringUtf8();
+        String encoding = input.readSlice(encodingLength).toStringUtf8();
 
         if (!input.readBoolean()) {
-            return new FileSystemSpooledSegmentHandle(encodingId, queryId, uuid, Optional.empty());
+            return new FileSystemSpooledSegmentHandle(encoding, queryId, uuid, Optional.empty());
         }
 
         Slice key = getEncryptionKey(location.headers());
-        return new FileSystemSpooledSegmentHandle(encodingId, queryId, uuid, Optional.of(key));
+        return new FileSystemSpooledSegmentHandle(encoding, queryId, uuid, Optional.of(key));
     }
 
     private static Slice getEncryptionKey(Map<String, List<String>> headers)

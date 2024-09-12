@@ -29,13 +29,13 @@ public interface QueryDataEncoder
     {
         QueryDataEncoder create(Session session, List<OutputColumn> columns);
 
-        String encodingId();
+        String encoding();
     }
 
     DataAttributes encodeTo(OutputStream output, List<Page> pages)
             throws IOException;
 
-    String encodingId();
+    String encoding();
 
     /**
      * Returns additional attributes that are passed to the QueryDataDecoder.Factory.create method.
@@ -55,7 +55,7 @@ public interface QueryDataEncoder
     @FunctionalInterface
     interface EncoderSelector
     {
-        Optional<Factory> select(List<String> encodingIds);
+        Optional<Factory> select(List<String> encoding);
 
         static EncoderSelector noEncoder()
         {

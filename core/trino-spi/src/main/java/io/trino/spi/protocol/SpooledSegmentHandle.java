@@ -26,7 +26,7 @@ public interface SpooledSegmentHandle
 
     String identifier();
 
-    String encodingId();
+    String encoding();
 
     Instant expirationTime();
 }

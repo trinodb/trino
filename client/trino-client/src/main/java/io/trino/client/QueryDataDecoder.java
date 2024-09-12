@@ -25,11 +25,11 @@ public interface QueryDataDecoder
     {
         QueryDataDecoder create(List<Column> columns, DataAttributes queryAttributes);
 
-        String encodingId();
+        String encoding();
     }
 
     Iterable<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)
             throws IOException;
 
-    String encodingId();
+    String encoding();
 }

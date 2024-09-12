@@ -35,20 +35,20 @@ public class QueryDataDecoders
 
     private QueryDataDecoders() {}
 
-    public static Factory get(String encodingId)
+    public static Factory get(String encoding)
     {
-        if (!encodingMap.containsKey(encodingId)) {
-            throw new IllegalArgumentException("Unknown encoding id: " + encodingId);
+        if (!encodingMap.containsKey(encoding)) {
+            throw new IllegalArgumentException("Unknown encoding: " + encoding);
         }
 
-        Factory factory = encodingMap.get(encodingId);
-        verify(factory.encodingId().equals(encodingId), "Factory has wrong encoding id, expected %s, got %s", encodingId, factory.encodingId());
+        Factory factory = encodingMap.get(encoding);
+        verify(factory.encoding().equals(encoding), "Factory has wrong encoding, expected %s, got %s", encoding, factory.encoding());
         return factory;
     }
 
-    public static boolean exists(String encodingId)
+    public static boolean exists(String encoding)
     {
-        return encodingMap.containsKey(encodingId);
+        return encodingMap.containsKey(encoding);
     }
 
     public static Set<String> getSupportedEncodings()
@@ -59,6 +59,6 @@ public class QueryDataDecoders
     private static Map<String, Factory> factoriesMap()
     {
         return decoders.stream()
-                .collect(toImmutableMap(Factory::encodingId, identity()));
+                .collect(toImmutableMap(Factory::encoding, identity()));
     }
 }

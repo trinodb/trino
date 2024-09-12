@@ -38,7 +38,7 @@ public class TracingSpoolingManager
 {
     public static final AttributeKey<String> SEGMENT_ID = stringKey("trino.spooled.segmentId");
     public static final AttributeKey<String> SEGMENT_QUERY_ID = stringKey("trino.spooled.queryId");
-    public static final AttributeKey<String> SEGMENT_ENCODING_ID = stringKey("trino.spooled.encoding");
+    public static final AttributeKey<String> SEGMENT_ENCODING = stringKey("trino.spooled.encoding");
 
     private final Tracer tracer;
     private final SpoolingManager delegate;
@@ -54,7 +54,7 @@ public class TracingSpoolingManager
     {
         Span span = tracer.spanBuilder("SpoolingManager.create")
                 .setAttribute(SEGMENT_QUERY_ID, context.queryId().toString())
-                .setAttribute(SEGMENT_ENCODING_ID, context.encodingId())
+                .setAttribute(SEGMENT_ENCODING, context.encoding())
                 .startSpan();
         return withTracing(span, () -> delegate.create(context));
     }
@@ -66,7 +66,7 @@ public class TracingSpoolingManager
         Span span = tracer.spanBuilder("SpoolingManager.createOutputStream")
                 .setAttribute(SEGMENT_QUERY_ID, handle.queryId().toString())
                 .setAttribute(SEGMENT_ID, handle.identifier())
-                .setAttribute(SEGMENT_ENCODING_ID, handle.encodingId())
+                .setAttribute(SEGMENT_ENCODING, handle.encoding())
                 .startSpan();
         return withTracing(span, () -> delegate.createOutputStream(handle));
     }
@@ -78,7 +78,7 @@ public class TracingSpoolingManager
         Span span = tracer.spanBuilder("SpoolingManager.openInputStream")
                 .setAttribute(SEGMENT_QUERY_ID, handle.queryId().toString())
                 .setAttribute(SEGMENT_ID, handle.identifier())
-                .setAttribute(SEGMENT_ENCODING_ID, handle.encodingId())
+                .setAttribute(SEGMENT_ENCODING, handle.encoding())
                 .startSpan();
         return withTracing(span, () -> delegate.openInputStream(handle));
     }
@@ -90,7 +90,7 @@ public class TracingSpoolingManager
         Span span = tracer.spanBuilder("SpoolingManager.acknowledge")
                 .setAttribute(SEGMENT_QUERY_ID, handle.queryId().toString())
                 .setAttribute(SEGMENT_ID, handle.identifier())
-                .setAttribute(SEGMENT_ENCODING_ID, handle.encodingId())
+                .setAttribute(SEGMENT_ENCODING, handle.encoding())
                 .startSpan();
         withTracing(span, () -> delegate.acknowledge(handle));
     }
@@ -102,7 +102,7 @@ public class TracingSpoolingManager
         Span span = tracer.spanBuilder("SpoolingManager.directLocation")
                 .setAttribute(SEGMENT_QUERY_ID, handle.queryId().toString())
                 .setAttribute(SEGMENT_ID, handle.identifier())
-                .setAttribute(SEGMENT_ENCODING_ID, handle.encodingId())
+                .setAttribute(SEGMENT_ENCODING, handle.encoding())
                 .startSpan();
         return withTracing(span, () -> delegate.directLocation(handle));
     }

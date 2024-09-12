@@ -36,19 +36,19 @@ public class PreferredQueryDataEncoderSelector
     }
 
     @Override
-    public Optional<QueryDataEncoder.Factory> select(List<String> encodingIds)
+    public Optional<QueryDataEncoder.Factory> select(List<String> encodings)
     {
         if (spoolingManagerRegistry.getSpoolingManager().isEmpty()) {
-            log.debug("Client requested one of the spooled encodings '%s' but spooling is disabled", encodingIds);
+            log.debug("Client requested one of the spooled encodings '%s' but spooling is disabled", encodings);
             return Optional.empty();
         }
 
-        for (String encodingId : encodingIds) {
-            if (encoders.exists(encodingId)) {
-                return Optional.of(encoders.get(encodingId));
+        for (String encoding : encodings) {
+            if (encoders.exists(encoding)) {
+                return Optional.of(encoders.get(encoding));
             }
         }
-        log.warn("Requested one of the spooled encodings: %s, but these are only available: %s", encodingIds, encoders.getAvailableEncodings());
+        log.warn("Requested one of the spooled encodings: %s, but these are only available: %s", encodings, encoders.getAvailableEncodings());
         return Optional.empty();
     }
 }

@@ -164,7 +164,7 @@ public class QueryMonitor
                         new QueryMetadata(
                                 queryInfo.getQueryId().toString(),
                                 queryInfo.getSession().getTransactionId().map(TransactionId::toString),
-                                queryInfo.getSession().getQueryDataEncodingId(),
+                                queryInfo.getSession().getQueryDataEncoding(),
                                 queryInfo.getQuery(),
                                 queryInfo.getUpdateType(),
                                 queryInfo.getPreparedQuery(),
@@ -183,7 +183,7 @@ public class QueryMonitor
                 new QueryMetadata(
                         queryInfo.getQueryId().toString(),
                         queryInfo.getSession().getTransactionId().map(TransactionId::toString),
-                        queryInfo.getSession().getQueryDataEncodingId(),
+                        queryInfo.getSession().getQueryDataEncoding(),
                         queryInfo.getQuery(),
                         queryInfo.getUpdateType(),
                         queryInfo.getPreparedQuery(),
@@ -289,7 +289,7 @@ public class QueryMonitor
         return new QueryMetadata(
                 queryInfo.getQueryId().toString(),
                 queryInfo.getSession().getTransactionId().map(TransactionId::toString),
-                queryInfo.getSession().getQueryDataEncodingId(),
+                queryInfo.getSession().getQueryDataEncoding(),
                 queryInfo.getQuery(),
                 Optional.ofNullable(queryInfo.getUpdateType()),
                 queryInfo.getPreparedQuery(),
@@ -625,7 +625,7 @@ public class QueryMonitor
             logQueryTimeline(
                     queryInfo.getQueryId(),
                     queryInfo.getState(),
-                    queryInfo.getSession().getQueryDataEncodingId(),
+                    queryInfo.getSession().getQueryDataEncoding(),
                     Optional.ofNullable(queryInfo.getErrorCode()),
                     elapsed,
                     planning,
@@ -656,7 +656,7 @@ public class QueryMonitor
         logQueryTimeline(
                 queryInfo.getQueryId(),
                 queryInfo.getState(),
-                queryInfo.getSession().getQueryDataEncodingId(),
+                queryInfo.getSession().getQueryDataEncoding(),
                 Optional.ofNullable(queryInfo.getErrorCode()),
                 elapsed,
                 elapsed,
@@ -671,7 +671,7 @@ public class QueryMonitor
     private static void logQueryTimeline(
             QueryId queryId,
             QueryState queryState,
-            Optional<String> encodingId,
+            Optional<String> encoding,
             Optional<ErrorCode> errorCode,
             long elapsedMillis,
             long planningMillis,
@@ -694,7 +694,7 @@ public class QueryMonitor
                 finishingMillis,
                 queryStartTime,
                 queryEndTime,
-                encodingId.map(id -> " :: " + id).orElse(""));
+                encoding.map(id -> " :: " + id).orElse(""));
     }
 
     private static List<StageCpuDistribution> getCpuDistributions(QueryInfo queryInfo)

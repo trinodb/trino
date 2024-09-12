@@ -217,9 +217,7 @@ export class QueryListItem extends React.Component {
                                     <span className="glyphicon glyphicon-cloud-download" style={GLYPHICON_DEFAULT} />
                                     &nbsp;&nbsp;
                                     <span>
-                                        {query.queryDataEncodingId
-                                            ? 'spooled ' + query.queryDataEncodingId
-                                            : 'non-spooled'}
+                                        {query.queryDataEncoding ? 'spooled ' + query.queryDataEncoding : 'non-spooled'}
                                     </span>
                                 </span>
                             </div>

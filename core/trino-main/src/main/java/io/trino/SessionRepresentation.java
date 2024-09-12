@@ -71,7 +71,7 @@ public final class SessionRepresentation
     private final Map<String, SelectedRole> catalogRoles;
     private final Map<String, String> preparedStatements;
     private final String protocolName;
-    private final Optional<String> queryDataEncodingId;
+    private final Optional<String> queryDataEncoding;
 
     @JsonCreator
     public SessionRepresentation(
@@ -104,7 +104,7 @@ public final class SessionRepresentation
             @JsonProperty("catalogRoles") Map<String, SelectedRole> catalogRoles,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements,
             @JsonProperty("protocolName") String protocolName,
-            @JsonProperty("queryDataEncodingId") Optional<String> queryDataEncodingId)
+            @JsonProperty("queryDataEncoding") Optional<String> queryDataEncoding)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.querySpan = requireNonNull(querySpan, "querySpan is null");
@@ -134,7 +134,7 @@ public final class SessionRepresentation
         this.catalogRoles = ImmutableMap.copyOf(catalogRoles);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
         this.protocolName = requireNonNull(protocolName, "protocolName is null");
-        this.queryDataEncodingId = requireNonNull(queryDataEncodingId, "queryDataEncodingId is null");
+        this.queryDataEncoding = requireNonNull(queryDataEncoding, "queryDataEncoding is null");
 
         ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         for (Entry<String, Map<String, String>> entry : catalogProperties.entrySet()) {
@@ -324,9 +324,9 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
-    public Optional<String> getQueryDataEncodingId()
+    public Optional<String> getQueryDataEncoding()
     {
-        return queryDataEncodingId;
+        return queryDataEncoding;
     }
 
     public Identity toIdentity()
@@ -388,6 +388,6 @@ public final class SessionRepresentation
                 preparedStatements,
                 createProtocolHeaders(protocolName),
                 exchangeEncryptionKey,
-                queryDataEncodingId);
+                queryDataEncoding);
     }
 }

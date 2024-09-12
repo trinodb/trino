@@ -677,6 +677,12 @@
                                     <new>method void io.trino.spi.protocol.SpoolingContext::&lt;init&gt;(java.lang.String, io.trino.spi.QueryId, long, long)</new>
                                     <justification>Spooling tracing</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method java.lang.String io.trino.spi.protocol.SpooledSegmentHandle::encoding()</new>
+                                    <justification>Spooling encodingId renamed to encoding across the whole codebase</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

@@ -136,7 +136,7 @@ class StatementClientV1
         this.compressionDisabled = session.isCompressionDisabled();
         this.segmentLoader = new SegmentLoader(requireNonNull(segmentHttpCallFactory, "segmentHttpCallFactory is null"));
 
-        Request request = buildQueryRequest(session, query, session.getEncodingId());
+        Request request = buildQueryRequest(session, query, session.getEncoding());
         // Pass empty as materializedJsonSizeLimit to always materialize the first response
         // to avoid losing the response body if the initial response parsing fails
         executeRequest(request, "starting query", OptionalLong.empty(), this::isTransient);
@@ -514,14 +514,14 @@ class StatementClientV1
             EncodedQueryData encodedData = (EncodedQueryData) results.getData();
             DataAttributes queryAttributed = encodedData.getMetadata();
             if (decoder.get() == null) {
-                verify(QueryDataDecoders.exists(encodedData.getEncodingId()), "Received encoded data format but there is no decoder matching %s", encodedData.getEncodingId());
+                verify(QueryDataDecoders.exists(encodedData.getEncoding()), "Received encoded data format but there is no decoder matching %s", encodedData.getEncoding());
                 QueryDataDecoder queryDataDecoder = QueryDataDecoders
-                        .get(encodedData.getEncodingId())
+                        .get(encodedData.getEncoding())
                         .create(results.getColumns(), queryAttributed);
                 decoder.set(queryDataDecoder);
             }
 
-            verify(decoder.get().encodingId().equals(encodedData.getEncodingId()), "Decoder has wrong encoding id, expected %s, got %s", encodedData.getEncodingId(), decoder.get().encodingId());
+            verify(decoder.get().encoding().equals(encodedData.getEncoding()), "Decoder has wrong encoding id, expected %s, got %s", encodedData.getEncoding(), decoder.get().encoding());
         }
 
         currentResults.set(results);

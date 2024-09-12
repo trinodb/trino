@@ -69,7 +69,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, HostAndPort> HTTP_PROXY = new HttpProxy();
     public static final ConnectionProperty<String, String> APPLICATION_NAME_PREFIX = new ApplicationNamePrefix();
     public static final ConnectionProperty<String, Boolean> DISABLE_COMPRESSION = new DisableCompression();
-    public static final ConnectionProperty<String, String> ENCODING_ID = new EncodingId();
+    public static final ConnectionProperty<String, String> ENCODING = new Encoding();
     public static final ConnectionProperty<String, Boolean> ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS = new AssumeLiteralNamesInMetadataCallsForNonConformingClients();
     public static final ConnectionProperty<String, Boolean> ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS = new AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients();
     public static final ConnectionProperty<String, Boolean> SSL = new Ssl();
@@ -129,7 +129,7 @@ final class ConnectionProperties
             .add(DISABLE_COMPRESSION)
             .add(DNS_RESOLVER)
             .add(DNS_RESOLVER_CONTEXT)
-            .add(ENCODING_ID)
+            .add(ENCODING)
             .add(EXPLICIT_PREPARE)
             .add(EXTERNAL_AUTHENTICATION)
             .add(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
@@ -380,22 +380,22 @@ final class ConnectionProperties
         }
     }
 
-    private static class EncodingId
+    private static class Encoding
             extends AbstractConnectionProperty<String, String>
     {
-        public EncodingId()
+        public Encoding()
         {
-            super(PropertyName.ENCODING_ID, NOT_REQUIRED, EncodingId::areEncodingsValid, STRING_CONVERTER);
+            super(PropertyName.ENCODING, NOT_REQUIRED, Encoding::areEncodingsValid, STRING_CONVERTER);
         }
 
         public static Optional<String> areEncodingsValid(Properties properties)
         {
             List<String> supportedEncodings = Splitter.on(",").trimResults().omitEmptyStrings()
-                    .splitToList(ENCODING_ID.getRequiredValue(properties));
+                    .splitToList(ENCODING.getRequiredValue(properties));
 
-            for (String encodingId : supportedEncodings) {
-                if (!QueryDataDecoders.exists(encodingId)) {
-                    return Optional.of("Unknown encoding id: " + encodingId);
+            for (String encoding : supportedEncodings) {
+                if (!QueryDataDecoders.exists(encoding)) {
+                    return Optional.of("Unknown encoding: " + encoding);
                 }
             }
             return Optional.empty();

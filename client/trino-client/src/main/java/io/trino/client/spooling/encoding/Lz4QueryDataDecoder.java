@@ -47,8 +47,8 @@ public class Lz4QueryDataDecoder
     }
 
     @Override
-    public String encodingId()
+    public String encoding()
     {
-        return delegate.encodingId() + "+lz4";
+        return delegate.encoding() + "+lz4";
     }
 }

@@ -33,8 +33,8 @@ public class ZstdQueryDataDecoder
     }
 
     @Override
-    public String encodingId()
+    public String encoding()
     {
-        return delegate.encodingId() + "+zstd";
+        return delegate.encoding() + "+zstd";
     }
 }

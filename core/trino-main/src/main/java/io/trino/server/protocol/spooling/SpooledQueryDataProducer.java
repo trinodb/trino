@@ -64,7 +64,7 @@ public class SpooledQueryDataProducer
 
         UriBuilder uriBuilder = spooledSegmentUriBuilder(uriInfo);
         QueryDataEncoder encoder = encoderFactory.create(session, rows.getOutputColumns().orElseThrow());
-        EncodedQueryData.Builder builder = EncodedQueryData.builder(encoder.encodingId());
+        EncodedQueryData.Builder builder = EncodedQueryData.builder(encoder.encoding());
         List<OutputColumn> outputColumns = rows.getOutputColumns().orElseThrow();
 
         if (metadataWritten.compareAndSet(false, true)) {

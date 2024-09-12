@@ -52,7 +52,7 @@ import static io.trino.client.uri.ConnectionProperties.CLIENT_TAGS;
 import static io.trino.client.uri.ConnectionProperties.DISABLE_COMPRESSION;
 import static io.trino.client.uri.ConnectionProperties.DNS_RESOLVER;
 import static io.trino.client.uri.ConnectionProperties.DNS_RESOLVER_CONTEXT;
-import static io.trino.client.uri.ConnectionProperties.ENCODING_ID;
+import static io.trino.client.uri.ConnectionProperties.ENCODING;
 import static io.trino.client.uri.ConnectionProperties.EXPLICIT_PREPARE;
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION;
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
@@ -421,9 +421,9 @@ public class TrinoUri
         return resolveWithDefault(DISABLE_COMPRESSION, false);
     }
 
-    public Optional<String> getEncodingId()
+    public Optional<String> getEncoding()
     {
-        return resolveOptional(ENCODING_ID);
+        return resolveOptional(ENCODING);
     }
 
     public boolean isAssumeLiteralNamesInMetadataCallsForNonConformingClients()
@@ -508,7 +508,7 @@ public class TrinoUri
                 .transactionId(null)
                 .resourceEstimates(getResourceEstimates())
                 .compressionDisabled(isCompressionDisabled())
-                .encodingId(getEncodingId());
+                .encoding(getEncoding());
     }
 
     protected static Set<ConnectionProperty<?, ?>> allProperties()
@@ -802,9 +802,9 @@ public class TrinoUri
             return setProperty(DISABLE_COMPRESSION, requireNonNull(disableCompression, "disableCompression is null"));
         }
 
-        public Builder setEncodingId(String encodingId)
+        public Builder setEncoding(String encoding)
         {
-            return setProperty(ENCODING_ID, requireNonNull(encodingId, "encodingId is null"));
+            return setProperty(ENCODING, requireNonNull(encoding, "encoding is null"));
         }
 
         public Builder setAssumeLiteralNamesInMetadataCallsForNonConformingClients(boolean value)

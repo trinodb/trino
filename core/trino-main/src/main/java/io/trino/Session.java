@@ -91,7 +91,7 @@ public final class Session
     private final Map<String, String> preparedStatements;
     private final ProtocolHeaders protocolHeaders;
     private final Optional<Slice> exchangeEncryptionKey;
-    private final Optional<String> queryDataEncodingId;
+    private final Optional<String> queryDataEncoding;
 
     public Session(
             QueryId queryId,
@@ -120,7 +120,7 @@ public final class Session
             Map<String, String> preparedStatements,
             ProtocolHeaders protocolHeaders,
             Optional<Slice> exchangeEncryptionKey,
-            Optional<String> queryDataEncodingId)
+            Optional<String> queryDataEncoding)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.querySpan = requireNonNull(querySpan, "querySpan is null");
@@ -147,7 +147,7 @@ public final class Session
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
         this.protocolHeaders = requireNonNull(protocolHeaders, "protocolHeaders is null");
         this.exchangeEncryptionKey = requireNonNull(exchangeEncryptionKey, "exchangeEncryptionKey is null");
-        this.queryDataEncodingId = requireNonNull(queryDataEncodingId, "queryDataEncodingId is null");
+        this.queryDataEncoding = requireNonNull(queryDataEncoding, "queryDataEncoding is null");
 
         requireNonNull(catalogProperties, "catalogProperties is null");
         ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
@@ -317,9 +317,9 @@ public final class Session
         return exchangeEncryptionKey;
     }
 
-    public Optional<String> getQueryDataEncodingId()
+    public Optional<String> getQueryDataEncoding()
     {
-        return queryDataEncodingId;
+        return queryDataEncoding;
     }
 
     public SessionPropertyManager getSessionPropertyManager()
@@ -393,7 +393,7 @@ public final class Session
                 preparedStatements,
                 protocolHeaders,
                 exchangeEncryptionKey,
-                queryDataEncodingId);
+                queryDataEncoding);
     }
 
     public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
@@ -443,7 +443,7 @@ public final class Session
                 preparedStatements,
                 protocolHeaders,
                 exchangeEncryptionKey,
-                queryDataEncodingId);
+                queryDataEncoding);
     }
 
     public Session withExchangeEncryption(Slice encryptionKey)
@@ -476,7 +476,7 @@ public final class Session
                 preparedStatements,
                 protocolHeaders,
                 Optional.of(encryptionKey),
-                queryDataEncodingId);
+                queryDataEncoding);
     }
 
     public ConnectorSession toConnectorSession()
@@ -530,7 +530,7 @@ public final class Session
                 identity.getCatalogRoles(),
                 preparedStatements,
                 protocolHeaders.getProtocolName(),
-                queryDataEncodingId);
+                queryDataEncoding);
     }
 
     @Override
@@ -660,7 +660,7 @@ public final class Session
         private String clientInfo;
         private Set<String> clientTags = ImmutableSet.of();
         private Set<String> clientCapabilities = ImmutableSet.of();
-        private Optional<String> queryDataEncodingId = Optional.empty();
+        private Optional<String> queryDataEncoding = Optional.empty();
         private ResourceEstimates resourceEstimates;
         private Instant start = Instant.now();
         private final Map<String, String> systemProperties = new HashMap<>();
@@ -695,7 +695,7 @@ public final class Session
             this.userAgent = session.userAgent.orElse(null);
             this.clientInfo = session.clientInfo.orElse(null);
             this.clientCapabilities = ImmutableSet.copyOf(session.clientCapabilities);
-            this.queryDataEncodingId = session.queryDataEncodingId;
+            this.queryDataEncoding = session.queryDataEncoding;
             this.clientTags = ImmutableSet.copyOf(session.clientTags);
             this.start = session.start;
             this.systemProperties.putAll(session.systemProperties);
@@ -944,9 +944,9 @@ public final class Session
             return this;
         }
 
-        public SessionBuilder setQueryDataEncodingId(Optional<String> value)
+        public SessionBuilder setQueryDataEncoding(Optional<String> value)
         {
-            this.queryDataEncodingId = value;
+            this.queryDataEncoding = value;
             return this;
         }
 
@@ -979,7 +979,7 @@ public final class Session
                     preparedStatements,
                     protocolHeaders,
                     Optional.empty(),
-                    queryDataEncodingId);
+                    queryDataEncoding);
         }
     }
 
