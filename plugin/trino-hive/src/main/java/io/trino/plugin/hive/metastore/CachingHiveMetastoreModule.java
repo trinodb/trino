@@ -18,6 +18,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.cache.ImpersonationCachingConfig;
@@ -57,6 +58,7 @@ public class CachingHiveMetastoreModule
 
         if (installFlushMetadataCacheProcedure) {
             newOptionalBinder(binder, GlueCache.class);
+            newOptionalBinder(binder, DirectoryLister.class);
             newSetBinder(binder, Procedure.class).addBinding().toProvider(FlushMetadataCacheProcedure.class).in(Scopes.SINGLETON);
         }
     }
