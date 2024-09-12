@@ -1384,9 +1384,9 @@ public class TestSqlParser
     @Test
     public void testShowCatalogs()
     {
-        assertStatement("SHOW CATALOGS", new ShowCatalogs(Optional.empty(), Optional.empty()));
-        assertStatement("SHOW CATALOGS LIKE '%'", new ShowCatalogs(Optional.of("%"), Optional.empty()));
-        assertStatement("SHOW CATALOGS LIKE '%$_%' ESCAPE '$'", new ShowCatalogs(Optional.of("%$_%"), Optional.of("$")));
+        assertThat(statement("SHOW CATALOGS")).isEqualTo(new ShowCatalogs(location(1, 1), Optional.empty(), Optional.empty()));
+        assertThat(statement("SHOW CATALOGS LIKE '%'")).isEqualTo(new ShowCatalogs(location(1, 1), Optional.of("%"), Optional.empty()));
+        assertThat(statement("SHOW CATALOGS LIKE '%$_%' ESCAPE '$'")).isEqualTo(new ShowCatalogs(location(1, 1), Optional.of("%$_%"), Optional.of("$")));
     }
 
     @Test
