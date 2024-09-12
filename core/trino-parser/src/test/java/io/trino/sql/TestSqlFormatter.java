@@ -109,16 +109,16 @@ public class TestSqlFormatter
     public void testShowColumns()
     {
         assertThat(formatSql(
-                new ShowColumns(QualifiedName.of("a"), Optional.empty(), Optional.empty())))
+                new ShowColumns(new NodeLocation(1, 1), QualifiedName.of("a"), Optional.empty(), Optional.empty())))
                 .isEqualTo("SHOW COLUMNS FROM a");
         assertThat(formatSql(
-                new ShowColumns(QualifiedName.of("a"), Optional.of("%"), Optional.empty())))
+                new ShowColumns(new NodeLocation(1, 1), QualifiedName.of("a"), Optional.of("%"), Optional.empty())))
                 .isEqualTo("SHOW COLUMNS FROM a LIKE '%'");
         assertThat(formatSql(
-                new ShowColumns(QualifiedName.of("a"), Optional.of("%$_%"), Optional.of("$"))))
+                new ShowColumns(new NodeLocation(1, 1), QualifiedName.of("a"), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW COLUMNS FROM a LIKE '%$_%' ESCAPE '$'");
         assertThat(formatSql(
-                new ShowColumns(QualifiedName.of("a"), Optional.of("%機動隊"), Optional.of("😂"))))
+                new ShowColumns(new NodeLocation(1, 1), QualifiedName.of("a"), Optional.of("%機動隊"), Optional.of("😂"))))
                 .isEqualTo("SHOW COLUMNS FROM a LIKE '%機動隊' ESCAPE '😂'");
     }
 

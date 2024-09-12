@@ -1410,11 +1410,36 @@ public class TestSqlParser
     @Test
     public void testShowColumns()
     {
-        assertStatement("SHOW COLUMNS FROM a", new ShowColumns(QualifiedName.of("a"), Optional.empty(), Optional.empty()));
-        assertStatement("SHOW COLUMNS FROM a.b", new ShowColumns(QualifiedName.of("a", "b"), Optional.empty(), Optional.empty()));
-        assertStatement("SHOW COLUMNS FROM \"awesome table\"", new ShowColumns(QualifiedName.of("awesome table"), Optional.empty(), Optional.empty()));
-        assertStatement("SHOW COLUMNS FROM \"awesome schema\".\"awesome table\"", new ShowColumns(QualifiedName.of("awesome schema", "awesome table"), Optional.empty(), Optional.empty()));
-        assertStatement("SHOW COLUMNS FROM a.b LIKE '%$_%' ESCAPE '$'", new ShowColumns(QualifiedName.of("a", "b"), Optional.of("%$_%"), Optional.of("$")));
+        assertThat(statement("SHOW COLUMNS FROM a"))
+                .isEqualTo(new ShowColumns(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "a", false))),
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThat(statement("SHOW COLUMNS FROM a.b"))
+                .isEqualTo(new ShowColumns(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "a", false), new Identifier(location(1, 21), "b", false))),
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThat(statement("SHOW COLUMNS FROM \"awesome table\""))
+                .isEqualTo(new ShowColumns(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "awesome table", true))),
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThat(statement("SHOW COLUMNS FROM \"awesome schema\".\"awesome table\""))
+                .isEqualTo(new ShowColumns(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "awesome schema", true), new Identifier(location(1, 36), "awesome table", true))),
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThat(statement("SHOW COLUMNS FROM a.b LIKE '%$_%' ESCAPE '$'"))
+                .isEqualTo(new ShowColumns(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "a", false), new Identifier(location(1, 21), "b", false))),
+                        Optional.of("%$_%"),
+                        Optional.of("$")));
 
         assertStatementIsInvalid("SHOW COLUMNS FROM a.b LIKE null")
                 .withMessage("line 1:28: mismatched input 'null'. Expecting: <string>");
