@@ -3574,48 +3574,55 @@ public class TestSqlParser
     @Test
     public void testRevoke()
     {
-        assertStatement("REVOKE INSERT, DELETE ON t FROM u",
+        assertThat(statement("REVOKE INSERT, DELETE ON t FROM u")).isEqualTo(
                 new Revoke(
+                        location(1, 1),
                         false,
                         Optional.of(ImmutableList.of("INSERT", "DELETE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u"))));
-        assertStatement("REVOKE UPDATE ON t FROM u",
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 26), "t", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 33), "u", false))));
+        assertThat(statement("REVOKE UPDATE ON t FROM u")).isEqualTo(
                 new Revoke(
+                        location(1, 1),
                         false,
                         Optional.of(ImmutableList.of("UPDATE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u"))));
-        assertStatement("REVOKE EXECUTE ON t FROM u",
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 18), "t", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 25), "u", false))));
+        assertThat(statement("REVOKE EXECUTE ON t FROM u")).isEqualTo(
                 new Revoke(
+                        location(1, 1),
                         false,
                         Optional.of(ImmutableList.of("EXECUTE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u"))));
-        assertStatement("REVOKE GRANT OPTION FOR SELECT ON t FROM ROLE PUBLIC",
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "t", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 26), "u", false))));
+        assertThat(statement("REVOKE GRANT OPTION FOR SELECT ON t FROM ROLE PUBLIC")).isEqualTo(
                 new Revoke(
+                        location(1, 1),
                         true,
                         Optional.of(ImmutableList.of("SELECT")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("PUBLIC"))));
-        assertStatement("REVOKE ALL PRIVILEGES ON TABLE t FROM USER u",
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 35), "t", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 47), "PUBLIC", false))));
+        assertThat(statement("REVOKE ALL PRIVILEGES ON TABLE t FROM USER u")).isEqualTo(
                 new Revoke(
+                        location(1, 1),
                         false,
                         Optional.empty(),
-                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of("t")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u"))));
-        assertStatement("REVOKE DELETE ON TABLE \"t\" FROM \"u\"",
+                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 32), "t", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 44), "u", false))));
+        assertThat(statement("REVOKE DELETE ON TABLE \"t\" FROM \"u\"")).isEqualTo(
                 new Revoke(
+                        location(1, 1),
                         false,
                         Optional.of(ImmutableList.of("DELETE")),
-                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of("t")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u"))));
-        assertStatement("REVOKE SELECT ON SCHEMA s FROM USER u",
+                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "t", true)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 33), "u", true))));
+        assertThat(statement("REVOKE SELECT ON SCHEMA s FROM USER u")).isEqualTo(
                 new Revoke(
+                        location(1, 1),
                         false,
                         Optional.of(ImmutableList.of("SELECT")),
-                        new GrantObject(location(1, 1), Optional.of("SCHEMA"), QualifiedName.of("s")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u"))));
+                        new GrantObject(location(1, 1), Optional.of("SCHEMA"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "s", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 37), "u", false))));
     }
 
     @Test
