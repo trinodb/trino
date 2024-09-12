@@ -241,7 +241,6 @@ import static io.trino.sql.QueryUtil.identifier;
 import static io.trino.sql.QueryUtil.nameReference;
 import static io.trino.sql.QueryUtil.ordering;
 import static io.trino.sql.QueryUtil.query;
-import static io.trino.sql.QueryUtil.quotedIdentifier;
 import static io.trino.sql.QueryUtil.row;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
@@ -1918,13 +1917,22 @@ public class TestSqlParser
     public void testRenameSchema()
     {
         assertStatement("ALTER SCHEMA foo RENAME TO bar",
-                new RenameSchema(QualifiedName.of("foo"), identifier("bar")));
+                new RenameSchema(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 14), "foo", false))),
+                        new Identifier(location(1, 28), "bar", false)));
 
         assertStatement("ALTER SCHEMA foo.bar RENAME TO baz",
-                new RenameSchema(QualifiedName.of("foo", "bar"), identifier("baz")));
+                new RenameSchema(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 14), "foo", false), new Identifier(location(1, 18), "bar", false))),
+                        identifier("baz")));
 
         assertStatement("ALTER SCHEMA \"awesome schema\".\"awesome table\" RENAME TO \"even more awesome table\"",
-                new RenameSchema(QualifiedName.of("awesome schema", "awesome table"), quotedIdentifier("even more awesome table")));
+                new RenameSchema(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 14), "awesome schema", true), new Identifier(location(1, 33), "awesome table", true))),
+                        new Identifier(location(1, 1), "even more awesome table", true)));
     }
 
     @Test
