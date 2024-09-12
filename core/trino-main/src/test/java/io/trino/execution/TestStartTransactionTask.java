@@ -29,6 +29,7 @@ import io.trino.security.AccessControlManager;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.sql.tree.Isolation;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.StartTransaction;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.transaction.InMemoryTransactionManager;
@@ -93,7 +94,7 @@ public class TestStartTransactionTask
 
         assertTrinoExceptionThrownBy(
                 () -> getFutureValue(new StartTransactionTask(transactionManager)
-                        .execute(new StartTransaction(ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP)))
+                        .execute(new StartTransaction(new NodeLocation(1, 1), ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP)))
                 .hasErrorCode(INCOMPATIBLE_CLIENT);
 
         assertThat(transactionManager.getAllTransactionInfos().isEmpty()).isTrue();
@@ -114,7 +115,7 @@ public class TestStartTransactionTask
 
         assertTrinoExceptionThrownBy(
                 () -> getFutureValue(new StartTransactionTask(transactionManager)
-                        .execute(new StartTransaction(ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP)))
+                        .execute(new StartTransaction(new NodeLocation(1, 1), ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP)))
                 .hasErrorCode(NOT_SUPPORTED);
 
         assertThat(transactionManager.getAllTransactionInfos().isEmpty()).isTrue();
@@ -133,7 +134,7 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertThat(stateMachine.getSession().getTransactionId().isPresent()).isFalse();
 
-        getFutureValue(new StartTransactionTask(transactionManager).execute(new StartTransaction(ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP));
+        getFutureValue(new StartTransactionTask(transactionManager).execute(new StartTransaction(new NodeLocation(1, 1), ImmutableList.of()), stateMachine, emptyList(), WarningCollector.NOOP));
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isFalse();
         assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isTrue();
         assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
@@ -153,7 +154,7 @@ public class TestStartTransactionTask
         assertThat(stateMachine.getSession().getTransactionId().isPresent()).isFalse();
 
         getFutureValue(new StartTransactionTask(transactionManager).execute(
-                new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.SERIALIZABLE), new TransactionAccessMode(true))),
+                new StartTransaction(new NodeLocation(1, 1), ImmutableList.of(new Isolation(Isolation.Level.SERIALIZABLE), new TransactionAccessMode(true))),
                 stateMachine,
                 emptyList(),
                 WarningCollector.NOOP));
@@ -179,7 +180,7 @@ public class TestStartTransactionTask
 
         assertTrinoExceptionThrownBy(() ->
                 getFutureValue(new StartTransactionTask(transactionManager).execute(
-                        new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.READ_COMMITTED), new Isolation(Isolation.Level.READ_COMMITTED))),
+                        new StartTransaction(new NodeLocation(1, 1), ImmutableList.of(new Isolation(Isolation.Level.READ_COMMITTED), new Isolation(Isolation.Level.READ_COMMITTED))),
                         stateMachine,
                         emptyList(),
                         WarningCollector.NOOP)))
@@ -203,7 +204,7 @@ public class TestStartTransactionTask
 
         assertTrinoExceptionThrownBy(() ->
                 getFutureValue(new StartTransactionTask(transactionManager).execute(
-                        new StartTransaction(ImmutableList.of(new TransactionAccessMode(true), new TransactionAccessMode(true))),
+                        new StartTransaction(new NodeLocation(1, 1), ImmutableList.of(new TransactionAccessMode(true), new TransactionAccessMode(true))),
                         stateMachine,
                         emptyList(),
                         WarningCollector.NOOP)))
@@ -233,7 +234,7 @@ public class TestStartTransactionTask
         assertThat(stateMachine.getSession().getTransactionId().isPresent()).isFalse();
 
         getFutureValue(new StartTransactionTask(transactionManager).execute(
-                new StartTransaction(ImmutableList.of()),
+                new StartTransaction(new NodeLocation(1, 1), ImmutableList.of()),
                 stateMachine,
                 emptyList(),
                 WarningCollector.NOOP));
