@@ -29,19 +29,9 @@ public class ShowSchemas
     private final Optional<String> likePattern;
     private final Optional<String> escape;
 
-    public ShowSchemas(Optional<Identifier> catalog, Optional<String> likePattern, Optional<String> escape)
-    {
-        this(Optional.empty(), catalog, likePattern, escape);
-    }
-
     public ShowSchemas(NodeLocation location, Optional<Identifier> catalog, Optional<String> likePattern, Optional<String> escape)
     {
-        this(Optional.of(location), catalog, likePattern, escape);
-    }
-
-    private ShowSchemas(Optional<NodeLocation> location, Optional<Identifier> catalog, Optional<String> likePattern, Optional<String> escape)
-    {
-        super(location);
+        super(Optional.of(location));
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.likePattern = requireNonNull(likePattern, "likePattern is null");
         this.escape = requireNonNull(escape, "escape is null");
