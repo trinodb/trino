@@ -143,16 +143,16 @@ public class TestSqlFormatter
     public void testShowSession()
     {
         assertThat(formatSql(
-                new ShowSession(Optional.empty(), Optional.empty())))
+                new ShowSession(new NodeLocation(1, 1), Optional.empty(), Optional.empty())))
                 .isEqualTo("SHOW SESSION");
         assertThat(formatSql(
-                new ShowSession(Optional.of("%"), Optional.empty())))
+                new ShowSession(new NodeLocation(1, 1), Optional.of("%"), Optional.empty())))
                 .isEqualTo("SHOW SESSION LIKE '%'");
         assertThat(formatSql(
-                new ShowSession(Optional.of("%$_%"), Optional.of("$"))))
+                new ShowSession(new NodeLocation(1, 1), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW SESSION LIKE '%$_%' ESCAPE '$'");
         assertThat(formatSql(
-                new ShowSession(Optional.of("%機動隊"), Optional.of("😂"))))
+                new ShowSession(new NodeLocation(1, 1), Optional.of("%機動隊"), Optional.of("😂"))))
                 .isEqualTo("SHOW SESSION LIKE '%機動隊' ESCAPE '😂'");
     }
 
