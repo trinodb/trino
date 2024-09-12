@@ -36,9 +36,9 @@ import static java.util.Objects.requireNonNull;
 public class TracingSpoolingManager
         implements SpoolingManager
 {
-    public static final AttributeKey<String> SEGMENT_ID = stringKey("trino.spooled.segmentId");
-    public static final AttributeKey<String> SEGMENT_QUERY_ID = stringKey("trino.spooled.queryId");
-    public static final AttributeKey<String> SEGMENT_ENCODING = stringKey("trino.spooled.encoding");
+    public static final AttributeKey<String> SEGMENT_ID = stringKey("trino.segment.id");
+    public static final AttributeKey<String> SEGMENT_QUERY_ID = stringKey("trino.segment.query_id");
+    public static final AttributeKey<String> SEGMENT_ENCODING = stringKey("trino.segment.encoding");
 
     private final Tracer tracer;
     private final SpoolingManager delegate;
