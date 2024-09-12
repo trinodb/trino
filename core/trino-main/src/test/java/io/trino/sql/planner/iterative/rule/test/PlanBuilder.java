@@ -139,6 +139,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.ir.Booleans.TRUE;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinType.INNER;
@@ -920,6 +921,11 @@ public class PlanBuilder
         public ExchangeBuilder singleDistributionPartitioningScheme(List<Symbol> outputSymbols)
         {
             return partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), outputSymbols));
+        }
+
+        public ExchangeBuilder broadcastPartitioningScheme(List<Symbol> outputSymbols)
+        {
+            return partitioningScheme(new PartitioningScheme(Partitioning.create(FIXED_BROADCAST_DISTRIBUTION, ImmutableList.of()), outputSymbols));
         }
 
         public ExchangeBuilder fixedHashDistributionPartitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols)

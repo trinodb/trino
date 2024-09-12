@@ -32,6 +32,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.RuleStats;
+import io.trino.sql.planner.iterative.rule.AdaptiveBroadcastToPartitionedJoin;
 import io.trino.sql.planner.iterative.rule.AdaptiveReorderPartitionedJoin;
 import io.trino.sql.planner.iterative.rule.AddDynamicFilterSource;
 import io.trino.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
@@ -1044,7 +1045,9 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 costCalculator,
-                ImmutableSet.of(new AdaptiveReorderPartitionedJoin(metadata))));
+                ImmutableSet.of(
+                        new AdaptiveReorderPartitionedJoin(metadata),
+                        new AdaptiveBroadcastToPartitionedJoin(costComparator, taskCountEstimator))));
         this.adaptivePlanOptimizers = adaptivePlanOptimizers.build();
     }
 

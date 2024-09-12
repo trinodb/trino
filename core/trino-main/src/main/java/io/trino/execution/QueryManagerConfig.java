@@ -160,6 +160,7 @@ public class QueryManagerConfig
     // above this threshold.
     // TODO: Consider the cost of restarting the stage as part of adaptive planning.
     private DataSize faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold = DataSize.of(5, GIGABYTE);
+    private boolean faultTolerantExecutionAdaptiveBroadcastToPartitionedJoinEnabled = true;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -1181,6 +1182,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold(DataSize faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold)
     {
         this.faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold = faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold;
+        return this;
+    }
+
+    public boolean isFaultTolerantExecutionAdaptiveBroadcastToPartitionedJoinEnabled()
+    {
+        return faultTolerantExecutionAdaptiveBroadcastToPartitionedJoinEnabled;
+    }
+
+    @Config("fault-tolerant-execution-adaptive-broadcast-to-partitioned-join-enabled")
+    @ConfigDescription("Adapt broadcast join to partitioned join based on runtime stats in fault tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionAdaptiveBroadcastToPartitionedJoinEnabled(boolean faultTolerantExecutionAdaptiveBroadcastToPartitionedJoinEnabled)
+    {
+        this.faultTolerantExecutionAdaptiveBroadcastToPartitionedJoinEnabled = faultTolerantExecutionAdaptiveBroadcastToPartitionedJoinEnabled;
         return this;
     }
 }

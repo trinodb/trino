@@ -79,6 +79,8 @@ import static io.trino.spi.connector.StandardWarningCode.TOO_MANY_STAGES;
 import static io.trino.sql.planner.AdaptivePlanner.ExchangeSourceId;
 import static io.trino.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -484,8 +486,12 @@ public class PlanFragmenter
             else if (node.getExchangeType() == ExchangeNode.Type.REPARTITION) {
                 for (SubPlan child : completedChildren) {
                     PartitioningScheme partitioningScheme = child.getFragment().getOutputPartitioningScheme();
+                    PartitioningHandle handle = partitioningScheme.getPartitioning().getHandle();
+                    if (handle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
+                        handle = FIXED_ARBITRARY_DISTRIBUTION;
+                    }
                     context.get().setDistribution(
-                            partitioningScheme.getPartitioning().getHandle(),
+                            handle,
                             partitioningScheme.getPartitionCount(),
                             metadata,
                             session);

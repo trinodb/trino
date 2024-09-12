@@ -202,6 +202,7 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_ADAPTIVE_JOIN_REORDERING_ENABLED = "fault_tolerant_execution_adaptive_join_reordering_enabled";
     public static final String FAULT_TOLERANT_EXECUTION_ADAPTIVE_JOIN_REORDERING_SIZE_DIFFERENCE_RATIO = "fault_tolerant_execution_adaptive_join_reordering_size_difference_ratio";
     public static final String FAULT_TOLERANT_EXECUTION_ADAPTIVE_JOIN_REORDERING_MIN_SIZE_THRESHOLD = "fault_tolerant_execution_adaptive_join_reordering_min_size_threshold";
+    public static final String FAULT_TOLERANT_EXECUTION_ADAPTIVE_BROADCAST_TO_PARTITIONED_JOIN_ENABLED = "fault_tolerant_execution_adaptive_broadcast_to_partitioned_join_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED = "remote_task_adaptive_update_request_size_enabled";
@@ -1040,6 +1041,11 @@ public final class SystemSessionProperties
                         "The minimum size of the right side of join to consider reordering",
                         queryManagerConfig.getFaultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold(),
                         true),
+                booleanProperty(
+                        FAULT_TOLERANT_EXECUTION_ADAPTIVE_BROADCAST_TO_PARTITIONED_JOIN_ENABLED,
+                        "Adapt broadcast join to partitioned join based on runtime stats in fault tolerant execution",
+                        queryManagerConfig.isFaultTolerantExecutionAdaptiveBroadcastToPartitionedJoinEnabled(),
+                        false),
                 booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
                         "When enabled, partial aggregation might be adaptively turned off when it does not provide any performance gain",
@@ -1931,6 +1937,11 @@ public final class SystemSessionProperties
     public static DataSize getFaultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ADAPTIVE_JOIN_REORDERING_MIN_SIZE_THRESHOLD, DataSize.class);
+    }
+
+    public static boolean isFaultTolerantExecutionAdaptiveBroadcastToPartitionedJoinEnabled(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ADAPTIVE_BROADCAST_TO_PARTITIONED_JOIN_ENABLED, Boolean.class);
     }
 
     public static boolean isAdaptivePartialAggregationEnabled(Session session)
