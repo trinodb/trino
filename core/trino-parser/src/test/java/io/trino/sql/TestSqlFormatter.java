@@ -92,16 +92,16 @@ public class TestSqlFormatter
     public void testShowTables()
     {
         assertThat(formatSql(
-                new ShowTables(Optional.empty(), Optional.empty(), Optional.empty())))
+                new ShowTables(new NodeLocation(1, 1), Optional.empty(), Optional.empty(), Optional.empty())))
                 .isEqualTo("SHOW TABLES");
         assertThat(formatSql(
-                new ShowTables(Optional.empty(), Optional.of("%"), Optional.empty())))
+                new ShowTables(new NodeLocation(1, 1), Optional.empty(), Optional.of("%"), Optional.empty())))
                 .isEqualTo("SHOW TABLES LIKE '%'");
         assertThat(formatSql(
-                new ShowTables(Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
+                new ShowTables(new NodeLocation(1, 1), Optional.empty(), Optional.of("%$_%"), Optional.of("$"))))
                 .isEqualTo("SHOW TABLES LIKE '%$_%' ESCAPE '$'");
         assertThat(formatSql(
-                new ShowTables(Optional.empty(), Optional.of("%機動隊"), Optional.of("😂"))))
+                new ShowTables(new NodeLocation(1, 1), Optional.empty(), Optional.of("%機動隊"), Optional.of("😂"))))
                 .isEqualTo("SHOW TABLES LIKE '%機動隊' ESCAPE '😂'");
     }
 
