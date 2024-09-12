@@ -29,19 +29,9 @@ public final class RenameMaterializedView
     private final QualifiedName target;
     private final boolean exists;
 
-    public RenameMaterializedView(QualifiedName source, QualifiedName target, boolean exists)
-    {
-        this(Optional.empty(), source, target, exists);
-    }
-
     public RenameMaterializedView(NodeLocation location, QualifiedName source, QualifiedName target, boolean exists)
     {
-        this(Optional.of(location), source, target, exists);
-    }
-
-    private RenameMaterializedView(Optional<NodeLocation> location, QualifiedName source, QualifiedName target, boolean exists)
-    {
-        super(location);
+        super(Optional.of(location));
         this.source = requireNonNull(source, "source name is null");
         this.target = requireNonNull(target, "target name is null");
         this.exists = exists;
