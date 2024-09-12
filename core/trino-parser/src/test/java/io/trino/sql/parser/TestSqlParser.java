@@ -3177,7 +3177,11 @@ public class TestSqlParser
     @Test
     public void testRenameView()
     {
-        assertStatement("ALTER VIEW a RENAME TO b", new RenameView(QualifiedName.of("a"), QualifiedName.of("b")));
+        assertThat(statement("ALTER VIEW a RENAME TO b"))
+                .isEqualTo(new RenameView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 12), "a", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "b", false)))));
     }
 
     @Test
