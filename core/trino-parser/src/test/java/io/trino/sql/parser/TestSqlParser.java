@@ -1376,9 +1376,9 @@ public class TestSqlParser
     @Test
     public void testShowSession()
     {
-        assertStatement("SHOW SESSION", new ShowSession(Optional.empty(), Optional.empty()));
-        assertStatement("SHOW SESSION LIKE '%'", new ShowSession(Optional.of("%"), Optional.empty()));
-        assertStatement("SHOW SESSION LIKE '%' ESCAPE '$'", new ShowSession(Optional.of("%"), Optional.of("$")));
+        assertThat(statement("SHOW SESSION")).isEqualTo(new ShowSession(location(1, 1), Optional.empty(), Optional.empty()));
+        assertThat(statement("SHOW SESSION LIKE '%'")).isEqualTo(new ShowSession(location(1, 1), Optional.of("%"), Optional.empty()));
+        assertThat(statement("SHOW SESSION LIKE '%' ESCAPE '$'")).isEqualTo(new ShowSession(location(1, 1), Optional.of("%"), Optional.of("$")));
     }
 
     @Test
