@@ -29,4 +29,6 @@ public interface TableInvalidationCallback
     default void invalidate(Partition partition) {}
 
     default void invalidate(Table table) {}
+
+    default void invalidateAll() {}
 }

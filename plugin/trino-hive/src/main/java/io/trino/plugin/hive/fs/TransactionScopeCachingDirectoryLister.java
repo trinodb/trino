@@ -128,6 +128,13 @@ public class TransactionScopeCachingDirectoryLister
         delegate.invalidate(partition);
     }
 
+    @Override
+    public void invalidateAll()
+    {
+        cache.invalidateAll();
+        delegate.invalidateAll();
+    }
+
     private RemoteIterator<TrinoFileStatus> cachingRemoteIterator(FetchingValueHolder cachedValueHolder, TransactionDirectoryListingCacheKey cacheKey)
     {
         return new RemoteIterator<>()

@@ -166,6 +166,12 @@ public class CachingDirectoryLister
         }
     }
 
+    @Override
+    public void invalidateAll()
+    {
+        cache.invalidateAll();
+    }
+
     private RemoteIterator<TrinoFileStatus> cachingRemoteIterator(ValueHolder cachedValueHolder, RemoteIterator<TrinoFileStatus> iterator, Location location)
     {
         return new RemoteIterator<>()
