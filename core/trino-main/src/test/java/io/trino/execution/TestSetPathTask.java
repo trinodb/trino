@@ -22,6 +22,7 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.PathElement;
 import io.trino.sql.tree.PathSpecification;
 import io.trino.sql.tree.SetPath;
@@ -84,7 +85,7 @@ public class TestSetPathTask
     public void testSetPath()
     {
         PathSpecification pathSpecification = new PathSpecification(Optional.empty(), ImmutableList.of(
-                new PathElement(Optional.empty(), new Identifier("foo"))));
+                new PathElement(new NodeLocation(1, 1), Optional.empty(), new Identifier("foo"))));
 
         QueryStateMachine stateMachine = createQueryStateMachine("SET PATH foo");
         executeSetPathTask(pathSpecification, stateMachine);
@@ -96,13 +97,13 @@ public class TestSetPathTask
     public void testSetPathInvalidCatalog()
     {
         PathSpecification invalidPathSpecification = new PathSpecification(Optional.empty(), ImmutableList.of(
-                new PathElement(Optional.of(new Identifier("invalidCatalog")), new Identifier("thisDoesNotMatter"))));
+                new PathElement(new NodeLocation(1, 1), Optional.of(new Identifier("invalidCatalog")), new Identifier("thisDoesNotMatter"))));
 
         QueryStateMachine stateMachine = createQueryStateMachine("SET PATH invalidCatalog.thisDoesNotMatter");
 
         assertThatThrownBy(() -> executeSetPathTask(invalidPathSpecification, stateMachine))
                 .isInstanceOf(TrinoException.class)
-                .hasMessageMatching("Catalog '.*' not found");
+                .hasMessageMatching(".* Catalog '.*' not found");
     }
 
     private QueryStateMachine createQueryStateMachine(String query)
@@ -129,7 +130,7 @@ public class TestSetPathTask
     private void executeSetPathTask(PathSpecification pathSpecification, QueryStateMachine stateMachine)
     {
         getFutureValue(new SetPathTask(metadata).execute(
-                new SetPath(pathSpecification),
+                new SetPath(new NodeLocation(1, 1), pathSpecification),
                 stateMachine,
                 emptyList(),
                 WarningCollector.NOOP));

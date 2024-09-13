@@ -3340,13 +3340,13 @@ class AstBuilder
     @Override
     public Node visitQualifiedArgument(SqlBaseParser.QualifiedArgumentContext context)
     {
-        return new PathElement(getLocation(context), (Identifier) visit(context.identifier(0)), (Identifier) visit(context.identifier(1)));
+        return new PathElement(getLocation(context), Optional.of((Identifier) visit(context.identifier(0))), (Identifier) visit(context.identifier(1)));
     }
 
     @Override
     public Node visitUnqualifiedArgument(SqlBaseParser.UnqualifiedArgumentContext context)
     {
-        return new PathElement(getLocation(context), (Identifier) visit(context.identifier()));
+        return new PathElement(getLocation(context), Optional.empty(), (Identifier) visit(context.identifier()));
     }
 
     @Override
