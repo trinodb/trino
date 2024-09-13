@@ -27,19 +27,9 @@ public class SetSessionAuthorization
 {
     private final Expression user;
 
-    public SetSessionAuthorization(Expression user)
-    {
-        this(Optional.empty(), user);
-    }
-
     public SetSessionAuthorization(NodeLocation location, Expression user)
     {
-        this(Optional.of(location), user);
-    }
-
-    private SetSessionAuthorization(Optional<NodeLocation> location, Expression user)
-    {
-        super(location);
+        super(Optional.of(location));
         this.user = requireNonNull(user, "user is null");
     }
 
