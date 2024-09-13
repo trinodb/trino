@@ -1340,15 +1340,29 @@ public class TestSqlParser
     @Test
     public void testSetSession()
     {
-        assertStatement("SET SESSION foo = 'bar'", new SetSession(QualifiedName.of("foo"), new StringLiteral("bar")));
-        assertStatement("SET SESSION foo.bar = 'baz'", new SetSession(QualifiedName.of("foo", "bar"), new StringLiteral("baz")));
-        assertStatement("SET SESSION foo.bar.boo = 'baz'", new SetSession(QualifiedName.of("foo", "bar", "boo"), new StringLiteral("baz")));
+        assertThat(statement("SET SESSION foo = 'bar'"))
+                .isEqualTo(new SetSession(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo", false))),
+                        new StringLiteral(location(1, 19), "bar")));
+        assertThat(statement("SET SESSION foo.bar = 'baz'"))
+                .isEqualTo(new SetSession(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo", false), new Identifier(location(1, 17), "bar", false))),
+                        new StringLiteral(location(1, 23), "baz")));
+        assertThat(statement("SET SESSION foo.bar.boo = 'baz'"))
+                .isEqualTo(new SetSession(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo", false), new Identifier(location(1, 17), "bar", false), new Identifier(location(1, 21), "boo", false))),
+                        new StringLiteral(location(1, 27), "baz")));
 
-        assertStatement("SET SESSION foo.bar = 'ban' || 'ana'", new SetSession(
-                QualifiedName.of("foo", "bar"),
-                new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(
-                        new StringLiteral("ban"),
-                        new StringLiteral("ana")))));
+        assertThat(statement("SET SESSION foo.bar = 'ban' || 'ana'"))
+                .isEqualTo(new SetSession(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo", false), new Identifier(location(1, 17), "bar", false))),
+                        new FunctionCall(location(1, 29), QualifiedName.of("concat"), ImmutableList.of(
+                                new StringLiteral(location(1, 23), "ban"),
+                                new StringLiteral(location(1, 32), "ana")))));
     }
 
     @Test
@@ -1367,8 +1381,11 @@ public class TestSqlParser
     @Test
     public void testSessionIdentifiers()
     {
-        assertStatement("SET SESSION \"foo-bar\".baz = 'x'",
-                new SetSession(QualifiedName.of("foo-bar", "baz"), new StringLiteral("x")));
+        assertThat(statement("SET SESSION \"foo-bar\".baz = 'x'")).isEqualTo(
+                new SetSession(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo-bar", true), new Identifier(location(1, 23), "baz", false))),
+                        new StringLiteral(location(1, 29), "x")));
         assertStatementIsInvalid("SET SESSION foo-bar.name = 'value'")
                 .withMessage("line 1:16: mismatched input '-'. Expecting: '.', '='");
 
