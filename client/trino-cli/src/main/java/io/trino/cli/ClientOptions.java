@@ -339,11 +339,11 @@ public class ClientOptions
 
     public ClientSession toClientSession(TrinoUri uri)
     {
-        return uri
+        ClientSession.Builder builder = uri
                 .toClientSessionBuilder()
-                .source(uri.getSource().orElse(SOURCE_DEFAULT))
-                .encoding(encoding)
-                .build();
+                .source(uri.getSource().orElse(SOURCE_DEFAULT));
+        encoding.ifPresent(value -> builder.encoding(Optional.of(value)));
+        return builder.build();
     }
 
     public TrinoUri getTrinoUri()
@@ -474,7 +474,10 @@ public class ClientOptions
     public static URI parseServer(String server)
     {
         String lowerServer = server.toLowerCase(ENGLISH);
-        if (lowerServer.startsWith("http://") || lowerServer.startsWith("https://") || lowerServer.startsWith("trino://")) {
+        if (lowerServer.startsWith("http://")
+                || lowerServer.startsWith("https://")
+                || lowerServer.startsWith("trino://")
+                || lowerServer.startsWith("trino2://")) {
             return URI.create(server);
         }
 

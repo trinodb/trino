@@ -24,6 +24,9 @@ import java.util.Properties;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.client.Scheme.DIRECT;
+import static io.trino.client.Scheme.SPOOLED;
+import static io.trino.client.spooling.encoding.QueryDataDecoders.getPreferredEncodings;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.CA;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.FULL;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.NONE;
@@ -52,6 +55,8 @@ public class TestTrinoUri
 
         // empty trino: url
         assertInvalid("trino:", "Empty Trino URL: trino:");
+
+        assertInvalid("trino2:", "Empty Trino URL: trino2:");
 
         // invalid scheme
         assertInvalid("mysql://localhost", "Invalid Trino URL: mysql://localhost");
@@ -304,6 +309,47 @@ public class TestTrinoUri
         Properties properties = parameters.getProperties();
         assertThat(properties.getProperty(SSL_TRUST_STORE_PATH.toString())).isNull();
         assertThat(properties.getProperty(SSL_TRUST_STORE_PASSWORD.toString())).isNull();
+    }
+
+    @Test
+    public void testProtocolSchemes()
+    {
+        TrinoUri direct = createTrinoUri("trino://localhost:8080/prefix/path?SSL=true");
+        assertUriPortScheme(direct, 8080, "https");
+        assertThat(direct.getUri().toString()).isEqualTo("trino://localhost:8080/prefix/path?SSL=true");
+        assertThat(direct.getProtocolScheme()).isEqualTo(DIRECT);
+        assertThat(direct.getEncoding()).isEmpty();
+        assertThat(direct.getHttpUri()).isEqualTo(URI.create("https://localhost:8080"));
+
+        TrinoUri spooled = createTrinoUri("trino2://localhost:8080/prefix/path?SSL=true");
+        assertUriPortScheme(spooled, 8080, "https");
+        assertThat(spooled.getUri().toString()).isEqualTo("trino2://localhost:8080/prefix/path?SSL=true");
+        assertThat(spooled.getProtocolScheme()).isEqualTo(SPOOLED);
+        assertThat(spooled.getEncoding()).hasValue(getPreferredEncodings());
+        assertThat(spooled.getHttpUri()).isEqualTo(URI.create("https://localhost:8080/prefix/path"));
+
+        TrinoUri propertyBased = createTrinoUri("trino://localhost:8080/prefix/path?SSL=true&protocolScheme=spooled");
+        assertUriPortScheme(propertyBased, 8080, "https");
+        assertThat(propertyBased.getUri().toString()).isEqualTo("trino://localhost:8080/prefix/path?SSL=true&protocolScheme=spooled");
+        assertThat(propertyBased.getProtocolScheme()).isEqualTo(SPOOLED);
+        assertThat(propertyBased.getEncoding()).hasValue(getPreferredEncodings());
+        assertThat(propertyBased.getHttpUri()).isEqualTo(URI.create("https://localhost:8080/prefix/path"));
+    }
+
+    @Test
+    public void testDefaultProtocolEncoding()
+    {
+        TrinoUri enabledByScheme = createTrinoUri("trino2://localhost:8080/prefix/path?SSL=true&protocolScheme=spooled");
+        assertThat(enabledByScheme.getEncoding()).hasValue(getPreferredEncodings());
+
+        TrinoUri passedSpooled = createTrinoUri("trino2://localhost:8080/prefix/path?SSL=true&encoding=json");
+        assertThat(passedSpooled.getEncoding()).hasValue("json");
+
+        TrinoUri passedDirect = createTrinoUri("trino://localhost:8080/prefix/path?SSL=true&encoding=json");
+        assertThat(passedDirect.getEncoding()).hasValue("json");
+
+        TrinoUri noSpooling = createTrinoUri("trino://localhost:8080/prefix/path?SSL=true");
+        assertThat(noSpooling.getEncoding()).isEmpty();
     }
 
     @Test

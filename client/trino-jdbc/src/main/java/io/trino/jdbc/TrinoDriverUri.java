@@ -32,7 +32,8 @@ public final class TrinoDriverUri
         extends TrinoUri
 {
     private static final String JDBC_URL_PREFIX = "jdbc:";
-    private static final String JDBC_URL_START = JDBC_URL_PREFIX + "trino:";
+    private static final String JDBC_URL_START_V1 = JDBC_URL_PREFIX + URL_START_V1;
+    private static final String JDBC_URL_START_V2 = JDBC_URL_PREFIX + URL_START_V2;
 
     private TrinoDriverUri(String uri, Properties driverProperties)
             throws SQLException
@@ -53,7 +54,7 @@ public final class TrinoDriverUri
 
     public static boolean acceptsURL(String url)
     {
-        return url.startsWith(JDBC_URL_START);
+        return url.startsWith(JDBC_URL_START_V1) || url.startsWith(JDBC_URL_START_V2);
     }
 
     private static URI parseDriverUrl(String url)
@@ -85,11 +86,11 @@ public final class TrinoDriverUri
     private static void validatePrefix(String url)
             throws SQLException
     {
-        if (!url.startsWith(JDBC_URL_START)) {
+        if (!url.startsWith(JDBC_URL_START_V1) && !url.startsWith(JDBC_URL_START_V2)) {
             throw new SQLException("Invalid JDBC URL: " + url);
         }
 
-        if (url.equals(JDBC_URL_START)) {
+        if (url.equals(JDBC_URL_START_V1) || url.equals(JDBC_URL_START_V2)) {
             throw new SQLException("Empty JDBC URL: " + url);
         }
     }

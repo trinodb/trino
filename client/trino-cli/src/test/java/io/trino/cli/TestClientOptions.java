@@ -32,6 +32,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.cli.Trino.createCommandLine;
+import static io.trino.client.spooling.encoding.QueryDataDecoders.getPreferredEncodings;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -98,6 +99,21 @@ public class TestClientOptions
         ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
         assertThat(session.getServer().toString()).isEqualTo("http://test:80");
         assertThat(session.getCatalog()).isEqualTo(Optional.of("foo"));
+    }
+
+    @Test
+    public void testServerTrinoUriSpooled()
+    {
+        Console console = createConsole("--server=trino2://test/foo");
+        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session.getServer().toString()).isEqualTo("http://test:80/foo");
+        assertThat(session.getCatalog()).isEmpty();
+
+        Console console2 = createConsole("--server=trino://test/foo?protocolScheme=spooled");
+        ClientSession session2 = console2.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+        assertThat(session2.getServer().toString()).isEqualTo("http://test:80/foo");
+        assertThat(session2.getCatalog()).isEmpty();
+        assertThat(session2.getEncoding()).hasValue(getPreferredEncodings());
     }
 
     @Test

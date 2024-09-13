@@ -21,6 +21,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.DnsResolver;
+import io.trino.client.Scheme;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
 import io.trino.client.spooling.encoding.QueryDataDecoders;
 import org.ietf.jgss.GSSCredential;
@@ -115,6 +116,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, LoggingLevel> HTTP_LOGGING_LEVEL = new HttpLoggingLevel();
     public static final ConnectionProperty<String, Map<String, String>> RESOURCE_ESTIMATES = new ResourceEstimates();
     public static final ConnectionProperty<String, List<String>> SQL_PATH = new SqlPath();
+    public static final ConnectionProperty<String, Scheme> PROTOCOL_SCHEME = new ProtocolScheme();
 
     private static final Set<ConnectionProperty<?, ?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?, ?>>builder()
             // Keep sorted
@@ -150,6 +152,7 @@ final class ConnectionProperties
             .add(KERBEROS_USE_CANONICAL_HOSTNAME)
             .add(LOCALE)
             .add(PASSWORD)
+            .add(PROTOCOL_SCHEME)
             .add(RESOURCE_ESTIMATES)
             .add(ROLES)
             .add(SCHEMA)
@@ -926,6 +929,15 @@ final class ConnectionProperties
         public TimeZone()
         {
             super(PropertyName.TIMEZONE, NOT_REQUIRED, ALLOWED, converter(ZoneId::of, ZoneId::getId));
+        }
+    }
+
+    private static class ProtocolScheme
+            extends AbstractConnectionProperty<String, Scheme>
+    {
+        public ProtocolScheme()
+        {
+            super(PropertyName.PROTOCOL_SCHEME, NOT_REQUIRED, ALLOWED, converter(Scheme::fromString, Scheme::name));
         }
     }
 

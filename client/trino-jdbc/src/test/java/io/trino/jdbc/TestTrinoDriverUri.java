@@ -23,6 +23,9 @@ import java.time.ZoneId;
 import java.time.zone.ZoneRulesException;
 import java.util.Properties;
 
+import static io.trino.client.Scheme.DIRECT;
+import static io.trino.client.Scheme.SPOOLED;
+import static io.trino.client.spooling.encoding.QueryDataDecoders.getPreferredEncodings;
 import static io.trino.client.uri.PropertyName.CLIENT_TAGS;
 import static io.trino.client.uri.PropertyName.DISABLE_COMPRESSION;
 import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
@@ -49,6 +52,9 @@ public class TestTrinoDriverUri
 
         // empty jdbc: url
         assertInvalid("jdbc:trino:", "Empty JDBC URL: jdbc:trino:");
+
+        // empty jdbc: url
+        assertInvalid("jdbc:trino2:", "Empty JDBC URL: jdbc:trino2:");
 
         // invalid scheme
         assertInvalid("jdbc:mysql://localhost", "Invalid JDBC URL: jdbc:mysql://localhost");
@@ -280,6 +286,55 @@ public class TestTrinoDriverUri
         Properties properties = parameters.getProperties();
         assertThat(properties.getProperty(SSL_TRUST_STORE_PATH.toString())).isNull();
         assertThat(properties.getProperty(SSL_TRUST_STORE_PASSWORD.toString())).isNull();
+    }
+
+    @Test
+    public void testProtocolSchemes()
+            throws SQLException
+    {
+        TrinoDriverUri direct = createDriverUri("jdbc:trino://localhost:8080/prefix/path?SSL=true");
+        assertUriPortScheme(direct, 8080, "https");
+        assertThat(direct.getUri().toString()).isEqualTo("trino://localhost:8080/prefix/path?SSL=true");
+        assertThat(direct.getProtocolScheme()).isEqualTo(DIRECT);
+        assertThat(direct.getEncoding()).isEmpty();
+        assertThat(direct.getCatalog()).hasValue("prefix");
+        assertThat(direct.getSchema()).hasValue("path");
+        assertThat(direct.getHttpUri()).isEqualTo(URI.create("https://localhost:8080"));
+
+        TrinoDriverUri spooled = createDriverUri("jdbc:trino2://localhost:8080/prefix/path?SSL=true");
+        assertUriPortScheme(spooled, 8080, "https");
+        assertThat(spooled.getUri().toString()).isEqualTo("trino2://localhost:8080/prefix/path?SSL=true");
+        assertThat(spooled.getProtocolScheme()).isEqualTo(SPOOLED);
+        assertThat(spooled.getEncoding()).hasValue(getPreferredEncodings());
+        assertThat(spooled.getCatalog()).isEmpty();
+        assertThat(spooled.getSchema()).isEmpty();
+        assertThat(spooled.getHttpUri()).isEqualTo(URI.create("https://localhost:8080/prefix/path"));
+
+        TrinoDriverUri propertyBased = createDriverUri("jdbc:trino://localhost:8080/prefix/path?SSL=true&protocolScheme=spooled");
+        assertUriPortScheme(propertyBased, 8080, "https");
+        assertThat(propertyBased.getUri().toString()).isEqualTo("trino://localhost:8080/prefix/path?SSL=true&protocolScheme=spooled");
+        assertThat(propertyBased.getProtocolScheme()).isEqualTo(SPOOLED);
+        assertThat(propertyBased.getEncoding()).hasValue(getPreferredEncodings());
+        assertThat(propertyBased.getCatalog()).isEmpty();
+        assertThat(propertyBased.getSchema()).isEmpty();
+        assertThat(propertyBased.getHttpUri()).isEqualTo(URI.create("https://localhost:8080/prefix/path"));
+    }
+
+    @Test
+    public void testDefaultProtocolEncoding()
+            throws SQLException
+    {
+        TrinoDriverUri enabledByScheme = createDriverUri("jdbc:trino2://localhost:8080/prefix/path?SSL=true&protocolScheme=spooled");
+        assertThat(enabledByScheme.getEncoding()).hasValue(getPreferredEncodings());
+
+        TrinoDriverUri passedSpooled = createDriverUri("jdbc:trino2://localhost:8080/prefix/path?SSL=true&encoding=json");
+        assertThat(passedSpooled.getEncoding()).hasValue("json");
+
+        TrinoDriverUri passedDirect = createDriverUri("jdbc:trino://localhost:8080/prefix/path?SSL=true&encoding=json");
+        assertThat(passedDirect.getEncoding()).hasValue("json");
+
+        TrinoDriverUri noSpooling = createDriverUri("jdbc:trino://localhost:8080/prefix/path?SSL=true");
+        assertThat(noSpooling.getEncoding()).isEmpty();
     }
 
     @Test

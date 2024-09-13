@@ -23,8 +23,10 @@ import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
 import io.trino.client.DnsResolver;
+import io.trino.client.Scheme;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
 import io.trino.client.auth.external.RedirectHandler;
+import io.trino.client.spooling.encoding.QueryDataDecoders;
 import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
@@ -41,6 +43,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.trino.client.Scheme.DIRECT;
+import static io.trino.client.Scheme.SPOOLED;
 import static io.trino.client.uri.ConnectionProperties.ACCESS_TOKEN;
 import static io.trino.client.uri.ConnectionProperties.APPLICATION_NAME_PREFIX;
 import static io.trino.client.uri.ConnectionProperties.ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS;
@@ -73,6 +77,7 @@ import static io.trino.client.uri.ConnectionProperties.KERBEROS_SERVICE_PRINCIPA
 import static io.trino.client.uri.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static io.trino.client.uri.ConnectionProperties.LOCALE;
 import static io.trino.client.uri.ConnectionProperties.PASSWORD;
+import static io.trino.client.uri.ConnectionProperties.PROTOCOL_SCHEME;
 import static io.trino.client.uri.ConnectionProperties.RESOURCE_ESTIMATES;
 import static io.trino.client.uri.ConnectionProperties.ROLES;
 import static io.trino.client.uri.ConnectionProperties.SCHEMA;
@@ -108,7 +113,10 @@ import static java.util.stream.Collectors.joining;
  */
 public class TrinoUri
 {
-    private static final String URL_START = "trino:";
+    private static final String SCHEME_V1 = "trino";
+    private static final String SCHEME_V2 = "trino2";
+    protected static final String URL_START_V1 = SCHEME_V1 + ":";
+    protected static final String URL_START_V2 = SCHEME_V2 + ":";
 
     public static final int DEFAULT_INSECURE_PORT = 80;
     public static final int DEFAULT_SECURE_PORT = 443;
@@ -172,9 +180,21 @@ public class TrinoUri
         return resolveOptional(CATALOG);
     }
 
+    public Scheme getProtocolScheme()
+    {
+        return resolveRequired(PROTOCOL_SCHEME);
+    }
+
     public URI getHttpUri()
     {
-        return URI.create(format("%s://%s:%d", isUseSecureConnection() ? "https" : "http", uri.getHost(), getPort()));
+        switch (getProtocolScheme()) {
+            case DIRECT:
+                return URI.create(format("%s://%s:%d", isUseSecureConnection() ? "https" : "http", uri.getHost(), getPort()));
+            case SPOOLED:
+                return URI.create(format("%s://%s:%d%s", isUseSecureConnection() ? "https" : "http", uri.getHost(), getPort(), uri.getPath()));
+            default:
+                throw new IllegalArgumentException("Unsupported protocol scheme: " + getProtocolScheme());
+        }
     }
 
     private int getPort()
@@ -520,46 +540,61 @@ public class TrinoUri
     private static Properties extractPropertiesFromUri(URI uri, List<PropertyName> restrictedProperties)
     {
         Properties result = new Properties();
-        CatalogAndSchema catalogAndSchema = parseCatalogAndSchema(uri);
-        if (catalogAndSchema.getCatalog().isPresent() && restrictedProperties.contains(CATALOG.getPropertyName())) {
-            throw new RestrictedPropertyException(PropertyName.CATALOG, "Catalog cannot be set in the URL");
-        }
 
-        if (catalogAndSchema.getSchema().isPresent() && restrictedProperties.contains(SCHEMA.getPropertyName())) {
-            throw new RestrictedPropertyException(PropertyName.SCHEMA, "Schema cannot be set in the URL");
-        }
+        result.put(PROTOCOL_SCHEME.getKey(), DIRECT.name());
 
-        catalogAndSchema.getCatalog().ifPresent(value -> result.put(CATALOG.getKey(), value));
-        catalogAndSchema.getSchema().ifPresent(value -> result.put(SCHEMA.getKey(), value));
+        if (uri.getScheme().equalsIgnoreCase(SCHEME_V2)) {
+            result.put(PROTOCOL_SCHEME.getKey(), SPOOLED.name());
+        }
 
         if (isSecureConnection(uri)) {
             result.put(SSL.getKey(), SSL.encodeValue(true));
         }
 
-        if (isNullOrEmpty(uri.getQuery())) {
-            return result;
+        if (!isNullOrEmpty(uri.getQuery())) {
+            for (String arg : QUERY_SPLITTER.split(uri.getQuery())) {
+                List<String> parts = ARG_SPLITTER.splitToList(arg);
+                if (parts.size() != 2) {
+                    throw new RuntimeException(format("Connection argument is not a valid connection property: '%s'", parts.get(0)));
+                }
+                PropertyName name = PropertyName.findByKey(parts.get(0)).orElseThrow(() -> new RuntimeException(format("Unrecognized connection property '%s'", parts.get(0))));
+                if (restrictedProperties.contains(name)) {
+                    throw new RestrictedPropertyException(name, format("Connection property %s cannot be set in the URL", name));
+                }
+                if (result.containsKey(parts.get(0)) && !isUrlOverridableProperty(parts.get(0))) {
+                    throw new RuntimeException(format("Connection property %s is in the URL multiple times", parts.get(0)));
+                }
+                result.put(parts.get(0), parts.get(1));
+            }
         }
 
-        for (String arg : QUERY_SPLITTER.split(uri.getQuery())) {
-            List<String> parts = ARG_SPLITTER.splitToList(arg);
-            if (parts.size() != 2) {
-                throw new RuntimeException(format("Connection argument is not a valid connection property: '%s'", parts.get(0)));
-            }
-            PropertyName name = PropertyName.findByKey(parts.get(0)).orElseThrow(() -> new RuntimeException(format("Unrecognized connection property '%s'", parts.get(0))));
-            if (restrictedProperties.contains(name)) {
-                throw new RestrictedPropertyException(name, format("Connection property %s cannot be set in the URL", name));
-            }
-            if (result.containsKey(parts.get(0)) && !isUrlOverridableProperty(parts.get(0))) {
-                throw new RuntimeException(format("Connection property %s is in the URL multiple times", parts.get(0)));
-            }
-            result.put(parts.get(0), parts.get(1));
+        // Enable encodings by default for spooled protocol
+        switch (Scheme.fromString(result.getProperty(PROTOCOL_SCHEME.getKey()))) {
+            case SPOOLED:
+                if (result.getProperty(ENCODING.getKey()) == null) {
+                    result.put(ENCODING.getKey(), QueryDataDecoders.getPreferredEncodings());
+                }
+                break;
+            case DIRECT:
+                CatalogAndSchema catalogAndSchema = parseCatalogAndSchema(uri);
+                if (catalogAndSchema.getCatalog().isPresent() && restrictedProperties.contains(CATALOG.getPropertyName())) {
+                    throw new RestrictedPropertyException(PropertyName.CATALOG, "Catalog cannot be set in the URL");
+                }
+
+                if (catalogAndSchema.getSchema().isPresent() && restrictedProperties.contains(SCHEMA.getPropertyName())) {
+                    throw new RestrictedPropertyException(PropertyName.SCHEMA, "Schema cannot be set in the URL");
+                }
+
+                catalogAndSchema.getCatalog().ifPresent(value -> result.put(CATALOG.getKey(), value));
+                catalogAndSchema.getSchema().ifPresent(value -> result.put(SCHEMA.getKey(), value));
+                break;
         }
         return result;
     }
 
     private static boolean isUrlOverridableProperty(String name)
     {
-        return name.equals(SSL.getKey());
+        return name.equals(SSL.getKey()) || name.equals(PROTOCOL_SCHEME.getKey());
     }
 
     private static URI parseDriverUrl(String url)
@@ -587,11 +622,11 @@ public class TrinoUri
 
     private static void validatePrefix(String url)
     {
-        if (!url.startsWith(URL_START)) {
+        if (!url.startsWith(URL_START_V1) && !url.startsWith(URL_START_V2)) {
             throw new RuntimeException("Invalid Trino URL: " + url);
         }
 
-        if (url.equals(URL_START)) {
+        if (url.equals(URL_START_V1) || url.equals(URL_START_V2)) {
             throw new RuntimeException("Empty Trino URL: " + url);
         }
     }
@@ -1040,6 +1075,11 @@ public class TrinoUri
         public Builder setPath(List<String> path)
         {
             return setProperty(SQL_PATH, requireNonNull(path, "path is null"));
+        }
+
+        public Builder setProtocolScheme(String protocolScheme)
+        {
+            return setProperty(PROTOCOL_SCHEME, Scheme.fromString(requireNonNull(protocolScheme, "path is null")));
         }
 
         <V, T> Builder setProperty(ConnectionProperty<V, T> connectionProperty, T value)
