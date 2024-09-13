@@ -1537,6 +1537,38 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
+    public void testFiltersCharset()
+            throws IOException
+    {
+        String indexName = "filter_charset_pushdown";
+
+        @Language("JSON")
+        String mappings = """
+                {
+                  "properties": {
+                    "keyword_column":   { "type": "keyword" },
+                    "text_column":      { "type": "text" }
+                  }
+                }
+                """;
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "Türkiye")
+                .put("text_column", "Türkiye")
+                .buildOrThrow());
+
+        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE keyword_column = 'Türkiye'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE keyword_column = 'bar'", "VALUES 0");
+        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE text_column = 'Türkiye'", "VALUES 1");
+        assertQuery("SELECT count(*) FROM filter_charset_pushdown WHERE text_column = 'some'", "VALUES 0");
+
+        assertQuery("SELECT keyword_column FROM filter_charset_pushdown WHERE keyword_column = 'Türkiye'", "VALUES ('Türkiye')");
+        assertQuery("SELECT text_column FROM filter_charset_pushdown WHERE text_column = 'Türkiye'", "VALUES ('Türkiye')");
+    }
+
+    @Test
     public void testLimitPushdown()
             throws IOException
     {
