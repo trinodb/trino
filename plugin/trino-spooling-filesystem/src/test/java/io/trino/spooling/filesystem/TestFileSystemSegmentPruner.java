@@ -22,6 +22,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.s3.S3FileSystemConfig;
 import io.trino.filesystem.s3.S3FileSystemFactory;
+import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpoolingContext;
 import io.trino.spi.security.ConnectorIdentity;
@@ -145,7 +146,7 @@ class TestFileSystemSegmentPruner
                 .setAwsAccessKey(Minio.MINIO_ACCESS_KEY)
                 .setAwsSecretKey(Minio.MINIO_SECRET_KEY)
                 .setStreamingPartSize(DataSize.valueOf("5.5MB"));
-        return new S3FileSystemFactory(noop(), filesystemConfig);
+        return new S3FileSystemFactory(noop(), filesystemConfig, new S3FileSystemStats());
     }
 
     private Location writeNewDummySegment(TrinoFileSystemFactory fileSystemFactory, QueryId queryId, Instant ttl)
