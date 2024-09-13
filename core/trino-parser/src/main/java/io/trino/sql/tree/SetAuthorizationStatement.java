@@ -28,13 +28,6 @@ public abstract class SetAuthorizationStatement
     private final QualifiedName source;
     private final PrincipalSpecification principal;
 
-    public SetAuthorizationStatement(QualifiedName source, PrincipalSpecification principal)
-    {
-        super(Optional.empty());
-        this.source = requireNonNull(source, "source is null");
-        this.principal = requireNonNull(principal, "principal is null");
-    }
-
     public SetAuthorizationStatement(NodeLocation location, QualifiedName source, PrincipalSpecification principal)
     {
         super(Optional.of(location));
