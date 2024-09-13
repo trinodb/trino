@@ -76,9 +76,11 @@ final class S3FileSystemLoader
         this.httpClient = createHttpClient(config);
 
         requireNonNull(stats, "stats is null");
-        this.clientFactory = s3ClientFactory(httpClient, openTelemetry, config, stats.newMetricPublisher());
 
-        this.preSigner = s3PreSigner(httpClient, openTelemetry, config);
+        MetricPublisher metricPublisher = stats.newMetricPublisher();
+        this.clientFactory = s3ClientFactory(httpClient, openTelemetry, config, metricPublisher);
+
+        this.preSigner = s3PreSigner(httpClient, openTelemetry, config, metricPublisher);
 
         this.context = new S3Context(
                 toIntExact(config.getStreamingPartSize().toBytes()),
@@ -179,7 +181,7 @@ final class S3FileSystemLoader
         };
     }
 
-    private static S3Presigner s3PreSigner(SdkHttpClient httpClient, OpenTelemetry openTelemetry, S3FileSystemConfig config)
+    private static S3Presigner s3PreSigner(SdkHttpClient httpClient, OpenTelemetry openTelemetry, S3FileSystemConfig config, MetricPublisher metricPublisher)
     {
         Optional<AwsCredentialsProvider> staticCredentialsProvider = createStaticCredentialsProvider(config);
         Optional<String> staticRegion = Optional.ofNullable(config.getRegion());
@@ -191,7 +193,7 @@ final class S3FileSystemLoader
         String externalId = config.getExternalId();
 
         S3Presigner.Builder s3 = S3Presigner.builder();
-        s3.s3Client(s3ClientFactory(httpClient, openTelemetry, config)
+        s3.s3Client(s3ClientFactory(httpClient, openTelemetry, config, metricPublisher)
                 .create(Optional.empty()));
 
         staticRegion.map(Region::of).ifPresent(s3::region);
