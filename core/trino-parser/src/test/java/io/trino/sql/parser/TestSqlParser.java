@@ -3740,7 +3740,7 @@ public class TestSqlParser
                         new PathElement(location(1, 39), Optional.empty(), new Identifier(location(1, 39), "their!names", true))))));
 
         assertThatThrownBy(() -> assertStatement("SET PATH one.too.many, qualifiers",
-                new SetPath(location(1, 1), new PathSpecification(Optional.empty(), ImmutableList.of(
+                new SetPath(location(1, 1), new PathSpecification(new NodeLocation(1, 10), ImmutableList.of(
                         new PathElement(location(1, 1), Optional.empty(), new Identifier("dummyValue")))))))
                 .isInstanceOf(ParsingException.class)
                 .hasMessage("line 1:17: mismatched input '.'. Expecting: ',', <EOF>");

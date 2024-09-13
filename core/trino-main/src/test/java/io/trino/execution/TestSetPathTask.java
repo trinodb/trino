@@ -84,7 +84,7 @@ public class TestSetPathTask
     @Test
     public void testSetPath()
     {
-        PathSpecification pathSpecification = new PathSpecification(Optional.empty(), ImmutableList.of(
+        PathSpecification pathSpecification = new PathSpecification(new NodeLocation(1, 10), ImmutableList.of(
                 new PathElement(new NodeLocation(1, 1), Optional.empty(), new Identifier("foo"))));
 
         QueryStateMachine stateMachine = createQueryStateMachine("SET PATH foo");
@@ -96,7 +96,7 @@ public class TestSetPathTask
     @Test
     public void testSetPathInvalidCatalog()
     {
-        PathSpecification invalidPathSpecification = new PathSpecification(Optional.empty(), ImmutableList.of(
+        PathSpecification invalidPathSpecification = new PathSpecification(new NodeLocation(1, 10), ImmutableList.of(
                 new PathElement(new NodeLocation(1, 1), Optional.of(new Identifier("invalidCatalog")), new Identifier("thisDoesNotMatter"))));
 
         QueryStateMachine stateMachine = createQueryStateMachine("SET PATH invalidCatalog.thisDoesNotMatter");
