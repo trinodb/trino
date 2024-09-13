@@ -4894,11 +4894,11 @@ public class TestSqlParser
     @Test
     public void testSetRole()
     {
-        assertStatement("SET ROLE ALL", new SetRole(SetRole.Type.ALL, Optional.empty(), Optional.empty()));
-        assertStatement("SET ROLE NONE", new SetRole(SetRole.Type.NONE, Optional.empty(), Optional.empty()));
-        assertStatement("SET ROLE role", new SetRole(SetRole.Type.ROLE, Optional.of(new Identifier("role")), Optional.empty()));
-        assertStatement("SET ROLE \"role\"", new SetRole(SetRole.Type.ROLE, Optional.of(new Identifier("role")), Optional.empty()));
-        assertStatement("SET ROLE role IN my_catalog", new SetRole(SetRole.Type.ROLE, Optional.of(new Identifier("role")), Optional.of(new Identifier("my_catalog"))));
+        assertThat(statement("SET ROLE ALL")).isEqualTo(new SetRole(location(1, 1), SetRole.Type.ALL, Optional.empty(), Optional.empty()));
+        assertThat(statement("SET ROLE NONE")).isEqualTo(new SetRole(location(1, 1), SetRole.Type.NONE, Optional.empty(), Optional.empty()));
+        assertThat(statement("SET ROLE role")).isEqualTo(new SetRole(location(1, 1), SetRole.Type.ROLE, Optional.of(new Identifier(location(1, 10), "role", false)), Optional.empty()));
+        assertThat(statement("SET ROLE \"role\"")).isEqualTo(new SetRole(location(1, 1), SetRole.Type.ROLE, Optional.of(new Identifier(location(1, 10), "role", true)), Optional.empty()));
+        assertThat(statement("SET ROLE role IN my_catalog")).isEqualTo(new SetRole(location(1, 1), SetRole.Type.ROLE, Optional.of(new Identifier(location(1, 10), "role", false)), Optional.of(new Identifier(location(1, 18), "my_catalog", false))));
     }
 
     @Test
