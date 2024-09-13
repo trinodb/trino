@@ -181,6 +181,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 
 public class PlanPrinter
@@ -1148,7 +1149,8 @@ public class PlanPrinter
                 }
                 return null;
             }
-            List<String> rows = node.getRows().get().stream()
+            List<Expression> nodeRows = node.getRows().get();
+            List<String> rows = nodeRows.stream()
                     .map(row -> {
                         if (row instanceof Row) {
                             return ((Row) row).items().stream()
@@ -1157,7 +1159,11 @@ public class PlanPrinter
                         }
                         return anonymizer.anonymize(row);
                     })
-                    .collect(toImmutableList());
+                    .limit(11)
+                    .collect(toCollection(ArrayList::new));
+            if (nodeRows.size() > 11) {
+                rows.set(10, "(... %s more rows ...)".formatted(nodeRows.size() - 10));
+            }
             for (String row : rows) {
                 nodeOutput.appendDetails("%s", row);
             }
