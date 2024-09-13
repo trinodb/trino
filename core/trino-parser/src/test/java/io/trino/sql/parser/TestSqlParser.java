@@ -4067,8 +4067,8 @@ public class TestSqlParser
     @Test
     public void testRollback()
     {
-        assertStatement("ROLLBACK", new Rollback());
-        assertStatement("ROLLBACK WORK", new Rollback());
+        assertThat(statement("ROLLBACK")).isEqualTo(new Rollback(location(1, 1)));
+        assertThat(statement("ROLLBACK WORK")).isEqualTo(new Rollback(location(1, 1)));
     }
 
     @Test

@@ -22,19 +22,9 @@ import java.util.Optional;
 public final class Rollback
         extends Statement
 {
-    public Rollback()
-    {
-        this(Optional.empty());
-    }
-
     public Rollback(NodeLocation location)
     {
-        this(Optional.of(location));
-    }
-
-    private Rollback(Optional<NodeLocation> location)
-    {
-        super(location);
+        super(Optional.of(location));
     }
 
     @Override
