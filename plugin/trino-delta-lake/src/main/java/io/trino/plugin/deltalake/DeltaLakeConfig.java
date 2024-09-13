@@ -89,6 +89,7 @@ public class DeltaLakeConfig
     private boolean projectionPushdownEnabled = true;
     private boolean queryPartitionFilterRequired;
     private boolean deletionVectorsEnabled;
+    private boolean deltaLogFileSystemCacheDisabled;
 
     public Duration getMetadataCacheTtl()
     {
@@ -550,6 +551,19 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setDeletionVectorsEnabled(boolean deletionVectorsEnabled)
     {
         this.deletionVectorsEnabled = deletionVectorsEnabled;
+        return this;
+    }
+
+    public boolean isDeltaLogFileSystemCacheDisabled()
+    {
+        return deltaLogFileSystemCacheDisabled;
+    }
+
+    @Config("delta.fs.cache.disable-transaction-log-caching")
+    @ConfigDescription("Disable filesystem caching of the _delta_log directory (effective only when fs.cache.enabled=true)")
+    public DeltaLakeConfig setDeltaLogFileSystemCacheDisabled(boolean deltaLogFileSystemCacheDisabled)
+    {
+        this.deltaLogFileSystemCacheDisabled = deltaLogFileSystemCacheDisabled;
         return this;
     }
 }
