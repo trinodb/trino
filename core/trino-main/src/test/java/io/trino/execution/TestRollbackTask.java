@@ -21,6 +21,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Rollback;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
@@ -75,7 +76,7 @@ public class TestRollbackTask
         assertThat(stateMachine.getSession().getTransactionId().isPresent()).isTrue();
         assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
 
-        getFutureValue(new RollbackTask(transactionManager).execute(new Rollback(), stateMachine, emptyList(), WarningCollector.NOOP));
+        getFutureValue(new RollbackTask(transactionManager).execute(new Rollback(new NodeLocation(1, 1)), stateMachine, emptyList(), WarningCollector.NOOP));
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isTrue();
         assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isFalse();
 
@@ -92,7 +93,7 @@ public class TestRollbackTask
         QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, transactionManager);
 
         assertTrinoExceptionThrownBy(
-                () -> getFutureValue((Future<?>) new RollbackTask(transactionManager).execute(new Rollback(), stateMachine, emptyList(), WarningCollector.NOOP)))
+                () -> getFutureValue((Future<?>) new RollbackTask(transactionManager).execute(new Rollback(new NodeLocation(1, 1)), stateMachine, emptyList(), WarningCollector.NOOP)))
                 .hasErrorCode(NOT_IN_TRANSACTION);
 
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isFalse();
@@ -111,7 +112,7 @@ public class TestRollbackTask
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, transactionManager);
 
-        getFutureValue(new RollbackTask(transactionManager).execute(new Rollback(), stateMachine, emptyList(), WarningCollector.NOOP));
+        getFutureValue(new RollbackTask(transactionManager).execute(new Rollback(new NodeLocation(1, 1)), stateMachine, emptyList(), WarningCollector.NOOP));
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isTrue(); // Still issue clear signal
         assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isFalse();
 
