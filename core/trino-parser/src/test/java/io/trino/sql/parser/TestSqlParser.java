@@ -3165,15 +3165,21 @@ public class TestSqlParser
     @Test
     public void testAlterViewSetAuthorization()
     {
-        assertStatement(
-                "ALTER VIEW foo.bar.baz SET AUTHORIZATION qux",
-                new SetViewAuthorization(QualifiedName.of("foo", "bar", "baz"), new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("qux"))));
-        assertStatement(
-                "ALTER VIEW foo.bar.baz SET AUTHORIZATION USER qux",
-                new SetViewAuthorization(QualifiedName.of("foo", "bar", "baz"), new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("qux"))));
-        assertStatement(
-                "ALTER VIEW foo.bar.baz SET AUTHORIZATION ROLE qux",
-                new SetViewAuthorization(QualifiedName.of("foo", "bar", "baz"), new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("qux"))));
+        assertThat(statement("ALTER VIEW foo.bar.baz SET AUTHORIZATION qux")).isEqualTo(
+                new SetViewAuthorization(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 12), "foo", false), new Identifier(location(1, 16), "bar", false), new Identifier(location(1, 20), "baz", false))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 42), "qux", false))));
+        assertThat(statement("ALTER VIEW foo.bar.baz SET AUTHORIZATION USER qux")).isEqualTo(
+                new SetViewAuthorization(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 12), "foo", false), new Identifier(location(1, 16), "bar", false), new Identifier(location(1, 20), "baz", false))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 47), "qux", false))));
+        assertThat(statement("ALTER VIEW foo.bar.baz SET AUTHORIZATION ROLE qux")).isEqualTo(
+                new SetViewAuthorization(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 12), "foo", false), new Identifier(location(1, 16), "bar", false), new Identifier(location(1, 20), "baz", false))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 47), "qux", false))));
     }
 
     @Test
