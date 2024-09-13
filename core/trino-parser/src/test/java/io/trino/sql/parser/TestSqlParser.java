@@ -3011,12 +3011,42 @@ public class TestSqlParser
     @Test
     public void testSetTableProperties()
     {
-        assertStatement("ALTER TABLE a SET PROPERTIES foo='bar'", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar")))));
-        assertStatement("ALTER TABLE a SET PROPERTIES foo=true", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new BooleanLiteral("true")))));
-        assertStatement("ALTER TABLE a SET PROPERTIES foo=123", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")))));
-        assertStatement("ALTER TABLE a SET PROPERTIES foo=123, bar=456", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")), new Property(new Identifier("bar"), new LongLiteral("456")))));
-        assertStatement("ALTER TABLE a SET PROPERTIES \" s p a c e \"='bar'", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier(" s p a c e "), new StringLiteral("bar")))));
-        assertStatement("ALTER TABLE a SET PROPERTIES foo=123, bar=DEFAULT", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")), new Property(new Identifier("bar")))));
+        assertThat(statement("ALTER TABLE a SET PROPERTIES foo='bar'"))
+                .isEqualTo(new SetProperties(
+                        location(1, 1),
+                        SetProperties.Type.TABLE,
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        ImmutableList.of(new Property(location(1, 30), new Identifier(location(1, 30), "foo", false), new StringLiteral(location(1, 34), "bar")))));
+        assertThat(statement("ALTER TABLE a SET PROPERTIES foo=true"))
+                .isEqualTo(new SetProperties(
+                        location(1, 1),
+                        SetProperties.Type.TABLE,
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        ImmutableList.of(new Property(location(1, 30), new Identifier(location(1, 30), "foo", false), new BooleanLiteral(location(1, 34), "true")))));
+        assertThat(statement("ALTER TABLE a SET PROPERTIES foo=123"))
+                .isEqualTo(new SetProperties(
+                        location(1, 1),
+                        SetProperties.Type.TABLE,
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        ImmutableList.of(new Property(location(1, 30), new Identifier(location(1, 30), "foo", false), new LongLiteral(location(1, 34), "123")))));
+        assertThat(statement("ALTER TABLE a SET PROPERTIES foo=123, bar=456"))
+                .isEqualTo(new SetProperties(
+                        location(1, 1),
+                        SetProperties.Type.TABLE,
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        ImmutableList.of(new Property(location(1, 30), new Identifier(location(1, 30), "foo", false), new LongLiteral(location(1, 34), "123")), new Property(location(1, 39), new Identifier(location(1, 39), "bar", false), new LongLiteral(location(1, 43), "456")))));
+        assertThat(statement("ALTER TABLE a SET PROPERTIES \" s p a c e \"='bar'"))
+                .isEqualTo(new SetProperties(
+                        location(1, 1),
+                        SetProperties.Type.TABLE,
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        ImmutableList.of(new Property(location(1, 30), new Identifier(location(1, 30), " s p a c e ", true), new StringLiteral(location(1, 44), "bar")))));
+        assertThat(statement("ALTER TABLE a SET PROPERTIES foo=123, bar=DEFAULT"))
+                .isEqualTo(new SetProperties(
+                        location(1, 1),
+                        SetProperties.Type.TABLE,
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "a", false))),
+                        ImmutableList.of(new Property(location(1, 30), new Identifier(location(1, 30), "foo", false), new LongLiteral(location(1, 34), "123")), new Property(location(1, 39), new Identifier(location(1, 39), "bar", false)))));
 
         assertStatementIsInvalid("ALTER TABLE a SET PROPERTIES")
                 .withMessage("line 1:29: mismatched input '<EOF>'. Expecting: <identifier>");
@@ -5113,46 +5143,46 @@ public class TestSqlParser
     @Test
     public void testSetMaterializedViewProperties()
     {
-        assertStatement(
-                "ALTER MATERIALIZED VIEW a SET PROPERTIES foo='bar'",
+        assertThat(statement("ALTER MATERIALIZED VIEW a SET PROPERTIES foo='bar'")).isEqualTo(
                 new SetProperties(
+                        location(1, 1),
                         MATERIALIZED_VIEW,
-                        QualifiedName.of("a"),
-                        ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar")))));
-        assertStatement(
-                "ALTER MATERIALIZED VIEW a SET PROPERTIES foo=true",
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "a", false))),
+                        ImmutableList.of(new Property(location(1, 42), new Identifier(location(1, 42), "foo", false), new StringLiteral(location(1, 46), "bar")))));
+        assertThat(statement("ALTER MATERIALIZED VIEW a SET PROPERTIES foo=true")).isEqualTo(
                 new SetProperties(
+                        location(1, 1),
                         MATERIALIZED_VIEW,
-                        QualifiedName.of("a"),
-                        ImmutableList.of(new Property(new Identifier("foo"), new BooleanLiteral("true")))));
-        assertStatement(
-                "ALTER MATERIALIZED VIEW a SET PROPERTIES foo=123",
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "a", false))),
+                        ImmutableList.of(new Property(location(1, 42), new Identifier(location(1, 42), "foo", false), new BooleanLiteral(location(1, 46), "true")))));
+        assertThat(statement("ALTER MATERIALIZED VIEW a SET PROPERTIES foo=123")).isEqualTo(
                 new SetProperties(
+                        location(1, 1),
                         MATERIALIZED_VIEW,
-                        QualifiedName.of("a"),
-                        ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")))));
-        assertStatement(
-                "ALTER MATERIALIZED VIEW a SET PROPERTIES foo=123, bar=456",
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "a", false))),
+                        ImmutableList.of(new Property(location(1, 42), new Identifier(location(1, 42), "foo", false), new LongLiteral(location(1, 46), "123")))));
+        assertThat(statement("ALTER MATERIALIZED VIEW a SET PROPERTIES foo=123, bar=456")).isEqualTo(
                 new SetProperties(
+                        location(1, 1),
                         MATERIALIZED_VIEW,
-                        QualifiedName.of("a"),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "a", false))),
                         ImmutableList.of(
-                                new Property(new Identifier("foo"), new LongLiteral("123")),
-                                new Property(new Identifier("bar"), new LongLiteral("456")))));
-        assertStatement(
-                "ALTER MATERIALIZED VIEW a SET PROPERTIES \" s p a c e \"='bar'",
+                                new Property(location(1, 42), new Identifier(location(1, 42), "foo", false), new LongLiteral(location(1, 46), "123")),
+                                new Property(location(1, 51), new Identifier(location(1, 51), "bar", false), new LongLiteral(location(1, 55), "456")))));
+        assertThat(statement("ALTER MATERIALIZED VIEW a SET PROPERTIES \" s p a c e \"='bar'")).isEqualTo(
                 new SetProperties(
+                        location(1, 1),
                         MATERIALIZED_VIEW,
-                        QualifiedName.of("a"),
-                        ImmutableList.of(new Property(new Identifier(" s p a c e "), new StringLiteral("bar")))));
-        assertStatement(
-                "ALTER MATERIALIZED VIEW a SET PROPERTIES foo=123, bar=DEFAULT",
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "a", false))),
+                        ImmutableList.of(new Property(location(1, 42), new Identifier(location(1, 42), " s p a c e ", true), new StringLiteral(location(1, 56), "bar")))));
+        assertThat(statement("ALTER MATERIALIZED VIEW a SET PROPERTIES foo=123, bar=DEFAULT")).isEqualTo(
                 new SetProperties(
+                        location(1, 1),
                         MATERIALIZED_VIEW,
-                        QualifiedName.of("a"),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "a", false))),
                         ImmutableList.of(
-                                new Property(new Identifier("foo"), new LongLiteral("123")),
-                                new Property(new Identifier("bar")))));
+                                new Property(location(1, 42), new Identifier(location(1, 42), "foo", false), new LongLiteral(location(1, 46), "123")),
+                                new Property(location(1, 51), new Identifier(location(1, 51), "bar", false)))));
 
         assertStatementIsInvalid("ALTER MATERIALIZED VIEW a SET PROPERTIES")
                 .withMessage("line 1:41: mismatched input '<EOF>'. Expecting: <identifier>");
