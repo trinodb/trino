@@ -4780,66 +4780,73 @@ public class TestSqlParser
     @Test
     public void testRevokeRoles()
     {
-        assertStatement("REVOKE role1 FROM user1",
+        assertThat(statement("REVOKE role1 FROM user1")).isEqualTo(
                 new RevokeRoles(
-                        ImmutableSet.of(new Identifier("role1")),
-                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("user1"))),
+                        location(1, 1),
+                        ImmutableSet.of(new Identifier(location(1, 8), "role1", false)),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 19), "user1", false))),
                         false,
                         Optional.empty(),
                         Optional.empty()));
-        assertStatement("REVOKE ADMIN OPTION FOR role1, role2, role3 FROM user1, USER user2, ROLE role4",
+        assertThat(statement("REVOKE ADMIN OPTION FOR role1, role2, role3 FROM user1, USER user2, ROLE role4")).isEqualTo(
                 new RevokeRoles(
-                        ImmutableSet.of(new Identifier("role1"), new Identifier("role2"), new Identifier("role3")),
+                        location(1, 1),
+                        ImmutableSet.of(new Identifier(location(1, 25), "role1", false), new Identifier(location(1, 32), "role2", false), new Identifier(location(1, 39), "role3", false)),
                         ImmutableSet.of(
-                                new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("user1")),
-                                new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("user2")),
-                                new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("role4"))),
+                                new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 50), "user1", false)),
+                                new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 62), "user2", false)),
+                                new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 74), "role4", false))),
                         true,
                         Optional.empty(),
                         Optional.empty()));
-        assertStatement("REVOKE ADMIN OPTION FOR role1 FROM user1 GRANTED BY admin",
+        assertThat(statement("REVOKE ADMIN OPTION FOR role1 FROM user1 GRANTED BY admin")).isEqualTo(
                 new RevokeRoles(
-                        ImmutableSet.of(new Identifier("role1")),
-                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("user1"))),
+                        location(1, 1),
+                        ImmutableSet.of(new Identifier(location(1, 25), "role1", false)),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 36), "user1", false))),
                         true,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("admin"))))),
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 53), "admin", false))))),
                         Optional.empty()));
-        assertStatement("REVOKE ADMIN OPTION FOR role1 FROM USER user1 GRANTED BY USER admin",
+        assertThat(statement("REVOKE ADMIN OPTION FOR role1 FROM USER user1 GRANTED BY USER admin")).isEqualTo(
                 new RevokeRoles(
-                        ImmutableSet.of(new Identifier("role1")),
-                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("user1"))),
+                        location(1, 1),
+                        ImmutableSet.of(new Identifier(location(1, 25), "role1", false)),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 41), "user1", false))),
                         true,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("admin"))))),
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 63), "admin", false))))),
                         Optional.empty()));
-        assertStatement("REVOKE role1 FROM ROLE role2 GRANTED BY ROLE admin",
+        assertThat(statement("REVOKE role1 FROM ROLE role2 GRANTED BY ROLE admin")).isEqualTo(
                 new RevokeRoles(
-                        ImmutableSet.of(new Identifier("role1")),
-                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("role2"))),
+                        location(1, 1),
+                        ImmutableSet.of(new Identifier(location(1, 8), "role1", false)),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 24), "role2", false))),
                         false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("admin"))))),
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 46), "admin", false))))),
                         Optional.empty()));
-        assertStatement("REVOKE \"role1\" FROM ROLE \"role2\" GRANTED BY ROLE \"admin\"",
+        assertThat(statement("REVOKE \"role1\" FROM ROLE \"role2\" GRANTED BY ROLE \"admin\"")).isEqualTo(
                 new RevokeRoles(
-                        ImmutableSet.of(new Identifier("role1")),
-                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("role2"))),
+                        location(1, 1),
+                        ImmutableSet.of(new Identifier(location(1, 8), "role1", true)),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 26), "role2", true))),
                         false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("admin"))))),
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 50), "admin", true))))),
                         Optional.empty()));
-        assertStatement("REVOKE role1 FROM user1 IN my_catalog",
+        assertThat(statement("REVOKE role1 FROM user1 IN my_catalog")).isEqualTo(
                 new RevokeRoles(
-                        ImmutableSet.of(new Identifier("role1")),
-                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("user1"))),
+                        location(1, 1),
+                        ImmutableSet.of(new Identifier(location(1, 8), "role1", false)),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 19), "user1", false))),
                         false,
                         Optional.empty(),
-                        Optional.of(new Identifier("my_catalog"))));
+                        Optional.of(new Identifier(location(1, 28), "my_catalog", false))));
     }
 
     @Test
