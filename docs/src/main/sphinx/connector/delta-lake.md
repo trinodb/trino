@@ -1224,3 +1224,22 @@ keep a backup of the original values if you change them.
 
 The connector supports configuring and using [file system
 caching](/object-storage/file-system-cache).
+
+The following table describes file system cache properties specific to 
+the Delta Lake connector.
+
+:::{list-table} Delta Lake file system cache configuration properties
+:widths: 30, 50, 20
+:header-rows: 1
+
+* - Property name
+  - Description
+  - Default
+* - `delta.fs.cache.disable-transaction-log-caching`
+  - Set to `true` to disable caching of the `_delta_log` directory of 
+    Delta Tables. This is useful in those cases when Delta Tables are 
+    destroyed and recreated, and the files inside the transaction log 
+    directory get overwritten and cannot be safely cached. Effective 
+    only when `fs.cache.enabled=true`.
+  - `false`
+:::

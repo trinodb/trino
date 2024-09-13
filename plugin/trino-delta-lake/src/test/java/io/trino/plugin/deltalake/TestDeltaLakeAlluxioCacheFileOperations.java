@@ -13,13 +13,10 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.common.io.Resources;
-import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -31,27 +28,15 @@ import java.io.File;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.OptionalLong;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.CacheOperation;
-import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.getCacheOperationSpans;
-import static io.trino.filesystem.tracing.CacheFileSystemTraceUtils.getFileLocation;
-import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_POSITION;
-import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_SIZE;
-import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_POSITION;
-import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_SIZE;
-import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_READ_POSITION;
-import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_READ_SIZE;
+import static io.trino.plugin.deltalake.DeltaLakeAlluxioCacheTestUtils.getCacheOperations;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toCollection;
 
 @Execution(ExecutionMode.SAME_THREAD)
 public class TestDeltaLakeAlluxioCacheFileOperations
@@ -550,59 +535,6 @@ public class TestDeltaLakeAlluxioCacheFileOperations
         assertUpdate("CALL system.flush_metadata_cache()");
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         queryRunner.executeWithPlan(queryRunner.getDefaultSession(), query);
-        assertMultisetsEqual(getCacheOperations(), expectedCacheAccesses);
-    }
-
-    private Multiset<CacheOperation> getCacheOperations()
-    {
-        return getCacheOperationSpans(getQueryRunner())
-                .stream()
-                .map(TestDeltaLakeAlluxioCacheFileOperations::createCacheOperation)
-                .collect(toCollection(HashMultiset::create));
-    }
-
-    private static Pattern dataFilePattern = Pattern.compile(".*?/(?<partition>((\\w+)=[^/]*/)*)(?<queryId>\\d{8}_\\d{6}_\\d{5}_\\w{5})_(?<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})");
-
-    private static CacheOperation createCacheOperation(SpanData span)
-    {
-        String operationName = span.getName();
-        Attributes attributes = span.getAttributes();
-        String path = getFileLocation(span);
-        String fileName = path.replaceFirst(".*/", "");
-
-        OptionalLong position = switch (operationName) {
-            case "Alluxio.readCached", "Alluxio.readExternalStream" -> OptionalLong.of(requireNonNull(attributes.get(CACHE_FILE_READ_POSITION)));
-            case "Alluxio.writeCache" -> OptionalLong.of(requireNonNull(attributes.get(CACHE_FILE_WRITE_POSITION)));
-            case "Input.readFully" -> OptionalLong.of(requireNonNull(attributes.get(FILE_READ_POSITION)));
-            default -> OptionalLong.empty();
-        };
-
-        OptionalLong length = switch (operationName) {
-            case "Alluxio.readCached", "Alluxio.readExternalStream" -> OptionalLong.of(requireNonNull(attributes.get(CACHE_FILE_READ_SIZE)));
-            case "Alluxio.writeCache" -> OptionalLong.of(requireNonNull(attributes.get(CACHE_FILE_WRITE_SIZE)));
-            case "Input.readFully" -> OptionalLong.of(requireNonNull(attributes.get(FILE_READ_SIZE)));
-            default -> OptionalLong.empty();
-        };
-
-        if (!path.contains("_delta_log") && !path.contains("/.trino")) {
-            Matcher matcher = dataFilePattern.matcher(path);
-            if (matcher.matches()) {
-                String changeData = path.contains("/_change_data/") ? "change_data/" : "";
-                if (!path.contains("=")) {
-                    return new CacheOperation(operationName, "data", position, length);
-                }
-                return new CacheOperation(operationName, changeData + matcher.group("partition"), position, length);
-            }
-            if (path.contains("/part-00000-")) {
-                return new CacheOperation(operationName, "data", position, length);
-            }
-            if (path.contains("/deletion_vector_")) {
-                return new CacheOperation(operationName, "deletion_vector", position, length);
-            }
-        }
-        else {
-            return new CacheOperation(operationName, fileName, position, length);
-        }
-        throw new IllegalArgumentException("File not recognized: " + path);
+        assertMultisetsEqual(getCacheOperations(queryRunner), expectedCacheAccesses);
     }
 }
