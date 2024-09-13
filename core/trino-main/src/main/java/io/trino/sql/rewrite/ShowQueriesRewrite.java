@@ -800,8 +800,7 @@ public final class ShowQueriesRewrite
                 case AGGREGATE -> "aggregate";
                 case WINDOW -> "window";
                 case SCALAR -> "scalar";
-                // TODO https://github.com/trinodb/trino/issues/12550
-                case TABLE -> throw new IllegalArgumentException("Unexpected function kind: " + kind);
+                case TABLE -> "table";
             };
         }
 

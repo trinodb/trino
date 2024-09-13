@@ -192,6 +192,7 @@ public final class MetadataManager
     private final SystemSecurityMetadata systemSecurityMetadata;
     private final TransactionManager transactionManager;
     private final LanguageFunctionManager languageFunctionManager;
+    private final TableFunctionRegistry tableFunctionRegistry;
     private final TypeManager typeManager;
     private final TypeCoercion typeCoercion;
 
@@ -203,6 +204,7 @@ public final class MetadataManager
             TransactionManager transactionManager,
             GlobalFunctionCatalog globalFunctionCatalog,
             LanguageFunctionManager languageFunctionManager,
+            TableFunctionRegistry tableFunctionRegistry,
             TypeManager typeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -213,6 +215,7 @@ public final class MetadataManager
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.languageFunctionManager = requireNonNull(languageFunctionManager, "languageFunctionManager is null");
+        this.tableFunctionRegistry = requireNonNull(tableFunctionRegistry, "tableFunctionRegistry is null");
     }
 
     @Override
@@ -2491,7 +2494,19 @@ public final class MetadataManager
     @Override
     public Collection<FunctionMetadata> listGlobalFunctions(Session session)
     {
-        return functions.listFunctions();
+        return ImmutableList.<FunctionMetadata>builder()
+                .addAll(functions.listFunctions())
+                .addAll(listTableFunctions(session))
+                .build();
+    }
+
+    private Collection<FunctionMetadata> listTableFunctions(Session session)
+    {
+        ImmutableList.Builder<FunctionMetadata> functions = ImmutableList.builder();
+        for (CatalogInfo catalog : listCatalogs(session)) {
+            functions.addAll(tableFunctionRegistry.listTableFunctions(catalog.catalogHandle()));
+        }
+        return functions.build();
     }
 
     @Override
@@ -2499,10 +2514,12 @@ public final class MetadataManager
     {
         ImmutableList.Builder<FunctionMetadata> functions = ImmutableList.builder();
         getOptionalCatalogMetadata(session, schema.getCatalogName()).ifPresent(catalogMetadata -> {
-            ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogHandle());
+            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
+            ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
             ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
             functions.addAll(metadata.listFunctions(connectorSession, schema.getSchemaName()));
             functions.addAll(languageFunctionManager.listFunctions(session, metadata.listLanguageFunctions(connectorSession, schema.getSchemaName())));
+            functions.addAll(tableFunctionRegistry.listTableFunctions(catalogHandle, schema.getSchemaName()));
         });
         return functions.build();
     }
@@ -2903,11 +2920,14 @@ public final class MetadataManager
                 languageFunctionManager = new LanguageFunctionManager(new SqlParser(), typeManager, user -> ImmutableSet.of(), blockEncodingSerde);
             }
 
+            TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(_ -> new CatalogTableFunctions(ImmutableList.of()));
+
             return new MetadataManager(
                     new DisabledSystemSecurityMetadata(),
                     transactionManager,
                     globalFunctionCatalog,
                     languageFunctionManager,
+                    tableFunctionRegistry,
                     typeManager);
         }
     }

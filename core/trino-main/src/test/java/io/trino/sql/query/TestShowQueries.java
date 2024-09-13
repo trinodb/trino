@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.connector.TestingTableFunctions.SimpleTableFunction;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
@@ -65,6 +66,7 @@ public class TestShowQueries
                                 .build()))
                 .withListSchemaNames(session -> ImmutableList.of("mockschema"))
                 .withListTables((session, schemaName) -> ImmutableList.of("mockTable"))
+                .withTableFunctions(ImmutableList.of(new SimpleTableFunction()))
                 .withGetTableHandle((session, schemaTableName) -> {
                     if (schemaTableName.getTableName().equals("mockview")) {
                         return null;
@@ -126,6 +128,27 @@ public class TestShowQueries
                 .matches("VALUES " +
                         "('split_to_map', 'map(varchar,varchar)', 'varchar, varchar, varchar', 'scalar', true, 'Creates a map using entryDelimiter and keyValueDelimiter')," +
                         "('split_to_multimap', 'map(varchar,array(varchar))', 'varchar, varchar, varchar', 'scalar', true, 'Creates a multimap by splitting a string into key/value pairs')");
+    }
+
+    @Test
+    public void testShowFunctionsWithTableFunction()
+    {
+        // The table function exists in testing_catalog and mock catalogs
+        assertThat(assertions.query("SHOW FUNCTIONS FROM mock.system LIKE 'simple$_table$_function' ESCAPE '$'"))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')");
+
+        assertThat(assertions.query("SHOW FUNCTIONS FROM testing_catalog.system LIKE 'simple$_table$_function' ESCAPE '$'"))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')");
+
+        assertThat(assertions.query("SHOW FUNCTIONS LIKE 'simple$_table$_function' ESCAPE '$'"))
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')," +
+                        "('simple_table_function', 'unknown', 'varchar, bigint', 'table', false, '')");
     }
 
     @Test
