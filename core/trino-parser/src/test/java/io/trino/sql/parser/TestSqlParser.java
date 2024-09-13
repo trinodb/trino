@@ -6379,17 +6379,24 @@ public class TestSqlParser
     @Test
     public void testSetSessionAuthorization()
     {
-        assertStatement("SET SESSION AUTHORIZATION user", new SetSessionAuthorization(identifier("user")));
-        assertStatement("SET SESSION AUTHORIZATION \"user\"", new SetSessionAuthorization(identifier("user")));
-        assertStatement("SET SESSION AUTHORIZATION 'user'", new SetSessionAuthorization(new StringLiteral("user")));
+        assertThat(statement("SET SESSION AUTHORIZATION user"))
+                .isEqualTo(new SetSessionAuthorization(location(1, 1), new Identifier(location(1, 27), "user", false)));
+        assertThat(statement("SET SESSION AUTHORIZATION \"user\""))
+                .isEqualTo(new SetSessionAuthorization(location(1, 1), new Identifier(location(1, 27), "user", true)));
+        assertThat(statement("SET SESSION AUTHORIZATION 'user'"))
+                .isEqualTo(new SetSessionAuthorization(location(1, 1), new StringLiteral(location(1, 27), "user")));
 
         assertStatementIsInvalid("SET SESSION AUTHORIZATION user-a").withMessage("line 1:31: mismatched input '-'. Expecting: <EOF>");
-        assertStatement("SET SESSION AUTHORIZATION \"user-a\"", new SetSessionAuthorization(identifier("user-a")));
-        assertStatement("SET SESSION AUTHORIZATION 'user-a'", new SetSessionAuthorization(new StringLiteral("user-a")));
+        assertThat(statement("SET SESSION AUTHORIZATION \"user-a\""))
+                .isEqualTo(new SetSessionAuthorization(location(1, 1), new Identifier(location(1, 27), "user-a", true)));
+        assertThat(statement("SET SESSION AUTHORIZATION 'user-a'"))
+                .isEqualTo(new SetSessionAuthorization(location(1, 1), new StringLiteral(location(1, 27), "user-a")));
 
         assertStatementIsInvalid("SET SESSION AUTHORIZATION null").withMessage("line 1:27: mismatched input 'null'. Expecting: '.', '=', <identifier>, <string>");
-        assertStatement("SET SESSION AUTHORIZATION \"null\"", new SetSessionAuthorization(identifier("null")));
-        assertStatement("SET SESSION AUTHORIZATION 'null'", new SetSessionAuthorization(new StringLiteral("null")));
+        assertThat(statement("SET SESSION AUTHORIZATION \"null\""))
+                .isEqualTo(new SetSessionAuthorization(location(1, 1), new Identifier(location(1, 27), "null", true)));
+        assertThat(statement("SET SESSION AUTHORIZATION 'null'"))
+                .isEqualTo(new SetSessionAuthorization(location(1, 1), new StringLiteral(location(1, 27), "null")));
     }
 
     @Test
