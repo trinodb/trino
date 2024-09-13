@@ -3766,19 +3766,19 @@ public class TestSqlParser
     @Test
     public void testSetPath()
     {
-        assertStatement("SET PATH iLikeToEat.apples, andBananas",
-                new SetPath(new PathSpecification(Optional.empty(), ImmutableList.of(
-                        new PathElement(Optional.of(new Identifier("iLikeToEat")), new Identifier("apples")),
-                        new PathElement(Optional.empty(), new Identifier("andBananas"))))));
+        assertThat(statement("SET PATH iLikeToEat.apples, andBananas")).isEqualTo(
+                new SetPath(location(1, 1), new PathSpecification(location(1, 10), ImmutableList.of(
+                        new PathElement(location(1, 10), Optional.of(new Identifier(location(1, 10), "iLikeToEat", false)), new Identifier(location(1, 21), "apples", false)),
+                        new PathElement(location(1, 29), Optional.empty(), new Identifier(location(1, 29), "andBananas", false))))));
 
-        assertStatement("SET PATH \"schemas,with\".\"grammar.in\", \"their!names\"",
-                new SetPath(new PathSpecification(Optional.empty(), ImmutableList.of(
-                        new PathElement(Optional.of(new Identifier("schemas,with")), new Identifier("grammar.in")),
-                        new PathElement(Optional.empty(), new Identifier("their!names"))))));
+        assertThat(statement("SET PATH \"schemas,with\".\"grammar.in\", \"their!names\"")).isEqualTo(
+                new SetPath(location(1, 1), new PathSpecification(location(1, 10), ImmutableList.of(
+                        new PathElement(location(1, 10), Optional.of(new Identifier(location(1, 10), "schemas,with", true)), new Identifier(location(1, 25), "grammar.in", true)),
+                        new PathElement(location(1, 39), Optional.empty(), new Identifier(location(1, 39), "their!names", true))))));
 
         assertThatThrownBy(() -> assertStatement("SET PATH one.too.many, qualifiers",
-                new SetPath(new PathSpecification(Optional.empty(), ImmutableList.of(
-                        new PathElement(Optional.empty(), new Identifier("dummyValue")))))))
+                new SetPath(location(1, 1), new PathSpecification(Optional.empty(), ImmutableList.of(
+                        new PathElement(location(1, 1), Optional.empty(), new Identifier("dummyValue")))))))
                 .isInstanceOf(ParsingException.class)
                 .hasMessage("line 1:17: mismatched input '.'. Expecting: ',', <EOF>");
 
