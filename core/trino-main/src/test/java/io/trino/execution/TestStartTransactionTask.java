@@ -154,7 +154,7 @@ public class TestStartTransactionTask
         assertThat(stateMachine.getSession().getTransactionId().isPresent()).isFalse();
 
         getFutureValue(new StartTransactionTask(transactionManager).execute(
-                new StartTransaction(new NodeLocation(1, 1), ImmutableList.of(new Isolation(Isolation.Level.SERIALIZABLE), new TransactionAccessMode(true))),
+                new StartTransaction(new NodeLocation(1, 1), ImmutableList.of(new Isolation(new NodeLocation(1, 1), Isolation.Level.SERIALIZABLE), new TransactionAccessMode(true))),
                 stateMachine,
                 emptyList(),
                 WarningCollector.NOOP));
@@ -180,7 +180,7 @@ public class TestStartTransactionTask
 
         assertTrinoExceptionThrownBy(() ->
                 getFutureValue(new StartTransactionTask(transactionManager).execute(
-                        new StartTransaction(new NodeLocation(1, 1), ImmutableList.of(new Isolation(Isolation.Level.READ_COMMITTED), new Isolation(Isolation.Level.READ_COMMITTED))),
+                        new StartTransaction(new NodeLocation(1, 1), ImmutableList.of(new Isolation(new NodeLocation(1, 1), Isolation.Level.READ_COMMITTED), new Isolation(new NodeLocation(1, 1), Isolation.Level.READ_COMMITTED))),
                         stateMachine,
                         emptyList(),
                         WarningCollector.NOOP)))

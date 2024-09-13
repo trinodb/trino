@@ -4027,16 +4027,16 @@ public class TestSqlParser
                 new StartTransaction(location(1, 1), ImmutableList.of()));
         assertStatement("START TRANSACTION ISOLATION LEVEL READ UNCOMMITTED",
                 new StartTransaction(location(1, 1), ImmutableList.of(
-                        new Isolation(Isolation.Level.READ_UNCOMMITTED))));
+                        new Isolation(location(1, 19), Isolation.Level.READ_UNCOMMITTED))));
         assertStatement("START TRANSACTION ISOLATION LEVEL READ COMMITTED",
                 new StartTransaction(location(1, 1), ImmutableList.of(
-                        new Isolation(Isolation.Level.READ_COMMITTED))));
+                        new Isolation(location(1, 19), Isolation.Level.READ_COMMITTED))));
         assertStatement("START TRANSACTION ISOLATION LEVEL REPEATABLE READ",
                 new StartTransaction(location(1, 1), ImmutableList.of(
-                        new Isolation(Isolation.Level.REPEATABLE_READ))));
+                        new Isolation(location(1, 19), Isolation.Level.REPEATABLE_READ))));
         assertStatement("START TRANSACTION ISOLATION LEVEL SERIALIZABLE",
                 new StartTransaction(location(1, 1), ImmutableList.of(
-                        new Isolation(Isolation.Level.SERIALIZABLE))));
+                        new Isolation(location(1, 19), Isolation.Level.SERIALIZABLE))));
         assertStatement("START TRANSACTION READ ONLY",
                 new StartTransaction(location(1, 1), ImmutableList.of(
                         new TransactionAccessMode(true))));
@@ -4045,16 +4045,16 @@ public class TestSqlParser
                         new TransactionAccessMode(false))));
         assertStatement("START TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY",
                 new StartTransaction(location(1, 1), ImmutableList.of(
-                        new Isolation(Isolation.Level.READ_COMMITTED),
+                        new Isolation(location(1, 19), Isolation.Level.READ_COMMITTED),
                         new TransactionAccessMode(true))));
         assertStatement("START TRANSACTION READ ONLY, ISOLATION LEVEL READ COMMITTED",
                 new StartTransaction(location(1, 1), ImmutableList.of(
                         new TransactionAccessMode(true),
-                        new Isolation(Isolation.Level.READ_COMMITTED))));
+                        new Isolation(location(1, 30), Isolation.Level.READ_COMMITTED))));
         assertStatement("START TRANSACTION READ WRITE, ISOLATION LEVEL SERIALIZABLE",
                 new StartTransaction(location(1, 1), ImmutableList.of(
                         new TransactionAccessMode(false),
-                        new Isolation(Isolation.Level.SERIALIZABLE))));
+                        new Isolation(location(1, 31), Isolation.Level.SERIALIZABLE))));
     }
 
     @Test
