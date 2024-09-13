@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
 
+import static io.trino.SystemSessionProperties.MATERIALIZE_TABLE_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
@@ -72,12 +73,14 @@ public class TestTableScanNodePartitioning
     public static final Session ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING = testSessionBuilder()
             .setCatalog(TEST_CATALOG_NAME)
             .setSchema(TEST_SCHEMA)
+            .setSystemProperty(MATERIALIZE_TABLE_ENABLED, "false")
             .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, "true")
             .setSystemProperty(TASK_CONCURRENCY, "2") // force parallel plan even on test nodes with single CPU
             .build();
     public static final Session DISABLE_PLAN_WITH_TABLE_NODE_PARTITIONING = testSessionBuilder()
             .setCatalog(TEST_CATALOG_NAME)
             .setSchema(TEST_SCHEMA)
+            .setSystemProperty(MATERIALIZE_TABLE_ENABLED, "false")
             .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, "false")
             .setSystemProperty(TASK_CONCURRENCY, "2") // force parallel plan even on test nodes with single CPU
             .build();

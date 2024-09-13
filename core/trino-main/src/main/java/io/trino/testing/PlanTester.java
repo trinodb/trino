@@ -223,6 +223,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.opentelemetry.api.OpenTelemetry.noop;
+import static io.trino.SystemSessionProperties.MATERIALIZE_TABLE_ENABLED;
 import static io.trino.connector.CatalogServiceProviderModule.createAccessControlProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createAnalyzePropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createColumnPropertyManager;
@@ -262,6 +263,7 @@ public class PlanTester
     private final Session defaultSession;
     private final ExecutorService notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
+    private final ExecutorService plannerExecutor;
     private final FinalizerService finalizerService;
 
     private final SqlParser sqlParser;
@@ -305,6 +307,7 @@ public class PlanTester
     private final TaskManagerConfig taskManagerConfig;
     private final OptimizerConfig optimizerConfig;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
+
     private boolean printPlan;
 
     public static PlanTester create(Session defaultSession)
@@ -325,6 +328,7 @@ public class PlanTester
         this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
         this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
         this.yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
+        this.plannerExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-planner-%s"));
         this.finalizerService = new FinalizerService();
         finalizerService.start();
 
@@ -476,6 +480,11 @@ public class PlanTester
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
         languageFunctionManager.setPlannerContext(plannerContext);
 
+        defaultSession = Session.builder(defaultSession)
+                // disable this optimization globally as it invalidates every test
+                .setSystemProperty(MATERIALIZE_TABLE_ENABLED, "false")
+                .build();
+
         // rewrite session to use managed SessionPropertyMetadata
         this.defaultSession = new Session(
                 defaultSession.getQueryId(),
@@ -537,6 +546,7 @@ public class PlanTester
     {
         notificationExecutor.shutdownNow();
         yieldExecutor.shutdownNow();
+        plannerExecutor.shutdownNow();
         catalogManager.stop();
         finalizerService.destroy();
     }
@@ -844,10 +854,12 @@ public class PlanTester
     {
         return new PlanOptimizers(
                 plannerContext,
+                plannerExecutor,
                 taskManagerConfig,
                 forceSingleNode,
                 splitManager,
                 pageSourceManager,
+                nodeManager,
                 statsCalculator,
                 scalarStatsCalculator,
                 costCalculator,

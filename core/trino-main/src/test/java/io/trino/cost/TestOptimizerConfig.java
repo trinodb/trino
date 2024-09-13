@@ -91,7 +91,11 @@ public class TestOptimizerConfig
                 .setMinInputRowsPerTask(10_000_000L)
                 .setUseExactPartitioning(false)
                 .setUseCostBasedPartitioning(true)
-                .setPushFilterIntoValuesMaxRowCount(100)
+                .setPushFilterIntoValuesMaxRowCount(100_000)
+                .setMaterializeTable(true)
+                .setMaterializeTableMaxEstimatedRowCount(50_000)
+                .setMaterializeTableMaxActualRowCount(100_000)
+                .setMaterializeTableTimeout(new Duration(5, SECONDS))
                 .setUnsafePushdownAllowed(false));
     }
 
@@ -151,6 +155,10 @@ public class TestOptimizerConfig
                 .put("optimizer.use-exact-partitioning", "true")
                 .put("optimizer.use-cost-based-partitioning", "false")
                 .put("optimizer.push-filter-into-values-max-row-count", "5")
+                .put("optimizer.materialize-table.enabled", "false")
+                .put("optimizer.materialize-table.max-estimated-row-count", "12345")
+                .put("optimizer.materialize-table.max-actual-row-count", "54321")
+                .put("optimizer.materialize-table.timeout", "7s")
                 .put("optimizer.allow-unsafe-pushdown", "true")
                 .buildOrThrow();
 
@@ -207,6 +215,10 @@ public class TestOptimizerConfig
                 .setUseExactPartitioning(true)
                 .setUseCostBasedPartitioning(false)
                 .setPushFilterIntoValuesMaxRowCount(5)
+                .setMaterializeTable(false)
+                .setMaterializeTableMaxEstimatedRowCount(12345)
+                .setMaterializeTableMaxActualRowCount(54321)
+                .setMaterializeTableTimeout(new Duration(7, SECONDS))
                 .setUnsafePushdownAllowed(true);
         assertFullMapping(properties, expected);
     }

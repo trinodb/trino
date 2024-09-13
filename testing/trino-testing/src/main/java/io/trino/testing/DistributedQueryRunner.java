@@ -97,6 +97,7 @@ import static io.airlift.log.Level.ERROR;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.SystemSessionProperties.MATERIALIZE_TABLE_ENABLED;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static java.lang.Boolean.parseBoolean;
@@ -720,7 +721,10 @@ public class DistributedQueryRunner
 
         protected Builder(Session defaultSession)
         {
-            this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
+            this.defaultSession = Session.builder(defaultSession)
+                    // disable this optimization globally as it invalidates every test
+                    .setSystemProperty(MATERIALIZE_TABLE_ENABLED, "false")
+                    .build();
             String tracingEnabled = firstNonNull(getenv("TESTS_TRACING_ENABLED"), "false");
             this.withTracing = parseBoolean(tracingEnabled) || tracingEnabled.equals("1");
         }

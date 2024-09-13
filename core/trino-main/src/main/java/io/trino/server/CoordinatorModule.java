@@ -114,6 +114,7 @@ import io.trino.spi.VersionEmbedder;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainerFactory;
+import io.trino.sql.planner.ForPlanner;
 import io.trino.sql.planner.OptimizerStatsMBeanExporter;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizers;
@@ -307,6 +308,8 @@ public class CoordinatorModule
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
         binder.bind(PlanOptimizersFactory.class).to(PlanOptimizers.class).in(Scopes.SINGLETON);
+        binder.bind(ExecutorService.class).annotatedWith(ForPlanner.class)
+                .toInstance(newCachedThreadPool(threadsNamed("planner-%s")));
 
         // Optimizer/Rule Stats exporter
         binder.bind(RuleStatsRecorder.class).in(Scopes.SINGLETON);
@@ -372,6 +375,7 @@ public class CoordinatorModule
         closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForStatementResource.class));
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForQueryExecution.class));
         closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForScheduler.class));
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForPlanner.class));
     }
 
     // working around circular dependency Metadata <-> PlannerContext

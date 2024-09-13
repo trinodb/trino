@@ -107,7 +107,9 @@ public class TestTrinoDatabaseMetaData
             throws Exception
     {
         Logging.initialize();
-        server = TestingTrinoServer.create();
+        server = TestingTrinoServer.builder()
+                .addProperty("optimizer.materialize-table.enabled", "false")
+                .build();
 
         server.installPlugin(new TpchPlugin());
         server.createCatalog(TEST_CATALOG, "tpch");

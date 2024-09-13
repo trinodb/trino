@@ -29,6 +29,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
         "adaptive-partial-aggregation.min-rows",
@@ -92,7 +93,11 @@ public class OptimizerConfig
     private boolean forceSingleNodeOutput;
     private boolean useExactPartitioning;
     private boolean useCostBasedPartitioning = true;
-    private int pushFilterIntoValuesMaxRowCount = 100;
+    private int pushFilterIntoValuesMaxRowCount = 100_000;
+    private boolean materializeTable = true;
+    private int materializeTableMaxEstimatedRowCount = 50_000;
+    private int materializeTableMaxActualRowCount = 100_000;
+    private Duration materializeTableTimeout = new Duration(5, SECONDS);
     // adaptive partial aggregation
     private boolean adaptivePartialAggregationEnabled = true;
     private double adaptivePartialAggregationUniqueRowsRatioThreshold = 0.8;
@@ -820,6 +825,60 @@ public class OptimizerConfig
     public OptimizerConfig setPushFilterIntoValuesMaxRowCount(int pushFilterIntoValuesMaxRowCount)
     {
         this.pushFilterIntoValuesMaxRowCount = pushFilterIntoValuesMaxRowCount;
+        return this;
+    }
+
+    public boolean isMaterializeTable()
+    {
+        return materializeTable;
+    }
+
+    @Config("optimizer.materialize-table.enabled")
+    @ConfigDescription("Materialize tables during planning")
+    public OptimizerConfig setMaterializeTable(boolean materializeTable)
+    {
+        this.materializeTable = materializeTable;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaterializeTableMaxEstimatedRowCount()
+    {
+        return materializeTableMaxEstimatedRowCount;
+    }
+
+    @Config("optimizer.materialize-table.max-estimated-row-count")
+    @ConfigDescription("Maximum estimated row count for a table to be materialized")
+    public OptimizerConfig setMaterializeTableMaxEstimatedRowCount(int materializeTableMaxEstimatedRowCount)
+    {
+        this.materializeTableMaxEstimatedRowCount = materializeTableMaxEstimatedRowCount;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaterializeTableMaxActualRowCount()
+    {
+        return materializeTableMaxActualRowCount;
+    }
+
+    @Config("optimizer.materialize-table.max-actual-row-count")
+    @ConfigDescription("Maximum actual row count for a materialized table")
+    public OptimizerConfig setMaterializeTableMaxActualRowCount(int materializeTableMaxActualRowCount)
+    {
+        this.materializeTableMaxActualRowCount = materializeTableMaxActualRowCount;
+        return this;
+    }
+
+    public Duration getMaterializeTableTimeout()
+    {
+        return materializeTableTimeout;
+    }
+
+    @Config("optimizer.materialize-table.timeout")
+    @ConfigDescription("Maximum time to wait for materializing a table")
+    public OptimizerConfig setMaterializeTableTimeout(Duration materializeTableTimeout)
+    {
+        this.materializeTableTimeout = materializeTableTimeout;
         return this;
     }
 

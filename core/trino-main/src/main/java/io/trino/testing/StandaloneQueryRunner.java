@@ -55,8 +55,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.SystemSessionProperties.MATERIALIZE_TABLE_ENABLED;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static java.util.Objects.requireNonNull;
 
 public final class StandaloneQueryRunner
         implements QueryRunner
@@ -77,7 +77,11 @@ public final class StandaloneQueryRunner
 
     public StandaloneQueryRunner(Session defaultSession, Consumer<TestingTrinoServer.Builder> serverProcessor)
     {
-        this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
+        this.defaultSession = Session.builder(defaultSession)
+                // disable this optimization globally as it invalidates every test
+                .setSystemProperty(MATERIALIZE_TABLE_ENABLED, "false")
+                .build();
+
         TestingTrinoServer.Builder builder = TestingTrinoServer.builder()
                 .setSpanProcessor(SimpleSpanProcessor.create(spanExporter))
                 .setProperties(ImmutableMap.<String, String>builder()

@@ -25,6 +25,7 @@ import io.trino.cost.ScalarStatsCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -255,6 +256,8 @@ import io.trino.sql.planner.optimizations.DeterminePartitionCount;
 import io.trino.sql.planner.optimizations.HashGenerationOptimizer;
 import io.trino.sql.planner.optimizations.IndexJoinOptimizer;
 import io.trino.sql.planner.optimizations.LimitPushDown;
+import io.trino.sql.planner.optimizations.MaterializeFilteredTableScan;
+import io.trino.sql.planner.optimizations.MaterializeTableScan;
 import io.trino.sql.planner.optimizations.MetadataQueryOptimizer;
 import io.trino.sql.planner.optimizations.OptimizerStats;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -267,6 +270,7 @@ import io.trino.sql.planner.optimizations.WindowFilterPushDown;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 import static java.util.Objects.requireNonNull;
 
@@ -281,9 +285,11 @@ public class PlanOptimizers
     @Inject
     public PlanOptimizers(
             PlannerContext plannerContext,
+            @ForPlanner ExecutorService executor,
             TaskManagerConfig taskManagerConfig,
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
+            InternalNodeManager nodeManager,
             StatsCalculator statsCalculator,
             ScalarStatsCalculator scalarStatsCalculator,
             CostCalculator costCalculatorWithoutEstimatedExchanges,
@@ -294,10 +300,12 @@ public class PlanOptimizers
             RuleStatsRecorder ruleStats)
     {
         this(plannerContext,
+                executor,
                 taskManagerConfig,
                 false,
                 splitManager,
                 pageSourceManager,
+                nodeManager,
                 statsCalculator,
                 scalarStatsCalculator,
                 costCalculatorWithoutEstimatedExchanges,
@@ -310,10 +318,12 @@ public class PlanOptimizers
 
     public PlanOptimizers(
             PlannerContext plannerContext,
+            ExecutorService executor,
             TaskManagerConfig taskManagerConfig,
             boolean forceSingleNode,
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
+            InternalNodeManager nodeManager,
             StatsCalculator statsCalculator,
             ScalarStatsCalculator scalarStatsCalculator,
             CostCalculator costCalculatorWithoutEstimatedExchanges,
@@ -644,6 +654,10 @@ public class PlanOptimizers
                 .add(new PushDistinctLimitIntoTableScan(plannerContext))
                 .add(new PushTopNIntoTableScan(metadata))
                 .add(new RewriteTableFunctionToTableScan(plannerContext)) // must run after ImplementTableFunctionSource
+                .add(new MaterializeFilteredTableScan(plannerContext, splitManager, pageSourceManager, nodeManager, executor))
+                .add(new MaterializeTableScan(plannerContext, splitManager, pageSourceManager, nodeManager, executor))
+                .add(new PushFilterIntoValues(plannerContext))
+                .add(new ReplaceJoinOverConstantWithProject())
                 .build();
         IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
                 plannerContext,

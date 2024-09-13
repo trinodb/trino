@@ -103,7 +103,7 @@ public class TestJsonRepresentation
                 ImmutableList.of("_col0 := field"),
                 ImmutableList.of(new PlanNodeStatsAndCostSummary(1, 5, 0, 0, 0)),
                 ImmutableList.of(new JsonRenderedNode(
-                        "90",
+                        "92",
                         "Limit",
                         ImmutableMap.of("count", "1", "withTies", "", "inputPreSortedBy", "[]"),
                         ImmutableList.of(new Symbol(INTEGER, "field")),

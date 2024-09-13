@@ -214,6 +214,10 @@ public final class SystemSessionProperties
     public static final String USE_EXACT_PARTITIONING = "use_exact_partitioning";
     public static final String USE_COST_BASED_PARTITIONING = "use_cost_based_partitioning";
     public static final String PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT = "push_filter_into_values_max_row_count";
+    public static final String MATERIALIZE_TABLE_ENABLED = "materialize_table_enabled";
+    public static final String MATERIALIZE_TABLE_MAX_ESTIMATED_ROW_COUNT = "materialize_table_max_estimated_row_count";
+    public static final String MATERIALIZE_TABLE_MAX_ACTUAL_ROW_COUNT = "materialize_table_max_actual_row_count";
+    public static final String MATERIALIZE_TABLE_TIMEOUT = "materialize_table_timeout";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
     public static final String IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD = "idle_writer_min_data_size_threshold";
@@ -1101,6 +1105,26 @@ public final class SystemSessionProperties
                         PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT,
                         "Maximum number of rows in values for which filter is pushed down into values",
                         optimizerConfig.getPushFilterIntoValuesMaxRowCount(),
+                        false),
+                booleanProperty(
+                        MATERIALIZE_TABLE_ENABLED,
+                        "Materialize tables during planning",
+                        optimizerConfig.isMaterializeTable(),
+                        false),
+                integerProperty(
+                        MATERIALIZE_TABLE_MAX_ESTIMATED_ROW_COUNT,
+                        "Maximum estimated row count for a table to be materialized",
+                        optimizerConfig.getMaterializeTableMaxEstimatedRowCount(),
+                        false),
+                integerProperty(
+                        MATERIALIZE_TABLE_MAX_ACTUAL_ROW_COUNT,
+                        "Maximum actual row count for a materialized table",
+                        optimizerConfig.getMaterializeTableMaxActualRowCount(),
+                        false),
+                durationProperty(
+                        MATERIALIZE_TABLE_TIMEOUT,
+                        "Maximum time to wait for materializing a table",
+                        optimizerConfig.getMaterializeTableTimeout(),
                         false),
                 booleanProperty(
                         FORCE_SPILLING_JOIN,
@@ -1991,6 +2015,26 @@ public final class SystemSessionProperties
     public static int getPushFilterIntoValuesMaxRowCount(Session session)
     {
         return session.getSystemProperty(PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT, Integer.class);
+    }
+
+    public static boolean isMaterializeTableEnabled(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZE_TABLE_ENABLED, Boolean.class);
+    }
+
+    public static int getMaterializeTableMaxEstimatedRowCount(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZE_TABLE_MAX_ESTIMATED_ROW_COUNT, Integer.class);
+    }
+
+    public static int getMaterializeTableMaxActualRowCount(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZE_TABLE_MAX_ACTUAL_ROW_COUNT, Integer.class);
+    }
+
+    public static Duration getMaterializeTableTimeout(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZE_TABLE_TIMEOUT, Duration.class);
     }
 
     public static boolean isForceSpillingOperator(Session session)
