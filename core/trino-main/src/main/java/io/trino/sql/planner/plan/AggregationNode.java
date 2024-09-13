@@ -234,7 +234,7 @@ public class AggregationNode
         return aggregations.isEmpty() &&
                 !groupingSets.getGroupingKeys().isEmpty() &&
                 outputs.size() == groupingSets.getGroupingKeys().size() &&
-                outputs.containsAll(new HashSet<>(groupingSets.getGroupingKeys()));
+                new HashSet<>(outputs).containsAll(groupingSets.getGroupingKeys());
     }
 
     public boolean isDecomposable(Session session, Metadata metadata)
