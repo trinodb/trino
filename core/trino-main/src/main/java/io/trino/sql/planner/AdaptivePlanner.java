@@ -129,7 +129,7 @@ public class AdaptivePlanner
 
         // rewrite remote source nodes to exchange nodes, except for fragments which are finisher or whose stats are
         // estimated by progress.
-        ReplaceUnchangedFragmentsWithRemoteSourcesRewriter rewriter = new ReplaceUnchangedFragmentsWithRemoteSourcesRewriter(runtimeInfoProvider);
+        ReplaceRemoteSourcesWithExchanges rewriter = new ReplaceRemoteSourcesWithExchanges(runtimeInfoProvider);
         PlanNode currentAdaptivePlan = rewriteWith(rewriter, root.getFragment().getRoot(), root.getChildren());
 
         // Remove the adaptive plan node and replace it with initial plan
@@ -306,12 +306,12 @@ public class AdaptivePlanner
         return StreamSupport.stream(iterable.spliterator(), false);
     }
 
-    private static class ReplaceUnchangedFragmentsWithRemoteSourcesRewriter
+    private static class ReplaceRemoteSourcesWithExchanges
             extends SimplePlanRewriter<List<SubPlan>>
     {
         private final RuntimeInfoProvider runtimeInfoProvider;
 
-        private ReplaceUnchangedFragmentsWithRemoteSourcesRewriter(RuntimeInfoProvider runtimeInfoProvider)
+        private ReplaceRemoteSourcesWithExchanges(RuntimeInfoProvider runtimeInfoProvider)
         {
             this.runtimeInfoProvider = requireNonNull(runtimeInfoProvider, "runtimeInfoProvider is null");
         }
