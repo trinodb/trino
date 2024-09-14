@@ -31,19 +31,9 @@ public final class SecurityCharacteristic
 
     private final Security security;
 
-    public SecurityCharacteristic(Security security)
-    {
-        this(Optional.empty(), security);
-    }
-
     public SecurityCharacteristic(NodeLocation location, Security security)
     {
-        this(Optional.of(location), security);
-    }
-
-    private SecurityCharacteristic(Optional<NodeLocation> location, Security security)
-    {
-        super(location);
+        super(Optional.of(location));
         this.security = requireNonNull(security, "security is null");
     }
 
