@@ -617,7 +617,7 @@ class AstBuilder
     public Node visitRefreshMaterializedView(SqlBaseParser.RefreshMaterializedViewContext context)
     {
         return new RefreshMaterializedView(
-                Optional.of(getLocation(context)),
+                getLocation(context),
                 new Table(getQualifiedName(context.qualifiedName())));
     }
 

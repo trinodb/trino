@@ -5175,11 +5175,15 @@ public class TestSqlParser
     @Test
     public void testRefreshMaterializedView()
     {
-        assertStatement("REFRESH MATERIALIZED VIEW test",
-                new RefreshMaterializedView(Optional.empty(), new Table(QualifiedName.of("test"))));
+        assertThat(statement("REFRESH MATERIALIZED VIEW test")).isEqualTo(
+                new RefreshMaterializedView(
+                        new NodeLocation(1, 1),
+                        new Table(QualifiedName.of(ImmutableList.of(new Identifier(location(1, 27), "test", false))))));
 
-        assertStatement("REFRESH MATERIALIZED VIEW \"some name that contains space\"",
-                new RefreshMaterializedView(Optional.empty(), new Table(QualifiedName.of("some name that contains space"))));
+        assertThat(statement("REFRESH MATERIALIZED VIEW \"some name that contains space\"")).isEqualTo(
+                new RefreshMaterializedView(
+                        new NodeLocation(1, 1),
+                        new Table(QualifiedName.of(ImmutableList.of(new Identifier(location(1, 27), "some name that contains space", true))))));
     }
 
     @Test
