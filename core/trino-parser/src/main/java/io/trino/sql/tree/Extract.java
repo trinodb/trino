@@ -50,19 +50,9 @@ public class Extract
         TIMEZONE_HOUR
     }
 
-    public Extract(Expression expression, Field field)
-    {
-        this(Optional.empty(), expression, field);
-    }
-
     public Extract(NodeLocation location, Expression expression, Field field)
     {
-        this(Optional.of(location), expression, field);
-    }
-
-    private Extract(Optional<NodeLocation> location, Expression expression, Field field)
-    {
-        super(location);
+        super(Optional.of(location));
         requireNonNull(expression, "expression is null");
         requireNonNull(field, "field is null");
 
