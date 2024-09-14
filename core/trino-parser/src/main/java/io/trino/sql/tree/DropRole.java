@@ -63,13 +63,14 @@ public class DropRole
         }
         DropRole dropRole = (DropRole) o;
         return Objects.equals(name, dropRole.name) &&
-                Objects.equals(catalog, dropRole.catalog);
+                Objects.equals(catalog, dropRole.catalog) &&
+                exists == dropRole.exists;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, catalog);
+        return Objects.hash(name, catalog, exists);
     }
 
     @Override
@@ -78,6 +79,7 @@ public class DropRole
         return toStringHelper(this)
                 .add("name", name)
                 .add("catalog", catalog)
+                .add("exists", exists)
                 .toString();
     }
 
