@@ -51,6 +51,7 @@ public final class EnvMultinodeAllConnectors
                         "clickhouse",
                         "delta_lake",
                         "druid",
+                        "duckdb",
                         "elasticsearch",
                         "faker",
                         "gsheets",
