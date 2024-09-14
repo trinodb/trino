@@ -3328,13 +3328,13 @@ class AstBuilder
     @Override
     public Node visitPositionalArgument(SqlBaseParser.PositionalArgumentContext context)
     {
-        return new CallArgument(getLocation(context), (Expression) visit(context.expression()));
+        return new CallArgument(getLocation(context), Optional.empty(), (Expression) visit(context.expression()));
     }
 
     @Override
     public Node visitNamedArgument(SqlBaseParser.NamedArgumentContext context)
     {
-        return new CallArgument(getLocation(context), (Identifier) visit(context.identifier()), (Expression) visit(context.expression()));
+        return new CallArgument(getLocation(context), Optional.of((Identifier) visit(context.identifier())), (Expression) visit(context.expression()));
     }
 
     @Override
