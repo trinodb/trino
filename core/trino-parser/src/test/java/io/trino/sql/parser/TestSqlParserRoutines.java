@@ -69,6 +69,7 @@ class TestSqlParserRoutines
         assertThat(functionSpecification("FUNCTION foo() RETURNS bigint RETURN 42"))
                 .ignoringLocation()
                 .isEqualTo(new FunctionSpecification(
+                        location(),
                         QualifiedName.of("foo"),
                         ImmutableList.of(),
                         returns(type("bigint")),
@@ -89,6 +90,7 @@ class TestSqlParserRoutines
                 .ignoringLocation()
                 .isEqualTo(query(
                         new FunctionSpecification(
+                                location(),
                                 QualifiedName.of("answer"),
                                 ImmutableList.of(),
                                 returns(type("BIGINT")),
@@ -114,6 +116,7 @@ class TestSqlParserRoutines
                 .isEqualTo(new CreateFunction(
                         location(),
                         new FunctionSpecification(
+                                location(),
                                 QualifiedName.of("hello"),
                                 ImmutableList.of(parameter("s", type("VARCHAR"))),
                                 returns(type("varchar")),
@@ -143,6 +146,7 @@ class TestSqlParserRoutines
                 .isEqualTo(new CreateFunction(
                         location(),
                         new FunctionSpecification(
+                                location(),
                                 QualifiedName.of("answer"),
                                 ImmutableList.of(),
                                 returns(type("bigint")),
@@ -177,6 +181,7 @@ class TestSqlParserRoutines
                 .isEqualTo(new CreateFunction(
                         location(),
                         new FunctionSpecification(
+                                location(),
                                 QualifiedName.of("fib"),
                                 ImmutableList.of(parameter("n", type("bigint"))),
                                 returns(type("bigint")),
@@ -229,6 +234,7 @@ class TestSqlParserRoutines
                 .isEqualTo(new CreateFunction(
                         location(),
                         new FunctionSpecification(
+                                location(),
                                 QualifiedName.of("CustomerLevel"),
                                 ImmutableList.of(parameter("p_creditLimit", type("DOUBLE"))),
                                 returns(type("varchar")),
