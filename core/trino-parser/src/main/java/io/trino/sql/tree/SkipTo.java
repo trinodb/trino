@@ -42,69 +42,29 @@ public class SkipTo
     }
 
     // default
-    public static SkipTo skipPastLastRow()
-    {
-        return skipPastLastRow(Optional.empty());
-    }
-
     public static SkipTo skipPastLastRow(NodeLocation location)
-    {
-        return skipPastLastRow(Optional.of(location));
-    }
-
-    private static SkipTo skipPastLastRow(Optional<NodeLocation> location)
     {
         return new SkipTo(location, PAST_LAST, Optional.empty());
     }
 
-    public static SkipTo skipToNextRow()
-    {
-        return skipToNextRow(Optional.empty());
-    }
-
     public static SkipTo skipToNextRow(NodeLocation location)
-    {
-        return skipToNextRow(Optional.of(location));
-    }
-
-    private static SkipTo skipToNextRow(Optional<NodeLocation> location)
     {
         return new SkipTo(location, NEXT, Optional.empty());
     }
 
-    public static SkipTo skipToFirst(Identifier identifier)
-    {
-        return skipToFirst(Optional.empty(), identifier);
-    }
-
     public static SkipTo skipToFirst(NodeLocation location, Identifier identifier)
-    {
-        return skipToFirst(Optional.of(location), identifier);
-    }
-
-    private static SkipTo skipToFirst(Optional<NodeLocation> location, Identifier identifier)
     {
         return new SkipTo(location, FIRST, Optional.of(identifier));
     }
 
-    public static SkipTo skipToLast(Identifier identifier)
-    {
-        return skipToLast(Optional.empty(), identifier);
-    }
-
     public static SkipTo skipToLast(NodeLocation location, Identifier identifier)
-    {
-        return skipToLast(Optional.of(location), identifier);
-    }
-
-    private static SkipTo skipToLast(Optional<NodeLocation> location, Identifier identifier)
     {
         return new SkipTo(location, LAST, Optional.of(identifier));
     }
 
-    private SkipTo(Optional<NodeLocation> location, Position position, Optional<Identifier> identifier)
+    private SkipTo(NodeLocation location, Position position, Optional<Identifier> identifier)
     {
-        super(location);
+        super(Optional.of(location));
         requireNonNull(position, "position is null");
         requireNonNull(identifier, "identifier is null");
         checkArgument(identifier.isPresent() || (position == PAST_LAST || position == NEXT), "missing identifier in SKIP TO %s", position.name());
