@@ -833,7 +833,7 @@ public final class ExpressionTreeRewriter<C>
             Expression expression = rewrite(node.getExpression(), context.get());
 
             if (node.getExpression() != expression) {
-                return new Extract(expression, node.getField());
+                return new Extract(node.getLocation().orElseThrow(), expression, node.getField());
             }
 
             return node;
