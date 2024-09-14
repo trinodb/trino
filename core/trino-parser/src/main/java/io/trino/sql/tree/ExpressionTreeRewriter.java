@@ -459,7 +459,7 @@ public final class ExpressionTreeRewriter<C>
             Expression expression = rewrite(node.getInnerExpression(), context.get());
 
             if (node.getInnerExpression() != expression) {
-                return new TryExpression(expression);
+                return new TryExpression(node.getLocation().orElseThrow(), expression);
             }
 
             return node;
