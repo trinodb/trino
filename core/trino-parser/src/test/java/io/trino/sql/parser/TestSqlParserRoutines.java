@@ -124,7 +124,7 @@ class TestSqlParserRoutines
                                         new LanguageCharacteristic(location(), identifier("SQL")),
                                         new DeterministicCharacteristic(location(), true),
                                         calledOnNullInput(),
-                                        new SecurityCharacteristic(INVOKER),
+                                        new SecurityCharacteristic(location(), INVOKER),
                                         new CommentCharacteristic(new NodeLocation(1, 1), "hello world function")),
                                 new ReturnStatement(location(), functionCall(
                                         "CONCAT",
@@ -240,7 +240,7 @@ class TestSqlParserRoutines
                                 returns(type("varchar")),
                                 ImmutableList.of(
                                         returnsNullOnNullInput(),
-                                        new SecurityCharacteristic(DEFINER)),
+                                        new SecurityCharacteristic(location(), DEFINER)),
                                 beginEnd(
                                         ImmutableList.of(declare("lvl", type("VarChar"))),
                                         new IfStatement(
