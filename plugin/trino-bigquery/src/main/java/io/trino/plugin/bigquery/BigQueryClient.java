@@ -246,7 +246,7 @@ public class BigQueryClient
         }
     }
 
-    public TableInfo getCachedTable(Duration viewExpiration, TableInfo remoteTableId, List<String> requiredColumns, Optional<String> filter)
+    public TableInfo getCachedTable(Duration viewExpiration, TableInfo remoteTableId, List<BigQueryColumnHandle> requiredColumns, Optional<String> filter)
     {
         String query = selectSql(remoteTableId.getTableId(), requiredColumns, filter);
         log.debug("query is %s", query);
@@ -466,9 +466,9 @@ public class BigQueryClient
         return requireNonNull(((QueryJobConfiguration) jobConfiguration).getDestinationTable(), "Cannot determine destination table for query");
     }
 
-    public static String selectSql(TableId table, List<String> requiredColumns, Optional<String> filter)
+    public static String selectSql(TableId table, List<BigQueryColumnHandle> requiredColumns, Optional<String> filter)
     {
-        String columns = requiredColumns.stream().map(column -> format("`%s`", column)).collect(joining(","));
+        String columns = requiredColumns.stream().map(column -> format("`%s`", column.name())).collect(joining(","));
         return selectSql(table, columns, filter);
     }
 

@@ -35,7 +35,6 @@ import java.util.Optional;
 
 import static com.google.cloud.bigquery.Field.Mode.REQUIRED;
 import static com.google.cloud.bigquery.StandardSQLTypeName.INT64;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.bigquery.BigQueryFilterQueryBuilder.buildFilter;
 import static io.trino.plugin.bigquery.ViewMaterializationCache.TEMP_TABLE_PREFIX;
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
@@ -110,9 +109,7 @@ public class TestBigQuerySplitManager
         return splitManager.createReadSession(
                 session,
                 table.asPlainTable().getRemoteTableName().toTableId(),
-                table.projectedColumns().orElseThrow().stream()
-                        .map(BigQueryColumnHandle::name)
-                        .collect(toImmutableList()),
+                table.projectedColumns().orElseThrow(),
                 buildFilter(table.constraint()));
     }
 
