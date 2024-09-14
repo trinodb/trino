@@ -24,6 +24,7 @@ import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SingleColumn;
 import io.trino.sql.tree.Table;
@@ -91,7 +92,7 @@ public class TestShadowing
         SingleColumn column2 = new SingleColumn(new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(new FunctionCall(QualifiedName.of("round"), ImmutableList.of(new Identifier("COLUMN2"), new LongLiteral("1"))))));
         assertThat(parser.createStatement(rewrittenQuery.getQuery())).isEqualTo(simpleQuery(selectList(column1, column2), table));
 
-        assertThat(parser.createStatement(rewrittenQuery.getPostQueries().get(0))).isEqualTo(new DropTable(createTableAs.getName(), true));
+        assertThat(parser.createStatement(rewrittenQuery.getPostQueries().get(0))).isEqualTo(new DropTable(new NodeLocation(1, 1), createTableAs.getName(), true));
     }
 
     @Test
@@ -139,6 +140,6 @@ public class TestShadowing
         assertThat(parser.createStatement(rewrittenQuery.getQuery())).isEqualTo(simpleQuery(selectList(columnA, columnB, columnC), table));
 
         assertThat(rewrittenQuery.getPostQueries().size()).isEqualTo(1);
-        assertThat(parser.createStatement(rewrittenQuery.getPostQueries().get(0))).isEqualTo(new DropTable(createTable.getName(), true));
+        assertThat(parser.createStatement(rewrittenQuery.getPostQueries().get(0))).isEqualTo(new DropTable(new NodeLocation(1, 1), createTable.getName(), true));
     }
 }

@@ -27,19 +27,9 @@ public class DropTable
     private final QualifiedName tableName;
     private final boolean exists;
 
-    public DropTable(QualifiedName tableName, boolean exists)
-    {
-        this(Optional.empty(), tableName, exists);
-    }
-
     public DropTable(NodeLocation location, QualifiedName tableName, boolean exists)
     {
-        this(Optional.of(location), tableName, exists);
-    }
-
-    private DropTable(Optional<NodeLocation> location, QualifiedName tableName, boolean exists)
-    {
-        super(location);
+        super(Optional.of(location));
         this.tableName = tableName;
         this.exists = exists;
     }
