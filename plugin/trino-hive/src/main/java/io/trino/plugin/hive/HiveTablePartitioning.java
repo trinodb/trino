@@ -29,14 +29,14 @@ import static java.util.stream.Collectors.toList;
  * @param tableBucketCount Number of buckets in the table, as specified in table metadata
  * @param readBucketCount Number of buckets the table will appear to have when the Hive connector presents the table to the engine for read.
  */
-public record HiveBucketHandle(
+public record HiveTablePartitioning(
         List<HiveColumnHandle> columns,
         BucketingVersion bucketingVersion,
         int tableBucketCount,
         int readBucketCount,
         List<SortingColumn> sortedBy)
 {
-    public HiveBucketHandle
+    public HiveTablePartitioning
     {
         columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         columns.forEach(column -> checkArgument(column.isBaseColumn(), format("projected column %s is not allowed for bucketing", column)));

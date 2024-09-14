@@ -223,7 +223,7 @@ public class TestBackgroundHiveSplitLoader
                 LOCATION_DOMAIN,
                 Optional.of(new HiveBucketFilter(Set.of(0, 1))),
                 PARTITIONED_TABLE,
-                Optional.of(new HiveBucketHandle(BUCKET_COLUMN_HANDLES, BUCKETING_V1, BUCKET_COUNT, BUCKET_COUNT, List.of())));
+                Optional.of(new HiveTablePartitioning(BUCKET_COLUMN_HANDLES, BUCKETING_V1, BUCKET_COUNT, BUCKET_COUNT, List.of())));
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -242,7 +242,7 @@ public class TestBackgroundHiveSplitLoader
                 Optional.empty(),
                 PARTITIONED_TABLE,
                 Optional.of(
-                        new HiveBucketHandle(
+                        new HiveTablePartitioning(
                                 getRegularColumnHandles(PARTITIONED_TABLE, TESTING_TYPE_MANAGER, DEFAULT_PRECISION),
                                 BUCKETING_V1,
                                 BUCKET_COUNT,
@@ -511,7 +511,7 @@ public class TestBackgroundHiveSplitLoader
                 TupleDomain.all(),
                 Optional.empty(),
                 SIMPLE_TABLE,
-                Optional.of(new HiveBucketHandle(BUCKET_COLUMN_HANDLES, BUCKETING_V1, BUCKET_COUNT, BUCKET_COUNT, List.of())),
+                Optional.of(new HiveTablePartitioning(BUCKET_COLUMN_HANDLES, BUCKETING_V1, BUCKET_COUNT, BUCKET_COUNT, List.of())),
                 Optional.empty());
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
@@ -1093,7 +1093,7 @@ public class TestBackgroundHiveSplitLoader
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
             Optional<HiveBucketFilter> hiveBucketFilter,
             Table table,
-            Optional<HiveBucketHandle> bucketHandle)
+            Optional<HiveTablePartitioning> tablePartitioning)
             throws IOException
     {
         return backgroundHiveSplitLoader(
@@ -1101,7 +1101,7 @@ public class TestBackgroundHiveSplitLoader
                 compactEffectivePredicate,
                 hiveBucketFilter,
                 table,
-                bucketHandle,
+                tablePartitioning,
                 Optional.empty());
     }
 
@@ -1110,7 +1110,7 @@ public class TestBackgroundHiveSplitLoader
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
             Optional<HiveBucketFilter> hiveBucketFilter,
             Table table,
-            Optional<HiveBucketHandle> bucketHandle,
+            Optional<HiveTablePartitioning> tablePartitioning,
             Optional<ValidWriteIdList> validWriteIds)
             throws IOException
     {
@@ -1120,7 +1120,7 @@ public class TestBackgroundHiveSplitLoader
                 compactEffectivePredicate,
                 hiveBucketFilter,
                 table,
-                bucketHandle,
+                tablePartitioning,
                 validWriteIds);
     }
 
@@ -1129,7 +1129,7 @@ public class TestBackgroundHiveSplitLoader
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
             Optional<HiveBucketFilter> hiveBucketFilter,
             Table table,
-            Optional<HiveBucketHandle> bucketHandle,
+            Optional<HiveTablePartitioning> tablePartitioning,
             Optional<ValidWriteIdList> validWriteIds)
     {
         return backgroundHiveSplitLoader(
@@ -1139,7 +1139,7 @@ public class TestBackgroundHiveSplitLoader
                 new Duration(0, SECONDS),
                 hiveBucketFilter,
                 table,
-                bucketHandle,
+                tablePartitioning,
                 validWriteIds);
     }
 
@@ -1150,7 +1150,7 @@ public class TestBackgroundHiveSplitLoader
             Duration dynamicFilteringProbeBlockingTimeout,
             Optional<HiveBucketFilter> hiveBucketFilter,
             Table table,
-            Optional<HiveBucketHandle> bucketHandle,
+            Optional<HiveTablePartitioning> tablePartitioning,
             Optional<ValidWriteIdList> validWriteIds)
     {
         List<HivePartitionMetadata> hivePartitionMetadatas =
@@ -1167,7 +1167,7 @@ public class TestBackgroundHiveSplitLoader
                 dynamicFilter,
                 dynamicFilteringProbeBlockingTimeout,
                 TESTING_TYPE_MANAGER,
-                createBucketSplitInfo(bucketHandle, hiveBucketFilter),
+                createBucketSplitInfo(tablePartitioning, hiveBucketFilter),
                 SESSION,
                 fileSystemFactory,
                 new CachingDirectoryLister(new HiveConfig()),
