@@ -1148,7 +1148,7 @@ public final class ExpressionTreeRewriter<C>
             Optional<Expression> trimChar = node.getTrimCharacter().isPresent() ? Optional.of(rewrite(node.getTrimCharacter().get(), context.get())) : Optional.empty();
 
             if (trimSource != node.getTrimSource() || !sameElements(trimChar, node.getTrimCharacter())) {
-                return new Trim(node.getSpecification(), trimSource, trimChar);
+                return new Trim(node.getLocation().orElseThrow(), node.getSpecification(), trimSource, trimChar);
             }
 
             return node;
