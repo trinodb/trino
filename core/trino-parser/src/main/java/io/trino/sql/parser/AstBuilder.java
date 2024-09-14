@@ -2379,8 +2379,8 @@ class AstBuilder
     public Node visitCurrentTimestamp(SqlBaseParser.CurrentTimestampContext context)
     {
         return parsePrecision(context.precision)
-                .map(precision -> new CurrentTimestamp(getLocation(context), precision))
-                .orElseGet(() -> new CurrentTimestamp(getLocation(context)));
+                .map(precision -> new CurrentTimestamp(getLocation(context), Optional.of(precision)))
+                .orElseGet(() -> new CurrentTimestamp(getLocation(context), Optional.empty()));
     }
 
     private static Optional<Integer> parsePrecision(Token precision)
