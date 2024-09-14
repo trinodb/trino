@@ -99,7 +99,6 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.StandardTypes;
@@ -220,7 +219,6 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
-import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -1269,21 +1267,6 @@ public class PostgreSqlClient
     {
         LocalDateTime localDateTime = fromTrinoTimestamp(epochMicros);
         statement.setObject(index, toPgTimestamp(localDateTime));
-    }
-
-    private static ObjectWriteFunction longTimestampWriteFunction()
-    {
-        return ObjectWriteFunction.of(LongTimestamp.class, (statement, index, timestamp) -> {
-            // PostgreSQL supports up to 6 digits of precision
-            //noinspection ConstantConditions
-            verify(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION == 6);
-
-            long epochMicros = timestamp.getEpochMicros();
-            if (timestamp.getPicosOfMicro() >= PICOSECONDS_PER_MICROSECOND / 2) {
-                epochMicros++;
-            }
-            shortTimestampWriteFunction(statement, index, epochMicros);
-        });
     }
 
     @Override
