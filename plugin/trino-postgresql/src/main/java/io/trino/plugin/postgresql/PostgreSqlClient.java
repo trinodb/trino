@@ -1026,7 +1026,7 @@ public class PostgreSqlClient
 
             RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()).stream()
-                    .collect(toImmutableMap(ColumnStatisticsResult::getColumnName, identity()));
+                    .collect(toImmutableMap(ColumnStatisticsResult::columnName, identity()));
 
             for (JdbcColumnHandle column : this.getColumns(session, table)) {
                 ColumnStatisticsResult result = columnStatistics.get(column.getColumnName());
@@ -1035,10 +1035,10 @@ public class PostgreSqlClient
                 }
 
                 ColumnStatistics statistics = ColumnStatistics.builder()
-                        .setNullsFraction(result.getNullsFraction()
+                        .setNullsFraction(result.nullsFraction()
                                 .map(Estimate::of)
                                 .orElseGet(Estimate::unknown))
-                        .setDistinctValuesCount(result.getDistinctValuesIndicator()
+                        .setDistinctValuesCount(result.distinctValuesIndicator()
                                 .map(distinctValuesIndicator -> {
                                     if (distinctValuesIndicator >= 0.0) {
                                         return distinctValuesIndicator;
@@ -1047,9 +1047,9 @@ public class PostgreSqlClient
                                 })
                                 .map(Estimate::of)
                                 .orElseGet(Estimate::unknown))
-                        .setDataSize(result.getAverageColumnLength()
+                        .setDataSize(result.averageColumnLength()
                                 .flatMap(averageColumnLength ->
-                                        result.getNullsFraction().map(nullsFraction ->
+                                        result.nullsFraction().map(nullsFraction ->
                                                 Estimate.of(1.0 * averageColumnLength * rowCount * (1 - nullsFraction))))
                                 .orElseGet(Estimate::unknown))
                         .build();
@@ -1720,39 +1720,18 @@ public class PostgreSqlClient
         }
     }
 
-    private static class ColumnStatisticsResult
+    private record ColumnStatisticsResult(
+            String columnName,
+            Optional<Float> nullsFraction,
+            Optional<Float> distinctValuesIndicator,
+            Optional<Integer> averageColumnLength)
     {
-        private final String columnName;
-        private final Optional<Float> nullsFraction;
-        private final Optional<Float> distinctValuesIndicator;
-        private final Optional<Integer> averageColumnLength;
-
-        public ColumnStatisticsResult(String columnName, Optional<Float> nullsFraction, Optional<Float> distinctValuesIndicator, Optional<Integer> averageColumnLength)
+        private ColumnStatisticsResult
         {
-            this.columnName = columnName;
-            this.nullsFraction = nullsFraction;
-            this.distinctValuesIndicator = distinctValuesIndicator;
-            this.averageColumnLength = averageColumnLength;
-        }
-
-        public String getColumnName()
-        {
-            return columnName;
-        }
-
-        public Optional<Float> getNullsFraction()
-        {
-            return nullsFraction;
-        }
-
-        public Optional<Float> getDistinctValuesIndicator()
-        {
-            return distinctValuesIndicator;
-        }
-
-        public Optional<Integer> getAverageColumnLength()
-        {
-            return averageColumnLength;
+            requireNonNull(columnName, "columnName is null");
+            requireNonNull(nullsFraction, "nullsFraction is null");
+            requireNonNull(distinctValuesIndicator, "distinctValuesIndicator is null");
+            requireNonNull(averageColumnLength, "averageColumnLength is null");
         }
     }
 }
