@@ -3343,37 +3343,40 @@ public class TestSqlParser
     @Test
     public void testTableExecute()
     {
-        Table table = new Table(QualifiedName.of("foo"));
-        Identifier procedure = new Identifier("bar");
+        Table table = new Table(location(1, 7), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo", false))));
+        Identifier procedure = new Identifier(location(1, 25), "bar", false);
 
-        assertStatement("ALTER TABLE foo EXECUTE bar", new TableExecute(location(1, 1), table, procedure, ImmutableList.of(), Optional.empty()));
-        assertStatement(
-                "ALTER TABLE foo EXECUTE bar(bah => 1, wuh => 'clap') WHERE age > 17",
+        assertThat(statement("ALTER TABLE foo EXECUTE bar"))
+                .isEqualTo(new TableExecute(location(1, 1), table, procedure, ImmutableList.of(), Optional.empty()));
+        assertThat(statement("ALTER TABLE foo EXECUTE bar(bah => 1, wuh => 'clap') WHERE age > 17")).isEqualTo(
                 new TableExecute(
                         location(1, 1),
                         table,
                         procedure,
                         ImmutableList.of(
-                                new CallArgument(identifier("bah"), new LongLiteral("1")),
-                                new CallArgument(identifier("wuh"), new StringLiteral("clap"))),
+                                new CallArgument(location(1, 29), Optional.of(new Identifier(location(1, 29), "bah", false)), new LongLiteral(location(1, 36), "1")),
+                                new CallArgument(location(1, 39), Optional.of(new Identifier(location(1, 39), "wuh", false)), new StringLiteral(location(1, 46), "clap"))),
                         Optional.of(
-                                new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
-                                        new Identifier("age"),
-                                        new LongLiteral("17")))));
+                                new ComparisonExpression(
+                                        location(1, 64),
+                                        ComparisonExpression.Operator.GREATER_THAN,
+                                        new Identifier(location(1, 60), "age", false),
+                                        new LongLiteral(location(1, 66), "17")))));
 
-        assertStatement(
-                "ALTER TABLE foo EXECUTE bar(1, 'clap') WHERE age > 17",
+        assertThat(statement("ALTER TABLE foo EXECUTE bar(1, 'clap') WHERE age > 17")).isEqualTo(
                 new TableExecute(
                         location(1, 1),
                         table,
                         procedure,
                         ImmutableList.of(
-                                new CallArgument(new LongLiteral("1")),
-                                new CallArgument(new StringLiteral("clap"))),
+                                new CallArgument(location(1, 29), Optional.empty(), new LongLiteral(location(1, 29), "1")),
+                                new CallArgument(location(1, 32), Optional.empty(), new StringLiteral(location(1, 32), "clap"))),
                         Optional.of(
-                                new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN,
-                                        new Identifier("age"),
-                                        new LongLiteral("17")))));
+                                new ComparisonExpression(
+                                        location(1, 50),
+                                        ComparisonExpression.Operator.GREATER_THAN,
+                                        new Identifier(location(1, 46), "age", false),
+                                        new LongLiteral(location(1, 52), "17")))));
     }
 
     @Test
@@ -4318,11 +4321,11 @@ public class TestSqlParser
     public void testCall()
     {
         assertStatement("CALL foo()", new Call(location(1, 1), QualifiedName.of("foo"), ImmutableList.of()));
-        assertStatement("CALL foo(123, a => 1, b => 'go', 456)", new Call(location(1, 1), QualifiedName.of("foo"), ImmutableList.of(
-                new CallArgument(new LongLiteral("123")),
-                new CallArgument(identifier("a"), new LongLiteral("1")),
-                new CallArgument(identifier("b"), new StringLiteral("go")),
-                new CallArgument(new LongLiteral("456")))));
+        assertThat(statement("CALL foo(123, a => 1, b => 'go', 456)")).isEqualTo(new Call(location(1, 1), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 6), "foo", false))), ImmutableList.of(
+                new CallArgument(location(1, 10), Optional.empty(), new LongLiteral(location(1, 10), "123")),
+                new CallArgument(location(1, 15), Optional.of(new Identifier(location(1, 15), "a", false)), new LongLiteral(location(1, 20), "1")),
+                new CallArgument(location(1, 23), Optional.of(new Identifier(location(1, 23), "b", false)), new StringLiteral(location(1, 28), "go")),
+                new CallArgument(location(1, 34), Optional.empty(), new LongLiteral(location(1, 34), "456")))));
     }
 
     @Test
