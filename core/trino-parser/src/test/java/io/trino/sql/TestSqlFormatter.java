@@ -412,7 +412,7 @@ public class TestSqlFormatter
     {
         assertThat(formatSql(
                 new CreateMaterializedView(
-                        Optional.empty(),
+                        new NodeLocation(1, 1),
                         QualifiedName.of("test_mv"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("test_base"))),
                         false,
@@ -426,7 +426,7 @@ public class TestSqlFormatter
                         "  test_base\n");
         assertThat(formatSql(
                 new CreateMaterializedView(
-                        Optional.empty(),
+                        new NodeLocation(1, 1),
                         QualifiedName.of("test_mv"),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("test_base"))),
                         false,
