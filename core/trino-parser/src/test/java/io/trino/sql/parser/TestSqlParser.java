@@ -2927,15 +2927,47 @@ public class TestSqlParser
     @Test
     public void testDropTable()
     {
-        assertStatement("DROP TABLE a", new DropTable(QualifiedName.of("a"), false));
-        assertStatement("DROP TABLE a.b", new DropTable(QualifiedName.of("a", "b"), false));
-        assertStatement("DROP TABLE a.b.c", new DropTable(QualifiedName.of("a", "b", "c"), false));
-        assertStatement("DROP TABLE a.\"b/y\".c", new DropTable(QualifiedName.of("a", "b/y", "c"), false));
+        assertThat(statement("DROP TABLE a")).isEqualTo(
+                new DropTable(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 12), "a", false))),
+                        false));
+        assertThat(statement("DROP TABLE a.b")).isEqualTo(
+                new DropTable(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 12), "a", false), new Identifier(location(1, 14), "b", false))),
+                        false));
+        assertThat(statement("DROP TABLE a.b.c")).isEqualTo(
+                new DropTable(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 12), "a", false), new Identifier(location(1, 14), "b", false), new Identifier(location(1, 16), "c", false))),
+                        false));
+        assertThat(statement("DROP TABLE a.\"b/y\".c")).isEqualTo(
+                new DropTable(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 12), "a", false), new Identifier(location(1, 14), "b/y", true), new Identifier(location(1, 20), "c", false))),
+                        false));
 
-        assertStatement("DROP TABLE IF EXISTS a", new DropTable(QualifiedName.of("a"), true));
-        assertStatement("DROP TABLE IF EXISTS a.b", new DropTable(QualifiedName.of("a", "b"), true));
-        assertStatement("DROP TABLE IF EXISTS a.b.c", new DropTable(QualifiedName.of("a", "b", "c"), true));
-        assertStatement("DROP TABLE IF EXISTS a.\"b/y\".c", new DropTable(QualifiedName.of("a", "b/y", "c"), true));
+        assertThat(statement("DROP TABLE IF EXISTS a")).isEqualTo(
+                new DropTable(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 22), "a", false))),
+                        true));
+        assertThat(statement("DROP TABLE IF EXISTS a.b")).isEqualTo(
+                new DropTable(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 22), "a", false), new Identifier(location(1, 24), "b", false))),
+                        true));
+        assertThat(statement("DROP TABLE IF EXISTS a.b.c")).isEqualTo(
+                new DropTable(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 22), "a", false), new Identifier(location(1, 24), "b", false), new Identifier(location(1, 26), "c", false))),
+                        true));
+        assertThat(statement("DROP TABLE IF EXISTS a.\"b/y\".c")).isEqualTo(
+                new DropTable(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 22), "a", false), new Identifier(location(1, 24), "b/y", true), new Identifier(location(1, 30), "c", false))),
+                        true));
     }
 
     @Test
@@ -2957,13 +2989,37 @@ public class TestSqlParser
     @Test
     public void testDropView()
     {
-        assertStatement("DROP VIEW a", new DropView(QualifiedName.of("a"), false));
-        assertStatement("DROP VIEW a.b", new DropView(QualifiedName.of("a", "b"), false));
-        assertStatement("DROP VIEW a.b.c", new DropView(QualifiedName.of("a", "b", "c"), false));
+        assertThat(statement("DROP VIEW a")).isEqualTo(
+                new DropView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 11), "a", false))),
+                        false));
+        assertThat(statement("DROP VIEW a.b")).isEqualTo(
+                new DropView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 11), "a", false), new Identifier(location(1, 13), "b", false))),
+                        false));
+        assertThat(statement("DROP VIEW a.b.c")).isEqualTo(
+                new DropView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 11), "a", false), new Identifier(location(1, 13), "b", false), new Identifier(location(1, 15), "c", false))),
+                        false));
 
-        assertStatement("DROP VIEW IF EXISTS a", new DropView(QualifiedName.of("a"), true));
-        assertStatement("DROP VIEW IF EXISTS a.b", new DropView(QualifiedName.of("a", "b"), true));
-        assertStatement("DROP VIEW IF EXISTS a.b.c", new DropView(QualifiedName.of("a", "b", "c"), true));
+        assertThat(statement("DROP VIEW IF EXISTS a")).isEqualTo(
+                new DropView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 21), "a", false))),
+                        true));
+        assertThat(statement("DROP VIEW IF EXISTS a.b")).isEqualTo(
+                new DropView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 21), "a", false), new Identifier(location(1, 23), "b", false))),
+                        true));
+        assertThat(statement("DROP VIEW IF EXISTS a.b.c")).isEqualTo(
+                new DropView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 21), "a", false), new Identifier(location(1, 23), "b", false), new Identifier(location(1, 25), "c", false))),
+                        true));
     }
 
     @Test
@@ -3102,29 +3158,54 @@ public class TestSqlParser
     @Test
     public void testCommentTable()
     {
-        assertStatement("COMMENT ON TABLE a IS 'test'", new Comment(location(1, 1), Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("test")));
-        assertStatement("COMMENT ON TABLE a IS ''", new Comment(location(1, 1), Comment.Type.TABLE, QualifiedName.of("a"), Optional.of("")));
-        assertStatement("COMMENT ON TABLE a IS NULL", new Comment(location(1, 1), Comment.Type.TABLE, QualifiedName.of("a"), Optional.empty()));
+        QualifiedName table = QualifiedName.of(ImmutableList.of(new Identifier(location(1, 18), "a", false)));
+        assertThat(statement("COMMENT ON TABLE a IS 'test'")).isEqualTo(new Comment(location(1, 1), Comment.Type.TABLE, table, Optional.of("test")));
+        assertThat(statement("COMMENT ON TABLE a IS ''")).isEqualTo(new Comment(location(1, 1), Comment.Type.TABLE, table, Optional.of("")));
+        assertThat(statement("COMMENT ON TABLE a IS NULL")).isEqualTo(new Comment(location(1, 1), Comment.Type.TABLE, table, Optional.empty()));
     }
 
     @Test
     public void testCommentView()
     {
-        assertStatement("COMMENT ON VIEW a IS 'test'", new Comment(location(1, 1), Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("test")));
-        assertStatement("COMMENT ON VIEW a IS ''", new Comment(location(1, 1), Comment.Type.VIEW, QualifiedName.of("a"), Optional.of("")));
-        assertStatement("COMMENT ON VIEW a IS NULL", new Comment(location(1, 1), Comment.Type.VIEW, QualifiedName.of("a"), Optional.empty()));
+        QualifiedName view = QualifiedName.of(ImmutableList.of(new Identifier(location(1, 17), "a", false)));
+        assertThat(statement("COMMENT ON VIEW a IS 'test'")).isEqualTo(new Comment(location(1, 1), Comment.Type.VIEW, view, Optional.of("test")));
+        assertThat(statement("COMMENT ON VIEW a IS ''")).isEqualTo(new Comment(location(1, 1), Comment.Type.VIEW, view, Optional.of("")));
+        assertThat(statement("COMMENT ON VIEW a IS NULL")).isEqualTo(new Comment(location(1, 1), Comment.Type.VIEW, view, Optional.empty()));
     }
 
     @Test
     public void testCommentColumn()
     {
-        assertStatement("COMMENT ON COLUMN a.b IS 'test'", new Comment(location(1, 1), Comment.Type.COLUMN, QualifiedName.of("a", "b"), Optional.of("test")));
-        assertStatement("COMMENT ON COLUMN a.b IS ''", new Comment(location(1, 1), Comment.Type.COLUMN, QualifiedName.of("a", "b"), Optional.of("")));
-        assertStatement("COMMENT ON COLUMN a.b IS NULL", new Comment(location(1, 1), Comment.Type.COLUMN, QualifiedName.of("a", "b"), Optional.empty()));
+        QualifiedName column = QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "a", false), new Identifier(location(1, 21), "b", false)));
+        assertThat(statement("COMMENT ON COLUMN a.b IS 'test'")).isEqualTo(new Comment(location(1, 1), Comment.Type.COLUMN, column, Optional.of("test")));
+        assertThat(statement("COMMENT ON COLUMN a.b IS ''")).isEqualTo(new Comment(location(1, 1), Comment.Type.COLUMN, column, Optional.of("")));
+        assertThat(statement("COMMENT ON COLUMN a.b IS NULL")).isEqualTo(new Comment(location(1, 1), Comment.Type.COLUMN, column, Optional.empty()));
 
-        assertStatement("COMMENT ON COLUMN a IS 'test'", new Comment(location(1, 1), Comment.Type.COLUMN, QualifiedName.of("a"), Optional.of("test")));
-        assertStatement("COMMENT ON COLUMN a.b.c IS 'test'", new Comment(location(1, 1), Comment.Type.COLUMN, QualifiedName.of("a", "b", "c"), Optional.of("test")));
-        assertStatement("COMMENT ON COLUMN a.b.c.d IS 'test'", new Comment(location(1, 1), Comment.Type.COLUMN, QualifiedName.of("a", "b", "c", "d"), Optional.of("test")));
+        assertThat(statement("COMMENT ON COLUMN a IS 'test'")).isEqualTo(
+                new Comment(
+                        location(1, 1),
+                        Comment.Type.COLUMN,
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 19), "a", false))),
+                        Optional.of("test")));
+        assertThat(statement("COMMENT ON COLUMN a.b.c IS 'test'")).isEqualTo(
+                new Comment(
+                        location(1, 1),
+                        Comment.Type.COLUMN,
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 19), "a", false),
+                                new Identifier(location(1, 21), "b", false),
+                                new Identifier(location(1, 23), "c", false))),
+                        Optional.of("test")));
+        assertThat(statement("COMMENT ON COLUMN a.b.c.d IS 'test'")).isEqualTo(
+                new Comment(
+                        location(1, 1),
+                        Comment.Type.COLUMN,
+                        QualifiedName.of(ImmutableList.of(
+                                new Identifier(location(1, 19), "a", false),
+                                new Identifier(location(1, 21), "b", false),
+                                new Identifier(location(1, 23), "c", false),
+                                new Identifier(location(1, 25), "d", false))),
+                        Optional.of("test")));
     }
 
     @Test
@@ -3298,20 +3379,35 @@ public class TestSqlParser
     @Test
     public void testAnalyze()
     {
-        QualifiedName table = QualifiedName.of("foo");
-        assertStatement("ANALYZE foo", new Analyze(table, ImmutableList.of()));
+        QualifiedName table = QualifiedName.of(ImmutableList.of(new Identifier(location(1, 9), "foo", false)));
+        assertThat(statement("ANALYZE foo")).isEqualTo(new Analyze(location(1, 1), table, ImmutableList.of()));
 
-        assertStatement("ANALYZE foo WITH ( \"string\" = 'bar', \"long\" = 42, computed = concat('ban', 'ana'), a = ARRAY[ 'v1', 'v2' ] )",
-                new Analyze(table, ImmutableList.of(
-                        new Property(new Identifier("string"), new StringLiteral("bar")),
-                        new Property(new Identifier("long"), new LongLiteral("42")),
-                        new Property(
-                                new Identifier("computed"),
-                                new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new StringLiteral("ban"), new StringLiteral("ana")))),
-                        new Property(new Identifier("a"), new Array(ImmutableList.of(new StringLiteral("v1"), new StringLiteral("v2")))))));
+        assertThat(statement("ANALYZE foo WITH ( \"string\" = 'bar', \"long\" = 42, computed = concat('ban', 'ana'), a = ARRAY[ 'v1', 'v2' ] )")).isEqualTo(
+                new Analyze(
+                        location(1, 1),
+                        table,
+                        ImmutableList.of(
+                                new Property(location(1, 20), new Identifier(location(1, 20), "string", true), new StringLiteral(location(1, 31), "bar")),
+                                new Property(location(1, 38), new Identifier(location(1, 38), "long", true), new LongLiteral(location(1, 47), "42")),
+                                new Property(
+                                        location(1, 51),
+                                        new Identifier(location(1, 51), "computed", false),
+                                        new FunctionCall(
+                                                location(1, 62),
+                                                QualifiedName.of(ImmutableList.of(new Identifier(location(1, 62), "concat", false))),
+                                                ImmutableList.of(new StringLiteral(location(1, 69), "ban"), new StringLiteral(location(1, 76), "ana")))),
+                                new Property(location(1, 84), new Identifier(location(1, 84), "a", false), new Array(location(1, 88), ImmutableList.of(new StringLiteral(location(1, 95), "v1"), new StringLiteral(location(1, 101), "v2")))))));
 
-        assertStatement("EXPLAIN ANALYZE foo", new Explain(new Analyze(table, ImmutableList.of()), ImmutableList.of()));
-        assertStatement("EXPLAIN ANALYZE ANALYZE foo", new ExplainAnalyze(new Analyze(table, ImmutableList.of()), false));
+        assertThat(statement("EXPLAIN ANALYZE foo")).isEqualTo(
+                new Explain(
+                        location(1, 1),
+                        new Analyze(location(1, 9), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 17), "foo", false))), ImmutableList.of()),
+                        ImmutableList.of()));
+        assertThat(statement("EXPLAIN ANALYZE ANALYZE foo")).isEqualTo(
+                new ExplainAnalyze(
+                        location(1, 1),
+                        false,
+                        new Analyze(location(1, 17), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "foo", false))), ImmutableList.of())));
     }
 
     @Test
@@ -3557,47 +3653,54 @@ public class TestSqlParser
     @Test
     public void testGrant()
     {
-        assertStatement("GRANT INSERT, DELETE ON t TO u",
+        assertThat(statement("GRANT INSERT, DELETE ON t TO u")).isEqualTo(
                 new Grant(
+                        location(1, 1),
                         Optional.of(ImmutableList.of("INSERT", "DELETE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u")),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "t", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 30), "u", false)),
                         false));
-        assertStatement("GRANT UPDATE ON t TO u",
+        assertThat(statement("GRANT UPDATE ON t TO u")).isEqualTo(
                 new Grant(
+                        location(1, 1),
                         Optional.of(ImmutableList.of("UPDATE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u")),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 17), "t", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 22), "u", false)),
                         false));
-        assertStatement("GRANT EXECUTE ON t TO u",
+        assertThat(statement("GRANT EXECUTE ON t TO u")).isEqualTo(
                 new Grant(
+                        location(1, 1),
                         Optional.of(ImmutableList.of("EXECUTE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u")),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 18), "t", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 23), "u", false)),
                         false));
-        assertStatement("GRANT SELECT ON t TO ROLE PUBLIC WITH GRANT OPTION",
+        assertThat(statement("GRANT SELECT ON t TO ROLE PUBLIC WITH GRANT OPTION")).isEqualTo(
                 new Grant(
+                        location(1, 1),
                         Optional.of(ImmutableList.of("SELECT")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("PUBLIC")),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 17), "t", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 27), "PUBLIC", false)),
                         true));
-        assertStatement("GRANT ALL PRIVILEGES ON TABLE t TO USER u",
+        assertThat(statement("GRANT ALL PRIVILEGES ON TABLE t TO USER u")).isEqualTo(
                 new Grant(
+                        location(1, 1),
                         Optional.empty(),
-                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of("t")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u")),
+                        new GrantObject(location(1, 1), Optional.of("TABLE"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 31), "t", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 41), "u", false)),
                         false));
-        assertStatement("GRANT DELETE ON \"t\" TO ROLE \"public\" WITH GRANT OPTION",
+        assertThat(statement("GRANT DELETE ON \"t\" TO ROLE \"public\" WITH GRANT OPTION")).isEqualTo(
                 new Grant(
+                        location(1, 1),
                         Optional.of(ImmutableList.of("DELETE")),
-                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of("t")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("public")),
+                        new GrantObject(location(1, 1), Optional.empty(), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 17), "t", true)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 29), "public", true)),
                         true));
-        assertStatement("GRANT SELECT ON SCHEMA s TO USER u",
+        assertThat(statement("GRANT SELECT ON SCHEMA s TO USER u")).isEqualTo(
                 new Grant(
+                        location(1, 1),
                         Optional.of(ImmutableList.of("SELECT")),
-                        new GrantObject(location(1, 1), Optional.of("SCHEMA"), QualifiedName.of("s")),
-                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u")),
+                        new GrantObject(location(1, 1), Optional.of("SCHEMA"), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "s", false)))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 34), "u", false)),
                         false));
     }
 
@@ -4765,75 +4868,86 @@ public class TestSqlParser
     @Test
     public void testGrantRoles()
     {
-        assertStatement("GRANT role1 TO user1",
+        assertThat(statement("GRANT role1 TO user1")).isEqualTo(
                 new GrantRoles(
-                        ImmutableSet.of(new Identifier("role1")),
-                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("user1"))),
+                        location(1, 1),
+                        ImmutableSet.of(new Identifier(location(1, 7), "role1", false)),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 16), "user1", false))),
                         false,
                         Optional.empty(),
                         Optional.empty()));
-        assertStatement("GRANT role1, role2, role3 TO user1, USER user2, ROLE role4 WITH ADMIN OPTION",
+        assertThat(statement("GRANT role1, role2, role3 TO user1, USER user2, ROLE role4 WITH ADMIN OPTION")).isEqualTo(
                 new GrantRoles(
-                        ImmutableSet.of(new Identifier("role1"), new Identifier("role2"), new Identifier("role3")),
+                        location(1, 1),
                         ImmutableSet.of(
-                                new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("user1")),
-                                new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("user2")),
-                                new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("role4"))),
+                                new Identifier(location(1, 7), "role1", false),
+                                new Identifier(location(1, 14), "role2", false),
+                                new Identifier(location(1, 21), "role3", false)),
+                        ImmutableSet.of(
+                                new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 30), "user1", false)),
+                                new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 42), "user2", false)),
+                                new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 54), "role4", false))),
                         true,
                         Optional.empty(),
                         Optional.empty()));
-        assertStatement("GRANT role1 TO user1 WITH ADMIN OPTION GRANTED BY admin",
+        assertThat(statement("GRANT role1 TO user1 WITH ADMIN OPTION GRANTED BY admin")).isEqualTo(
                 new GrantRoles(
-                        ImmutableSet.of(new Identifier("role1")),
-                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("user1"))),
+                        location(1, 1),
+                        ImmutableSet.of(new Identifier(location(1, 7), "role1", false)),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 16), "user1", false))),
                         true,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("admin"))))),
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 51), "admin", false))))),
                         Optional.empty()));
-        assertStatement("GRANT role1 TO USER user1 WITH ADMIN OPTION GRANTED BY USER admin",
+        assertThat(statement("GRANT role1 TO USER user1 WITH ADMIN OPTION GRANTED BY USER admin")).isEqualTo(
                 new GrantRoles(
-                        ImmutableSet.of(new Identifier("role1")),
-                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("user1"))),
+                        location(1, 1),
+                        ImmutableSet.of(new Identifier(location(1, 7), "role1", false)),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 21), "user1", false))),
                         true,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("admin"))))),
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 61), "admin", false))))),
                         Optional.empty()));
-        assertStatement("GRANT role1 TO ROLE role2 WITH ADMIN OPTION GRANTED BY ROLE admin",
+        assertThat(statement("GRANT role1 TO ROLE role2 WITH ADMIN OPTION GRANTED BY ROLE admin")).isEqualTo(
                 new GrantRoles(
-                        ImmutableSet.of(new Identifier("role1")),
-                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("role2"))),
+                        location(1, 1),
+                        ImmutableSet.of(new Identifier(location(1, 7), "role1", false)),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 21), "role2", false))),
                         true,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("admin"))))),
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 61), "admin", false))))),
                         Optional.empty()));
-        assertStatement("GRANT role1 TO ROLE role2 GRANTED BY ROLE admin",
+        assertThat(statement("GRANT role1 TO ROLE role2 GRANTED BY ROLE admin")).isEqualTo(
                 new GrantRoles(
-                        ImmutableSet.of(new Identifier("role1")),
-                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("role2"))),
+                        location(1, 1),
+                        ImmutableSet.of(new Identifier(location(1, 7), "role1", false)),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 21), "role2", false))),
                         false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("admin"))))),
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 43), "admin", false))))),
                         Optional.empty()));
-        assertStatement("GRANT \"role1\" TO ROLE \"role2\" GRANTED BY ROLE \"admin\"",
+        assertThat(statement("GRANT \"role1\" TO ROLE \"role2\" GRANTED BY ROLE \"admin\"")).isEqualTo(
                 new GrantRoles(
-                        ImmutableSet.of(new Identifier("role1")),
-                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("role2"))),
+                        location(1, 1),
+                        ImmutableSet.of(new Identifier(location(1, 7), "role1", true)),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 23), "role2", true))),
                         false,
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("admin"))))),
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 47), "admin", true))))),
                         Optional.empty()));
-        assertStatement("GRANT role1 TO user1 IN my_catalog",
+        assertThat(statement("GRANT role1 TO user1 IN my_catalog")).isEqualTo(
                 new GrantRoles(
-                        ImmutableSet.of(new Identifier("role1")),
-                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("user1"))),
+                        location(1, 1),
+                        ImmutableSet.of(new Identifier(location(1, 7), "role1", false)),
+                        ImmutableSet.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 16), "user1", false))),
                         false,
                         Optional.empty(),
-                        Optional.of(new Identifier("my_catalog"))));
+                        Optional.of(new Identifier(location(1, 25), "my_catalog", false))));
     }
 
     @Test
@@ -5189,13 +5303,37 @@ public class TestSqlParser
     @Test
     public void testDropMaterializedView()
     {
-        assertStatement("DROP MATERIALIZED VIEW a", new DropMaterializedView(location(1, 1), QualifiedName.of("a"), false));
-        assertStatement("DROP MATERIALIZED VIEW a.b", new DropMaterializedView(location(1, 1), QualifiedName.of("a", "b"), false));
-        assertStatement("DROP MATERIALIZED VIEW a.b.c", new DropMaterializedView(location(1, 1), QualifiedName.of("a", "b", "c"), false));
+        assertThat(statement("DROP MATERIALIZED VIEW a")).isEqualTo(
+                new DropMaterializedView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "a", false))),
+                        false));
+        assertThat(statement("DROP MATERIALIZED VIEW a.b")).isEqualTo(
+                new DropMaterializedView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "a", false), new Identifier(location(1, 26), "b", false))),
+                        false));
+        assertThat(statement("DROP MATERIALIZED VIEW a.b.c")).isEqualTo(
+                new DropMaterializedView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "a", false), new Identifier(location(1, 26), "b", false), new Identifier(location(1, 28), "c", false))),
+                        false));
 
-        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a", new DropMaterializedView(location(1, 1), QualifiedName.of("a"), true));
-        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b", new DropMaterializedView(location(1, 1), QualifiedName.of("a", "b"), true));
-        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b.c", new DropMaterializedView(location(1, 1), QualifiedName.of("a", "b", "c"), true));
+        assertThat(statement("DROP MATERIALIZED VIEW IF EXISTS a")).isEqualTo(
+                new DropMaterializedView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 34), "a", false))),
+                        true));
+        assertThat(statement("DROP MATERIALIZED VIEW IF EXISTS a.b")).isEqualTo(
+                new DropMaterializedView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 34), "a", false), new Identifier(location(1, 36), "b", false))),
+                        true));
+        assertThat(statement("DROP MATERIALIZED VIEW IF EXISTS a.b.c")).isEqualTo(
+                new DropMaterializedView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 34), "a", false), new Identifier(location(1, 36), "b", false), new Identifier(location(1, 38), "c", false))),
+                        true));
     }
 
     @Test
