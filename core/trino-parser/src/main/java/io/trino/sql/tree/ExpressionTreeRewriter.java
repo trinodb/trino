@@ -635,7 +635,7 @@ public final class ExpressionTreeRewriter<C>
             Window window = rewriteWindow(node.getWindow(), context);
 
             if (name != node.getName() || window != node.getWindow()) {
-                return new WindowOperation(name, window);
+                return new WindowOperation(node.getLocation().orElseThrow(), name, window);
             }
 
             return node;
