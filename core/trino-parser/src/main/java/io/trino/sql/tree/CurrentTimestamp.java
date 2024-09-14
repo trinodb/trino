@@ -26,17 +26,7 @@ public final class CurrentTimestamp
 {
     private final Optional<Integer> precision;
 
-    public CurrentTimestamp(NodeLocation location, int precision)
-    {
-        this(location, Optional.of(precision));
-    }
-
-    public CurrentTimestamp(NodeLocation location)
-    {
-        this(location, Optional.empty());
-    }
-
-    private CurrentTimestamp(NodeLocation location, Optional<Integer> precision)
+    public CurrentTimestamp(NodeLocation location, Optional<Integer> precision)
     {
         super(Optional.of(location));
 

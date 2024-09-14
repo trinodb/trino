@@ -1252,7 +1252,7 @@ public class TestSqlParser
     {
         NodeLocation location = new NodeLocation(1, 1);
         assertThat(expression("CURRENT_TIMESTAMP"))
-                .isEqualTo(new CurrentTimestamp(location));
+                .isEqualTo(new CurrentTimestamp(location, Optional.empty()));
     }
 
     @Test
@@ -3081,7 +3081,7 @@ public class TestSqlParser
                                                         ArithmeticBinaryExpression.Operator.ADD,
                                                         nameReference("qty"),
                                                         nameReference("c", "qty"))),
-                                                new MergeUpdate.Assignment(new Identifier("ts"), new CurrentTimestamp(location)))),
+                                                new MergeUpdate.Assignment(new Identifier("ts"), new CurrentTimestamp(location, Optional.empty())))),
                                 new MergeDelete(
                                         Optional.of(equal(nameReference("c", "action"), new StringLiteral("del")))),
                                 new MergeInsert(
