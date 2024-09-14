@@ -4059,7 +4059,7 @@ public class TestSqlParser
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                         ImmutableList.of(
                                 new ExplainType(location(1, 1),ExplainType.Type.LOGICAL),
-                                new ExplainFormat(ExplainFormat.Type.TEXT))));
+                                new ExplainFormat(location(1, 1), ExplainFormat.Type.TEXT))));
 
         assertStatementIsInvalid("EXPLAIN VERBOSE SELECT * FROM t")
                 .withMessageStartingWith("line 1:9: mismatched input 'VERBOSE'. Expecting: '(', 'ALTER', 'ANALYZE', 'CALL',");
