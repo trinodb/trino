@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -82,18 +83,12 @@ public class BigQueryArrowToPageConverter
     private final BigQueryTypeManager typeManager;
     private final VectorSchemaRoot root;
     private final VectorLoader loader;
-    private final List<Type> columnTypes;
-    private final List<String> columnNames;
+    private final List<BigQueryColumnHandle> columns;
 
     public BigQueryArrowToPageConverter(BigQueryTypeManager typeManager, BufferAllocator allocator, Schema schema, List<BigQueryColumnHandle> columns)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.columnTypes = requireNonNull(columns, "columns is null").stream()
-                .map(BigQueryColumnHandle::trinoType)
-                .collect(toImmutableList());
-        this.columnNames = columns.stream()
-                .map(BigQueryColumnHandle::name)
-                .collect(toImmutableList());
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         List<FieldVector> vectors = schema.getFields().stream()
                 .map(field -> field.createVector(allocator))
                 .collect(toImmutableList());
@@ -106,12 +101,13 @@ public class BigQueryArrowToPageConverter
         loader.load(batch);
         pageBuilder.declarePositions(root.getRowCount());
 
-        for (int column = 0; column < columnTypes.size(); column++) {
+        for (int column = 0; column < columns.size(); column++) {
+            BigQueryColumnHandle columnHandle = columns.get(column);
             convertType(pageBuilder.getBlockBuilder(column),
-                    columnTypes.get(column),
-                    root.getVector(toBigQueryColumnName(columnNames.get(column))),
+                    columnHandle.trinoType(),
+                    root.getVector(toBigQueryColumnName(columnHandle.name())),
                     0,
-                    root.getVector(toBigQueryColumnName(columnNames.get(column))).getValueCount());
+                    root.getVector(toBigQueryColumnName(columnHandle.name())).getValueCount());
         }
 
         root.clear();

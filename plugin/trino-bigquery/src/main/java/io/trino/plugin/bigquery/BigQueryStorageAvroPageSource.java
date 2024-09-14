@@ -87,8 +87,7 @@ public class BigQueryStorageAvroPageSource
     private final BigQueryReadClient bigQueryReadClient;
     private final BigQueryTypeManager typeManager;
     private final BigQuerySplit split;
-    private final List<String> columnNames;
-    private final List<Type> columnTypes;
+    private final List<BigQueryColumnHandle> columns;
     private final AtomicLong readBytes;
     private final PageBuilder pageBuilder;
     private final Iterator<ReadRowsResponse> responses;
@@ -104,14 +103,10 @@ public class BigQueryStorageAvroPageSource
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.split = requireNonNull(split, "split is null");
         this.readBytes = new AtomicLong();
-        requireNonNull(columns, "columns is null");
-        this.columnNames = columns.stream()
-                .map(BigQueryColumnHandle::name)
-                .collect(toImmutableList());
-        this.columnTypes = columns.stream()
+        this.columns = requireNonNull(columns, "columns is null");
+        this.pageBuilder = new PageBuilder(columns.stream()
                 .map(BigQueryColumnHandle::trinoType)
-                .collect(toImmutableList());
-        this.pageBuilder = new PageBuilder(columnTypes);
+                .collect(toImmutableList()));
 
         log.debug("Starting to read from %s", split.getStreamName());
         responses = new ReadRowsHelper(bigQueryReadClient, split.getStreamName(), maxReadRowsRetries).readRows();
@@ -146,9 +141,10 @@ public class BigQueryStorageAvroPageSource
         Iterable<GenericRecord> records = parse(response);
         for (GenericRecord record : records) {
             pageBuilder.declarePosition();
-            for (int column = 0; column < columnTypes.size(); column++) {
+            for (int column = 0; column < columns.size(); column++) {
                 BlockBuilder output = pageBuilder.getBlockBuilder(column);
-                appendTo(columnTypes.get(column), record.get(toBigQueryColumnName(columnNames.get(column))), output);
+                BigQueryColumnHandle columnHandle = columns.get(column);
+                appendTo(columnHandle.trinoType(), record.get(toBigQueryColumnName(columnHandle.name())), output);
             }
         }
 
