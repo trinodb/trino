@@ -51,8 +51,8 @@ public final class EnvMultinodeAllConnectors
                         "bigquery",
                         "cassandra",
                         "clickhouse",
-                        "druid",
                         "delta_lake",
+                        "druid",
                         "elasticsearch",
                         "gsheets",
                         "hive",
@@ -64,7 +64,6 @@ public final class EnvMultinodeAllConnectors
                         "kudu",
                         "mariadb",
                         "memory",
-                        "singlestore",
                         "mongodb",
                         "mysql",
                         "opensearch",
@@ -75,10 +74,11 @@ public final class EnvMultinodeAllConnectors
                         "prometheus",
                         "redis",
                         "redshift",
+                        "singlestore",
                         "snowflake",
                         "sqlserver",
-                        "trino_thrift",
-                        "tpcds")
+                        "tpcds",
+                        "trino_thrift")
                 .forEach(connector -> builder.addConnector(
                         connector,
                         forHostPath(configDir.getPath(connector + ".properties"))));
