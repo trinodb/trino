@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.dameng;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -29,7 +30,9 @@ import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -47,6 +50,7 @@ import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -111,6 +115,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -129,6 +134,7 @@ public class DamengClient
     private static final int ZERO_PRECISION_TIME_COLUMN_SIZE = 8;
     private static final int VARCHAR2_MAX_BYTES = 4000;
     private static final int VARCHAR2_MAX_CHARS = VARCHAR2_MAX_BYTES / 4;
+    private static final String NO_COMMENT = "";
 
     @Inject
     public DamengClient(BaseJdbcConfig config,
@@ -211,6 +217,39 @@ public class DamengClient
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 varcharLiteral(comment.orElse("")));
         execute(session, sql);
+    }
+
+    @Override
+    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    {
+        return ImmutableList.of(format("CREATE TABLE %s (%s)", quoted(remoteTableName),
+                join(", ", columns)));
+    }
+
+    @Override
+    protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
+    {
+//        if (column.getComment() != null) {
+//            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+//        }
+        String comment = column.getComment();
+        if (comment == null || comment.isEmpty()) {
+            comment = NO_COMMENT;
+        }
+        else {
+            comment = "COMMENT %s".formatted(dmlVarcharLiteral(comment));
+        }
+        return "%s %s %s %s".formatted(
+                quoted(columnName),
+                toWriteMapping(session, column.getType()).getDataType(),
+                column.isNullable() ? "NULL" : "NOT NULL",
+                comment);
+    }
+
+    private static String dmlVarcharLiteral(String value)
+    {
+        requireNonNull(value, "value is null");
+        return "'" + value.replace("'", "''").replace("\\", "\\\\") + "'";
     }
 
     @Override
