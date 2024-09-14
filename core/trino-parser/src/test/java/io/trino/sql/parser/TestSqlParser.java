@@ -4339,7 +4339,7 @@ public class TestSqlParser
     {
         assertStatement("PREPARE statement1 FROM DROP VIEW IF EXISTS \"catalog-test\".\"test\".\"foo\"",
                 new Prepare(identifier("statement1"),
-                        new DropView(QualifiedName.of("catalog-test", "test", "foo"), true)));
+                        new DropView(location(1, 25), QualifiedName.of("catalog-test", "test", "foo"), true)));
         assertStatementIsInvalid("PREPARE statement1 FROM DROP VIEW IF EXISTS catalog-test.test.foo")
                 .withMessage("line 1:52: mismatched input '-'. Expecting: '.', <EOF>");
     }
