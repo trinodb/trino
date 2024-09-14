@@ -4058,7 +4058,7 @@ public class TestSqlParser
                 new Explain(
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                         ImmutableList.of(
-                                new ExplainType(location(1, 1),ExplainType.Type.LOGICAL),
+                                new ExplainType(location(1, 1), ExplainType.Type.LOGICAL),
                                 new ExplainFormat(location(1, 1), ExplainFormat.Type.TEXT))));
 
         assertStatementIsInvalid("EXPLAIN VERBOSE SELECT * FROM t")
