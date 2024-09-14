@@ -4754,12 +4754,18 @@ public class TestSqlParser
     @Test
     public void testDropRole()
     {
-        assertStatement("DROP ROLE role", new DropRole(location(1, 1), new Identifier("role"), Optional.empty(), false));
-        assertStatement("DROP ROLE IF EXISTS role", new DropRole(location(1, 1), new Identifier("role"), Optional.empty(), false));
-        assertStatement("DROP ROLE \"role\"", new DropRole(location(1, 1), new Identifier("role"), Optional.empty(), false));
-        assertStatement("DROP ROLE \"ro le\"", new DropRole(location(1, 1), new Identifier("ro le"), Optional.empty(), false));
-        assertStatement("DROP ROLE \"!@#$%^&*'ад\"\"мін\"", new DropRole(location(1, 1), new Identifier("!@#$%^&*'ад\"мін"), Optional.empty(), false));
-        assertStatement("DROP ROLE role IN my_catalog", new DropRole(location(1, 1), new Identifier("role"), Optional.of(new Identifier("my_catalog")), false));
+        assertThat(statement("DROP ROLE role")).isEqualTo(
+                new DropRole(location(1, 1), new Identifier(location(1, 11), "role", false), Optional.empty(), false));
+        assertThat(statement("DROP ROLE IF EXISTS role")).isEqualTo(
+                new DropRole(location(1, 1), new Identifier(location(1, 21), "role", false), Optional.empty(), true));
+        assertThat(statement("DROP ROLE \"role\"")).isEqualTo(
+                new DropRole(location(1, 1), new Identifier(location(1, 11), "role", true), Optional.empty(), false));
+        assertThat(statement("DROP ROLE \"ro le\"")).isEqualTo(
+                new DropRole(location(1, 1), new Identifier(location(1, 11), "ro le", true), Optional.empty(), false));
+        assertThat(statement("DROP ROLE \"!@#$%^&*'ад\"\"мін\"")).isEqualTo(
+                new DropRole(location(1, 1), new Identifier(location(1, 11), "!@#$%^&*'ад\"мін", true), Optional.empty(), false));
+        assertThat(statement("DROP ROLE role IN my_catalog")).isEqualTo(
+                new DropRole(location(1, 1), new Identifier(location(1, 11), "role", false), Optional.of(new Identifier(location(1, 19), "my_catalog", false)), false));
     }
 
     @Test
