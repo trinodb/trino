@@ -28,9 +28,9 @@ import io.trino.metastore.type.MapTypeInfo;
 import io.trino.metastore.type.PrimitiveCategory;
 import io.trino.metastore.type.PrimitiveTypeInfo;
 import io.trino.metastore.type.TypeInfo;
-import io.trino.plugin.hive.HiveBucketHandle;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveTableHandle;
+import io.trino.plugin.hive.HiveTablePartitioning;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.spi.Page;
 import io.trino.spi.StandardErrorCode;
@@ -167,7 +167,7 @@ public final class HiveBucketing
         return (hashCode & Integer.MAX_VALUE) % bucketCount;
     }
 
-    public static Optional<HiveBucketHandle> getHiveBucketHandle(ConnectorSession session, Table table, TypeManager typeManager)
+    public static Optional<HiveTablePartitioning> getHiveTablePartitioning(ConnectorSession session, Table table, TypeManager typeManager)
     {
         if (table.getParameters().containsKey(SPARK_TABLE_PROVIDER_KEY)) {
             return Optional.empty();
@@ -200,16 +200,16 @@ public final class HiveBucketing
         BucketingVersion bucketingVersion = getBucketingVersion(table.getParameters());
         int bucketCount = hiveBucketProperty.get().bucketCount();
         List<SortingColumn> sortedBy = hiveBucketProperty.get().sortedBy();
-        return Optional.of(new HiveBucketHandle(bucketColumns.build(), bucketingVersion, bucketCount, bucketCount, sortedBy));
+        return Optional.of(new HiveTablePartitioning(bucketColumns.build(), bucketingVersion, bucketCount, bucketCount, sortedBy));
     }
 
     public static Optional<HiveBucketFilter> getHiveBucketFilter(HiveTableHandle hiveTable, TupleDomain<ColumnHandle> effectivePredicate)
     {
-        if (hiveTable.getBucketHandle().isEmpty()) {
+        if (hiveTable.getTablePartitioning().isEmpty()) {
             return Optional.empty();
         }
 
-        HiveBucketProperty hiveBucketProperty = hiveTable.getBucketHandle().get().toTableBucketProperty();
+        HiveBucketProperty hiveBucketProperty = hiveTable.getTablePartitioning().get().toTableBucketProperty();
         List<HiveColumnHandle> dataColumns = hiveTable.getDataColumns().stream()
                 .collect(toImmutableList());
 
@@ -217,7 +217,7 @@ public final class HiveBucketing
         if (bindings.isEmpty()) {
             return Optional.empty();
         }
-        BucketingVersion bucketingVersion = hiveTable.getBucketHandle().get().bucketingVersion();
+        BucketingVersion bucketingVersion = hiveTable.getTablePartitioning().get().bucketingVersion();
         Optional<Set<Integer>> buckets = getHiveBuckets(bucketingVersion, hiveBucketProperty, dataColumns, bindings.get());
         if (buckets.isPresent()) {
             return Optional.of(new HiveBucketFilter(buckets.get()));
