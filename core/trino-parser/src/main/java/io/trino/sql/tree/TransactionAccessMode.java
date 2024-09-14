@@ -26,19 +26,9 @@ public final class TransactionAccessMode
 {
     private final boolean readOnly;
 
-    public TransactionAccessMode(boolean readOnly)
-    {
-        this(Optional.empty(), readOnly);
-    }
-
     public TransactionAccessMode(NodeLocation location, boolean readOnly)
     {
-        this(Optional.of(location), readOnly);
-    }
-
-    private TransactionAccessMode(Optional<NodeLocation> location, boolean readOnly)
-    {
-        super(location);
+        super(Optional.of(location));
         this.readOnly = readOnly;
     }
 

@@ -4096,24 +4096,24 @@ public class TestSqlParser
         assertStatement("START TRANSACTION ISOLATION LEVEL SERIALIZABLE",
                 new StartTransaction(location(1, 1), ImmutableList.of(
                         new Isolation(location(1, 19), Isolation.Level.SERIALIZABLE))));
-        assertStatement("START TRANSACTION READ ONLY",
+        assertThat(statement("START TRANSACTION READ ONLY")).isEqualTo(
                 new StartTransaction(location(1, 1), ImmutableList.of(
-                        new TransactionAccessMode(true))));
-        assertStatement("START TRANSACTION READ WRITE",
+                        new TransactionAccessMode(location(1, 19), true))));
+        assertThat(statement("START TRANSACTION READ WRITE")).isEqualTo(
                 new StartTransaction(location(1, 1), ImmutableList.of(
-                        new TransactionAccessMode(false))));
-        assertStatement("START TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY",
+                        new TransactionAccessMode(location(1, 19), false))));
+        assertThat(statement("START TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY")).isEqualTo(
                 new StartTransaction(location(1, 1), ImmutableList.of(
-                        new Isolation(location(1, 19), Isolation.Level.READ_COMMITTED),
-                        new TransactionAccessMode(true))));
-        assertStatement("START TRANSACTION READ ONLY, ISOLATION LEVEL READ COMMITTED",
+                        new Isolation(location(1, 35), Isolation.Level.READ_COMMITTED),
+                        new TransactionAccessMode(location(1, 51), true))));
+        assertThat(statement("START TRANSACTION READ ONLY, ISOLATION LEVEL READ COMMITTED")).isEqualTo(
                 new StartTransaction(location(1, 1), ImmutableList.of(
-                        new TransactionAccessMode(true),
-                        new Isolation(location(1, 30), Isolation.Level.READ_COMMITTED))));
-        assertStatement("START TRANSACTION READ WRITE, ISOLATION LEVEL SERIALIZABLE",
+                        new TransactionAccessMode(location(1, 19), true),
+                        new Isolation(location(1, 46), Isolation.Level.READ_COMMITTED))));
+        assertThat(statement("START TRANSACTION READ WRITE, ISOLATION LEVEL SERIALIZABLE")).isEqualTo(
                 new StartTransaction(location(1, 1), ImmutableList.of(
-                        new TransactionAccessMode(false),
-                        new Isolation(location(1, 31), Isolation.Level.SERIALIZABLE))));
+                        new TransactionAccessMode(location(1, 19), false),
+                        new Isolation(location(1, 47), Isolation.Level.SERIALIZABLE))));
     }
 
     @Test
