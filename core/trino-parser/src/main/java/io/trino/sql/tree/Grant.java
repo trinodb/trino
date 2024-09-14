@@ -30,19 +30,9 @@ public class Grant
     private final PrincipalSpecification grantee;
     private final boolean grantOption;
 
-    public Grant(Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee, boolean grantOption)
-    {
-        this(Optional.empty(), privileges, grantObject, grantee, grantOption);
-    }
-
     public Grant(NodeLocation location, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee, boolean grantOption)
     {
-        this(Optional.of(location), privileges, grantObject, grantee, grantOption);
-    }
-
-    private Grant(Optional<NodeLocation> location, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee, boolean grantOption)
-    {
-        super(location);
+        super(Optional.of(location));
         requireNonNull(privileges, "privileges is null");
         this.privileges = privileges.map(ImmutableList::copyOf);
         this.grantObject = requireNonNull(grantObject, "grantScope is null");
