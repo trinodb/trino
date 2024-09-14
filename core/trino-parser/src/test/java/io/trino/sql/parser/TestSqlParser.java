@@ -4690,68 +4690,82 @@ public class TestSqlParser
     @Test
     public void testCreateRole()
     {
-        assertStatement("CREATE ROLE role", new CreateRole(new Identifier("role"), Optional.empty(), Optional.empty()));
-        assertStatement("CREATE ROLE role1 WITH ADMIN admin",
+        assertThat(statement("CREATE ROLE role")).isEqualTo(
                 new CreateRole(
-                        new Identifier("role1"),
+                        location(1, 1),
+                        new Identifier(location(1, 13), "role", false),
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThat(statement("CREATE ROLE role1 WITH ADMIN admin")).isEqualTo(
+                new CreateRole(
+                        location(1, 1),
+                        new Identifier(location(1, 13), "role1", false),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("admin"))))),
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 30), "admin", false))))),
                         Optional.empty()));
-        assertStatement("CREATE ROLE \"role\" WITH ADMIN \"admin\"",
+        assertThat(statement("CREATE ROLE \"role\" WITH ADMIN \"admin\"")).isEqualTo(
                 new CreateRole(
-                        new Identifier("role"),
+                        location(1, 1),
+                        new Identifier(location(1, 13), "role", true),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("admin"))))),
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 31), "admin", true))))),
                         Optional.empty()));
-        assertStatement("CREATE ROLE \"ro le\" WITH ADMIN \"ad min\"",
+        assertThat(statement("CREATE ROLE \"ro le\" WITH ADMIN \"ad min\"")).isEqualTo(
                 new CreateRole(
-                        new Identifier("ro le"),
+                        location(1, 1),
+                        new Identifier(location(1, 13), "ro le", true),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("ad min"))))),
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 32), "ad min", true))))),
                         Optional.empty()));
-        assertStatement("CREATE ROLE \"!@#$%^&*'\" WITH ADMIN \"ад\"\"мін\"",
+        assertThat(statement("CREATE ROLE \"!@#$%^&*'\" WITH ADMIN \"ад\"\"мін\"")).isEqualTo(
                 new CreateRole(
-                        new Identifier("!@#$%^&*'"),
+                        location(1, 1),
+                        new Identifier(location(1, 13), "!@#$%^&*'", true),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("ад\"мін"))))),
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 36), "ад\"мін", true))))),
                         Optional.empty()));
-        assertStatement("CREATE ROLE role2 WITH ADMIN USER admin1",
+        assertThat(statement("CREATE ROLE role2 WITH ADMIN USER admin1")).isEqualTo(
                 new CreateRole(
-                        new Identifier("role2"),
+                        location(1, 1),
+                        new Identifier(location(1, 13), "role2", false),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("admin1"))))),
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 35), "admin1", false))))),
                         Optional.empty()));
-        assertStatement("CREATE ROLE role2 WITH ADMIN ROLE role1",
+        assertThat(statement("CREATE ROLE role2 WITH ADMIN ROLE role1")).isEqualTo(
                 new CreateRole(
-                        new Identifier("role2"),
+                        location(1, 1),
+                        new Identifier(location(1, 13), "role2", false),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.PRINCIPAL,
-                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("role1"))))),
+                                Optional.of(new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 35), "role1", false))))),
                         Optional.empty()));
-        assertStatement("CREATE ROLE role2 WITH ADMIN CURRENT_USER",
+        assertThat(statement("CREATE ROLE role2 WITH ADMIN CURRENT_USER")).isEqualTo(
                 new CreateRole(
-                        new Identifier("role2"),
+                        location(1, 1),
+                        new Identifier(location(1, 13), "role2", false),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.CURRENT_USER,
                                 Optional.empty())),
                         Optional.empty()));
-        assertStatement("CREATE ROLE role2 WITH ADMIN CURRENT_ROLE",
+        assertThat(statement("CREATE ROLE role2 WITH ADMIN CURRENT_ROLE")).isEqualTo(
                 new CreateRole(
-                        new Identifier("role2"),
+                        location(1, 1),
+                        new Identifier(location(1, 13), "role2", false),
                         Optional.of(new GrantorSpecification(
                                 GrantorSpecification.Type.CURRENT_ROLE,
                                 Optional.empty())),
                         Optional.empty()));
-        assertStatement("CREATE ROLE role IN my_catalog",
+        assertThat(statement("CREATE ROLE role IN my_catalog")).isEqualTo(
                 new CreateRole(
-                        new Identifier("role"),
+                        location(1, 1),
+                        new Identifier(location(1, 13), "role", false),
                         Optional.empty(),
-                        Optional.of(new Identifier("my_catalog"))));
+                        Optional.of(new Identifier(location(1, 21), "my_catalog", false))));
     }
 
     @Test
