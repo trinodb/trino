@@ -93,6 +93,7 @@ public class IcebergConfig
     private boolean metadataCacheEnabled = true;
     private boolean objectStoreLayoutEnabled;
     private int metadataParallelism = 8;
+    private boolean bucketExecutionEnabled = true;
 
     public CatalogType getCatalogType()
     {
@@ -546,6 +547,19 @@ public class IcebergConfig
     public IcebergConfig setMetadataParallelism(int metadataParallelism)
     {
         this.metadataParallelism = metadataParallelism;
+        return this;
+    }
+
+    public boolean isBucketExecutionEnabled()
+    {
+        return bucketExecutionEnabled;
+    }
+
+    @Config("iceberg.bucket-execution")
+    @ConfigDescription("Enable bucket-aware execution: use physical bucketing information to optimize queries")
+    public IcebergConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
+    {
+        this.bucketExecutionEnabled = bucketExecutionEnabled;
         return this;
     }
 }

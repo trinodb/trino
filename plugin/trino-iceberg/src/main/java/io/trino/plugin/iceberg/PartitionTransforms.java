@@ -160,6 +160,83 @@ public final class PartitionTransforms
         throw new UnsupportedOperationException("Unsupported partition transform: " + field);
     }
 
+    public static ColumnTransform getColumnTransform(IcebergPartitionFunction field)
+    {
+        Type type = field.type();
+        return switch (field.transform()) {
+            case IDENTITY -> identity(type);
+            case YEAR -> {
+                if (type.equals(DATE)) {
+                    yield yearsFromDate();
+                }
+                if (type.equals(TIMESTAMP_MICROS)) {
+                    yield yearsFromTimestamp();
+                }
+                if (type.equals(TIMESTAMP_TZ_MICROS)) {
+                    yield yearsFromTimestampWithTimeZone();
+                }
+                throw new UnsupportedOperationException("Unsupported type for 'year': " + field);
+            }
+            case MONTH -> {
+                if (type.equals(DATE)) {
+                    yield monthsFromDate();
+                }
+                if (type.equals(TIMESTAMP_MICROS)) {
+                    yield monthsFromTimestamp();
+                }
+                if (type.equals(TIMESTAMP_TZ_MICROS)) {
+                    yield monthsFromTimestampWithTimeZone();
+                }
+                throw new UnsupportedOperationException("Unsupported type for 'month': " + field);
+            }
+            case DAY -> {
+                if (type.equals(DATE)) {
+                    yield daysFromDate();
+                }
+                if (type.equals(TIMESTAMP_MICROS)) {
+                    yield daysFromTimestamp();
+                }
+                if (type.equals(TIMESTAMP_TZ_MICROS)) {
+                    yield daysFromTimestampWithTimeZone();
+                }
+                throw new UnsupportedOperationException("Unsupported type for 'day': " + field);
+            }
+            case HOUR -> {
+                if (type.equals(TIMESTAMP_MICROS)) {
+                    yield hoursFromTimestamp();
+                }
+                if (type.equals(TIMESTAMP_TZ_MICROS)) {
+                    yield hoursFromTimestampWithTimeZone();
+                }
+                throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
+            }
+            case VOID -> voidTransform(type);
+            case BUCKET -> bucket(type, field.size().orElseThrow());
+            case TRUNCATE -> {
+                int width = field.size().orElseThrow();
+                if (type.equals(INTEGER)) {
+                    yield truncateInteger(width);
+                }
+                if (type.equals(BIGINT)) {
+                    yield truncateBigint(width);
+                }
+                if (type instanceof DecimalType decimalType) {
+                    if (decimalType.isShort()) {
+                        yield truncateShortDecimal(type, width, decimalType);
+                    }
+                    yield truncateLongDecimal(type, width, decimalType);
+                }
+                if (type instanceof VarcharType) {
+                    yield truncateVarchar(width);
+                }
+                if (type.equals(VARBINARY)) {
+                    yield truncateVarbinary(width);
+                }
+                throw new UnsupportedOperationException("Unsupported type for 'truncate': " + field);
+            }
+        };
+    }
+
     private static ColumnTransform identity(Type type)
     {
         return new ColumnTransform(type, false, true, false, Function.identity(), ValueTransform.identity(type));
