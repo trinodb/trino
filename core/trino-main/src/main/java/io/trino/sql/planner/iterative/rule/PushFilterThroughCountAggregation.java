@@ -189,7 +189,7 @@ public class PushFilterThroughCountAggregation
 
         if (tupleDomain.isNone()) {
             // Filter predicate is never satisfied. Replace filter with empty values.
-            return Result.ofPlanNode(new ValuesNode(filterNode.getId(), filterNode.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(filterNode.getId(), filterNode.getOutputSymbols()));
         }
         Domain countDomain = tupleDomain.getDomains().get().get(countSymbol);
         if (countDomain == null) {
