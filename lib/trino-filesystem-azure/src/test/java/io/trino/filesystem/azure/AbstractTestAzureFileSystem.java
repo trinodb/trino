@@ -182,7 +182,7 @@ public abstract class AbstractTestAzureFileSystem
     @Override
     protected boolean supportsPreSignedUri()
     {
-        return azureAuth.supportsPreSignedUri();
+        return true;
     }
 
     @Override
