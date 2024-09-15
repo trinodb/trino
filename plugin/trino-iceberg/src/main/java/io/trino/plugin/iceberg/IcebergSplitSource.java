@@ -45,9 +45,11 @@ import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
@@ -515,6 +517,19 @@ public class IcebergSplitSource
 
     private IcebergSplit toIcebergSplit(FileScanTask task, TupleDomain<IcebergColumnHandle> fileStatisticsDomain)
     {
+        Optional<List<Object>> partitionValues = Optional.empty();
+        if (tableHandle.getRequiredTablePartitioning().isPresent()) {
+            PartitionSpec partitionSpec = task.spec();
+            StructLike partition = task.file().partition();
+            List<PartitionField> fields = partitionSpec.fields();
+
+            partitionValues = Optional.of(tableHandle.getRequiredTablePartitioning().get().partitionStructFields().stream()
+                    .map(fieldIndex -> convertIcebergValueToTrino(
+                            partitionSpec.partitionType().field(fields.get(fieldIndex).fieldId()).type(),
+                            partition.get(fieldIndex, Object.class)))
+                    .toList());
+        }
+
         return new IcebergSplit(
                 task.file().path().toString(),
                 task.start(),
@@ -522,6 +537,7 @@ public class IcebergSplitSource
                 task.file().fileSizeInBytes(),
                 task.file().recordCount(),
                 IcebergFileFormat.fromIceberg(task.file().format()),
+                partitionValues,
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),
                 task.deletes().stream()
