@@ -16,14 +16,10 @@ package io.trino.filesystem.azure;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
 
-public interface AzureAuth
+public sealed interface AzureAuth
+        permits AzureAuthAccessKey, AzureAuthDefault, AzureAuthOauth
 {
     void setAuth(String storageAccount, BlobContainerClientBuilder builder);
 
     void setAuth(String storageAccount, DataLakeServiceClientBuilder builder);
-
-    default boolean supportsPreSignedUri()
-    {
-        return false;
-    }
 }

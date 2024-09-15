@@ -22,9 +22,11 @@ import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
+import com.azure.storage.blob.models.UserDelegationKey;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import com.azure.storage.blob.specialized.BlockBlobClient;
+import com.azure.storage.common.sas.SasProtocol;
 import com.azure.storage.file.datalake.DataLakeDirectoryClient;
 import com.azure.storage.file.datalake.DataLakeFileClient;
 import com.azure.storage.file.datalake.DataLakeFileSystemClient;
@@ -428,9 +430,43 @@ public class AzureFileSystem
     public Optional<UriLocation> preSignedUri(Location location, Duration ttl)
             throws IOException
     {
-        if (!azureAuth.supportsPreSignedUri()) {
-            throw new UnsupportedOperationException("Generating pre-signed URIs for Azure with OAuth2 authentication is not supported");
+        return switch (azureAuth) {
+            case AzureAuthOauth _ -> oauth2PresignedUri(location, ttl);
+            case AzureAuthAccessKey _ -> accessKeyPresignedUri(location, ttl);
+            default -> throw new UnsupportedOperationException("Unsupported azure auth: " + azureAuth);
+        };
+    }
+
+    private Optional<UriLocation> oauth2PresignedUri(Location location, Duration ttl)
+            throws IOException
+    {
+        AzureLocation azureLocation = new AzureLocation(location);
+        BlobContainerClient client = createBlobContainerClient(azureLocation);
+
+        OffsetDateTime startTime = OffsetDateTime.now();
+        OffsetDateTime expiryTime = startTime.plus(ttl.toMillis(), MILLIS);
+        UserDelegationKey userDelegationKey = client.getServiceClient().getUserDelegationKey(startTime, expiryTime);
+
+        BlobSasPermission blobSasPermission = new BlobSasPermission()
+                .setReadPermission(true);
+
+        BlobServiceSasSignatureValues sasValues = new BlobServiceSasSignatureValues(expiryTime, blobSasPermission)
+                .setStartTime(startTime)
+                .setProtocol(SasProtocol.HTTPS_ONLY);
+
+        BlobClient blobClient = createBlobClient(azureLocation);
+        String sasToken = blobClient.generateUserDelegationSas(sasValues, userDelegationKey);
+        try {
+            return Optional.of(new UriLocation(URI.create(blobClient.getBlobUrl() + "?" + sasToken), Map.of()));
         }
+        catch (Exception e) {
+            throw new IOException("Failed to generate pre-signed URI", e);
+        }
+    }
+
+    private Optional<UriLocation> accessKeyPresignedUri(Location location, Duration ttl)
+            throws IOException
+    {
         AzureLocation azureLocation = new AzureLocation(location);
         BlobClient client = createBlobClient(azureLocation);
         BlobSasPermission blobSasPermission = new BlobSasPermission()
