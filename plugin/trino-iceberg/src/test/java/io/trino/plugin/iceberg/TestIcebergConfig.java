@@ -72,7 +72,8 @@ public class TestIcebergConfig
                 .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of())
                 .setSplitManagerThreads(Runtime.getRuntime().availableProcessors() * 2)
                 .setIncrementalRefreshEnabled(true)
-                .setMetadataCacheEnabled(true));
+                .setMetadataCacheEnabled(true)
+                .setBucketExecutionEnabled(true));
     }
 
     @Test
@@ -108,6 +109,7 @@ public class TestIcebergConfig
                 .put("iceberg.split-manager-threads", "42")
                 .put("iceberg.incremental-refresh-enabled", "false")
                 .put("iceberg.metadata-cache.enabled", "false")
+                .put("iceberg.bucket-execution", "false")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -139,7 +141,8 @@ public class TestIcebergConfig
                 .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of("bronze", "silver"))
                 .setSplitManagerThreads(42)
                 .setIncrementalRefreshEnabled(false)
-                .setMetadataCacheEnabled(false);
+                .setMetadataCacheEnabled(false)
+                .setBucketExecutionEnabled(false);
 
         assertFullMapping(properties, expected);
     }

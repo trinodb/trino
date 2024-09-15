@@ -28,6 +28,7 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -45,6 +46,7 @@ public class IcebergSplit
     private final long fileSize;
     private final long fileRecordCount;
     private final IcebergFileFormat fileFormat;
+    private final Optional<List<Object>> partitionValues;
     private final String partitionSpecJson;
     private final String partitionDataJson;
     private final List<DeleteFile> deletes;
@@ -77,6 +79,7 @@ public class IcebergSplit
                 fileSize,
                 fileRecordCount,
                 fileFormat,
+                Optional.empty(),
                 partitionSpecJson,
                 partitionDataJson,
                 deletes,
@@ -94,6 +97,7 @@ public class IcebergSplit
             long fileSize,
             long fileRecordCount,
             IcebergFileFormat fileFormat,
+            Optional<List<Object>> partitionValues,
             String partitionSpecJson,
             String partitionDataJson,
             List<DeleteFile> deletes,
@@ -109,6 +113,7 @@ public class IcebergSplit
         this.fileSize = fileSize;
         this.fileRecordCount = fileRecordCount;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
         this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
         this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
@@ -166,6 +171,16 @@ public class IcebergSplit
     public String getPartitionSpecJson()
     {
         return partitionSpecJson;
+    }
+
+    /**
+     * Trino (stack) values of the partition columns. The values are the result of evaluating
+     * the partition expressions on the partition data.
+     */
+    @JsonIgnore
+    public Optional<List<Object>> getPartitionValues()
+    {
+        return partitionValues;
     }
 
     @JsonProperty
