@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
@@ -38,7 +37,7 @@ public class RemoveRedundantWindow
     public Result apply(WindowNode window, Captures captures, Context context)
     {
         if (isEmpty(window.getSource(), context.getLookup())) {
-            return Result.ofPlanNode(new ValuesNode(window.getId(), window.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(window.getId(), window.getOutputSymbols()));
         }
         return Result.empty();
     }

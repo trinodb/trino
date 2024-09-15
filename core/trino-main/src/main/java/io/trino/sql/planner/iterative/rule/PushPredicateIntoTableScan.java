@@ -14,7 +14,6 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
@@ -217,7 +216,7 @@ public class PushPredicateIntoTableScan
             // TODO: DomainTranslator.fromPredicate can infer that the expression is "false" in some cases (TupleDomain.none()).
             // This should move to another rule that simplifies the filter using that logic and then rely on RemoveTrivialFilters
             // to turn the subtree into a Values node
-            return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols()));
         }
 
         Optional<ConstraintApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyFilter(session, node.getTable(), constraint);
@@ -231,7 +230,7 @@ public class PushPredicateIntoTableScan
         TableProperties newTableProperties = plannerContext.getMetadata().getTableProperties(session, newTable);
         Optional<TablePartitioning> newTablePartitioning = newTableProperties.getTablePartitioning();
         if (newTableProperties.getPredicate().isNone()) {
-            return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols()));
         }
 
         TupleDomain<ColumnHandle> remainingFilter = result.get().getRemainingFilter();
