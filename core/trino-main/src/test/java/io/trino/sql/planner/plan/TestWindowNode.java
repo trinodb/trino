@@ -74,10 +74,7 @@ public class TestWindowNode
         Symbol columnB = symbolAllocator.newSymbol("b", BIGINT);
         Symbol columnC = symbolAllocator.newSymbol("c", BIGINT);
 
-        ValuesNode sourceNode = new ValuesNode(
-                newId(),
-                ImmutableList.of(columnA, columnB, columnC),
-                ImmutableList.of());
+        ValuesNode sourceNode = new ValuesNode(newId(), ImmutableList.of(columnA, columnB, columnC));
 
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", BIGINT);
         ResolvedFunction resolvedFunction = functionResolution.resolveFunction("sum", fromTypes(BIGINT));

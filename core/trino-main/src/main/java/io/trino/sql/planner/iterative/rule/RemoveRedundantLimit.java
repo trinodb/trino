@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
@@ -43,7 +42,7 @@ public class RemoveRedundantLimit
     public Result apply(LimitNode limit, Captures captures, Context context)
     {
         if (limit.getCount() == 0) {
-            return Result.ofPlanNode(new ValuesNode(limit.getId(), limit.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(limit.getId(), limit.getOutputSymbols()));
         }
         if (isAtMost(limit.getSource(), context.getLookup(), limit.getCount())) {
             return Result.ofPlanNode(limit.getSource());

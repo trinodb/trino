@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
@@ -41,6 +40,6 @@ public class EvaluateZeroSample
     @Override
     public Result apply(SampleNode sample, Captures captures, Context context)
     {
-        return Result.ofPlanNode(new ValuesNode(sample.getId(), sample.getOutputSymbols(), ImmutableList.of()));
+        return Result.ofPlanNode(new ValuesNode(sample.getId(), sample.getOutputSymbols()));
     }
 }

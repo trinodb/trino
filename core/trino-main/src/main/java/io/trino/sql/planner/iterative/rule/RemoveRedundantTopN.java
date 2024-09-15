@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
@@ -46,7 +45,7 @@ public class RemoveRedundantTopN
     public Result apply(TopNNode node, Captures captures, Context context)
     {
         if (node.getCount() == 0) {
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols()));
         }
         Cardinality sourceCardinality = extractCardinality(node.getSource(), context.getLookup());
         if (sourceCardinality.isScalar()) {

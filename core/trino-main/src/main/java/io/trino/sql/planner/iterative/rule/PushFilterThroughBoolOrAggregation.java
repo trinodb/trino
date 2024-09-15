@@ -199,7 +199,7 @@ public class PushFilterThroughBoolOrAggregation
 
         if (tupleDomain.isNone()) {
             // Filter predicate is never satisfied. Replace filter with empty values.
-            return Result.ofPlanNode(new ValuesNode(filterNode.getId(), filterNode.getOutputSymbols(), ImmutableList.of()));
+            return Result.ofPlanNode(new ValuesNode(filterNode.getId(), filterNode.getOutputSymbols()));
         }
 
         // boolOrSymbol (in remaining expressions) should only be used in Coalesce(boolOrSymbol, FALSE) expression

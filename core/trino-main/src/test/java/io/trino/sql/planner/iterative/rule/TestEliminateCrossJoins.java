@@ -351,7 +351,6 @@ public class TestEliminateCrossJoins
     {
         return new ValuesNode(
                 idAllocator.getNextId(),
-                Arrays.stream(symbols).map(name -> new Symbol(BIGINT, name)).collect(toImmutableList()),
-                ImmutableList.of());
+                Arrays.stream(symbols).map(name -> new Symbol(BIGINT, name)).collect(toImmutableList()));
     }
 }
