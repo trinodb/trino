@@ -1941,23 +1941,23 @@ public class TestSqlParser
     @Test
     public void testRenameSchema()
     {
-        assertStatement("ALTER SCHEMA foo RENAME TO bar",
+        assertThat(statement("ALTER SCHEMA foo RENAME TO bar")).isEqualTo(
                 new RenameSchema(
                         location(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 14), "foo", false))),
                         new Identifier(location(1, 28), "bar", false)));
 
-        assertStatement("ALTER SCHEMA foo.bar RENAME TO baz",
+        assertThat(statement("ALTER SCHEMA foo.bar RENAME TO baz")).isEqualTo(
                 new RenameSchema(
                         location(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 14), "foo", false), new Identifier(location(1, 18), "bar", false))),
-                        identifier("baz")));
+                        new Identifier(location(1, 32), "baz", false)));
 
-        assertStatement("ALTER SCHEMA \"awesome schema\".\"awesome table\" RENAME TO \"even more awesome table\"",
+        assertThat(statement("ALTER SCHEMA \"awesome schema\".\"awesome table\" RENAME TO \"even more awesome table\"")).isEqualTo(
                 new RenameSchema(
                         location(1, 1),
-                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 14), "awesome schema", true), new Identifier(location(1, 33), "awesome table", true))),
-                        new Identifier(location(1, 1), "even more awesome table", true)));
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 14), "awesome schema", true), new Identifier(location(1, 31), "awesome table", true))),
+                        new Identifier(location(1, 57), "even more awesome table", true)));
     }
 
     @Test
@@ -3540,16 +3540,70 @@ public class TestSqlParser
     @Test
     public void testDropColumn()
     {
-        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), false, false));
-        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), QualifiedName.of("c d"), false, false));
-        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), true, false));
-        assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), false, true));
-        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), true, true));
+        assertThat(statement("ALTER TABLE foo.t DROP COLUMN c")).isEqualTo(
+                new DropColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo", false), new Identifier(location(1, 17), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 31), "c", false))),
+                        false,
+                        false));
+        assertThat(statement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"")).isEqualTo(
+                new DropColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "t x", true))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 31), "c d", true))),
+                        false,
+                        false));
+        assertThat(statement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c")).isEqualTo(
+                new DropColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 23), "foo", false), new Identifier(location(1, 27), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 41), "c", false))),
+                        true,
+                        false));
+        assertThat(statement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c")).isEqualTo(
+                new DropColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo", false), new Identifier(location(1, 17), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 41), "c", false))),
+                        false,
+                        true));
+        assertThat(statement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c")).isEqualTo(
+                new DropColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 23), "foo", false), new Identifier(location(1, 27), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 51), "c", false))),
+                        true,
+                        true));
 
-        assertStatement("ALTER TABLE foo.t DROP COLUMN \"c.d\"", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c.d"), false, false));
-        assertStatement("ALTER TABLE foo.t DROP COLUMN c.d", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c", "d"), false, false));
-        assertStatement("ALTER TABLE foo.t DROP COLUMN b.\"c.d\"", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("b", "c.d"), false, false));
-        assertStatement("ALTER TABLE foo.t DROP COLUMN \"b.c\".d", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("b.c", "d"), false, false));
+        assertThat(statement("ALTER TABLE foo.t DROP COLUMN \"c.d\"")).isEqualTo(
+                new DropColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo", false), new Identifier(location(1, 17), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 31), "c.d", true))),
+                        false,
+                        false));
+        assertThat(statement("ALTER TABLE foo.t DROP COLUMN c.d")).isEqualTo(
+                new DropColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo", false), new Identifier(location(1, 17), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 31), "c", false), new Identifier(location(1, 33), "d", false))),
+                        false,
+                        false));
+        assertThat(statement("ALTER TABLE foo.t DROP COLUMN b.\"c.d\"")).isEqualTo(
+                new DropColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo", false), new Identifier(location(1, 17), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 31), "b", false), new Identifier(location(1, 33), "c.d", true))),
+                        false,
+                        false));
+        assertThat(statement("ALTER TABLE foo.t DROP COLUMN \"b.c\".d")).isEqualTo(
+                new DropColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo", false), new Identifier(location(1, 17), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 31), "b.c", true), new Identifier(location(1, 37), "d", false))),
+                        false,
+                        false));
     }
 
     @Test
@@ -4188,20 +4242,20 @@ public class TestSqlParser
     @Test
     public void testStartTransaction()
     {
-        assertStatement("START TRANSACTION",
+        assertThat(statement("START TRANSACTION")).isEqualTo(
                 new StartTransaction(location(1, 1), ImmutableList.of()));
-        assertStatement("START TRANSACTION ISOLATION LEVEL READ UNCOMMITTED",
+        assertThat(statement("START TRANSACTION ISOLATION LEVEL READ UNCOMMITTED")).isEqualTo(
                 new StartTransaction(location(1, 1), ImmutableList.of(
-                        new Isolation(location(1, 19), Isolation.Level.READ_UNCOMMITTED))));
-        assertStatement("START TRANSACTION ISOLATION LEVEL READ COMMITTED",
+                        new Isolation(location(1, 35), Isolation.Level.READ_UNCOMMITTED))));
+        assertThat(statement("START TRANSACTION ISOLATION LEVEL READ COMMITTED")).isEqualTo(
                 new StartTransaction(location(1, 1), ImmutableList.of(
-                        new Isolation(location(1, 19), Isolation.Level.READ_COMMITTED))));
-        assertStatement("START TRANSACTION ISOLATION LEVEL REPEATABLE READ",
+                        new Isolation(location(1, 35), Isolation.Level.READ_COMMITTED))));
+        assertThat(statement("START TRANSACTION ISOLATION LEVEL REPEATABLE READ")).isEqualTo(
                 new StartTransaction(location(1, 1), ImmutableList.of(
-                        new Isolation(location(1, 19), Isolation.Level.REPEATABLE_READ))));
-        assertStatement("START TRANSACTION ISOLATION LEVEL SERIALIZABLE",
+                        new Isolation(location(1, 35), Isolation.Level.REPEATABLE_READ))));
+        assertThat(statement("START TRANSACTION ISOLATION LEVEL SERIALIZABLE")).isEqualTo(
                 new StartTransaction(location(1, 1), ImmutableList.of(
-                        new Isolation(location(1, 19), Isolation.Level.SERIALIZABLE))));
+                        new Isolation(location(1, 35), Isolation.Level.SERIALIZABLE))));
         assertThat(statement("START TRANSACTION READ ONLY")).isEqualTo(
                 new StartTransaction(location(1, 1), ImmutableList.of(
                         new TransactionAccessMode(location(1, 19), true))));
@@ -4320,7 +4374,11 @@ public class TestSqlParser
     @Test
     public void testCall()
     {
-        assertStatement("CALL foo()", new Call(location(1, 1), QualifiedName.of("foo"), ImmutableList.of()));
+        assertThat(statement("CALL foo()")).isEqualTo(
+                new Call(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 6), "foo", false))),
+                        ImmutableList.of()));
         assertThat(statement("CALL foo(123, a => 1, b => 'go', 456)")).isEqualTo(new Call(location(1, 1), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 6), "foo", false))), ImmutableList.of(
                 new CallArgument(location(1, 10), Optional.empty(), new LongLiteral(location(1, 10), "123")),
                 new CallArgument(location(1, 15), Optional.of(new Identifier(location(1, 15), "a", false)), new LongLiteral(location(1, 20), "1")),
