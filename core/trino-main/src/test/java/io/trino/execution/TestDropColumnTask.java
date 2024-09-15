@@ -25,6 +25,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.sql.tree.DropColumn;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
 import org.junit.jupiter.api.Test;
 
@@ -167,7 +168,7 @@ public class TestDropColumnTask
     private ListenableFuture<Void> executeDropColumn(QualifiedName table, QualifiedName column, boolean tableExists, boolean columnExists)
     {
         return new DropColumnTask(plannerContext.getMetadata(), new AllowAllAccessControl())
-                .execute(new DropColumn(table, column, tableExists, columnExists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
+                .execute(new DropColumn(new NodeLocation(1, 1), table, column, tableExists, columnExists), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 
     private static ConnectorTableMetadata simpleTable(QualifiedObjectName tableName)
