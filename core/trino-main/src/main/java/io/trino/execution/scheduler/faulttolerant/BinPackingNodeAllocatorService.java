@@ -316,7 +316,7 @@ public class BinPackingNodeAllocatorService
     @Override
     public NodeLease acquire(NodeRequirements nodeRequirements, DataSize memoryRequirement, TaskExecutionClass executionClass)
     {
-        BinPackingNodeLease nodeLease = new BinPackingNodeLease(memoryRequirement.toBytes(), executionClass);
+        BinPackingNodeLease nodeLease = new BinPackingNodeLease(memoryRequirement.toBytes(), executionClass, nodeRequirements);
         PendingAcquire pendingAcquire = new PendingAcquire(nodeRequirements, nodeLease, ticker);
         pendingAcquires.add(pendingAcquire);
         wakeupProcessPendingAcquires();
@@ -510,12 +510,14 @@ public class BinPackingNodeAllocatorService
         private final AtomicLong memoryLease;
         private final AtomicReference<TaskId> taskId = new AtomicReference<>();
         private final AtomicReference<TaskExecutionClass> executionClass;
+        private final NodeRequirements nodeRequirements;
 
-        private BinPackingNodeLease(long memoryLease, TaskExecutionClass executionClass)
+        private BinPackingNodeLease(long memoryLease, TaskExecutionClass executionClass, NodeRequirements nodeRequirements)
         {
             this.memoryLease = new AtomicLong(memoryLease);
             requireNonNull(executionClass, "executionClass is null");
             this.executionClass = new AtomicReference<>(executionClass);
+            this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
         }
 
         @Override
@@ -614,6 +616,7 @@ public class BinPackingNodeAllocatorService
                     .add("memoryLease", memoryLease)
                     .add("taskId", taskId)
                     .add("executionClass", executionClass)
+                    .add("nodeRequirements", nodeRequirements)
                     .toString();
         }
     }
