@@ -120,7 +120,7 @@ public class ScanQueryPageSource
                 documentFields,
                 topN);
         readTimeNanos += System.nanoTime() - start;
-        this.iterator = new SearchHitIterator(client, () -> searchResponse, OptionalLong.of(topN.get().getLimit()));
+        this.iterator = new SearchHitIterator(client, () -> searchResponse, OptionalLong.of(topN.get().limit()));
     }
 
     @Override

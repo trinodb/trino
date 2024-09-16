@@ -500,7 +500,7 @@ public class ElasticsearchMetadata
             return Optional.empty();
         }
 
-        if (handle.topN().isPresent() && handle.topN().get().getLimit() <= limit) {
+        if (handle.topN().isPresent() && handle.topN().get().limit() <= limit) {
             return Optional.empty();
         }
 

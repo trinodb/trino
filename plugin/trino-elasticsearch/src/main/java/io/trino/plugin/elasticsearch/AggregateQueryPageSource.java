@@ -113,7 +113,7 @@ public class AggregateQueryPageSource
         // One of the following situation may stop the fetching
         // 1. afterKey is empty, that means no more result can be fetched
         // 2. fetchedSize >= the potential limit constraint
-        return (fetched && after.isEmpty()) || (table.topN().isPresent() && fetchedSize >= table.topN().get().getLimit());
+        return (fetched && after.isEmpty()) || (table.topN().isPresent() && fetchedSize >= table.topN().get().limit());
     }
 
     @Override
@@ -131,7 +131,7 @@ public class AggregateQueryPageSource
     public Page getNextPage()
     {
         long start = System.nanoTime();
-        OptionalInt pageSize = table.topN().isEmpty() ? OptionalInt.empty() : OptionalInt.of((int) table.topN().get().getLimit());
+        OptionalInt pageSize = table.topN().isEmpty() ? OptionalInt.empty() : OptionalInt.of((int) table.topN().get().limit());
         SearchResponse searchResponse = client.beginSearch(
                 split.index(),
                 split.shard(),

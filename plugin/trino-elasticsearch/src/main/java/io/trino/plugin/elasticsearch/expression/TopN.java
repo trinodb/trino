@@ -13,50 +13,28 @@
  */
 package io.trino.plugin.elasticsearch.expression;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.SortOrder;
 import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class TopN
+public record TopN(long limit, List<TopNSortItem> topNSortItems)
 {
     public static final long NO_LIMIT = -1;
-    public static final TopN EMPTY = new TopN(NO_LIMIT, new ArrayList<>());
-
-    private final long limit;
-    private final List<TopNSortItem> topNSortItems;
+    public static final TopN EMPTY = fromLimit(NO_LIMIT);
 
     public static TopN fromLimit(long limit)
     {
-        return new TopN(limit, new ArrayList<>());
+        return new TopN(limit, ImmutableList.of());
     }
 
-    @JsonCreator
-    public TopN(@JsonProperty("limit") long limit,
-            @JsonProperty("topNSortItems") List<TopNSortItem> topNSortItems)
+    public TopN
     {
-        this.limit = limit;
-        this.topNSortItems = requireNonNull(topNSortItems, "topNSortItems is null");
-    }
-
-    @JsonProperty("limit")
-    public long getLimit()
-    {
-        return limit;
-    }
-
-    @JsonProperty("topNSortItems")
-    public List<TopNSortItem> getTopNSortItems()
-    {
-        return topNSortItems;
+        requireNonNull(topNSortItems, "topNSortItems is null");
     }
 
     public TopN addSortItem(TopNSortItem sortItem)
@@ -70,41 +48,10 @@ public class TopN
         return limit != NO_LIMIT && topNSortItems.isEmpty();
     }
 
-    @Override
-    public boolean equals(Object o)
-    {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        TopN that = (TopN) o;
-        return limit == that.limit &&
-                topNSortItems.equals(that.topNSortItems);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(limit, topNSortItems);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("limit", limit)
-                .add("items", topNSortItems)
-                .toString();
-    }
-
-    public static class TopNSortItem
+    public record TopNSortItem(String field, SortOrder order)
     {
         // sorting by _doc (index order) get special treatment in Elasticsearch and is more efficient
         public static final TopNSortItem DEFAULT_SORT_BY_DOC = sortBy("_doc");
-        private final String field;
-        private final SortOrder order;
 
         public static TopNSortItem sortBy(String field)
         {
@@ -114,25 +61,6 @@ public class TopN
         public static TopNSortItem sortBy(String field, SortOrder order)
         {
             return new TopNSortItem(field, order);
-        }
-
-        @JsonCreator
-        public TopNSortItem(@JsonProperty("field") String field, @JsonProperty("order") SortOrder order)
-        {
-            this.field = field;
-            this.order = order;
-        }
-
-        @JsonProperty("field")
-        public String getField()
-        {
-            return field;
-        }
-
-        @JsonProperty("order")
-        public SortOrder getOrder()
-        {
-            return order;
         }
 
         public SortBuilder<? extends SortBuilder<?>> toSortBuilder()
@@ -147,34 +75,6 @@ public class TopN
             return SortBuilders
                     .fieldSort(field)
                     .order(toEsSortOrder(order));
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TopNSortItem that = (TopNSortItem) o;
-            return field.equals(that.field) && order == that.order;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(field, order);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("field", field)
-                    .add("order", order)
-                    .toString();
         }
 
         private static org.elasticsearch.search.sort.SortOrder toEsSortOrder(SortOrder sortOrder)

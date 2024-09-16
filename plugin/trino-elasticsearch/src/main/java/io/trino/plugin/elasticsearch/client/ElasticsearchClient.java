@@ -588,17 +588,17 @@ public class ElasticsearchClient
         }
         else {
             if (topN.isPresent() &&
-                    topN.get().getLimit() != NO_LIMIT &&
-                    topN.get().getLimit() < scrollSize) {
+                    topN.get().limit() != NO_LIMIT &&
+                    topN.get().limit() < scrollSize) {
                 // Safe to cast it to int because scrollSize is int.
-                sourceBuilder.size(toIntExact(topN.get().getLimit()));
+                sourceBuilder.size(toIntExact(topN.get().limit()));
             }
             else {
                 sourceBuilder.size(scrollSize);
             }
         }
 
-        topN.ifPresent(n -> n.getTopNSortItems().forEach(it -> sourceBuilder.sort(it.toSortBuilder())));
+        topN.ifPresent(n -> n.topNSortItems().forEach(it -> sourceBuilder.sort(it.toSortBuilder())));
 
         fields.ifPresent(values -> {
             if (values.isEmpty()) {
