@@ -13,6 +13,12 @@
  */
 package io.trino.spi.connector;
 
+/**
+ * Represents a handle to a partitioning scheme used by the connector.
+ * <p>
+ * If the ConnectorPartitioningHandle of two tables are equal, the tables are guaranteed
+ * to have the same partitioning scheme across nodes, and the engine may use a colocated join.
+ */
 public interface ConnectorPartitioningHandle
 {
     default boolean isSingleNode()
