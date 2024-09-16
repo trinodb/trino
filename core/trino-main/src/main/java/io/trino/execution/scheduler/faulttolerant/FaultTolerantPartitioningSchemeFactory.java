@@ -86,7 +86,7 @@ public class FaultTolerantPartitioningSchemeFactory
             if (connectorBucketNodeMap.isEmpty()) {
                 return createSystemSchema(partitionCount.orElse(maxPartitionCount));
             }
-            ToIntFunction<Split> splitToBucket = nodePartitioningManager.getSplitToBucket(session, partitioningHandle);
+            ToIntFunction<Split> splitToBucket = nodePartitioningManager.getSplitToBucket(session, partitioningHandle, partitionCount.orElse(maxPartitionCount));
             return createConnectorSpecificSchema(partitionCount.orElse(maxPartitionCount), connectorBucketNodeMap.get(), splitToBucket);
         }
         return new FaultTolerantPartitioningScheme(1, Optional.empty(), Optional.empty(), Optional.empty());
