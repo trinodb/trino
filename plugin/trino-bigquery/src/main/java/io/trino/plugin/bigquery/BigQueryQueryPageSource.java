@@ -77,6 +77,7 @@ public class BigQueryQueryPageSource
     private final BigQueryTypeManager typeManager;
     private final List<BigQueryColumnHandle> columnHandles;
     private final PageBuilder pageBuilder;
+    private final boolean isQueryFunction;
     private final TableResult tableResult;
 
     private boolean finished;
@@ -95,13 +96,19 @@ public class BigQueryQueryPageSource
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         this.pageBuilder = new PageBuilder(columnHandles.stream().map(BigQueryColumnHandle::trinoType).collect(toImmutableList()));
-        String sql = buildSql(table, client.getProjectId(), columnHandles, filter);
+        this.isQueryFunction = table.relationHandle() instanceof BigQueryQueryRelationHandle;
+        String sql = buildSql(
+                table,
+                client.getProjectId(),
+                ImmutableList.copyOf(columnHandles),
+                filter);
         this.tableResult = client.executeQuery(session, sql);
     }
 
-    private static String buildSql(BigQueryTableHandle table, String projectId, List<BigQueryColumnHandle> columns, Optional<String> filter)
+    private String buildSql(BigQueryTableHandle table, String projectId, List<BigQueryColumnHandle> columns, Optional<String> filter)
     {
-        if (table.relationHandle() instanceof BigQueryQueryRelationHandle queryRelationHandle) {
+        if (isQueryFunction) {
+            BigQueryQueryRelationHandle queryRelationHandle = (BigQueryQueryRelationHandle) table.relationHandle();
             if (filter.isEmpty()) {
                 return queryRelationHandle.getQuery();
             }
@@ -144,7 +151,8 @@ public class BigQueryQueryPageSource
             for (int column = 0; column < columnHandles.size(); column++) {
                 BigQueryColumnHandle columnHandle = columnHandles.get(column);
                 BlockBuilder output = pageBuilder.getBlockBuilder(column);
-                appendTo(columnHandle.trinoType(), record.get(columnHandle.name()), output);
+                FieldValue fieldValue = isQueryFunction ? record.get(columnHandle.name()) : record.get(column);
+                appendTo(columnHandle.trinoType(), fieldValue, output);
             }
         }
         finished = true;

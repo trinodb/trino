@@ -103,14 +103,30 @@ public class BigQueryArrowToPageConverter
 
         for (int column = 0; column < columns.size(); column++) {
             BigQueryColumnHandle columnHandle = columns.get(column);
+            FieldVector fieldVector = getFieldVector(root, columnHandle);
             convertType(pageBuilder.getBlockBuilder(column),
                     columnHandle.trinoType(),
-                    root.getVector(toBigQueryColumnName(columnHandle.name())),
+                    fieldVector,
                     0,
-                    root.getVector(toBigQueryColumnName(columnHandle.name())).getValueCount());
+                    fieldVector.getValueCount());
         }
 
         root.clear();
+    }
+
+    private static FieldVector getFieldVector(VectorSchemaRoot root, BigQueryColumnHandle columnHandle)
+    {
+        FieldVector fieldVector = root.getVector(toBigQueryColumnName(columnHandle.name()));
+
+        for (String dereferenceName : columnHandle.dereferenceNames()) {
+            for (FieldVector child : fieldVector.getChildrenFromFields()) {
+                if (child.getField().getName().equals(dereferenceName)) {
+                    fieldVector = child;
+                    break;
+                }
+            }
+        }
+        return fieldVector;
     }
 
     private void convertType(BlockBuilder output, Type type, FieldVector vector, int offset, int length)

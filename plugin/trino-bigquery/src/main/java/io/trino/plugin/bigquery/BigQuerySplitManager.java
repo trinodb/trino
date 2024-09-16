@@ -162,8 +162,8 @@ public class BigQuerySplitManager
         log.debug("readFromBigQuery(tableId=%s, projectedColumns=%s, filter=[%s])", remoteTableId, projectedColumns, filter);
         List<BigQueryColumnHandle> columns = projectedColumns.get();
         List<String> projectedColumnsNames = getProjectedColumnNames(columns);
-        ImmutableList.Builder<BigQueryColumnHandle> additionalDomainColumns = ImmutableList.builder();
-        additionalDomainColumns.addAll(columns);
+        ImmutableList.Builder<BigQueryColumnHandle> projectedColumnHandles = ImmutableList.builder();
+        projectedColumnHandles.addAll(columns);
 
         if (isWildcardTable(type, remoteTableId.getTable())) {
             // Storage API doesn't support reading wildcard tables
@@ -180,9 +180,9 @@ public class BigQuerySplitManager
             tableConstraint.getDomains().ifPresent(domains -> domains.keySet().stream()
                     .map(BigQueryColumnHandle.class::cast)
                     .filter(column -> !projectedColumnsNames.contains(column.name()))
-                    .forEach(additionalDomainColumns::add));
+                    .forEach(projectedColumnHandles::add));
         }
-        ReadSession readSession = createReadSession(session, remoteTableId, ImmutableList.copyOf(additionalDomainColumns.build()), filter);
+        ReadSession readSession = createReadSession(session, remoteTableId, ImmutableList.copyOf(projectedColumnHandles.build()), filter);
 
         String schemaString = getSchemaAsString(readSession);
         return readSession.getStreamsList().stream()

@@ -248,7 +248,7 @@ public final class BigQueryTypeManager
         return FieldList.of(fields.build());
     }
 
-    private StandardSQLTypeName toStandardSqlTypeName(Type type)
+    StandardSQLTypeName toStandardSqlTypeName(Type type)
     {
         if (type == BooleanType.BOOLEAN) {
             return StandardSQLTypeName.BOOL;
@@ -392,6 +392,7 @@ public final class BigQueryTypeManager
         ColumnMapping columnMapping = toTrinoType(field).orElseThrow(() -> new IllegalArgumentException("Unsupported type: " + field));
         return new BigQueryColumnHandle(
                 field.getName(),
+                ImmutableList.of(),
                 columnMapping.type(),
                 field.getType().getStandardType(),
                 columnMapping.isPushdownSupported(),

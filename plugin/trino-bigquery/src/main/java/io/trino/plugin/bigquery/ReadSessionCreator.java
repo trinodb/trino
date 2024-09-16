@@ -84,7 +84,7 @@ public class ReadSessionCreator
         TableInfo actualTable = getActualTable(client, tableDetails, selectedFields, isViewMaterializationWithFilter(session) ? filter : Optional.empty());
 
         List<String> filteredSelectedFields = selectedFields.stream()
-                .map(BigQueryColumnHandle::name)
+                .map(BigQueryColumnHandle::getQualifiedName)
                 .map(BigQueryUtil::toBigQueryColumnName)
                 .collect(toList());
 

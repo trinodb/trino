@@ -32,6 +32,7 @@ public final class BigQuerySessionProperties
     private static final String VIEW_MATERIALIZATION_WITH_FILTER = "view_materialization_with_filter";
     private static final String QUERY_RESULTS_CACHE_ENABLED = "query_results_cache_enabled";
     private static final String CREATE_DISPOSITION_TYPE = "create_disposition_type";
+    private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -60,6 +61,11 @@ public final class BigQuerySessionProperties
                         CreateDisposition.class,
                         CreateDisposition.CREATE_IF_NEEDED, // https://cloud.google.com/bigquery/docs/cached-results
                         true))
+                .add(booleanProperty(
+                        PROJECTION_PUSHDOWN_ENABLED,
+                        "Dereference push down for STRUCT type",
+                        config.isProjectionPushdownEnabled(),
+                        false))
                 .build();
     }
 
@@ -87,5 +93,10 @@ public final class BigQuerySessionProperties
     public static CreateDisposition createDisposition(ConnectorSession session)
     {
         return session.getProperty(CREATE_DISPOSITION_TYPE, CreateDisposition.class);
+    }
+
+    public static boolean isProjectionPushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
     }
 }

@@ -80,7 +80,7 @@ public class TestBigQuerySplitManager
             assertThat(readSession.getTable()).contains(TEMP_TABLE_PREFIX);
 
             // Ignore constraints when creating temporary tables by default (view_materialization_with_filter is false)
-            BigQueryColumnHandle column = new BigQueryColumnHandle("cnt", BIGINT, INT64, true, REQUIRED, ImmutableList.of(), null, false);
+            BigQueryColumnHandle column = new BigQueryColumnHandle("cnt", ImmutableList.of(), BIGINT, INT64, true, REQUIRED, ImmutableList.of(), null, false);
             BigQueryTableHandle tableDifferentFilter = new BigQueryTableHandle(table.relationHandle(), TupleDomain.fromFixedValues(ImmutableMap.of(column, new NullableValue(BIGINT, 0L))), table.projectedColumns());
             assertThat(createReadSession(session, tableDifferentFilter).getTable())
                     .isEqualTo(readSession.getTable());
