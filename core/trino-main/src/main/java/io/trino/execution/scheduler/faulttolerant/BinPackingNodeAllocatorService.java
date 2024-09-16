@@ -342,14 +342,14 @@ public class BinPackingNodeAllocatorService
 
     @Managed
     @Nested
-    public CounterStat processCalls()
+    public CounterStat getProcessCalls()
     {
         return processCalls;
     }
 
     @Managed
     @Nested
-    public CounterStat processPending()
+    public CounterStat getProcessPending()
     {
         return processPending;
     }
