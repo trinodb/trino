@@ -76,6 +76,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.gen.columnar.FilterEvaluator.createColumnarFilterEvaluator;
@@ -107,6 +108,7 @@ public class TestColumnarFilters
     private static final int INT_CHANNEL_A = 4;
     private static final int INT_CHANNEL_C = 5;
     private static final int ARRAY_CHANNEL = 6;
+    private static final int REAL_CHANNEL = 7;
     private static final Type ARRAY_CHANNEL_TYPE = new ArrayType(INTEGER);
     private static final FullConnectorSession FULL_CONNECTOR_SESSION = new FullConnectorSession(
             TestingSession.testSessionBuilder().build(),
@@ -448,6 +450,7 @@ public class TestColumnarFilters
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
         List<ResolvedFunction> functionalDependencies = getInFunctionalDependencies(INTEGER);
         // INTEGER type with small number of discontinuous constants
+        // Uses switch case
         List<RowExpression> arguments = ImmutableList.<RowExpression>builder()
                 .add(field(INT_CHANNEL_A, INTEGER))
                 .add(constant(null, INTEGER))
@@ -460,12 +463,26 @@ public class TestColumnarFilters
         verifyFilter(inputPages, inFilter);
 
         // INTEGER type with large number of discontinuous constants
+        // Uses LongBitSetFilter
         arguments = ImmutableList.<RowExpression>builder()
                 .add(field(INT_CHANNEL_A, INTEGER))
                 .add(constant(null, INTEGER))
                 .add(constant(CONSTANT - 10, INTEGER))
                 .addAll(buildConstantsList(INTEGER, 100))
                 .add(constant(CONSTANT + 110, INTEGER))
+                .build();
+        inFilter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
+        assertThatColumnarFilterEvaluationIsSupported(inFilter);
+        verifyFilter(inputPages, inFilter);
+
+        // INTEGER type with large number of discontinuous constants from a wide range
+        // Uses LongOpenHashSet
+        arguments = ImmutableList.<RowExpression>builder()
+                .add(field(INT_CHANNEL_A, INTEGER))
+                .add(constant(null, INTEGER))
+                .add(constant(CONSTANT - 10, INTEGER))
+                .addAll(buildConstantsList(INTEGER, 100))
+                .add(constant(CONSTANT + 1073741824, INTEGER))
                 .build();
         inFilter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
         assertThatColumnarFilterEvaluationIsSupported(inFilter);
@@ -485,6 +502,19 @@ public class TestColumnarFilters
         arguments = ImmutableList.<RowExpression>builder()
                 .add(field(INT_CHANNEL_A, INTEGER))
                 .add(constant(null, INTEGER))
+                .build();
+        inFilter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
+        assertThatColumnarFilterEvaluationIsSupported(inFilter);
+        verifyFilter(inputPages, inFilter);
+
+        // REAL type with large number of discontinuous constants
+        // Uses LongOpenCustomHashSet
+        arguments = ImmutableList.<RowExpression>builder()
+                .add(field(REAL_CHANNEL, REAL))
+                .add(constant(null, REAL))
+                .add(constant(CONSTANT - 10, REAL))
+                .addAll(buildConstantsList(REAL, 100))
+                .add(constant(CONSTANT + 110, REAL))
                 .build();
         inFilter = new SpecialForm(IN, BOOLEAN, arguments, functionalDependencies);
         assertThatColumnarFilterEvaluationIsSupported(inFilter);
@@ -663,7 +693,8 @@ public class TestColumnarFilters
                     lazyBlock(positionsCount, () -> createStringsBlock(positionsCount, nullsProvider, dictionaryEncoded)),
                     lazyBlock(positionsCount, () -> createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded)),
                     lazyBlock(positionsCount, () -> createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded)),
-                    lazyBlock(positionsCount, () -> createArraysBlock(positionsCount, nullsProvider))));
+                    lazyBlock(positionsCount, () -> createArraysBlock(positionsCount, nullsProvider)),
+                    lazyBlock(positionsCount, () -> createIntsBlock(positionsCount, nullsProvider, dictionaryEncoded))));
             rowCount += positionsCount;
         }
         return builder.build();
@@ -834,6 +865,9 @@ public class TestColumnarFilters
         ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
         for (long i = 0; i < size; i++) {
             if (type == INTEGER) {
+                builder.add(constant(CONSTANT + i, type));
+            }
+            else if (type == REAL) {
                 builder.add(constant(CONSTANT + i, type));
             }
             else if (type == VARCHAR) {
