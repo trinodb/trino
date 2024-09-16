@@ -144,13 +144,30 @@ public class BigQueryStorageAvroPageSource
             for (int column = 0; column < columns.size(); column++) {
                 BlockBuilder output = pageBuilder.getBlockBuilder(column);
                 BigQueryColumnHandle columnHandle = columns.get(column);
-                appendTo(columnHandle.trinoType(), record.get(toBigQueryColumnName(columnHandle.name())), output);
+                appendTo(columnHandle.trinoType(), getValueRecord(record, columnHandle), output);
             }
         }
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
         return page;
+    }
+
+    private static Object getValueRecord(GenericRecord record, BigQueryColumnHandle columnHandle)
+    {
+        Object valueRecord = record.get(toBigQueryColumnName(columnHandle.name()));
+        for (String dereferenceName : columnHandle.dereferenceNames()) {
+            if (valueRecord == null) {
+                break;
+            }
+            if (valueRecord instanceof GenericRecord genericRecord) {
+                valueRecord = genericRecord.get(dereferenceName);
+            }
+            else {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to extract dereference value from record");
+            }
+        }
+        return valueRecord;
     }
 
     private void appendTo(Type type, Object value, BlockBuilder output)

@@ -33,6 +33,7 @@ import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.http.BaseHttpServiceException;
+import com.google.common.base.Joiner;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -468,8 +469,17 @@ public class BigQueryClient
 
     public static String selectSql(TableId table, List<BigQueryColumnHandle> requiredColumns, Optional<String> filter)
     {
-        String columns = requiredColumns.stream().map(column -> format("`%s`", column.name())).collect(joining(","));
-        return selectSql(table, columns, filter);
+        return selectSql(table,
+                requiredColumns.stream()
+                        .map(column -> Joiner.on('.')
+                                .join(ImmutableList.<String>builder()
+                                        .add(format("`%s`", column.name()))
+                                        .addAll(column.dereferenceNames().stream()
+                                                .map(dereferenceName -> format("`%s`", dereferenceName))
+                                                .collect(toImmutableList()))
+                                        .build()))
+                        .collect(joining(",")),
+                filter);
     }
 
     public static String selectSql(TableId table, String formattedColumns, Optional<String> filter)
