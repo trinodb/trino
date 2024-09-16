@@ -192,6 +192,8 @@ public enum HiveStorageFormat
             .put(new SerdeAndInputFormat(PARQUET_HIVE_SERDE_CLASS, "parquet.hive.DeprecatedParquetInputFormat"), PARQUET)
             .put(new SerdeAndInputFormat(PARQUET_HIVE_SERDE_CLASS, "org.apache.hadoop.mapred.TextInputFormat"), PARQUET)
             .put(new SerdeAndInputFormat(PARQUET_HIVE_SERDE_CLASS, "parquet.hive.MapredParquetInputFormat"), PARQUET)
+            .put(new SerdeAndInputFormat(LAZY_SIMPLE_SERDE_CLASS, "org.apache.hadoop.mapred.lib.CombineTextInputFormat"), TEXTFILE)
+            .put(new SerdeAndInputFormat(LAZY_SIMPLE_SERDE_CLASS, "org.apache.hadoop.mapreduce.lib.input.CombineTextInputFormat"), TEXTFILE)
             .buildOrThrow();
 
     public static Optional<HiveStorageFormat> getHiveStorageFormat(StorageFormat storageFormat)
