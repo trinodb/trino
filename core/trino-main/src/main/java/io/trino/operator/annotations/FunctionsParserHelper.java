@@ -16,6 +16,7 @@ package io.trino.operator.annotations;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.LiteralParameters;
@@ -30,7 +31,6 @@ import io.trino.spi.function.TypeVariableConstraint;
 import io.trino.spi.function.TypeVariableConstraint.TypeVariableConstraintBuilder;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
-import io.trino.type.Constraint;
 import jakarta.annotation.Nullable;
 
 import java.lang.annotation.Annotation;

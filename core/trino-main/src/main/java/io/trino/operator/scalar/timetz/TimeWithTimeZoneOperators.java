@@ -14,12 +14,12 @@
 package io.trino.operator.scalar.timetz;
 
 import io.trino.operator.scalar.time.TimeOperators;
+import io.trino.spi.function.Constraint;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.StandardTypes;
-import io.trino.type.Constraint;
 
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBTRACT;
