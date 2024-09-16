@@ -24,8 +24,9 @@ system support:
     `false`. Set to `true` to use Azure Storage and enable all other properties.
 * - `azure.auth-type`
   - Authentication type to use for Azure Storage access. Defaults to `DEFAULT` which
-    uses system level credentials. Use `ACCESS_KEY` for [](azure-access-key-authentication) 
-    or and `OAUTH` for [](azure-oauth-authentication).
+    loads from environment variables if configured or [](azure-user-assigned-managed-identity-authentication). 
+    Use `ACCESS_KEY` for [](azure-access-key-authentication) or and `OAUTH` 
+    for [](azure-oauth-authentication).
 * - `azure.endpoint`
   - Hostname suffix of the Azure storage endpoint.
     Defaults to `core.windows.net` for the global Azure cloud.
@@ -51,6 +52,30 @@ system support:
   - Specify the application identifier appended to the `User-Agent` header
     for all requests sent to Azure Storage. Defaults to `Trino`. 
 :::
+
+(azure-user-assigned-managed-identity-authentication)=
+## User-assigned managed identity authentication
+
+Use the following properties to configure [user-assigned managed 
+identity](https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/) 
+authentication to Azure Storage:
+
+:::{list-table}
+:widths: 40, 60
+:header-rows: 1
+
+* - Property
+  - Description
+* - `azure.auth-type`
+  - Must be set to `DEFAULT`.
+* - `azure.user-assigned-managed-identity.client-id`
+  - Specifies the client ID of user-assigned managed identity.
+* - `azure.user-assigned-managed-identity.resource-id`
+  - Specifies the resource ID of user-assigned managed identity.
+:::
+
+Only one of `azure.user-assigned-managed-identity.client-id` or `azure.user-assigned-managed-identity.resource-id` can be 
+specified.
 
 (azure-access-key-authentication)=
 ## Access key authentication
