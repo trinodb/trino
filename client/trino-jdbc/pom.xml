@@ -17,83 +17,60 @@
         <shadeBase>io.trino.jdbc.\$internal</shadeBase>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>units</artifactId>
+                <!-- JDK8 support dropped by version 1.8+ -->
+                <version>1.7</version>
+            </dependency>
+            <dependency>
+                <groupId>jakarta.annotation</groupId>
+                <artifactId>jakarta.annotation-api</artifactId>
+                <!-- JDK8 support dropped by version 3.0.0+ -->
+                <version>2.1.1</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
-        <dependency>
-            <groupId>com.google.errorprone</groupId>
-            <artifactId>error_prone_annotations</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.google.code.findbugs</groupId>
-                    <artifactId>jsr305</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.errorprone</groupId>
-                    <artifactId>error_prone_annotations</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.j2objc</groupId>
-                    <artifactId>j2objc-annotations</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.checkerframework</groupId>
-                    <artifactId>checker-qual</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>animal-sniffer-annotations</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-            <!-- JDK8 support dropped by version 1.8+ -->
-            <version>1.7</version>
-        </dependency>
-
-        <dependency>
-            <groupId>io.opentelemetry.instrumentation</groupId>
-            <artifactId>opentelemetry-okhttp-3.0</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-client</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>jakarta.annotation</groupId>
-            <artifactId>jakarta.annotation-api</artifactId>
-            <!-- JDK8 support dropped by version 3.0.0+ -->
-            <version>2.1.1</version>
-        </dependency>
-
-        <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-api</artifactId>
-            <scope>provided</scope>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-jdbc-core</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -327,66 +304,7 @@
     </dependencies>
 
     <build>
-        <resources>
-            <resource>
-                <filtering>true</filtering>
-                <directory>src/main/resources</directory>
-                <includes>
-                    <include>io/trino/jdbc/driver.properties</include>
-                </includes>
-            </resource>
-            <resource>
-                <filtering>false</filtering>
-                <directory>src/main/resources</directory>
-                <excludes>
-                    <exclude>io/trino/jdbc/driver.properties</exclude>
-                </excludes>
-            </resource>
-        </resources>
-
-        <pluginManagement>
-            <plugins>
-                <!-- TODO: move this to Airbase -->
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-resources-plugin</artifactId>
-                    <configuration>
-                        <propertiesEncoding>ISO-8859-1</propertiesEncoding>
-                    </configuration>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-enforcer-plugin</artifactId>
-                    <configuration>
-                        <rules>
-                            <requireUpperBoundDeps>
-                                <excludes combine.children="append">
-                                    <exclude>io.airlift:units</exclude>
-                                </excludes>
-                            </requireUpperBoundDeps>
-                        </rules>
-                    </configuration>
-                </plugin>
-            </plugins>
-        </pluginManagement>
-
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>non-shaded</id>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                        <configuration>
-                            <classifier>non-shaded</classifier>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -456,16 +374,8 @@
                                     <shadedPattern>${shadeBase}.okhttp3</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>io.opentelemetry.extension</pattern>
-                                    <shadedPattern>${shadeBase}.opentelemetry.extension</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>io.opentelemetry.instrumentation</pattern>
-                                    <shadedPattern>${shadeBase}.opentelemetry.instrumentation</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>io.opentelemetry.api.incubator</pattern>
-                                    <shadedPattern>${shadeBase}.opentelemetry.api.incubator</shadedPattern>
+                                    <pattern>io.opentelemetry</pattern>
+                                    <shadedPattern>${shadeBase}.opentelemetry</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>okio</pattern>
@@ -490,6 +400,9 @@
                                 <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
+                                        <exclude>javax/annotation/**</exclude>
+                                        <exclude>org/checkerframework/**</exclude>
+                                        <exclude>com/google/j2objc/**</exclude>
                                         <exclude>org/jetbrains/**</exclude>
                                         <exclude>org/intellij/**</exclude>
                                         <exclude>com/google/errorprone/**</exclude>
@@ -497,7 +410,6 @@
                                         <exclude>META-INF/licenses/**</exclude>
                                         <exclude>META-INF/services/com.fasterxml.**</exclude>
                                         <exclude>META-INF/proguard/**</exclude>
-                                        <exclude>LICENSE</exclude>
                                         <exclude>META-INF/**.kotlin_module</exclude>
                                         <exclude>META-INF/versions/**</exclude>
                                         <exclude>META-INF/NOTICE**</exclude>
@@ -505,12 +417,12 @@
                                         <exclude>META-INF/*-LICENSE</exclude>
                                         <exclude>META-INF/LICENSE**</exclude>
                                         <exclude>META-INF/io/opentelemetry/**</exclude>
-                                        <exclude>io/opentelemetry/semconv/**</exclude>
                                         <exclude>META-INF/native-image/**</exclude>
                                         <exclude>META-INF/kotlin-project-structure-metadata.json</exclude>
                                         <exclude>**/*.knm</exclude>
                                         <exclude>**/manifest</exclude>
                                         <exclude>**/module</exclude>
+                                        <exclude>LICENSE</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

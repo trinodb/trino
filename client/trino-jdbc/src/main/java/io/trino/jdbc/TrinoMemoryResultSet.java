@@ -15,32 +15,13 @@ package io.trino.jdbc;
 
 import io.trino.client.Column;
 
-import java.sql.SQLException;
 import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-public class InMemoryTrinoResultSet
-        extends AbstractTrinoResultSet
+public class TrinoMemoryResultSet
+        extends InMemoryTrinoResultSet
 {
-    private final AtomicBoolean closed = new AtomicBoolean();
-
-    public InMemoryTrinoResultSet(List<Column> columns, List<List<Object>> results)
+    public TrinoMemoryResultSet(List<Column> columns, List<List<Object>> results)
     {
-        super(Optional.empty(), columns, results.iterator());
-    }
-
-    @Override
-    public void close()
-            throws SQLException
-    {
-        closed.set(true);
-    }
-
-    @Override
-    public boolean isClosed()
-            throws SQLException
-    {
-        return closed.get();
+        super(columns, results);
     }
 }

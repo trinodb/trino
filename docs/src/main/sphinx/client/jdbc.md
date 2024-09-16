@@ -43,9 +43,8 @@ allows you to control the versions of these dependencies:
 ```xml
 <dependency>
     <groupId>io.trino</groupId>
-    <artifactId>trino-jdbc</artifactId>
+    <artifactId>trino-jdbc-core</artifactId>
     <version>|trino_version|</version>
-    <classifier>non-shaded</version>
 </dependency>
 ```
 

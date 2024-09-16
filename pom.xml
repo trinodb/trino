@@ -31,6 +31,7 @@
         <module>client/trino-cli</module>
         <module>client/trino-client</module>
         <module>client/trino-jdbc</module>
+        <module>client/trino-jdbc-core</module>
         <module>core/trino-grammar</module>
         <module>core/trino-main</module>
         <module>core/trino-parser</module>
@@ -1220,9 +1221,8 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
-                <artifactId>trino-jdbc</artifactId>
+                <artifactId>trino-jdbc-core</artifactId>
                 <version>${project.version}</version>
-                <classifier>non-shaded</classifier>
             </dependency>
 
             <dependency>

@@ -356,6 +356,7 @@ jobs:
             !:trino-iceberg,
             !:trino-ignite,
             !:trino-jdbc,
+            !:trino-jdbc-core,
             !:trino-kafka,
             !:trino-kudu,
             !:trino-main,
@@ -427,6 +428,7 @@ jobs:
           include:
             - modules:
                 - client/trino-jdbc
+                - client/trino-jdbc-core
                 - plugin/trino-base-jdbc
                 - plugin/trino-memory
                 - plugin/trino-thrift
