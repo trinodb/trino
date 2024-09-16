@@ -167,7 +167,7 @@ public class BinPackingNodeAllocatorService
                     catch (InterruptedException e) {
                         currentThread().interrupt();
                     }
-                    catch (Exception e) {
+                    catch (Throwable e) {
                         // ignore to avoid getting unscheduled
                         log.warn(e, "Error updating nodes");
                     }
