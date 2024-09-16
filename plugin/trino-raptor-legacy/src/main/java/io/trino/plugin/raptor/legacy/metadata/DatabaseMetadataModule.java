@@ -85,7 +85,7 @@ public class DatabaseMetadataModule
         @ForMetadata
         public static ConnectionFactory createConnectionFactory(H2DatabaseConfig config)
         {
-            String url = format("jdbc:h2:%s", config.getFilename());
+            String url = format("jdbc:h2:%s;DB_CLOSE_DELAY=-1", config.getFilename());
             return () -> DriverManager.getConnection(url);
         }
 
