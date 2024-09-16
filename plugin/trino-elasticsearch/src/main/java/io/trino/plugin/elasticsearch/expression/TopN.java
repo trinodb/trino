@@ -25,7 +25,6 @@ import static java.util.Objects.requireNonNull;
 public record TopN(long limit, List<TopNSortItem> topNSortItems)
 {
     public static final long NO_LIMIT = -1;
-    public static final TopN EMPTY = fromLimit(NO_LIMIT);
 
     public static TopN fromLimit(long limit)
     {
@@ -35,12 +34,6 @@ public record TopN(long limit, List<TopNSortItem> topNSortItems)
     public TopN
     {
         requireNonNull(topNSortItems, "topNSortItems is null");
-    }
-
-    public TopN addSortItem(TopNSortItem sortItem)
-    {
-        topNSortItems.add(sortItem);
-        return this;
     }
 
     public boolean isOnlyLimit()

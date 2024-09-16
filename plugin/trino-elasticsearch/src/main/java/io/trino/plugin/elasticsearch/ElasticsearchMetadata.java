@@ -717,14 +717,15 @@ public class ElasticsearchMetadata
             return Optional.empty();
         }
 
-        TopN topN = TopN.fromLimit(topNCount);
+        ImmutableList.Builder<TopN.TopNSortItem> topNSortItems = ImmutableList.builder();
         for (SortItem sortItem : sortItems) {
             ElasticsearchColumnHandle ch = (ElasticsearchColumnHandle) assignments.get(sortItem.getName());
             if (!ch.supportsPredicates()) {
                 return Optional.empty();
             }
-            topN.addSortItem(TopN.TopNSortItem.sortBy(ch.name(), sortItem.getSortOrder()));
+            topNSortItems.add(TopN.TopNSortItem.sortBy(ch.name(), sortItem.getSortOrder()));
         }
+        TopN topN = new TopN(topNCount, topNSortItems.build());
 
         ElasticsearchTableHandle newHandle = new ElasticsearchTableHandle(
                 handle.type(),

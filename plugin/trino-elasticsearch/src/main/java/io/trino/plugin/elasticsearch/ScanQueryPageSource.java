@@ -103,10 +103,11 @@ public class ScanQueryPageSource
 
         Optional<TopN> topN = table.topN();
         if (topN.isEmpty()) {
-            topN = Optional.of(TopN.fromLimit(NO_LIMIT));
             if (table.query().isEmpty()) {
-                // sorting by _doc (index order) get special treatment in Elasticsearch and is more efficient
-                topN.get().addSortItem(DEFAULT_SORT_BY_DOC);
+                topN = Optional.of(new TopN(NO_LIMIT, ImmutableList.of(DEFAULT_SORT_BY_DOC)));
+            }
+            else {
+                topN = Optional.of(TopN.fromLimit(NO_LIMIT));
             }
         }
 
