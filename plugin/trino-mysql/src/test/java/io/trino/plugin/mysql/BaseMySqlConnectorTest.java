@@ -627,4 +627,22 @@ public abstract class BaseMySqlConnectorTest
             }
         }
     }
+
+    @Test
+    public void testQuotedIdentifiers()
+    {
+        assertUpdate("""
+                CREATE TABLE tpch."`back``quoted`" ("`back``quoted`" BIGINT)""");
+        assertThat(computeActual("SHOW CREATE TABLE tpch.\"`back``quoted`\"").getOnlyValue())
+                .isEqualTo("""
+                        CREATE TABLE mysql.tpch."`back``quoted`" (
+                           "`back``quoted`" bigint
+                        )""");
+
+        assertUpdate("INSERT INTO tpch.\"`back``quoted`\" VALUES (1)", 1);
+        assertThat(query("SELECT * FROM \"`back``quoted`\""))
+                .matches("VALUES (BIGINT '1')");
+
+        assertQuery("SHOW COLUMNS FROM tpch.\"`back``quoted`\"", "VALUES ('`back``quoted`', 'bigint', '', '')");
+    }
 }
