@@ -208,7 +208,7 @@ public class NodePartitioningManager
                 .mapToObj(partitionId -> nodeToPartition.inverse().get(partitionId))
                 .collect(toImmutableList());
 
-        return new NodePartitionMap(partitionToNode, bucketToPartition, getSplitToBucket(session, partitioningHandle));
+        return new NodePartitionMap(partitionToNode, bucketToPartition, getSplitToBucket(session, partitioningHandle, connectorBucketNodeMap.getBucketCount()));
     }
 
     private NodePartitionMap systemNodePartitionMap(
@@ -244,14 +244,14 @@ public class NodePartitioningManager
     public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
     {
         Optional<ConnectorBucketNodeMap> bucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
+        int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(() -> getDefaultBucketCount(session, partitioningHandle));
+        ToIntFunction<Split> splitToBucket = getSplitToBucket(session, partitioningHandle, bucketCount);
 
-        ToIntFunction<Split> splitToBucket = getSplitToBucket(session, partitioningHandle);
         if (bucketNodeMap.map(ConnectorBucketNodeMap::hasFixedMapping).orElse(false)) {
             return new BucketNodeMap(splitToBucket, getFixedMapping(bucketNodeMap.get()));
         }
 
         List<InternalNode> nodes = getAllNodes(session, requiredCatalogHandle(partitioningHandle));
-        int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(() -> getDefaultBucketCount(session, partitioningHandle));
         return new BucketNodeMap(splitToBucket, createArbitraryBucketToNode(nodes, bucketCount));
     }
 
@@ -316,7 +316,7 @@ public class NodePartitioningManager
                 partitioningHandle.getConnectorHandle());
     }
 
-    public ToIntFunction<Split> getSplitToBucket(Session session, PartitioningHandle partitioningHandle)
+    public ToIntFunction<Split> getSplitToBucket(Session session, PartitioningHandle partitioningHandle, int bucketCount)
     {
         CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
         ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(catalogHandle);
@@ -324,7 +324,8 @@ public class NodePartitioningManager
         ToIntFunction<ConnectorSplit> splitBucketFunction = partitioningProvider.getSplitBucketFunction(
                 partitioningHandle.getTransactionHandle().orElseThrow(),
                 session.toConnectorSession(catalogHandle),
-                partitioningHandle.getConnectorHandle());
+                partitioningHandle.getConnectorHandle(),
+                bucketCount);
         checkArgument(splitBucketFunction != null, "No partitioning %s", partitioningHandle);
 
         return split -> {
