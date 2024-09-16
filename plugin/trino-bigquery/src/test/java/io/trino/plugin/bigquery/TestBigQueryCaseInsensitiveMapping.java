@@ -46,7 +46,6 @@ public class TestBigQueryCaseInsensitiveMapping
                 .setConnectorProperties(ImmutableMap.<String, String>builder()
                         .put("bigquery.case-insensitive-name-matching", "true")
                         .put("bigquery.case-insensitive-name-matching.cache-ttl", "1m")
-                        .put("bigquery.service-cache-ttl", "0ms") // Disable service cache to focus on metadata cache
                         .buildOrThrow())
                 .build();
     }
