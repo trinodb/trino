@@ -14,11 +14,13 @@
 package io.trino.plugin.iceberg.catalog.nessie;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
+import io.trino.plugin.iceberg.RawSystemTableProvider;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -185,7 +187,8 @@ public class TestTrinoNessieCatalog
                     (connectorIdentity, fileIoProperties) -> {
                         throw new UnsupportedOperationException();
                     },
-                    new TableStatisticsWriter(new NodeVersion("test-version")));
+                    new TableStatisticsWriter(new NodeVersion("test-version")),
+                    ImmutableSet.of(new RawSystemTableProvider(PLANNER_CONTEXT.getTypeManager())));
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")

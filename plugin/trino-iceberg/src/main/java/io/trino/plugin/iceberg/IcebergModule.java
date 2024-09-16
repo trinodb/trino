@@ -21,6 +21,7 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
 import io.trino.filesystem.cache.CacheKeyProvider;
+import io.trino.plugin.base.connector.SystemTableProvider;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.SortingFileWriterConfig;
@@ -73,6 +74,8 @@ public class IcebergModule
         configBinder(binder).bindConfig(IcebergConfig.class);
         configBinder(binder).bindConfig(SortingFileWriterConfig.class, "iceberg");
 
+        Multibinder<SystemTableProvider> systemTableProviders = newSetBinder(binder, SystemTableProvider.class);
+        systemTableProviders.addBinding().to(RawSystemTableProvider.class).in(Scopes.SINGLETON);
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(IcebergSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(IcebergMaterializedViewProperties.class).in(Scopes.SINGLETON);

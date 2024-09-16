@@ -35,6 +35,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
+import io.trino.plugin.base.connector.SystemTableProvider;
 import io.trino.plugin.base.filter.UtcConstraintExtractor;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
@@ -350,6 +351,7 @@ public class IcebergMetadata
     private final TrinoCatalog catalog;
     private final IcebergFileSystemFactory fileSystemFactory;
     private final TableStatisticsWriter tableStatisticsWriter;
+    private final Set<SystemTableProvider> systemTableProviders;
 
     private final Map<IcebergTableHandle, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
 
@@ -362,7 +364,8 @@ public class IcebergMetadata
             JsonCodec<CommitTaskData> commitTaskCodec,
             TrinoCatalog catalog,
             IcebergFileSystemFactory fileSystemFactory,
-            TableStatisticsWriter tableStatisticsWriter)
+            TableStatisticsWriter tableStatisticsWriter,
+            Set<SystemTableProvider> systemTableProviders)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoCatalogHandle = requireNonNull(trinoCatalogHandle, "trinoCatalogHandle is null");
@@ -370,6 +373,7 @@ public class IcebergMetadata
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.tableStatisticsWriter = requireNonNull(tableStatisticsWriter, "tableStatisticsWriter is null");
+        this.systemTableProviders = ImmutableSet.copyOf(requireNonNull(systemTableProviders, "systemTableProviders is null"));
     }
 
     @Override
@@ -565,42 +569,15 @@ public class IcebergMetadata
     @Override
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        return getRawSystemTable(session, tableName)
-                .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
-    }
-
-    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
-    {
-        if (!isIcebergTableName(tableName.getTableName()) || isDataTable(tableName.getTableName()) || isMaterializedViewStorage(tableName.getTableName())) {
-            return Optional.empty();
+        for (SystemTableProvider systemTableProvider : systemTableProviders) {
+            Optional<SystemTable> systemTable = systemTableProvider.getSystemTable(this, session, tableName);
+            if (systemTable.isPresent()) {
+                return systemTable
+                        .map(table -> new ClassLoaderSafeSystemTable(table, getClass().getClassLoader()));
+            }
         }
 
-        // Only when dealing with an actual system table proceed to retrieve the base table for the system table
-        String name = tableNameFrom(tableName.getTableName());
-        Table table;
-        try {
-            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name));
-        }
-        catch (TableNotFoundException e) {
-            return Optional.empty();
-        }
-        catch (UnknownTableTypeException e) {
-            // avoid dealing with non Iceberg tables
-            return Optional.empty();
-        }
-
-        TableType tableType = IcebergTableName.tableTypeFrom(tableName.getTableName());
-        return switch (tableType) {
-            case DATA, MATERIALIZED_VIEW_STORAGE -> throw new VerifyException("Unexpected table type: " + tableType); // Handled above.
-            case HISTORY -> Optional.of(new HistoryTable(tableName, table));
-            case METADATA_LOG_ENTRIES -> Optional.of(new MetadataLogEntriesTable(tableName, table));
-            case SNAPSHOTS -> Optional.of(new SnapshotsTable(tableName, typeManager, table));
-            case PARTITIONS -> Optional.of(new PartitionTable(tableName, typeManager, table, getCurrentSnapshotId(table)));
-            case MANIFESTS -> Optional.of(new ManifestsTable(tableName, table, getCurrentSnapshotId(table)));
-            case FILES -> Optional.of(new FilesTable(tableName, typeManager, table, getCurrentSnapshotId(table)));
-            case PROPERTIES -> Optional.of(new PropertiesTable(tableName, table));
-            case REFS -> Optional.of(new RefsTable(tableName, table));
-        };
+        return Optional.empty();
     }
 
     @Override
@@ -3338,6 +3315,11 @@ public class IcebergMetadata
     public void disableIncrementalRefresh()
     {
         fromSnapshotForRefresh = Optional.empty();
+    }
+
+    Table loadTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        return catalog.loadTable(session, schemaTableName);
     }
 
     private static CollectedStatistics processComputedTableStatistics(Table table, Collection<ComputedStatistics> computedStatistics)

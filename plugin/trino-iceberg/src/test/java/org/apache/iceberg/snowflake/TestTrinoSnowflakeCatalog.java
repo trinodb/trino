@@ -15,6 +15,7 @@ package org.apache.iceberg.snowflake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.s3.S3FileSystemConfig;
@@ -25,6 +26,7 @@ import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.CommitTaskData;
 import io.trino.plugin.iceberg.IcebergMetadata;
+import io.trino.plugin.iceberg.RawSystemTableProvider;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -216,7 +218,8 @@ public class TestTrinoSnowflakeCatalog
                 (connectorIdentity, fileIOProperties) -> {
                     throw new UnsupportedOperationException();
                 },
-                new TableStatisticsWriter(new NodeVersion("test-version")));
+                new TableStatisticsWriter(new NodeVersion("test-version")),
+                ImmutableSet.of(new RawSystemTableProvider(PLANNER_CONTEXT.getTypeManager())));
         assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                 .isTrue();
         assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
