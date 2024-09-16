@@ -14,12 +14,12 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
+import io.trino.spi.function.Constraint;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestamp;
-import io.trino.type.Constraint;
 
 import java.time.format.DateTimeFormatter;
 

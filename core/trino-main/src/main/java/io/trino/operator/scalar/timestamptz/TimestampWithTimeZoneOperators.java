@@ -13,12 +13,12 @@
  */
 package io.trino.operator.scalar.timestamptz;
 
+import io.trino.spi.function.Constraint;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.StandardTypes;
-import io.trino.type.Constraint;
 
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.SUBTRACT;

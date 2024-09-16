@@ -46,6 +46,7 @@ import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Constraint;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.FunctionDependencies;
@@ -66,7 +67,6 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.type.Constraint;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
