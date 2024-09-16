@@ -199,7 +199,7 @@
         <dep.frontend-npm.version>10.8.2</dep.frontend-npm.version>
         <dep.google.http.client.version>1.45.0</dep.google.http.client.version>
         <dep.iceberg.version>1.6.1</dep.iceberg.version>
-        <dep.jna.version>5.14.0</dep.jna.version>
+        <dep.jna.version>5.15.0</dep.jna.version>
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
@@ -518,7 +518,7 @@
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.6.3</version>
+                <version>6.6.4</version>
             </dependency>
 
             <dependency>
