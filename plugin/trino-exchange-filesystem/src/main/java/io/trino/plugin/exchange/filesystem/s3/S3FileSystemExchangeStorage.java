@@ -53,7 +53,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.awscore.endpoint.DefaultServiceEndpointBuilder;
+import software.amazon.awssdk.awscore.endpoint.AwsClientEndpointProvider;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.internal.retry.SdkDefaultRetryStrategy;
@@ -484,9 +484,12 @@ public class S3FileSystemExchangeStorage
                         .maxConcurrency(maxConcurrency)
                         .maxPendingConnectionAcquires(maxPendingConnectionAcquires)
                         .connectionAcquisitionTimeout(java.time.Duration.ofMillis(connectionAcquisitionTimeout.toMillis())))
-                .endpointOverride(endpoint.map(URI::create).orElseGet(() -> new DefaultServiceEndpointBuilder("s3", "http")
-                        .withRegion(region.orElseThrow(() -> new IllegalArgumentException("region is expected to be set")))
-                        .getServiceEndpoint()));
+                .endpointOverride(endpoint.map(URI::create).orElseGet(() -> AwsClientEndpointProvider.builder()
+                        .serviceEndpointPrefix("s3")
+                        .defaultProtocol("http")
+                        .region(region.orElseThrow(() -> new IllegalArgumentException("region is expected to be set")))
+                        .build()
+                        .clientEndpoint()));
 
         region.ifPresent(clientBuilder::region);
 
