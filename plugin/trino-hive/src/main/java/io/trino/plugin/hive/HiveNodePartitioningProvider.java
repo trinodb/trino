@@ -99,7 +99,8 @@ public class HiveNodePartitioningProvider
     public ToIntFunction<ConnectorSplit> getSplitBucketFunction(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
-            ConnectorPartitioningHandle partitioningHandle)
+            ConnectorPartitioningHandle partitioningHandle,
+            int bucketCount)
     {
         return value -> ((HiveSplit) value).getReadBucketNumber()
                 .orElseThrow(() -> new IllegalArgumentException("Bucket number not set in split"));
