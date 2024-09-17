@@ -66,6 +66,11 @@ public interface TrinoCatalog
 
     void dropNamespace(ConnectorSession session, String namespace);
 
+    default Optional<String> getNamespaceSeparator()
+    {
+        return Optional.empty();
+    }
+
     Map<String, Object> loadNamespaceMetadata(ConnectorSession session, String namespace);
 
     Optional<TrinoPrincipal> getNamespacePrincipal(ConnectorSession session, String namespace);
