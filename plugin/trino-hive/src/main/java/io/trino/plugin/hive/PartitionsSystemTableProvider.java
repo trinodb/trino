@@ -15,9 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.inject.Inject;
 import io.trino.metastore.Table;
-import io.trino.plugin.base.connector.SystemTableProvider;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.Constraint;
@@ -69,9 +67,8 @@ public class PartitionsSystemTableProvider
     }
 
     @Override
-    public Optional<SystemTable> getSystemTable(ConnectorMetadata connectorMetadata, ConnectorSession session, SchemaTableName tableName)
+    public Optional<SystemTable> getSystemTable(HiveMetadata metadata, ConnectorSession session, SchemaTableName tableName)
     {
-        HiveMetadata metadata = (HiveMetadata) connectorMetadata;
         if (!PARTITIONS.matches(tableName)) {
             return Optional.empty();
         }
