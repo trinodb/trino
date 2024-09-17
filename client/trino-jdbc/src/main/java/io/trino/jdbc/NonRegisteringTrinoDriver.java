@@ -95,7 +95,7 @@ public class NonRegisteringTrinoDriver
                     .newCallFactory(client);
         }
         catch (NoClassDefFoundError | NoSuchMethodError ignored) {
-            // assume OTEL is not (fully) available and return the original client
+            // OpenTelemetry is not (fully) available so return the original client
             return (Call.Factory) client;
         }
     }
