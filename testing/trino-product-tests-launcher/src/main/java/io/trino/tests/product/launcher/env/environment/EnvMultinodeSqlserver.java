@@ -56,7 +56,7 @@ public final class EnvMultinodeSqlserver
     @SuppressWarnings("resource")
     private DockerContainer createSqlServer()
     {
-        DockerContainer container = new DockerContainer("mcr.microsoft.com/mssql/server:2017-CU13", "sqlserver")
+        DockerContainer container = new DockerContainer("mcr.microsoft.com/mssql/server:2017-latest", "sqlserver")
                 .withEnv("ACCEPT_EULA", "Y")
                 .withEnv("SA_PASSWORD", "SQLServerPass1")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
