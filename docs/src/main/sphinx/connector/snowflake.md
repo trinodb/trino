@@ -62,6 +62,9 @@ multiple instances of the Snowflake connector.
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
+```{include} non-transactional-insert.fragment
+```
+
 % snowflake-type-mapping:
 
 ## Type mapping
