@@ -1542,9 +1542,9 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private void scheduleTasks()
         {
-            long standardTasksWaitingForNode = getWaitingForNodeTasksCount(STANDARD);
-            long speculativeTasksWaitingForNode = getWaitingForNodeTasksCount(SPECULATIVE);
-            long eagerSpeculativeTasksWaitingForNode = getWaitingForNodeTasksCount(EAGER_SPECULATIVE);
+            long standardTasksWaitingForNode = preSchedulingTaskContexts.getWaitingForNodeTasksCount(STANDARD);
+            long speculativeTasksWaitingForNode = preSchedulingTaskContexts.getWaitingForNodeTasksCount(SPECULATIVE);
+            long eagerSpeculativeTasksWaitingForNode = preSchedulingTaskContexts.getWaitingForNodeTasksCount(EAGER_SPECULATIVE);
 
             while (!schedulingQueue.isEmpty()) {
                 PrioritizedScheduledTask scheduledTask;
@@ -1589,7 +1589,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 MemoryRequirements memoryRequirements = stageExecution.getMemoryRequirements(partitionId);
                 NodeLease lease = nodeAllocator.acquire(nodeRequirements.get(), memoryRequirements.getRequiredMemory(), scheduledTask.getExecutionClass());
                 lease.getNode().addListener(() -> eventQueue.add(Event.WAKE_UP), queryExecutor);
-                preSchedulingTaskContexts.addContext(scheduledTask.task(), new PreSchedulingTaskContext(lease, scheduledTask.getExecutionClass()));
+                preSchedulingTaskContexts.addContext(scheduledTask.task(), lease, scheduledTask.getExecutionClass());
 
                 switch (scheduledTask.getExecutionClass()) {
                     case STANDARD -> standardTasksWaitingForNode++;
@@ -1598,14 +1598,6 @@ public class EventDrivenFaultTolerantQueryScheduler
                     default -> throw new IllegalArgumentException("Unknown execution class " + scheduledTask.getExecutionClass());
                 }
             }
-        }
-
-        private long getWaitingForNodeTasksCount(TaskExecutionClass executionClass)
-        {
-            return preSchedulingTaskContexts.listContexts().stream()
-                    .filter(context -> !context.getNodeLease().getNode().isDone())
-                    .filter(context -> context.getExecutionClass() == executionClass)
-                    .count();
         }
 
         private void processNodeAcquisitions()
@@ -1913,6 +1905,14 @@ public class EventDrivenFaultTolerantQueryScheduler
                 return contexts.entrySet();
             }
 
+            private long getWaitingForNodeTasksCount(TaskExecutionClass executionClass)
+            {
+                return contexts.values().stream()
+                        .filter(context -> !context.getNodeLease().getNode().isDone())
+                        .filter(context -> context.getExecutionClass() == executionClass)
+                        .count();
+            }
+
             public void clear()
             {
                 contexts.clear();
@@ -1923,9 +1923,9 @@ public class EventDrivenFaultTolerantQueryScheduler
                 return contexts.get(task);
             }
 
-            public void addContext(ScheduledTask task, PreSchedulingTaskContext context)
+            public void addContext(ScheduledTask task, NodeLease nodeLease, TaskExecutionClass executionClass)
             {
-                contexts.put(task, context);
+                contexts.put(task, new PreSchedulingTaskContext(nodeLease, executionClass));
             }
 
             public PreSchedulingTaskContext removeContext(ScheduledTask task)
@@ -3543,7 +3543,8 @@ public class EventDrivenFaultTolerantQueryScheduler
         private TaskExecutionClass executionClass;
         private boolean waitingForSinkInstanceHandle;
 
-        public PreSchedulingTaskContext(NodeLease nodeLease, TaskExecutionClass executionClass)
+        // called only from PreSchedulingTaskContexts
+        private PreSchedulingTaskContext(NodeLease nodeLease, TaskExecutionClass executionClass)
         {
             this.nodeLease = requireNonNull(nodeLease, "nodeLease is null");
             this.executionClass = requireNonNull(executionClass, "executionClass is null");
