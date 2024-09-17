@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc.expression;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
@@ -22,6 +23,7 @@ import io.trino.plugin.base.expression.ConnectorExpressionRule;
 import io.trino.plugin.jdbc.QueryParameter;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
@@ -40,6 +42,7 @@ import static io.trino.spi.expression.StandardFunctions.ARRAY_CONSTRUCTOR_FUNCTI
 import static io.trino.spi.expression.StandardFunctions.IN_PREDICATE_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class RewriteIn
         implements ConnectorExpressionRule<Call, ParameterizedExpression>
@@ -53,6 +56,18 @@ public class RewriteIn
             .with(argumentCount().equalTo(2))
             .with(argument(0).matching(expression().capturedAs(VALUE)))
             .with(argument(1).matching(call().with(functionName().equalTo(ARRAY_CONSTRUCTOR_FUNCTION_NAME)).with(arguments().capturedAs(EXPRESSIONS))));
+
+    private final Predicate<Type> typePredicate;
+
+    public RewriteIn()
+    {
+        this(_ -> true);
+    }
+
+    public RewriteIn(Predicate<Type> typePredicate)
+    {
+        this.typePredicate = requireNonNull(typePredicate, "typePredicate is null");
+    }
 
     @Override
     public Pattern<Call> getPattern()
@@ -71,6 +86,9 @@ public class RewriteIn
         List<ConnectorExpression> expressions = captures.get(EXPRESSIONS);
         if (expressions.size() > getDomainCompactionThreshold(context.getSession())) {
             // We don't want to push down too long IN query text
+            return Optional.empty();
+        }
+        if (!expressions.stream().map(ConnectorExpression::getType).allMatch(typePredicate)) {
             return Optional.empty();
         }
 
