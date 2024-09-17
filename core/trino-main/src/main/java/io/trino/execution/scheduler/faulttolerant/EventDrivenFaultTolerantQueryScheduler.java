@@ -1541,39 +1541,18 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private void scheduleTasks()
         {
-            long standardTasksWaitingForNode = preSchedulingTaskContexts.getWaitingForNodeTasksCount(STANDARD);
-            long speculativeTasksWaitingForNode = preSchedulingTaskContexts.getWaitingForNodeTasksCount(SPECULATIVE);
-            long eagerSpeculativeTasksWaitingForNode = preSchedulingTaskContexts.getWaitingForNodeTasksCount(EAGER_SPECULATIVE);
+            scheduleTasks(EAGER_SPECULATIVE);
+            scheduleTasks(STANDARD);
+            if (preSchedulingTaskContexts.getWaitingForNodeTasksCount(STANDARD) == 0) {
+                scheduleTasks(SPECULATIVE);
+            }
+        }
 
-            while (!schedulingQueue.isEmpty()) {
-                PrioritizedScheduledTask scheduledTask;
-
-                if (schedulingQueue.getTaskCount(EAGER_SPECULATIVE) > 0 && eagerSpeculativeTasksWaitingForNode < maxTasksWaitingForNode) {
-                    scheduledTask = schedulingQueue.pollOrThrow(EAGER_SPECULATIVE);
-                }
-                else if (schedulingQueue.getTaskCount(STANDARD) > 0) {
-                    // schedule STANDARD tasks if available
-                    if (standardTasksWaitingForNode >= maxTasksWaitingForNode) {
-                        break;
-                    }
-                    scheduledTask = schedulingQueue.pollOrThrow(STANDARD);
-                }
-                else if (schedulingQueue.getTaskCount(SPECULATIVE) > 0) {
-                    if (standardTasksWaitingForNode > 0) {
-                        // do not handle any speculative tasks if there are non-speculative waiting
-                        break;
-                    }
-                    if (speculativeTasksWaitingForNode >= maxTasksWaitingForNode) {
-                        // too many speculative tasks waiting for node
-                        break;
-                    }
-                    // we can schedule one more speculative task
-                    scheduledTask = schedulingQueue.pollOrThrow(SPECULATIVE);
-                }
-                else {
-                    // cannot schedule anything more right now
-                    break;
-                }
+        private void scheduleTasks(TaskExecutionClass executionClass)
+        {
+            long tasksWaitingForNode = preSchedulingTaskContexts.getWaitingForNodeTasksCount(executionClass);
+            while (!schedulingQueue.isEmpty(executionClass) && tasksWaitingForNode < maxTasksWaitingForNode) {
+                PrioritizedScheduledTask scheduledTask = schedulingQueue.pollOrThrow(executionClass);
 
                 StageExecution stageExecution = getStageExecution(scheduledTask.task().stageId());
                 if (stageExecution.getState().isDone()) {
@@ -1589,13 +1568,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 NodeLease lease = nodeAllocator.acquire(nodeRequirements.get(), memoryRequirements.getRequiredMemory(), scheduledTask.getExecutionClass());
                 lease.getNode().addListener(() -> eventQueue.add(Event.WAKE_UP), queryExecutor);
                 preSchedulingTaskContexts.addContext(scheduledTask.task(), lease, scheduledTask.getExecutionClass());
-
-                switch (scheduledTask.getExecutionClass()) {
-                    case STANDARD -> standardTasksWaitingForNode++;
-                    case SPECULATIVE -> speculativeTasksWaitingForNode++;
-                    case EAGER_SPECULATIVE -> eagerSpeculativeTasksWaitingForNode++;
-                    default -> throw new IllegalArgumentException("Unknown execution class " + scheduledTask.getExecutionClass());
-                }
+                tasksWaitingForNode++;
             }
         }
 
@@ -3105,9 +3078,9 @@ public class EventDrivenFaultTolerantQueryScheduler
     {
         private final Map<TaskExecutionClass, IndexedPriorityQueue<ScheduledTask>> queues;
 
-        public boolean isEmpty()
+        public boolean isEmpty(TaskExecutionClass executionClass)
         {
-            return queues.values().stream().allMatch(IndexedPriorityQueue::isEmpty);
+            return queues.get(executionClass).isEmpty();
         }
 
         private int getTaskCount(TaskExecutionClass executionClass)
