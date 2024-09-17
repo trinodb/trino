@@ -53,6 +53,9 @@ multiple instances of the Snowflake connector.
 ```{include} jdbc-common-configurations.fragment
 ```
 
+```{include} query-comment-format.fragment
+```
+
 ```{include} jdbc-domain-compaction-threshold.fragment
 ```
 
