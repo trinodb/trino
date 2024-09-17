@@ -119,6 +119,7 @@ import java.io.UncheckedIOException;
 import java.lang.ref.SoftReference;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -731,7 +732,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final SchedulingQueue schedulingQueue = new SchedulingQueue();
         private int nextSchedulingPriority;
 
-        private final Map<ScheduledTask, PreSchedulingTaskContext> preSchedulingTaskContexts = new HashMap<>();
+        private final PreSchedulingTaskContexts preSchedulingTaskContexts = new PreSchedulingTaskContexts();
 
         private final SchedulingDelayer schedulingDelayer;
 
@@ -853,7 +854,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             for (StageExecution execution : stageExecutions.values()) {
                 failure = closeAndAddSuppressed(failure, execution::abort);
             }
-            for (PreSchedulingTaskContext context : preSchedulingTaskContexts.values()) {
+            for (PreSchedulingTaskContext context : preSchedulingTaskContexts.listContexts()) {
                 failure = closeAndAddSuppressed(failure, context.getNodeLease()::release);
             }
             preSchedulingTaskContexts.clear();
@@ -1252,7 +1253,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private IsReadyForExecutionResult isReadyForExecution(SubPlan subPlan)
         {
             boolean standardTasksInQueue = schedulingQueue.getTaskCount(STANDARD) > 0;
-            boolean standardTasksWaitingForNode = preSchedulingTaskContexts.values().stream()
+            boolean standardTasksWaitingForNode = preSchedulingTaskContexts.listContexts().stream()
                     .anyMatch(task -> task.getExecutionClass() == STANDARD && !task.getNodeLease().getNode().isDone());
 
             boolean eager = stageEstimationForEagerParentEnabled && shouldScheduleEagerly(subPlan);
@@ -1588,7 +1589,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 MemoryRequirements memoryRequirements = stageExecution.getMemoryRequirements(partitionId);
                 NodeLease lease = nodeAllocator.acquire(nodeRequirements.get(), memoryRequirements.getRequiredMemory(), scheduledTask.getExecutionClass());
                 lease.getNode().addListener(() -> eventQueue.add(Event.WAKE_UP), queryExecutor);
-                preSchedulingTaskContexts.put(scheduledTask.task(), new PreSchedulingTaskContext(lease, scheduledTask.getExecutionClass()));
+                preSchedulingTaskContexts.addContext(scheduledTask.task(), new PreSchedulingTaskContext(lease, scheduledTask.getExecutionClass()));
 
                 switch (scheduledTask.getExecutionClass()) {
                     case STANDARD -> standardTasksWaitingForNode++;
@@ -1601,7 +1602,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private long getWaitingForNodeTasksCount(TaskExecutionClass executionClass)
         {
-            return preSchedulingTaskContexts.values().stream()
+            return preSchedulingTaskContexts.listContexts().stream()
                     .filter(context -> !context.getNodeLease().getNode().isDone())
                     .filter(context -> context.getExecutionClass() == executionClass)
                     .count();
@@ -1609,7 +1610,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private void processNodeAcquisitions()
         {
-            Iterator<Map.Entry<ScheduledTask, PreSchedulingTaskContext>> iterator = preSchedulingTaskContexts.entrySet().iterator();
+            Iterator<Map.Entry<ScheduledTask, PreSchedulingTaskContext>> iterator = preSchedulingTaskContexts.entries().iterator();
             while (iterator.hasNext()) {
                 Map.Entry<ScheduledTask, PreSchedulingTaskContext> entry = iterator.next();
                 ScheduledTask scheduledTask = entry.getKey();
@@ -1661,7 +1662,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
 
             // update pending acquires
-            for (Map.Entry<ScheduledTask, PreSchedulingTaskContext> entry : preSchedulingTaskContexts.entrySet()) {
+            for (Map.Entry<ScheduledTask, PreSchedulingTaskContext> entry : preSchedulingTaskContexts.entries()) {
                 ScheduledTask scheduledTask = entry.getKey();
                 PreSchedulingTaskContext taskContext = entry.getValue();
 
@@ -1674,7 +1675,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         public Void onSinkInstanceHandleAcquired(SinkInstanceHandleAcquiredEvent sinkInstanceHandleAcquiredEvent)
         {
             ScheduledTask scheduledTask = new ScheduledTask(sinkInstanceHandleAcquiredEvent.getStageId(), sinkInstanceHandleAcquiredEvent.getPartitionId());
-            PreSchedulingTaskContext context = preSchedulingTaskContexts.remove(scheduledTask);
+            PreSchedulingTaskContext context = preSchedulingTaskContexts.removeContext(scheduledTask);
             verify(context != null, "expected %s in preSchedulingTaskContexts", scheduledTask);
             verify(context.getNodeLease().getNode().isDone(), "expected node set for %s", scheduledTask);
             verify(context.isWaitingForSinkInstanceHandle(), "expected isWaitingForSinkInstanceHandle set for %s", scheduledTask);
@@ -1843,7 +1844,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             assignment.sealedPartitions().forEach(partitionId -> {
                 Optional<PrioritizedScheduledTask> scheduledTask = stageExecution.sealPartition(partitionId);
                 scheduledTask.ifPresent(prioritizedTask -> {
-                    PreSchedulingTaskContext context = preSchedulingTaskContexts.get(prioritizedTask.task());
+                    PreSchedulingTaskContext context = preSchedulingTaskContexts.getContext(prioritizedTask.task());
                     if (context != null) {
                         // task is already waiting for node or for sink instance handle
                         // update speculative flag
@@ -1896,6 +1897,41 @@ public class EventDrivenFaultTolerantQueryScheduler
                     executionFailureInfo.getErrorLocation(),
                     REMOTE_HOST_GONE.toErrorCode(),
                     executionFailureInfo.getRemoteHost());
+        }
+
+        private static class PreSchedulingTaskContexts
+        {
+            private final Map<ScheduledTask, PreSchedulingTaskContext> contexts = new HashMap<>();
+
+            public Collection<PreSchedulingTaskContext> listContexts()
+            {
+                return contexts.values();
+            }
+
+            public Set<Map.Entry<ScheduledTask, PreSchedulingTaskContext>> entries()
+            {
+                return contexts.entrySet();
+            }
+
+            public void clear()
+            {
+                contexts.clear();
+            }
+
+            public PreSchedulingTaskContext getContext(ScheduledTask task)
+            {
+                return contexts.get(task);
+            }
+
+            public void addContext(ScheduledTask task, PreSchedulingTaskContext context)
+            {
+                contexts.put(task, context);
+            }
+
+            public PreSchedulingTaskContext removeContext(ScheduledTask task)
+            {
+                return contexts.remove(task);
+            }
         }
     }
 
