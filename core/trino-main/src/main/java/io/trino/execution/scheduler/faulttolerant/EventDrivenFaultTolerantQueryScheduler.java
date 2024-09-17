@@ -137,6 +137,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -1255,7 +1256,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private IsReadyForExecutionResult isReadyForExecution(SubPlan subPlan)
         {
             boolean standardTasksInQueue = schedulingQueue.getTaskCount(STANDARD) > 0;
-            boolean standardTasksWaitingForNode = preSchedulingTaskContexts.getWaitingForNodeTasksCount(STANDARD) > 0;
+            boolean standardTasksWaitingForNode = preSchedulingTaskContexts.hasTasksWaitingForNode(STANDARD);
 
             boolean eager = stageEstimationForEagerParentEnabled && shouldScheduleEagerly(subPlan);
             boolean speculative = false;
@@ -1545,14 +1546,14 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             scheduleTasks(EAGER_SPECULATIVE);
             scheduleTasks(STANDARD);
-            if (preSchedulingTaskContexts.getWaitingForNodeTasksCount(STANDARD) == 0) {
+            if (!preSchedulingTaskContexts.hasTasksWaitingForNode(STANDARD)) {
                 scheduleTasks(SPECULATIVE);
             }
         }
 
         private void scheduleTasks(TaskExecutionClass executionClass)
         {
-            long tasksWaitingForNode = preSchedulingTaskContexts.getWaitingForNodeTasksCount(executionClass);
+            long tasksWaitingForNode = preSchedulingTaskContexts.getTasksWaitingForNodeCount(executionClass);
             while (!schedulingQueue.isEmpty(executionClass) && tasksWaitingForNode < maxTasksWaitingForNode) {
                 PrioritizedScheduledTask scheduledTask = schedulingQueue.pollOrThrow(executionClass);
 
@@ -1593,7 +1594,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     contextsToRemove.add(scheduledTask);
                     nodeLease.release();
                 }
-                else if (nodeLease.getNode().isDone()) {
+                else if (!context.isWaitingForNode()) {
                     context.setWaitingForSinkInstanceHandle(true);
                     Optional<GetExchangeSinkInstanceHandleResult> getExchangeSinkInstanceHandleResult = stageExecution.getExchangeSinkInstanceHandle(scheduledTask.partitionId());
                     if (getExchangeSinkInstanceHandleResult.isPresent()) {
@@ -1673,6 +1674,13 @@ public class EventDrivenFaultTolerantQueryScheduler
             if (remoteTask.isEmpty()) {
                 nodeLease.release();
             }
+            return null;
+        }
+
+        @Override
+        public Void onTaskNodeLeaseCompleted(TaskNodeLeaseCompletedEvent event)
+        {
+            preSchedulingTaskContexts.markWaitingForNodeCompleted(event.getScheduledTask());
             return null;
         }
 
@@ -1816,7 +1824,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     if (context != null) {
                         // task is already waiting for node or for sink instance handle
                         // update speculative flag
-                        context.setExecutionClass(prioritizedTask.getExecutionClass());
+                        preSchedulingTaskContexts.setExecutionClass(prioritizedTask.task(), prioritizedTask.getExecutionClass());
                         context.getNodeLease().setExecutionClass(prioritizedTask.getExecutionClass());
                         return;
                     }
@@ -1870,6 +1878,16 @@ public class EventDrivenFaultTolerantQueryScheduler
         private static class PreSchedulingTaskContexts
         {
             private final Map<ScheduledTask, PreSchedulingTaskContext> contexts = new HashMap<>();
+            private final Map<TaskExecutionClass, AtomicInteger> waitCounters;
+
+            public PreSchedulingTaskContexts()
+            {
+                ImmutableMap.Builder<TaskExecutionClass, AtomicInteger> waitCountersBuilder = ImmutableMap.builder();
+                for (TaskExecutionClass executionClass : TaskExecutionClass.values()) {
+                    waitCountersBuilder.put(executionClass, new AtomicInteger());
+                }
+                waitCounters = waitCountersBuilder.buildOrThrow();
+            }
 
             public Collection<PreSchedulingTaskContext> listContexts()
             {
@@ -1881,12 +1899,25 @@ public class EventDrivenFaultTolerantQueryScheduler
                 return unmodifiableSet(contexts.entrySet());
             }
 
-            private long getWaitingForNodeTasksCount(TaskExecutionClass executionClass)
+            public void markWaitingForNodeCompleted(ScheduledTask scheduledTask)
             {
-                return contexts.values().stream()
-                        .filter(context -> !context.getNodeLease().getNode().isDone())
-                        .filter(context -> context.getExecutionClass() == executionClass)
-                        .count();
+                PreSchedulingTaskContext context = contexts.get(scheduledTask);
+                if (context == null) {
+                    // stage could already be completed in the meantime
+                    return;
+                }
+                context.markWaitingForNodeCompleted();
+                waitCounters.get(context.getExecutionClass()).decrementAndGet();
+            }
+
+            private boolean hasTasksWaitingForNode(TaskExecutionClass executionClass)
+            {
+                return waitCounters.get(executionClass).get() > 0;
+            }
+
+            private long getTasksWaitingForNodeCount(TaskExecutionClass executionClass)
+            {
+                return waitCounters.get(executionClass).get();
             }
 
             public void clear()
@@ -1901,12 +1932,33 @@ public class EventDrivenFaultTolerantQueryScheduler
 
             public void addContext(ScheduledTask task, NodeLease nodeLease, TaskExecutionClass executionClass)
             {
-                contexts.put(task, new PreSchedulingTaskContext(nodeLease, executionClass));
+                verify(!contexts.containsKey(task), "context already present for %s; did we get a duplicate task in scheduling queue?", task);
+                PreSchedulingTaskContext context = new PreSchedulingTaskContext(nodeLease, executionClass);
+                contexts.put(task, context);
+                waitCounters.get(context.getExecutionClass()).incrementAndGet();
             }
 
             public PreSchedulingTaskContext removeContext(ScheduledTask task)
             {
-                return contexts.remove(task);
+                PreSchedulingTaskContext context = contexts.remove(task);
+                verify(context != null, "expected %s in preSchedulingTaskContexts", task);
+                if (context.isWaitingForNode()) {
+                    // The context was removed while the node was still being acquired. This can happen if we decide to kill the stage.
+                    context.markWaitingForNodeCompleted();
+                    waitCounters.get(context.getExecutionClass()).decrementAndGet();
+                }
+                return context;
+            }
+
+            public void setExecutionClass(ScheduledTask task, TaskExecutionClass executionClass)
+            {
+                PreSchedulingTaskContext context = contexts.get(task);
+                verify(context != null, "context not found for %s", task);
+                if (context.isWaitingForNode() && executionClass != context.getExecutionClass()) {
+                    waitCounters.get(context.getExecutionClass()).decrementAndGet();
+                    waitCounters.get(executionClass).incrementAndGet();
+                }
+                context.setExecutionClass(executionClass);
             }
         }
     }
@@ -3544,6 +3596,7 @@ public class EventDrivenFaultTolerantQueryScheduler
     {
         private final NodeLease nodeLease;
         private TaskExecutionClass executionClass;
+        private boolean waitingForNode = true; // we cannot use nodeLease.isDone() as it can be updated asynchronously from different thread
         private boolean waitingForSinkInstanceHandle;
 
         // called only from PreSchedulingTaskContexts
@@ -3563,10 +3616,28 @@ public class EventDrivenFaultTolerantQueryScheduler
             return executionClass;
         }
 
-        public void setExecutionClass(TaskExecutionClass executionClass)
+        // to be called only from TaskExecutionContexts methods
+        private void setExecutionClass(TaskExecutionClass executionClass)
         {
             checkArgument(this.executionClass.canTransitionTo(executionClass), "cannot change execution class from %s to %s", this.executionClass, executionClass);
             this.executionClass = executionClass;
+        }
+
+        // to be called only from TaskExecutionContexts methods
+        private void markWaitingForNodeCompleted()
+        {
+            verify(waitingForNode, "waitingForNode flag is false");
+            waitingForNode = false;
+        }
+
+        public boolean isWaitingForNode()
+        {
+            return waitingForNode;
+        }
+
+        public void setWaitingForNode(boolean waitingForNode)
+        {
+            this.waitingForNode = waitingForNode;
         }
 
         public boolean isWaitingForSinkInstanceHandle()
