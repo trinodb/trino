@@ -59,6 +59,9 @@ multiple instances of the Snowflake connector.
 ```{include} jdbc-domain-compaction-threshold.fragment
 ```
 
+```{include} jdbc-case-insensitive-matching.fragment
+```
+
 % snowflake-type-mapping:
 
 ## Type mapping
