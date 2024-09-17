@@ -50,6 +50,8 @@ a Snowflake account. Thus, if you have multiple Snowflake databases,
 or want to connect to multiple Snowflake accounts, you must configure
 multiple instances of the Snowflake connector.
 
+```{include} jdbc-common-configurations.fragment
+```
 
 ```{include} jdbc-domain-compaction-threshold.fragment
 ```
