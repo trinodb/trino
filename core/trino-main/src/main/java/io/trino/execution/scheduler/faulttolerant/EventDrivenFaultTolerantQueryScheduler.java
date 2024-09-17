@@ -1568,7 +1568,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 }
                 MemoryRequirements memoryRequirements = stageExecution.getMemoryRequirements(partitionId);
                 NodeLease lease = nodeAllocator.acquire(nodeRequirements.get(), memoryRequirements.getRequiredMemory(), scheduledTask.getExecutionClass());
-                lease.getNode().addListener(() -> eventQueue.add(Event.WAKE_UP), queryExecutor);
+                lease.getNode().addListener(() -> eventQueue.add(new TaskNodeLeaseCompletedEvent(scheduledTask.task())), queryExecutor);
                 preSchedulingTaskContexts.addContext(scheduledTask.task(), lease, scheduledTask.getExecutionClass());
                 tasksWaitingForNode++;
             }
@@ -3240,6 +3240,11 @@ public class EventDrivenFaultTolerantQueryScheduler
             return onEvent(event);
         }
 
+        default T onTaskNodeLeaseCompleted(TaskNodeLeaseCompletedEvent event)
+        {
+            return onEvent(event);
+        }
+
         default T onEvent(Event unused)
         {
             throw new RuntimeException("EventListener no implemented");
@@ -3502,6 +3507,28 @@ public class EventDrivenFaultTolerantQueryScheduler
         public StageId getStageId()
         {
             return stageId;
+        }
+    }
+
+    private static class TaskNodeLeaseCompletedEvent
+            implements Event
+    {
+        private final ScheduledTask scheduledTask;
+
+        public TaskNodeLeaseCompletedEvent(ScheduledTask scheduledTask)
+        {
+            this.scheduledTask = requireNonNull(scheduledTask, "scheduledTask is null");
+        }
+
+        public ScheduledTask getScheduledTask()
+        {
+            return scheduledTask;
+        }
+
+        @Override
+        public <T> T accept(EventListener<T> listener)
+        {
+            return listener.onTaskNodeLeaseCompleted(this);
         }
     }
 
