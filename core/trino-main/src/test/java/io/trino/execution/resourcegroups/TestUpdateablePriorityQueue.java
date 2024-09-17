@@ -47,25 +47,25 @@ public class TestUpdateablePriorityQueue
         queue.addOrUpdate("c", 2);
 
         IndexedPriorityQueue.Prioritized<Object> peek1 = queue.peekPrioritized();
-        assertThat(peek1.getValue()).isEqualTo("b");
-        assertThat(peek1.getPriority()).isEqualTo(3);
+        assertThat(peek1.value()).isEqualTo("b");
+        assertThat(peek1.priority()).isEqualTo(3);
         IndexedPriorityQueue.Prioritized<Object> poll1 = queue.pollPrioritized();
-        assertThat(poll1.getValue()).isEqualTo("b");
-        assertThat(poll1.getPriority()).isEqualTo(3);
+        assertThat(poll1.value()).isEqualTo("b");
+        assertThat(poll1.priority()).isEqualTo(3);
 
         IndexedPriorityQueue.Prioritized<Object> peek2 = queue.peekPrioritized();
-        assertThat(peek2.getValue()).isEqualTo("c");
-        assertThat(peek2.getPriority()).isEqualTo(2);
+        assertThat(peek2.value()).isEqualTo("c");
+        assertThat(peek2.priority()).isEqualTo(2);
         IndexedPriorityQueue.Prioritized<Object> poll2 = queue.pollPrioritized();
-        assertThat(poll2.getValue()).isEqualTo("c");
-        assertThat(poll2.getPriority()).isEqualTo(2);
+        assertThat(poll2.value()).isEqualTo("c");
+        assertThat(poll2.priority()).isEqualTo(2);
 
         IndexedPriorityQueue.Prioritized<Object> peek3 = queue.peekPrioritized();
-        assertThat(peek3.getValue()).isEqualTo("a");
-        assertThat(peek3.getPriority()).isEqualTo(1);
+        assertThat(peek3.value()).isEqualTo("a");
+        assertThat(peek3.priority()).isEqualTo(1);
         IndexedPriorityQueue.Prioritized<Object> poll3 = queue.pollPrioritized();
-        assertThat(poll3.getValue()).isEqualTo("a");
-        assertThat(poll3.getPriority()).isEqualTo(1);
+        assertThat(poll3.value()).isEqualTo("a");
+        assertThat(poll3.priority()).isEqualTo(1);
 
         assertThat(queue.peekPrioritized()).isNull();
         assertThat(queue.pollPrioritized()).isNull();
