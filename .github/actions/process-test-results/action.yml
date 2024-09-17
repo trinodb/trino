@@ -28,6 +28,18 @@ runs:
         testing/trino-product-tests/target/*
         logs/*
       retention-days: 5
+  - name: Upload test report
+    uses: actions/upload-artifact@v4
+    # Always upload the test report for the upload-test-results.yml workflow,
+    # but only the single XML file to keep the artifact small
+    with:
+      # Name prefix is checked in the `Upload test results` workflow
+      name: test report ${{ inputs.artifact-name }}
+      if-no-files-found: 'ignore'
+      path: |
+        **/surefire-reports/TEST-*.xml
+        testing/trino-product-tests/target/reports/**/testng-results.xml
+      retention-days: 5
   - name: Upload heap dump
     uses: actions/upload-artifact@v4
     if: format('{0}', inputs.upload-heap-dump) == 'true'
