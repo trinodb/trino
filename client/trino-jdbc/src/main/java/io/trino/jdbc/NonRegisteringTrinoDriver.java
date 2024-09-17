@@ -13,9 +13,6 @@
  */
 package io.trino.jdbc;
 
-import io.opentelemetry.api.GlobalOpenTelemetry;
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.instrumentation.okhttp.v3_0.OkHttpTelemetry;
 import io.trino.client.uri.HttpClientFactory;
 import okhttp3.Call;
 import okhttp3.ConnectionPool;
@@ -29,7 +26,6 @@ import java.sql.Driver;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
-import java.util.Optional;
 import java.util.Properties;
 import java.util.logging.Logger;
 
@@ -37,7 +33,6 @@ import static io.trino.jdbc.DriverInfo.DRIVER_NAME;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MAJOR;
 import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MINOR;
-import static java.util.Objects.requireNonNull;
 
 public class NonRegisteringTrinoDriver
         implements Driver, Closeable
@@ -45,23 +40,11 @@ public class NonRegisteringTrinoDriver
     private static final String USER_AGENT = DRIVER_NAME + "/" + DRIVER_VERSION;
     private final Dispatcher dispatcher;
     private final ConnectionPool pool;
-    private OpenTelemetry openTelemetry;
 
     protected NonRegisteringTrinoDriver()
     {
         this.dispatcher = new Dispatcher();
         this.pool = new ConnectionPool();
-    }
-
-    /**
-     * Allows passing own OpenTelemetry that will be used to instrument JDBC driver
-     * instead of GlobalOpenTelemetry which is a default.
-     *
-     * @param openTelemetry OpenTelemetry instance
-     */
-    public void setOpenTelemetry(OpenTelemetry openTelemetry)
-    {
-        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
     }
 
     @Override
@@ -93,26 +76,17 @@ public class NonRegisteringTrinoDriver
 
             return new TrinoConnection(
                     uri,
-                    instrumentClient(httpClientBuilder.build()),
-                    instrumentClient(segmentHttpClientBuilder.build()));
+                    wrapClient(httpClientBuilder.build()),
+                    wrapClient(segmentHttpClientBuilder.build()));
         }
         catch (RuntimeException e) {
             throw new SQLException(e.getMessage(), e);
         }
     }
 
-    private Call.Factory instrumentClient(OkHttpClient client)
+    protected Call.Factory wrapClient(OkHttpClient client)
     {
-        try {
-            return OkHttpTelemetry
-                    .builder(Optional.ofNullable(openTelemetry).orElse(GlobalOpenTelemetry.get()))
-                    .build()
-                    .newCallFactory(client);
-        }
-        catch (NoClassDefFoundError | NoSuchMethodError ignored) {
-            // OpenTelemetry is not (fully) available so return the original client
-            return client;
-        }
+        return client;
     }
 
     @Override
