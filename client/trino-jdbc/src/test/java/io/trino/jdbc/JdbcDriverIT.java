@@ -61,6 +61,7 @@ public class JdbcDriverIT
                     .filter(value -> !value.isDirectory())
                     .map(ZipEntry::getName)
                     .filter(name -> name.contains("io/opentelemetry"))
+                    .filter(name -> !name.contains("io/opentelemetry/instrumentation/okhttp/v3_0"))
                     .collect(toImmutableList());
 
             assertThat(openTelemetryFiles)
