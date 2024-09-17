@@ -188,6 +188,11 @@ public final class IndexedPriorityQueue<E>
         return transform(queue.iterator(), Entry::getValue);
     }
 
+    public Iterator<Prioritized<E>> iteratorPrioritized()
+    {
+        return transform(queue.iterator(), entry -> new Prioritized<>(entry.getValue(), entry.getPriority()));
+    }
+
     private static final class Entry<E>
     {
         private final E value;

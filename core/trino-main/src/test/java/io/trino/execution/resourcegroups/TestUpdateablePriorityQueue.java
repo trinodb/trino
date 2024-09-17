@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.execution.resourcegroups.IndexedPriorityQueue.Prioritized;
 import org.junit.jupiter.api.Test;
 
+import java.util.Iterator;
 import java.util.List;
 
 import static io.trino.execution.resourcegroups.IndexedPriorityQueue.PriorityOrdering.HIGH_TO_LOW;
@@ -55,6 +56,31 @@ public class TestUpdateablePriorityQueue
         assertThat(queue.pollPrioritized()).isEqualTo(new Prioritized<>("a", 1));
         assertThat(queue.peekPrioritized()).isNull();
         assertThat(queue.pollPrioritized()).isNull();
+    }
+
+    @Test
+    public void testPrioritizedIteratorIndexedPriorityQueue()
+    {
+        IndexedPriorityQueue<Object> queue = new IndexedPriorityQueue<>();
+        queue.addOrUpdate("a", 1);
+        queue.addOrUpdate("b", 3);
+        queue.addOrUpdate("c", 2);
+
+        assertThat(ImmutableList.copyOf(queue.iteratorPrioritized()))
+                .containsExactly(
+                        new Prioritized<>("b", 3),
+                        new Prioritized<>("c", 2),
+                        new Prioritized<>("a", 1));
+
+        Iterator<Prioritized<Object>> iterator = queue.iteratorPrioritized();
+        iterator.next();
+        iterator.next();
+        iterator.remove();
+
+        assertThat(ImmutableList.copyOf(queue.iteratorPrioritized()))
+                .containsExactly(
+                        new Prioritized<>("b", 3),
+                        new Prioritized<>("a", 1));
     }
 
     @Test
