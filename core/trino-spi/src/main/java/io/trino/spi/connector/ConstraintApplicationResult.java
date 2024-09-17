@@ -35,7 +35,7 @@ public class ConstraintApplicationResult<T>
      */
     public ConstraintApplicationResult(T handle, TupleDomain<ColumnHandle> remainingFilter, ConnectorExpression remainingExpression, boolean precalculateStatistics)
     {
-        this(handle, remainingFilter, Optional.of(remainingExpression), precalculateStatistics);
+        this(handle, remainingFilter, Optional.ofNullable(remainingExpression), precalculateStatistics);
     }
 
     /**
