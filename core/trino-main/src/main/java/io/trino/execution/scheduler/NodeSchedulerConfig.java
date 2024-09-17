@@ -53,6 +53,7 @@ public class NodeSchedulerConfig
     private SplitsBalancingPolicy splitsBalancingPolicy = SplitsBalancingPolicy.STAGE;
     private int maxUnacknowledgedSplitsPerTask = 2000;
     private Duration allowedNoMatchingNodePeriod = new Duration(2, TimeUnit.MINUTES);
+    private Duration exhaustedNodeWaitPeriod = new Duration(2, TimeUnit.MINUTES);
 
     @NotNull
     public NodeSchedulerPolicy getNodeSchedulerPolicy()
@@ -192,5 +193,18 @@ public class NodeSchedulerConfig
     public Duration getAllowedNoMatchingNodePeriod()
     {
         return allowedNoMatchingNodePeriod;
+    }
+
+    @Config("node-scheduler.exhausted-node-wait-period")
+    @ConfigDescription("Maximum time to wait for resource availability on preferred nodes before scheduling a remotely accessible split on other nodes")
+    public NodeSchedulerConfig setExhaustedNodeWaitPeriod(Duration exhaustedNodeWaitPeriod)
+    {
+        this.exhaustedNodeWaitPeriod = exhaustedNodeWaitPeriod;
+        return this;
+    }
+
+    public Duration getExhaustedNodeWaitPeriod()
+    {
+        return exhaustedNodeWaitPeriod;
     }
 }

@@ -107,6 +107,7 @@ public class BinPackingNodeAllocatorService
     private final Deque<PendingAcquire> pendingAcquires = new ConcurrentLinkedDeque<>();
     private final Set<BinPackingNodeLease> fulfilledAcquires = newConcurrentHashSet();
     private final Duration allowedNoMatchingNodePeriod;
+    private final Duration exhaustedNodeWaitPeriod;
     private final boolean optimizedLocalScheduling;
 
     private final StatsHolder stats = new StatsHolder();
@@ -124,6 +125,7 @@ public class BinPackingNodeAllocatorService
                 clusterMemoryManager::getAllNodesMemoryInfo,
                 nodeSchedulerConfig.isIncludeCoordinator(),
                 Duration.ofMillis(nodeSchedulerConfig.getAllowedNoMatchingNodePeriod().toMillis()),
+                Duration.ofMillis(nodeSchedulerConfig.getExhaustedNodeWaitPeriod().toMillis()),
                 nodeSchedulerConfig.getOptimizedLocalScheduling(),
                 memoryManagerConfig.getFaultTolerantExecutionTaskRuntimeMemoryEstimationOverhead(),
                 memoryManagerConfig.getFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(),
@@ -136,6 +138,7 @@ public class BinPackingNodeAllocatorService
             Supplier<Map<String, Optional<MemoryInfo>>> workerMemoryInfoSupplier,
             boolean scheduleOnCoordinator,
             Duration allowedNoMatchingNodePeriod,
+            Duration exhaustedNodeWaitPeriod,
             boolean optimizedLocalScheduling,
             DataSize taskRuntimeMemoryEstimationOverhead,
             DataSize eagerSpeculativeTasksNodeMemoryOvercommit,
@@ -145,6 +148,7 @@ public class BinPackingNodeAllocatorService
         this.workerMemoryInfoSupplier = requireNonNull(workerMemoryInfoSupplier, "workerMemoryInfoSupplier is null");
         this.scheduleOnCoordinator = scheduleOnCoordinator;
         this.allowedNoMatchingNodePeriod = requireNonNull(allowedNoMatchingNodePeriod, "allowedNoMatchingNodePeriod is null");
+        this.exhaustedNodeWaitPeriod = requireNonNull(exhaustedNodeWaitPeriod, "exhaustedNodeWaitPeriod is null");
         this.optimizedLocalScheduling = optimizedLocalScheduling;
         this.taskRuntimeMemoryEstimationOverhead = requireNonNull(taskRuntimeMemoryEstimationOverhead, "taskRuntimeMemoryEstimationOverhead is null");
         this.eagerSpeculativeTasksNodeMemoryOvercommit = eagerSpeculativeTasksNodeMemoryOvercommit;
@@ -250,7 +254,8 @@ public class BinPackingNodeAllocatorService
                 optimizedLocalScheduling,
                 taskRuntimeMemoryEstimationOverhead,
                 executionClass == EAGER_SPECULATIVE ? eagerSpeculativeTasksNodeMemoryOvercommit : DataSize.ofBytes(0),
-                executionClass == STANDARD); // if we are processing non-speculative pending acquires we are ignoring speculative acquired ones
+                executionClass == STANDARD,  // if we are processing non-speculative pending acquires we are ignoring speculative acquired ones
+                exhaustedNodeWaitPeriod);
 
         while (iterator.hasNext()) {
             PendingAcquire pendingAcquire = iterator.next();
@@ -437,6 +442,7 @@ public class BinPackingNodeAllocatorService
         private final NodeRequirements nodeRequirements;
         private final BinPackingNodeLease lease;
         private final Stopwatch noMatchingNodeStopwatch;
+        private final Stopwatch notEnoughResourcesStopwatch;
         @Nullable private volatile BinPackingSimulation.ReservationStatus lastReservationStatus;
 
         private PendingAcquire(NodeRequirements nodeRequirements, BinPackingNodeLease lease, Ticker ticker)
@@ -444,6 +450,7 @@ public class BinPackingNodeAllocatorService
             this.nodeRequirements = requireNonNull(nodeRequirements, "nodeRequirements is null");
             this.lease = requireNonNull(lease, "lease is null");
             this.noMatchingNodeStopwatch = Stopwatch.createUnstarted(ticker);
+            this.notEnoughResourcesStopwatch = Stopwatch.createStarted(ticker);
         }
 
         public NodeRequirements getNodeRequirements()
@@ -472,6 +479,11 @@ public class BinPackingNodeAllocatorService
                 noMatchingNodeStopwatch.start();
             }
             return noMatchingNodeStopwatch.elapsed();
+        }
+
+        public Duration getNotEnoughResourcesPeriod()
+        {
+            return notEnoughResourcesStopwatch.elapsed();
         }
 
         public void resetNoMatchingNodeFound()
@@ -633,6 +645,7 @@ public class BinPackingNodeAllocatorService
         private final Map<String, MemoryPoolInfo> nodeMemoryPoolInfos;
         private final boolean scheduleOnCoordinator;
         private final boolean optimizedLocalScheduling;
+        private final Duration exhaustedNodeWaitPeriod;
 
         public BinPackingSimulation(
                 NodesSnapshot nodesSnapshot,
@@ -642,7 +655,8 @@ public class BinPackingNodeAllocatorService
                 boolean optimizedLocalScheduling,
                 DataSize taskRuntimeMemoryEstimationOverhead,
                 DataSize nodeMemoryOvercommit,
-                boolean ignoreAcquiredSpeculative)
+                boolean ignoreAcquiredSpeculative,
+                Duration exhaustedNodeWaitPeriod)
         {
             this.nodesSnapshot = requireNonNull(nodesSnapshot, "nodesSnapshot is null");
             // use same node ordering for each simulation
@@ -657,6 +671,7 @@ public class BinPackingNodeAllocatorService
 
             this.scheduleOnCoordinator = scheduleOnCoordinator;
             this.optimizedLocalScheduling = optimizedLocalScheduling;
+            this.exhaustedNodeWaitPeriod = exhaustedNodeWaitPeriod;
 
             Map<String, Map<String, Long>> realtimeTasksMemoryPerNode = new HashMap<>();
             for (InternalNode node : nodesSnapshot.getAllNodes()) {
@@ -739,7 +754,7 @@ public class BinPackingNodeAllocatorService
             Set<HostAddress> addresses = requirements.getAddresses();
             if (!addresses.isEmpty() && (optimizedLocalScheduling || !requirements.isRemotelyAccessible())) {
                 List<InternalNode> preferred = candidates.stream().filter(node -> addresses.contains(node.getHostAndPort())).collect(toImmutableList());
-                if (preferred.isEmpty() && requirements.isRemotelyAccessible()) {
+                if ((preferred.isEmpty() || acquire.getNotEnoughResourcesPeriod().compareTo(exhaustedNodeWaitPeriod) >= 0) && requirements.isRemotelyAccessible()) {
                     candidates = dropCoordinatorsIfNecessary(candidates);
                 }
                 else {
