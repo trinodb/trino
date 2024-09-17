@@ -46,6 +46,7 @@ import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.QueryFailureInfo;
 import io.trino.spi.eventlistener.QueryInputMetadata;
+import io.trino.spi.eventlistener.QueryOutputMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
@@ -879,7 +880,10 @@ public class TestEventListenerBasic
         queryCompletedEvent = queryEvents.getQueryCompletedEvent();
         assertThat(queryCompletedEvent.getContext().getResourceGroupId().isPresent()).isTrue();
         assertThat(queryCompletedEvent.getContext().getResourceGroupId().get()).isEqualTo(createResourceGroupId("global", "user-user"));
-        assertThat(queryCompletedEvent.getIoMetadata().getOutput()).isEqualTo(Optional.empty());
+        Optional<QueryOutputMetadata> output = queryCompletedEvent.getIoMetadata().getOutput();
+        assertThat(output).isNotEmpty();
+        assertThat(output.get().getColumns()).isNotEmpty();
+        assertThat(output.get().getColumns().get().size()).isEqualTo(1);
         assertThat(queryCompletedEvent.getIoMetadata().getInputs().size()).isEqualTo(1);
         assertThat(queryCompletedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
         assertThat(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getCatalogName()).isEqualTo("tpch");
@@ -1517,6 +1521,7 @@ public class TestEventListenerBasic
     private void assertLineage(String baseQuery, Set<String> inputTables, OutputColumnMetadata... outputColumnMetadata)
             throws Exception
     {
+        assertLineageInternal(baseQuery, inputTables, outputColumnMetadata);
         assertLineageInternal("CREATE TABLE mock.default.create_new_table AS " + baseQuery, inputTables, outputColumnMetadata);
         assertLineageInternal("CREATE VIEW mock.default.create_new_view AS " + baseQuery, inputTables, outputColumnMetadata);
         assertLineageInternal("CREATE VIEW mock.default.create_new_materialized_view AS " + baseQuery, inputTables, outputColumnMetadata);

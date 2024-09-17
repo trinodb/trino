@@ -1596,7 +1596,33 @@ class StatementAnalyzer
                     .withRelationType(RelationId.of(node), queryBodyScope.getRelationType())
                     .build();
 
+            // collect output columns info
+            ImmutableList.Builder<OutputColumn> outputColumnsBuilder = ImmutableList.builder();
+            for (Field field : queryScope.getRelationType().getVisibleFields()) {
+                OutputColumn outputColumn = new OutputColumn(new Column(field.getName().orElse(""), field.getType().toString()), analysis.getSourceColumns(field));
+                outputColumnsBuilder.add(outputColumn);
+            }
+
             analysis.setScope(node, queryScope);
+            ImmutableList<OutputColumn> outputColumns = outputColumnsBuilder.build();
+            if (!outputColumns.isEmpty()) {
+                QualifiedObjectName qualifiedName = new QualifiedObjectName("", "", "");
+                CatalogHandle.CatalogVersion version = new CatalogHandle.CatalogVersion("1");
+                if (node.getQueryBody() instanceof QuerySpecification querySpecification) {
+                    Optional<Relation> from = querySpecification.getFrom();
+                    if (from.isPresent() && from.get() instanceof Table) {
+                        qualifiedName = createQualifiedObjectName(session, from.get(), ((Table) from.get()).getName());
+                        try {
+                            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, qualifiedName.catalogName());
+                            version = catalogHandle.getVersion();
+                        }
+                        catch (TrinoException e) {
+                            // ignore since catalog might not be available
+                        }
+                    }
+                }
+                analysis.setUpdateTarget(version, qualifiedName, Optional.empty(), Optional.of(outputColumns));
+            }
             return queryScope;
         }
 
