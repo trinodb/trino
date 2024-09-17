@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.deltalake;
 
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -24,6 +26,7 @@ import static java.util.Objects.requireNonNull;
 public record DeltaLakeMergeResult(
         List<String> partitionValues,
         Optional<String> oldFile,
+        Optional<DeletionVectorEntry> oldDeletionVector,
         Optional<DataFileInfo> newFile)
 {
     public DeltaLakeMergeResult
@@ -32,7 +35,9 @@ public record DeltaLakeMergeResult(
         // noinspection Java9CollectionFactory
         partitionValues = unmodifiableList(new ArrayList<>(requireNonNull(partitionValues, "partitionValues is null")));
         requireNonNull(oldFile, "oldFile is null");
+        requireNonNull(oldDeletionVector, "oldDeletionVector is null");
         requireNonNull(newFile, "newFile is null");
         checkArgument(oldFile.isPresent() || newFile.isPresent(), "old or new must be present");
+        checkArgument(oldDeletionVector.isEmpty() || oldFile.isPresent(), "oldDeletionVector is present only when oldFile is present");
     }
 }

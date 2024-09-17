@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.transactionlog;
 import jakarta.annotation.Nullable;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -23,10 +24,12 @@ public record RemoveFileEntry(
         String path,
         @Nullable Map<String, String> partitionValues,
         long deletionTimestamp,
-        boolean dataChange)
+        boolean dataChange,
+        Optional<DeletionVectorEntry> deletionVector)
 {
     public RemoveFileEntry
     {
         requireNonNull(path, "path is null");
+        requireNonNull(deletionVector, "deletionVector is null");
     }
 }

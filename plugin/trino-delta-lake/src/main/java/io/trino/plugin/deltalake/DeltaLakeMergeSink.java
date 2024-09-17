@@ -327,7 +327,7 @@ public class DeltaLakeMergeSink
         insertPageSink.finish().join().stream()
                 .map(Slice::getBytes)
                 .map(dataFileInfoCodec::fromJson)
-                .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.of(info)))
+                .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
                 .map(mergeResultJsonCodec::toJsonBytes)
                 .map(Slices::wrappedBuffer)
                 .forEach(fragments::add);
@@ -345,7 +345,7 @@ public class DeltaLakeMergeSink
             MoreFutures.getDone(cdfPageSink.finish()).stream()
                     .map(Slice::getBytes)
                     .map(dataFileInfoCodec::fromJson)
-                    .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.of(info)))
+                    .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
                     .map(mergeResultJsonCodec::toJsonBytes)
                     .map(Slices::wrappedBuffer)
                     .forEach(fragments::add);
@@ -407,7 +407,7 @@ public class DeltaLakeMergeSink
                     deletion.partitionValues,
                     readStatistics(parquetMetadata, dataColumns, rowCount),
                     Optional.of(deletionVectorEntry));
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceRelativePath), Optional.of(newFileInfo));
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceRelativePath), Optional.empty(), Optional.of(newFileInfo));
             return utf8Slice(mergeResultJsonCodec.toJson(result));
         }
         catch (Throwable e) {
@@ -426,7 +426,8 @@ public class DeltaLakeMergeSink
     private Slice onlySourceFile(String sourcePath, FileDeletion deletion)
     {
         String sourceRelativePath = relativePath(rootTableLocation.toString(), sourcePath);
-        DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceRelativePath), Optional.empty());
+        DeletionVectorEntry deletionVector = deletionVectors.get(sourceRelativePath);
+        DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceRelativePath), Optional.ofNullable(deletionVector), Optional.empty());
         return utf8Slice(mergeResultJsonCodec.toJson(result));
     }
 
@@ -453,7 +454,7 @@ public class DeltaLakeMergeSink
 
             Optional<DataFileInfo> newFileInfo = rewriteParquetFile(sourceLocation, deletion, writer);
 
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceRelativePath), newFileInfo);
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceRelativePath), Optional.empty(), newFileInfo);
             return ImmutableList.of(utf8Slice(mergeResultJsonCodec.toJson(result)));
         }
         catch (IOException e) {
