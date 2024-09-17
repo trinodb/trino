@@ -15,7 +15,6 @@ package io.trino.tests;
 
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
-import io.trino.client.ClientCapabilities;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
@@ -31,18 +30,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryRunnerUtil.createQuery;
 import static io.trino.execution.QueryRunnerUtil.waitForQueryState;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
-import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_SCAN_LIMIT;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.Arrays.stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -110,7 +105,8 @@ public class TestQueryManager
             throws Exception
     {
         try (QueryRunner queryRunner = TpchQueryRunner.builder().addExtraProperty("query.max-scan-physical-bytes", "0B").build()) {
-            QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT * FROM system.runtime.nodes");
+            Session session = queryRunner.getDefaultSession();
+            QueryId queryId = createQuery(queryRunner, session, "SELECT * FROM system.runtime.nodes");
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
             BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
@@ -125,12 +121,7 @@ public class TestQueryManager
             throws Exception
     {
         try (QueryRunner queryRunner = TpchQueryRunner.builder().build()) {
-            Session session = testSessionBuilder()
-                    .setCatalog("tpch")
-                    .setSchema(TINY_SCHEMA_NAME)
-                    .setClientCapabilities(stream(ClientCapabilities.values())
-                            .map(ClientCapabilities::toString)
-                            .collect(toImmutableSet()))
+            Session session = Session.builder(queryRunner.getDefaultSession())
                     .setSystemProperty("query_max_scan_physical_bytes", "0B")
                     .build();
             QueryId queryId = createQuery(queryRunner, session, "SELECT * FROM system.runtime.nodes");
