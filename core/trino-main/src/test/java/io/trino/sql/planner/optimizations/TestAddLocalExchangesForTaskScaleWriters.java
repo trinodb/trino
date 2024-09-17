@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.Session.SessionBuilder;
 import io.trino.connector.MockConnector;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
@@ -63,7 +64,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
-import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSession;
 
 public class TestAddLocalExchangesForTaskScaleWriters
         extends BasePlanTest
@@ -73,7 +74,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
     @Override
     protected PlanTester createPlanTester()
     {
-        PlanTester planTester = PlanTester.create(testSessionBuilder().build());
+        PlanTester planTester = PlanTester.create(testSession());
         planTester.createCatalog(
                 "mock_with_scaled_writers",
                 createConnectorFactory("mock_with_scaled_writers", true, true),
@@ -150,7 +151,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
     {
         assertDistributedPlan(
                 "INSERT INTO unpartitioned_table SELECT * FROM source_table",
-                testSessionBuilder()
+                testingSessionBuilder()
                         .setCatalog("mock_without_multiple_writer_per_partition")
                         .setSchema("mock")
                         .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
@@ -166,7 +167,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
 
         assertDistributedPlan(
                 "INSERT INTO unpartitioned_table SELECT * FROM source_table",
-                testSessionBuilder()
+                testingSessionBuilder()
                         .setCatalog("mock_without_multiple_writer_per_partition")
                         .setSchema("mock")
                         .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
@@ -186,7 +187,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
     {
         assertDistributedPlan(
                 "INSERT INTO unpartitioned_table SELECT * FROM source_table",
-                testSessionBuilder()
+                testingSessionBuilder()
                         .setCatalog("mock_without_scaled_writers")
                         .setSchema("mock")
                         .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
@@ -202,7 +203,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
 
         assertDistributedPlan(
                 "INSERT INTO unpartitioned_table SELECT * FROM source_table",
-                testSessionBuilder()
+                testingSessionBuilder()
                         .setCatalog("mock_without_scaled_writers")
                         .setSchema("mock")
                         .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
@@ -229,7 +230,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
 
             assertDistributedPlan(
                     "INSERT INTO connector_partitioned_table SELECT * FROM source_table",
-                    testSessionBuilder()
+                    testingSessionBuilder()
                             .setCatalog(catalogName)
                             .setSchema("mock")
                             .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, String.valueOf(taskScaleWritersEnabled))
@@ -257,7 +258,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
 
             assertDistributedPlan(
                     "INSERT INTO connector_partitioned_table SELECT * FROM source_table",
-                    testSessionBuilder()
+                    testingSessionBuilder()
                             .setCatalog(catalogName)
                             .setSchema("mock")
                             .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, String.valueOf(taskScaleWritersEnabled))
@@ -278,7 +279,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
     {
         assertDistributedPlan(
                 "INSERT INTO system_partitioned_table SELECT * FROM source_table",
-                testSessionBuilder()
+                testingSessionBuilder()
                         .setCatalog("mock_with_scaled_writers")
                         .setSchema("mock")
                         // Enforce preferred partitioning
@@ -296,7 +297,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
 
         assertDistributedPlan(
                 "INSERT INTO system_partitioned_table SELECT * FROM source_table",
-                testSessionBuilder()
+                testingSessionBuilder()
                         .setCatalog("mock_with_scaled_writers")
                         .setSchema("mock")
                         // Enforce preferred partitioning
@@ -329,7 +330,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
 
         assertDistributedPlan(
                 "INSERT INTO connector_partitioned_table SELECT * FROM source_table",
-                testSessionBuilder()
+                testingSessionBuilder()
                         .setCatalog(catalogName)
                         .setSchema("mock")
                         .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
@@ -345,7 +346,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
 
         assertDistributedPlan(
                 "INSERT INTO connector_partitioned_table SELECT * FROM source_table",
-                testSessionBuilder()
+                testingSessionBuilder()
                         .setCatalog(catalogName)
                         .setSchema("mock")
                         .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
@@ -365,7 +366,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
     {
         assertDistributedPlan(
                 "INSERT INTO system_partitioned_table SELECT * FROM source_table",
-                testSessionBuilder()
+                testingSessionBuilder()
                         .setCatalog("mock_with_scaled_writers")
                         .setSchema("mock")
                         .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
@@ -381,7 +382,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
 
         assertDistributedPlan(
                 "INSERT INTO system_partitioned_table SELECT * FROM source_table",
-                testSessionBuilder()
+                testingSessionBuilder()
                         .setCatalog("mock_with_scaled_writers")
                         .setSchema("mock")
                         .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
@@ -401,7 +402,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
     {
         @Language("SQL") String query = "ALTER TABLE system_partitioned_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getPlanTester().getDefaultSession())
+        Session session = testingSessionBuilder()
                 .setCatalog("mock_with_scaled_writers")
                 .setSchema("mock")
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
@@ -422,7 +423,7 @@ public class TestAddLocalExchangesForTaskScaleWriters
     {
         @Language("SQL") String query = "ALTER TABLE unpartitioned_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getPlanTester().getDefaultSession())
+        Session session = testingSessionBuilder()
                 .setCatalog("mock_with_scaled_writers")
                 .setSchema("mock")
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
@@ -436,5 +437,10 @@ public class TestAddLocalExchangesForTaskScaleWriters
                                 exchange(LOCAL, GATHER, SINGLE_DISTRIBUTION,
                                         exchange(REMOTE, REPARTITION, SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION,
                                                 node(TableScanNode.class))))));
+    }
+
+    private SessionBuilder testingSessionBuilder()
+    {
+        return Session.builder(getPlanTester().getDefaultSession());
     }
 }
