@@ -96,7 +96,7 @@ public class NonRegisteringTrinoDriver
         }
         catch (NoClassDefFoundError | NoSuchMethodError ignored) {
             // OpenTelemetry is not (fully) available so return the original client
-            return (Call.Factory) client;
+            return client;
         }
     }
 
