@@ -612,7 +612,8 @@ public class TestCheckpointEntryIterator
                         // partitionValues information is missing in the checkpoint
                         null,
                         1579190155406L,
-                        false));
+                        false,
+                        Optional.empty()));
 
         // CommitInfoEntry
         // not found in the checkpoint, TODO add a test
@@ -925,7 +926,8 @@ public class TestCheckpointEntryIterator
                                 UUID.randomUUID().toString(),
                                 ImmutableMap.of("part_key", "2023-01-01 00:00:00"),
                                 1000,
-                                true))
+                                true,
+                                Optional.empty()))
                 .collect(toImmutableSet());
 
         CheckpointEntries entries = new CheckpointEntries(

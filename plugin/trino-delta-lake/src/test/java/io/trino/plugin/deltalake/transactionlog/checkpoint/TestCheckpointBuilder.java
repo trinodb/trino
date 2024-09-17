@@ -59,11 +59,11 @@ public class TestCheckpointBuilder
         builder.addLogEntry(transactionEntry(app2TransactionV5));
 
         AddFileEntry addA1 = new AddFileEntry("a", Map.of(), 1, 1, true, Optional.empty(), Optional.empty(), Map.of(), Optional.empty());
-        RemoveFileEntry removeA1 = new RemoveFileEntry("a", Map.of(), 1, true);
+        RemoveFileEntry removeA1 = new RemoveFileEntry("a", Map.of(), 1, true, Optional.empty());
         AddFileEntry addA2 = new AddFileEntry("a", Map.of(), 2, 1, true, Optional.empty(), Optional.empty(), Map.of(), Optional.empty());
         AddFileEntry addB = new AddFileEntry("b", Map.of(), 1, 1, true, Optional.empty(), Optional.empty(), Map.of(), Optional.empty());
-        RemoveFileEntry removeB = new RemoveFileEntry("b", Map.of(), 1, true);
-        RemoveFileEntry removeC = new RemoveFileEntry("c", Map.of(), 1, true);
+        RemoveFileEntry removeB = new RemoveFileEntry("b", Map.of(), 1, true, Optional.empty());
+        RemoveFileEntry removeC = new RemoveFileEntry("c", Map.of(), 1, true, Optional.empty());
         builder.addLogEntry(addFileEntry(addA1));
         builder.addLogEntry(removeFileEntry(removeA1));
         builder.addLogEntry(addFileEntry(addA2));

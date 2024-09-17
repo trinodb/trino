@@ -1213,7 +1213,7 @@ public class DeltaLakeMetadata
                         while (addFileEntryIterator.hasNext()) {
                             long writeTimestamp = Instant.now().toEpochMilli();
                             AddFileEntry addFileEntry = addFileEntryIterator.next();
-                            transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true));
+                            transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, Optional.empty()));
                         }
                     }
                     protocolEntry = protocolEntryForTable(tableHandle.getProtocolEntry(), containsTimestampType, tableMetadata.getProperties());
@@ -1610,7 +1610,7 @@ public class DeltaLakeMetadata
                     Iterator<AddFileEntry> addFileEntryIterator = activeFiles.iterator();
                     while (addFileEntryIterator.hasNext()) {
                         AddFileEntry addFileEntry = addFileEntryIterator.next();
-                        transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true));
+                        transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, Optional.empty()));
                     }
                 }
             }
@@ -2564,7 +2564,7 @@ public class DeltaLakeMetadata
             if (mergeResult.oldFile().isEmpty()) {
                 continue;
             }
-            transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(toUriFormat(mergeResult.oldFile().get()), createPartitionValuesMap(partitionColumns, mergeResult.partitionValues()), writeTimestamp, true));
+            transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(toUriFormat(mergeResult.oldFile().get()), createPartitionValuesMap(partitionColumns, mergeResult.partitionValues()), writeTimestamp, true, mergeResult.oldDeletionVector()));
         }
 
         appendAddFileEntries(transactionLogWriter, newFiles, partitionColumns, getExactColumnNames(handle.getMetadataEntry()), true);
@@ -2767,7 +2767,8 @@ public class DeltaLakeMetadata
                         toUriFormat(relativePath),
                         createPartitionValuesMap(canonicalPartitionValues),
                         writeTimestamp,
-                        false));
+                        false,
+                        Optional.empty()));
             }
 
             // Note: during writes we want to preserve original case of partition columns
@@ -4160,7 +4161,7 @@ public class DeltaLakeMetadata
             Iterator<AddFileEntry> addFileEntryIterator = activeFiles.iterator();
             while (addFileEntryIterator.hasNext()) {
                 AddFileEntry addFileEntry = addFileEntryIterator.next();
-                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true));
+                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true, Optional.empty()));
 
                 Optional<Long> fileRecords = addFileEntry.getStats().flatMap(DeltaLakeFileStatistics::getNumRecords);
                 allDeletedFilesStatsPresent &= fileRecords.isPresent();

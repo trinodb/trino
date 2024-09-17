@@ -31,6 +31,7 @@ import io.trino.parquet.metadata.FileMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
@@ -1163,8 +1164,15 @@ public class TestDeltaLakeBasic
         copyDirectoryContents(new File(Resources.getResource("databricks122/deletion_vectors").toURI()).toPath(), tableLocation);
         assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
 
+        assertUpdate("DELETE FROM " + tableName + " WHERE a != 999", 1);
+
+        // 'remove' entry should have the same deletion vector as the previous operation when deleting all rows
+        DeletionVectorEntry deletionVector = getEntriesFromJson(2, tableLocation + "/_delta_log", FILE_SYSTEM).orElseThrow().get(2).getAdd().getDeletionVector().orElseThrow();
+        assertThat(getEntriesFromJson(3, tableLocation + "/_delta_log", FILE_SYSTEM).orElseThrow().get(1).getRemove().deletionVector().orElseThrow())
+                .isEqualTo(deletionVector);
+
         assertUpdate("INSERT INTO " + tableName + " VALUES (3, 31), (3, 32)", 2);
-        assertUpdate("DELETE FROM " + tableName + " WHERE a != 999", 3);
+        assertUpdate("DELETE FROM " + tableName + " WHERE a != 999", 2);
         assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
 
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10), (2, 20)", 2);
