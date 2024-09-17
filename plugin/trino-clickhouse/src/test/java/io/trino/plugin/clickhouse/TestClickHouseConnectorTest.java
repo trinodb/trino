@@ -1014,6 +1014,10 @@ public class TestClickHouseConnectorTest
             assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string IN (a_string_alias, 'b')" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
             assertThat(query(smallDomainCompactionThreshold, "SELECT some_column FROM " + table.getName() + " WHERE a_string IN ('a', 'b')")).isNotFullyPushedDown(FilterNode.class);
             assertThat(query(smallDomainCompactionThreshold, "SELECT some_column FROM " + table.getName() + " WHERE a_string IN ('a', 'b')" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string NOT IN ('a', 'b')")).isFullyPushedDown();
+            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string NOT IN ('a', 'b')" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query(smallDomainCompactionThreshold, "SELECT some_column FROM " + table.getName() + " WHERE a_string NOT IN ('a', 'b')")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(smallDomainCompactionThreshold, "SELECT some_column FROM " + table.getName() + " WHERE a_string NOT IN ('a', 'b')" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
         }
     }
 

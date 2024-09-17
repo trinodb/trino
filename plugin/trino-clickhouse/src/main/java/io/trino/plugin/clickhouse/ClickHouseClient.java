@@ -231,6 +231,7 @@ public class ClickHouseClient
                 .addStandardRules(this::quoted)
                 .add(new RewriteStringComparison())
                 .add(new RewriteStringIn())
+                .map("$not(value: boolean)").to("NOT value")
                 .build();
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this.connectorExpressionRewriter,
