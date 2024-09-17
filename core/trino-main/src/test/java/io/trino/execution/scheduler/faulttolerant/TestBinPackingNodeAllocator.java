@@ -77,10 +77,12 @@ public class TestBinPackingNodeAllocator
     private static final NodeRequirements REQ_NONE = new NodeRequirements(Optional.empty(), Set.of(), true);
     private static final NodeRequirements REQ_NODE_1 = new NodeRequirements(Optional.empty(), Set.of(NODE_1_ADDRESS), true);
     private static final NodeRequirements REQ_NODE_2 = new NodeRequirements(Optional.empty(), Set.of(NODE_2_ADDRESS), true);
+    private static final NodeRequirements REQ_NODE_2_NO_REMOTE = new NodeRequirements(Optional.empty(), Set.of(NODE_2_ADDRESS), false);
     private static final NodeRequirements REQ_CATALOG_1 = new NodeRequirements(Optional.of(CATALOG_1), Set.of(), true);
 
     // none of the tests should require periodic execution of routine which processes pending acquisitions
     private static final long TEST_TIMEOUT = BinPackingNodeAllocatorService.PROCESS_PENDING_ACQUIRES_DELAY_SECONDS * 1000 / 2;
+    private static final Duration NO_RESOURCES_ON_NODE_WAIT_PERIOD = Duration.of(2, MINUTES);
 
     private BinPackingNodeAllocatorService nodeAllocatorService;
     private ConcurrentHashMap<String, Optional<MemoryInfo>> workerMemoryInfos;
@@ -107,6 +109,7 @@ public class TestBinPackingNodeAllocator
                 () -> workerMemoryInfos,
                 false,
                 Duration.of(1, MINUTES),
+                NO_RESOURCES_ON_NODE_WAIT_PERIOD,
                 true,
                 taskRuntimeMemoryEstimationOverhead,
                 DataSize.of(10, GIGABYTE), // allow overcommit of 10GB for EAGER_SPECULATIVE tasks
@@ -456,6 +459,94 @@ public class TestBinPackingNodeAllocator
             acquire1.release();
             // pending acquisition should be unblocked
             assertEventually(() -> assertAcquired(acquire3));
+        }
+    }
+
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
+    public void testAllocateNodeWithAddressRequirementsNoResourcesUseDifferentNode()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+
+        setupNodeAllocatorService(nodeManager);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
+            NodeAllocator.NodeLease fillerNode1 = nodeAllocator.acquire(REQ_NODE_1, DataSize.of(64, GIGABYTE), STANDARD);
+            nodeAllocator.acquire(REQ_NODE_2, DataSize.of(64, GIGABYTE), STANDARD);
+
+            // both nodes full
+            NodeAllocator.NodeLease acquire = nodeAllocator.acquire(REQ_NODE_2, DataSize.of(32, GIGABYTE), STANDARD);
+            assertNotAcquired(acquire);
+
+            // node1 empty but we wait for node2
+            fillerNode1.release();
+            assertNotAcquired(acquire);
+
+            // below timeout; we still wait for node2
+            ticker.increment(NO_RESOURCES_ON_NODE_WAIT_PERIOD.toMillis() - 1, MILLISECONDS);
+            assertNotAcquired(acquire);
+
+            // past timout; we pick any node (node1 in this case)
+            ticker.increment(1, MILLISECONDS);
+            nodeAllocatorService.processPendingAcquires();
+            assertAcquired(acquire, NODE_1);
+        }
+    }
+
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
+    public void testAllocateNodeWithAddressRequirementsNoResourcesWaitIfRemoteNotAvailable()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+
+        setupNodeAllocatorService(nodeManager);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
+            NodeAllocator.NodeLease fillerNode1 = nodeAllocator.acquire(REQ_NODE_1, DataSize.of(64, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease fillerNode2 = nodeAllocator.acquire(REQ_NODE_2, DataSize.of(64, GIGABYTE), STANDARD);
+
+            // both nodes full
+            NodeAllocator.NodeLease acquire = nodeAllocator.acquire(REQ_NODE_2_NO_REMOTE, DataSize.of(32, GIGABYTE), STANDARD);
+            assertNotAcquired(acquire);
+
+            // node1 empty but we wait for node2
+            fillerNode1.release();
+            assertNotAcquired(acquire);
+
+            // event past the timeout we still wait as remote access it not possible
+            ticker.increment(NO_RESOURCES_ON_NODE_WAIT_PERIOD.toMillis() * 2, MILLISECONDS);
+            assertNotAcquired(acquire);
+
+            // when node2 frees up we acquire it
+            fillerNode2.release();
+            assertAcquired(acquire, NODE_2);
+        }
+    }
+
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
+    public void testAllocateNodeWithAddressRequirementsNoResourcesInitially()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+
+        setupNodeAllocatorService(nodeManager);
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
+            NodeAllocator.NodeLease fillerNode1 = nodeAllocator.acquire(REQ_NODE_1, DataSize.of(64, GIGABYTE), STANDARD);
+            NodeAllocator.NodeLease fillerNode2 = nodeAllocator.acquire(REQ_NODE_2, DataSize.of(64, GIGABYTE), STANDARD);
+
+            // both nodes full
+            NodeAllocator.NodeLease acquire = nodeAllocator.acquire(REQ_NODE_2, DataSize.of(32, GIGABYTE), STANDARD);
+            assertNotAcquired(acquire);
+
+            // node1 empty but we wait for node2
+            fillerNode1.release();
+            assertNotAcquired(acquire);
+
+            // below timeout; node2 got free so we acquire it
+            ticker.increment(NO_RESOURCES_ON_NODE_WAIT_PERIOD.toMillis() / 2, MILLISECONDS);
+            fillerNode2.release();
+            assertAcquired(acquire, NODE_2);
         }
     }
 
