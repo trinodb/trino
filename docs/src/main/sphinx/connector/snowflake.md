@@ -1,3 +1,8 @@
+---
+myst:
+  substitutions:
+    default_domain_compaction_threshold: "`256`"
+---
 # Snowflake connector
 
 ```{raw} html
@@ -44,6 +49,10 @@ The Snowflake connector can only access a single database within
 a Snowflake account. Thus, if you have multiple Snowflake databases,
 or want to connect to multiple Snowflake accounts, you must configure
 multiple instances of the Snowflake connector.
+
+
+```{include} jdbc-domain-compaction-threshold.fragment
+```
 
 % snowflake-type-mapping:
 
