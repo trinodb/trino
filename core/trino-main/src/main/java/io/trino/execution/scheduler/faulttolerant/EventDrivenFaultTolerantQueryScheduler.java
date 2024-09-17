@@ -3112,7 +3112,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private static PrioritizedScheduledTask getPrioritizedTask(TaskExecutionClass executionClass, IndexedPriorityQueue.Prioritized<ScheduledTask> task)
         {
-            return new PrioritizedScheduledTask(task.getValue(), executionClass, toIntExact(task.getPriority()));
+            return new PrioritizedScheduledTask(task.value(), executionClass, toIntExact(task.priority()));
         }
     }
 
