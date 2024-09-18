@@ -13,15 +13,13 @@
  */
 package io.trino.plugin.iceberg.procedure;
 
-public enum IcebergTableProcedureId
+import static java.util.Objects.requireNonNull;
+
+public record IcebergCreateBranchHandle(String name)
+        implements IcebergProcedureHandle
 {
-    OPTIMIZE,
-    DROP_EXTENDED_STATS,
-    EXPIRE_SNAPSHOTS,
-    REMOVE_ORPHAN_FILES,
-    ADD_FILES,
-    ADD_FILES_FROM_TABLE,
-    CREATE_BRANCH,
-    DROP_BRANCH,
-    FAST_FORWARD,
+    public IcebergCreateBranchHandle
+    {
+        requireNonNull(name, "name is null");
+    }
 }
