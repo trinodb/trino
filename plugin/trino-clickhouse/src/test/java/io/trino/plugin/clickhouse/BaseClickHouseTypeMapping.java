@@ -396,11 +396,17 @@ public abstract class BaseClickHouseTypeMapping
 
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_double"))
 
+                .addRoundTrip("double", "nan()", DOUBLE, "CAST(nan() AS DOUBLE)")
+                .addRoundTrip("double", "-infinity()", DOUBLE, "CAST(-infinity() AS DOUBLE)")
+                .addRoundTrip("double", "+infinity()", DOUBLE, "CAST(+infinity() AS DOUBLE)")
                 .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
 
                 .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"));
 
         SqlDataTypeTest.create()
+                .addRoundTrip("double", "nan", DOUBLE, "CAST(nan() AS DOUBLE)")
+                .addRoundTrip("double", "-inf", DOUBLE, "CAST(-infinity() AS DOUBLE)")
+                .addRoundTrip("double", "+inf", DOUBLE, "CAST(+infinity() AS DOUBLE)")
                 .addRoundTrip("Nullable(double)", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
                 .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.trino_test_nullable_double"));
     }
