@@ -342,6 +342,7 @@ class TestSqlParserRoutines
     private static Query query(FunctionSpecification function, Select select)
     {
         return new Query(
+                ImmutableList.of(),
                 ImmutableList.of(function),
                 Optional.empty(),
                 new QuerySpecification(
