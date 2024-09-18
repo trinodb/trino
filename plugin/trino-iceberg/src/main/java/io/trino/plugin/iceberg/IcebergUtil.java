@@ -182,6 +182,7 @@ import static org.apache.iceberg.util.PropertyUtil.propertyAsBoolean;
 public final class IcebergUtil
 {
     public static final String TRINO_TABLE_METADATA_INFO_VALID_FOR = "trino_table_metadata_info_valid_for";
+    public static final String TRINO_TABLE_COMMENT_CACHE_PREVENTED = "trino_table_comment_cache_prevented";
     public static final String COLUMN_TRINO_NOT_NULL_PROPERTY = "trino_not_null";
     public static final String COLUMN_TRINO_TYPE_ID_PROPERTY = "trino_type_id";
 
