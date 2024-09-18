@@ -16,7 +16,6 @@ package io.trino.proxy;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.airlift.http.server.HttpServerConfig;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -28,10 +27,6 @@ public class ProxyModule
     @Override
     public void configure(Binder binder)
     {
-        configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
-            httpServerConfig.setAdminEnabled(false);
-        });
-
         httpClientBinder(binder).bindHttpClient("proxy", ForProxy.class);
 
         configBinder(binder).bindConfig(ProxyConfig.class);

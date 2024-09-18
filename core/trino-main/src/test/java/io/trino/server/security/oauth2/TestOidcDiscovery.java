@@ -311,7 +311,7 @@ public class TestOidcDiscovery
             NodeInfo nodeInfo = new NodeInfo("test");
             HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
             HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
-            httpServer = new TestingHttpServer(httpServerInfo, nodeInfo, config, servlet, ImmutableMap.of());
+            httpServer = new TestingHttpServer(httpServerInfo, nodeInfo, config, servlet);
             httpServer.start();
         }
 
