@@ -230,7 +230,7 @@ public class TestingHydraIdentityProvider
                 .setNodeInternalAddress(InetAddresses.toAddrString(InetAddress.getLocalHost())));
         HttpServerConfig config = new HttpServerConfig().setHttpPort(0);
         HttpServerInfo httpServerInfo = new HttpServerInfo(config, nodeInfo);
-        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new AcceptAllLoginsAndConsentsServlet(), ImmutableMap.of());
+        return new TestingHttpServer(httpServerInfo, nodeInfo, config, new AcceptAllLoginsAndConsentsServlet());
     }
 
     private class AcceptAllLoginsAndConsentsServlet
