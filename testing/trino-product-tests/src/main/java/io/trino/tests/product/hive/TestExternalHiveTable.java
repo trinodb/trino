@@ -151,6 +151,17 @@ public class TestExternalHiveTable
         onTrino().executeQuery(format("CREATE TABLE %s.%s.%s WITH (external_location = '%s') AS SELECT * FROM tpch.tiny.nation", HIVE_CATALOG_WITH_EXTERNAL_WRITES, schema, table, tableLocation));
     }
 
+    @Test
+    public void testExternalTablePurgeProperty()
+    {
+        String schema = "schema_without_location";
+        String extTable = "test_external_purge_table";
+        String tableLocation = "/tmp/" + extTable;
+        onTrino().executeQuery(format("CREATE TABLE %s.%s.%s WITH (external_location = '%s', external_table_purge = true) AS SELECT * FROM tpch.tiny.nation", HIVE_CATALOG_WITH_EXTERNAL_WRITES, schema, extTable, tableLocation));
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s.%s.%s", HIVE_CATALOG_WITH_EXTERNAL_WRITES, schema, extTable));
+        assertThat(hdfsClient.exist(tableLocation)).isFalse();
+    }
+
     private void insertNationPartition(TableInstance<?> nation, int partition)
     {
         onHive().executeQuery(
