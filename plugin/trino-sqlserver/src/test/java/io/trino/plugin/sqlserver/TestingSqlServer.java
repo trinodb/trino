@@ -64,7 +64,7 @@ public final class TestingSqlServer
             .build();
 
     private static final DockerImageName IMAGE_NAME = DockerImageName.parse("mcr.microsoft.com/mssql/server");
-    public static final String DEFAULT_VERSION = "2017-CU13";
+    public static final String DEFAULT_VERSION = "2017-latest";
     public static final String LATEST_VERSION = "2019-CU13-ubuntu-20.04";
 
     private final MSSQLServerContainer<?> container;
