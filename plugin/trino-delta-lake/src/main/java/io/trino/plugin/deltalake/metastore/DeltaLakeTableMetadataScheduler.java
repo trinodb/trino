@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.trino.metastore.Table;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
@@ -74,6 +75,7 @@ public class DeltaLakeTableMetadataScheduler
     private final int storeTableMetadataThreads;
     private final Map<SchemaTableName, TableUpdateInfo> updateInfos = new ConcurrentHashMap<>();
     private final boolean enabled;
+    private final Duration scheduleInterval;
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduler;
@@ -93,6 +95,7 @@ public class DeltaLakeTableMetadataScheduler
         this.storeTableMetadataThreads = config.getStoreTableMetadataThreads();
         requireNonNull(nodeManager, "nodeManager is null");
         this.enabled = config.isStoreTableMetadataEnabled() && nodeManager.getCurrentNode().isCoordinator();
+        this.scheduleInterval = config.getStoreTableMetadataInterval();
     }
 
     @Managed
@@ -130,7 +133,7 @@ public class DeltaLakeTableMetadataScheduler
                 catch (Throwable e) {
                     log.warn(e, "Error canceling metadata update tasks");
                 }
-            }, 200, 1000, MILLISECONDS);
+            }, 200, scheduleInterval.toMillis(), MILLISECONDS);
         }
     }
 
