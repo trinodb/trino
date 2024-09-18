@@ -44,8 +44,11 @@ import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionProces
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionProvider;
 import io.trino.plugin.iceberg.procedure.AddFilesTableFromTableProcedure;
 import io.trino.plugin.iceberg.procedure.AddFilesTableProcedure;
+import io.trino.plugin.iceberg.procedure.CreateBranchProcedure;
+import io.trino.plugin.iceberg.procedure.DropBranchProcedure;
 import io.trino.plugin.iceberg.procedure.DropExtendedStatsTableProcedure;
 import io.trino.plugin.iceberg.procedure.ExpireSnapshotsTableProcedure;
+import io.trino.plugin.iceberg.procedure.FastForwardProcedure;
 import io.trino.plugin.iceberg.procedure.OptimizeManifestsTableProcedure;
 import io.trino.plugin.iceberg.procedure.OptimizeTableProcedure;
 import io.trino.plugin.iceberg.procedure.RegisterTableProcedure;
@@ -138,6 +141,9 @@ public class IcebergModule
         tableProcedures.addBinding().toProvider(RemoveOrphanFilesTableProcedure.class).in(Scopes.SINGLETON);
         tableProcedures.addBinding().toProvider(AddFilesTableProcedure.class).in(Scopes.SINGLETON);
         tableProcedures.addBinding().toProvider(AddFilesTableFromTableProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding().toProvider(CreateBranchProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding().toProvider(DropBranchProcedure.class).in(Scopes.SINGLETON);
+        tableProcedures.addBinding().toProvider(FastForwardProcedure.class).in(Scopes.SINGLETON);
 
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(TableChangesFunctionProvider.class).in(Scopes.SINGLETON);
         binder.bind(FunctionProvider.class).to(IcebergFunctionProvider.class).in(Scopes.SINGLETON);
