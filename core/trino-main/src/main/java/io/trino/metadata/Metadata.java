@@ -834,12 +834,12 @@ public interface Metadata
     /**
      * Get the target table handle after performing redirection with a table version.
      */
-    RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+    RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Map<String, Object> properties);
 
     /**
      * Returns a table handle for the specified table name with a specified version
      */
-    Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+    Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Map<String, Object> properties);
 
     /**
      * Returns maximum number of tasks that can be created while writing data to specific connector.

@@ -650,6 +650,11 @@ class AstBuilder
     @Override
     public Node visitInsertInto(SqlBaseParser.InsertIntoContext context)
     {
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
+        }
+
         Optional<List<Identifier>> columnAliases = Optional.empty();
         if (context.columnAliases() != null) {
             columnAliases = Optional.of(visit(context.columnAliases().identifier(), Identifier.class));
@@ -657,7 +662,7 @@ class AstBuilder
 
         return new Insert(
                 getLocation(context),
-                new Table(getQualifiedName(context.qualifiedName())),
+                new Table(getLocation(context), getQualifiedName(context.qualifiedName()), properties),
                 columnAliases,
                 (Query) visit(context.rootQuery()));
     }
@@ -665,18 +670,27 @@ class AstBuilder
     @Override
     public Node visitDelete(SqlBaseParser.DeleteContext context)
     {
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
+        }
+
         return new Delete(
                 getLocation(context),
-                new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
+                new Table(getLocation(context), getQualifiedName(context.qualifiedName()), properties),
                 visitIfPresent(context.booleanExpression(), Expression.class));
     }
 
     @Override
     public Node visitUpdate(SqlBaseParser.UpdateContext context)
     {
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
+        }
         return new Update(
                 getLocation(context),
-                new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
+                new Table(getLocation(context), getQualifiedName(context.qualifiedName()), properties),
                 visit(context.updateAssignment(), UpdateAssignment.class),
                 visitIfPresent(context.booleanExpression(), Expression.class));
     }
@@ -696,7 +710,11 @@ class AstBuilder
     @Override
     public Node visitMerge(SqlBaseParser.MergeContext context)
     {
-        Table table = new Table(getLocation(context), getQualifiedName(context.qualifiedName()));
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
+        }
+        Table table = new Table(getLocation(context), getQualifiedName(context.qualifiedName()), properties);
         Relation targetRelation = table;
         if (context.identifier() != null) {
             targetRelation = new AliasedRelation(table, (Identifier) visit(context.identifier()), null);
@@ -1984,7 +2002,7 @@ class AstBuilder
     public Node visitTableName(SqlBaseParser.TableNameContext context)
     {
         if (context.queryPeriod() != null) {
-            return new Table(getLocation(context), getQualifiedName(context.qualifiedName()), (QueryPeriod) visit(context.queryPeriod()));
+            return new Table(getLocation(context), getQualifiedName(context.qualifiedName()), (QueryPeriod) visit(context.queryPeriod()), ImmutableList.of());
         }
         return new Table(getLocation(context), getQualifiedName(context.qualifiedName()));
     }

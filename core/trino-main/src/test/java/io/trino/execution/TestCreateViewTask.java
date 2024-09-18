@@ -51,6 +51,7 @@ import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -73,7 +74,7 @@ public class TestCreateViewTask
                 createTestingStatementAnalyzerFactory(
                         plannerContext,
                         new AllowAllAccessControl(),
-                        new TablePropertyManager(CatalogServiceProvider.fail()),
+                        new TablePropertyManager(CatalogServiceProvider.singleton(TEST_CATALOG_HANDLE, ImmutableMap.of())),
                         new AnalyzePropertyManager(CatalogServiceProvider.fail())),
                 new StatementRewrite(ImmutableSet.of()),
                 plannerContext.getTracer());
