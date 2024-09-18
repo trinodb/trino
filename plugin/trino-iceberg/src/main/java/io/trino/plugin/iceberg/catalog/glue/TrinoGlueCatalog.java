@@ -141,6 +141,7 @@ import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
 import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_NOT_NULL_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_TYPE_ID_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_COMMENT_CACHE_PREVENTED;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_METADATA_INFO_VALID_FOR;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
@@ -501,7 +502,8 @@ public class TrinoGlueCatalog
                     else {
                         String metadataLocation = tableParameters.get(METADATA_LOCATION_PROP);
                         String metadataValidForMetadata = tableParameters.get(TRINO_TABLE_METADATA_INFO_VALID_FOR);
-                        if (metadataValidForMetadata != null && metadataValidForMetadata.equals(metadataLocation)) {
+                        boolean tableCommentWasCached = tableParameters.getOrDefault(TRINO_TABLE_COMMENT_CACHE_PREVENTED, "false").equals("false");
+                        if (metadataValidForMetadata != null && metadataValidForMetadata.equals(metadataLocation) && tableCommentWasCached) {
                             Optional<String> comment = Optional.ofNullable(tableParameters.get(TABLE_COMMENT));
                             unfilteredResult.add(RelationCommentMetadata.forRelation(name, comment));
                         }

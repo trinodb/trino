@@ -41,6 +41,7 @@ import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_NOT_NULL_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.COLUMN_TRINO_TYPE_ID_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_COMMENT_CACHE_PREVENTED;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_TABLE_METADATA_INFO_VALID_FOR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -85,25 +86,27 @@ public final class GlueIcebergUtil
 
         if (cacheTableMetadata) {
             // Store table metadata sufficient to answer information_schema.columns and system.metadata.table_comments queries, which are often queried in bulk by e.g. BI tools
-            String comment = metadata.properties().get(TABLE_COMMENT);
             Optional<List<Column>> glueColumns = glueColumns(typeManager, metadata);
 
-            boolean canPersistComment = (comment == null || comment.length() <= GLUE_TABLE_PARAMETER_LENGTH_LIMIT);
-            boolean canPersistColumnInfo = glueColumns.isPresent();
-            boolean canPersistMetadata = canPersistComment && canPersistColumnInfo;
+            glueColumns.ifPresent(columns -> tableInput.withStorageDescriptor(new StorageDescriptor()
+                    .withColumns(columns)));
 
-            if (canPersistMetadata) {
-                tableInput.withStorageDescriptor(new StorageDescriptor()
-                        .withColumns(glueColumns.get()));
-
-                if (comment != null) {
+            String comment = metadata.properties().get(TABLE_COMMENT);
+            if (comment != null) {
+                if (comment.length() <= GLUE_TABLE_PARAMETER_LENGTH_LIMIT) {
                     parameters.put(TABLE_COMMENT, comment);
+                    parameters.remove(TRINO_TABLE_COMMENT_CACHE_PREVENTED);
                 }
                 else {
                     parameters.remove(TABLE_COMMENT);
+                    parameters.put(TRINO_TABLE_COMMENT_CACHE_PREVENTED, "true");
                 }
-                parameters.put(TRINO_TABLE_METADATA_INFO_VALID_FOR, newMetadataLocation);
             }
+            else {
+                parameters.remove(TABLE_COMMENT);
+                parameters.remove(TRINO_TABLE_COMMENT_CACHE_PREVENTED);
+            }
+            parameters.put(TRINO_TABLE_METADATA_INFO_VALID_FOR, newMetadataLocation);
         }
 
         tableInput.withParameters(parameters);
