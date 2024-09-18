@@ -191,4 +191,9 @@ public interface TrinoCatalog
     void updateColumnComment(ConnectorSession session, SchemaTableName schemaTableName, ColumnIdentity columnIdentity, Optional<String> comment);
 
     Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName, String hiveCatalogName);
+
+    default Optional<CatalogSchemaTableName> redirectView(ConnectorSession session, SchemaTableName viewName, String hiveCatalogName)
+    {
+        return Optional.empty();
+    }
 }

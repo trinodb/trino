@@ -90,6 +90,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
+import static io.trino.plugin.hive.ViewReaderUtil.isHiveView;
 import static io.trino.plugin.hive.ViewReaderUtil.isSomeKindOfAView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
@@ -843,6 +844,33 @@ public class TrinoHiveCatalog
         if (!isIcebergTable(table.get())) {
             // After redirecting, use the original table name, with "$partitions" and similar suffixes
             return Optional.of(new CatalogSchemaTableName(hiveCatalogName, tableName));
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<CatalogSchemaTableName> redirectView(ConnectorSession session, SchemaTableName viewName, String hiveCatalogName)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(viewName, "viewName is null");
+        requireNonNull(hiveCatalogName, "hiveCatalogName is null");
+
+        if (isHiveSystemSchema(viewName.getSchemaName())) {
+            return Optional.empty();
+        }
+
+        Optional<io.trino.metastore.Table> tableOptional = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
+        if (tableOptional.isEmpty()) {
+            return Optional.empty();
+        }
+
+        io.trino.metastore.Table view = tableOptional.get();
+
+        // redirect to hive catalog only if Hive View encountered
+        if (isHiveView(view)) {
+            return Optional.of(new CatalogSchemaTableName(hiveCatalogName,
+                    viewName.getSchemaName(),
+                    viewName.getTableName()));
         }
         return Optional.empty();
     }

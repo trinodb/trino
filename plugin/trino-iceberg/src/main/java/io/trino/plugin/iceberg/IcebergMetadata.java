@@ -3512,6 +3512,16 @@ public class IcebergMetadata
     }
 
     @Override
+    public Optional<CatalogSchemaTableName> redirectView(ConnectorSession session, SchemaTableName viewName)
+    {
+        Optional<String> targetCatalogName = getHiveCatalogName(session);
+        if (targetCatalogName.isEmpty()) {
+            return Optional.empty();
+        }
+        return catalog.redirectView(session, viewName, targetCatalogName.get());
+    }
+
+    @Override
     public boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
     {
         IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTableHandle;

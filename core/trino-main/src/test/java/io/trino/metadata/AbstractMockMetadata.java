@@ -93,6 +93,7 @@ import java.util.function.UnaryOperator;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
+import static io.trino.metadata.RedirectionAwareViewHandle.noRedirection;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.function.FunctionDependencyDeclaration.NO_DEPENDENCIES;
 import static io.trino.spi.function.FunctionId.toFunctionId;
@@ -1003,6 +1004,18 @@ public abstract class AbstractMockMetadata
 
     @Override
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public RedirectionAwareViewHandle getRedirectionAwareViewHandle(Session session, QualifiedObjectName tableName)
+    {
+        return RedirectionAwareViewHandle.noRedirection();
+    }
+
+    @Override
+    public RedirectionAwareViewHandle getRedirectionAwareViewHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
         throw new UnsupportedOperationException();
     }

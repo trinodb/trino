@@ -830,6 +830,16 @@ public interface Metadata
     RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
 
     /**
+     * Get the target view handle after performing redirection.
+     */
+    RedirectionAwareViewHandle getRedirectionAwareViewHandle(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Get the target view handle after performing redirection.
+     */
+    RedirectionAwareViewHandle getRedirectionAwareViewHandle(Session session, QualifiedObjectName viewName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+
+    /**
      * Returns a table handle for the specified table name with a specified version
      */
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);

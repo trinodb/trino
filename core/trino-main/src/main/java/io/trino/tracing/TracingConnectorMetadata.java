@@ -1368,6 +1368,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public Optional<CatalogSchemaTableName> redirectView(ConnectorSession session, SchemaTableName viewName)
+    {
+        Span span = startSpan("redirectView", viewName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.redirectView(session, viewName);
+        }
+    }
+
+    @Override
     public OptionalInt getMaxWriterTasks(ConnectorSession session)
     {
         Span span = startSpan("getMaxWriterTasks");
