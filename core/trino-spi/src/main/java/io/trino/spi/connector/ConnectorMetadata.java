@@ -1737,6 +1737,14 @@ public interface ConnectorMetadata
         return Optional.empty();
     }
 
+    /**
+     * Redirects view to other view which may or may not be in the same catalog.
+     */
+    default Optional<CatalogSchemaTableName> redirectView(ConnectorSession session, SchemaTableName tableName)
+    {
+        return Optional.empty();
+    }
+
     default OptionalInt getMaxWriterTasks(ConnectorSession session)
     {
         return OptionalInt.empty();
