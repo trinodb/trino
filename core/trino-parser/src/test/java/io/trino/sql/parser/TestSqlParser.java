@@ -5978,7 +5978,7 @@ public class TestSqlParser
     {
         Expression rangeValue = new GenericLiteral(location(1, 37), "TIMESTAMP", "2021-03-01 00:00:01");
         QueryPeriod queryPeriod = new QueryPeriod(location(1, 17), QueryPeriod.RangeType.TIMESTAMP, rangeValue);
-        Table table = new Table(location(1, 15), qualifiedName(location(1, 15), "t"), queryPeriod);
+        Table table = new Table(location(1, 15), qualifiedName(location(1, 15), "t"), queryPeriod, Optional.empty());
         assertThat(statement("SELECT * FROM t FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'"))
                 .isEqualTo(
                         new Query(
@@ -6010,7 +6010,7 @@ public class TestSqlParser
 
         rangeValue = new StringLiteral(location(1, 35), "version1");
         queryPeriod = new QueryPeriod(new NodeLocation(1, 17), QueryPeriod.RangeType.VERSION, rangeValue);
-        table = new Table(location(1, 15), qualifiedName(location(1, 15), "t"), queryPeriod);
+        table = new Table(location(1, 15), qualifiedName(location(1, 15), "t"), queryPeriod, Optional.empty());
         assertThat(statement("SELECT * FROM t FOR VERSION AS OF 'version1'"))
                 .isEqualTo(
                         new Query(
