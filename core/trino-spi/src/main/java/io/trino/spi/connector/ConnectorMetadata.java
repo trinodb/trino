@@ -117,6 +117,26 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Returns a table handle for the specified table name and version, or {@code null} if {@code tableName} relation does not exist
+     * or is not a table (e.g. is a view, or a materialized view).
+     *
+     * @throws TrinoException implementation can throw this exception when {@code tableName} refers to a table that
+     * cannot be queried.
+     * @see #getView(ConnectorSession, SchemaTableName)
+     * @see #getMaterializedView(ConnectorSession, SchemaTableName)
+     */
+    @Nullable
+    default ConnectorTableHandle getTableHandle(
+            ConnectorSession session,
+            SchemaTableName tableName,
+            Optional<ConnectorTableVersion> startVersion,
+            Optional<ConnectorTableVersion> endVersion,
+            Map<String, Object> properties)
+    {
+        return getTableHandle(session, tableName, startVersion, endVersion);
+    }
+
+    /**
      * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
      * handle used for execution via @{link {@link ConnectorMetadata#beginTableExecute}
      * <p>
@@ -420,7 +440,7 @@ public interface ConnectorMetadata
                         return RelationCommentMetadata.forRedirectedTable(tableName);
                     }
                     try {
-                        ConnectorTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty());
+                        ConnectorTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty(), Map.of());
                         if (tableHandle == null) {
                             // disappeared during listing
                             return null;

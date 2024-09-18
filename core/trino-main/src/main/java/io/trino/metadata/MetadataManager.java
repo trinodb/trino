@@ -270,11 +270,11 @@ public final class MetadataManager
     @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table)
     {
-        return getTableHandle(session, table, Optional.empty(), Optional.empty());
+        return getTableHandle(session, table, Optional.empty(), Optional.empty(), ImmutableMap.of());
     }
 
     @Override
-    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Map<String, Object> properties)
     {
         requireNonNull(table, "table is null");
         if (cannotExist(table)) {
@@ -294,7 +294,8 @@ public final class MetadataManager
                     connectorSession,
                     table.asSchemaTableName(),
                     startTableVersion,
-                    endTableVersion);
+                    endTableVersion,
+                    properties);
             return Optional.ofNullable(tableHandle)
                     .map(connectorTableHandle -> new TableHandle(
                             catalogHandle,
@@ -1969,18 +1970,18 @@ public final class MetadataManager
     @Override
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName)
     {
-        return getRedirectionAwareTableHandle(session, tableName, Optional.empty(), Optional.empty());
+        return getRedirectionAwareTableHandle(session, tableName, Optional.empty(), Optional.empty(), ImmutableMap.of());
     }
 
     @Override
-    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Map<String, Object> properties)
     {
         QualifiedObjectName targetTableName = getRedirectedTableName(session, tableName, startVersion, endVersion);
         if (targetTableName.equals(tableName)) {
-            return noRedirection(getTableHandle(session, tableName, startVersion, endVersion));
+            return noRedirection(getTableHandle(session, tableName, startVersion, endVersion, properties));
         }
 
-        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion);
+        Optional<TableHandle> tableHandle = getTableHandle(session, targetTableName, startVersion, endVersion, properties);
         if (tableHandle.isPresent()) {
             return withRedirectionTo(targetTableName, tableHandle.get());
         }
