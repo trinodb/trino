@@ -135,6 +135,10 @@ public class FileSystemSpoolingManager
     public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
             throws IOException
     {
+        // TODO: implement SSE-C support in TrinoFileSystems
+        if (encryptionEnabled) {
+            throw new UnsupportedOperationException("Direct access not supported when encryption is enabled");
+        }
         FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
         Optional<DirectLocation> directLocation = fileSystem
                 .preSignedUri(location(fileHandle), remainingTtl(fileHandle.expirationTime()))
