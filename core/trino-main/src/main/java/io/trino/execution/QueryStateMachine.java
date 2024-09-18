@@ -53,6 +53,7 @@ import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.Type;
+import io.trino.sql.SessionPropertyResolver.SessionPropertiesApplier;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.tracing.TrinoAttributes;
@@ -245,6 +246,7 @@ public class QueryStateMachine
             PlanOptimizersStatsCollector queryStatsCollector,
             Optional<QueryType> queryType,
             boolean faultTolerantExecutionExchangeEncryptionEnabled,
+            Optional<SessionPropertiesApplier> sessionPropertiesApplier,
             NodeVersion version)
     {
         return beginWithTicker(
@@ -264,6 +266,7 @@ public class QueryStateMachine
                 queryStatsCollector,
                 queryType,
                 faultTolerantExecutionExchangeEncryptionEnabled,
+                sessionPropertiesApplier,
                 version);
     }
 
@@ -284,6 +287,7 @@ public class QueryStateMachine
             PlanOptimizersStatsCollector queryStatsCollector,
             Optional<QueryType> queryType,
             boolean faultTolerantExecutionExchangeEncryptionEnabled,
+            Optional<SessionPropertiesApplier> sessionPropertiesApplier,
             NodeVersion version)
     {
         // if there is an existing transaction, activate it
@@ -312,6 +316,11 @@ public class QueryStateMachine
 
         if (!queryType.map(SELECT::equals).orElse(false) || !isSpoolingEnabled(session)) {
             session = session.withoutSpooling();
+        }
+
+        // Apply WITH SESSION properties which require transaction to be started to resolve catalog handles
+        if (sessionPropertiesApplier.isPresent()) {
+            session = sessionPropertiesApplier.orElseThrow().apply(session);
         }
 
         Span querySpan = session.getQuerySpan();

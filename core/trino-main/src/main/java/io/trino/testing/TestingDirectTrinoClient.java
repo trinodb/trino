@@ -83,6 +83,7 @@ public class TestingDirectTrinoClient
         if (pages.isEmpty() && columnTypes == null) {
             // the query did not produce any output
             return new MaterializedResult(
+                    Optional.of(dispatchQuery.getSession()),
                     ImmutableList.of(),
                     ImmutableList.of(),
                     ImmutableList.of(),
@@ -106,6 +107,7 @@ public class TestingDirectTrinoClient
         }
 
         return new MaterializedResult(
+                Optional.of(dispatchQuery.getSession()),
                 materializedRows,
                 columnTypes,
                 columnNames,

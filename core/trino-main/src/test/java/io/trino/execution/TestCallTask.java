@@ -173,6 +173,7 @@ public class TestCallTask
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
     }
 

@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```text
-[ WITH FUNCTION udf ]
+[ WITH [ SESSION name = expression [, ...] ] [ FUNCTION udf ] ]
 [ WITH [ RECURSIVE ] with_query [, ...] ]
 SELECT [ ALL | DISTINCT ] select_expression [, ...]
 [ FROM from_item [, ...] ]
