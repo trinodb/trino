@@ -84,6 +84,7 @@ public class TestCreateCatalogTask
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
 
         this.queryRunner = queryRunner;
