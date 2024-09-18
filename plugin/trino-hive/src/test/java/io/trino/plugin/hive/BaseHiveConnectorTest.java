@@ -597,11 +597,11 @@ public abstract class BaseHiveConnectorTest
     {
         assertQueryFails(
                 "SET SESSION hive.query_partition_filter_required_schemas = ARRAY['tpch', null]",
-                "line 1:1: Invalid null or empty value in query_partition_filter_required_schemas property");
+                "line 1:60: Invalid null or empty value in query_partition_filter_required_schemas property");
 
         assertQueryFails(
                 "SET SESSION hive.query_partition_filter_required_schemas = ARRAY['tpch', '']",
-                "line 1:1: Invalid null or empty value in query_partition_filter_required_schemas property");
+                "line 1:60: Invalid null or empty value in query_partition_filter_required_schemas property");
     }
 
     @Test

@@ -190,6 +190,7 @@ public class H2QueryRunner
     public MaterializedResult execute(Session session, @Language("SQL") String sql, List<? extends Type> resultTypes)
     {
         MaterializedResult materializedRows = new MaterializedResult(
+                Optional.of(session),
                 handle.setSqlParser(new RawSqlParser())
                         .setTemplateEngine((template, context) -> template)
                         .createQuery(sql)
