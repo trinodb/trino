@@ -17,11 +17,13 @@ import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.expression.AbstractRewriteCast;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.BigintType;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.sql.Types;
 import java.util.Optional;
@@ -54,6 +56,12 @@ public class RewriteCast
         if (targetType instanceof BigintType bigintType) {
             return Optional.of(new JdbcTypeHandle(Types.BIGINT, Optional.of(bigintType.getBaseName()), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
         }
+        if (targetType instanceof VarcharType varcharType) {
+            return Optional.of(new JdbcTypeHandle(Types.VARCHAR, Optional.of(varcharType.getBaseName()), varcharType.getLength(), Optional.empty(), Optional.empty(), Optional.empty()));
+        }
+        if (targetType instanceof CharType charType) {
+            return Optional.of(new JdbcTypeHandle(Types.CHAR, Optional.of(charType.getBaseName()), Optional.of(charType.getLength()), Optional.empty(), Optional.empty(), Optional.empty()));
+        }
         return Optional.empty();
     }
 
@@ -70,6 +78,12 @@ public class RewriteCast
         }
         if (targetType instanceof BigintType) {
             return supportedSourceTypeToCastToIntegralType(sourceType);
+        }
+        if (targetType instanceof VarcharType) {
+            return supportedSourceTypeToCastToVarcharType(sourceType);
+        }
+        if (targetType instanceof CharType) {
+            return supportedSourceTypeToCastToCharType(sourceType);
         }
         return false;
     }
@@ -94,6 +108,22 @@ public class RewriteCast
                     Types.INTEGER,
                     Types.BIGINT,
                     Types.NUMERIC -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean supportedSourceTypeToCastToCharType(JdbcTypeHandle sourceType)
+    {
+        return switch (sourceType.jdbcType()) {
+            case Types.CHAR -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean supportedSourceTypeToCastToVarcharType(JdbcTypeHandle sourceType)
+    {
+        return switch (sourceType.jdbcType()) {
+            case Types.CHAR, Types.VARCHAR -> true;
             default -> false;
         };
     }

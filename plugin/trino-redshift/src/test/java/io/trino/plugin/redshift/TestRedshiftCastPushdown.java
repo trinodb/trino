@@ -43,6 +43,6 @@ public class TestRedshiftCastPushdown
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return RedshiftQueryRunner::executeInRedshift;
+        return TestingRedshiftServer::executeInRedshift;
     }
 }
