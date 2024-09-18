@@ -16,10 +16,13 @@ package io.trino.plugin.deltalake;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigHidden;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MaxDuration;
+import io.airlift.units.MinDuration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -76,6 +79,7 @@ public class DeltaLakeConfig
     private long perTransactionMetastoreCacheMaximumSize = 1000;
     private boolean storeTableMetadataEnabled;
     private int storeTableMetadataThreads = 5;
+    private Duration storeTableMetadataInterval = new Duration(1, SECONDS);
     private boolean deleteSchemaLocationsFallback;
     private String parquetTimeZone = TimeZone.getDefault().getID();
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
@@ -404,6 +408,22 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setStoreTableMetadataThreads(int storeTableMetadataThreads)
     {
         this.storeTableMetadataThreads = storeTableMetadataThreads;
+        return this;
+    }
+
+    @MinDuration("0ms")
+    @MaxDuration("1h")
+    public Duration getStoreTableMetadataInterval()
+    {
+        return storeTableMetadataInterval;
+    }
+
+    @ConfigHidden
+    @Config("delta.metastore.store-table-metadata-interval")
+    @ConfigDescription("Interval to store table metadata in metastore")
+    public DeltaLakeConfig setStoreTableMetadataInterval(Duration storeTableMetadataInterval)
+    {
+        this.storeTableMetadataInterval = storeTableMetadataInterval;
         return this;
     }
 
