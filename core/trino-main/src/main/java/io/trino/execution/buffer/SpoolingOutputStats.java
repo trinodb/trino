@@ -34,16 +34,15 @@ import static java.util.Objects.requireNonNull;
 public class SpoolingOutputStats
 {
     private final int partitionCount;
+    private final AtomicLong rowCount = new AtomicLong();
     private volatile AtomicLongArray partitionDataSizes;
     private volatile Snapshot finalSnapshot;
-    private volatile AtomicLong rowCount;
 
     public SpoolingOutputStats(int partitionCount)
     {
         checkArgument(partitionCount > 0, "partitionCount must be greater than zero");
         this.partitionCount = partitionCount;
         partitionDataSizes = new AtomicLongArray(partitionCount);
-        rowCount = new AtomicLong();
     }
 
     public void updatePartitionDataSize(int partition, long dataSizeInBytes)
@@ -56,7 +55,7 @@ public class SpoolingOutputStats
         }
     }
 
-    public void updateRowCount(int rowCount)
+    public void updateRowCount(long rowCount)
     {
         this.rowCount.addAndGet(rowCount);
     }
