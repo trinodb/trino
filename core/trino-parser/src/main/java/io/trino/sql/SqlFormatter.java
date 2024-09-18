@@ -1082,6 +1082,8 @@ public final class SqlFormatter
             builder.append("MERGE INTO ")
                     .append(formatName(node.getTargetTable().getName()));
 
+            node.getTargetTable().getBranch().ifPresent(branch -> builder.append("@").append(formatName(branch)));
+
             node.getTargetAlias().ifPresent(value -> builder
                     .append(' ')
                     .append(formatName(value)));
@@ -1467,6 +1469,8 @@ public final class SqlFormatter
         {
             builder.append("DELETE FROM ")
                     .append(formatName(node.getTable().getName()));
+
+            node.getTable().getBranch().ifPresent(branch -> builder.append("@").append(formatName(branch)));
 
             node.getWhere().ifPresent(where -> builder
                     .append(" WHERE ")
@@ -1880,6 +1884,8 @@ public final class SqlFormatter
             builder.append("INSERT INTO ")
                     .append(formatName(node.getTarget()));
 
+            node.getTable().getBranch().ifPresent(branch -> builder.append("@").append(formatName(branch)));
+
             node.getColumns().ifPresent(columns -> builder
                     .append(" (")
                     .append(Joiner.on(", ").join(columns))
@@ -1896,8 +1902,12 @@ public final class SqlFormatter
         protected Void visitUpdate(Update node, Integer indent)
         {
             builder.append("UPDATE ")
-                    .append(formatName(node.getTable().getName()))
-                    .append(" SET");
+                    .append(formatName(node.getTable().getName()));
+
+            node.getTable().getBranch().ifPresent(branch -> builder.append("@").append(formatName(branch)));
+
+            builder.append(" SET");
+
             int setCounter = node.getAssignments().size() - 1;
             for (UpdateAssignment assignment : node.getAssignments()) {
                 builder.append("\n")

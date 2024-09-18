@@ -1516,20 +1516,20 @@ public class TracingMetadata
     }
 
     @Override
-    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Optional<String> branch)
     {
         Span span = startSpan("getRedirectionAwareTableHandle", tableName);
         try (var _ = scopedSpan(span)) {
-            return delegate.getRedirectionAwareTableHandle(session, tableName, startVersion, endVersion);
+            return delegate.getRedirectionAwareTableHandle(session, tableName, startVersion, endVersion, branch);
         }
     }
 
     @Override
-    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Optional<String> branch)
     {
         Span span = startSpan("getTableHandle", tableName);
         try (var _ = scopedSpan(span)) {
-            return delegate.getTableHandle(session, tableName, startVersion, endVersion);
+            return delegate.getTableHandle(session, tableName, startVersion, endVersion, branch);
         }
     }
 
