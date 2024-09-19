@@ -184,7 +184,8 @@ public class Console
                         query,
                         clientOptions.outputFormat,
                         clientOptions.ignoreErrors,
-                        clientOptions.progress.orElse(false));
+                        clientOptions.progress.orElse(false),
+                        clientOptions.decimalDataSize);
             }
 
             Optional<String> pager = clientOptions.pager;
@@ -196,7 +197,8 @@ public class Console
                     getHistoryFile(clientOptions.historyFile),
                     pager,
                     clientOptions.progress.orElse(true),
-                    clientOptions.disableAutoSuggestion);
+                    clientOptions.disableAutoSuggestion,
+                    clientOptions.decimalDataSize);
             return true;
         }
         finally {
@@ -223,7 +225,8 @@ public class Console
             Optional<Path> historyFile,
             Optional<String> pager,
             boolean progress,
-            boolean disableAutoSuggestion)
+            boolean disableAutoSuggestion,
+            boolean decimalDataSize)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
                 InputReader reader = new InputReader(editingMode, historyFile, disableAutoSuggestion, commandCompleter(), tableNameCompleter)) {
@@ -290,7 +293,7 @@ public class Console
                         currentOutputFormat = OutputFormat.VERTICAL;
                     }
 
-                    process(queryRunner, split.statement(), currentOutputFormat, tableNameCompleter::populateCache, pager, progress, reader.getTerminal(), System.out, System.out);
+                    process(queryRunner, split.statement(), currentOutputFormat, tableNameCompleter::populateCache, pager, progress, decimalDataSize, reader.getTerminal(), System.out, System.out);
                 }
 
                 // replace remaining with trailing partial statement
@@ -308,13 +311,14 @@ public class Console
             String query,
             OutputFormat outputFormat,
             boolean ignoreErrors,
-            boolean showProgress)
+            boolean showProgress,
+            boolean decimalDataSize)
     {
         boolean success = true;
         StatementSplitter splitter = new StatementSplitter(query);
         for (Statement split : splitter.getCompleteStatements()) {
             if (!isEmptyStatement(split.statement())) {
-                if (!process(queryRunner, split.statement(), outputFormat, () -> {}, Optional.of(""), showProgress, getTerminal(), System.out, System.err)) {
+                if (!process(queryRunner, split.statement(), outputFormat, () -> {}, Optional.of(""), showProgress, decimalDataSize, getTerminal(), System.out, System.err)) {
                     if (!ignoreErrors) {
                         return false;
                     }
@@ -339,6 +343,7 @@ public class Console
             Runnable schemaChanged,
             Optional<String> pager,
             boolean showProgress,
+            boolean decimalDataSize,
             Terminal terminal,
             PrintStream out,
             PrintStream errorChannel)
@@ -360,7 +365,7 @@ public class Console
         }
 
         try (Query query = queryRunner.startQuery(finalSql)) {
-            boolean success = query.renderOutput(terminal, out, errorChannel, outputFormat, pager, showProgress);
+            boolean success = query.renderOutput(terminal, out, errorChannel, outputFormat, pager, showProgress, decimalDataSize);
 
             ClientSession session = queryRunner.getSession();
 
