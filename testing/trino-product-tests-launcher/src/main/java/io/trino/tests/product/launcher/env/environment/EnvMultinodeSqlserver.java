@@ -60,7 +60,8 @@ public final class EnvMultinodeSqlserver
                 .withEnv("ACCEPT_EULA", "Y")
                 .withEnv("SA_PASSWORD", "SQLServerPass1")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(forSelectedPorts(SQLSERVER_PORT));
+                .waitingFor(forSelectedPorts(SQLSERVER_PORT))
+                .withPrivilegedMode(true);
 
         portBinder.exposePort(container, 1433);
 

@@ -140,6 +140,7 @@ public final class TestingSqlServer
         // TLS and certificate validation are on by default, and need
         // to be disabled for tests.
         container.withUrlParam("encrypt", "false");
+        container.withPrivilegedMode(true);
 
         try {
             Closeable cleanup = startOrReuse(container);
