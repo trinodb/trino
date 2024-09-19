@@ -42,6 +42,13 @@ system support:
   - Maximum number of concurrent write operations. Defaults to 8.
 * - `azure.max-single-upload-size`
   - [Data size](prop-type-data-size) Defaults to `4MB`.
+* - `azure.max-http-requests`
+  - Maximum [integer](prop-type-integer) number of concurrent HTTP requests to
+    Azure on every node. Defaults to double the number of processors on the
+    node. Minimum `1`. Use this property to reduce the number of connections
+    when you observe too many connections from your Trino cluster nodes to
+    Azure Storage and encounter rate limiting issues.
+
 :::
 
 (azure-access-key-authentication)=
