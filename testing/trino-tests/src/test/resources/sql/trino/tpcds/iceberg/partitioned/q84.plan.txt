@@ -1,0 +1,29 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, SINGLE, [])
+            local exchange (REPARTITION, ROUND_ROBIN, [])
+                join (INNER, PARTITIONED):
+                    remote exchange (REPARTITION, HASH, [c_current_cdemo_sk])
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        dynamic filter (c_current_addr_sk::EQUAL, c_current_cdemo_sk::EQUAL, c_current_cdemo_sk::EQUAL, c_current_hdemo_sk::EQUAL)
+                                            scan customer
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan customer_address
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            dynamic filter (cd_demo_sk::EQUAL)
+                                                scan customer_demographics
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        dynamic filter (hd_income_band_sk::EQUAL)
+                                            scan household_demographics
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan income_band
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, [sr_cdemo_sk])
+                            scan store_returns
