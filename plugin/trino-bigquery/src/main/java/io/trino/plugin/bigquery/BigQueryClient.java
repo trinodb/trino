@@ -107,8 +107,8 @@ public class BigQueryClient
     private final ViewMaterializationCache materializationCache;
     private final boolean caseInsensitiveNameMatching;
     private final LoadingCache<String, List<DatasetId>> remoteDatasetIdCache;
-    private final Cache<String, Map<String, RemoteDatabaseObject>> remoteDatasetCaseInsentiveCache;
-    private final Cache<DatasetId, Map<TableId, RemoteDatabaseObject>> remoteTableCaseInsentiveCache;
+    private final Cache<String, Map<String, RemoteDatabaseObject>> remoteDatasetCaseInsensitiveCache;
+    private final Cache<DatasetId, Map<TableId, RemoteDatabaseObject>> remoteTableCaseInsensitiveCache;
     private final Optional<String> configProjectId;
 
     public BigQueryClient(
@@ -130,8 +130,8 @@ public class BigQueryClient
                 .expireAfterWrite(metadataCacheTtl.toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build(CacheLoader.from(this::listDatasetIdsFromBigQuery));
-        this.remoteDatasetCaseInsentiveCache = buildCache(caseInsensitiveNameMatchingCacheTtl);
-        this.remoteTableCaseInsentiveCache = buildCache(caseInsensitiveNameMatchingCacheTtl);
+        this.remoteDatasetCaseInsensitiveCache = buildCache(caseInsensitiveNameMatchingCacheTtl);
+        this.remoteTableCaseInsensitiveCache = buildCache(caseInsensitiveNameMatchingCacheTtl);
         this.configProjectId = requireNonNull(configProjectId, "projectId is null");
     }
 
@@ -163,7 +163,7 @@ public class BigQueryClient
         }
 
         try {
-            Map<String, RemoteDatabaseObject> datasetMap = remoteDatasetCaseInsentiveCache.get(projectId, () -> {
+            Map<String, RemoteDatabaseObject> datasetMap = remoteDatasetCaseInsensitiveCache.get(projectId, () -> {
                 Map<String, RemoteDatabaseObject> mapping = new HashMap<>();
                 for (DatasetId dataset : datasetIds.get()) {
                     mapping.merge(
@@ -204,7 +204,7 @@ public class BigQueryClient
         TableId cacheKey = TableId.of(projectId, remoteDatasetName, tableName);
         DatasetId datasetId = DatasetId.of(projectId, remoteDatasetName);
         try {
-            Map<TableId, RemoteDatabaseObject> tableMap = remoteTableCaseInsentiveCache.get(datasetId, () -> {
+            Map<TableId, RemoteDatabaseObject> tableMap = remoteTableCaseInsensitiveCache.get(datasetId, () -> {
                 Map<TableId, RemoteDatabaseObject> mapping = new HashMap<>();
                 for (TableId table : tableIds.get()) {
                     mapping.merge(
@@ -350,7 +350,7 @@ public class BigQueryClient
     {
         bigQuery.create(datasetInfo);
         remoteDatasetIdCache.invalidate(datasetInfo.getDatasetId().getProject());
-        remoteDatasetCaseInsentiveCache.invalidate(datasetInfo.getDatasetId().getProject());
+        remoteDatasetCaseInsensitiveCache.invalidate(datasetInfo.getDatasetId().getProject());
     }
 
     public void dropSchema(DatasetId datasetId, boolean cascade)
@@ -362,19 +362,19 @@ public class BigQueryClient
             bigQuery.delete(datasetId);
         }
         remoteDatasetIdCache.invalidate(datasetId.getProject());
-        remoteDatasetCaseInsentiveCache.invalidate(datasetId.getProject());
+        remoteDatasetCaseInsensitiveCache.invalidate(datasetId.getProject());
     }
 
     public void createTable(TableInfo tableInfo)
     {
         bigQuery.create(tableInfo);
-        remoteTableCaseInsentiveCache.invalidate(DatasetId.of(tableInfo.getTableId().getProject(), tableInfo.getTableId().getDataset()));
+        remoteTableCaseInsensitiveCache.invalidate(DatasetId.of(tableInfo.getTableId().getProject(), tableInfo.getTableId().getDataset()));
     }
 
     public void dropTable(TableId tableId)
     {
         bigQuery.delete(tableId);
-        remoteTableCaseInsentiveCache.invalidate(DatasetId.of(tableId.getProject(), tableId.getDataset()));
+        remoteTableCaseInsensitiveCache.invalidate(DatasetId.of(tableId.getProject(), tableId.getDataset()));
     }
 
     Job create(JobInfo jobInfo)
