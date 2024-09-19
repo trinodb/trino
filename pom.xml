@@ -156,7 +156,7 @@
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
-        <air.java.version>23.0.0</air.java.version>
+        <air.java.version>23</air.java.version>
         <air.javadoc.lint>syntax,reference,html,-missing</air.javadoc.lint>
         <air.modernizer.java-version>8</air.modernizer.java-version>
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
@@ -176,8 +176,6 @@
             <!-- # Allow loading dynamic agent used by JOL -->
             -XX:+EnableDynamicAgentLoading
             ${extraJavaVectorArgs}
-            <!-- # https://bugs.openjdk.org/browse/JDK-8327134 -->
-            -Djava.security.manager=allow
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
