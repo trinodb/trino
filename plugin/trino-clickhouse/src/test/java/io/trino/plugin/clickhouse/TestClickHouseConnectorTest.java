@@ -823,6 +823,52 @@ public class TestClickHouseConnectorTest
     }
 
     @Test
+    public void testFloatPredicatePushdown()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_float_predicate_pushdown",
+                """
+                        (
+                        c_real real,
+                        c_real_neg_infinity real,
+                        c_real_pos_infinity real,
+                        c_real_nan real,
+                        c_double double,
+                        c_double_neg_infinity double,
+                        c_double_pos_infinity double,
+                        c_double_nan double)""",
+                List.of("3.14, -infinity(), +infinity(), nan(), 3.14, -infinity(), +infinity(), nan()"))) {
+            assertThat(query("SELECT c_real FROM %s WHERE c_real = real '3.14'".formatted(table.getName())))
+                    // because of https://github.com/trinodb/trino/issues/9998
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query("SELECT c_real FROM %s WHERE c_real_neg_infinity = -infinity()".formatted(table.getName())))
+                    // because of https://github.com/trinodb/trino/issues/9998
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query("SELECT c_real FROM %s WHERE c_real_pos_infinity = +infinity()".formatted(table.getName())))
+                    // because of https://github.com/trinodb/trino/issues/9998
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query("SELECT c_real FROM %s WHERE c_real_nan = nan()".formatted(table.getName())))
+                    .isReplacedWithEmptyValues();
+
+            assertThat(query("SELECT c_real FROM %s WHERE c_double = double '3.14'".formatted(table.getName())))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT c_real FROM %s WHERE c_double_neg_infinity = -infinity()".formatted(table.getName())))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT c_real FROM %s WHERE c_double_pos_infinity = +infinity()".formatted(table.getName())))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT c_real FROM %s WHERE c_double_nan = nan()".formatted(table.getName())))
+                    .isReplacedWithEmptyValues();
+        }
+    }
+
+    @Test
     public void testTextualPredicatePushdown()
     {
         // varchar equality
