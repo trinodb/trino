@@ -382,6 +382,7 @@ public class TestClientOptions
             case "ignoreErrors":
             case "editingMode":
             case "disableAutoSuggestion":
+            case "decimalDataSize":
                 return true;
         }
 
