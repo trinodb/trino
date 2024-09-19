@@ -61,7 +61,3 @@ RUN mkdir -p /tmp \
 
 USER ${USER_UID}
 WORKDIR /home/${USERNAME}
-
-ENV M2_HOME=/opt/maven
-ENV MAVEN_HOME=/opt/maven
-ENV PATH=${M2_HOME}/bin:${PATH}
