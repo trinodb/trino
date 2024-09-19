@@ -730,6 +730,35 @@ public class TestRedshiftConnectorTest
         }
     }
 
+    @Test
+    public void testLpadPushdown()
+    {
+        try (TestTable leftTable = new TestTable(
+                getQueryRunner()::execute,
+                "left_table_",
+                "(c_varchar_50 varchar(50))",
+                ImmutableList.of("('Value')", "('Valuea')"));
+                TestTable rightTable = new TestTable(
+                        getQueryRunner()::execute,
+                        "right_table_",
+                        "(c_varchar varchar)",
+                        ImmutableList.of("('aaaValue')", "('aaaValuea')"))) {
+            Session session = joinPushdownEnabled(getSession());
+
+            String joinConditionWithLpad = "SELECT * FROM %s l %s %s r ON lpad(l.c_varchar_50, 8, 'aaa') = r.c_varchar".formatted(leftTable.getName(), "%s", rightTable.getName());
+            assertThat(query(session, joinConditionWithLpad.formatted("LEFT JOIN")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinConditionWithLpad.formatted("RIGHT JOIN")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinConditionWithLpad.formatted("INNER JOIN")))
+                    .isFullyPushedDown();
+
+            assertThat(query(session, "SELECT *, lpad(c_varchar_50, 20, 'aaa') FROM " + leftTable.getName()))
+                    .isFullyPushedDown();
+
+        }
+    }
+
     @Override
     protected Session joinPushdownEnabled(Session session)
     {
