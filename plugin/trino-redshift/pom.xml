@@ -263,6 +263,7 @@
                                 <!-- locations of GitHub runners which can lead to increased client latency on the -->
                                 <!-- JDBC operations performed on the ephemeral AWS Redshift cluster.  -->
                                 <include>**/TestRedshiftConnectorSmokeTest.java</include>
+                                <include>**/TestRedshiftConnectorTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
