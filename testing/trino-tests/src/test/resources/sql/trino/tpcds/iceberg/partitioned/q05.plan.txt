@@ -1,0 +1,66 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, SINGLE, [])
+            local exchange (REPARTITION, ROUND_ROBIN, [])
+                final aggregation over (channel_gid, groupid, id_gid)
+                    local exchange (REPARTITION, HASH, [channel_gid, groupid, id_gid])
+                        remote exchange (REPARTITION, HASH, [channel_gid, groupid, id_gid])
+                            partial aggregation over (channel_gid, groupid, id_gid)
+                                local exchange (REPARTITION, ROUND_ROBIN, [])
+                                    final aggregation over (s_store_id)
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, [s_store_id])
+                                                partial aggregation over (s_store_id)
+                                                    join (INNER, REPLICATED):
+                                                        join (INNER, REPLICATED):
+                                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                dynamic filter (ss_sold_date_sk::EQUAL, ss_store_sk::EQUAL)
+                                                                    scan store_sales
+                                                                dynamic filter (sr_returned_date_sk::EQUAL, sr_store_sk::EQUAL)
+                                                                    scan store_returns
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    scan date_dim
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                scan store
+                                    final aggregation over (cp_catalog_page_id)
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, [cp_catalog_page_id])
+                                                partial aggregation over (cp_catalog_page_id)
+                                                    join (INNER, REPLICATED):
+                                                        join (INNER, REPLICATED):
+                                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                dynamic filter (cs_catalog_page_sk::EQUAL, cs_sold_date_sk::EQUAL)
+                                                                    scan catalog_sales
+                                                                dynamic filter (cr_catalog_page_sk::EQUAL, cr_returned_date_sk::EQUAL)
+                                                                    scan catalog_returns
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    scan date_dim
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                scan catalog_page
+                                    final aggregation over (web_site_id)
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, [web_site_id])
+                                                partial aggregation over (web_site_id)
+                                                    join (INNER, REPLICATED):
+                                                        join (INNER, REPLICATED):
+                                                            remote exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                dynamic filter (ws_sold_date_sk::EQUAL, ws_web_site_sk::EQUAL)
+                                                                    scan web_sales
+                                                                join (INNER, PARTITIONED):
+                                                                    remote exchange (REPARTITION, HASH, [ws_item_sk_82, ws_order_number_96])
+                                                                        dynamic filter (ws_item_sk_82::EQUAL, ws_order_number_96::EQUAL, ws_web_site_sk_92::EQUAL)
+                                                                            scan web_sales
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPARTITION, HASH, [wr_item_sk, wr_order_number])
+                                                                            dynamic filter (wr_returned_date_sk::EQUAL)
+                                                                                scan web_returns
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    scan date_dim
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                scan web_site
