@@ -1529,7 +1529,8 @@ class AstBuilder
     @Override
     public Node visitSetSession(SqlBaseParser.SetSessionContext context)
     {
-        return new SetSession(getLocation(context), getQualifiedName(context.qualifiedName()), (Expression) visit(context.expression()));
+        SessionProperty sessionProperty = (SessionProperty) visit(context.sessionProperty());
+        return new SetSession(getLocation(context), sessionProperty.getName(), sessionProperty.getValue());
     }
 
     @Override

@@ -178,7 +178,7 @@ statement
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showSession
     | SET SESSION AUTHORIZATION authorizationUser                      #setSessionAuthorization
     | RESET SESSION AUTHORIZATION                                      #resetSessionAuthorization
-    | SET SESSION qualifiedName EQ expression                          #setSession
+    | SET SESSION sessionProperty                                      #setSession
     | RESET SESSION qualifiedName                                      #resetSession
     | START TRANSACTION (transactionMode (',' transactionMode)*)?      #startTransaction
     | COMMIT WORK?                                                     #commit
