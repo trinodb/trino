@@ -137,7 +137,7 @@ import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
-import io.trino.sql.tree.SessionSpecification;
+import io.trino.sql.tree.SessionProperty;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
@@ -646,7 +646,7 @@ public final class SqlFormatter
                 if (!node.getSessionProperties().isEmpty()) {
                     append(indent + 1, "SESSION\n");
                 }
-                Iterator<SessionSpecification> sessionProperties = node.getSessionProperties().iterator();
+                Iterator<SessionProperty> sessionProperties = node.getSessionProperties().iterator();
                 while (sessionProperties.hasNext()) {
                     process(sessionProperties.next(), indent + 2);
                     if (sessionProperties.hasNext()) {
@@ -2314,7 +2314,7 @@ public final class SqlFormatter
         }
 
         @Override
-        protected Void visitSessionSpecification(SessionSpecification node, Integer indent)
+        protected Void visitSessionProperty(SessionProperty node, Integer indent)
         {
             append(indent, "")
                     .append(formatName(node.getName()))

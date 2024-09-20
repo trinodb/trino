@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 public class Query
         extends Statement
 {
-    private final List<SessionSpecification> sessionProperties;
+    private final List<SessionProperty> sessionProperties;
     private final List<FunctionSpecification> functions;
     private final Optional<With> with;
     private final QueryBody queryBody;
@@ -35,7 +35,7 @@ public class Query
     private final Optional<Node> limit;
 
     public Query(
-            List<SessionSpecification> sessionProperties,
+            List<SessionProperty> sessionProperties,
             List<FunctionSpecification> functions,
             Optional<With> with,
             QueryBody queryBody,
@@ -48,7 +48,7 @@ public class Query
 
     public Query(
             NodeLocation location,
-            List<SessionSpecification> sessionProperties,
+            List<SessionProperty> sessionProperties,
             List<FunctionSpecification> functions,
             Optional<With> with,
             QueryBody queryBody,
@@ -61,7 +61,7 @@ public class Query
 
     private Query(
             Optional<NodeLocation> location,
-            List<SessionSpecification> sessionProperties,
+            List<SessionProperty> sessionProperties,
             List<FunctionSpecification> functions,
             Optional<With> with,
             QueryBody queryBody,
@@ -88,7 +88,7 @@ public class Query
         this.limit = limit;
     }
 
-    public List<SessionSpecification> getSessionProperties()
+    public List<SessionProperty> getSessionProperties()
     {
         return sessionProperties;
     }

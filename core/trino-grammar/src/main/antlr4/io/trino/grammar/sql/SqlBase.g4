@@ -203,18 +203,14 @@ rootQuery
     ;
 
 queryScoped
-    : WITH (SESSION withSession)? withFunction?
+    : WITH (SESSION sessionProperty (',' sessionProperty)*)? withFunction?
     ;
 
 withFunction
     : functionSpecification (',' functionSpecification)*
     ;
 
-withSession
-    : sessionSpecification (',' sessionSpecification)*
-    ;
-
-sessionSpecification
+sessionProperty
     : qualifiedName EQ expression
     ;
 

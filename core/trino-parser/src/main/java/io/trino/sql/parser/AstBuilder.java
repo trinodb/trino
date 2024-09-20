@@ -238,7 +238,7 @@ import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
-import io.trino.sql.tree.SessionSpecification;
+import io.trino.sql.tree.SessionProperty;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
@@ -1099,9 +1099,8 @@ class AstBuilder
         return new Query(
                 getLocation(context),
                 Optional.ofNullable(context.queryScoped())
-                        .map(SqlBaseParser.QueryScopedContext::withSession)
-                        .map(SqlBaseParser.WithSessionContext::sessionSpecification)
-                        .map(contexts -> visit(contexts, SessionSpecification.class))
+                        .map(SqlBaseParser.QueryScopedContext::sessionProperty)
+                        .map(contexts -> visit(contexts, SessionProperty.class))
                         .orElseGet(ImmutableList::of),
                 Optional.ofNullable(context.queryScoped())
                         .map(SqlBaseParser.QueryScopedContext::withFunction)
@@ -3733,9 +3732,9 @@ class AstBuilder
     }
 
     @Override
-    public Node visitSessionSpecification(SqlBaseParser.SessionSpecificationContext context)
+    public Node visitSessionProperty(SqlBaseParser.SessionPropertyContext context)
     {
-        return new SessionSpecification(
+        return new SessionProperty(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (Expression) visit(context.expression()));

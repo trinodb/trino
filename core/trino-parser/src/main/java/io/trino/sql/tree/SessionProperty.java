@@ -22,13 +22,13 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class SessionSpecification
+public class SessionProperty
         extends Node
 {
     private final QualifiedName name;
     private final Expression value;
 
-    public SessionSpecification(NodeLocation location, QualifiedName name, Expression value)
+    public SessionProperty(NodeLocation location, QualifiedName name, Expression value)
     {
         super(Optional.of(location));
         this.name = requireNonNull(name, "name is null");
@@ -48,13 +48,13 @@ public class SessionSpecification
     @Override
     public List<? extends Node> getChildren()
     {
-        return ImmutableList.of();
+        return ImmutableList.of(value);
     }
 
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
-        return visitor.visitSessionSpecification(this, context);
+        return visitor.visitSessionProperty(this, context);
     }
 
     @Override
@@ -66,7 +66,7 @@ public class SessionSpecification
     @Override
     public boolean equals(Object obj)
     {
-        return (obj instanceof SessionSpecification other) &&
+        return (obj instanceof SessionProperty other) &&
                 Objects.equals(name, other.name) &&
                 Objects.equals(value, other.value);
     }

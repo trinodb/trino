@@ -174,7 +174,7 @@ import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
-import io.trino.sql.tree.SessionSpecification;
+import io.trino.sql.tree.SessionProperty;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
@@ -6460,7 +6460,7 @@ public class TestSqlParser
     }
 
     @Test
-    public void testSessionSpecification()
+    public void testSessionProperty()
     {
         AssertProvider<ParserAssert> statement = statement("""
                 WITH SESSION
@@ -6473,11 +6473,11 @@ public class TestSqlParser
                 .isEqualTo(new Query(
                         location(1, 1),
                         ImmutableList.of(
-                                new SessionSpecification(
+                                new SessionProperty(
                                         location(2, 4),
                                         QualifiedName.of(ImmutableList.of(new Identifier(location(2, 4), "key", false))),
                                         new StringLiteral(location(2, 10), "value")),
-                                new SessionSpecification(
+                                new SessionProperty(
                                         location(3, 4),
                                         QualifiedName.of(ImmutableList.of(new Identifier(location(3, 4), "catalog", false), new Identifier(location(3, 12), "key2", false))),
                                         new DecimalLiteral(location(3, 19), "10.0"))),
@@ -6514,7 +6514,7 @@ public class TestSqlParser
                 .isEqualTo(new Query(
                         location(1, 1),
                         ImmutableList.of(
-                                new SessionSpecification(
+                                new SessionProperty(
                                         location(2, 12),
                                         QualifiedName.of(ImmutableList.of(new Identifier(location(2, 12), "key", false))),
                                         new StringLiteral(location(2, 18), "value"))),
