@@ -148,7 +148,7 @@ public class OutputSpoolingOperatorFactory
         private final QueryDataEncoder queryDataEncoder;
         private final SpoolingManager spoolingManager;
         private final Map<Symbol, Integer> layout;
-        private final PageBuffer buffer = PageBuffer.create();
+        private final PageBuffer buffer;
         private final Block[] emptyBlocks;
 
         private final OperationTiming encodingTiming = new OperationTiming();
@@ -169,6 +169,7 @@ public class OutputSpoolingOperatorFactory
             this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
             this.layout = requireNonNull(layout, "layout is null");
             this.emptyBlocks = emptyBlocks(layout);
+            this.buffer = PageBuffer.create(userMemoryContext);
 
             operatorContext.setInfoSupplier(new OutputSpoolingInfoSupplier(encodingTiming, spoolingTiming, controller));
         }
@@ -260,7 +261,6 @@ public class OutputSpoolingOperatorFactory
                 controller.recordSpooled(rows, size); // final buffer
             }
 
-            userMemoryContext.setBytes(controller.getCurrentSpooledSegmentTarget()); // Track allocated memory
             try (ByteArrayOutputStream bufferedOutput = new ByteArrayOutputStream(toIntExact(controller.getCurrentSpooledSegmentTarget()))) {
                 OperationTimer encodingTimer = new OperationTimer(true);
                 DataAttributes attributes = queryDataEncoder.encodeTo(bufferedOutput, pages)
@@ -269,7 +269,6 @@ public class OutputSpoolingOperatorFactory
                         .build();
                 encodingTimer.end(encodingTiming);
 
-                userMemoryContext.setBytes(bufferedOutput.size()); // Update memory to actual segment size
                 SpooledSegmentHandle segmentHandle = spoolingManager.create(new SpoolingContext(
                         queryDataEncoder.encoding(),
                         operatorContext.getDriverContext().getSession().getQueryId(),
@@ -316,25 +315,34 @@ public class OutputSpoolingOperatorFactory
 
             return blocks;
         }
+
+        @Override
+        public void close()
+                throws Exception
+        {
+            userMemoryContext.close();
+        }
     }
 
     private static class PageBuffer
     {
-        private final List<Page> buffer;
+        private final List<Page> buffer = new ArrayList<>();
+        private final LocalMemoryContext memoryContext;
 
-        private PageBuffer(List<Page> buffer)
+        private PageBuffer(LocalMemoryContext memoryContext)
         {
-            this.buffer = requireNonNull(buffer, "buffer is null");
+            this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         }
 
-        public static PageBuffer create()
+        public static PageBuffer create(LocalMemoryContext memoryContext)
         {
-            return new PageBuffer(new ArrayList<>());
+            return new PageBuffer(memoryContext);
         }
 
         public void add(Page page)
         {
             buffer.add(page);
+            memoryContext.setBytes(memoryContext.getBytes() + page.getRetainedSizeInBytes());
         }
 
         public boolean isEmpty()
@@ -348,6 +356,7 @@ public class OutputSpoolingOperatorFactory
             synchronized (buffer) {
                 pages = ImmutableList.copyOf(buffer);
                 buffer.clear();
+                memoryContext.setBytes(0);
             }
             return pages;
         }
