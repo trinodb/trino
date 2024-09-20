@@ -39,6 +39,7 @@ import io.trino.plugin.iceberg.procedure.ExpireSnapshotsTableProcedure;
 import io.trino.plugin.iceberg.procedure.OptimizeTableProcedure;
 import io.trino.plugin.iceberg.procedure.RegisterTableProcedure;
 import io.trino.plugin.iceberg.procedure.RemoveOrphanFilesTableProcedure;
+import io.trino.plugin.iceberg.procedure.RollbackToSnapshotProcedure;
 import io.trino.plugin.iceberg.procedure.UnregisterTableProcedure;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
