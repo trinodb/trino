@@ -5,7 +5,7 @@
     "build": {
         "dockerfile": "Dockerfile",
         "args": {
-            "BASE_IMAGE_TAG": "452_cccs-main_20240801135810_b10708"
+            "BASE_IMAGE_TAG": "452_cccs-main_20240920131647_b10980"
         }
     },
     "runArgs": [
