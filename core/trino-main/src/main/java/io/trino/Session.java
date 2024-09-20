@@ -59,7 +59,6 @@ import static io.trino.SystemSessionProperties.TIME_ZONE_ID;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
-import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.sql.SqlPath.EMPTY_PATH;
 import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
@@ -435,6 +434,7 @@ public final class Session
                 schema,
                 path,
                 traceToken,
+                // This is required to override a timezone using a WITH SESSION timezone
                 Optional.ofNullable(systemProperties.get(TIME_ZONE_ID))
                         .map(TimeZoneKey::getTimeZoneKey)
                         .orElse(timeZoneKey),

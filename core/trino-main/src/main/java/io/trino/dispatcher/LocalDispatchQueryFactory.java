@@ -38,7 +38,7 @@ import io.trino.security.AccessControl;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-import io.trino.sql.SessionSpecificationEvaluator;
+import io.trino.sql.SessionPropertyInterpreter;
 import io.trino.sql.tree.Statement;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
@@ -60,7 +60,7 @@ public class LocalDispatchQueryFactory
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
-    private final SessionSpecificationEvaluator sessionSpecificationEvaluator;
+    private final SessionPropertyInterpreter sessionPropertyInterpreter;
     private final QueryMonitor queryMonitor;
     private final LocationFactory locationFactory;
 
@@ -79,7 +79,7 @@ public class LocalDispatchQueryFactory
             QueryManager queryManager,
             QueryManagerConfig queryManagerConfig,
             TransactionManager transactionManager,
-            SessionSpecificationEvaluator sessionSpecificationEvaluator,
+            SessionPropertyInterpreter sessionPropertyInterpreter,
             AccessControl accessControl,
             Metadata metadata,
             QueryMonitor queryMonitor,
@@ -95,7 +95,7 @@ public class LocalDispatchQueryFactory
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.sessionSpecificationEvaluator = requireNonNull(sessionSpecificationEvaluator, "sessionSpecificationEvaluator is null");
+        this.sessionPropertyInterpreter = requireNonNull(sessionPropertyInterpreter, "sessionPropertyInterpreter is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
@@ -136,7 +136,7 @@ public class LocalDispatchQueryFactory
                 planOptimizersStatsCollector,
                 getQueryType(preparedQuery.getStatement()),
                 faultTolerantExecutionExchangeEncryptionEnabled,
-                Optional.of(sessionSpecificationEvaluator.getSessionSpecificationApplier(preparedQuery)),
+                Optional.of(sessionPropertyInterpreter.getSessionPropertiesApplier(preparedQuery)),
                 version);
 
         // It is important that `queryCreatedEvent` is called here. Moving it past the `executor.submit` below

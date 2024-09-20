@@ -32,7 +32,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.SessionSpecificationEvaluator;
+import io.trino.sql.SessionPropertyInterpreter;
 import io.trino.sql.parser.SqlParser;
 import io.trino.transaction.TestingTransactionManager;
 import io.trino.transaction.TransactionManager;
@@ -55,7 +55,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-final class TestSessionSpecifications
+final class TestSessionProperties
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final SessionPropertyManager SESSION_PROPERTY_MANAGER = new SessionPropertyManager(
@@ -117,9 +117,9 @@ final class TestSessionSpecifications
 
         return transaction(transactionManager, plannerContext.getMetadata(), new AllowAllAccessControl())
                 .execute(testSession(), transactionSession -> {
-                    SessionSpecificationEvaluator evaluator = new SessionSpecificationEvaluator(plannerContext, new AllowAllAccessControl(), SESSION_PROPERTY_MANAGER);
+                    SessionPropertyInterpreter evaluator = new SessionPropertyInterpreter(plannerContext, new AllowAllAccessControl(), SESSION_PROPERTY_MANAGER);
                     QueryPreparer.PreparedQuery preparedQuery = new QueryPreparer.PreparedQuery(SQL_PARSER.createStatement(statement), ImmutableList.of(), Optional.empty());
-                    return evaluator.getSessionSpecificationApplier(preparedQuery).apply(transactionSession);
+                    return evaluator.getSessionPropertiesApplier(preparedQuery).apply(transactionSession);
                 });
     }
 
