@@ -13,7 +13,11 @@
  */
 package io.trino.testing;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.errorprone.annotations.DoNotCall;
 import io.trino.client.JsonCodec;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
@@ -33,6 +37,7 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +45,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.client.JsonCodec.jsonCodec;
@@ -77,7 +83,7 @@ public class LocalSpoolingManager
             throws IOException
     {
         LocalSpooledSegmentHandle localHandle = (LocalSpooledSegmentHandle) handle;
-        return Files.newOutputStream(localHandle.path(), CREATE_NEW);
+        return Files.newOutputStream(localHandle.getPath(), CREATE_NEW);
     }
 
     @Override
@@ -85,10 +91,10 @@ public class LocalSpoolingManager
             throws IOException
     {
         LocalSpooledSegmentHandle localHandle = (LocalSpooledSegmentHandle) handle;
-        if (!Files.exists(localHandle.path())) {
+        if (!Files.exists(localHandle.getPath())) {
             throw new IOException("Segment not found or expired");
         }
-        return Files.newInputStream(localHandle.path());
+        return Files.newInputStream(localHandle.getPath());
     }
 
     @Override
@@ -117,11 +123,11 @@ public class LocalSpoolingManager
             throws IOException
     {
         LocalSpooledSegmentHandle localHandle = (LocalSpooledSegmentHandle) handle;
-        if (!Files.exists(localHandle.path())) {
+        if (!Files.exists(localHandle.getPath())) {
             throw new IOException("Segment not found or expired");
         }
 
-        Files.delete(localHandle.path());
+        Files.delete(localHandle.getPath());
     }
 
     @Override
@@ -167,26 +173,78 @@ public class LocalSpoolingManager
         }
     }
 
-    public record LocalSpooledSegmentHandle(@Override String encoding, @Override QueryId queryId, Path path)
+    public static class LocalSpooledSegmentHandle
             implements SpooledSegmentHandle
     {
-        public LocalSpooledSegmentHandle
+        private final String encoding;
+        private final QueryId queryId;
+        private final Path path;
+
+        public LocalSpooledSegmentHandle(String encoding, QueryId queryId, Path path)
         {
-            requireNonNull(encoding, "encoding is null");
-            requireNonNull(queryId, "queryId is null");
-            requireNonNull(path, "path is null");
+            this.encoding = requireNonNull(encoding, "encoding is null");
+            this.queryId = requireNonNull(queryId, "queryId is null");
+            this.path = requireNonNull(path, "path is null");
         }
 
+        @JsonIgnore
         @Override
         public Instant expirationTime()
         {
             return Instant.MAX;
         }
 
+        @JsonProperty
+        @Override
+        public QueryId queryId()
+        {
+            return queryId;
+        }
+
+        @JsonIgnore
         @Override
         public String identifier()
         {
             return path.getFileName().toString();
+        }
+
+        @JsonProperty
+        @Override
+        public String encoding()
+        {
+            return encoding;
+        }
+
+        @JsonIgnore
+        public Path getPath()
+        {
+            return path;
+        }
+
+        @JsonProperty("path")
+        public String getFilePath()
+        {
+            return path.toAbsolutePath().toString();
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("encoding", encoding)
+                    .add("queryId", queryId)
+                    .add("path", path)
+                    .toString();
+        }
+
+        @DoNotCall
+        @JsonCreator
+        public static LocalSpooledSegmentHandle create(
+                @JsonProperty("encoding") String encoding,
+                @JsonProperty("queryId") String queryId,
+                @JsonProperty("path") String path)
+        {
+            return new LocalSpooledSegmentHandle(encoding, QueryId.valueOf(queryId), Paths.get(path));
         }
     }
 }
