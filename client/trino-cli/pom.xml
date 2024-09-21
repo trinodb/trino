@@ -15,7 +15,7 @@
     <properties>
         <project.build.targetJdk>8</project.build.targetJdk>
         <main-class>io.trino.cli.Trino</main-class>
-        <dep.jline.version>3.26.3</dep.jline.version>
+        <dep.jline.version>3.27.0</dep.jline.version>
     </properties>
 
     <dependencies>
