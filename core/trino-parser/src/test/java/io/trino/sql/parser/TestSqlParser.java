@@ -292,7 +292,6 @@ import static io.trino.sql.tree.Trim.Specification.LEADING;
 import static io.trino.sql.tree.Trim.Specification.TRAILING;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static java.util.Collections.emptyList;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -552,14 +551,19 @@ public class TestSqlParser
                         new Array(location(1, 1), ImmutableList.of(new LongLiteral(location(1, 8), "1"), new LongLiteral(location(1, 11), "2"))),
                         new LongLiteral(location(1, 14), "1")));
 
-        assertExpression("CASE WHEN TRUE THEN ARRAY[1,2] END[1]", new SubscriptExpression(
+        assertThat(expression("CASE WHEN TRUE THEN ARRAY[1,2] END[1]")).isEqualTo(new SubscriptExpression(
+                location(1, 1),
                 new SearchedCaseExpression(
+                        location(1, 1),
                         ImmutableList.of(
                                 new WhenClause(
-                                        new BooleanLiteral("true"),
-                                        new Array(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))))),
+                                        location(1, 6),
+                                        new BooleanLiteral(location(1, 11), "true"),
+                                        new Array(
+                                                location(1, 21),
+                                                ImmutableList.of(new LongLiteral(location(1, 27), "1"), new LongLiteral(location(1, 29), "2"))))),
                         Optional.empty()),
-                new LongLiteral("1")));
+                new LongLiteral(location(1, 36), "1")));
     }
 
     @Test
@@ -2001,8 +2005,8 @@ public class TestSqlParser
                 .isEqualTo(new StringLiteral(location, "hello\u6d4B\u8Bd5\uDBFF\uDFFFworld\u7F16\u7801"));
         assertThat(expression("U&'\u6d4B\u8Bd5ABC!6d4B!8Bd5' UESCAPE '!'"))
                 .isEqualTo(new StringLiteral(location, "\u6d4B\u8Bd5ABC\u6d4B\u8Bd5"));
-        assertExpression("U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' UESCAPE '!'",
-                new StringLiteral("hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801"));
+        assertThat(expression("U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' UESCAPE '!'")).isEqualTo(
+                new StringLiteral(location(1, 1), "hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801"));
     }
 
     @Test
@@ -4799,40 +4803,86 @@ public class TestSqlParser
     @Test
     public void testQuantifiedComparison()
     {
-        assertExpression("col1 < ANY (SELECT col2 FROM table1)",
+        assertThat(expression("col1 < ANY (SELECT col2 FROM table1)")).isEqualTo(
                 new QuantifiedComparisonExpression(
+                        location(1, 6),
                         ComparisonExpression.Operator.LESS_THAN,
                         QuantifiedComparisonExpression.Quantifier.ANY,
-                        identifier("col1"),
-                        new SubqueryExpression(simpleQuery(selectList(new SingleColumn(identifier("col2"))), table(QualifiedName.of("table1"))))));
-        assertExpression("col1 = ALL (VALUES ROW(1), ROW(2))",
+                        new Identifier(location(1, 1), "col1", false),
+                        new SubqueryExpression(location(1, 13), new Query(
+                                location(1, 13),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        location(1, 13),
+                                        new Select(location(1, 13), false, ImmutableList.of(new SingleColumn(location(1, 20), new Identifier(location(1, 20), "col2", false), Optional.empty()))),
+                                        Optional.of(new Table(location(1, 30), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 30), "table1", false))))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))));
+        assertThat(expression("col1 = ALL (VALUES ROW(1), ROW(2))")).isEqualTo(
                 new QuantifiedComparisonExpression(
+                        location(1, 6),
                         ComparisonExpression.Operator.EQUAL,
                         QuantifiedComparisonExpression.Quantifier.ALL,
-                        identifier("col1"),
-                        new SubqueryExpression(query(values(row(new LongLiteral("1")), row(new LongLiteral("2")))))));
-        assertExpression("col1 >= SOME (SELECT 10)",
+                        new Identifier(location(1, 1), "col1", false),
+                        new SubqueryExpression(location(1, 13), new Query(
+                                location(1, 13),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                new Values(location(1, 13), ImmutableList.of(
+                                        new Row(location(1, 20), ImmutableList.of(new LongLiteral(location(1, 24), "1"))),
+                                        new Row(location(1, 28), ImmutableList.of(new LongLiteral(location(1, 32), "2"))))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))));
+        assertThat(expression("col1 >= SOME (SELECT 10)")).isEqualTo(
                 new QuantifiedComparisonExpression(
+                        location(1, 6),
                         ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL,
                         QuantifiedComparisonExpression.Quantifier.SOME,
-                        identifier("col1"),
-                        new SubqueryExpression(simpleQuery(selectList(new LongLiteral("10"))))));
+                        new Identifier(location(1, 1), "col1", false),
+                        new SubqueryExpression(location(1, 15), new Query(
+                                location(1, 15),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        location(1, 15),
+                                        new Select(location(1, 15), false, ImmutableList.of(new SingleColumn(location(1, 22), new LongLiteral(location(1, 22), "10"), Optional.empty()))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))));
     }
 
     @Test
     public void testAggregationWithOrderBy()
     {
-        assertExpression("array_agg(x ORDER BY x DESC)",
+        assertThat(expression("array_agg(x ORDER BY x DESC)")).isEqualTo(
                 new FunctionCall(
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "array_agg", false))),
                         Optional.empty(),
-                        QualifiedName.of("array_agg"),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(identifier("x"), DESCENDING, UNDEFINED)))),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(location(1, 22), new Identifier(location(1, 22), "x", false), DESCENDING, UNDEFINED)))),
                         false,
                         Optional.empty(),
                         Optional.empty(),
-                        ImmutableList.of(identifier("x"))));
+                        ImmutableList.of(new Identifier(location(1, 11), "x", false))));
         assertStatement("SELECT array_agg(x ORDER BY t.y) FROM t",
                 simpleQuery(
                         selectList(new FunctionCall(
@@ -5489,65 +5539,65 @@ public class TestSqlParser
     @Test
     public void testNullTreatment()
     {
-        assertExpression("lead(x, 1) ignore nulls over()",
+        assertThat(expression("lead(x, 1) ignore nulls over()")).isEqualTo(
                 new FunctionCall(
-                        Optional.empty(),
-                        QualifiedName.of("lead"),
-                        Optional.of(new WindowSpecification(Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty())),
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "lead", false))),
+                        Optional.of(new WindowSpecification(location(1, 30), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
                         false,
                         Optional.of(NullTreatment.IGNORE),
                         Optional.empty(),
-                        ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
-        assertExpression("lead(x, 1) respect nulls over()",
+                        ImmutableList.of(new Identifier(location(1, 6), "x", false), new LongLiteral(location(1, 9), "1"))));
+        assertThat(expression("lead(x, 1) respect nulls over()")).isEqualTo(
                 new FunctionCall(
-                        Optional.empty(),
-                        QualifiedName.of("lead"),
-                        Optional.of(new WindowSpecification(Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty())),
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "lead", false))),
+                        Optional.of(new WindowSpecification(location(1, 31), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
                         false,
                         Optional.of(NullTreatment.RESPECT),
                         Optional.empty(),
-                        ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
+                        ImmutableList.of(new Identifier(location(1, 6), "x", false), new LongLiteral(location(1, 9), "1"))));
     }
 
     @Test
     public void testProcessingMode()
     {
-        assertExpression("RUNNING LAST(x, 1)",
+        assertThat(expression("RUNNING LAST(x, 1)")).isEqualTo(
                 new FunctionCall(
-                        Optional.empty(),
-                        QualifiedName.of("LAST"),
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 9), "LAST", false))),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
                         false,
                         Optional.empty(),
                         Optional.of(new ProcessingMode(location(1, 1), RUNNING)),
-                        ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
-        assertExpression("FINAL FIRST(x, 1)",
+                        ImmutableList.of(new Identifier(location(1, 14), "x", false), new LongLiteral(location(1, 17), "1"))));
+        assertThat(expression("FINAL FIRST(x, 1)")).isEqualTo(
                 new FunctionCall(
-                        Optional.empty(),
-                        QualifiedName.of("FIRST"),
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 7), "FIRST", false))),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
                         false,
                         Optional.empty(),
                         Optional.of(new ProcessingMode(location(1, 1), FINAL)),
-                        ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
+                        ImmutableList.of(new Identifier(location(1, 13), "x", false), new LongLiteral(location(1, 16), "1"))));
     }
 
     @Test
     public void testWindowSpecification()
     {
-        assertExpression("rank() OVER someWindow",
+        assertThat(expression("rank() OVER someWindow")).isEqualTo(
                 new FunctionCall(
-                        Optional.empty(),
-                        QualifiedName.of("rank"),
-                        Optional.of(new WindowReference(new Identifier("someWindow"))),
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "rank", false))),
+                        Optional.of(new WindowReference(location(1, 8), new Identifier(location(1, 13), "someWindow", false))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -5555,15 +5605,16 @@ public class TestSqlParser
                         Optional.empty(),
                         ImmutableList.of()));
 
-        assertExpression("rank() OVER (someWindow PARTITION BY x ORDER BY y ROWS CURRENT ROW)",
+        assertThat(expression("rank() OVER (someWindow PARTITION BY x ORDER BY y ROWS CURRENT ROW)")).isEqualTo(
                 new FunctionCall(
-                        Optional.empty(),
-                        QualifiedName.of("rank"),
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "rank", false))),
                         Optional.of(new WindowSpecification(
-                                Optional.of(new Identifier("someWindow")),
-                                ImmutableList.of(new Identifier("x")),
-                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)))),
-                                Optional.of(new WindowFrame(ROWS, new FrameBound(CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
+                                location(1, 14),
+                                Optional.of(new Identifier(location(1, 14), "someWindow", false)),
+                                ImmutableList.of(new Identifier(location(1, 38), "x", false)),
+                                Optional.of(new OrderBy(location(1, 40), ImmutableList.of(new SortItem(location(1, 49), new Identifier(location(1, 49), "y", false), ASCENDING, UNDEFINED)))),
+                                Optional.of(new WindowFrame(location(1, 51), ROWS, new FrameBound(location(1, 56), CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -5571,15 +5622,16 @@ public class TestSqlParser
                         Optional.empty(),
                         ImmutableList.of()));
 
-        assertExpression("rank() OVER (PARTITION BY x ORDER BY y ROWS CURRENT ROW)",
+        assertThat(expression("rank() OVER (PARTITION BY x ORDER BY y ROWS CURRENT ROW)")).isEqualTo(
                 new FunctionCall(
-                        Optional.empty(),
-                        QualifiedName.of("rank"),
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 1), "rank", false))),
                         Optional.of(new WindowSpecification(
+                                location(1, 14),
                                 Optional.empty(),
-                                ImmutableList.of(new Identifier("x")),
-                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)))),
-                                Optional.of(new WindowFrame(ROWS, new FrameBound(CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
+                                ImmutableList.of(new Identifier(location(1, 27), "x", false)),
+                                Optional.of(new OrderBy(location(1, 29), ImmutableList.of(new SortItem(location(1, 38), new Identifier(location(1, 38), "y", false), ASCENDING, UNDEFINED)))),
+                                Optional.of(new WindowFrame(location(1, 40), ROWS, new FrameBound(location(1, 45), CURRENT_ROW), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of())))),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -5862,107 +5914,107 @@ public class TestSqlParser
     @Test
     public void testListagg()
     {
-        assertExpression("LISTAGG(x) WITHIN GROUP (ORDER BY x)",
+        assertThat(expression("LISTAGG(x) WITHIN GROUP (ORDER BY x)")).isEqualTo(
                 new FunctionCall(
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier("LISTAGG", false))),
                         Optional.empty(),
-                        QualifiedName.of("LISTAGG"),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x", false), ASCENDING, UNDEFINED)))),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(location(1, 35), new Identifier(location(1, 35), "x", false), ASCENDING, UNDEFINED)))),
                         false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
-                                identifier("x"),
-                                new StringLiteral(""),
-                                new BooleanLiteral("true"),
-                                new StringLiteral("..."),
-                                new BooleanLiteral("false"))));
+                                new Identifier(location(1, 9), "x", false),
+                                new StringLiteral(location(1, 1), ""),
+                                new BooleanLiteral(location(1, 1), "true"),
+                                new StringLiteral(location(1, 1), "..."),
+                                new BooleanLiteral(location(1, 1), "false"))));
 
-        assertExpression("LISTAGG( DISTINCT x) WITHIN GROUP (ORDER BY x)",
+        assertThat(expression("LISTAGG( DISTINCT x) WITHIN GROUP (ORDER BY x)")).isEqualTo(
                 new FunctionCall(
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier("LISTAGG", false))),
                         Optional.empty(),
-                        QualifiedName.of("LISTAGG"),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x", false), ASCENDING, UNDEFINED)))),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(location(1, 45), new Identifier(location(1, 45), "x", false), ASCENDING, UNDEFINED)))),
                         true,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
-                                identifier("x"),
-                                new StringLiteral(""),
-                                new BooleanLiteral("true"),
-                                new StringLiteral("..."),
-                                new BooleanLiteral("false"))));
+                                new Identifier(location(1, 19), "x", false),
+                                new StringLiteral(location(1, 1), ""),
+                                new BooleanLiteral(location(1, 1), "true"),
+                                new StringLiteral(location(1, 1), "..."),
+                                new BooleanLiteral(location(1, 1), "false"))));
 
-        assertExpression("LISTAGG(x, ',') WITHIN GROUP (ORDER BY y)",
+        assertThat(expression("LISTAGG(x, ',') WITHIN GROUP (ORDER BY y)")).isEqualTo(
                 new FunctionCall(
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier("LISTAGG", false))),
                         Optional.empty(),
-                        QualifiedName.of("LISTAGG"),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("y", false), ASCENDING, UNDEFINED)))),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(location(1, 40), new Identifier(location(1, 40), "y", false), ASCENDING, UNDEFINED)))),
                         false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
-                                identifier("x"),
-                                new StringLiteral(","),
-                                new BooleanLiteral("true"),
-                                new StringLiteral("..."),
-                                new BooleanLiteral("false"))));
+                                new Identifier(location(1, 9), "x", false),
+                                new StringLiteral(location(1, 12), ","),
+                                new BooleanLiteral(location(1, 1), "true"),
+                                new StringLiteral(location(1, 1), "..."),
+                                new BooleanLiteral(location(1, 1), "false"))));
 
-        assertExpression("LISTAGG(x, ',' ON OVERFLOW ERROR) WITHIN GROUP (ORDER BY x)",
+        assertThat(expression("LISTAGG(x, ',' ON OVERFLOW ERROR) WITHIN GROUP (ORDER BY x)")).isEqualTo(
                 new FunctionCall(
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier("LISTAGG", false))),
                         Optional.empty(),
-                        QualifiedName.of("LISTAGG"),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x", false), ASCENDING, UNDEFINED)))),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(location(1, 58), new Identifier(location(1, 58), "x", false), ASCENDING, UNDEFINED)))),
                         false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
-                                identifier("x"),
-                                new StringLiteral(","),
-                                new BooleanLiteral("true"),
-                                new StringLiteral("..."),
-                                new BooleanLiteral("false"))));
+                                new Identifier(location(1, 9), "x", false),
+                                new StringLiteral(location(1, 12), ","),
+                                new BooleanLiteral(location(1, 1), "true"),
+                                new StringLiteral(location(1, 1), "..."),
+                                new BooleanLiteral(location(1, 1), "false"))));
 
-        assertExpression("LISTAGG(x, ',' ON OVERFLOW TRUNCATE WITH COUNT) WITHIN GROUP (ORDER BY x)",
+        assertThat(expression("LISTAGG(x, ',' ON OVERFLOW TRUNCATE WITH COUNT) WITHIN GROUP (ORDER BY x)")).isEqualTo(
                 new FunctionCall(
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier("LISTAGG", false))),
                         Optional.empty(),
-                        QualifiedName.of("LISTAGG"),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x", false), ASCENDING, UNDEFINED)))),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(location(1, 72), new Identifier(location(1, 72), "x", false), ASCENDING, UNDEFINED)))),
                         false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
-                                identifier("x"),
-                                new StringLiteral(","),
-                                new BooleanLiteral("false"),
-                                new StringLiteral("..."),
-                                new BooleanLiteral("true"))));
+                                new Identifier(location(1, 9), "x", false),
+                                new StringLiteral(location(1, 12), ","),
+                                new BooleanLiteral(location(1, 1), "false"),
+                                new StringLiteral(location(1, 1), "..."),
+                                new BooleanLiteral(location(1, 1), "true"))));
 
-        assertExpression("LISTAGG(x, ',' ON OVERFLOW TRUNCATE 'HIDDEN' WITHOUT COUNT) WITHIN GROUP (ORDER BY x)",
+        assertThat(expression("LISTAGG(x, ',' ON OVERFLOW TRUNCATE 'HIDDEN' WITHOUT COUNT) WITHIN GROUP (ORDER BY x)")).isEqualTo(
                 new FunctionCall(
+                        Optional.of(location(1, 1)),
+                        QualifiedName.of(ImmutableList.of(new Identifier("LISTAGG", false))),
                         Optional.empty(),
-                        QualifiedName.of("LISTAGG"),
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x", false), ASCENDING, UNDEFINED)))),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(location(1, 84), new Identifier(location(1, 84), "x", false), ASCENDING, UNDEFINED)))),
                         false,
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableList.of(
-                                identifier("x"),
-                                new StringLiteral(","),
-                                new BooleanLiteral("false"),
-                                new StringLiteral("HIDDEN"),
-                                new BooleanLiteral("false"))));
+                                new Identifier(location(1, 9), "x", false),
+                                new StringLiteral(location(1, 12), ","),
+                                new BooleanLiteral(location(1, 1), "false"),
+                                new StringLiteral(location(1, 37), "HIDDEN"),
+                                new BooleanLiteral(location(1, 1), "false"))));
     }
 
     @Test
@@ -6645,17 +6697,6 @@ public class TestSqlParser
     {
         assertParsed(query, expected, SQL_PARSER.createStatement(query));
         assertFormattedSql(SQL_PARSER, expected);
-    }
-
-    /**
-     * @deprecated use {@link ParserAssert#expression(String)} instead
-     */
-    @Deprecated
-    private static void assertExpression(@Language("SQL") String expression, Expression expected)
-    {
-        requireNonNull(expression, "expression is null");
-        requireNonNull(expected, "expected is null");
-        assertParsed(expression, expected, SQL_PARSER.createExpression(expression));
     }
 
     private static void assertParsed(String input, Node expected, Node parsed)
