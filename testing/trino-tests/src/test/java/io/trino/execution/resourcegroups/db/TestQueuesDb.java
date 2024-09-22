@@ -450,6 +450,48 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, secondQueryFromRunningGroup, RUNNING);
     }
 
+    @Test
+    @Timeout(60)
+    public void testDisableSubGroup()
+            throws InterruptedException
+    {
+        InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
+        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
+
+        dao.insertResourceGroup(10, "queued", "80%", 10, null, 3, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(11, "subgroup", "80%", 10, null, 1, null, null, null, null, null, 10L, TEST_ENVIRONMENT);
+        dao.insertSelector(11, 1, null, null, null, null, "[\"queued\"]", null);
+        dao.insertResourceGroup(12, "running", "80%", 10, null, 3, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(13, "subgroup", "80%", 10, null, 1, null, null, null, null, null, 12L, TEST_ENVIRONMENT);
+        dao.insertSelector(13, 1, null, null, null, null, "[\"running\"]", null);
+        dbConfigurationManager.load();
+
+        QueryId firstQueryFromQueuedGroup = createQuery(queryRunner, session("alice", "queued"), LONG_LASTING_QUERY);
+        QueryId secondQueryFromQueuedGroup = createQuery(queryRunner, session("alice", "queued"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQueryFromQueuedGroup, RUNNING);
+        waitForQueryState(queryRunner, secondQueryFromQueuedGroup, QUEUED);
+
+        QueryId firstQueryFromRunningGroup = createQuery(queryRunner, session("alice", "running"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQueryFromRunningGroup, RUNNING);
+
+        dao.deleteSelectors(11);
+        dao.deleteResourceGroup(11);
+        dao.insertSelector(10, 1, null, null, null, null, "[\"queued\"]", null);
+        dao.deleteSelectors(13);
+        dao.deleteResourceGroup(13);
+        dao.insertSelector(12, 1, null, null, null, null, "[\"running\"]", null);
+        dbConfigurationManager.load();
+
+        QueryId thirdQueryFromQueuedGroup = createQuery(queryRunner, session("alice", "queued"), LONG_LASTING_QUERY);
+        QueryId secondQueryFromRunningGroup = createQuery(queryRunner, session("alice", "running"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQueryFromQueuedGroup, RUNNING);
+        waitForQueryState(queryRunner, secondQueryFromQueuedGroup, QUEUED);
+        waitForQueryState(queryRunner, thirdQueryFromQueuedGroup, FAILED);
+        assertFailureMessage(thirdQueryFromQueuedGroup, "Cannot add queries to 'queued'. It is not a leaf group.");
+        waitForQueryState(queryRunner, firstQueryFromRunningGroup, RUNNING);
+        waitForQueryState(queryRunner, secondQueryFromRunningGroup, RUNNING);
+    }
+
     private static Session session(String user, String clientTag)
     {
         return testSessionBuilder()

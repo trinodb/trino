@@ -211,7 +211,7 @@ public class TestDbResourceGroupConfigurationManager
         do {
             MILLISECONDS.sleep(500);
         }
-        while (globalSub.getMaxQueuedQueries() != 0 || globalSub.getHardConcurrencyLimit() != 0);
+        while (!globalSub.isDisabled());
     }
 
     @Test
