@@ -122,6 +122,7 @@ import io.trino.operator.scalar.json.JsonQueryFunction;
 import io.trino.operator.scalar.json.JsonValueFunction;
 import io.trino.operator.table.ExcludeColumnsFunction;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.PluginManager;
 import io.trino.server.ServerConfig;
@@ -358,6 +359,7 @@ public class PlanTester
         TestingGroupProviderManager groupProvider = new TestingGroupProviderManager();
         LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(sqlParser, typeManager, groupProvider, blockEncodingSerde);
         Metadata metadata = new MetadataManager(
+                new AllowAllAccessControl(),
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 globalFunctionCatalog,

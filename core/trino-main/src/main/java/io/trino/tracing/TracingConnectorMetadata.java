@@ -23,6 +23,7 @@ import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
@@ -148,6 +149,15 @@ public class TracingConnectorMetadata
         Span span = startSpan("getTableHandleForExecute", tableHandle);
         try (var _ = scopedSpan(span)) {
             return delegate.getTableHandleForExecute(session, tableHandle, procedureName, executeProperties, retryMode);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorAccessControl accessControl, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
+    {
+        Span span = startSpan("getTableHandleForExecute", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.getTableHandleForExecute(session, accessControl, tableHandle, procedureName, executeProperties, retryMode);
         }
     }
 

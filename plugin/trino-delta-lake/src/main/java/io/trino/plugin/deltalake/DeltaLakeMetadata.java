@@ -93,6 +93,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnNotFoundException;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
@@ -2618,6 +2619,7 @@ public class DeltaLakeMetadata
     @Override
     public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(
             ConnectorSession session,
+            ConnectorAccessControl accessControl,
             ConnectorTableHandle connectorTableHandle,
             String procedureName,
             Map<String, Object> executeProperties,

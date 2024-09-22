@@ -132,7 +132,10 @@ public interface ConnectorMetadata
      *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
      * </pre>
      * unless {@code retryMode} is set to {@code NO_RETRIES}.
+     *
+     * @deprecated {Use {@link #getTableHandleForExecute(ConnectorSession, ConnectorAccessControl, ConnectorTableHandle, String, Map, RetryMode)}}
      */
+    @Deprecated
     default Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
@@ -141,6 +144,27 @@ public interface ConnectorMetadata
             RetryMode retryMode)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
+    }
+
+    /**
+     * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
+     * handle used for execution via @{link {@link ConnectorMetadata#beginTableExecute}
+     * <p>
+     * If connector does not support execution with retries, the method should throw:
+     * <pre>
+     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
+     * </pre>
+     * unless {@code retryMode} is set to {@code NO_RETRIES}.
+     */
+    default Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(
+            ConnectorSession session,
+            ConnectorAccessControl accessControl,
+            ConnectorTableHandle tableHandle,
+            String procedureName,
+            Map<String, Object> executeProperties,
+            RetryMode retryMode)
+    {
+        return getTableHandleForExecute(session, tableHandle, procedureName, executeProperties, retryMode);
     }
 
     default Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
