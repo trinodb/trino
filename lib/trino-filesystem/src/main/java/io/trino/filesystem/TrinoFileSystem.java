@@ -15,6 +15,7 @@ package io.trino.filesystem;
 
 import com.google.common.base.Throwables;
 import io.airlift.units.Duration;
+import io.trino.filesystem.encryption.EncryptionKey;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -64,6 +65,18 @@ public interface TrinoFileSystem
     TrinoInputFile newInputFile(Location location);
 
     /**
+     * Creates an encrypted TrinoInputFile which can be used to read the encrypted file data.
+     * The file location path cannot be empty, and must not end with a slash or whitespace.
+     *
+     * @throws IllegalArgumentException if location is not valid for this file system
+     * @throws UnsupportedOperationException if server side encryption is not supported
+     */
+    default TrinoInputFile newEncryptedInputFile(Location location, EncryptionKey key)
+    {
+        throw new UnsupportedOperationException("Server side encryption is not supported");
+    }
+
+    /**
      * Creates a TrinoInputFile with a predeclared length which can be used to read the file data.
      * The length will be returned from {@link TrinoInputFile#length()} and the actual file length
      * will never be checked. The file location path cannot be empty, and must not end with a slash
@@ -72,6 +85,20 @@ public interface TrinoFileSystem
      * @throws IllegalArgumentException if location is not valid for this file system
      */
     TrinoInputFile newInputFile(Location location, long length);
+
+    /**
+     * Creates an encrypted TrinoInputFile with a predeclared length which can be used to read
+     * the file encrypted data. The length will be returned from {@link TrinoInputFile#length()} and
+     * the actual file length will never be checked.
+     * The file location path cannot be empty, and must not end with a slash or whitespace.
+     *
+     * @throws IllegalArgumentException if location is not valid for this file system
+     * @throws UnsupportedOperationException if server side encryption is not supported
+     */
+    default TrinoInputFile newEncryptedInputFile(Location location, long length, EncryptionKey key)
+    {
+        throw new UnsupportedOperationException("Server side encryption is not supported");
+    }
 
     /**
      * Creates a TrinoInputFile with a predeclared length and lastModifiedTime which can be used to read the file data.
@@ -85,12 +112,39 @@ public interface TrinoFileSystem
     TrinoInputFile newInputFile(Location location, long length, Instant lastModified);
 
     /**
+     * Creates an encrypted TrinoInputFile with a predeclared length and lastModifiedTime which can be used to read
+     * the encrypted file data. The length will be returned from {@link TrinoInputFile#length()} and the actual file
+     * length will never be checked. The lastModified will be returned from {@link TrinoInputFile#lastModified()}
+     * and the actual file last modified time will never be checked.
+     * The file location path cannot be empty, and must not end with a slash or whitespace.
+     *
+     * @throws IllegalArgumentException if location is not valid for this file system
+     * @throws UnsupportedOperationException if server side encryption is not supported
+     */
+    default TrinoInputFile newEncryptedInputFile(Location location, long length, Instant lastModified, EncryptionKey key)
+    {
+        throw new UnsupportedOperationException("Server side encryption is not supported");
+    }
+
+    /**
      * Creates a TrinoOutputFile which can be used to create or overwrite the file. The file
      * location path cannot be empty, and must not end with a slash or whitespace.
      *
      * @throws IllegalArgumentException if location is not valid for this file system
      */
     TrinoOutputFile newOutputFile(Location location);
+
+    /**
+     * Creates an encrypted TrinoOutputFile which can be used to create or overwrite the file.
+     * The file location path cannot be empty, and must not end with a slash or whitespace.
+     *
+     * @throws IllegalArgumentException if location is not valid for this file system
+     * @throws UnsupportedOperationException if server side encryption is not supported
+     */
+    default TrinoOutputFile newEncryptedOutputFile(Location location, EncryptionKey key)
+    {
+        throw new UnsupportedOperationException("Server side encryption is not supported");
+    }
 
     /**
      * Deletes the specified file. The file location path cannot be empty, and must not end with
@@ -256,6 +310,22 @@ public interface TrinoFileSystem
             throws IOException
     {
         throw new UnsupportedOperationException("Pre-signed URIs are not supported by " + getClass().getSimpleName());
+    }
+
+    /**
+     * Returns the direct encrypted pre-signed URI location for the given storage location.
+     * <p>
+     * Pre-signed URIs allow for retrieval of the files directly from the storage location.
+     * This is useful for large files where the server would be a bottleneck.
+     *
+     * @throws UnsupportedOperationException if the pre-signed URIs are not supported
+     * @return the pre-signed URI to the storage location or `Optional.empty()`
+     *         if pre-signed URI cannot be generated.
+     */
+    default Optional<UriLocation> encryptedPreSignedUri(Location location, Duration ttl, EncryptionKey key)
+            throws IOException
+    {
+        throw new UnsupportedOperationException("Encrypted pre-signed URIs are not supported by " + getClass().getSimpleName());
     }
 
     /**

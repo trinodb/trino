@@ -303,7 +303,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>**/TestS3FileSystemAwsS3.java</exclude>
+                                <exclude>**/TestS3FileSystemAwsS3*.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -320,7 +320,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestS3FileSystemAwsS3.java</include>
+                                <include>**/TestS3FileSystemAwsS3*.java</include>
                             </includes>
                         </configuration>
                     </plugin>

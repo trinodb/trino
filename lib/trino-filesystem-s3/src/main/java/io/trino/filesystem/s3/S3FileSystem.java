@@ -23,6 +23,7 @@ import io.trino.filesystem.TrinoFileSystemException;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
+import io.trino.filesystem.encryption.EncryptionKey;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
@@ -56,6 +57,8 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Multimaps.toMultimap;
+import static io.trino.filesystem.s3.S3SseCUtils.encoded;
+import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -80,25 +83,49 @@ final class S3FileSystem
     @Override
     public TrinoInputFile newInputFile(Location location)
     {
-        return new S3InputFile(client, context, new S3Location(location), null, null);
+        return new S3InputFile(client, context, new S3Location(location), null, null, Optional.empty());
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
-        return new S3InputFile(client, context, new S3Location(location), length, null);
+        return new S3InputFile(client, context, new S3Location(location), length, null, Optional.empty());
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
     {
-        return new S3InputFile(client, context, new S3Location(location), length, lastModified);
+        return new S3InputFile(client, context, new S3Location(location), length, lastModified, Optional.empty());
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, EncryptionKey key)
+    {
+        return new S3InputFile(client, context, new S3Location(location), null, null, Optional.of(key));
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, long length, EncryptionKey key)
+    {
+        return new S3InputFile(client, context, new S3Location(location), length, null, Optional.of(key));
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, long length, Instant lastModified, EncryptionKey key)
+    {
+        return new S3InputFile(client, context, new S3Location(location), length, lastModified, Optional.of(key));
     }
 
     @Override
     public TrinoOutputFile newOutputFile(Location location)
     {
-        return new S3OutputFile(uploadExecutor, client, context, new S3Location(location));
+        return new S3OutputFile(uploadExecutor, client, context, new S3Location(location), Optional.empty());
+    }
+
+    @Override
+    public TrinoOutputFile newEncryptedOutputFile(Location location, EncryptionKey key)
+    {
+        return new S3OutputFile(uploadExecutor, client, context, new S3Location(location), Optional.of(key));
     }
 
     @Override
@@ -296,6 +323,19 @@ final class S3FileSystem
     public Optional<UriLocation> preSignedUri(Location location, Duration ttl)
             throws IOException
     {
+        return encryptedPreSignedUri(location, ttl, Optional.empty());
+    }
+
+    @Override
+    public Optional<UriLocation> encryptedPreSignedUri(Location location, Duration ttl, EncryptionKey key)
+            throws IOException
+    {
+        return encryptedPreSignedUri(location, ttl, Optional.of(key));
+    }
+
+    public Optional<UriLocation> encryptedPreSignedUri(Location location, Duration ttl, Optional<EncryptionKey> key)
+            throws IOException
+    {
         location.verifyValidFileLocation();
         S3Location s3Location = new S3Location(location);
 
@@ -304,6 +344,11 @@ final class S3FileSystem
                 .requestPayer(requestPayer)
                 .key(s3Location.key())
                 .bucket(s3Location.bucket())
+                .applyMutation(builder -> key.ifPresent(encryption -> {
+                    builder.sseCustomerKeyMD5(md5Checksum(encryption));
+                    builder.sseCustomerAlgorithm(encryption.algorithm());
+                    builder.sseCustomerKey(encoded(encryption));
+                }))
                 .build();
 
         GetObjectPresignRequest preSignRequest = GetObjectPresignRequest.builder()

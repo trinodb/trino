@@ -22,6 +22,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
+import io.trino.filesystem.encryption.EncryptionKey;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -176,5 +177,51 @@ final class TracingFileSystem
                 .setAttribute(FileSystemAttributes.FILE_LOCATION, location.toString())
                 .startSpan();
         return withTracing(span, () -> delegate.preSignedUri(location, ttl));
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, EncryptionKey key)
+    {
+        Span span = tracer.spanBuilder("FileSystem.newEncryptedInputFile")
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location.toString())
+                .startSpan();
+        return withTracing(span, () -> delegate.newEncryptedInputFile(location, key));
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, long length, EncryptionKey key)
+    {
+        Span span = tracer.spanBuilder("FileSystem.newEncryptedInputFile")
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location.toString())
+                .startSpan();
+        return withTracing(span, () -> delegate.newEncryptedInputFile(location, length, key));
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, long length, Instant lastModified, EncryptionKey key)
+    {
+        Span span = tracer.spanBuilder("FileSystem.newEncryptedInputFile")
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location.toString())
+                .startSpan();
+        return withTracing(span, () -> delegate.newEncryptedInputFile(location, length, lastModified, key));
+    }
+
+    @Override
+    public TrinoOutputFile newEncryptedOutputFile(Location location, EncryptionKey key)
+    {
+        Span span = tracer.spanBuilder("FileSystem.newEncryptedOutputFile")
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location.toString())
+                .startSpan();
+        return withTracing(span, () -> delegate.newEncryptedOutputFile(location, key));
+    }
+
+    @Override
+    public Optional<UriLocation> encryptedPreSignedUri(Location location, Duration ttl, EncryptionKey key)
+            throws IOException
+    {
+        Span span = tracer.spanBuilder("FileSystem.encryptedPreSignedUri")
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location.toString())
+                .startSpan();
+        return withTracing(span, () -> delegate.encryptedPreSignedUri(location, ttl, key));
     }
 }

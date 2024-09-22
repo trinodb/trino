@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.s3;
 
+import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
@@ -43,7 +44,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl.getCannedAcl;
+import static io.trino.filesystem.s3.S3SseCUtils.encoded;
+import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
 import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -69,6 +73,7 @@ final class S3OutputStream
     private final String sseKmsKeyId;
     private final ObjectCannedACL cannedAcl;
     private final boolean exclusiveCreate;
+    private final Optional<EncryptionKey> key;
 
     private int currentPartNumber;
     private byte[] buffer = new byte[0];
@@ -85,7 +90,7 @@ final class S3OutputStream
     // Visibility is ensured by calling get() on inProgressUploadFuture.
     private Optional<String> uploadId = Optional.empty();
 
-    public S3OutputStream(AggregatedMemoryContext memoryContext, Executor uploadExecutor, S3Client client, S3Context context, S3Location location, boolean exclusiveCreate)
+    public S3OutputStream(AggregatedMemoryContext memoryContext, Executor uploadExecutor, S3Client client, S3Context context, S3Location location, boolean exclusiveCreate, Optional<EncryptionKey> key)
     {
         this.memoryContext = memoryContext.newLocalMemoryContext(S3OutputStream.class.getSimpleName());
         this.uploadExecutor = requireNonNull(uploadExecutor, "uploadExecutor is null");
@@ -98,6 +103,9 @@ final class S3OutputStream
         this.sseType = context.sseType();
         this.sseKmsKeyId = context.sseKmsKeyId();
         this.cannedAcl = getCannedAcl(context.cannedAcl());
+        this.key = requireNonNull(key, "key is null");
+
+        verify(key.isEmpty() || sseType == S3SseType.NONE, "Encryption key cannot be used with sse configuration");
     }
 
     @SuppressWarnings("NumericCastThatLosesPrecision")
@@ -216,6 +224,11 @@ final class S3OutputStream
                         if (exclusiveCreate) {
                             builder.ifNoneMatch("*");
                         }
+                        key.ifPresent(encryption -> {
+                            builder.sseCustomerKey(encoded(encryption));
+                            builder.sseCustomerAlgorithm(encryption.algorithm());
+                            builder.sseCustomerKeyMD5(md5Checksum(encryption));
+                        });
                         switch (sseType) {
                             case NONE -> { /* ignored */ }
                             case S3 -> builder.serverSideEncryption(AES256);
@@ -301,6 +314,11 @@ final class S3OutputStream
                     .bucket(location.bucket())
                     .key(location.key())
                     .applyMutation(builder -> {
+                        key.ifPresent(encryption -> {
+                            builder.sseCustomerKey(encoded(encryption));
+                            builder.sseCustomerAlgorithm(encryption.algorithm());
+                            builder.sseCustomerKeyMD5(md5Checksum(encryption));
+                        });
                         switch (sseType) {
                             case NONE -> { /* ignored */ }
                             case S3 -> builder.serverSideEncryption(AES256);
@@ -321,6 +339,11 @@ final class S3OutputStream
                 .contentLength((long) length)
                 .uploadId(uploadId.get())
                 .partNumber(currentPartNumber)
+                .applyMutation(builder -> key.ifPresent(encryption -> {
+                    builder.sseCustomerKey(encoded(encryption));
+                    builder.sseCustomerAlgorithm(encryption.algorithm());
+                    builder.sseCustomerKeyMD5(md5Checksum(encryption));
+                }))
                 .build();
 
         ByteBuffer bytes = ByteBuffer.wrap(data, 0, length);
@@ -346,6 +369,11 @@ final class S3OutputStream
                 .uploadId(uploadId)
                 .multipartUpload(x -> x.parts(parts))
                 .applyMutation(builder -> {
+                    key.ifPresent(encodingKey -> {
+                        builder.sseCustomerKey(encoded(encodingKey));
+                        builder.sseCustomerAlgorithm(encodingKey.algorithm());
+                        builder.sseCustomerKeyMD5(md5Checksum(encodingKey));
+                    });
                     if (exclusiveCreate) {
                         builder.ifNoneMatch("*");
                     }
