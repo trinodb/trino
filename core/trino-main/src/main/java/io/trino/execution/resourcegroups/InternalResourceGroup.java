@@ -68,9 +68,10 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Resource groups form a tree, and all access to a group is guarded by the root of the tree.
- * Queries are submitted to leaf groups. Never to intermediate groups. Intermediate groups
- * aggregate resource consumption from their children, and may have their own limitations that
- * are enforced.
+ * A group is considered a leaf if it has no subgroups, or all of its subgroups are disabled
+ * and have no queued queries. Queries are submitted to leaf groups. Never to intermediate
+ * groups. Intermediate groups aggregate resource consumption from their children, and may have
+ * their own limitations that are enforced.
  */
 @ThreadSafe
 public class InternalResourceGroup
@@ -106,6 +107,8 @@ public class InternalResourceGroup
     private SchedulingPolicy schedulingPolicy = FAIR;
     @GuardedBy("root")
     private boolean jmxExport;
+    @GuardedBy("root")
+    private boolean disabled;
 
     // Live data structures
     // ====================
@@ -595,6 +598,22 @@ public class InternalResourceGroup
         jmxExportListener.accept(this, export);
     }
 
+    @Override
+    public boolean isDisabled()
+    {
+        synchronized (root) {
+            return disabled;
+        }
+    }
+
+    @Override
+    public void setDisabled(boolean disabled)
+    {
+        synchronized (root) {
+            this.disabled = disabled;
+        }
+    }
+
     public InternalResourceGroup getOrCreateSubGroup(String name)
     {
         requireNonNull(name, "name is null");
@@ -616,8 +635,8 @@ public class InternalResourceGroup
     public void run(ManagedQueryExecution query)
     {
         synchronized (root) {
-            if (!subGroups.isEmpty()) {
-                throw new TrinoException(INVALID_RESOURCE_GROUP, format("Cannot add queries to %s. It is not a leaf group.", id));
+            if (!isLeafGroup()) {
+                throw new TrinoException(INVALID_RESOURCE_GROUP, format("Cannot add queries to '%s'. It is not a leaf group.", id));
             }
             // Check all ancestors for capacity
             InternalResourceGroup group = this;
@@ -975,6 +994,14 @@ public class InternalResourceGroup
     {
         synchronized (root) {
             return subGroups.values();
+        }
+    }
+
+    private boolean isLeafGroup()
+    {
+        synchronized (root) {
+            return subGroups.values().stream()
+                    .allMatch(subGroup -> subGroup.isDisabled() && subGroup.getQueuedQueries() == 0);
         }
     }
 

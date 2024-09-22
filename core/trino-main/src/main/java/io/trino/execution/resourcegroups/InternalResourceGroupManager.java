@@ -232,7 +232,8 @@ public final class InternalResourceGroupManager<C>
     private synchronized void createGroupIfNecessary(SelectionContext<C> context, Executor executor)
     {
         ResourceGroupId id = context.getResourceGroupId();
-        if (!groups.containsKey(id)) {
+        InternalResourceGroup currentGroup = groups.get(id);
+        if (currentGroup == null) {
             InternalResourceGroup group;
             if (id.getParent().isPresent()) {
                 createGroupIfNecessary(configurationManager.get().parentGroupContext(context), executor);
@@ -247,6 +248,17 @@ public final class InternalResourceGroupManager<C>
             }
             configurationManager.get().configure(group, context);
             checkState(groups.put(id, group) == null, "Unexpected existing resource group");
+        }
+        else if (currentGroup.isDisabled()) {
+            if (id.getParent().isPresent()) {
+                createGroupIfNecessary(configurationManager.get().parentGroupContext(context), executor);
+                InternalResourceGroup parent = groups.get(id.getParent().get());
+                requireNonNull(parent, "parent is null");
+                InternalResourceGroup group = parent.getOrCreateSubGroup(id.getLastSegment());
+                checkState(group == currentGroup, "Unexpected resource group instance");
+            }
+            configurationManager.get().configure(currentGroup, context);
+            currentGroup.setDisabled(false);
         }
     }
 

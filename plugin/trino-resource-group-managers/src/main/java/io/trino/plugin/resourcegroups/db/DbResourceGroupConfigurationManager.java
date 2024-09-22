@@ -396,9 +396,7 @@ public class DbResourceGroupConfigurationManager
 
     private synchronized void disableGroup(ResourceGroup group)
     {
-        // Disable groups that are removed from the db
-        group.setHardConcurrencyLimit(0);
-        group.setMaxQueuedQueries(0);
+        group.setDisabled(true);
     }
 
     private ResourceGroup getRootGroup(ResourceGroupId groupId)
