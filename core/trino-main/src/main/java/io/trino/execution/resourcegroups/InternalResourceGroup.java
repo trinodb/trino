@@ -15,6 +15,7 @@ package io.trino.execution.resourcegroups;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.stats.CounterStat;
@@ -241,17 +242,15 @@ public class InternalResourceGroup
     private List<QueryStateInfo> getAggregatedRunningQueriesInfo()
     {
         synchronized (root) {
-            if (subGroups.isEmpty()) {
-                return runningQueries.keySet().stream()
-                        .map(ManagedQueryExecution::getBasicQueryInfo)
-                        .map(queryInfo -> createQueryStateInfo(queryInfo, Optional.of(id)))
-                        .collect(toImmutableList());
-            }
-
-            return subGroups.values().stream()
+            List<QueryStateInfo> thisGroupRunningQueries = runningQueries.keySet().stream()
+                    .map(ManagedQueryExecution::getBasicQueryInfo)
+                    .map(queryInfo -> createQueryStateInfo(queryInfo, Optional.of(id)))
+                    .collect(toImmutableList());
+            List<QueryStateInfo> subGroupsRunningQueries = subGroups.values().stream()
                     .map(InternalResourceGroup::getAggregatedRunningQueriesInfo)
                     .flatMap(List::stream)
                     .collect(toImmutableList());
+            return ImmutableList.copyOf(Iterables.concat(thisGroupRunningQueries, subGroupsRunningQueries));
         }
     }
 
@@ -600,7 +599,7 @@ public class InternalResourceGroup
     {
         requireNonNull(name, "name is null");
         synchronized (root) {
-            checkArgument(runningQueries.isEmpty() && queuedQueries.isEmpty(), "Cannot add sub group to %s while queries are running", id);
+            checkArgument(queuedQueries.isEmpty(), "Cannot add sub group to '%s' while queries are queued", id);
             if (subGroups.containsKey(name)) {
                 return subGroups.get(name);
             }
@@ -785,34 +784,29 @@ public class InternalResourceGroup
         synchronized (root) {
             ResourceUsage groupUsageDelta = new ResourceUsage(0, 0);
 
-            if (subGroups.isEmpty()) {
-                // Leaf resource group
-                for (Map.Entry<ManagedQueryExecution, ResourceUsage> entry : runningQueries.entrySet()) {
-                    ManagedQueryExecution query = entry.getKey();
-                    ResourceUsage oldResourceUsage = entry.getValue();
+            for (Map.Entry<ManagedQueryExecution, ResourceUsage> entry : runningQueries.entrySet()) {
+                ManagedQueryExecution query = entry.getKey();
+                ResourceUsage oldResourceUsage = entry.getValue();
 
-                    ResourceUsage newResourceUsage = new ResourceUsage(
-                            query.getTotalCpuTime().toMillis(),
-                            query.getTotalMemoryReservation().toBytes());
+                ResourceUsage newResourceUsage = new ResourceUsage(
+                        query.getTotalCpuTime().toMillis(),
+                        query.getTotalMemoryReservation().toBytes());
 
-                    // Compute delta and update usage
-                    ResourceUsage queryUsageDelta = newResourceUsage.subtract(oldResourceUsage);
-                    entry.setValue(newResourceUsage);
-                    groupUsageDelta = groupUsageDelta.add(queryUsageDelta);
-                }
-
-                cachedResourceUsage = cachedResourceUsage.add(groupUsageDelta);
+                // Compute delta and update usage
+                ResourceUsage queryUsageDelta = newResourceUsage.subtract(oldResourceUsage);
+                entry.setValue(newResourceUsage);
+                groupUsageDelta = groupUsageDelta.add(queryUsageDelta);
             }
-            else {
-                // Intermediate resource group
-                for (InternalResourceGroup subGroup : dirtySubGroups) {
-                    ResourceUsage subGroupUsageDelta = subGroup.updateResourceUsageAndGetDelta();
-                    groupUsageDelta = groupUsageDelta.add(subGroupUsageDelta);
-                    cachedResourceUsage = cachedResourceUsage.add(subGroupUsageDelta);
 
-                    if (!subGroupUsageDelta.equals(new ResourceUsage(0, 0))) {
-                        subGroup.updateEligibility();
-                    }
+            cachedResourceUsage = cachedResourceUsage.add(groupUsageDelta);
+
+            for (InternalResourceGroup subGroup : dirtySubGroups) {
+                ResourceUsage subGroupUsageDelta = subGroup.updateResourceUsageAndGetDelta();
+                groupUsageDelta = groupUsageDelta.add(subGroupUsageDelta);
+                cachedResourceUsage = cachedResourceUsage.add(subGroupUsageDelta);
+
+                if (!subGroupUsageDelta.equals(new ResourceUsage(0, 0))) {
+                    subGroup.updateEligibility();
                 }
             }
 

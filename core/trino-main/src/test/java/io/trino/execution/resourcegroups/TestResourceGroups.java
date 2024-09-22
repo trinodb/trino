@@ -427,6 +427,68 @@ public class TestResourceGroups
 
     @Test
     @Timeout(10)
+    public void testCpuUsageUpdateWhenParentGroupHasRunningQueries()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setCpuQuotaGenerationMillisPerSecond(1);
+        root.setHardCpuLimit(Duration.ofMillis(3));
+        root.setSoftCpuLimit(Duration.ofMillis(3));
+        root.setHardConcurrencyLimit(100);
+        root.setMaxQueuedQueries(100);
+
+        MockManagedQueryExecution q1 = new MockManagedQueryExecutionBuilder().build();
+        root.run(q1);
+        assertThat(q1.getState()).isEqualTo(RUNNING);
+        q1.consumeCpuTimeMillis(2);
+
+        InternalResourceGroup child = root.getOrCreateSubGroup("child");
+        child.setCpuQuotaGenerationMillisPerSecond(1);
+        child.setHardCpuLimit(Duration.ofMillis(3));
+        child.setSoftCpuLimit(Duration.ofMillis(3));
+        child.setHardConcurrencyLimit(100);
+        child.setMaxQueuedQueries(100);
+
+        MockManagedQueryExecution q2 = new MockManagedQueryExecutionBuilder().build();
+        child.run(q2);
+        assertThat(q2.getState()).isEqualTo(RUNNING);
+        q2.consumeCpuTimeMillis(2);
+
+        root.updateGroupsAndProcessQueuedQueries();
+        assertExceedsCpuLimit(root, 4);
+        assertWithinCpuLimit(child, 2);
+    }
+
+    @Test
+    @Timeout(10)
+    public void testMemoryUsageUpdateWhenParentGroupHasRunningQueries()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setHardConcurrencyLimit(100);
+        root.setMaxQueuedQueries(100);
+        root.setSoftMemoryLimitBytes(3);
+
+        MockManagedQueryExecution q1 = new MockManagedQueryExecutionBuilder().build();
+        root.run(q1);
+        assertThat(q1.getState()).isEqualTo(RUNNING);
+        q1.setMemoryUsage(DataSize.ofBytes(2));
+
+        InternalResourceGroup child = root.getOrCreateSubGroup("child");
+        child.setHardConcurrencyLimit(100);
+        child.setMaxQueuedQueries(100);
+        child.setSoftMemoryLimitBytes(3);
+
+        MockManagedQueryExecution q2 = new MockManagedQueryExecutionBuilder().build();
+        child.run(q2);
+        assertThat(q2.getState()).isEqualTo(RUNNING);
+        q2.setMemoryUsage(DataSize.ofBytes(2));
+
+        root.updateGroupsAndProcessQueuedQueries();
+        assertExceedsMemoryLimit(root, 4);
+        assertWithinMemoryLimit(child, 2);
+    }
+
+    @Test
+    @Timeout(10)
     public void testMemoryUsageUpdateForRunningQuery()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
