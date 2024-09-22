@@ -28,6 +28,9 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.LanguageFunctionManager.RunAsIdentityLoader;
+import io.trino.security.AccessControl;
+import io.trino.security.AllowAllAccessControl;
+import io.trino.security.InjectedConnectorAccessControl;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.RefreshType;
@@ -187,6 +190,7 @@ public final class MetadataManager
     @VisibleForTesting
     public static final int MAX_TABLE_REDIRECTIONS = 10;
 
+    private final AccessControl accessControl;
     private final GlobalFunctionCatalog functions;
     private final BuiltinFunctionResolver functionResolver;
     private final SystemSecurityMetadata systemSecurityMetadata;
@@ -199,12 +203,14 @@ public final class MetadataManager
 
     @Inject
     public MetadataManager(
+            AccessControl accessControl,
             SystemSecurityMetadata systemSecurityMetadata,
             TransactionManager transactionManager,
             GlobalFunctionCatalog globalFunctionCatalog,
             LanguageFunctionManager languageFunctionManager,
             TypeManager typeManager)
     {
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         functions = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
         functionResolver = new BuiltinFunctionResolver(this, typeManager, globalFunctionCatalog);
@@ -311,6 +317,7 @@ public final class MetadataManager
 
         Optional<ConnectorTableExecuteHandle> executeHandle = metadata.getTableHandleForExecute(
                 session.toConnectorSession(catalogHandle),
+                new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), catalogHandle.getCatalogName().toString()),
                 tableHandle.connectorHandle(),
                 procedure,
                 executeProperties,
@@ -2904,6 +2911,7 @@ public final class MetadataManager
             }
 
             return new MetadataManager(
+                    new AllowAllAccessControl(),
                     new DisabledSystemSecurityMetadata(),
                     transactionManager,
                     globalFunctionCatalog,

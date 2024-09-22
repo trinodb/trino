@@ -891,7 +891,7 @@ public class MockConnector
         }
 
         @Override
-        public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
+        public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorAccessControl accessControl, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
         {
             MockConnectorTableHandle connectorTableHandle = (MockConnectorTableHandle) tableHandle;
             return Optional.of(new MockConnectorTableExecuteHandle(0, connectorTableHandle.getTableName()));
