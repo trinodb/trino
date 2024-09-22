@@ -41,7 +41,6 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.util.AbstractMap;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -50,7 +49,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -63,7 +61,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
-import static java.util.Collections.synchronizedList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
@@ -74,10 +71,9 @@ public class DbResourceGroupConfigurationManager
 
     private final Optional<LifeCycleManager> lifeCycleManager;
     private final ResourceGroupsDao dao;
-    private final ConcurrentMap<ResourceGroupId, ResourceGroup> groups = new ConcurrentHashMap<>();
     @GuardedBy("this")
     private Map<ResourceGroupIdTemplate, ResourceGroupSpec> resourceGroupSpecs = new HashMap<>();
-    private final ConcurrentMap<ResourceGroupIdTemplate, List<ResourceGroupId>> configuredGroups = new ConcurrentHashMap<>();
+    private final ResourceGroupToTemplateMap configuredGroups = new ResourceGroupToTemplateMap();
     private final AtomicReference<List<ResourceGroupSpec>> rootGroups = new AtomicReference<>(ImmutableList.of());
     private final AtomicReference<List<ResourceGroupSelector>> selectors = new AtomicReference<>();
     private final AtomicReference<Optional<Duration>> cpuQuotaPeriod = new AtomicReference<>(Optional.empty());
@@ -177,10 +173,7 @@ public class DbResourceGroupConfigurationManager
     public void configure(ResourceGroup group, SelectionContext<ResourceGroupIdTemplate> criteria)
     {
         ResourceGroupSpec groupSpec = getMatchingSpec(group, criteria);
-        if (groups.putIfAbsent(group.getId(), group) == null) {
-            // If a new spec replaces the spec returned from getMatchingSpec the group will be reconfigured on the next run of load().
-            configuredGroups.computeIfAbsent(criteria.getContext(), v -> synchronizedList(new ArrayList<>())).add(group.getId());
-        }
+        configuredGroups.put(criteria.getContext(), group);
         synchronized (getRootGroup(group.getId())) {
             configureGroup(group, groupSpec);
         }
@@ -366,9 +359,9 @@ public class DbResourceGroupConfigurationManager
     private synchronized void configureChangedGroups(Set<ResourceGroupIdTemplate> changedSpecs)
     {
         for (ResourceGroupIdTemplate resourceGroupIdTemplate : changedSpecs) {
-            for (ResourceGroupId resourceGroupId : configuredGroups(resourceGroupIdTemplate)) {
-                synchronized (getRootGroup(resourceGroupId)) {
-                    configureGroup(groups.get(resourceGroupId), resourceGroupSpecs.get(resourceGroupIdTemplate));
+            for (ResourceGroup group : configuredGroups.get(resourceGroupIdTemplate)) {
+                synchronized (getRootGroup(group.getId())) {
+                    configureGroup(group, resourceGroupSpecs.get(resourceGroupIdTemplate));
                 }
             }
         }
@@ -377,26 +370,10 @@ public class DbResourceGroupConfigurationManager
     private synchronized void disableDeletedGroups(Set<ResourceGroupIdTemplate> deletedSpecs)
     {
         for (ResourceGroupIdTemplate resourceGroupIdTemplate : deletedSpecs) {
-            for (ResourceGroupId resourceGroupId : configuredGroups(resourceGroupIdTemplate)) {
-                disableGroup(groups.get(resourceGroupId));
+            for (ResourceGroup group : configuredGroups.get(resourceGroupIdTemplate)) {
+                group.setDisabled(true);
             }
         }
-    }
-
-    private List<ResourceGroupId> configuredGroups(ResourceGroupIdTemplate idTemplate)
-    {
-        List<ResourceGroupId> groups = configuredGroups.get(idTemplate);
-        if (groups == null) {
-            return ImmutableList.of();
-        }
-        synchronized (groups) { // configuredGroups values are synchronized lists
-            return ImmutableList.copyOf(groups);
-        }
-    }
-
-    private synchronized void disableGroup(ResourceGroup group)
-    {
-        group.setDisabled(true);
     }
 
     private ResourceGroup getRootGroup(ResourceGroupId groupId)
@@ -407,7 +384,7 @@ public class DbResourceGroupConfigurationManager
             parent = groupId.getParent();
         }
         // GroupId is guaranteed to be in groups: it is added before the first call to this method in configure()
-        return groups.get(groupId);
+        return configuredGroups.get(groupId);
     }
 
     @Managed
@@ -421,5 +398,51 @@ public class DbResourceGroupConfigurationManager
     public void shutdown()
     {
         lifeCycleManager.ifPresent(LifeCycleManager::stop);
+    }
+
+    /**
+     * Stores mappings between group ID templates and groups expanded from them.
+     * A group, throughout its lifecycle, can be expanded from different templates.
+     * For example, 'admin' can be expanded from 'admin' and '${USER}'.
+     * This data structure stores the most recent mapping for a group registered by
+     * {@link ResourceGroupToTemplateMap#put(ResourceGroupIdTemplate, ResourceGroup)}.
+     */
+    private static class ResourceGroupToTemplateMap
+    {
+        private final Map<ResourceGroupId, ResourceGroup> groups = new HashMap<>();
+        private final Map<ResourceGroupId, ResourceGroupIdTemplate> groupIdToTemplate = new HashMap<>();
+        private final Map<ResourceGroupIdTemplate, Set<ResourceGroup>> templateToGroups = new HashMap<>();
+
+        /**
+         * Registers a mapping between a template and a group.
+         * If a mapping for the group already exists, it is replaced by the new one.
+         */
+        synchronized void put(ResourceGroupIdTemplate newTemplate, ResourceGroup group)
+        {
+            ResourceGroup previousGroup = groups.putIfAbsent(group.getId(), group);
+            checkState(previousGroup == null || previousGroup == group, "Unexpected resource group instance");
+
+            ResourceGroupIdTemplate previousTemplate = groupIdToTemplate.put(group.getId(), newTemplate);
+            if (previousTemplate != null) {
+                templateToGroups.get(previousTemplate)
+                        .remove(group);
+            }
+            templateToGroups.computeIfAbsent(newTemplate, _ -> ConcurrentHashMap.newKeySet())
+                    .add(group);
+        }
+
+        synchronized List<ResourceGroup> get(ResourceGroupIdTemplate idTemplate)
+        {
+            Set<ResourceGroup> groups = templateToGroups.get(idTemplate);
+            if (groups == null) {
+                return ImmutableList.of();
+            }
+            return ImmutableList.copyOf(groups);
+        }
+
+        synchronized ResourceGroup get(ResourceGroupId groupId)
+        {
+            return groups.get(groupId);
+        }
     }
 }

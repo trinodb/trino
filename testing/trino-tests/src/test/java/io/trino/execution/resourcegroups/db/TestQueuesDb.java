@@ -492,6 +492,68 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, secondQueryFromRunningGroup, RUNNING);
     }
 
+    @Test
+    @Timeout(60)
+    public void testSwitchGroupNameBetweenTemplateAndFixedValue()
+            throws InterruptedException
+    {
+        InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
+        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
+
+        dao.insertResourceGroup(10, "${USER}", "80%", 0, null, 0, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertSelector(10, 1, null, null, null, null, "[\"tag\"]", null);
+        dbConfigurationManager.load();
+
+        QueryId firstQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQuery, FAILED);
+        assertFailureMessage(firstQuery, "Too many queued queries for \"admin\"");
+
+        dao.updateResourceGroup(10, "admin", "80%", 1, null, 0, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dbConfigurationManager.load();
+
+        QueryId secondQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, secondQuery, QUEUED);
+
+        dao.updateResourceGroup(10, "${USER}", "80%", 1, null, 2, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dbConfigurationManager.load();
+
+        QueryId thirdQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, secondQuery, RUNNING);
+        waitForQueryState(queryRunner, thirdQuery, RUNNING);
+    }
+
+    @Test
+    @Timeout(60)
+    public void testGroupHasSingleConfig()
+            throws InterruptedException
+    {
+        InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
+        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
+
+        dao.insertResourceGroup(10, "${USER}", "80%", 100, null, 100, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertSelector(10, 100, null, null, null, null, "[\"tag\"]", null);
+        dbConfigurationManager.load();
+
+        // create a resource group using config '${USER}'
+        QueryId firstQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQuery, RUNNING);
+
+        dao.updateResourceGroup(10, "admin", "80%", 100, null, 100, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dbConfigurationManager.load();
+
+        // associate the resource group with config 'admin'
+        QueryId secondQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, secondQuery, RUNNING);
+
+        dao.insertResourceGroup(11, "${USER}", "80%", 0, null, 0, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertSelector(11, 101, null, null, null, null, "[\"tag\"]", null);
+        dbConfigurationManager.load();
+
+        // since the config 'admin' exists the group should not be configured using '${USER}'
+        QueryId thirdQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, thirdQuery, RUNNING);
+    }
+
     private static Session session(String user, String clientTag)
     {
         return testSessionBuilder()
