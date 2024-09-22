@@ -19,6 +19,7 @@ import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
+import io.trino.filesystem.encryption.EncryptionEnforcingFileSystem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -63,6 +64,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -80,6 +82,11 @@ public abstract class AbstractTestTrinoFileSystem
     protected abstract Location getRootLocation();
 
     protected abstract void verifyFileSystemIsEmpty();
+
+    protected boolean useServerSideEncryptionWithCustomerKey()
+    {
+        return false;
+    }
 
     /**
      * Specifies whether implementation {@link TrinoOutputFile#create()} is exclusive.
@@ -1421,6 +1428,37 @@ public abstract class AbstractTestTrinoFileSystem
         }
         assertThat(fileExistsInListing(location)).isTrue();
         assertThat(fileExists(location)).isTrue();
+        getFileSystem().deleteFile(location);
+    }
+
+    @Test
+    void testServerSideEncryptionWithCustomerKey()
+            throws IOException
+    {
+        if (!useServerSideEncryptionWithCustomerKey()) {
+            abort("Test is specific to SSE-C");
+        }
+
+        Location location = getRootLocation().appendPath("encrypted");
+
+        byte[] data = "this is encrypted data".getBytes(UTF_8);
+
+        // Create encrypted file
+        getFileSystem().newOutputFile(location)
+                .createOrOverwrite(data);
+
+        if (!(getFileSystem() instanceof EncryptionEnforcingFileSystem encryptionEnforcingFileSystem)) {
+            fail("Expected file system to enforce server side encryption");
+            return;
+        }
+
+        // Try to read it without a key
+        assertThatThrownBy(() -> encryptionEnforcingFileSystem.getDelegate().newInputFile(location).newStream().readAllBytes())
+                .isInstanceOf(IOException.class);
+
+        assertThat(getFileSystem().newInputFile(location).newStream().readAllBytes())
+                .isEqualTo(data);
+
         getFileSystem().deleteFile(location);
     }
 
