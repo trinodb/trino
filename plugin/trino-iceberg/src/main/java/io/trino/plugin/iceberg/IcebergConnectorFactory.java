@@ -34,7 +34,6 @@ import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.iceberg.catalog.IcebergCatalogModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -78,15 +77,14 @@ public class IcebergConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         checkStrictSpiVersionMatch(context, this);
-        return createConnector(catalogName, config, context, EMPTY_MODULE, Optional.empty());
+        return createConnector(catalogName, config, context, EMPTY_MODULE);
     }
 
     public static Connector createConnector(
             String catalogName,
             Map<String, String> config,
             ConnectorContext context,
-            Module module,
-            Optional<Module> icebergCatalogModule)
+            Module module)
     {
         ClassLoader classLoader = IcebergConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
@@ -97,7 +95,6 @@ public class IcebergConnectorFactory
                     new JsonModule(),
                     new IcebergModule(),
                     new IcebergSecurityModule(),
-                    icebergCatalogModule.orElse(new IcebergCatalogModule()),
                     new MBeanServerModule(),
                     new IcebergFileSystemModule(catalogName, context),
                     binder -> {
