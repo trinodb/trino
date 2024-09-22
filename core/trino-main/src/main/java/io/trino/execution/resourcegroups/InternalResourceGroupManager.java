@@ -282,25 +282,8 @@ public final class InternalResourceGroupManager<C>
     {
         int queriesQueuedInternal = 0;
         for (InternalResourceGroup rootGroup : rootGroups) {
-            synchronized (rootGroup) {
-                queriesQueuedInternal += getQueriesQueuedOnInternal(rootGroup);
-            }
+            queriesQueuedInternal += rootGroup.getQueriesQueuedOnInternal();
         }
-
-        return queriesQueuedInternal;
-    }
-
-    private static int getQueriesQueuedOnInternal(InternalResourceGroup resourceGroup)
-    {
-        if (resourceGroup.subGroups().isEmpty()) {
-            return Math.min(resourceGroup.getQueuedQueries(), resourceGroup.getSoftConcurrencyLimit() - resourceGroup.getRunningQueries());
-        }
-
-        int queriesQueuedInternal = 0;
-        for (InternalResourceGroup subGroup : resourceGroup.subGroups()) {
-            queriesQueuedInternal += getQueriesQueuedOnInternal(subGroup);
-        }
-
         return queriesQueuedInternal;
     }
 

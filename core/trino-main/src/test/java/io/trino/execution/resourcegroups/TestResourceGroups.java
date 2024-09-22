@@ -1295,7 +1295,7 @@ public class TestResourceGroups
     }
 
     @Test
-    public void testGetBlockedQueuedQueries()
+    public void testGetWaitingQueuedQueries()
     {
         InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor());
         root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
@@ -1356,6 +1356,77 @@ public class TestResourceGroups
         assertThat(rootB.getWaitingQueuedQueries()).isEqualTo(5);
         assertThat(rootBX.getWaitingQueuedQueries()).isEqualTo(6);
         assertThat(rootBY.getWaitingQueuedQueries()).isEqualTo(6);
+    }
+
+    @Test
+    public void testGetQueriesQueuedOnInternal()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        root.setMaxQueuedQueries(40);
+        // Start with zero capacity, so that nothing starts running until we've added all the queries
+        root.setHardConcurrencyLimit(0);
+        root.setSoftConcurrencyLimit(0);
+
+        InternalResourceGroup rootA = root.getOrCreateSubGroup("a");
+        rootA.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        rootA.setMaxQueuedQueries(20);
+        rootA.setHardConcurrencyLimit(8);
+        rootA.setSoftConcurrencyLimit(8);
+
+        InternalResourceGroup rootAX = rootA.getOrCreateSubGroup("x");
+        rootAX.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        rootAX.setMaxQueuedQueries(10);
+        rootAX.setHardConcurrencyLimit(8);
+        rootAX.setSoftConcurrencyLimit(8);
+
+        InternalResourceGroup rootAY = rootA.getOrCreateSubGroup("y");
+        rootAY.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        rootAY.setMaxQueuedQueries(10);
+        rootAY.setHardConcurrencyLimit(5);
+        rootAY.setSoftConcurrencyLimit(5);
+
+        InternalResourceGroup rootB = root.getOrCreateSubGroup("b");
+        rootB.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        rootB.setMaxQueuedQueries(20);
+        rootB.setHardConcurrencyLimit(8);
+        rootB.setSoftConcurrencyLimit(8);
+
+        InternalResourceGroup rootBX = rootB.getOrCreateSubGroup("x");
+        rootBX.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        rootBX.setMaxQueuedQueries(10);
+        rootBX.setHardConcurrencyLimit(8);
+        rootBX.setSoftConcurrencyLimit(8);
+
+        InternalResourceGroup rootBY = rootB.getOrCreateSubGroup("y");
+        rootBY.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        rootBY.setMaxQueuedQueries(10);
+        rootBY.setHardConcurrencyLimit(5);
+        rootBY.setSoftConcurrencyLimit(5);
+
+        fillGroupTo(rootAX, ImmutableSet.of(), 10, false);
+        fillGroupTo(rootAY, ImmutableSet.of(), 10, false);
+        fillGroupTo(rootBX, ImmutableSet.of(), 10, true);
+        fillGroupTo(rootBY, ImmutableSet.of(), 10, true);
+
+        assertThat(root.getQueriesQueuedOnInternal()).isEqualTo(26);
+        assertThat(rootA.getQueriesQueuedOnInternal()).isEqualTo(13);
+        assertThat(rootAX.getQueriesQueuedOnInternal()).isEqualTo(8);
+        assertThat(rootAY.getQueriesQueuedOnInternal()).isEqualTo(5);
+        assertThat(rootB.getQueriesQueuedOnInternal()).isEqualTo(13);
+        assertThat(rootBX.getQueriesQueuedOnInternal()).isEqualTo(8);
+        assertThat(rootBY.getQueriesQueuedOnInternal()).isEqualTo(5);
+
+        root.setHardConcurrencyLimit(20);
+        root.updateGroupsAndProcessQueuedQueries();
+
+        assertThat(root.getQueriesQueuedOnInternal()).isEqualTo(10);
+        assertThat(rootA.getQueriesQueuedOnInternal()).isEqualTo(5);
+        assertThat(rootAX.getQueriesQueuedOnInternal()).isEqualTo(4);
+        assertThat(rootAY.getQueriesQueuedOnInternal()).isEqualTo(1);
+        assertThat(rootB.getQueriesQueuedOnInternal()).isEqualTo(5);
+        assertThat(rootBX.getQueriesQueuedOnInternal()).isEqualTo(4);
+        assertThat(rootBY.getQueriesQueuedOnInternal()).isEqualTo(1);
     }
 
     private static int completeGroupQueries(Set<MockManagedQueryExecution> groupQueries)

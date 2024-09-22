@@ -32,7 +32,6 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.time.Duration;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -311,6 +310,22 @@ public class InternalResourceGroup
             }
 
             return waitingQueuedQueries;
+        }
+    }
+
+    public int getQueriesQueuedOnInternal()
+    {
+        synchronized (root) {
+            if (subGroups.isEmpty()) {
+                return min(getQueuedQueries(), softConcurrencyLimit - getRunningQueries());
+            }
+
+            int queriesQueuedInternal = 0;
+            for (InternalResourceGroup subGroup : subGroups.values()) {
+                queriesQueuedInternal += subGroup.getQueriesQueuedOnInternal();
+            }
+
+            return queriesQueuedInternal;
         }
     }
 
@@ -987,13 +1002,6 @@ public class InternalResourceGroup
                 hardConcurrencyLimit = Math.max(1, hardConcurrencyLimit);
             }
             return runningQueries.size() + descendantRunningQueries < hardConcurrencyLimit;
-        }
-    }
-
-    public Collection<InternalResourceGroup> subGroups()
-    {
-        synchronized (root) {
-            return subGroups.values();
         }
     }
 
