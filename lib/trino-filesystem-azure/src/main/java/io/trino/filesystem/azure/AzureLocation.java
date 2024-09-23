@@ -23,7 +23,8 @@ import static java.util.Objects.requireNonNull;
 
 class AzureLocation
 {
-    private static final String INVALID_LOCATION_MESSAGE = "Invalid Azure location. Expected form is 'abfs://[<containerName>@]<accountName>.dfs.<endpoint>/<filePath>': %s";
+    private static final String INVALID_ABFS_LOCATION_MESSAGE = "Invalid Azure ABFS location. Expected form is 'abfs://[<containerName>@]<accountName>.dfs.<endpoint>/<filePath>': %s";
+    private static final String INVALID_WASB_LOCATION_MESSAGE = "Invalid Azure WASB location. Expected form is 'wasb://[<containerName>@]<accountName>.blob.<endpoint>/<filePath>': %s";
 
     // https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
     private static final CharMatcher CONTAINER_VALID_CHARACTERS = CharMatcher.inRange('a', 'z').or(CharMatcher.inRange('0', '9')).or(CharMatcher.is('-'));
@@ -44,13 +45,23 @@ class AzureLocation
     public AzureLocation(Location location)
     {
         this.location = requireNonNull(location, "location is null");
-        // abfss is also supported but not documented
-        scheme = location.scheme().orElseThrow(() -> new IllegalArgumentException(String.format(INVALID_LOCATION_MESSAGE, location)));
-        checkArgument("abfs".equals(scheme) || "abfss".equals(scheme), INVALID_LOCATION_MESSAGE, location);
+        // abfss and wasb are also supported but not documented
+        scheme = location.scheme().orElseThrow(() -> new IllegalArgumentException(String.format(INVALID_ABFS_LOCATION_MESSAGE, location)));
+        String invalidLocationMessage;
+        if ("abfs".equals(scheme) || "abfss".equals(scheme)) {
+            invalidLocationMessage = INVALID_ABFS_LOCATION_MESSAGE;
+        }
+        else if ("wasb".equals(scheme)) {
+            invalidLocationMessage = INVALID_WASB_LOCATION_MESSAGE;
+        }
+        else {
+            // only mention abfs in error message as the other forms are deprecated
+            throw new IllegalArgumentException(String.format(INVALID_ABFS_LOCATION_MESSAGE, location));
+        }
 
         // container is interpolated into the URL path, so perform extra checks
         location.userInfo().ifPresent(container -> {
-            checkArgument(!container.isEmpty(), INVALID_LOCATION_MESSAGE, location);
+            checkArgument(!container.isEmpty(), invalidLocationMessage, location);
             checkArgument(
                     CONTAINER_VALID_CHARACTERS.matchesAllOf(container),
                     "Invalid Azure storage container name. Valid characters are 'a-z', '0-9', and '-': %s",
@@ -66,21 +77,27 @@ class AzureLocation
         });
 
         // storage account is the first label of the host
-        checkArgument(location.host().isPresent(), INVALID_LOCATION_MESSAGE, location);
+        checkArgument(location.host().isPresent(), invalidLocationMessage, location);
         String host = location.host().get();
         int accountSplit = host.indexOf('.');
         checkArgument(
                 accountSplit > 0,
-                INVALID_LOCATION_MESSAGE,
+                invalidLocationMessage,
                 this.location);
         this.account = host.substring(0, accountSplit);
 
-        // host must contain ".dfs." before endpoint
-        checkArgument(host.substring(accountSplit).startsWith(".dfs."), INVALID_LOCATION_MESSAGE, location);
-
-        // endpoint is the part after ".dfs."
-        this.endpoint = host.substring(accountSplit + ".dfs.".length());
-        checkArgument(!endpoint.isEmpty(), INVALID_LOCATION_MESSAGE, location);
+        // abfs[s] host must contain ".dfs.", and wasb host must contain ".blob." before endpoint
+        if (scheme.equals("abfs") || scheme.equals("abfss")) {
+            checkArgument(host.substring(accountSplit).startsWith(".dfs."), invalidLocationMessage, location);
+            // endpoint does not include dfs
+            this.endpoint = host.substring(accountSplit + ".dfs.".length());
+        }
+        else {
+            checkArgument(host.substring(accountSplit).startsWith(".blob."), invalidLocationMessage, location);
+            // endpoint does not include blob
+            this.endpoint = host.substring(accountSplit + ".blob.".length());
+        }
+        checkArgument(!endpoint.isEmpty(), invalidLocationMessage, location);
 
         // storage account is interpolated into URL host name, so perform extra checks
         checkArgument(STORAGE_ACCOUNT_VALID_CHARACTERS.matchesAllOf(account),

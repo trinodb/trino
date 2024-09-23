@@ -26,6 +26,8 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInput;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -210,5 +212,29 @@ public abstract class AbstractTestAzureFileSystem
     {
         // Azure file paths are always hierarchical
         testPathHierarchical();
+    }
+
+    @Test
+    void testWasb()
+            throws IOException
+    {
+        try (TempBlob tempBlob = new TempBlob(Location.of("wasb://%s@%s.blob.core.windows.net/wasb-test/%s".formatted(containerName, account, randomUUID())))) {
+            assertThat(tempBlob.exists()).isFalse();
+
+            TrinoInputFile inputFile = getFileSystem().newInputFile(tempBlob.location());
+            assertThat(inputFile.location()).isEqualTo(tempBlob.location());
+            assertThat(inputFile.exists()).isFalse();
+
+            // create file with data
+            tempBlob.createOrOverwrite("123456");
+            assertThat(inputFile.length()).isEqualTo(6);
+            try (TrinoInput input = inputFile.newInput()) {
+                assertThat(input.readFully(0, 6).toStringUtf8()).isEqualTo("123456");
+            }
+
+            // delete the file
+            tempBlob.close();
+            assertThat(inputFile.exists()).isFalse();
+        }
     }
 }
