@@ -3312,8 +3312,11 @@ public class IcebergMetadata
     @Override
     public boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
     {
-        IcebergTableHandle tableHandle = (IcebergTableHandle) connectorTableHandle;
-        IcebergFileFormat storageFormat = getFileFormat(tableHandle.getStorageProperties());
+        // dont split to subqueries if tableHandle is systemTableHandle
+        if (!(connectorTableHandle instanceof IcebergTableHandle icebergTableHandle)) {
+            return false;
+        }
+        IcebergFileFormat storageFormat = getFileFormat(icebergTableHandle.getStorageProperties());
 
         return storageFormat == IcebergFileFormat.ORC || storageFormat == IcebergFileFormat.PARQUET;
     }
