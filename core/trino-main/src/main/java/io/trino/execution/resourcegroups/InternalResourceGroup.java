@@ -297,7 +297,7 @@ public class InternalResourceGroup
     {
         synchronized (root) {
             // For leaf group, when no queries can run, all queued queries are waiting for resources on this resource group.
-            if (subGroups.isEmpty()) {
+            if (isLeafGroup()) {
                 return queuedQueries.size();
             }
 
@@ -316,7 +316,7 @@ public class InternalResourceGroup
     public int getQueriesQueuedOnInternal()
     {
         synchronized (root) {
-            if (subGroups.isEmpty()) {
+            if (isLeafGroup()) {
                 return min(getQueuedQueries(), softConcurrencyLimit - getRunningQueries());
             }
 

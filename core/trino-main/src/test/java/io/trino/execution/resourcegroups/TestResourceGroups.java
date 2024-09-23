@@ -1429,6 +1429,96 @@ public class TestResourceGroups
         assertThat(rootBY.getQueriesQueuedOnInternal()).isEqualTo(1);
     }
 
+    @Test
+    public void testGetWaitingQueuedQueriesWithDisabledGroup()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        root.setMaxQueuedQueries(40);
+        root.setHardConcurrencyLimit(20);
+
+        InternalResourceGroup rootA = root.getOrCreateSubGroup("a");
+        rootA.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        rootA.setMaxQueuedQueries(20);
+        rootA.setHardConcurrencyLimit(15);
+
+        InternalResourceGroup rootAX = rootA.getOrCreateSubGroup("x");
+        rootAX.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        rootAX.setMaxQueuedQueries(10);
+        rootAX.setHardConcurrencyLimit(10);
+
+        InternalResourceGroup rootB = root.getOrCreateSubGroup("b");
+        rootB.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        rootB.setMaxQueuedQueries(20);
+        rootB.setHardConcurrencyLimit(15);
+
+        fillGroupTo(rootB, ImmutableSet.of(), 8, false);
+        fillGroupTo(rootAX, ImmutableSet.of(), 6, false);
+        rootAX.setDisabled(true);
+        fillGroupTo(rootA, ImmutableSet.of(), 20, false);
+
+        // Since there are 6 running queries in the group 'root.a.x', the group 'root.a',
+        // which is now a leaf, can only run 9 queries even though its concurrency limit
+        // is set to 15. However, it is currently running only 6 queries with 14 queued,
+        // because its parent group has reached its concurrency limit (20), preventing
+        // 'root.a' from running the additional 3 queries.
+        assertThat(root.getWaitingQueuedQueries()).isEqualTo(3);
+        assertThat(root.getQueuedQueries()).isEqualTo(14);
+        assertThat(rootA.getWaitingQueuedQueries()).isEqualTo(14);
+        assertThat(rootA.getQueuedQueries()).isEqualTo(14);
+        assertThat(rootAX.getWaitingQueuedQueries()).isEqualTo(0);
+        assertThat(rootAX.getQueuedQueries()).isEqualTo(0);
+        assertThat(rootB.getWaitingQueuedQueries()).isEqualTo(0);
+        assertThat(rootB.getQueuedQueries()).isEqualTo(0);
+    }
+
+    @Test
+    public void testGetQueriesQueuedOnInternalWithDisabledGroup()
+    {
+        InternalResourceGroup root = new InternalResourceGroup("root", (_, _) -> {}, directExecutor());
+        root.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        root.setMaxQueuedQueries(40);
+        root.setHardConcurrencyLimit(20);
+        root.setSoftConcurrencyLimit(20);
+
+        InternalResourceGroup rootA = root.getOrCreateSubGroup("a");
+        rootA.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        rootA.setMaxQueuedQueries(20);
+        rootA.setHardConcurrencyLimit(15);
+        rootA.setSoftConcurrencyLimit(15);
+
+        InternalResourceGroup rootAX = rootA.getOrCreateSubGroup("x");
+        rootAX.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        rootAX.setMaxQueuedQueries(10);
+        rootAX.setHardConcurrencyLimit(10);
+        rootAX.setSoftConcurrencyLimit(10);
+
+        InternalResourceGroup rootB = root.getOrCreateSubGroup("b");
+        rootB.setSoftMemoryLimitBytes(DataSize.of(1, MEGABYTE).toBytes());
+        rootB.setMaxQueuedQueries(20);
+        rootB.setHardConcurrencyLimit(15);
+        rootB.setSoftConcurrencyLimit(15);
+
+        fillGroupTo(rootB, ImmutableSet.of(), 8, false);
+        fillGroupTo(rootAX, ImmutableSet.of(), 6, false);
+        rootAX.setDisabled(true);
+        fillGroupTo(rootA, ImmutableSet.of(), 20, false);
+
+        // Since there are 6 running queries in the group 'root.a.x', the group 'root.a',
+        // which is now a leaf, can only run 9 queries even though its concurrency limit
+        // is set to 15. However, it is currently running only 6 queries with 14 queued,
+        // because its parent group has reached its concurrency limit (20), preventing
+        // 'root.a' from running the additional 3 queries.
+        assertThat(root.getQueriesQueuedOnInternal()).isEqualTo(3);
+        assertThat(root.getQueuedQueries()).isEqualTo(14);
+        assertThat(rootA.getQueriesQueuedOnInternal()).isEqualTo(3);
+        assertThat(rootA.getQueuedQueries()).isEqualTo(14);
+        assertThat(rootAX.getQueriesQueuedOnInternal()).isEqualTo(0);
+        assertThat(rootAX.getQueuedQueries()).isEqualTo(0);
+        assertThat(rootB.getQueriesQueuedOnInternal()).isEqualTo(0);
+        assertThat(rootB.getQueuedQueries()).isEqualTo(0);
+    }
+
     private static int completeGroupQueries(Set<MockManagedQueryExecution> groupQueries)
     {
         int groupRan = 0;
