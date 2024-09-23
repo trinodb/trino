@@ -640,7 +640,8 @@ public class MemoryMetadata
     @Override
     public boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return true;
+        // dont split to subqueries if tableHandle is systemTableHandle
+        return tableHandle instanceof MemoryTableHandle;
     }
 
     @Override

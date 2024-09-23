@@ -4059,8 +4059,8 @@ public class DeltaLakeMetadata
     @Override
     public boolean allowSplittingReadIntoMultipleSubQueries(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        // delta lake supports only a columnar (parquet) storage format
-        return true;
+        // dont split to subqueries if tableHandle is systemTableHandle, delta lake supports only a columnar (parquet) storage format
+        return tableHandle instanceof DeltaLakeTableHandle;
     }
 
     @Override
