@@ -2803,6 +2803,9 @@ public final class MetadataManager
     public boolean allowSplittingReadIntoMultipleSubQueries(Session session, TableHandle tableHandle)
     {
         CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        if (catalogHandle.getType().isInternal()) {
+            return false;
+        }
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogHandle);
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         return catalogMetadata.getMetadata(session).allowSplittingReadIntoMultipleSubQueries(connectorSession, tableHandle.connectorHandle());
