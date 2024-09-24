@@ -38,7 +38,7 @@ import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.trino.tempto.internal.convention.SqlResultDescriptor.sqlResultDescriptorForResource;
 import static io.trino.tests.product.TestGroups.JDBC;
-import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
+import static io.trino.tests.product.TpchTableResults.TRINO_NATION_RESULT;
 import static io.trino.tests.product.utils.JdbcDriverUtils.getSessionProperty;
 import static io.trino.tests.product.utils.JdbcDriverUtils.resetSessionProperty;
 import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
@@ -68,7 +68,7 @@ public class TestJdbc
     {
         try (Statement statement = connection().createStatement()) {
             QueryResult result = queryResult(statement, "select * from hive.default.nation");
-            assertThat(result).matches(PRESTO_NATION_RESULT);
+            assertThat(result).matches(TRINO_NATION_RESULT);
         }
     }
 
@@ -85,7 +85,7 @@ public class TestJdbc
                     .isEqualTo(25);
         }
 
-        assertThat(onTrino().executeQuery("SELECT * FROM " + tableNameInDatabase)).matches(PRESTO_NATION_RESULT);
+        assertThat(onTrino().executeQuery("SELECT * FROM " + tableNameInDatabase)).matches(TRINO_NATION_RESULT);
     }
 
     @Test(groups = JDBC)
@@ -97,7 +97,7 @@ public class TestJdbc
         connection().setSchema("default");
         try (Statement statement = connection().createStatement()) {
             QueryResult result = queryResult(statement, "select * from nation");
-            assertThat(result).matches(PRESTO_NATION_RESULT);
+            assertThat(result).matches(TRINO_NATION_RESULT);
         }
     }
 
