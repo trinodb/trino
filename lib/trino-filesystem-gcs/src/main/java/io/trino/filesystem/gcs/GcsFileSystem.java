@@ -20,6 +20,8 @@ import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.StorageBatch;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.Futures;
@@ -33,6 +35,7 @@ import io.trino.filesystem.TrinoFileSystemException;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
+import io.trino.filesystem.encryption.EncryptionKey;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -51,12 +54,16 @@ import java.util.Set;
 import static com.google.cloud.storage.Storage.BlobListOption.currentDirectory;
 import static com.google.cloud.storage.Storage.BlobListOption.matchGlob;
 import static com.google.cloud.storage.Storage.BlobListOption.pageSize;
+import static com.google.cloud.storage.Storage.SignUrlOption.withExtHeaders;
 import static com.google.cloud.storage.Storage.SignUrlOption.withV4Signature;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.partition;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.filesystem.gcs.GcsUtils.encodedKey;
 import static io.trino.filesystem.gcs.GcsUtils.getBlob;
 import static io.trino.filesystem.gcs.GcsUtils.handleGcsException;
+import static io.trino.filesystem.gcs.GcsUtils.keySha256Checksum;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -85,7 +92,15 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty());
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, EncryptionKey key)
+    {
+        GcsLocation gcsLocation = new GcsLocation(location);
+        checkIsValidFile(gcsLocation);
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.empty(), Optional.empty(), Optional.of(key));
     }
 
     @Override
@@ -93,7 +108,15 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty());
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, long length, EncryptionKey key)
+    {
+        GcsLocation gcsLocation = new GcsLocation(location);
+        checkIsValidFile(gcsLocation);
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.empty(), Optional.of(key));
     }
 
     @Override
@@ -101,7 +124,15 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified));
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), Optional.empty());
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, long length, Instant lastModified, EncryptionKey key)
+    {
+        GcsLocation gcsLocation = new GcsLocation(location);
+        checkIsValidFile(gcsLocation);
+        return new GcsInputFile(gcsLocation, storage, readBlockSizeBytes, OptionalLong.of(length), Optional.of(lastModified), Optional.of(key));
     }
 
     @Override
@@ -109,7 +140,15 @@ public class GcsFileSystem
     {
         GcsLocation gcsLocation = new GcsLocation(location);
         checkIsValidFile(gcsLocation);
-        return new GcsOutputFile(gcsLocation, storage, writeBlockSizeBytes);
+        return new GcsOutputFile(gcsLocation, storage, writeBlockSizeBytes, Optional.empty());
+    }
+
+    @Override
+    public TrinoOutputFile newEncryptedOutputFile(Location location, EncryptionKey key)
+    {
+        GcsLocation gcsLocation = new GcsLocation(location);
+        checkIsValidFile(gcsLocation);
+        return new GcsOutputFile(gcsLocation, storage, writeBlockSizeBytes, Optional.of(key));
     }
 
     @Override
@@ -206,7 +245,7 @@ public class GcsFileSystem
         if (!location.path().isEmpty()) {
             optionsBuilder.add(BlobListOption.prefix(location.path()));
         }
-        Arrays.stream(blobListOptions).forEach(optionsBuilder::add);
+        optionsBuilder.addAll(Arrays.asList(blobListOptions));
         optionsBuilder.add(pageSize(this.pageSize));
         return storage.list(location.bucket(), optionsBuilder.toArray(BlobListOption[]::new));
     }
@@ -293,18 +332,53 @@ public class GcsFileSystem
     public Optional<UriLocation> preSignedUri(Location location, Duration ttl)
             throws IOException
     {
+        return preSignedUri(location, ttl, Optional.empty());
+    }
+
+    @Override
+    public Optional<UriLocation> encryptedPreSignedUri(Location location, Duration ttl, EncryptionKey key)
+            throws IOException
+    {
+        return preSignedUri(location, ttl, Optional.of(key));
+    }
+
+    private Optional<UriLocation> preSignedUri(Location location, Duration ttl, Optional<EncryptionKey> key)
+            throws IOException
+    {
         GcsLocation gcsLocation = new GcsLocation(location);
         BlobInfo blobInfo = BlobInfo
                 .newBuilder(BlobId.of(gcsLocation.bucket(), gcsLocation.path()))
                 .build();
 
-        URL url = storage.signUrl(blobInfo, ttl.toMillis(), MILLISECONDS, withV4Signature());
+        Map<String, String> extHeaders = preSignedHeaders(key);
+        URL url = storage.signUrl(blobInfo, ttl.toMillis(), MILLISECONDS, withV4Signature(), withExtHeaders(extHeaders));
         try {
-            return Optional.of(new UriLocation(url.toURI(), Map.of()));
+            return Optional.of(new UriLocation(url.toURI(), toMultiMap(extHeaders)));
         }
         catch (URISyntaxException e) {
             throw new IOException("Error creating URI for location: " + location, e);
         }
+    }
+
+    private static Map<String, String> preSignedHeaders(Optional<EncryptionKey> key)
+    {
+        if (key.isEmpty()) {
+            return ImmutableMap.of();
+        }
+
+        EncryptionKey encryption = key.get();
+        ImmutableMap.Builder<String, String> headers = ImmutableMap.builderWithExpectedSize(3);
+        headers.put("x-goog-encryption-algorithm", encryption.algorithm());
+        headers.put("x-goog-encryption-key", encodedKey(encryption));
+        headers.put("x-goog-encryption-key-sha256", keySha256Checksum(encryption));
+        return headers.buildOrThrow();
+    }
+
+    private Map<String, List<String>> toMultiMap(Map<String, String> extHeaders)
+    {
+        return extHeaders.entrySet().stream()
+                .map(entry -> Map.entry(entry.getKey(), ImmutableList.of(entry.getValue())))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     @SuppressWarnings("ResultOfObjectAllocationIgnored")
