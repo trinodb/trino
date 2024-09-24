@@ -195,7 +195,7 @@
         <dep.confluent.version>7.5.1</dep.confluent.version>
         <dep.docker.images.version>100</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
-        <dep.flyway.version>10.18.0</dep.flyway.version>
+        <dep.flyway.version>10.18.1</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v20.17.0</dep.frontend-node.version>
         <dep.frontend-npm.version>10.8.3</dep.frontend-npm.version>
