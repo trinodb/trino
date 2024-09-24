@@ -13,9 +13,9 @@
  */
 package io.trino.spooling.filesystem;
 
-import io.airlift.slice.Slice;
 import io.azam.ulidj.ULID;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpooledSegmentHandle;
 import io.trino.spi.protocol.SpoolingContext;
@@ -28,7 +28,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
-public record FileSystemSpooledSegmentHandle(@Override String encoding, @Override QueryId queryId, byte[] uuid, Optional<Slice> encryptionKey)
+public record FileSystemSpooledSegmentHandle(@Override String encoding, @Override QueryId queryId, byte[] uuid, Optional<EncryptionKey> encryptionKey)
         implements SpooledSegmentHandle
 {
     private static final String OBJECT_NAME_SEPARATOR = "::";
@@ -45,7 +45,7 @@ public record FileSystemSpooledSegmentHandle(@Override String encoding, @Overrid
         return random(random, context, expireAt, Optional.empty());
     }
 
-    public static FileSystemSpooledSegmentHandle random(Random random, SpoolingContext context, Instant expireAt, Optional<Slice> encryptionKey)
+    public static FileSystemSpooledSegmentHandle random(Random random, SpoolingContext context, Instant expireAt, Optional<EncryptionKey> encryptionKey)
     {
         return new FileSystemSpooledSegmentHandle(
                 context.encoding(),
