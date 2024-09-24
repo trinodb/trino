@@ -24,6 +24,7 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.testing.assertions.TrinoExceptionAssert;
 import org.apache.commons.math3.util.Precision;
 
 import java.util.Arrays;
@@ -38,6 +39,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
@@ -56,6 +58,11 @@ public final class AggregationTestUtils
         BiFunction<Object, Object, Boolean> equalAssertion = makeValidityAssertion(expectedValue);
 
         assertAggregation(functionResolution, name, parameterTypes, equalAssertion, null, page, expectedValue);
+    }
+
+    public static TrinoExceptionAssert assertAggregationFails(TestingFunctionResolution functionResolution, String name, List<TypeSignatureProvider> parameterTypes, Block... blocks)
+    {
+        return assertTrinoExceptionThrownBy(() -> assertAggregation(functionResolution, name, parameterTypes, null, blocks));
     }
 
     public static BiFunction<Object, Object, Boolean> makeValidityAssertion(Object expectedValue)
