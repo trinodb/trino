@@ -13,6 +13,7 @@
  */
 package io.trino.util;
 
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.FormatMethod;
 import io.trino.client.ErrorLocation;
@@ -61,8 +62,13 @@ public final class Failures
     @FormatMethod
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
     {
+        checkCondition(condition, errorCode, () -> format(formatString, args));
+    }
+
+    public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, Supplier<String> errorMessage)
+    {
         if (!condition) {
-            throw new TrinoException(errorCode, format(formatString, args));
+            throw new TrinoException(errorCode, errorMessage.get());
         }
     }
 

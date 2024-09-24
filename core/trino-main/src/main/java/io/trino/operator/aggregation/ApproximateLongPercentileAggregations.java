@@ -70,7 +70,7 @@ public final class ApproximateLongPercentileAggregations
     public static double toDoubleExact(long value)
     {
         double doubleValue = (double) value;
-        checkCondition((long) doubleValue == value, INVALID_FUNCTION_ARGUMENT, "no exact double representation for long: %s", value);
+        checkCondition((long) doubleValue == value, INVALID_FUNCTION_ARGUMENT, () -> String.format("no exact double representation for long: %s", value));
         return doubleValue;
     }
 }

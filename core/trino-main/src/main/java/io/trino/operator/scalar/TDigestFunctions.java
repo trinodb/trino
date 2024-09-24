@@ -61,7 +61,7 @@ public final class TDigestFunctions
 
     public static double verifyWeight(double weight)
     {
-        checkCondition(weight >= 1, INVALID_FUNCTION_ARGUMENT, "weight must be >= 1, was %s", weight);
+        checkCondition(weight >= 1, INVALID_FUNCTION_ARGUMENT, () -> String.format("weight must be >= 1, was %s", weight));
         return weight;
     }
 }
