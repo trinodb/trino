@@ -139,14 +139,14 @@ public abstract class AbstractTestS3FileSystem
                     RequestBody.fromBytes(contents.clone()));
             try {
                 // Verify listing
-                List<FileEntry> listing = toList(fileSystem.listFiles(getRootLocation().appendPath("foo")));
+                List<FileEntry> listing = toList(getFileSystem().listFiles(getRootLocation().appendPath("foo")));
                 assertThat(listing).hasSize(1);
                 FileEntry fileEntry = getOnlyElement(listing);
                 assertThat(fileEntry.location()).isEqualTo(getRootLocation().appendPath(key));
                 assertThat(fileEntry.length()).isEqualTo(contents.length);
 
                 // Verify reading
-                TrinoInputFile inputFile = fileSystem.newInputFile(fileEntry.location());
+                TrinoInputFile inputFile = getFileSystem().newInputFile(fileEntry.location());
                 assertThat(inputFile.exists()).as("exists").isTrue();
                 try (TrinoInputStream inputStream = inputFile.newStream()) {
                     byte[] bytes = ByteStreams.toByteArray(inputStream);
@@ -155,12 +155,12 @@ public abstract class AbstractTestS3FileSystem
 
                 // Verify writing
                 byte[] newContents = "bar bar baz new content".getBytes(UTF_8);
-                fileSystem.newOutputFile(fileEntry.location()).createOrOverwrite(newContents);
+                getFileSystem().newOutputFile(fileEntry.location()).createOrOverwrite(newContents);
                 assertThat(s3Client.getObjectAsBytes(request -> request.bucket(bucket()).key(key)).asByteArray())
                         .isEqualTo(newContents);
 
                 // Verify deleting
-                fileSystem.deleteFile(fileEntry.location());
+                getFileSystem().deleteFile(fileEntry.location());
                 assertThat(inputFile.exists()).as("exists after delete").isFalse();
             }
             finally {
@@ -176,17 +176,17 @@ public abstract class AbstractTestS3FileSystem
         try (S3Client s3Client = createS3Client(); Closer closer = Closer.create()) {
             String key = "data/dir/";
             createDirectory(closer, s3Client, key);
-            assertThat(fileSystem.listFiles(getRootLocation()).hasNext()).isFalse();
+            assertThat(getFileSystem().listFiles(getRootLocation()).hasNext()).isFalse();
 
             Location data = getRootLocation().appendPath("data/");
-            assertThat(fileSystem.listDirectories(getRootLocation())).containsExactly(data);
-            assertThat(fileSystem.listDirectories(data)).containsExactly(data.appendPath("dir/"));
+            assertThat(getFileSystem().listDirectories(getRootLocation())).containsExactly(data);
+            assertThat(getFileSystem().listDirectories(data)).containsExactly(data.appendPath("dir/"));
 
-            fileSystem.deleteDirectory(data);
-            assertThat(fileSystem.listDirectories(getRootLocation())).isEmpty();
+            getFileSystem().deleteDirectory(data);
+            assertThat(getFileSystem().listDirectories(getRootLocation())).isEmpty();
 
-            fileSystem.deleteDirectory(getRootLocation());
-            assertThat(fileSystem.listDirectories(getRootLocation())).isEmpty();
+            getFileSystem().deleteDirectory(getRootLocation());
+            assertThat(getFileSystem().listDirectories(getRootLocation())).isEmpty();
         }
     }
 
@@ -202,16 +202,16 @@ public abstract class AbstractTestS3FileSystem
             createDirectory(closer, s3Client, "deep/dir/dir4");
             createBlob(closer, "deep/dir/dir4/file5.txt");
 
-            assertThat(fileSystem.listFiles(getRootLocation()).hasNext()).isTrue();
+            assertThat(getFileSystem().listFiles(getRootLocation()).hasNext()).isTrue();
 
             Location directory = getRootLocation().appendPath("deep/dir/");
-            assertThat(fileSystem.listDirectories(getRootLocation().appendPath("deep"))).containsExactly(directory);
-            assertThat(fileSystem.listDirectories(directory)).containsExactly(getRootLocation().appendPath("deep/dir/dir4/"));
+            assertThat(getFileSystem().listDirectories(getRootLocation().appendPath("deep"))).containsExactly(directory);
+            assertThat(getFileSystem().listDirectories(directory)).containsExactly(getRootLocation().appendPath("deep/dir/dir4/"));
 
-            fileSystem.deleteDirectory(directory);
-            assertThat(fileSystem.listDirectories(getRootLocation().appendPath("deep"))).isEmpty();
-            assertThat(fileSystem.listDirectories(getRootLocation())).isEmpty();
-            assertThat(fileSystem.listFiles(getRootLocation()).hasNext()).isFalse();
+            getFileSystem().deleteDirectory(directory);
+            assertThat(getFileSystem().listDirectories(getRootLocation().appendPath("deep"))).isEmpty();
+            assertThat(getFileSystem().listDirectories(getRootLocation())).isEmpty();
+            assertThat(getFileSystem().listFiles(getRootLocation()).hasNext()).isFalse();
         }
     }
 
