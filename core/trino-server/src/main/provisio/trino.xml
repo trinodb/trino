@@ -201,12 +201,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/local-file">
-        <artifact id="${project.groupId}:trino-local-file:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/mariadb">
         <artifact id="${project.groupId}:trino-mariadb:zip:${project.version}">
             <unpack />

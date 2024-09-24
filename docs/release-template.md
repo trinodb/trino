@@ -52,8 +52,6 @@
 
 ## Kudu connector
 
-## Local file connector
-
 ## MariaDB connector
 
 ## Memory connector
