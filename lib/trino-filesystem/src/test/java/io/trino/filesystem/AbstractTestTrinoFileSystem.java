@@ -889,7 +889,7 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     @Test
-    void testRenameFile()
+    protected void testRenameFile()
             throws IOException
     {
         if (!supportsRenameFile()) {

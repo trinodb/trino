@@ -37,6 +37,7 @@ import com.azure.storage.file.datalake.models.DataLakeStorageException;
 import com.azure.storage.file.datalake.models.ListPathsOptions;
 import com.azure.storage.file.datalake.models.PathItem;
 import com.azure.storage.file.datalake.options.DataLakePathDeleteOptions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -47,11 +48,13 @@ import io.trino.filesystem.TrinoFileSystemException;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
+import io.trino.filesystem.encryption.EncryptionKey;
 
 import java.io.IOException;
 import java.net.URI;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -61,8 +64,12 @@ import java.util.Set;
 import static com.azure.storage.common.implementation.Constants.HeaderConstants.ETAG_WILDCARD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.filesystem.azure.AzureUtils.blobCustomerProvidedKey;
+import static io.trino.filesystem.azure.AzureUtils.encodedKey;
 import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
 import static io.trino.filesystem.azure.AzureUtils.isFileNotFoundException;
+import static io.trino.filesystem.azure.AzureUtils.keySha256Checksum;
+import static io.trino.filesystem.azure.AzureUtils.lakeCustomerProvidedKey;
 import static java.lang.Math.toIntExact;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Objects.requireNonNull;
@@ -106,7 +113,15 @@ public class AzureFileSystem
     public TrinoInputFile newInputFile(Location location)
     {
         AzureLocation azureLocation = new AzureLocation(location);
-        BlobClient client = createBlobClient(azureLocation);
+        BlobClient client = createBlobClient(azureLocation, Optional.empty());
+        return new AzureInputFile(azureLocation, OptionalLong.empty(), Optional.empty(), client, readBlockSizeBytes);
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, EncryptionKey key)
+    {
+        AzureLocation azureLocation = new AzureLocation(location);
+        BlobClient client = createBlobClient(azureLocation, Optional.of(key));
         return new AzureInputFile(azureLocation, OptionalLong.empty(), Optional.empty(), client, readBlockSizeBytes);
     }
 
@@ -114,7 +129,15 @@ public class AzureFileSystem
     public TrinoInputFile newInputFile(Location location, long length)
     {
         AzureLocation azureLocation = new AzureLocation(location);
-        BlobClient client = createBlobClient(azureLocation);
+        BlobClient client = createBlobClient(azureLocation, Optional.empty());
+        return new AzureInputFile(azureLocation, OptionalLong.of(length), Optional.empty(), client, readBlockSizeBytes);
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, long length, EncryptionKey key)
+    {
+        AzureLocation azureLocation = new AzureLocation(location);
+        BlobClient client = createBlobClient(azureLocation, Optional.of(key));
         return new AzureInputFile(azureLocation, OptionalLong.of(length), Optional.empty(), client, readBlockSizeBytes);
     }
 
@@ -122,7 +145,15 @@ public class AzureFileSystem
     public TrinoInputFile newInputFile(Location location, long length, Instant lastModified)
     {
         AzureLocation azureLocation = new AzureLocation(location);
-        BlobClient client = createBlobClient(azureLocation);
+        BlobClient client = createBlobClient(azureLocation, Optional.empty());
+        return new AzureInputFile(azureLocation, OptionalLong.of(length), Optional.of(lastModified), client, readBlockSizeBytes);
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, long length, Instant lastModified, EncryptionKey key)
+    {
+        AzureLocation azureLocation = new AzureLocation(location);
+        BlobClient client = createBlobClient(azureLocation, Optional.of(key));
         return new AzureInputFile(azureLocation, OptionalLong.of(length), Optional.of(lastModified), client, readBlockSizeBytes);
     }
 
@@ -130,7 +161,15 @@ public class AzureFileSystem
     public TrinoOutputFile newOutputFile(Location location)
     {
         AzureLocation azureLocation = new AzureLocation(location);
-        BlobClient client = createBlobClient(azureLocation);
+        BlobClient client = createBlobClient(azureLocation, Optional.empty());
+        return new AzureOutputFile(azureLocation, client, writeBlockSizeBytes, maxWriteConcurrency, maxSingleUploadSizeBytes);
+    }
+
+    @Override
+    public TrinoOutputFile newEncryptedOutputFile(Location location, EncryptionKey key)
+    {
+        AzureLocation azureLocation = new AzureLocation(location);
+        BlobClient client = createBlobClient(azureLocation, Optional.of(key));
         return new AzureOutputFile(azureLocation, client, writeBlockSizeBytes, maxWriteConcurrency, maxSingleUploadSizeBytes);
     }
 
@@ -140,7 +179,7 @@ public class AzureFileSystem
     {
         location.verifyValidFileLocation();
         AzureLocation azureLocation = new AzureLocation(location);
-        BlobClient client = createBlobClient(azureLocation);
+        BlobClient client = createBlobClient(azureLocation, Optional.empty());
         try {
             client.delete();
         }
@@ -173,7 +212,7 @@ public class AzureFileSystem
     private void deleteGen2Directory(AzureLocation location)
             throws IOException
     {
-        DataLakeFileSystemClient fileSystemClient = createFileSystemClient(location);
+        DataLakeFileSystemClient fileSystemClient = createFileSystemClient(location, Optional.empty());
         DataLakePathDeleteOptions deleteRecursiveOptions = new DataLakePathDeleteOptions().setIsRecursive(true);
         if (location.path().isEmpty()) {
             for (PathItem pathItem : fileSystemClient.listPaths()) {
@@ -198,7 +237,7 @@ public class AzureFileSystem
 
     private void deleteBlobDirectory(AzureLocation location)
     {
-        BlobContainerClient blobContainerClient = createBlobContainerClient(location);
+        BlobContainerClient blobContainerClient = createBlobContainerClient(location, Optional.empty());
         PagedIterable<BlobItem> blobItems = blobContainerClient.listBlobs(new ListBlobsOptions().setPrefix(location.directoryPath()), null);
         for (BlobItem item : blobItems) {
             blobContainerClient.getBlobClient(item.getName()).deleteIfExists();
@@ -229,7 +268,7 @@ public class AzureFileSystem
             throws IOException
     {
         try {
-            DataLakeFileSystemClient fileSystemClient = createFileSystemClient(source);
+            DataLakeFileSystemClient fileSystemClient = createFileSystemClient(source, Optional.empty());
             DataLakeFileClient dataLakeFileClient = createFileClient(fileSystemClient, source.path());
             if (dataLakeFileClient.getProperties().isDirectory()) {
                 throw new TrinoFileSystemException("Rename file from %s to %s, source is a directory".formatted(source, target));
@@ -268,7 +307,7 @@ public class AzureFileSystem
     private FileIterator listGen2Files(AzureLocation location)
             throws IOException
     {
-        DataLakeFileSystemClient fileSystemClient = createFileSystemClient(location);
+        DataLakeFileSystemClient fileSystemClient = createFileSystemClient(location, Optional.empty());
         PagedIterable<PathItem> pathItems;
         if (location.path().isEmpty()) {
             pathItems = fileSystemClient.listPaths(new ListPathsOptions().setRecursive(true), null);
@@ -292,7 +331,7 @@ public class AzureFileSystem
 
     private FileIterator listBlobFiles(AzureLocation location)
     {
-        PagedIterable<BlobItem> blobItems = createBlobContainerClient(location).listBlobs(new ListBlobsOptions().setPrefix(location.directoryPath()), null);
+        PagedIterable<BlobItem> blobItems = createBlobContainerClient(location, Optional.empty()).listBlobs(new ListBlobsOptions().setPrefix(location.directoryPath()), null);
         return new AzureBlobFileIterator(location, blobItems.iterator());
     }
 
@@ -312,7 +351,7 @@ public class AzureFileSystem
         }
 
         try {
-            DataLakeFileSystemClient fileSystemClient = createFileSystemClient(azureLocation);
+            DataLakeFileSystemClient fileSystemClient = createFileSystemClient(azureLocation, Optional.empty());
             DataLakeFileClient fileClient = createFileClient(fileSystemClient, azureLocation.path());
             return Optional.of(fileClient.getProperties().isDirectory());
         }
@@ -336,7 +375,7 @@ public class AzureFileSystem
             return;
         }
         try {
-            DataLakeFileSystemClient fileSystemClient = createFileSystemClient(azureLocation);
+            DataLakeFileSystemClient fileSystemClient = createFileSystemClient(azureLocation, Optional.empty());
             DataLakeDirectoryClient directoryClient = createDirectoryIfNotExists(fileSystemClient, azureLocation.path());
             if (!directoryClient.getProperties().isDirectory()) {
                 throw new TrinoFileSystemException("Location is not a directory: " + azureLocation);
@@ -367,7 +406,7 @@ public class AzureFileSystem
         }
 
         try {
-            DataLakeFileSystemClient fileSystemClient = createFileSystemClient(sourceLocation);
+            DataLakeFileSystemClient fileSystemClient = createFileSystemClient(sourceLocation, Optional.empty());
             DataLakeDirectoryClient directoryClient = createDirectoryClient(fileSystemClient, sourceLocation.path());
             if (!directoryClient.exists()) {
                 throw new TrinoFileSystemException("Source directory does not exist: " + source);
@@ -431,17 +470,28 @@ public class AzureFileSystem
             throws IOException
     {
         return switch (azureAuth) {
-            case AzureAuthOauth _ -> oauth2PresignedUri(location, ttl);
-            case AzureAuthAccessKey _ -> accessKeyPresignedUri(location, ttl);
+            case AzureAuthOauth _ -> oauth2PresignedUri(location, ttl, Optional.empty());
+            case AzureAuthAccessKey _ -> accessKeyPresignedUri(location, ttl, Optional.empty());
             default -> throw new UnsupportedOperationException("Unsupported azure auth: " + azureAuth);
         };
     }
 
-    private Optional<UriLocation> oauth2PresignedUri(Location location, Duration ttl)
+    @Override
+    public Optional<UriLocation> encryptedPreSignedUri(Location location, Duration ttl, EncryptionKey key)
+            throws IOException
+    {
+        return switch (azureAuth) {
+            case AzureAuthOauth _ -> oauth2PresignedUri(location, ttl, Optional.of(key));
+            case AzureAuthAccessKey _ -> accessKeyPresignedUri(location, ttl, Optional.of(key));
+            default -> throw new UnsupportedOperationException("Unsupported azure auth: " + azureAuth);
+        };
+    }
+
+    private Optional<UriLocation> oauth2PresignedUri(Location location, Duration ttl, Optional<EncryptionKey> key)
             throws IOException
     {
         AzureLocation azureLocation = new AzureLocation(location);
-        BlobContainerClient client = createBlobContainerClient(azureLocation);
+        BlobContainerClient client = createBlobContainerClient(azureLocation, Optional.empty());
 
         OffsetDateTime startTime = OffsetDateTime.now();
         OffsetDateTime expiryTime = startTime.plus(ttl.toMillis(), MILLIS);
@@ -454,21 +504,21 @@ public class AzureFileSystem
                 .setStartTime(startTime)
                 .setProtocol(SasProtocol.HTTPS_ONLY);
 
-        BlobClient blobClient = createBlobClient(azureLocation);
+        BlobClient blobClient = createBlobClient(azureLocation, key);
         String sasToken = blobClient.generateUserDelegationSas(sasValues, userDelegationKey);
         try {
-            return Optional.of(new UriLocation(URI.create(blobClient.getBlobUrl() + "?" + sasToken), Map.of()));
+            return Optional.of(new UriLocation(URI.create(blobClient.getBlobUrl() + "?" + sasToken), preSignedHeaders(key)));
         }
         catch (Exception e) {
             throw new IOException("Failed to generate pre-signed URI", e);
         }
     }
 
-    private Optional<UriLocation> accessKeyPresignedUri(Location location, Duration ttl)
+    private Optional<UriLocation> accessKeyPresignedUri(Location location, Duration ttl, Optional<EncryptionKey> key)
             throws IOException
     {
         AzureLocation azureLocation = new AzureLocation(location);
-        BlobClient client = createBlobClient(azureLocation);
+        BlobClient client = createBlobClient(azureLocation, key);
         BlobSasPermission blobSasPermission = new BlobSasPermission()
                 .setReadPermission(true);
 
@@ -480,19 +530,33 @@ public class AzureFileSystem
                 .setExpiryTime(expiryTime)
                 .setPermissions(blobSasPermission);
 
-        createBlobContainerClient(azureLocation).generateSas(values);
+        createBlobContainerClient(azureLocation, key).generateSas(values);
         try {
-            return Optional.of(new UriLocation(URI.create(client.getBlobUrl() + "?" + client.generateSas(values)), Map.of()));
+            return Optional.of(new UriLocation(URI.create(client.getBlobUrl() + "?" + client.generateSas(values)), preSignedHeaders(key)));
         }
         catch (Exception e) {
             throw new IOException("Failed to generate pre-signed URI", e);
         }
     }
 
+    private static Map<String, List<String>> preSignedHeaders(Optional<EncryptionKey> key)
+    {
+        if (key.isEmpty()) {
+            return ImmutableMap.of();
+        }
+
+        EncryptionKey encryption = key.get();
+        ImmutableMap.Builder<String, List<String>> headers = ImmutableMap.builderWithExpectedSize(3);
+        headers.put("x-ms-encryption-algorithm", List.of(encryption.algorithm()));
+        headers.put("x-ms-encryption-key", List.of(encodedKey(encryption)));
+        headers.put("x-ms-encryption-key-sha256", List.of(keySha256Checksum(encryption)));
+        return headers.buildOrThrow();
+    }
+
     private Set<Location> listGen2Directories(AzureLocation location)
             throws IOException
     {
-        DataLakeFileSystemClient fileSystemClient = createFileSystemClient(location);
+        DataLakeFileSystemClient fileSystemClient = createFileSystemClient(location, Optional.empty());
         PagedIterable<PathItem> pathItems;
         if (location.path().isEmpty()) {
             pathItems = fileSystemClient.listPaths();
@@ -517,7 +581,7 @@ public class AzureFileSystem
     private Set<Location> listBlobDirectories(AzureLocation location)
     {
         Location baseLocation = location.baseLocation();
-        return createBlobContainerClient(location)
+        return createBlobContainerClient(location, Optional.empty())
                 .listBlobsByHierarchy(location.directoryPath()).stream()
                 .filter(BlobItem::isPrefix)
                 .map(item -> baseLocation.appendPath(item.getName()))
@@ -528,7 +592,7 @@ public class AzureFileSystem
             throws IOException
     {
         try {
-            BlockBlobClient blockBlobClient = createBlobContainerClient(location)
+            BlockBlobClient blockBlobClient = createBlobContainerClient(location, Optional.empty())
                     .getBlobClient("/")
                     .getBlockBlobClient();
             return blockBlobClient.exists();
@@ -546,12 +610,12 @@ public class AzureFileSystem
         return location.endpoint();
     }
 
-    private BlobClient createBlobClient(AzureLocation location)
+    private BlobClient createBlobClient(AzureLocation location, Optional<EncryptionKey> key)
     {
-        return createBlobContainerClient(location).getBlobClient(location.path());
+        return createBlobContainerClient(location, key).getBlobClient(location.path());
     }
 
-    private BlobContainerClient createBlobContainerClient(AzureLocation location)
+    private BlobContainerClient createBlobContainerClient(AzureLocation location, Optional<EncryptionKey> key)
     {
         requireNonNull(location, "location is null");
 
@@ -559,12 +623,15 @@ public class AzureFileSystem
                 .httpClient(httpClient)
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
                 .endpoint("https://%s.blob.%s".formatted(location.account(), validatedEndpoint(location)));
+
+        key.ifPresent(encryption -> builder.customerProvidedKey(blobCustomerProvidedKey(encryption)));
+
         azureAuth.setAuth(location.account(), builder);
         location.container().ifPresent(builder::containerName);
         return builder.buildClient();
     }
 
-    private DataLakeFileSystemClient createFileSystemClient(AzureLocation location)
+    private DataLakeFileSystemClient createFileSystemClient(AzureLocation location, Optional<EncryptionKey> key)
     {
         requireNonNull(location, "location is null");
 
@@ -572,6 +639,7 @@ public class AzureFileSystem
                 .httpClient(httpClient)
                 .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
                 .endpoint("https://%s.dfs.%s".formatted(location.account(), validatedEndpoint(location)));
+        key.ifPresent(encryption -> builder.customerProvidedKey(lakeCustomerProvidedKey(encryption)));
         azureAuth.setAuth(location.account(), builder);
         DataLakeServiceClient client = builder.buildClient();
         DataLakeFileSystemClient fileSystemClient = client.getFileSystemClient(location.container().orElseThrow());
