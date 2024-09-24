@@ -13,19 +13,13 @@
  */
 package io.trino.spooling.filesystem;
 
-import io.airlift.units.DataSize;
 import io.azam.ulidj.ULID;
-import io.trino.filesystem.s3.S3FileSystemConfig;
-import io.trino.filesystem.s3.S3FileSystemFactory;
-import io.trino.filesystem.s3.S3FileSystemStats;
+import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.spi.QueryId;
 import io.trino.spi.protocol.SpooledLocation;
 import io.trino.spi.protocol.SpooledSegmentHandle;
 import io.trino.spi.protocol.SpoolingContext;
 import io.trino.spi.protocol.SpoolingManager;
-import io.trino.testing.containers.Minio;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -33,38 +27,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Optional;
-import java.util.UUID;
 
-import static io.opentelemetry.api.OpenTelemetry.noop;
-import static io.trino.spooling.filesystem.encryption.EncryptionUtils.generateRandomKey;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
+import static io.trino.filesystem.encryption.EncryptionKey.randomAes256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
-public class TestFileSystemSpoolingManager
+public abstract class AbstractFileSystemSpoolingManagerTest
 {
-    private static final String BUCKET_NAME = "spooling" + UUID.randomUUID().toString()
-            .replace("-", "");
-
-    private Minio minio;
-
-    @BeforeAll
-    public void setup()
-    {
-        minio = Minio.builder().build();
-        minio.start();
-        minio.createBucket(BUCKET_NAME);
-    }
-
-    @AfterAll
-    public void teardown()
-    {
-        minio.stop();
-    }
-
     @Test
     public void testRetrieveSpooledSegment()
             throws Exception
@@ -109,7 +81,8 @@ public class TestFileSystemSpoolingManager
     @Test
     public void testHandleRoundTrip()
     {
-        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", QueryId.valueOf("a"), ULID.randomBinary(), Optional.of(generateRandomKey()));
+        EncryptionKey key = randomAes256();
+        FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", QueryId.valueOf("a"), ULID.randomBinary(), Optional.of(key));
         SpooledLocation location = getSpoolingManager().location(handle);
         FileSystemSpooledSegmentHandle handle2 = (FileSystemSpooledSegmentHandle) getSpoolingManager().handle(location);
 
@@ -117,21 +90,8 @@ public class TestFileSystemSpoolingManager
         assertThat(handle.storageObjectName()).isEqualTo(handle2.storageObjectName());
         assertThat(handle.uuid()).isEqualTo(handle2.uuid());
         assertThat(handle.expirationTime()).isEqualTo(handle2.expirationTime());
-        assertThat(handle.encryptionKey()).isEqualTo(handle2.encryptionKey());
+        assertThat(handle2.encryptionKey()).isPresent().hasValue(key);
     }
 
-    private SpoolingManager getSpoolingManager()
-    {
-        FileSystemSpoolingConfig spoolingConfig = new FileSystemSpoolingConfig();
-        spoolingConfig.setS3Enabled(true);
-        spoolingConfig.setLocation("s3://%s/".formatted(BUCKET_NAME));
-        S3FileSystemConfig filesystemConfig = new S3FileSystemConfig()
-                .setEndpoint(minio.getMinioAddress())
-                .setRegion(MINIO_REGION)
-                .setPathStyleAccess(true)
-                .setAwsAccessKey(Minio.MINIO_ACCESS_KEY)
-                .setAwsSecretKey(Minio.MINIO_SECRET_KEY)
-                .setStreamingPartSize(DataSize.valueOf("5.5MB"));
-        return new FileSystemSpoolingManager(spoolingConfig, new S3FileSystemFactory(noop(), filesystemConfig, new S3FileSystemStats()));
-    }
+    protected abstract SpoolingManager getSpoolingManager();
 }

@@ -13,6 +13,8 @@
  */
 package io.trino.filesystem.encryption;
 
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static java.util.Objects.requireNonNull;
@@ -37,5 +39,25 @@ public record EncryptionKey(byte[] key, String algorithm)
     {
         // We intentionally overwrite toString to hide a key
         return algorithm;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+
+        if (!(o instanceof EncryptionKey that)) {
+            return false;
+        }
+        return Objects.deepEquals(key, that.key)
+                && Objects.equals(algorithm, that.algorithm);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(Arrays.hashCode(key), algorithm);
     }
 }
