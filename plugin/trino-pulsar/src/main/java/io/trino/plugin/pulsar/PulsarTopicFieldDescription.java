@@ -42,7 +42,7 @@ public record PulsarTopicFieldDescription(
 
     PulsarColumnHandle columnHandle(boolean keyCodec)
     {
-        return new KafkaColumnHandle(
+        return new PulsarColumnHandle(
                 name(),
                 type(),
                 mapping(),

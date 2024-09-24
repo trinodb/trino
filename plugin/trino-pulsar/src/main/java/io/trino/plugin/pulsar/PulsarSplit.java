@@ -59,6 +59,7 @@ public class PulsarSplit implements ConnectorSplit {
 
     private final OffloadPoliciesImpl offloadPolicies;
 
+    @SuppressWarnings("unchecked")
     @JsonCreator
     public PulsarSplit(
             @JsonProperty("splitId") long splitId,

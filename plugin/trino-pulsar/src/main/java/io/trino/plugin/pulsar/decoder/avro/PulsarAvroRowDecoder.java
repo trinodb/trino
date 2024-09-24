@@ -18,6 +18,9 @@ import io.airlift.slice.Slice;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.avro.AvroColumnDecoder;
+//import io.trino.decoder.DecoderColumnHandle;
+//import io.trino.decoder.FieldValueProvider;
+//import io.trino.decoder.avro.AvroColumnDecoder;
 import io.trino.plugin.pulsar.PulsarConnectorUtils;
 import io.trino.plugin.pulsar.PulsarRowDecoder;
 import io.trino.spi.TrinoException;
@@ -43,7 +46,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Functions.identity;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
+//import io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static io.trino.plugin.pulsar.PulsarErrorCode.PULSAR_SCHEMA_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;

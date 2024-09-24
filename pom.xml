@@ -84,6 +84,7 @@
         <module>plugin/trino-ignite</module>
         <module>plugin/trino-jmx</module>
         <module>plugin/trino-kafka</module>
+        <module>plugin/trino-pulsar</module>
         <module>plugin/trino-kafka-event-listener</module>
         <module>plugin/trino-kinesis</module>
         <module>plugin/trino-kudu</module>
@@ -131,10 +132,10 @@
         <module>testing/trino-testing</module>
         <module>testing/trino-testing-containers</module>
         <module>testing/trino-testing-kafka</module>
+        <module>testing/trino-testing-pulsar</module>
         <module>testing/trino-testing-resources</module>
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>
-        <module>plugin/trino-pulsar</module>
     </modules>
 
     <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
@@ -844,7 +845,17 @@
                 <artifactId>kafka-schema-serializer</artifactId>
                 <version>${dep.confluent.version}</version>
             </dependency>
-
+            <dependency>
+                <groupId>org.apache.pulsar</groupId>
+                <artifactId>pulsar-client-admin</artifactId>
+                <version>${dep.pulsar.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>jakarta.activation</groupId>
+                        <artifactId>jakarta.activation-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
             <dependency>
                 <groupId>io.dropwizard.metrics</groupId>
                 <artifactId>metrics-core</artifactId>

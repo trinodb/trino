@@ -51,6 +51,7 @@ public class PulsarSchemaInfoProvider
     private final LoadingCache<BytesSchemaVersion, SchemaInfo> cache = CacheBuilder.newBuilder().maximumSize(100000)
             .expireAfterAccess(30, TimeUnit.MINUTES).build(new CacheLoader<BytesSchemaVersion, SchemaInfo>()
             {
+                @SuppressWarnings("null")
                 @Override
                 public SchemaInfo load(BytesSchemaVersion schemaVersion) throws Exception
                 {
