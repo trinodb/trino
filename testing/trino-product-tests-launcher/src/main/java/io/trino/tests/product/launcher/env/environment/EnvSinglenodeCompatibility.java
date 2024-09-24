@@ -69,7 +69,7 @@ public class EnvSinglenodeCompatibility
     private void configureCompatibilityTestContainer(Environment.Builder builder, Config config)
     {
         boolean java22 = config.getCompatibilityTestVersion() >= 447;
-        String jvmConfig = java22 ? "conf/presto/etc/jvm.config" : "conf/presto/etc/jvm-pre-jdk22.config";
+        String jvmConfig = "conf/trino/etc/" + (java22 ? "jvm.config" : "jvm-pre-jdk22.config");
         String dockerImage = config.getCompatibilityTestDockerImage();
         String containerConfigDir = getConfigurationDirectory(dockerImage);
         DockerContainer container = new DockerContainer(dockerImage, COMPATIBILTY_TEST_CONTAINER_NAME)
@@ -78,7 +78,7 @@ public class EnvSinglenodeCompatibility
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getConfigFileFor(dockerImage))), containerConfigDir + "config.properties")
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getHiveConfigFor(dockerImage))), containerConfigDir + "catalog/hive.properties")
                 .withCopyFileToContainer(forHostPath(configDir.getPath(getIcebergConfigFor(dockerImage))), containerConfigDir + "catalog/iceberg.properties")
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/trino-product-tests")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())
                 .withStartupTimeout(Duration.ofMinutes(5));
@@ -135,7 +135,7 @@ public class EnvSinglenodeCompatibility
         builder.configureContainer(TESTS, container -> container
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath(temptoConfig)),
-                        "/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml"));
+                        "/docker/trino-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml"));
     }
 
     protected int getVersionFromDockerImageName(String dockerImageName)

@@ -99,10 +99,10 @@ public class EnvMultinodeGcs
         builder.configureContainer(HADOOP, container -> {
             container.withCopyFileToContainer(
                     forHostPath(getCoreSiteOverrideXml(containerGcpCredentialsFile)),
-                    "/docker/presto-product-tests/conf/environment/multinode-gcs/core-site-overrides.xml");
+                    "/docker/trino-product-tests/conf/environment/multinode-gcs/core-site-overrides.xml");
             container.withCopyFileToContainer(
                     forHostPath(getHiveSiteOverrideXml(gcpStorageBucket)),
-                    "/docker/presto-product-tests/conf/environment/multinode-gcs/hive-site-overrides.xml");
+                    "/docker/trino-product-tests/conf/environment/multinode-gcs/hive-site-overrides.xml");
             container.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-gcs/apply-gcs-config.sh")),
                     CONTAINER_HADOOP_INIT_D + "apply-gcs-config.sh");
