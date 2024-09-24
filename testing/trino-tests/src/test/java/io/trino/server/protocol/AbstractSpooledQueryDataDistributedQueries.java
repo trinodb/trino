@@ -27,9 +27,15 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingStatementClientFactory;
 import io.trino.testing.TestingTrinoClient;
-import io.trino.testing.containers.Minio;
 import io.trino.tpch.TpchTable;
 import okhttp3.OkHttpClient;
+import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.containers.localstack.LocalStackContainer.Service;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 
 import java.util.Map;
 import java.util.Optional;
@@ -37,16 +43,13 @@ import java.util.UUID;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.client.StatementClientFactory.newStatementClient;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
-import static io.trino.testing.containers.Minio.MINIO_REGION;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static java.util.Base64.getEncoder;
 
 public abstract class AbstractSpooledQueryDataDistributedQueries
         extends AbstractTestEngineOnlyQueries
 {
-    private Minio minio;
+    private LocalStackContainer localstack;
 
     protected abstract String encoding();
 
@@ -59,11 +62,14 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        minio = closeAfterClass(Minio.builder().build());
-        minio.start();
+        localstack = closeAfterClass(new LocalStackContainer("s3-latest"));
+        localstack.start();
 
         String bucketName = "segments" + UUID.randomUUID();
-        minio.createBucket(bucketName, true);
+
+        try (S3Client client = createS3Client(localstack)) {
+            client.createBucket(CreateBucketRequest.builder().bucket(bucketName).build());
+        }
 
         DistributedQueryRunner queryRunner = MemoryQueryRunner.builder()
                 .setInitialTables(TpchTable.getTables())
@@ -75,13 +81,11 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
                     Map<String, String> spoolingConfig = ImmutableMap.<String, String>builder()
                             .put("fs.s3.enabled", "true")
                             .put("fs.location", "s3://" + bucketName + "/")
-                            // Direct storage access with encryption requires SSE-c which is not yet implemented
-                            .put("fs.segment.encryption", "false")
-                            .put("s3.endpoint", minio.getMinioAddress())
-                            .put("s3.region", MINIO_REGION)
-                            .put("s3.aws-access-key", MINIO_ACCESS_KEY)
-                            .put("s3.aws-secret-key", MINIO_SECRET_KEY)
-                            .put("s3.path-style-access", "true")
+                            .put("fs.segment.encryption", "true")
+                            .put("s3.endpoint", localstack.getEndpointOverride(Service.S3).toString())
+                            .put("s3.region", localstack.getRegion())
+                            .put("s3.aws-access-key", localstack.getAccessKey())
+                            .put("s3.aws-secret-key", localstack.getSecretKey())
                             .putAll(spoolingConfig())
                             .buildKeepingLast();
                     runner.loadSpoolingManager("filesystem", spoolingConfig);
@@ -118,5 +122,15 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
     private static String randomAES256Key()
     {
         return getEncoder().encodeToString(createRandomAesEncryptionKey().getEncoded());
+    }
+
+    protected S3Client createS3Client(LocalStackContainer localstack)
+    {
+        return S3Client.builder()
+                .endpointOverride(localstack.getEndpointOverride(Service.S3))
+                .region(Region.of(localstack.getRegion()))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(localstack.getAccessKey(), localstack.getSecretKey())))
+                .build();
     }
 }
