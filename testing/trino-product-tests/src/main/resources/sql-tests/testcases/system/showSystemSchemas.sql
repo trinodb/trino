@@ -1,2 +1,2 @@
--- database: presto; groups: system; queryType: SELECT
+-- database: trino; groups: system; queryType: SELECT
 SHOW SCHEMAS FROM system

@@ -1,4 +1,4 @@
--- database: presto; groups: insert; mutable_tables: datatype|created; tables: datatype
+-- database: trino; groups: insert; mutable_tables: datatype|created; tables: datatype
 -- delimiter: |;
 --!
 insert into ${mutableTables.hive.datatype} values (null, null, null, null, null, null, null, null);

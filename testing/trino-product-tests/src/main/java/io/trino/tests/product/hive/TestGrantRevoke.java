@@ -45,7 +45,7 @@ public class TestGrantRevoke
     private static final Set<String> PREDEFINED_ROLES = ImmutableSet.of("admin", "public");
 
     @Inject
-    @Named("databases.presto.jdbc_user")
+    @Named("databases.trino.jdbc_user")
     private String userName;
 
     private String tableName;
@@ -62,7 +62,7 @@ public class TestGrantRevoke
      *          - "alice@presto" that has "jdbc_user: alice"
      *          - "bob@presto" that has "jdbc_user: bob"
      *          - "charlie@presto" that has "jdbc_user: charlie"
-     *     (all other values of the connection are same as that of the default "presto" connection).
+     *     (all other values of the connection are same as that of the default "trino" connection).
      */
 
     @BeforeMethodWithContext

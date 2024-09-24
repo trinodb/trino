@@ -1,4 +1,4 @@
--- database: presto; tables: nation; groups: union;
+-- database: trino; tables: nation; groups: union;
 SELECT count(*)
 FROM nation
 UNION ALL
