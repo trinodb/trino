@@ -63,7 +63,7 @@ public class MultipartUiCookie
         return cookiesToSet.build().toArray(new NewCookie[0]);
     }
 
-    public Optional<String> read(Map<String, Cookie> existingCookies)
+    public Optional<String> read(Map<String, ? extends Cookie> existingCookies)
     {
         long cookiesCount = existingCookies.values().stream()
                 .filter(this::matchesName)
@@ -85,7 +85,7 @@ public class MultipartUiCookie
         return Optional.of(token.toString());
     }
 
-    public NewCookie[] delete(Map<String, Cookie> existingCookies, boolean isSecured)
+    public NewCookie[] delete(Map<String, ? extends Cookie> existingCookies, boolean isSecured)
     {
         ImmutableSet.Builder<NewCookie> cookiesToDelete = ImmutableSet.builder();
         cookiesToDelete.add(deleteCookie(cookieName, isSecured)); // Always invalidate first cookie even if it doesn't exist
