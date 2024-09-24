@@ -139,7 +139,8 @@ If you are running Trino on Amazon EKS, and authenticate using a Kubernetes
 service account, you can set the
 `trino.s3.use-web-identity-token-credentials-provider` to `true`, so Trino does
 not try using different credential providers from the default credential
-provider chain.
+provider chain. The property must be set in the Hadoop configuration files
+referenced by the `hive.config.resources` Hive connector property.
 
 ## Custom S3 credentials provider
 
