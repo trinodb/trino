@@ -194,7 +194,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>**/TestGcsFileSystemGcs.java</exclude>
+                                <exclude>**/TestGcsFileSystem.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -211,7 +211,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestGcsFileSystemGcs.java</include>
+                                <include>**/TestGcsFileSystem.java</include>
                             </includes>
                         </configuration>
                     </plugin>

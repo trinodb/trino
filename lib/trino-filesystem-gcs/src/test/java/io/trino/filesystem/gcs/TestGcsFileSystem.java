@@ -23,7 +23,7 @@ import java.io.IOException;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class TestGcsFileSystemGcs
+public class TestGcsFileSystem
         extends AbstractTestGcsFileSystem
 {
     @BeforeAll
