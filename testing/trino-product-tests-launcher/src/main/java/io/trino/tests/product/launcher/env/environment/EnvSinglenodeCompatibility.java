@@ -131,7 +131,7 @@ public class EnvSinglenodeCompatibility
     private void configureTestsContainer(Environment.Builder builder, Config config)
     {
         int version = getVersionFromDockerImageName(config.getCompatibilityTestDockerImage());
-        String temptoConfig = version <= 350 ? "presto-tempto-configuration.yaml" : "trino-tempto-configuration.yaml";
+        String temptoConfig = version <= 350 ? "legacy-tempto-configuration.yaml" : "tempto-configuration.yaml";
         builder.configureContainer(TESTS, container -> container
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath(temptoConfig)),
