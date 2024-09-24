@@ -191,10 +191,10 @@ public class EnvMultinodeAzure
             File temptoConfiguration = Files.createTempFile("tempto-configuration", ".yaml", PosixFilePermissions.asFileAttribute(fromString("rwxrwxrwx"))).toFile();
             temptoConfiguration.deleteOnExit();
             String contents = """
-databases:
-    presto:
-        abfs_schema: "%s"
-                    """.formatted(schema);
+                              databases:
+                                  presto:
+                                      abfs_schema: "%s"
+                              """.formatted(schema);
             Files.writeString(temptoConfiguration.toPath(), contents);
             return temptoConfiguration.toPath();
         }
