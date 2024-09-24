@@ -18,6 +18,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeException;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.function.CheckedSupplier;
 import io.trino.cache.NonEvictableLoadingCache;
@@ -129,9 +130,9 @@ public class TokenFetchingMetastoreClientFactory
                             }
                 ).call());
         }
-        catch (Exception e) {
-            if (e instanceof TException) {
-                throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        catch (FailsafeException e) {
+            if (e.getCause() instanceof TException) {
+                throw new TrinoException(HIVE_METASTORE_ERROR, e.getCause());
             }
             throw e;
         }
@@ -143,14 +144,5 @@ public class TokenFetchingMetastoreClientFactory
         {
             requireNonNull(delegationToken, "delegationToken is null");
         }
-    }
-
-    private static RuntimeException propagate(Throwable throwable)
-    {
-        if (throwable instanceof InterruptedException) {
-            Thread.currentThread().interrupt();
-        }
-        throwIfUnchecked(throwable);
-        throw new RuntimeException(throwable);
     }
 }
