@@ -199,7 +199,7 @@ public final class Standard
                 // the server package is hundreds MB and file system bind is much more efficient
                 .withFileSystemBind(serverPackage.getPath(), "/docker/presto-server.tar.gz", READ_ONLY)
                 .withEnv("JAVA_HOME", jdkProvider.getJavaHome())
-                .withCommand("/docker/trino-product-tests/run-presto.sh")
+                .withCommand("/docker/trino-product-tests/run-trino.sh")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())
                 .withStartupTimeout(Duration.ofMinutes(5));
