@@ -192,7 +192,7 @@ public class EnvMultinodeAzure
             temptoConfiguration.deleteOnExit();
             String contents = """
                               databases:
-                                  presto:
+                                  trino:
                                       abfs_schema: "%s"
                               """.formatted(schema);
             Files.writeString(temptoConfiguration.toPath(), contents);
