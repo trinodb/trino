@@ -97,7 +97,7 @@ public final class EnvMultinodeSecretsProvider
         container
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("secrets.toml")),
-                        "/docker/presto-product-tests/conf/presto/etc/secrets.toml")
+                        "/docker/trino-product-tests/conf/trino/etc/secrets.toml")
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("generateSecrets.sh")),
                         "/docker/presto-init.d/generateSecrets.sh")

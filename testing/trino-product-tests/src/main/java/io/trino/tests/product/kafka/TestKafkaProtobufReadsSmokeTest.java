@@ -63,13 +63,13 @@ public class TestKafkaProtobufReadsSmokeTest
     private static final String KAFKA_SCHEMA = "product_tests";
 
     private static final String BASIC_DATATYPES_PROTOBUF_TOPIC_NAME = "read_basic_datatypes_protobuf";
-    private static final String BASIC_DATATYPES_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/basic_datatypes.proto";
+    private static final String BASIC_DATATYPES_SCHEMA_PATH = "/docker/trino-product-tests/conf/trino/etc/catalog/kafka/basic_datatypes.proto";
 
     private static final String BASIC_STRUCTURAL_PROTOBUF_TOPIC_NAME = "read_basic_structural_datatypes_protobuf";
-    private static final String BASIC_STRUCTURAL_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/basic_structural_datatypes.proto";
+    private static final String BASIC_STRUCTURAL_SCHEMA_PATH = "/docker/trino-product-tests/conf/trino/etc/catalog/kafka/basic_structural_datatypes.proto";
 
     private static final String ALL_DATATYPES_PROTOBUF_TOPIC_SCHEMA_REGISTRY = "all_datatypes_protobuf_schema_registry";
-    private static final String ALL_DATATYPES_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/all_datatypes.proto";
+    private static final String ALL_DATATYPES_SCHEMA_PATH = "/docker/trino-product-tests/conf/trino/etc/catalog/kafka/all_datatypes.proto";
 
     private static final KafkaCatalog KAFKA_CATALOG = new KafkaCatalog("kafka", "", true, new ProtobufMessageSerializer());
     private static final KafkaCatalog KAFKA_SCHEMA_REGISTRY_CATALOG = new KafkaCatalog("kafka_schema_registry", "_schema_registry", false, new SchemaRegistryProtobufMessageSerializer());

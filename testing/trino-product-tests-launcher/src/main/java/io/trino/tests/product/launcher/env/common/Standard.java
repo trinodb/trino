@@ -69,8 +69,8 @@ public final class Standard
     private static final int COLLECTOR_GRPC_PORT = 4317;
 
     public static final String CONTAINER_HEALTH_D = "/etc/health.d/";
-    public static final String CONTAINER_CONF_ROOT = "/docker/presto-product-tests/";
-    public static final String CONTAINER_TRINO_ETC = CONTAINER_CONF_ROOT + "conf/presto/etc";
+    public static final String CONTAINER_CONF_ROOT = "/docker/trino-product-tests/";
+    public static final String CONTAINER_TRINO_ETC = CONTAINER_CONF_ROOT + "conf/trino/etc";
     public static final String CONTAINER_TRINO_JVM_CONFIG = CONTAINER_TRINO_ETC + "/jvm.config";
     public static final String CONTAINER_TRINO_SECRETS_CONFIG = CONTAINER_TRINO_ETC + "/secrets.toml";
     public static final String CONTAINER_TRINO_ACCESS_CONTROL_PROPERTIES = CONTAINER_TRINO_ETC + "/access-control.properties";
@@ -79,7 +79,7 @@ public final class Standard
      * @deprecated please use {@link EnvironmentContainers#configureTempto} instead.
      */
     @Deprecated
-    public static final String CONTAINER_TEMPTO_PROFILE_CONFIG = "/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml";
+    public static final String CONTAINER_TEMPTO_PROFILE_CONFIG = "/docker/trino-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml";
 
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
@@ -122,7 +122,7 @@ public final class Standard
         }
 
         builder.addContainers(createTrinoCoordinator(), createTestsContainer());
-        // default catalogs copied from /docker/presto-product-tests
+        // default catalogs copied from /docker/trino-product-tests
         builder.addConnector("blackhole");
         builder.addConnector("jmx");
         builder.addConnector("system");
@@ -180,7 +180,7 @@ public final class Standard
     private DockerContainer createTestsContainer()
     {
         return new DockerContainer("ghcr.io/trinodb/testing/almalinux9-oj17:" + imagesVersion, TESTS)
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/trino-product-tests")
                 .withCommand("bash", "-xeuc", "echo 'No command provided' >&2; exit 69")
                 .waitingFor(new WaitAllStrategy()) // don't wait
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy());
@@ -192,14 +192,14 @@ public final class Standard
         DockerContainer container = new DockerContainer(dockerImageName, logicalName)
                 .withNetworkAliases(logicalName + ".docker.cluster")
                 .withExposedLogPaths("/var/trino/var/log", "/var/log/container-health.log")
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), CONTAINER_TRINO_JVM_CONFIG)
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/secrets.toml")), CONTAINER_TRINO_SECRETS_CONFIG)
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/trino-product-tests")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/trino/etc/jvm.config")), CONTAINER_TRINO_JVM_CONFIG)
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/trino/etc/secrets.toml")), CONTAINER_TRINO_SECRETS_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/trino-health-check.sh")), CONTAINER_HEALTH_D + "trino-health-check.sh")
                 // the server package is hundreds MB and file system bind is much more efficient
                 .withFileSystemBind(serverPackage.getPath(), "/docker/presto-server.tar.gz", READ_ONLY)
                 .withEnv("JAVA_HOME", jdkProvider.getJavaHome())
-                .withCommand("/docker/presto-product-tests/run-presto.sh")
+                .withCommand("/docker/trino-product-tests/run-presto.sh")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())
                 .withStartupTimeout(Duration.ofMinutes(5));
