@@ -28,6 +28,8 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.encryption.EncryptionEnforcingFileSystem;
+import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -42,11 +44,15 @@ import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 @TestInstance(Lifecycle.PER_CLASS)
 public abstract class AbstractTestAzureFileSystem
         extends AbstractTestTrinoFileSystem
 {
+    private final EncryptionKey key = EncryptionKey.randomAes256();
+
     protected static String getRequiredEnvironmentVariable(String name)
     {
         return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
@@ -190,6 +196,9 @@ public abstract class AbstractTestAzureFileSystem
     @Override
     protected final TrinoFileSystem getFileSystem()
     {
+        if (useServerSideEncryptionWithCustomerKey()) {
+            return new EncryptionEnforcingFileSystem(fileSystem, key);
+        }
         return fileSystem;
     }
 
@@ -236,5 +245,48 @@ public abstract class AbstractTestAzureFileSystem
             tempBlob.close();
             assertThat(inputFile.exists()).isFalse();
         }
+    }
+
+    @Test
+    @Override
+    public void testFileWithTrailingWhitespace()
+            throws IOException
+    {
+        if (useServerSideEncryptionWithCustomerKey()) {
+            assertThatThrownBy(super::testFileWithTrailingWhitespace)
+                    .hasStackTraceContaining("Status code 409, BlobUsesCustomerSpecifiedEncryption");
+            abort("Azure requires decryption key to check for the existence of an encrypted file");
+            return;
+        }
+
+        super.testFileWithTrailingWhitespace();
+    }
+
+    @Test
+    @Override
+    protected void testRenameFile()
+            throws IOException
+    {
+        if (useServerSideEncryptionWithCustomerKey()) {
+            assertThatThrownBy(super::testRenameFile)
+                    .hasStackTraceContaining("Status code 409, BlobUsesCustomerSpecifiedEncryption");
+            abort("Azure requires decryption key to rename an encrypted file");
+            return;
+        }
+
+        super.testRenameFile();
+    }
+
+    @Test
+    @Override
+    public void testDirectoryExists()
+            throws IOException
+    {
+        if (isHierarchical() && useServerSideEncryptionWithCustomerKey()) {
+            assertThatThrownBy(super::testDirectoryExists)
+                    .hasStackTraceContaining("Status code 409, BlobUsesCustomerSpecifiedEncryption");
+            abort("Azure requires decryption key to check for the existence of an encrypted blob");
+        }
+        super.testDirectoryExists();
     }
 }
