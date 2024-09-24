@@ -1,2 +1,2 @@
--- database: presto; tables: empty; groups: empty;
+-- database: trino; tables: empty; groups: empty;
 SELECT * from empty

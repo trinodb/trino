@@ -55,39 +55,39 @@ public class TestTrinoCli
         implements RequirementsProvider
 {
     @Inject(optional = true)
-    @Named("databases.presto.cli_kerberos_authentication")
+    @Named("databases.trino.cli_kerberos_authentication")
     private boolean kerberosAuthentication;
 
     @Inject(optional = true)
-    @Named("databases.presto.cli_kerberos_principal")
+    @Named("databases.trino.cli_kerberos_principal")
     private String kerberosPrincipal;
 
     @Inject(optional = true)
-    @Named("databases.presto.cli_kerberos_keytab")
+    @Named("databases.trino.cli_kerberos_keytab")
     private String kerberosKeytab;
 
     @Inject(optional = true)
-    @Named("databases.presto.cli_kerberos_config_path")
+    @Named("databases.trino.cli_kerberos_config_path")
     private String kerberosConfigPath;
 
     @Inject(optional = true)
-    @Named("databases.presto.cli_kerberos_service_name")
+    @Named("databases.trino.cli_kerberos_service_name")
     private String kerberosServiceName;
 
     @Inject(optional = true)
-    @Named("databases.presto.https_keystore_path")
+    @Named("databases.trino.https_keystore_path")
     private String keystorePath;
 
     @Inject(optional = true)
-    @Named("databases.presto.https_keystore_password")
+    @Named("databases.trino.https_keystore_password")
     private String keystorePassword;
 
     @Inject(optional = true)
-    @Named("databases.presto.cli_kerberos_use_canonical_hostname")
+    @Named("databases.trino.cli_kerberos_use_canonical_hostname")
     private boolean kerberosUseCanonicalHostname;
 
     @Inject
-    @Named("databases.presto.jdbc_user")
+    @Named("databases.trino.jdbc_user")
     private String jdbcUser;
 
     public TestTrinoCli()

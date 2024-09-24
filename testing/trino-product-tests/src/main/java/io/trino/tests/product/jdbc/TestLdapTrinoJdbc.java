@@ -41,7 +41,7 @@ public class TestLdapTrinoJdbc
         extends BaseLdapJdbcTest
 {
     @Inject(optional = true)
-    @Named("databases.presto.file_user_password")
+    @Named("databases.trino.file_user_password")
     private String fileUserPassword;
 
     @Inject(optional = true)

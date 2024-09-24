@@ -1,4 +1,4 @@
--- database: presto; groups: tpch; tables: supplier,lineitem,orders,customer,nation
+-- database: trino; groups: tpch; tables: supplier,lineitem,orders,customer,nation
 SELECT
   supp_nation,
   cust_nation,
