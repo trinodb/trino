@@ -18,7 +18,7 @@
 - Add {func}`sign` function.
 - Add {func}`flatten` function.
 - Add experimental implementation of {doc}`resource groups </admin/resource-groups>`.
-- Add {doc}`/connector/localfile`.
+- Add localfile connector.
 - Remove experimental intermediate aggregation optimizer. The `optimizer.use-intermediate-aggregations`
   config option and `task_intermediate_aggregation` session property are no longer supported.
 - Add support for colocated joins for connectors that expose node-partitioned data.

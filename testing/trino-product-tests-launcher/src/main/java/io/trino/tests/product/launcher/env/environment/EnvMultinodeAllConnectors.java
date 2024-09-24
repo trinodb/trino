@@ -63,7 +63,6 @@ public final class EnvMultinodeAllConnectors
                         "kafka",
                         "kinesis",
                         "kudu",
-                        "localfile",
                         "mariadb",
                         "memory",
                         "singlestore",
