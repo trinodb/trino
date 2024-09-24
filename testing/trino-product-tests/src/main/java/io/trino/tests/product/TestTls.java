@@ -40,11 +40,11 @@ import static org.assertj.core.api.Assertions.fail;
 public class TestTls
 {
     @Inject(optional = true)
-    @Named("databases.presto.http_port")
+    @Named("databases.trino.http_port")
     private Integer httpPort;
 
     @Inject(optional = true)
-    @Named("databases.presto.https_port")
+    @Named("databases.trino.https_port")
     private Integer httpsPort;
 
     @Test(groups = {TLS, PROFILE_SPECIFIC_TESTS})
