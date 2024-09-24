@@ -20,8 +20,9 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.RecordSet;
+import jakarta.inject.Inject;
 
-import javax.inject.Inject;
+//import javax.inject.Inject;
 
 import java.util.List;
 

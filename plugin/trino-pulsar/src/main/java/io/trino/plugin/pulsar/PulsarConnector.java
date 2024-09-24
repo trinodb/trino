@@ -25,7 +25,8 @@ import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
-import javax.inject.Inject;
+//import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 /**
  * This file contains implementation of the connector to the Presto engine.

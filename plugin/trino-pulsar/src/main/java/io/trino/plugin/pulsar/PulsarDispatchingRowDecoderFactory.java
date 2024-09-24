@@ -25,10 +25,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
-import org.apache.pulsar.sql.presto.decoder.avro.PulsarAvroRowDecoderFactory;
-import org.apache.pulsar.sql.presto.decoder.json.PulsarJsonRowDecoderFactory;
-import org.apache.pulsar.sql.presto.decoder.primitive.PulsarPrimitiveRowDecoderFactory;
-import org.apache.pulsar.sql.presto.decoder.protobufnative.PulsarProtobufNativeRowDecoderFactory;
+import io.trino.plugin.pulsar.decoder.avro.PulsarAvroRowDecoderFactory;
+import io.trino.plugin.pulsar.decoder.json.PulsarJsonRowDecoderFactory;
+import io.trino.plugin.pulsar.decoder.primitive.PulsarPrimitiveRowDecoderFactory;
+import io.trino.plugin.pulsar.decoder.protobufnative.PulsarProtobufNativeRowDecoderFactory;
 
 /**
  * dispatcher RowDecoderFactory for {@link org.apache.pulsar.common.schema.SchemaType}.

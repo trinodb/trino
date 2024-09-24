@@ -67,8 +67,8 @@ public class PulsarTableHandle
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.topicName = requireNonNull(topicName, "topicName is null");
-        this.key = key;
-        this.message = message;
+        //this.key = key;
+        //this.message = message;
     }
 
     @JsonProperty
