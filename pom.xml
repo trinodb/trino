@@ -87,7 +87,6 @@
         <module>plugin/trino-kafka-event-listener</module>
         <module>plugin/trino-kinesis</module>
         <module>plugin/trino-kudu</module>
-        <module>plugin/trino-local-file</module>
         <module>plugin/trino-mariadb</module>
         <module>plugin/trino-memory</module>
         <module>plugin/trino-ml</module>
@@ -1235,12 +1234,6 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-kafka-event-listener</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-local-file</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
