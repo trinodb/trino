@@ -23,8 +23,8 @@ import static java.util.Objects.requireNonNull;
 
 class AzureLocation
 {
-    private static final String INVALID_ABFS_LOCATION_MESSAGE = "Invalid Azure ABFS location. Expected form is 'abfs://[<containerName>@]<accountName>.dfs.<endpoint>/<filePath>': %s";
-    private static final String INVALID_WASB_LOCATION_MESSAGE = "Invalid Azure WASB location. Expected form is 'wasb://[<containerName>@]<accountName>.blob.<endpoint>/<filePath>': %s";
+    private static final String INVALID_ABFS_LOCATION_MESSAGE = "Invalid Azure ABFS location. Expected form is 'abfs[s]://[<containerName>@]<accountName>.dfs.<endpoint>/<filePath>': %s";
+    private static final String INVALID_WASB_LOCATION_MESSAGE = "Invalid Azure WASB location. Expected form is 'wasb[s]://[<containerName>@]<accountName>.blob.<endpoint>/<filePath>': %s";
 
     // https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules
     private static final CharMatcher CONTAINER_VALID_CHARACTERS = CharMatcher.inRange('a', 'z').or(CharMatcher.inRange('0', '9')).or(CharMatcher.is('-'));
@@ -40,18 +40,18 @@ class AzureLocation
      * <p>
      * Locations use the
      * <a href="https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri">ABFS URI</a> syntax:
-     * <pre>{@code abfs://<container-name>@<storage-account-name>.dfs.<endpoint>/<blob_path>}</pre>
+     * <pre>{@code abfs[s]://<container-name>@<storage-account-name>.dfs.<endpoint>/<blob_path>}</pre>
      */
     public AzureLocation(Location location)
     {
         this.location = requireNonNull(location, "location is null");
-        // abfss and wasb are also supported but not documented
+        // wasb and wasbs are also supported but not documented
         scheme = location.scheme().orElseThrow(() -> new IllegalArgumentException(String.format(INVALID_ABFS_LOCATION_MESSAGE, location)));
         String invalidLocationMessage;
         if ("abfs".equals(scheme) || "abfss".equals(scheme)) {
             invalidLocationMessage = INVALID_ABFS_LOCATION_MESSAGE;
         }
-        else if ("wasb".equals(scheme)) {
+        else if ("wasb".equals(scheme) || "wasbs".equals(scheme)) {
             invalidLocationMessage = INVALID_WASB_LOCATION_MESSAGE;
         }
         else {
@@ -86,7 +86,7 @@ class AzureLocation
                 this.location);
         this.account = host.substring(0, accountSplit);
 
-        // abfs[s] host must contain ".dfs.", and wasb host must contain ".blob." before endpoint
+        // abfs[s] host must contain ".dfs.", and wasb[s] host must contain ".blob." before endpoint
         if (scheme.equals("abfs") || scheme.equals("abfss")) {
             checkArgument(host.substring(accountSplit).startsWith(".dfs."), invalidLocationMessage, location);
             // endpoint does not include dfs
