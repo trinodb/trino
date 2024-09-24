@@ -60,7 +60,7 @@ public class TestManuallyJdbcOauth2
                 + "SSL=true&"
                 + "SSLTrustStorePath=%s&"
                 + "SSLTrustStorePassword=123456&"
-                + "externalAuthentication=true", TestManuallyJdbcOauth2.class.getResource("/docker/trino-product-tests/conf/trino/etc/presto-master.jks").getFile());
+                + "externalAuthentication=true", TestManuallyJdbcOauth2.class.getResource("/docker/trino-product-tests/conf/trino/etc/trino-master.jks").getFile());
         try (Connection connection = DriverManager.getConnection(jdbcUrl, properties);
                 PreparedStatement statement = connection.prepareStatement("select * from tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {
