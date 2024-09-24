@@ -101,6 +101,7 @@ public class FileSystemModule
             factories.addBinding("abfs").to(AzureFileSystemFactory.class);
             factories.addBinding("abfss").to(AzureFileSystemFactory.class);
             factories.addBinding("wasb").to(AzureFileSystemFactory.class);
+            factories.addBinding("wasbs").to(AzureFileSystemFactory.class);
         }
 
         if (config.isNativeS3Enabled()) {
