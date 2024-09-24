@@ -9,8 +9,8 @@ fi
 
 set -x
 
-tar xf /docker/presto-server.tar.gz -C /docker
-ln -s "$(echo /docker/trino-server-*/bin/launcher | sed 's@/bin/launcher$@@')" /docker/presto-server
+tar xf /docker/trino-server.tar.gz -C /docker
+ln -s "$(echo /docker/trino-server-*/bin/launcher | sed 's@/bin/launcher$@@')" /docker/trino-server
 
 if test -d /docker/presto-init.d; then
     for init_script in /docker/presto-init.d/*; do
@@ -30,7 +30,7 @@ fi
 
 export PATH="${JAVA_HOME}/bin:${PATH}"
 
-exec /docker/presto-server/bin/launcher \
+exec /docker/trino-server/bin/launcher \
   -Dnode.id="${HOSTNAME}" \
   --etc-dir="/docker/trino-product-tests/conf/trino/etc" \
   --data-dir=/var/trino \
