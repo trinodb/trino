@@ -36,7 +36,7 @@ import static io.trino.tests.product.hive.TestHiveBucketedTables.BUCKETED_NATION
 import static io.trino.tests.product.hive.TestHiveBucketedTables.BUCKETED_PARTITIONED_NATION;
 import static io.trino.tests.product.hive.TestHiveBucketedTables.BUCKETED_SORTED_NATION;
 
-public class PrestoTemptoPlugin
+public class TrinoTemptoPlugin
         implements TemptoPlugin
 {
     @Override
