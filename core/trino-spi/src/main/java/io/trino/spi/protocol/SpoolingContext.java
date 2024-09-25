@@ -13,10 +13,12 @@
  */
 package io.trino.spi.protocol;
 
+import io.trino.spi.Experimental;
 import io.trino.spi.QueryId;
 
 import static java.util.Objects.requireNonNull;
 
+@Experimental(eta = "2025-05-31")
 public record SpoolingContext(String encoding, QueryId queryId, long rows, long size)
 {
     public SpoolingContext

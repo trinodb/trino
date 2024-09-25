@@ -229,6 +229,42 @@
                                     <old>method long io.trino.spi.protocol.SpoolingContext::rowCount()</old>
                                     <justification>Align better when naming in other places</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>interface io.trino.spi.protocol.SpooledLocation</old>
+                                    <justification>Spooling SPI marked as experimental</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>interface io.trino.spi.protocol.SpooledSegmentHandle</old>
+                                    <justification>Spooling SPI marked as experimental</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.protocol.SpoolingContext</old>
+                                    <justification>Spooling SPI marked as experimental</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>interface io.trino.spi.protocol.SpoolingManager</old>
+                                    <justification>Spooling SPI marked as experimental</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>interface io.trino.spi.protocol.SpoolingManagerContext</old>
+                                    <justification>Spooling SPI marked as experimental</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>interface io.trino.spi.protocol.SpoolingManagerFactory</old>
+                                    <justification>Spooling SPI marked as experimental</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
