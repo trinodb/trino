@@ -366,8 +366,7 @@ abstract class AbstractTrinoResultSet
         // expensive GregorianCalendar; note that Joda also has a chronology that works for
         // older dates, but it uses a slightly different algorithm and yields results that
         // are not compatible with java.sql.Date.
-        LocalDate preGregorianDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
-        Calendar calendar = new GregorianCalendar(preGregorianDate.getYear(), preGregorianDate.getMonthOfYear() - 1, preGregorianDate.getDayOfMonth());
+        Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthOfYear() - 1, localDate.getDayOfMonth());
         calendar.setTimeZone(localJavaTimeZone);
 
         return new Date(calendar.getTimeInMillis());
