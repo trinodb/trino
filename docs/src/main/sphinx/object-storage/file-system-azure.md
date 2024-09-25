@@ -44,11 +44,9 @@ system support:
   - [Data size](prop-type-data-size) Defaults to `4MB`.
 * - `azure.max-http-requests`
   - Maximum [integer](prop-type-integer) number of concurrent HTTP requests to
-    Azure on every node. Defaults to double the number of processors on the
-    node. Minimum `1`. Use this property to reduce the number of connections
-    when you observe too many connections from your Trino cluster nodes to
-    Azure Storage and encounter rate limiting issues.
-
+    Azure from every node. Defaults to double the number of processors on the
+    node. Minimum `1`. Use this property to reduce the number of requests when
+    you encounter rate limiting issues.
 :::
 
 (azure-access-key-authentication)=
