@@ -751,9 +751,9 @@ public class BinPackingNodeAllocatorService
 
             List<InternalNode> candidates = new ArrayList<>(allNodesSorted);
             catalogNodes.ifPresent(candidates::retainAll); // Drop non-catalog nodes, if any.
-            Set<HostAddress> addresses = requirements.getAddresses();
-            if (!addresses.isEmpty() && (optimizedLocalScheduling || !requirements.isRemotelyAccessible())) {
-                List<InternalNode> preferred = candidates.stream().filter(node -> addresses.contains(node.getHostAndPort())).collect(toImmutableList());
+            Optional<HostAddress> address = requirements.getAddress();
+            if (address.isPresent() && (optimizedLocalScheduling || !requirements.isRemotelyAccessible())) {
+                List<InternalNode> preferred = candidates.stream().filter(node -> address.get().equals(node.getHostAndPort())).collect(toImmutableList());
                 if ((preferred.isEmpty() || acquire.getNotEnoughResourcesPeriod().compareTo(exhaustedNodeWaitPeriod) >= 0) && requirements.isRemotelyAccessible()) {
                     candidates = dropCoordinatorsIfNecessary(candidates);
                 }
