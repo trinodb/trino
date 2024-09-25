@@ -15,13 +15,19 @@ package io.trino.plugin.pulsar;
 
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
+import java.util.Map;
 import java.util.Objects;
 
 /**
  * Description of the column metadata.
  */
 public class PulsarColumnMetadata extends ColumnMetadata {
-
+    
+    private boolean nullable;
+    private String comment;
+    private String extraInfo;
+    private boolean hidden;
+    private Map<String, Object> properties;
     private boolean isInternal;
     // need this because presto ColumnMetadata saves name in lowercase
     private String nameWithCase;
@@ -33,14 +39,44 @@ public class PulsarColumnMetadata extends ColumnMetadata {
     public PulsarColumnMetadata(String name, Type type, String comment, String extraInfo,
                                 boolean hidden, boolean isInternal,
                                 PulsarColumnHandle.HandleKeyValueType handleKeyValueType,
-                                DecoderExtraInfo decoderExtraInfo) {
-        super(name, type, comment, extraInfo, hidden);
+                                DecoderExtraInfo decoderExtraInfo, Map<String, Object> properties) 
+    {
+        super(name, type);
+        this.nullable = true;
+        this.comment = comment;
+        this.extraInfo = extraInfo;
+        this.hidden = hidden;
         this.nameWithCase = name;
         this.isInternal = isInternal;
         this.handleKeyValueType = handleKeyValueType;
         this.decoderExtraInfo = decoderExtraInfo;
+        this.properties = properties;
     }
-
+    
+     @Override
+     public boolean isNullable() {
+        return this.nullable;
+     }
+  
+     @Override
+     public String getComment() {
+        return this.comment;
+     }
+  
+     @Override
+     public String getExtraInfo() {
+        return this.extraInfo;
+     }
+  
+     @Override
+     public boolean isHidden() {
+        return this.hidden;
+     }
+  
+     @Override
+     public Map<String, Object> getProperties() {
+        return this.properties;
+     }
     public DecoderExtraInfo getDecoderExtraInfo() {
         return decoderExtraInfo;
     }
@@ -212,3 +248,4 @@ public class PulsarColumnMetadata extends ColumnMetadata {
 
 
 }
+

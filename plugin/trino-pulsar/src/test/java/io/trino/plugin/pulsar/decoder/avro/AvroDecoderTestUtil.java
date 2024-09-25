@@ -99,7 +99,7 @@ public class AvroDecoderTestUtil
                     assertNull(list.get(index));
                     continue;
                 }
-                Block arrayBlock = block.getObject(index, Block.class);
+                Block arrayBlock = block.getSingleValueBlock(index);//.getObject(index, Block.class);
                 checkArrayValues(arrayBlock, elementType, list.get(index));
             }
         }
@@ -109,7 +109,7 @@ public class AvroDecoderTestUtil
                     assertNull(list.get(index));
                     continue;
                 }
-                Block mapBlock = block.getObject(index, Block.class);
+                Block mapBlock = block.getSingleValueBlock(index);//.getObject(index, Block.class);
                 checkMapValues(mapBlock, elementType, list.get(index));
             }
         }
@@ -119,7 +119,7 @@ public class AvroDecoderTestUtil
                     assertNull(list.get(index));
                     continue;
                 }
-                Block rowBlock = block.getObject(index, Block.class);
+                Block rowBlock = block.getSingleValueBlock(index);//.getObject(index, Block.class);
                 checkRowValues(rowBlock, elementType, list.get(index));
             }
         }
@@ -158,7 +158,7 @@ public class AvroDecoderTestUtil
                     assertNull(expected.get(actualKey));
                     continue;
                 }
-                Block arrayBlock = block.getObject(index + 1, Block.class);
+                Block arrayBlock = block.getSingleValueBlock(index + 1);//.getObject(index + 1, Block.class);
                 Object keyValue = expected.entrySet().stream().filter(e -> e.getKey().toString().equals(actualKey)).findFirst().get().getValue();
                 checkArrayValues(arrayBlock, valueType, keyValue);
             }
@@ -171,7 +171,7 @@ public class AvroDecoderTestUtil
                     assertNull(expected.get(actualKey));
                     continue;
                 }
-                Block mapBlock = block.getObject(index + 1, Block.class);
+                Block mapBlock = block.getSingleValueBlock(index + 1);//.getObject(index + 1, Block.class);
                 Object keyValue = expected.entrySet().stream().filter(e -> e.getKey().toString().equals(actualKey)).findFirst().get().getValue();
                 checkMapValues(mapBlock, valueType, keyValue);
             }
@@ -184,7 +184,7 @@ public class AvroDecoderTestUtil
                     assertNull(expected.get(actualKey));
                     continue;
                 }
-                Block rowBlock = block.getObject(index + 1, Block.class);
+                Block rowBlock = block.getSingleValueBlock(index + 1);//.getObject(index + 1, Block.class);
                 Object keyValue = expected.entrySet().stream().filter(e -> e.getKey().toString().equals(actualKey)).findFirst().get().getValue();
                 checkRowValues(rowBlock, valueType, keyValue);
             }

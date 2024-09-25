@@ -69,7 +69,7 @@ public class TestPulsarConnectorConfig
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         PulsarConnectorConfig connectorConfig = new PulsarConnectorConfig();
         assertEquals(0L, connectorConfig.getManagedLedgerCacheSizeMB());
-        assertEquals(availableProcessors, connectorConfig.getManagedLedgerNumWorkerThreads());
+        assertEquals(availableProcessors, connectorConfig.getManagedLedgerOffloadMaxThreads());
         assertEquals(availableProcessors, connectorConfig.getManagedLedgerNumSchedulerThreads());
         assertEquals(connectorConfig.getMaxSplitQueueSizeBytes(), -1);
     }

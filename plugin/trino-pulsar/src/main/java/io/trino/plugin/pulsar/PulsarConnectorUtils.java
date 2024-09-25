@@ -21,6 +21,7 @@ import java.util.Properties;
 import org.apache.avro.Schema;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
+import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.common.naming.TopicName;
 
 import java.time.Instant;
@@ -44,7 +45,8 @@ public class PulsarConnectorUtils {
         return parser.parse(schemaJson);
     }
 
-    public static boolean isPartitionedTopic(TopicName topicName, PulsarConnectorConfig pulsarConnectorConfig) throws PulsarAdminException {
+    public static boolean isPartitionedTopic(TopicName topicName, PulsarConnectorConfig pulsarConnectorConfig) throws PulsarClientException, PulsarAdminException
+    {
         try (PulsarAdmin pulsarAdmin = PulsarAdminClientProvider.getPulsarAdmin(pulsarConnectorConfig)) {
             return pulsarAdmin.topics().getPartitionedTopicMetadata(topicName.toString()).partitions > 0;
         }

@@ -319,7 +319,7 @@ public class PulsarAvroColumnDecoder {
         final ByteBuffer buffer = (ByteBuffer) value;
         type.writeObject(blockBuilder, Int128.fromBigEndian(buffer.array()));
         if (parentBlockBuilder == null) {
-            return (Block) blockBuilder.newBlockBuilderLike(0, null);//.getSingleValueBlock(0);
+            return ((Block) blockBuilder).getSingleValueBlock(0);
         }
         return null;
     }

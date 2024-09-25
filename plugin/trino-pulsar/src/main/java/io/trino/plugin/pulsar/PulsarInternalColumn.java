@@ -18,6 +18,8 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+
+import io.jsonwebtoken.lang.Collections;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.TimestampType;
@@ -93,7 +95,7 @@ public class PulsarInternalColumn {
 
     PulsarColumnMetadata getColumnMetadata(boolean hidden) {
         return new PulsarColumnMetadata(name, type, comment, null, hidden, true,
-                PulsarColumnHandle.HandleKeyValueType.NONE, new PulsarColumnMetadata.DecoderExtraInfo());
+                PulsarColumnHandle.HandleKeyValueType.NONE, new PulsarColumnMetadata.DecoderExtraInfo(), Collections.emptyMap());
     }
 
     public static Set<PulsarInternalColumn> getInternalFields() {

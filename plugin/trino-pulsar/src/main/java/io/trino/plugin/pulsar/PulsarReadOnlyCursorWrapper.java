@@ -15,7 +15,7 @@ package io.trino.plugin.pulsar;
 
 import org.apache.bookkeeper.mledger.AsyncCallbacks;
 import org.apache.bookkeeper.mledger.Entry;
-import org.apache.bookkeeper.mledger.ManagedCursor;
+import org.apache.bookkeeper.mledger.ManagedCursor.FindPositionConstraint;
 import org.apache.bookkeeper.mledger.ManagedLedgerException;
 import org.apache.bookkeeper.mledger.Position;
 import org.apache.bookkeeper.mledger.ReadOnlyCursor;
@@ -23,7 +23,10 @@ import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.bookkeeper.mledger.impl.ReadOnlyCursorImpl;
 import org.apache.bookkeeper.mledger.proto.MLDataFormats;
 
+import com.google.common.collect.Range;
+
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * A wrapper implementing {@link PulsarReadOnlyCursor} and delegates work to a {@link ReadOnlyCursorImpl}
@@ -91,21 +94,6 @@ public class PulsarReadOnlyCursorWrapper
     }
 
     @Override
-    public Position findNewestMatching(
-            ManagedCursor.FindPositionConstraint findPositionConstraint,
-            org.apache.pulsar.shade.com.google.common.base.Predicate<Entry> predicate)
-            throws InterruptedException, ManagedLedgerException
-    {
-        return delegate.findNewestMatching(findPositionConstraint, predicate);
-    }
-
-    @Override
-    public long getNumberOfEntries(org.apache.pulsar.shade.com.google.common.collect.Range<PositionImpl> range)
-    {
-        return delegate.getNumberOfEntries(range);
-    }
-
-    @Override
     public void close() throws InterruptedException, ManagedLedgerException
     {
         delegate.close();
@@ -115,5 +103,17 @@ public class PulsarReadOnlyCursorWrapper
     public void asyncClose(AsyncCallbacks.CloseCallback closeCallback, Object o)
     {
         delegate.asyncClose(closeCallback, o);
+    }
+
+    @Override
+    public Position findNewestMatching(FindPositionConstraint constraint, Predicate<Entry> condition)
+            throws InterruptedException, ManagedLedgerException {
+
+                return delegate.findNewestMatching(constraint, condition);
+    }
+
+    @Override
+    public long getNumberOfEntries(Range<PositionImpl> range) {
+        return delegate.getNumberOfEntries(range);
     }
 }
