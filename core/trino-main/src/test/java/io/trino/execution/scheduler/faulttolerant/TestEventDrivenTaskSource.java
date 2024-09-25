@@ -712,10 +712,5 @@ public class TestEventDrivenTaskSource
             return result.setNoMorePartitions()
                     .build();
         }
-
-        public boolean isFinished()
-        {
-            return finished;
-        }
     }
 }
