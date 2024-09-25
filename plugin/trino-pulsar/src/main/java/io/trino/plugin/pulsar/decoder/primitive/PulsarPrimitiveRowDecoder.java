@@ -66,7 +66,7 @@ public class PulsarPrimitiveRowDecoder
             return Optional.empty();
         }
 
-        Object value = schema.decode(byteBuf);
+        Object value = schema.decode(byteBuf.array());
         Map<DecoderColumnHandle, FieldValueProvider> primitiveColumn = new HashMap<>();
         if (value == null) {
             primitiveColumn.put(columnHandle, FieldValueProviders.nullValueProvider());

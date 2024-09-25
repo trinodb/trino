@@ -45,17 +45,22 @@ import io.trino.spi.type.VarcharType;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+
+import org.apache.avro.LogicalType;
+import org.apache.avro.LogicalTypes;
+import org.apache.avro.Schema;
 //import org.apache.avro.LogicalType;
 //import org.apache.avro.LogicalTypes;
 //import org.apache.avro.Schema;
 import org.apache.avro.SchemaParseException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.client.impl.schema.generic.GenericJsonSchema;
+//import org.apache.pulsar.client.impl.schema.generic.GenericJsonSchema;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.schema.SchemaInfo;
-import org.apache.pulsar.shade.org.apache.avro.LogicalType;
-import org.apache.pulsar.shade.org.apache.avro.LogicalTypes;
-import org.apache.pulsar.shade.org.apache.avro.Schema;
+//import org.apache.pulsar.shade.org.apache.avro.LogicalType;
+//import org.apache.pulsar.shade.org.apache.avro.LogicalTypes;
+//import org.apache.pulsar.shade.org.apache.avro.Schema;
 
 import io.trino.plugin.pulsar.PulsarColumnHandle;
 import io.trino.plugin.pulsar.PulsarColumnMetadata;
