@@ -570,5 +570,14 @@ Returns the year of the [ISO week] from `x`.
 This is an alias for {func}`year_of_week`.
 :::
 
+:::{function} timezone(timestamp(p) with time zone) -> varchar 
+Returns the IANA timezone ID from `timestamp(p) with time zone`. 
+:::
+
+:::{function} timezone(time(p) with time zone) -> varchar
+:no-index:
+Returns the IANA timezone ID from `time(p) with time zone`. 
+:::
+
 [datetimeformat]: http://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html
 [iso week]: https://wikipedia.org/wiki/ISO_week_date
