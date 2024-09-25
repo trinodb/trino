@@ -13,8 +13,6 @@
  */
 package io.trino.client.spooling.encoding;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.trino.client.Column;
@@ -103,31 +101,6 @@ public class JsonQueryDataDecoder
         public String encoding()
         {
             return super.encoding() + "+lz4";
-        }
-    }
-
-    public static class JsonSchema
-    {
-        private final int[] offsets;
-        private final int step;
-
-        @JsonCreator
-        public JsonSchema(int[] offsets, int step)
-        {
-            this.offsets = offsets;
-            this.step = step;
-        }
-
-        @JsonProperty("offsets")
-        public int[] getOffsets()
-        {
-            return offsets;
-        }
-
-        @JsonProperty("step")
-        public int getStep()
-        {
-            return step;
         }
     }
 }
