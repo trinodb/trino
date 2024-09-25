@@ -36,19 +36,16 @@
             <groupId>org.apache.pulsar</groupId>
             <artifactId>pulsar-broker</artifactId>
             <version>${pulsar.version}</version>
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.pulsar</groupId>
             <artifactId>pulsar-client</artifactId>
             <version>${pulsar.version}</version>
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.pulsar</groupId>
             <artifactId>pulsar-client-admin</artifactId>
             <version>${pulsar.version}</version>
-            <scope>provided</scope>
             <exclusions>
                 <exclusion>
                     <groupId>jakarta.activation</groupId>
@@ -61,7 +58,6 @@
             <groupId>org.apache.pulsar</groupId>
             <artifactId>managed-ledger</artifactId>
             <version>${pulsar.version}</version>
-            <scope>provided</scope>
             <exclusions>
                 <exclusion>
                     <groupId>io.netty.incubator</groupId>
