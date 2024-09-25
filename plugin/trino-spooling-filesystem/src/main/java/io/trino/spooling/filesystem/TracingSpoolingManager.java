@@ -59,7 +59,7 @@ public class TracingSpoolingManager
         Span span = tracer.spanBuilder("SpoolingManager.create")
                 .setAttribute(SEGMENT_QUERY_ID, context.queryId().toString())
                 .setAttribute(SEGMENT_ENCODING, context.encoding())
-                .setAttribute(SEGMENT_ROWS, context.rowCount())
+                .setAttribute(SEGMENT_ROWS, context.rows())
                 .setAttribute(SEGMENT_SIZE, context.size())
                 .startSpan();
         return withTracing(span, () -> delegate.create(context));
