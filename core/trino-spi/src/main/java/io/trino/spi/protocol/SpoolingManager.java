@@ -13,6 +13,7 @@
  */
 package io.trino.spi.protocol;
 
+import io.trino.spi.Experimental;
 import io.trino.spi.protocol.SpooledLocation.DirectLocation;
 
 import java.io.IOException;
@@ -20,6 +21,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Optional;
 
+@Experimental(eta = "2025-05-31")
 public interface SpoolingManager
 {
     SpooledSegmentHandle create(SpoolingContext context);
