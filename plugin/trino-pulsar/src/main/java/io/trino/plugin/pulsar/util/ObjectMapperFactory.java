@@ -16,8 +16,9 @@ package io.trino.plugin.pulsar.util;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.pulsar.shade.com.fasterxml.jackson.databind.JsonNode;
+//import org.apache.pulsar.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.pulsar.shade.io.netty.util.concurrent.FastThreadLocal;
 
 public class ObjectMapperFactory

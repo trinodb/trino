@@ -54,7 +54,7 @@ public class PulsarAvroRowDecoder implements PulsarRowDecoder {
     {
         GenericRecord avroRecord;
         try {
-            GenericAvroRecord record = (GenericAvroRecord) genericAvroSchema.decode(byteBuf);
+            GenericAvroRecord record = (GenericAvroRecord) genericAvroSchema.decode(byteBuf.array());
             avroRecord = (GenericRecord) record.getAvroRecord();
         } catch (Exception e) {
             e.printStackTrace();

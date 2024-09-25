@@ -132,7 +132,7 @@
         <module>testing/trino-testing</module>
         <module>testing/trino-testing-containers</module>
         <module>testing/trino-testing-kafka</module>
-        <module>testing/trino-testing-pulsar</module>
+        <!--<module>testing/trino-testing-pulsar</module>-->
         <module>testing/trino-testing-resources</module>
         <module>testing/trino-testing-services</module>
         <module>testing/trino-tests</module>

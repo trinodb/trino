@@ -39,7 +39,7 @@ public class PulsarColumnMetadata extends ColumnMetadata {
     public PulsarColumnMetadata(String name, Type type, String comment, String extraInfo,
                                 boolean hidden, boolean isInternal,
                                 PulsarColumnHandle.HandleKeyValueType handleKeyValueType,
-                                DecoderExtraInfo decoderExtraInfo, Map<String, Object> properties) 
+                                DecoderExtraInfo decoderExtraInfo) 
     {
         super(name, type);
         this.nullable = true;

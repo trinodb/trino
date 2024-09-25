@@ -63,7 +63,7 @@ public class PulsarProtobufNativeRowDecoder
     {
         DynamicMessage dynamicMessage;
         try {
-            GenericProtobufNativeRecord record = (GenericProtobufNativeRecord) genericProtobufNativeSchema.decode(byteBuf);
+            GenericProtobufNativeRecord record = (GenericProtobufNativeRecord) genericProtobufNativeSchema.decode(byteBuf.array());
             dynamicMessage = record.getProtobufRecord();
         }
         catch (SchemaSerializationException e) {
