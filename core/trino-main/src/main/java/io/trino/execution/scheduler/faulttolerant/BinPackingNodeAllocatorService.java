@@ -54,6 +54,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -642,6 +643,7 @@ public class BinPackingNodeAllocatorService
         private final Multimap<HostAddress, InternalNode> allNodesByAddress;
         private final boolean ignoreAcquiredSpeculative;
         private final Map<String, Long> nodesRemainingMemory;
+        private final Set<String> nodesWithoutMemory;
         private final Map<String, Long> nodesRemainingMemoryRuntimeAdjusted;
         private final Map<String, Long> speculativeMemoryReserved;
 
@@ -713,6 +715,7 @@ public class BinPackingNodeAllocatorService
                 long nodeReservedMemory = preReservedMemory.getOrDefault(node.getNodeIdentifier(), 0L);
                 nodesRemainingMemory.put(node.getNodeIdentifier(), max(memoryPoolInfo.getMaxBytes() + nodeMemoryOvercommit.toBytes() - nodeReservedMemory, 0L));
             }
+            nodesWithoutMemory = new HashSet<>();
 
             nodesRemainingMemoryRuntimeAdjusted = new HashMap<>();
             for (InternalNode node : nodesSnapshot.getAllNodes()) {
@@ -775,6 +778,11 @@ public class BinPackingNodeAllocatorService
                 return ReserveResult.NONE_MATCHING;
             }
 
+            candidates = candidates.stream().filter(node -> !nodesWithoutMemory.contains(node.getNodeIdentifier())).collect(toImmutableList());
+            if (candidates.isEmpty()) {
+                return ReserveResult.NOT_ENOUGH_RESOURCES_NOW;
+            }
+
             Comparator<InternalNode> comparator = comparing(node -> nodesRemainingMemoryRuntimeAdjusted.get(node.getNodeIdentifier()));
             if (ignoreAcquiredSpeculative) {
                 comparator = resolveTiesWithSpeculativeMemory(comparator);
@@ -825,6 +833,9 @@ public class BinPackingNodeAllocatorService
             nodesRemainingMemory.compute(
                     nodeIdentifier,
                     (key, free) -> max(free - memoryLease, 0));
+            if (nodesRemainingMemory.get(nodeIdentifier) == 0) {
+                nodesWithoutMemory.add(nodeIdentifier);
+            }
         }
 
         private boolean isNodeEmpty(String nodeIdentifier)
