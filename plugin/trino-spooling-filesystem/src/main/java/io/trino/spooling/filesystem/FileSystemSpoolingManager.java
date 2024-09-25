@@ -176,7 +176,6 @@ public class FileSystemSpoolingManager
         output.writeBytes(fileHandle.queryId().toString().getBytes(UTF_8));
         output.writeBytes(fileHandle.encoding().getBytes(UTF_8));
         output.writeBoolean(fileHandle.encryptionKey().isPresent());
-
         return coordinatorLocation(output.slice(), headers(fileHandle));
     }
 
@@ -202,7 +201,6 @@ public class FileSystemSpoolingManager
 
         QueryId queryId = QueryId.valueOf(input.readSlice(queryLength).toStringUtf8());
         String encoding = input.readSlice(encodingLength).toStringUtf8();
-
         if (!input.readBoolean()) {
             return new FileSystemSpooledSegmentHandle(encoding, queryId, uuid, Optional.empty());
         }

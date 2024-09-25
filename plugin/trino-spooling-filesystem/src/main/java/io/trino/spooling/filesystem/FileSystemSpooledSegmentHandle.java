@@ -28,7 +28,11 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
-public record FileSystemSpooledSegmentHandle(@Override String encoding, @Override QueryId queryId, byte[] uuid, Optional<EncryptionKey> encryptionKey)
+public record FileSystemSpooledSegmentHandle(
+        @Override String encoding,
+        @Override QueryId queryId,
+        byte[] uuid,
+        Optional<EncryptionKey> encryptionKey)
         implements SpooledSegmentHandle
 {
     private static final String OBJECT_NAME_SEPARATOR = "::";
