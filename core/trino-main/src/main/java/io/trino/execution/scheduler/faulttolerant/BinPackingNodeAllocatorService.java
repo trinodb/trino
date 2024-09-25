@@ -18,6 +18,7 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -49,6 +50,7 @@ import org.weakref.jmx.Nested;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
@@ -637,6 +639,7 @@ public class BinPackingNodeAllocatorService
     {
         private final NodesSnapshot nodesSnapshot;
         private final List<InternalNode> allNodesSorted;
+        private final Multimap<HostAddress, InternalNode> allNodesByAddress;
         private final boolean ignoreAcquiredSpeculative;
         private final Map<String, Long> nodesRemainingMemory;
         private final Map<String, Long> nodesRemainingMemoryRuntimeAdjusted;
@@ -663,6 +666,8 @@ public class BinPackingNodeAllocatorService
             this.allNodesSorted = nodesSnapshot.getAllNodes().stream()
                     .sorted(comparing(InternalNode::getNodeIdentifier))
                     .collect(toImmutableList());
+
+            allNodesByAddress = Multimaps.index(nodesSnapshot.getAllNodes(), InternalNode::getHostAndPort);
 
             this.ignoreAcquiredSpeculative = ignoreAcquiredSpeculative;
 
@@ -753,12 +758,13 @@ public class BinPackingNodeAllocatorService
             catalogNodes.ifPresent(candidates::retainAll); // Drop non-catalog nodes, if any.
             Optional<HostAddress> address = requirements.getAddress();
             if (address.isPresent() && (optimizedLocalScheduling || !requirements.isRemotelyAccessible())) {
-                List<InternalNode> preferred = candidates.stream().filter(node -> address.get().equals(node.getHostAndPort())).collect(toImmutableList());
+                Collection<InternalNode> preferred = allNodesByAddress.get(address.get());
                 if ((preferred.isEmpty() || acquire.getNotEnoughResourcesPeriod().compareTo(exhaustedNodeWaitPeriod) >= 0) && requirements.isRemotelyAccessible()) {
                     candidates = dropCoordinatorsIfNecessary(candidates);
                 }
                 else {
-                    candidates = preferred;
+                    // filter out preferred candidates (1 in most cases)
+                    candidates = candidates.stream().filter(preferred::contains).collect(toImmutableList());
                 }
             }
             else {
