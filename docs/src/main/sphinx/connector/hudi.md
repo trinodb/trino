@@ -12,8 +12,8 @@ To use the Hudi connector, you need:
 
 - Hudi version 0.12.3 or higher.
 - Network access from the Trino coordinator and workers to the Hudi storage.
-- Access to a Hive metastore service (HMS).
-- Network access from the Trino coordinator to the HMS.
+- Access to a Hive metastore service (HMS) or AWS Glue.
+- Network access from the Trino coordinator to the HMS or AWS Glue.
 - Data files stored in the [Parquet file format](parquet-format-configuration)
   on a [supported file system](hudi-file-system-configuration).
 
@@ -35,8 +35,9 @@ fs.x.enabled=true
 
 Replace the `fs.x.enabled` configuration property with the desired file system.
 
-There are {ref}`HMS configuration properties <general-metastore-properties>`
-available for use with the Hudi connector. The connector recognizes Hudi tables
+There are [HMS configuration properties](general-metastore-properties) and 
+[AWS Glue configuration properties](hive-glue-metastore) available for use with
+the Hudi connector. The connector recognizes Hudi tables
 synced to the metastore by the [Hudi sync tool](https://hudi.apache.org/docs/syncing_metastore).
 
 Additionally, following configuration properties can be set depending on the use-case:
