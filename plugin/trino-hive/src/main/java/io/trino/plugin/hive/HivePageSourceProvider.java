@@ -72,7 +72,6 @@ import static io.trino.plugin.hive.coercions.CoercionUtils.extractHiveStorageFor
 import static io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getHiveTypeForDereferences;
-import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormatName;
 import static io.trino.plugin.hive.util.HiveUtil.getPrefilledColumnValue;
 import static java.util.Objects.requireNonNull;
@@ -162,8 +161,8 @@ public class HivePageSourceProvider
         }
 
         throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Unsupported input format: serde=%s, format=%s, partition=%s, path=%s".formatted(
-                getDeserializerClassName(hiveSplit.getSchema()),
-                getInputFormatName(hiveSplit.getSchema()).orElse(null),
+                hiveSplit.getSchema().serializationLibraryName(),
+                getInputFormatName(hiveSplit.getSchema().serdeProperties()).orElse(null),
                 hiveSplit.getPartitionName(),
                 hiveSplit.getPath()));
     }
@@ -177,7 +176,7 @@ public class HivePageSourceProvider
             long length,
             long estimatedFileSize,
             long fileModifiedTime,
-            Map<String, String> schema,
+            Schema schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             TypeManager typeManager,
             Optional<BucketConversion> bucketConversion,
@@ -196,7 +195,7 @@ public class HivePageSourceProvider
         Optional<BucketAdaptation> bucketAdaptation = createBucketAdaptation(bucketConversion, tableBucketNumber, regularAndInterimColumnMappings);
         Optional<BucketValidator> bucketValidator = createBucketValidator(path, bucketValidation, tableBucketNumber, regularAndInterimColumnMappings);
 
-        CoercionContext coercionContext = new CoercionContext(getTimestampPrecision(session), extractHiveStorageFormat(getDeserializerClassName(schema)));
+        CoercionContext coercionContext = new CoercionContext(getTimestampPrecision(session), extractHiveStorageFormat(schema.serializationLibraryName()));
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
             List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, typeManager, coercionContext);

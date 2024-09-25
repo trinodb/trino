@@ -41,6 +41,7 @@ import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
+import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.acid.AcidSchema;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.coercions.TypeCoercer;
@@ -95,10 +96,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.mergedRowColumns;
 import static io.trino.plugin.hive.orc.OrcPageSource.handleException;
 import static io.trino.plugin.hive.orc.OrcTypeTranslator.createCoercer;
-import static io.trino.plugin.hive.util.AcidTables.isFullAcidTable;
-import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -159,12 +157,9 @@ public class OrcPageSourceFactory
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
-    public static Map<String, String> stripUnnecessaryProperties(Map<String, String> schema)
+    public static boolean stripUnnecessaryProperties(String serializationLibraryName)
     {
-        if (ORC_SERDE_CLASS.equals(getDeserializerClassName(schema)) && !isFullAcidTable(schema)) {
-            return ImmutableMap.of(SERIALIZATION_LIB, schema.get(SERIALIZATION_LIB));
-        }
-        return schema;
+        return ORC_SERDE_CLASS.equals(serializationLibraryName);
     }
 
     @Override
@@ -175,7 +170,7 @@ public class OrcPageSourceFactory
             long length,
             long estimatedFileSize,
             long fileModifiedTime,
-            Map<String, String> schema,
+            Schema schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Optional<AcidInfo> acidInfo,
@@ -183,7 +178,7 @@ public class OrcPageSourceFactory
             boolean originalFile,
             AcidTransaction transaction)
     {
-        if (!ORC_SERDE_CLASS.equals(getDeserializerClassName(schema))) {
+        if (!ORC_SERDE_CLASS.equals(schema.serializationLibraryName())) {
             return Optional.empty();
         }
 
@@ -206,7 +201,7 @@ public class OrcPageSourceFactory
                 readerColumnHandles,
                 columns,
                 isUseOrcColumnNames(session),
-                isFullAcidTable(schema),
+                schema.isFullAcidTable(),
                 effectivePredicate,
                 legacyTimeZone,
                 orcReaderOptions

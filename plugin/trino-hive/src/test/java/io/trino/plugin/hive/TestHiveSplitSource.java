@@ -236,7 +236,7 @@ public class TestHiveSplitSource
 
             // wait for thread to get the split
             ConnectorSplit split = splits.get(800, TimeUnit.MILLISECONDS);
-            assertThat(((HiveSplit) split).getSchema()).containsEntry("id", "33");
+            assertThat(((HiveSplit) split).getSchema().serdeProperties()).containsEntry("id", "33");
         }
         finally {
             // make sure the thread exits
@@ -331,7 +331,7 @@ public class TestHiveSplitSource
                     fileSize.toBytes(),
                     fileSize.toBytes(),
                     Instant.now().toEpochMilli(),
-                    ImmutableMap.of("id", String.valueOf(id)),
+                    new Schema("abc", false, ImmutableMap.of("id", String.valueOf(id))),
                     ImmutableList.of(),
                     ImmutableList.of(new InternalHiveBlock(0, fileSize.toBytes(), ImmutableList.of())),
                     bucketNumber,

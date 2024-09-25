@@ -68,7 +68,7 @@ public class TestHiveSplit
                 87,
                 88,
                 Instant.now().toEpochMilli(),
-                schema,
+                new Schema("abc", true, schema),
                 partitionKeys,
                 addresses,
                 OptionalInt.empty(),

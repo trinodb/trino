@@ -21,6 +21,7 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.HiveStorageFormat;
+import io.trino.plugin.hive.Schema;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
@@ -43,7 +44,6 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 
 final class ParquetUtil
 {
@@ -96,7 +96,7 @@ final class ParquetUtil
                         parquetFile.length(),
                         parquetFile.length(),
                         parquetFile.lastModified(),
-                        ImmutableMap.of(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerde()),
+                        new Schema(HiveStorageFormat.PARQUET.getSerde(), false, ImmutableMap.of()),
                         columns,
                         domain,
                         Optional.empty(),

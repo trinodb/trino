@@ -44,6 +44,7 @@ import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
+import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.spi.TrinoException;
@@ -97,8 +98,6 @@ import static io.trino.plugin.hive.HiveSessionProperties.isUseParquetColumnNames
 import static io.trino.plugin.hive.HiveSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.hive.parquet.ParquetPageSource.handleException;
 import static io.trino.plugin.hive.parquet.ParquetTypeTranslator.createCoercer;
-import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -146,12 +145,9 @@ public class ParquetPageSourceFactory
         domainCompactionThreshold = hiveConfig.getDomainCompactionThreshold();
     }
 
-    public static Map<String, String> stripUnnecessaryProperties(Map<String, String> schema)
+    public static boolean stripUnnecessaryProperties(String serializationLibraryName)
     {
-        if (PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
-            return ImmutableMap.of(SERIALIZATION_LIB, schema.get(SERIALIZATION_LIB));
-        }
-        return schema;
+        return PARQUET_SERDE_CLASS_NAMES.contains(serializationLibraryName);
     }
 
     @Override
@@ -162,7 +158,7 @@ public class ParquetPageSourceFactory
             long length,
             long estimatedFileSize,
             long fileModifiedTime,
-            Map<String, String> schema,
+            Schema schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Optional<AcidInfo> acidInfo,
@@ -170,7 +166,7 @@ public class ParquetPageSourceFactory
             boolean originalFile,
             AcidTransaction transaction)
     {
-        if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
+        if (!PARQUET_SERDE_CLASS_NAMES.contains(schema.serializationLibraryName())) {
             return Optional.empty();
         }
 
