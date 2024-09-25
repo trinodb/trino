@@ -46,7 +46,7 @@ public class InternalHiveSplit
     private final long end;
     private final long estimatedFileSize;
     private final long fileModifiedTime;
-    private final Map<String, String> schema;
+    private final Schema schema;
     private final List<HivePartitionKey> partitionKeys;
     private final List<InternalHiveBlock> blocks;
     private final String partitionName;
@@ -70,7 +70,7 @@ public class InternalHiveSplit
             long end,
             long estimatedFileSize,
             long fileModifiedTime,
-            Map<String, String> schema,
+            Schema schema,
             List<HivePartitionKey> partitionKeys,
             List<InternalHiveBlock> blocks,
             OptionalInt readBucketNumber,
@@ -144,7 +144,7 @@ public class InternalHiveSplit
         return fileModifiedTime;
     }
 
-    public Map<String, String> getSchema()
+    public Schema getSchema()
     {
         return schema;
     }

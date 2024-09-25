@@ -35,6 +35,7 @@ import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
+import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -46,7 +47,6 @@ import org.joda.time.DateTimeZone;
 
 import java.io.InputStream;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -58,9 +58,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
-import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -79,12 +77,9 @@ public class RcFilePageSourceFactory
         this.timeZone = hiveConfig.getRcfileDateTimeZone();
     }
 
-    public static Map<String, String> stripUnnecessaryProperties(Map<String, String> schema)
+    public static boolean stripUnnecessaryProperties(String serializationLibraryName)
     {
-        if (LAZY_BINARY_COLUMNAR_SERDE_CLASS.equals(getDeserializerClassName(schema))) {
-            return ImmutableMap.of(SERIALIZATION_LIB, schema.get(SERIALIZATION_LIB));
-        }
-        return schema;
+        return LAZY_BINARY_COLUMNAR_SERDE_CLASS.equals(serializationLibraryName);
     }
 
     @Override
@@ -95,7 +90,7 @@ public class RcFilePageSourceFactory
             long length,
             long estimatedFileSize,
             long fileModifiedTime,
-            Map<String, String> schema,
+            Schema schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Optional<AcidInfo> acidInfo,
@@ -104,12 +99,12 @@ public class RcFilePageSourceFactory
             AcidTransaction transaction)
     {
         ColumnEncodingFactory columnEncodingFactory;
-        String deserializerClassName = getDeserializerClassName(schema);
-        if (deserializerClassName.equals(LAZY_BINARY_COLUMNAR_SERDE_CLASS)) {
+        String serializationLibraryName = schema.serializationLibraryName();
+        if (serializationLibraryName.equals(LAZY_BINARY_COLUMNAR_SERDE_CLASS)) {
             columnEncodingFactory = new BinaryColumnEncodingFactory(timeZone);
         }
-        else if (deserializerClassName.equals(COLUMNAR_SERDE_CLASS)) {
-            columnEncodingFactory = new TextColumnEncodingFactory(TextEncodingOptions.fromSchema(schema));
+        else if (serializationLibraryName.equals(COLUMNAR_SERDE_CLASS)) {
+            columnEncodingFactory = new TextColumnEncodingFactory(TextEncodingOptions.fromSchema(schema.serdeProperties()));
         }
         else {
             return Optional.empty();

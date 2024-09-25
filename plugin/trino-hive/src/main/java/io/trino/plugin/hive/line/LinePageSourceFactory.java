@@ -31,6 +31,7 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
+import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -39,7 +40,6 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.io.InputStream;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -50,7 +50,6 @@ import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
-import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.getFooterCount;
 import static io.trino.plugin.hive.util.HiveUtil.getHeaderCount;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
@@ -83,7 +82,7 @@ public abstract class LinePageSourceFactory
             long length,
             long estimatedFileSize,
             long fileModifiedTime,
-            Map<String, String> schema,
+            Schema schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             Optional<AcidInfo> acidInfo,
@@ -91,19 +90,19 @@ public abstract class LinePageSourceFactory
             boolean originalFile,
             AcidTransaction transaction)
     {
-        if (!lineReaderFactory.getHiveInputFormatClassNames().contains(schema.get(FILE_INPUT_FORMAT)) ||
-                !lineDeserializerFactory.getHiveSerDeClassNames().contains(getDeserializerClassName(schema))) {
+        if (!lineReaderFactory.getHiveInputFormatClassNames().contains(schema.serdeProperties().get(FILE_INPUT_FORMAT)) ||
+                !lineDeserializerFactory.getHiveSerDeClassNames().contains(schema.serializationLibraryName())) {
             return Optional.empty();
         }
 
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
         // get header and footer count
-        int headerCount = getHeaderCount(schema);
+        int headerCount = getHeaderCount(schema.serdeProperties());
         if (headerCount > 1) {
             checkArgument(start == 0, "Multiple header rows are not supported for a split file");
         }
-        int footerCount = getFooterCount(schema);
+        int footerCount = getFooterCount(schema.serdeProperties());
         if (footerCount > 0) {
             checkArgument(start == 0, "Footer not supported for a split file");
         }
@@ -124,7 +123,7 @@ public abstract class LinePageSourceFactory
                     projectedReaderColumns.stream()
                             .map(column -> new Column(column.getName(), column.getType(), column.getBaseHiveColumnIndex()))
                             .collect(toImmutableList()),
-                    schema);
+                    schema.serdeProperties());
         }
 
         // Skip empty inputs

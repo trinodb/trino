@@ -155,7 +155,6 @@ import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -974,7 +973,6 @@ public final class TestHiveFileFormats
 
         Map<String, String> splitProperties = ImmutableMap.<String, String>builder()
                 .put(FILE_INPUT_FORMAT, storageFormat.getInputFormat())
-                .put(SERIALIZATION_LIB, storageFormat.getSerde())
                 .put(LIST_COLUMNS, String.join(",", splitPropertiesColumnNames.build()))
                 .put(LIST_COLUMN_TYPES, String.join(",", splitPropertiesColumnTypes.build()))
                 .buildOrThrow();
@@ -1008,7 +1006,7 @@ public final class TestHiveFileFormats
                 fileSize,
                 paddedFileSize,
                 12345,
-                splitProperties,
+                new Schema(storageFormat.getSerde(), false, splitProperties),
                 TupleDomain.all(),
                 TESTING_TYPE_MANAGER,
                 Optional.empty(),

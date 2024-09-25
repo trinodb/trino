@@ -207,7 +207,7 @@ public final class HiveUtil
         return HIVE_TIMESTAMP_PARSER.parseMillis(value) * MICROSECONDS_PER_MILLISECOND;
     }
 
-    public static String getDeserializerClassName(Map<String, String> schema)
+    public static String getSerializationLibraryName(Map<String, String> schema)
     {
         String name = schema.get(SERIALIZATION_LIB);
         checkCondition(name != null, HIVE_INVALID_METADATA, "Table or partition is missing Hive deserializer property: %s", SERIALIZATION_LIB);
