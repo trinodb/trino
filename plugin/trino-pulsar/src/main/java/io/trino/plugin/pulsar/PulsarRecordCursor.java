@@ -22,8 +22,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
+//import io.netty.buffer.ByteBuf;
+//import io.netty.buffer.Unpooled;
 import io.netty.util.Recycler;
 import io.netty.util.ReferenceCountUtil;
 import io.trino.decoder.DecoderColumnHandle;
@@ -56,6 +56,7 @@ import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.impl.schema.KeyValueSchemaInfo;
 import org.apache.pulsar.common.api.raw.MessageParser;
+import org.apache.pulsar.common.api.raw.MessageParser.MessageProcessor;
 import org.apache.pulsar.common.api.raw.RawMessage;
 import org.apache.pulsar.common.api.raw.RawMessageIdImpl;
 import org.apache.pulsar.common.api.raw.RawMessageImpl;
@@ -68,9 +69,12 @@ import org.apache.pulsar.common.schema.KeyValueEncodingType;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 import org.apache.pulsar.common.util.collections.ConcurrentOpenHashMap;
-import org.apache.pulsar.sql.presto.util.CacheSizeAllocator;
-import org.apache.pulsar.sql.presto.util.NoStrictCacheSizeAllocator;
-import org.apache.pulsar.sql.presto.util.NullCacheSizeAllocator;
+import org.apache.pulsar.shade.io.netty.buffer.ByteBuf;
+import org.apache.pulsar.shade.io.netty.buffer.Unpooled;
+
+import io.trino.plugin.pulsar.util.CacheSizeAllocator;
+import io.trino.plugin.pulsar.util.NoStrictCacheSizeAllocator;
+import io.trino.plugin.pulsar.util.NullCacheSizeAllocator;
 import org.jctools.queues.MessagePassingQueue;
 import org.jctools.queues.SpscArrayQueue;
 
@@ -717,7 +721,7 @@ public class PulsarRecordCursor implements RecordCursor {
 
     @Override
     public Object getObject(int field) {
-        return getFieldValueProvider(field, Block.class).getBlock();
+        return getFieldValueProvider(field, Block.class).getObject();
     }
 
     @Override

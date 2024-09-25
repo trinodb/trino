@@ -105,7 +105,7 @@ public class JsonDecoderTestUtil
                     assertNull(expected.get(actualKey));
                     continue;
                 }
-                Block arrayBlock = block.getObject(index + 1, Block.class);
+                Block arrayBlock = block.getSingleValueBlock(index + 1);//.getObject(index + 1, Block.class);
                 checkArrayValues(arrayBlock, valueType, expected.get(actualKey));
             }
         }
@@ -117,7 +117,7 @@ public class JsonDecoderTestUtil
                     assertNull(expected.get(actualKey));
                     continue;
                 }
-                Block mapBlock = block.getObject(index + 1, Block.class);
+                Block mapBlock = block.getSingleValueBlock(index + 1);//.getObject(index + 1, Block.class);
                 checkMapValues(mapBlock, valueType, expected.get(actualKey));
             }
         }
@@ -130,7 +130,7 @@ public class JsonDecoderTestUtil
                     assertNull(expected.get(actualKey));
                     continue;
                 }
-                Block rowBlock = block.getObject(index + 1, Block.class);
+                Block rowBlock = block.getSingleValueBlock(index + 1);//.getObject(index + 1, Block.class);
                 checkRowValues(rowBlock, valueType, expected.get(actualKey));
             }
         }
@@ -187,7 +187,7 @@ public class JsonDecoderTestUtil
                     assertNull(arrayNode.get(index));
                     continue;
                 }
-                Block arrayBlock = block.getObject(index, Block.class);
+                Block arrayBlock = block.getSingleValueBlock(index);//.getObject(index, Block.class);
                 checkArrayValues(arrayBlock, elementType, arrayNode.get(index));
             }
         }
@@ -197,7 +197,7 @@ public class JsonDecoderTestUtil
                     assertNull(arrayNode.get(index));
                     continue;
                 }
-                Block mapBlock = block.getObject(index, Block.class);
+                Block mapBlock = block.getSingleValueBlock(index);//.getObject(index, Block.class);
                 checkMapValues(mapBlock, elementType, arrayNode.get(index));
             }
         }
@@ -207,7 +207,7 @@ public class JsonDecoderTestUtil
                     assertNull(arrayNode.get(index));
                     continue;
                 }
-                Block rowBlock = block.getObject(index, Block.class);
+                Block rowBlock = block.getSingleValueBlock(index);//.getObject(index, Block.class);
                 checkRowValues(rowBlock, elementType, arrayNode.get(index));
             }
         }

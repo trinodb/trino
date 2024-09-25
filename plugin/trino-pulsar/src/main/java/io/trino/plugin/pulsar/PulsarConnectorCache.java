@@ -154,6 +154,7 @@ public class PulsarConnectorCache {
                     .name("pulsar-offloader").build();
     }
 
+    @SuppressWarnings({ "rawtypes", "unchecked" })
     private LedgerOffloader initManagedLedgerOffloader(OffloadPoliciesImpl offloadPolicies,
                                                        PulsarConnectorConfig pulsarConnectorConfig) {
 

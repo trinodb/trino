@@ -18,6 +18,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.RecordSet;
 import jakarta.inject.Inject;
@@ -61,16 +62,10 @@ public class PulsarRecordSetProvider
         requireNonNull(split, "Connector split is null");
         PulsarSplit pulsarSplit = (PulsarSplit) split;
 
-        List<PulsarColumnHandle> pulsarColumns = columns.stream()
-                .map(PulsarColumnHandle.class::cast)
-                .collect(toImmutableList());
-
-        /*ImmutableList.Builder<PulsarColumnHandle> handles = ImmutableList.builder();
+        ImmutableList.Builder<PulsarColumnHandle> handles = ImmutableList.builder();
         for (ColumnHandle handle : columns) {
             handles.add((PulsarColumnHandle) handle);
-        }*/
-
-        //return new PulsarRecordSet(pulsarSplit, handles.build(), pulsarConnectorConfig, decoderFactory, pulsarConnectorManagedLedgerFactory);
-        return new PulsarRecordSet(pulsarSplit, pulsarColumns, pulsarConnectorConfig, decoderFactory, pulsarConnectorManagedLedgerFactory);
+        }        
+        return new PulsarRecordSet(pulsarSplit, handles.build(), pulsarConnectorConfig, decoderFactory);
     }
 }

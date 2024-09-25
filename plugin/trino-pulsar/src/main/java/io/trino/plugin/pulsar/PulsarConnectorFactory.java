@@ -15,40 +15,29 @@ package io.trino.plugin.pulsar;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
-
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.airlift.log.Logger;
-import io.trino.plugin.base.CatalogNameModule;
-import io.trino.plugin.base.TypeDeserializerModule;
-import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.type.TypeManager;
-
 import java.util.Map;
 
-
 /**
- * Factory class which helps to build the Trino Pulsar connector.
+ * The factory class which helps to build the presto connector.
  */
-public class PulsarConnectorFactory
-        implements ConnectorFactory
-{
+public class PulsarConnectorFactory implements ConnectorFactory {
+
     private static final Logger log = Logger.get(PulsarConnectorFactory.class);
 
     @Override
-    public String getName()
-    {
+    public String getName() {
         return "pulsar";
     }
 
-
     @Override
-    public Connector create(String catalogName, Map<String, String> config, ConnectorContext context) {
+    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context) {
         requireNonNull(config, "requiredConfig is null");
         if (log.isDebugEnabled()) {
             log.debug("Creating Pulsar connector with configs: %s", config);
@@ -56,19 +45,12 @@ public class PulsarConnectorFactory
         try {
             // A plugin is not required to use Guice; it is just very convenient
             Bootstrap app = new Bootstrap(
-                ImmutableList.<Module>builder()
-                        .add(new CatalogNameModule(catalogName))
-                        .add(new JsonModule())
-                        .add(new TypeDeserializerModule(context.getTypeManager()))
-                        .add(new PulsarConnectorModule(catalogName, context.getTypeManager()))
-                        .add(binder -> {
-                            binder.bind(ClassLoader.class).toInstance(KafkaConnectorFactory.class.getClassLoader());
-                            binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                            binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        })
-                        .build());
+                    new JsonModule(),
+                    new PulsarConnectorModule(connectorId, context.getTypeManager())
+            );
+
             Injector injector = app
-                    .strictConfig()
+                    //.strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

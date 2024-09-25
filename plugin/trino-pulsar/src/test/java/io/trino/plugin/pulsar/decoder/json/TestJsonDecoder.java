@@ -104,31 +104,31 @@ public class TestJsonDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = pulsarRowDecoder.decodeRow(payload).get();
 
         PulsarColumnHandle stringFieldColumnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "stringField", VARCHAR, false, false, "stringField", null, null, Optional.of(PulsarColumnHandle.HandleKeyValueType.NONE));
+                "stringField", VARCHAR, false, false, "stringField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
         checkValue(decodedRow, stringFieldColumnHandle, message.stringField);
 
         PulsarColumnHandle intFieldColumnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "intField", INTEGER, false, false, "intField", null, null, Optional.of(PulsarColumnHandle.HandleKeyValueType.NONE));
+                "intField", INTEGER, false, false, "intField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
         checkValue(decodedRow, intFieldColumnHandle, message.intField);
 
         PulsarColumnHandle floatFieldColumnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "floatField", REAL, false, false, "floatField", null, null, Optional.of(PulsarColumnHandle.HandleKeyValueType.NONE));
+                "floatField", REAL, false, false, "floatField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
         checkValue(decodedRow, floatFieldColumnHandle, floatToIntBits(message.floatField));
 
         PulsarColumnHandle doubleFieldColumnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "doubleField", DOUBLE, false, false, "doubleField", null, null, Optional.of(PulsarColumnHandle.HandleKeyValueType.NONE));
+                "doubleField", DOUBLE, false, false, "doubleField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
         checkValue(decodedRow, doubleFieldColumnHandle, message.doubleField);
 
         PulsarColumnHandle booleanFieldColumnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "booleanField", BOOLEAN, false, false, "booleanField", null, null, Optional.of(PulsarColumnHandle.HandleKeyValueType.NONE));
+                "booleanField", BOOLEAN, false, false, "booleanField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
         checkValue(decodedRow, booleanFieldColumnHandle, message.booleanField);
 
         PulsarColumnHandle longFieldColumnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "longField", BIGINT, false, false, "longField", null, null, Optional.of(PulsarColumnHandle.HandleKeyValueType.NONE));
+                "longField", BIGINT, false, false, "longField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
         checkValue(decodedRow, longFieldColumnHandle, message.longField);
 
         PulsarColumnHandle enumFieldColumnHandle = new PulsarColumnHandle(getCatalogName().toString(),
-                "enumField", VARCHAR, false, false, "enumField", null, null, Optional.of(PulsarColumnHandle.HandleKeyValueType.NONE));
+                "enumField", VARCHAR, false, false, "enumField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
         checkValue(decodedRow, enumFieldColumnHandle, message.enumField.toString());
     }
 
@@ -146,7 +146,7 @@ public class TestJsonDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = pulsarRowDecoder.decodeRow(payload).get();
 
         ArrayType columnType = new ArrayType(VARCHAR);
-        PulsarColumnHandle columnHandle = new PulsarColumnHandle(getCatalogName().toString(), "arrayField", columnType, false, false, "arrayField", null, null, Optional.of(PulsarColumnHandle.HandleKeyValueType.NONE));
+        PulsarColumnHandle columnHandle = new PulsarColumnHandle(getCatalogName().toString(), "arrayField", columnType, false, false, "arrayField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
 
         checkArrayValues(getBlock(decodedRow, columnHandle), columnHandle.getType(), fieldValue);
     }
@@ -181,7 +181,7 @@ public class TestJsonDecoder
                 .add(RowType.field("stringField", VARCHAR))
                 .build());
 
-        PulsarColumnHandle columnHandle = new PulsarColumnHandle(getCatalogName().toString(), "rowField", columnType, false, false, "rowField", null, null, Optional.of(PulsarColumnHandle.HandleKeyValueType.NONE));
+        PulsarColumnHandle columnHandle = new PulsarColumnHandle(getCatalogName().toString(), "rowField", columnType, false, false, "rowField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
 
         checkRowValues(getBlock(decodedRow, columnHandle), columnHandle.getType(), fieldValue);
     }
@@ -204,7 +204,7 @@ public class TestJsonDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = pulsarRowDecoder.decodeRow(payload).get();
 
         Type columnType = decoderFactory.getTypeManager().getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(VarcharType.VARCHAR.getTypeSignature()), TypeSignatureParameter.typeParameter(BigintType.BIGINT.getTypeSignature())));
-        PulsarColumnHandle columnHandle = new PulsarColumnHandle(getCatalogName().toString(), "mapField", columnType, false, false, "mapField", null, null, Optional.of(PulsarColumnHandle.HandleKeyValueType.NONE));
+        PulsarColumnHandle columnHandle = new PulsarColumnHandle(getCatalogName().toString(), "mapField", columnType, false, false, "mapField", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
 
         checkMapValues(getBlock(decodedRow, columnHandle), columnHandle.getType(), fieldValue);
     }
@@ -276,7 +276,7 @@ public class TestJsonDecoder
                                         TypeSignatureParameter.typeParameter(new ArrayType(BIGINT).getTypeSignature())))))
                 .build());
 
-        PulsarColumnHandle columnHandle = new PulsarColumnHandle(getCatalogName().toString(), "compositeRow", columnType, false, false, "compositeRow", null, null, Optional.of(PulsarColumnHandle.HandleKeyValueType.NONE));
+        PulsarColumnHandle columnHandle = new PulsarColumnHandle(getCatalogName().toString(), "compositeRow", columnType, false, false, "compositeRow", null, null, PulsarColumnHandle.HandleKeyValueType.NONE);
 
         checkRowValues(getBlock(decodedRow, columnHandle), columnHandle.getType(), fieldValue);
     }
@@ -288,7 +288,7 @@ public class TestJsonDecoder
         TrinoException exception = expectThrows(TrinoException.class,
                 () -> {
                     decoderFactory.extractColumnMetadata(topicName, cyclicSchema.getSchemaInfo(),
-                            PulsarColumnHandle.HandleKeyValueType.NONE, false);
+                            PulsarColumnHandle.HandleKeyValueType.NONE);
                 });
 
         assertEquals("Topic " + topicName.toString() + " schema may contains cyclic definitions.", exception.getMessage());

@@ -21,12 +21,11 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.trino.decoder.DecoderModule;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
+import jakarta.inject.Inject;
 
 /**
  * This class defines binding of classes in the Presto connector.
@@ -43,12 +42,6 @@ public class PulsarConnectorModule implements Module {
 
     @Override
     public void configure(Binder binder) {
-        /*binder.bind(ConnectorMetadata.class).annotatedWith(ForClassLoaderSafe.class).to(PulsarMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorMetadata.class).to(ClassLoaderSafeConnectorMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorSplitManager.class).annotatedWith(ForClassLoaderSafe.class).to(PulsarSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorSplitManager.class).to(ClassLoaderSafeConnectorSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForClassLoaderSafe.class).to(PulsarRecordSetProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorRecordSetProvider.class).to(ClassLoaderSafeConnectorRecordSetProvider.class).in(Scopes.SINGLETON);*/
         binder.bind(TypeManager.class).toInstance(typeManager);
 
         binder.bind(PulsarConnector.class).in(Scopes.SINGLETON);
@@ -90,3 +83,4 @@ public class PulsarConnectorModule implements Module {
         }
     }
 }
+

@@ -22,40 +22,54 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 import java.util.Objects;
 
-public class PulsarColumnHandle
-        implements DecoderColumnHandle
-{
+/**
+ * This class represents the basic information about a presto column.
+ */
+public class PulsarColumnHandle implements DecoderColumnHandle {
+
     private final String connectorId;
 
+    /**
+     * Column Name.
+     */
     private final String name;
 
+    /**
+     * Column type.
+     */
     private final Type type;
 
+    /**
+     * True if the column should be hidden.
+     */
     private final boolean hidden;
 
+    /**
+     * True if the column is internal to the connector and not defined by a topic definition.
+     */
     private final boolean internal;
+
 
     private HandleKeyValueType handleKeyValueType;
 
     /**
-     * {@link PulsarColumnMetadata.DecoderExtraInfo#mapping}.
+     * {@link org.apache.pulsar.sql.presto.PulsarColumnMetadata.DecoderExtraInfo#mapping}.
      */
     private String mapping;
     /**
-     * {@link PulsarColumnMetadata.DecoderExtraInfo#dataFormat}.
+     * {@link org.apache.pulsar.sql.presto.PulsarColumnMetadata.DecoderExtraInfo#dataFormat}.
      */
     private String dataFormat;
 
     /**
-     * {@link PulsarColumnMetadata.DecoderExtraInfo#formatHint}.
+     * {@link org.apache.pulsar.sql.presto.PulsarColumnMetadata.DecoderExtraInfo#formatHint}.
      */
     private String formatHint;
 
     /**
      * Column Handle keyValue type, used for keyValue schema.
      */
-    public enum HandleKeyValueType
-    {
+    public enum HandleKeyValueType {
         /**
          * The handle not for keyValue schema.
          */
@@ -80,8 +94,7 @@ public class PulsarColumnHandle
             @JsonProperty("mapping") String mapping,
             @JsonProperty("dataFormat") String dataFormat,
             @JsonProperty("formatHint") String formatHint,
-            @JsonProperty("handleKeyValueType") HandleKeyValueType handleKeyValueType)
-    {
+            @JsonProperty("handleKeyValueType") HandleKeyValueType handleKeyValueType) {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
@@ -98,81 +111,64 @@ public class PulsarColumnHandle
     }
 
     @JsonProperty
-    public String getCatalogName()
-    {
-        return catalogName;
+    public String getConnectorId() {
+        return connectorId;
     }
 
-    @Override
     @JsonProperty
-    public String getName()
-    {
+    public String getName() {
         return name;
     }
 
-    @Override
     @JsonProperty
-    public String getMapping()
-    {
+    public String getMapping() {
         return mapping;
     }
 
-    @Override
     @JsonProperty
-    public String getDataFormat()
-    {
+    public String getDataFormat() {
         return dataFormat;
     }
 
-    @Override
     @JsonProperty
-    public Type getType()
-    {
+    public Type getType() {
         return type;
     }
 
     @JsonProperty
-    public boolean isHidden()
-    {
+    public boolean isHidden() {
         return hidden;
     }
 
-    @Override
     @JsonProperty
-    public boolean isInternal()
-    {
+    public boolean isInternal() {
         return internal;
     }
 
-    @Override
     @JsonProperty
-    public String getFormatHint()
-    {
+    public String getFormatHint() {
         return formatHint;
     }
 
     @JsonProperty
-    public HandleKeyValueType getHandleKeyValueType()
-    {
+    public HandleKeyValueType getHandleKeyValueType() {
         return handleKeyValueType;
     }
 
     @JsonIgnore
-    public boolean isKey()
-    {
+    public boolean isKey() {
         return Objects.equals(handleKeyValueType, HandleKeyValueType.KEY);
     }
 
     @JsonIgnore
-    public boolean isValue()
-    {
+    public boolean isValue() {
         return Objects.equals(handleKeyValueType, HandleKeyValueType.VALUE);
     }
 
     ColumnMetadata getColumnMetadata() {
         return new PulsarColumnMetadata(name, type, null, null, hidden,
                 internal, handleKeyValueType, new PulsarColumnMetadata.DecoderExtraInfo(
-                mapping, dataFormat, formatHint));
+                        mapping, dataFormat, formatHint));
     }
 
     @Override
@@ -230,18 +226,18 @@ public class PulsarColumnHandle
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "PulsarColumnHandle{"
-                + "connectorId='" + connectorId + '\''
-                + ", name='" + name + '\''
-                + ", type=" + type
-                + ", hidden=" + hidden
-                + ", internal=" + internal
-                + ", mapping=" + mapping
-                + ", dataFormat=" + dataFormat
-                + ", formatHint=" + formatHint
-                + ", handleKeyValueType=" + handleKeyValueType
-                + '}';
+            + "connectorId='" + connectorId + '\''
+            + ", name='" + name + '\''
+            + ", type=" + type
+            + ", hidden=" + hidden
+            + ", internal=" + internal
+            + ", mapping=" + mapping
+            + ", dataFormat=" + dataFormat
+            + ", formatHint=" + formatHint
+            + ", handleKeyValueType=" + handleKeyValueType
+            + '}';
     }
 }
+

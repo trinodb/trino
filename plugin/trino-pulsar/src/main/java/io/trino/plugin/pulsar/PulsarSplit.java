@@ -199,11 +199,6 @@ public class PulsarSplit implements ConnectorSplit {
     }
 
     @Override
-    public Object getInfo() {
-        return this;
-    }
-
-    @Override
     public String toString() {
         return "PulsarSplit{"
             + "splitId=" + splitId

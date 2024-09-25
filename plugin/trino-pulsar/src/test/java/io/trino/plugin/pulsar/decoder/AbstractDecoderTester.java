@@ -16,42 +16,38 @@ package io.trino.plugin.pulsar.decoder;
 import io.airlift.slice.Slice;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
-import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.pulsar.PulsarColumnHandle;
-import io.trino.plugin.pulsar.PulsarConnectorConfig;
-import io.trino.plugin.pulsar.PulsarDispatchingRowDecoderFactory;
-import io.trino.plugin.pulsar.PulsarMetadata;
-import io.trino.plugin.pulsar.PulsarRowDecoder;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorContext;
-import org.apache.pulsar.client.api.PulsarClientException;
+import java.math.BigDecimal;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.schema.SchemaInfo;
+import io.trino.plugin.pulsar.PulsarAuth;
+import io.trino.plugin.pulsar.PulsarColumnHandle;
+import io.trino.plugin.pulsar.PulsarColumnMetadata;
+import io.trino.plugin.pulsar.PulsarConnectorConfig;
+import io.trino.plugin.pulsar.PulsarConnectorId;
+import io.trino.plugin.pulsar.PulsarDispatchingRowDecoderFactory;
+import io.trino.plugin.pulsar.PulsarMetadata;
+import io.trino.plugin.pulsar.PulsarRowDecoder;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
-import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_DATA_FORMAT;
-import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_FORMAT_HINT;
-import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_HANDLE_TYPE;
-import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_INTERNAL;
-import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_MAPPING;
-import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_NAME_CASE_SENSITIVE;
+import static org.mockito.Mockito.spy;
 import static org.testng.Assert.assertNotNull;
 
 /**
  * Abstract superclass for TestXXDecoder (e.g. TestAvroDecoder 、TestJsonDecoder).
  */
-public abstract class AbstractDecoderTester
-{
+public abstract class AbstractDecoderTester {
+
     protected PulsarDispatchingRowDecoderFactory decoderFactory;
-    protected CatalogName catalogName = new CatalogName("test-connector");
+    protected PulsarConnectorId pulsarConnectorId = new PulsarConnectorId("test-connector");
     protected SchemaInfo schemaInfo;
     protected TopicName topicName;
     protected List<PulsarColumnHandle> pulsarColumnHandle;
@@ -60,86 +56,80 @@ public abstract class AbstractDecoderTester
     protected PulsarConnectorConfig pulsarConnectorConfig;
     protected PulsarMetadata pulsarMetadata;
 
-    protected void init() throws PulsarClientException
-    {
-        ConnectorContext trinoConnectorContext = new TestingConnectorContext();
-        decoderFactory = new PulsarDispatchingRowDecoderFactory(trinoConnectorContext.getTypeManager());
-        pulsarConnectorConfig = new PulsarConnectorConfig();
-        pulsarConnectorConfig.setMaxEntryReadBatchSize(1);
-        pulsarConnectorConfig.setMaxSplitEntryQueueSize(10);
-        pulsarConnectorConfig.setMaxSplitMessageQueueSize(100);
-        pulsarConnectorConfig.setWebServiceUrl("http://localhost:8080");
-        pulsarConnectorConfig.setZookeeperUri("localhost:2181");
-        pulsarMetadata = new PulsarMetadata(catalogName, pulsarConnectorConfig, decoderFactory);
-        topicName = TopicName.get("persistent", NamespaceName.get("tenant-1", "ns-1"), "topic-1");
+    protected void init() {
+        ConnectorContext prestoConnectorContext = new TestingConnectorContext();
+        this.decoderFactory = new PulsarDispatchingRowDecoderFactory(prestoConnectorContext.getTypeManager());
+        this.pulsarConnectorConfig = spy(PulsarConnectorConfig.class);
+        this.pulsarConnectorConfig.setMaxEntryReadBatchSize(1);
+        this.pulsarConnectorConfig.setMaxSplitEntryQueueSize(10);
+        this.pulsarConnectorConfig.setMaxSplitMessageQueueSize(100);
+        this.pulsarMetadata = new PulsarMetadata(pulsarConnectorId, this.pulsarConnectorConfig, decoderFactory,
+                new PulsarAuth(this.pulsarConnectorConfig));
+        this.topicName = TopicName.get("persistent", NamespaceName.get("tenant-1", "ns-1"), "topic-1");
     }
 
-    protected void checkArrayValues(Block block, Type type, Object value)
-    {
+    protected void checkArrayValues(Block block, Type type, Object value) {
         decoderTestUtil.checkArrayValues(block, type, value);
     }
 
-    protected void checkMapValues(Block block, Type type, Object value)
-    {
+    protected void checkMapValues(Block block, Type type, Object value) {
         decoderTestUtil.checkMapValues(block, type, value);
     }
 
-    protected void checkRowValues(Block block, Type type, Object value)
-    {
+    protected void checkRowValues(Block block, Type type, Object value) {
         decoderTestUtil.checkRowValues(block, type, value);
     }
 
-    protected void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Slice value)
-    {
+    protected void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Slice value) {
         decoderTestUtil.checkValue(decodedRow, handle, value);
     }
 
-    protected void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, String value)
-    {
+    protected void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, String value) {
         decoderTestUtil.checkValue(decodedRow, handle, value);
     }
 
-    protected void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, long value)
-    {
+    protected void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, long value) {
         decoderTestUtil.checkValue(decodedRow, handle, value);
     }
 
-    protected void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, double value)
-    {
+    protected void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, double value) {
         decoderTestUtil.checkValue(decodedRow, handle, value);
     }
 
-    protected void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, boolean value)
-    {
+    protected void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, boolean value) {
         decoderTestUtil.checkValue(decodedRow, handle, value);
     }
 
-    protected Block getBlock(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle)
-    {
+    protected void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, BigDecimal value) {
+        decoderTestUtil.checkValue(decodedRow, handle, value);
+    }
+
+    protected Block getBlock(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle) {
         FieldValueProvider provider = decodedRow.get(handle);
         assertNotNull(provider);
-        return provider.getBlock();
+        return (Block)provider.getObject();
     }
 
     protected List<PulsarColumnHandle> getColumnColumnHandles(TopicName topicName, SchemaInfo schemaInfo,
-                                                              PulsarColumnHandle.HandleKeyValueType handleKeyValueType, boolean includeInternalColumn, PulsarDispatchingRowDecoderFactory dispatchingRowDecoderFactory)
-    {
+                                                              PulsarColumnHandle.HandleKeyValueType handleKeyValueType, boolean includeInternalColumn, PulsarDispatchingRowDecoderFactory dispatchingRowDecoderFactory) {
         List<PulsarColumnHandle> columnHandles = new ArrayList<>();
         List<ColumnMetadata> columnMetadata = pulsarMetadata.getPulsarColumns(topicName, schemaInfo,
-                includeInternalColumn, true, handleKeyValueType);
+                includeInternalColumn, handleKeyValueType);
 
-        columnMetadata.forEach(columnMeta -> {
+        columnMetadata.forEach(column -> {
+            PulsarColumnMetadata pulsarColumnMetadata = (PulsarColumnMetadata) column;
             columnHandles.add(new PulsarColumnHandle(
-                    catalogName.toString(),
-                    (String) columnMeta.getProperties().get(PROPERTY_KEY_NAME_CASE_SENSITIVE),
-                    columnMeta.getType(),
-                    columnMeta.isHidden(),
-                    columnMeta.getProperties().containsKey(PROPERTY_KEY_INTERNAL) ? (Boolean) columnMeta.getProperties().get(PROPERTY_KEY_INTERNAL) : false,
-                    (String) columnMeta.getProperties().get(PROPERTY_KEY_MAPPING),
-                    (String) columnMeta.getProperties().get(PROPERTY_KEY_DATA_FORMAT),
-                    (String) columnMeta.getProperties().get(PROPERTY_KEY_FORMAT_HINT),
-                    Optional.of((PulsarColumnHandle.HandleKeyValueType) columnMeta.getProperties().get(PROPERTY_KEY_HANDLE_TYPE))));
+                    pulsarConnectorId.toString(),
+                    pulsarColumnMetadata.getNameWithCase(),
+                    pulsarColumnMetadata.getType(),
+                    pulsarColumnMetadata.isHidden(),
+                    pulsarColumnMetadata.isInternal(),
+                    pulsarColumnMetadata.getDecoderExtraInfo().getMapping(),
+                    pulsarColumnMetadata.getDecoderExtraInfo().getDataFormat(), pulsarColumnMetadata.getDecoderExtraInfo().getFormatHint(),
+                    pulsarColumnMetadata.getHandleKeyValueType()));
+
         });
         return columnHandles;
     }
+
 }
