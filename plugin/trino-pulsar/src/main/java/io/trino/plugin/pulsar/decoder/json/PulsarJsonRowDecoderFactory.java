@@ -13,144 +13,145 @@
  */
 package io.trino.plugin.pulsar.decoder.json;
 
-import com.google.common.base.Strings;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.String.format;
+import static java.util.stream.Collectors.toList;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.decoder.DecoderColumnHandle;
-import io.trino.plugin.pulsar.PulsarColumnHandle;
-import io.trino.plugin.pulsar.PulsarColumnMetadata;
-import io.trino.plugin.pulsar.PulsarRowDecoderFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import org.apache.pulsar.client.impl.schema.generic.GenericJsonSchema;
-
-import org.apache.avro.LogicalType;
-import org.apache.avro.LogicalTypes;
-import org.apache.avro.Schema;
-import org.apache.avro.SchemaParseException;
-import org.apache.pulsar.common.naming.TopicName;
-import org.apache.pulsar.common.schema.SchemaInfo;
-
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+//import org.apache.avro.LogicalType;
+//import org.apache.avro.LogicalTypes;
+//import org.apache.avro.Schema;
+import org.apache.avro.SchemaParseException;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.pulsar.client.impl.schema.generic.GenericJsonSchema;
+import org.apache.pulsar.common.naming.TopicName;
+import org.apache.pulsar.common.schema.SchemaInfo;
+import org.apache.pulsar.shade.org.apache.avro.LogicalType;
+import org.apache.pulsar.shade.org.apache.avro.LogicalTypes;
+import org.apache.pulsar.shade.org.apache.avro.Schema;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_HANDLE_TYPE;
-import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_INTERNAL;
-import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_MAPPING;
-import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_NAME_CASE_SENSITIVE;
-import static io.trino.plugin.pulsar.PulsarErrorCode.PULSAR_SCHEMA_ERROR;
-import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.TimeType.TIME_MILLIS;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.lang.String.format;
-import static java.util.stream.Collectors.toList;
+import io.trino.plugin.pulsar.PulsarColumnHandle;
+import io.trino.plugin.pulsar.PulsarColumnMetadata;
+import io.trino.plugin.pulsar.PulsarRowDecoderFactory;
 
 /**
- * PulsarRowDecoderFactory for {@link org.apache.pulsar.shade.org.apache.pulsar.common.schema.SchemaType#JSON}.
+ * PulsarRowDecoderFactory for {@link org.apache.pulsar.common.schema.SchemaType#JSON}.
  */
-public class PulsarJsonRowDecoderFactory
-        implements PulsarRowDecoderFactory
-{
-    private static final Logger log = Logger.get(PulsarJsonRowDecoderFactory.class);
+public class PulsarJsonRowDecoderFactory implements PulsarRowDecoderFactory {
 
-    private TypeManager typeManager;
+    private final TypeManager typeManager;
 
-    public PulsarJsonRowDecoderFactory(TypeManager typeManager)
-    {
+    public PulsarJsonRowDecoderFactory(TypeManager typeManager) {
         this.typeManager = typeManager;
     }
 
     @Override
-    public PulsarJsonRowDecoder createRowDecoder(TopicName topicName, SchemaInfo schemaInfo, Set<DecoderColumnHandle> columns)
-    {
+    public PulsarJsonRowDecoder createRowDecoder(TopicName topicName, SchemaInfo schemaInfo,
+                                                 Set<DecoderColumnHandle> columns) {
         return new PulsarJsonRowDecoder((GenericJsonSchema) GenericJsonSchema.of(schemaInfo), columns);
     }
 
     @Override
-    public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo, PulsarColumnHandle.HandleKeyValueType handleKeyValueType, boolean withInternalProperties)
-    {
+    public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo,
+                                                      PulsarColumnHandle.HandleKeyValueType handleKeyValueType) {
         List<ColumnMetadata> columnMetadata;
-        String schemaJson = new String(schemaInfo.getSchema(), StandardCharsets.ISO_8859_1);
-        if (Strings.nullToEmpty(schemaJson).trim().isEmpty()) {
-            throw new TrinoException(PULSAR_SCHEMA_ERROR, "Topic " + topicName.toString() + " does not have a valid schema");
+        String schemaJson = new String(schemaInfo.getSchema());
+        if (StringUtils.isBlank(schemaJson)) {
+            throw new TrinoException(NOT_SUPPORTED, "Topic "
+                    + topicName.toString() + " does not have a valid schema");
         }
 
         Schema schema;
         try {
             schema = GenericJsonSchema.of(schemaInfo).getAvroSchema();
-        }
-        catch (SchemaParseException ex) {
-            throw new TrinoException(PULSAR_SCHEMA_ERROR, "Topic " + topicName.toString() + " does not have a valid schema");
+        } catch (SchemaParseException ex) {
+            throw new TrinoException(NOT_SUPPORTED, "Topic "
+                    + topicName.toString() + " does not have a valid schema");
         }
 
         try {
             columnMetadata = schema.getFields().stream()
-                    .map(field -> {
-                        ColumnMetadata.Builder metaBuilder = ColumnMetadata.builder()
-                                    .setName(PulsarColumnMetadata.getColumnName(handleKeyValueType, field.name()))
-                                    .setType(parseJsonTrinoType(field.name(), field.schema()))
-                                    .setComment(Optional.of(field.schema().toString()))
-                                    .setHidden(false);
-                        if (withInternalProperties) {
-                            metaBuilder.setProperties(ImmutableMap.of(
-                                    PROPERTY_KEY_NAME_CASE_SENSITIVE, PulsarColumnMetadata.getColumnName(handleKeyValueType, field.name()),
-                                    PROPERTY_KEY_INTERNAL, false,
-                                    PROPERTY_KEY_HANDLE_TYPE, handleKeyValueType,
-                                    PROPERTY_KEY_MAPPING, field.name()));
-                        }
-                        return metaBuilder.build();
-                    }).collect(toList());
-        }
-        catch (StackOverflowError e) {
-            log.warn(e, "Topic " + topicName.toString() + " extractColumnMetadata failed.");
-            throw new TrinoException(PULSAR_SCHEMA_ERROR, "Topic " + topicName.toString() + " schema may contains cyclic definitions.", e);
+                    .map(field ->
+                            new PulsarColumnMetadata(PulsarColumnMetadata.getColumnName(handleKeyValueType,
+                                    field.name()), parseJsonPrestoType(field.name(), field.schema()),
+                                    field.schema().toString(), null, false, false,
+                                    handleKeyValueType, new PulsarColumnMetadata.DecoderExtraInfo(
+                                    field.name(), null, null))
+
+                    ).collect(toList());
+        } catch (StackOverflowError e) {
+            log.warn(e, "Topic "
+                    + topicName.toString() + " extractColumnMetadata failed.");
+            throw new TrinoException(NOT_SUPPORTED, "Topic "
+                    + topicName.toString() + " schema may contains cyclic definitions.", e);
         }
         return columnMetadata;
     }
 
-    private Type parseJsonTrinoType(String fieldname, Schema schema)
-    {
+
+    private Type parseJsonPrestoType(String fieldName, Schema schema) {
         Schema.Type type = schema.getType();
-        LogicalType logicalType = schema.getLogicalType();
+        LogicalType logicalType  = schema.getLogicalType();
         switch (type) {
             case STRING:
+                if (logicalType != null && logicalType.equals(LogicalTypes.uuid())) {
+                    return UuidType.UUID;
+                }
+                return createUnboundedVarcharType();
             case ENUM:
                 return createUnboundedVarcharType();
             case NULL:
-                throw new UnsupportedOperationException(format("field '%s' NULL type code should not be reached ，please check the schema or report the bug.", fieldname));
+                throw new UnsupportedOperationException(format(
+                        "field '%s' NULL type code should not be reached , "
+                                + "please check the schema or report the bug.", fieldName));
             case FIXED:
             case BYTES:
+                //  When the precision <= 0, throw Exception.
+                //  When the precision > 0 and <= 18, use ShortDecimalType. and mapping Long
+                //  When the precision > 18 and <= 36, use LongDecimalType. and mapping Slice
+                //  When the precision > 36, throw Exception.
+                if (logicalType instanceof LogicalTypes.Decimal) {
+                    LogicalTypes.Decimal decimal = (LogicalTypes.Decimal) logicalType;
+                    return DecimalType.createDecimalType(decimal.getPrecision(), decimal.getScale());
+                }
                 return VarbinaryType.VARBINARY;
             case INT:
-                if (logicalType == LogicalTypes.date()) {
-                    return DATE;
+                if (logicalType == LogicalTypes.timeMillis()) {
+                    return TimeType.TIME_MILLIS;
+                } else if (logicalType == LogicalTypes.date()) {
+                    return DateType.DATE;
                 }
                 return IntegerType.INTEGER;
             case LONG:
-                if (logicalType == LogicalTypes.timeMillis()) {
-                    return TIME_MILLIS;
-                }
-                else if (logicalType == LogicalTypes.timestampMillis()) {
-                    return TIMESTAMP_MILLIS;
+                if (logicalType == LogicalTypes.timestampMillis()) {
+                    return TimestampType.TIMESTAMP_MILLIS;
                 }
                 return BigintType.BIGINT;
             case FLOAT:
@@ -160,32 +161,39 @@ public class PulsarJsonRowDecoderFactory
             case BOOLEAN:
                 return BooleanType.BOOLEAN;
             case ARRAY:
-                return new ArrayType(parseJsonTrinoType(fieldname, schema.getElementType()));
+                return new ArrayType(parseJsonPrestoType(fieldName, schema.getElementType()));
             case MAP:
                 //The key for an avro map must be string.
-                TypeSignature valueType = parseJsonTrinoType(fieldname, schema.getValueType()).getTypeSignature();
-                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter
-                                .typeParameter(VarcharType.VARCHAR.getTypeSignature()),
-                                TypeSignatureParameter.typeParameter(valueType)));
+                TypeSignature valueType = parseJsonPrestoType(fieldName, schema.getValueType()).getTypeSignature();
+                return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.
+                        typeParameter(VarcharType.VARCHAR.getTypeSignature()),
+                        TypeSignatureParameter.typeParameter(valueType)));
             case RECORD:
                 if (schema.getFields().size() > 0) {
                     return RowType.from(schema.getFields().stream()
                             .map(field -> new RowType.Field(Optional.of(field.name()),
-                                    parseJsonTrinoType(field.name(), field.schema())))
+                                    parseJsonPrestoType(field.name(), field.schema())))
                             .collect(toImmutableList()));
-                }
-                else {
-                    throw new UnsupportedOperationException(format("field '%s' of record type has no fields, please check schema definition. ", fieldname));
+                } else {
+                    throw new UnsupportedOperationException(format(
+                            "field '%s' of record type has no fields, "
+                                    + "please check schema definition. ", fieldName));
                 }
             case UNION:
                 for (Schema nestType : schema.getTypes()) {
                     if (nestType.getType() != Schema.Type.NULL) {
-                        return parseJsonTrinoType(fieldname, nestType);
+                        return parseJsonPrestoType(fieldName, nestType);
                     }
                 }
-                throw new UnsupportedOperationException(format("field '%s' of UNION type must contains not NULL type.", fieldname));
+                throw new UnsupportedOperationException(format(
+                        "field '%s' of UNION type must contains not NULL type.", fieldName));
             default:
-                throw new UnsupportedOperationException(format("Can't convert from schema type '%s' (%s) to trino type.", schema.getType(), schema.getFullName()));
+                throw new UnsupportedOperationException(format(
+                        "Can't convert from schema type '%s' (%s) to presto type.",
+                        schema.getType(), schema.getFullName()));
         }
     }
+
+    private static final Logger log = Logger.get(PulsarJsonRowDecoderFactory.class);
+
 }

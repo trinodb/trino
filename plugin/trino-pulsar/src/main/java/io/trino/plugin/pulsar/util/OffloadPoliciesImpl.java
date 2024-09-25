@@ -61,7 +61,7 @@ public class OffloadPoliciesImpl
         }
         CONFIGURATION_FIELDS = Collections.unmodifiableList(temp);
     }
-
+    public static final Long DEFAULT_Managed_Ledger_Offload_Threshold_In_Seconds = 1L;
     public static final int DEFAULT_MAX_BLOCK_SIZE_IN_BYTES = 64 * 1024 * 1024;   // 64MB
     public static final int DEFAULT_READ_BUFFER_SIZE_IN_BYTES = 1024 * 1024;      // 1MB
     public static final int DEFAULT_OFFLOAD_MAX_THREADS = 2;
@@ -99,6 +99,10 @@ public class OffloadPoliciesImpl
     @Configuration
     @JsonProperty(access = JsonProperty.Access.READ_WRITE)
     private OffloadedReadPriority managedLedgerOffloadedReadPriority = DEFAULT_OFFLOADED_READ_PRIORITY;
+
+    @Configuration
+    @JsonProperty(access = JsonProperty.Access.READ_WRITE)
+    private Long managedLedgerOffloadThresholdInSeconds = DEFAULT_Managed_Ledger_Offload_Threshold_In_Seconds;
 
     // s3 config, set by service configuration or cli
     @Configuration
@@ -1072,5 +1076,10 @@ public class OffloadPoliciesImpl
                 .add("managedLedgerOffloadMaxBlockSizeInBytes", managedLedgerOffloadMaxBlockSizeInBytes)
                 .add("managedLedgerOffloadReadBufferSizeInBytes", managedLedgerOffloadReadBufferSizeInBytes)
                 .toString();
+    }
+
+    @Override
+    public Long getManagedLedgerOffloadThresholdInSeconds() {
+        return managedLedgerOffloadThresholdInSeconds;
     }
 }

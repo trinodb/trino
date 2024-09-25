@@ -15,12 +15,23 @@ package io.trino.plugin.pulsar;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Properties;
 import org.apache.avro.Schema;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.common.naming.TopicName;
+
+import java.time.Instant;
+import java.time.LocalDateTime;
+
+import static com.google.common.base.Verify.verify;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.round;
+import static java.lang.Math.toIntExact;
+import static java.time.ZoneOffset.UTC;
 
 /**
  * A helper class containing repeatable logic used in the other classes.
@@ -95,5 +106,21 @@ public class PulsarConnectorUtils {
                 ? namespace.replace(config.getRewriteNamespaceDelimiter(), "/")
                 : namespace;
     }
-
+    public static long roundToTrinoTime(long timestamp)
+    {
+        Instant.ofEpochMilli(timestamp);
+        LocalDateTime date = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault());
+        int roundedNanos = toIntExact(round(date.getNano(), 6));
+        LocalDateTime rounded = date
+                .withNano(0)
+                .plusNanos(roundedNanos);
+        long epochMicros = rounded.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
+                + rounded.getNano() / NANOSECONDS_PER_MICROSECOND;
+        verify(
+                epochMicros == round(epochMicros, 3),
+                "Invalid value of epochMicros for precision %s: %s",
+                3,
+                epochMicros);
+        return epochMicros;
+    }
 }
