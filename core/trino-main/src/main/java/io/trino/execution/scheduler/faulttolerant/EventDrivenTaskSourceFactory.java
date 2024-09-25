@@ -36,6 +36,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -171,11 +172,11 @@ public class EventDrivenTaskSourceFactory
 
         boolean coordinatorOnly = partitioning.equals(COORDINATOR_DISTRIBUTION);
         if (partitioning.equals(SINGLE_DISTRIBUTION) || coordinatorOnly) {
-            ImmutableSet<HostAddress> hostRequirement = ImmutableSet.of();
+            Optional<HostAddress> hostRequirement = Optional.empty();
             if (coordinatorOnly) {
                 Node currentNode = nodeManager.getCurrentNode();
                 verify(currentNode.isCoordinator(), "current node is expected to be a coordinator");
-                hostRequirement = ImmutableSet.of(currentNode.getHostAndPort());
+                hostRequirement = Optional.of(currentNode.getHostAndPort());
             }
             return new SingleDistributionSplitAssigner(
                     hostRequirement,
