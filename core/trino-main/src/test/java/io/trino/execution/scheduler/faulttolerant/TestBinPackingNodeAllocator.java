@@ -151,7 +151,6 @@ public class TestBinPackingNodeAllocator
     @Test
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateSimple()
-            throws Exception
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
@@ -201,7 +200,6 @@ public class TestBinPackingNodeAllocator
     @Test
     @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
     public void testAllocateDifferentSizes()
-            throws Exception
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
         setupNodeAllocatorService(nodeManager);
