@@ -15,6 +15,8 @@ package io.trino.execution.scheduler.faulttolerant;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
@@ -30,6 +32,7 @@ import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
 import io.airlift.units.DataSize;
 import io.trino.Session;
+import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.execution.TaskId;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.ClusterMemoryManager;
@@ -40,6 +43,7 @@ import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.InternalNodeManager.NodesSnapshot;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.memory.MemoryPoolInfo;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
@@ -76,6 +80,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.EAGER_SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.SPECULATIVE;
 import static io.trino.execution.scheduler.faulttolerant.TaskExecutionClass.STANDARD;
@@ -638,7 +643,6 @@ public class BinPackingNodeAllocatorService
 
     private static class BinPackingSimulation
     {
-        private final NodesSnapshot nodesSnapshot;
         private final List<InternalNode> allNodesSorted;
         private final Multimap<HostAddress, InternalNode> allNodesByAddress;
         private final boolean ignoreAcquiredSpeculative;
@@ -646,6 +650,7 @@ public class BinPackingNodeAllocatorService
         private final Set<String> nodesWithoutMemory;
         private final Map<String, Long> nodesRemainingMemoryRuntimeAdjusted;
         private final Map<String, Long> speculativeMemoryReserved;
+        private final NonEvictableLoadingCache<CatalogHandle, List<InternalNode>> catalogNodes;
 
         private final Map<String, MemoryPoolInfo> nodeMemoryPoolInfos;
         private final boolean scheduleOnCoordinator;
@@ -663,11 +668,19 @@ public class BinPackingNodeAllocatorService
                 boolean ignoreAcquiredSpeculative,
                 Duration exhaustedNodeWaitPeriod)
         {
-            this.nodesSnapshot = requireNonNull(nodesSnapshot, "nodesSnapshot is null");
+            requireNonNull(nodesSnapshot, "nodesSnapshot is null");
             // use same node ordering for each simulation
             this.allNodesSorted = nodesSnapshot.getAllNodes().stream()
                     .sorted(comparing(InternalNode::getNodeIdentifier))
                     .collect(toImmutableList());
+
+            this.catalogNodes = buildNonEvictableCache(
+                    CacheBuilder.newBuilder(),
+                    CacheLoader.from(catalogHandle -> {
+                        List<InternalNode> nodes = new ArrayList<>(allNodesSorted);
+                        nodes.retainAll(nodesSnapshot.getConnectorNodes(catalogHandle));
+                        return nodes;
+                    }));
 
             allNodesByAddress = Multimaps.index(nodesSnapshot.getAllNodes(), InternalNode::getHostAndPort);
 
@@ -755,10 +768,11 @@ public class BinPackingNodeAllocatorService
         public ReserveResult tryReserve(PendingAcquire acquire)
         {
             NodeRequirements requirements = acquire.getNodeRequirements();
-            Optional<Set<InternalNode>> catalogNodes = requirements.getCatalogHandle().map(nodesSnapshot::getConnectorNodes);
 
-            List<InternalNode> candidates = new ArrayList<>(allNodesSorted);
-            catalogNodes.ifPresent(candidates::retainAll); // Drop non-catalog nodes, if any.
+            List<InternalNode> candidates = requirements.getCatalogHandle()
+                    .map(catalogNodes::getUnchecked)
+                    .orElse(allNodesSorted);
+
             Optional<HostAddress> address = requirements.getAddress();
             if (address.isPresent() && (optimizedLocalScheduling || !requirements.isRemotelyAccessible())) {
                 Collection<InternalNode> preferred = allNodesByAddress.get(address.get());
