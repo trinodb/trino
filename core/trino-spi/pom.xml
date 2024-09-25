@@ -683,6 +683,12 @@
                                     <new>method java.lang.String io.trino.spi.protocol.SpooledSegmentHandle::encoding()</new>
                                     <justification>Spooling encodingId renamed to encoding across the whole codebase</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.protocol.SpoolingContext::rowCount()</old>
+                                    <justification>Align better when naming in other places</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
