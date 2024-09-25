@@ -52,6 +52,7 @@ public class PulsarPrimitiveRowDecoder
     private final DecoderColumnHandle columnHandle;
     private AbstractSchema schema;
 
+    @SuppressWarnings("rawtypes")
     public PulsarPrimitiveRowDecoder(AbstractSchema schema, DecoderColumnHandle columnHandle)
     {
         this.columnHandle = columnHandle;

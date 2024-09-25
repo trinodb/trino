@@ -31,6 +31,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 //import io.trino.decoder.DecoderColumnHandle;
 //import io.trino.decoder.FieldValueProvider;
@@ -67,6 +68,7 @@ import java.util.UUID;
 import org.apache.avro.generic.GenericEnumSymbol;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
+import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 
 /**
  * Copy from {@link io.trino.decoder.avro.AvroColumnDecoder}
@@ -241,7 +243,7 @@ public class PulsarAvroColumnDecoder {
         }
 
         @Override
-        public Block getBlock() {
+        public Object getObject() {
             return serializeObject(null, value, columnType, columnName);
         }
     }
@@ -253,7 +255,7 @@ public class PulsarAvroColumnDecoder {
 
         if (type instanceof VarbinaryType) {
             if (value instanceof ByteBuffer) {
-                return Slices.wrappedBuffer((ByteBuffer) value);
+                return Slices.wrappedHeapBuffer((ByteBuffer) value);
             } else if (value instanceof GenericFixed) {
                 return Slices.wrappedBuffer(((GenericFixed) value).bytes());
             }
@@ -317,7 +319,7 @@ public class PulsarAvroColumnDecoder {
         final ByteBuffer buffer = (ByteBuffer) value;
         type.writeObject(blockBuilder, Int128.fromBigEndian(buffer.array()));
         if (parentBlockBuilder == null) {
-            return blockBuilder.getSingleValueBlock(0);
+            return (Block) blockBuilder.newBlockBuilderLike(0, null);//.getSingleValueBlock(0);
         }
         return null;
     }
@@ -391,17 +393,17 @@ public class PulsarAvroColumnDecoder {
             blockBuilder = type.createBlockBuilder(null, 1);
         }
 
-        BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
+        BlockBuilder entryBuilder = blockBuilder.newBlockBuilderLike(blockBuilder.getPositionCount(), null);//.beginBlockEntry();
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             if (entry.getKey() != null) {
                 keyType.writeSlice(entryBuilder, truncateToLength(utf8Slice(entry.getKey().toString()), keyType));
                 serializeObject(entryBuilder, entry.getValue(), valueType, columnName);
             }
         }
-        blockBuilder.closeEntry();
+        //blockBuilder.closeEntry();
 
         if (parentBlockBuilder == null) {
-            return blockBuilder.getObject(0, Block.class);
+            return blockBuilder.build();//.getObject(0, Block.class);
         }
         return null;
     }
@@ -419,16 +421,16 @@ public class PulsarAvroColumnDecoder {
         } else {
             blockBuilder = type.createBlockBuilder(null, 1);
         }
-        BlockBuilder singleRowBuilder = blockBuilder.beginBlockEntry();
+        BlockBuilder singleRowBuilder = blockBuilder.newBlockBuilderLike(blockBuilder.getPositionCount(), null);//.beginBlockEntry();
         GenericRecord record = (GenericRecord) value;
         List<Field> fields = ((RowType) type).getFields();
         for (Field field : fields) {
             checkState(field.getName().isPresent(), "field name not found");
             serializeObject(singleRowBuilder, record.get(field.getName().get()), field.getType(), columnName);
         }
-        blockBuilder.closeEntry();
+        //blockBuilder.closeEntry();
         if (parentBlockBuilder == null) {
-            return blockBuilder.getObject(0, Block.class);
+            return blockBuilder.build();//.getObject(0, Block.class);
         }
         return null;
     }

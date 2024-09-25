@@ -13,13 +13,8 @@
  */
 package io.trino.plugin.pulsar.decoder.primitive;
 
-import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.decoder.DecoderColumnHandle;
-import io.trino.plugin.pulsar.PulsarColumnHandle;
-import io.trino.plugin.pulsar.PulsarColumnMetadata;
-import io.trino.plugin.pulsar.PulsarRowDecoder;
-import io.trino.plugin.pulsar.PulsarRowDecoderFactory;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -28,68 +23,59 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
 import org.apache.pulsar.client.impl.schema.AbstractSchema;
 import org.apache.pulsar.client.impl.schema.AutoConsumeSchema;
-
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
+import io.trino.plugin.pulsar.PulsarColumnHandle;
+import io.trino.plugin.pulsar.PulsarColumnMetadata;
+import io.trino.plugin.pulsar.PulsarRowDecoder;
+import io.trino.plugin.pulsar.PulsarRowDecoderFactory;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+/**
+ * Primitive Schema PulsarRowDecoderFactory.
+ */
+public class PulsarPrimitiveRowDecoderFactory implements PulsarRowDecoderFactory {
 
-import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_HANDLE_TYPE;
-import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_INTERNAL;
-import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_MAPPING;
-import static io.trino.plugin.pulsar.PulsarColumnMetadata.PROPERTY_KEY_NAME_CASE_SENSITIVE;
-import static io.trino.spi.type.TimeType.TIME_MILLIS;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-
-public class PulsarPrimitiveRowDecoderFactory
-        implements PulsarRowDecoderFactory
-{
     private static final Logger log = Logger.get(PulsarPrimitiveRowDecoderFactory.class);
 
     public static final String PRIMITIVE_COLUMN_NAME = "__value__";
 
     @Override
-    public PulsarRowDecoder createRowDecoder(TopicName topicName, SchemaInfo schemaInfo, Set<DecoderColumnHandle> columns)
-    {
+    public PulsarRowDecoder createRowDecoder(TopicName topicName, SchemaInfo schemaInfo,
+                                             Set<DecoderColumnHandle> columns) {
         if (columns.size() == 1) {
-            return new PulsarPrimitiveRowDecoder((AbstractSchema<?>) AutoConsumeSchema.getSchema(schemaInfo), columns.iterator().next());
-        }
-        else {
-            return new PulsarPrimitiveRowDecoder((AbstractSchema<?>) AutoConsumeSchema.getSchema(schemaInfo), null);
+            return new PulsarPrimitiveRowDecoder((AbstractSchema<?>) AutoConsumeSchema.getSchema(schemaInfo),
+                    columns.iterator().next());
+        } else {
+            return new PulsarPrimitiveRowDecoder((AbstractSchema<?>) AutoConsumeSchema.getSchema(schemaInfo),
+                    null);
         }
     }
 
     @Override
-    public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo, PulsarColumnHandle.HandleKeyValueType handleKeyValueType, boolean withInternalProperties)
-    {
-        ColumnMetadata.Builder metaBuilder =
-                ColumnMetadata.builder()
-                        .setName(PulsarColumnMetadata.getColumnName(handleKeyValueType, PRIMITIVE_COLUMN_NAME))
-                        .setType(parsePrimitiveTrinoType(PRIMITIVE_COLUMN_NAME, schemaInfo.getType()))
-                        .setComment(Optional.of("The value of the message with primitive type schema"))
-                        .setHidden(false);
-        if (withInternalProperties) {
-            metaBuilder.setProperties(ImmutableMap.of(
-                    PROPERTY_KEY_NAME_CASE_SENSITIVE, PulsarColumnMetadata.getColumnName(handleKeyValueType, PRIMITIVE_COLUMN_NAME),
-                    PROPERTY_KEY_INTERNAL, false,
-                    PROPERTY_KEY_HANDLE_TYPE, handleKeyValueType,
-                    PROPERTY_KEY_MAPPING, PRIMITIVE_COLUMN_NAME));
-        }
-        return Arrays.asList(metaBuilder.build());
+    public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo,
+                                                      PulsarColumnHandle.HandleKeyValueType handleKeyValueType) {
+        ColumnMetadata valueColumn = new PulsarColumnMetadata(
+                PulsarColumnMetadata.getColumnName(handleKeyValueType, PRIMITIVE_COLUMN_NAME),
+                parsePrimitivePrestoType(PRIMITIVE_COLUMN_NAME, schemaInfo.getType()),
+                "The value of the message with primitive type schema", null, false, false,
+                handleKeyValueType, new PulsarColumnMetadata.DecoderExtraInfo(PRIMITIVE_COLUMN_NAME,
+                null, null));
+        return Arrays.asList(valueColumn);
     }
 
-    private Type parsePrimitiveTrinoType(String fieldName, SchemaType pulsarType)
-    {
+    private Type parsePrimitivePrestoType(String fieldName, SchemaType pulsarType) {
         switch (pulsarType) {
             case BOOLEAN:
                 return BooleanType.BOOLEAN;
@@ -113,12 +99,13 @@ public class PulsarPrimitiveRowDecoderFactory
             case DATE:
                 return DateType.DATE;
             case TIME:
-                return TIME_MILLIS;
+                return TimeType.TIME_MILLIS;
             case TIMESTAMP:
-                return TIMESTAMP_MILLIS;
+                return TimestampType.TIMESTAMP_MILLIS;
             default:
                 log.error("Can't convert type: %s for %s", pulsarType, fieldName);
                 return null;
         }
+
     }
 }
