@@ -356,6 +356,12 @@ public class ClientSession
             return this;
         }
 
+        public Builder user(Optional<String> user)
+        {
+            this.user = user;
+            return this;
+        }
+
         public Builder sessionUser(Optional<String> sessionUser)
         {
             this.sessionUser = sessionUser;
@@ -365,12 +371,6 @@ public class ClientSession
         public Builder authorizationUser(Optional<String> authorizationUser)
         {
             this.authorizationUser = authorizationUser;
-            return this;
-        }
-
-        public Builder user(Optional<String> user)
-        {
-            this.user = user;
             return this;
         }
 
