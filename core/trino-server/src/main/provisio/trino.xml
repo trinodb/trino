@@ -39,12 +39,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/atop">
-        <artifact id="${project.groupId}:trino-atop:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/bigquery">
         <artifact id="${project.groupId}:trino-bigquery:zip:${project.version}">
             <unpack />

@@ -16,8 +16,6 @@
 
 ## Accumulo connector
 
-## Atop connector
-
 ## BigQuery connector
 
 ## Blackhole connector
