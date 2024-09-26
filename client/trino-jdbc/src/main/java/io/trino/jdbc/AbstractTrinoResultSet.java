@@ -353,7 +353,7 @@ abstract class AbstractTrinoResultSet
 
     private static Date parseDate(String value, DateTimeZone localTimeZone, TimeZone localJavaTimeZone)
     {
-        LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
+        LocalDate localDate = DATE_FORMATTER.parseLocalDate(value);
         long millis = localDate.toDateTimeAtStartOfDay(localTimeZone).getMillis();
         if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
             return new Date(millis);
