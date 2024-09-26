@@ -85,7 +85,6 @@ import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergExceptions.translateMetadataException;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getSplitSize;
-import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimePathDomain;
@@ -220,17 +219,9 @@ public class IcebergSplitSource
             this.pushedDownDynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
                     .transformKeys(IcebergColumnHandle.class::cast)
                     .filter((columnHandle, domain) -> isConvertableToIcebergExpression(domain));
-            TupleDomain<IcebergColumnHandle> fullPredicate = tableHandle.getUnenforcedPredicate()
-                    .intersect(pushedDownDynamicFilterPredicate);
-            // TODO: (https://github.com/trinodb/trino/issues/9743): Consider removing TupleDomain#simplify
-            TupleDomain<IcebergColumnHandle> simplifiedPredicate = fullPredicate.simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
-            if (!simplifiedPredicate.equals(fullPredicate)) {
-                // Pushed down predicate was simplified, always evaluate it against individual splits
-                this.pushedDownDynamicFilterPredicate = TupleDomain.all();
-            }
 
-            TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate
-                    .intersect(simplifiedPredicate);
+            TupleDomain<IcebergColumnHandle> effectivePredicate = TupleDomain.intersect(
+                    ImmutableList.of(dataColumnPredicate, tableHandle.getUnenforcedPredicate(), pushedDownDynamicFilterPredicate));
 
             if (effectivePredicate.isNone()) {
                 finish();
