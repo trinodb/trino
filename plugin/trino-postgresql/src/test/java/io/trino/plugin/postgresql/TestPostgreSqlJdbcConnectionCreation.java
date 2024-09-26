@@ -54,6 +54,12 @@ public class TestPostgreSqlJdbcConnectionCreation
             throws Exception
     {
         TestingPostgreSqlServer postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
+        this.connectionFactory = getConnectionCountingConnectionFactory(postgreSqlServer);
+        return createPostgreSqlQueryRunner(postgreSqlServer, ImmutableList.of(NATION, REGION), connectionFactory);
+    }
+
+    private static ConnectionCountingConnectionFactory getConnectionCountingConnectionFactory(TestingPostgreSqlServer postgreSqlServer)
+    {
         Properties connectionProperties = new Properties();
         CredentialProvider credentialProvider = new StaticCredentialProvider(
                 Optional.of(postgreSqlServer.getUser()),
@@ -61,8 +67,7 @@ public class TestPostgreSqlJdbcConnectionCreation
         DriverConnectionFactory delegate = DriverConnectionFactory.builder(new Driver(), postgreSqlServer.getJdbcUrl(), credentialProvider)
                 .setConnectionProperties(connectionProperties)
                 .build();
-        this.connectionFactory = new ConnectionCountingConnectionFactory(delegate);
-        return createPostgreSqlQueryRunner(postgreSqlServer, ImmutableList.of(NATION, REGION), connectionFactory);
+        return new ConnectionCountingConnectionFactory(delegate);
     }
 
     @Test
