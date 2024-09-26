@@ -129,7 +129,7 @@ public final class Environment
                 .onSuccess(event -> log.info("Environment '%s' started in %s, %d attempt(s)", this, event.getElapsedTime(), event.getAttemptCount()))
                 .onFailure(event -> {
                     if (getenv("GITHUB_RUN_ID") != null) {
-                        log.info("::error title=Failed to start environment '%s'::%s", this, event.getException());
+                        System.out.printf("::error title=Failed to start environment '%s'::%s%n", this, event.getException());
                     }
                     log.info("Environment '%s' failed to start in attempt(s): %d: %s", this, event.getAttemptCount(), event.getException());
                 })
