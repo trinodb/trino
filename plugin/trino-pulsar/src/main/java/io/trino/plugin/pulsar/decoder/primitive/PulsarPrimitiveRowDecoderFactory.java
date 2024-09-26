@@ -71,7 +71,7 @@ public class PulsarPrimitiveRowDecoderFactory implements PulsarRowDecoderFactory
                 parsePrimitivePrestoType(PRIMITIVE_COLUMN_NAME, schemaInfo.getType()),
                 "The value of the message with primitive type schema", null, false, false,
                 handleKeyValueType, new PulsarColumnMetadata.DecoderExtraInfo(PRIMITIVE_COLUMN_NAME,
-                null, null));
+                null, null), null);
         return Arrays.asList(valueColumn);
     }
 

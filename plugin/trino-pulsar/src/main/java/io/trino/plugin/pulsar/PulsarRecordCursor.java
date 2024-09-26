@@ -54,6 +54,7 @@ import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.bookkeeper.mledger.impl.ReadOnlyCursorImpl;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.Schema;
+import org.apache.pulsar.client.impl.MessageImpl;
 import org.apache.pulsar.client.impl.schema.KeyValueSchemaInfo;
 import org.apache.pulsar.common.api.raw.MessageParser;
 import org.apache.pulsar.common.api.raw.MessageParser.MessageProcessor;
@@ -289,8 +290,9 @@ public class PulsarRecordCursor implements RecordCursor {
                                 metricsTracker.start_ENTRY_DESERIALIZE_TIME();
 
                                 try {
+                                    MessageImpl<byte[]> msg = MessageImpl.deserialize(entry.getDataBuffer());
                                     MessageParser.parseMessage(topicName, entry.getLedgerId(), entry.getEntryId(),
-                                            entry.getDataBuffer(), (message) -> {
+                                            msg.getDataBuffer(), (message) -> {
                                                 try {
                                                     // start time for message queue read
                                                     metricsTracker.start_MESSAGE_QUEUE_ENQUEUE_WAIT_TIME();

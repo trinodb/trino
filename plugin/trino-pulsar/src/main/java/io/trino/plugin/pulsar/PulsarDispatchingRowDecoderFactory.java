@@ -21,7 +21,7 @@ import io.trino.spi.type.TypeManager;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
-import lombok.extern.slf4j.Slf4j;
+//import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
@@ -33,7 +33,7 @@ import io.trino.plugin.pulsar.decoder.protobufnative.PulsarProtobufNativeRowDeco
 /**
  * dispatcher RowDecoderFactory for {@link org.apache.pulsar.common.schema.SchemaType}.
  */
-@Slf4j
+//@Slf4j
 public class PulsarDispatchingRowDecoderFactory {
     private final Function<SchemaType, PulsarRowDecoderFactory> decoderFactories;
     private final TypeManager typeManager;

@@ -15,8 +15,12 @@ package io.trino.plugin.pulsar;
 
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
+
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+
+import org.checkerframework.checker.units.qual.m;
 
 /**
  * Description of the column metadata.
@@ -39,7 +43,7 @@ public class PulsarColumnMetadata extends ColumnMetadata {
     public PulsarColumnMetadata(String name, Type type, String comment, String extraInfo,
                                 boolean hidden, boolean isInternal,
                                 PulsarColumnHandle.HandleKeyValueType handleKeyValueType,
-                                DecoderExtraInfo decoderExtraInfo) 
+                                DecoderExtraInfo decoderExtraInfo, Map<String, Object> map) 
     {
         super(name, type);
         this.nullable = true;
@@ -50,7 +54,7 @@ public class PulsarColumnMetadata extends ColumnMetadata {
         this.isInternal = isInternal;
         this.handleKeyValueType = handleKeyValueType;
         this.decoderExtraInfo = decoderExtraInfo;
-        this.properties = properties;
+        this.properties = map;
     }
     
      @Override

@@ -94,7 +94,7 @@ public class PulsarProtobufNativeRowDecoderFactory implements PulsarRowDecoderFa
                         new PulsarColumnMetadata(PulsarColumnMetadata.getColumnName(handleKeyValueType,
                                 field.getName()), parseProtobufPrestoType(field), field.getType().toString(), null,
                                 false, false, handleKeyValueType,
-                                new PulsarColumnMetadata.DecoderExtraInfo(field.getName(), null, null))
+                                new PulsarColumnMetadata.DecoderExtraInfo(field.getName(), null, null), null)
 
                 ).collect(toList());
 
