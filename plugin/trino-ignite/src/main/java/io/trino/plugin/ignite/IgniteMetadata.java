@@ -134,7 +134,8 @@ public class IgniteMetadata
                 igniteClient.getTableProperties(session, handle));
     }
 
-    private List<ColumnMetadata> getColumnMetadata(ConnectorSession session, JdbcTableHandle handle)
+    @Override
+    public List<ColumnMetadata> getColumnMetadata(ConnectorSession session, JdbcTableHandle handle)
     {
         return igniteClient.getColumns(session, handle).stream()
                 .filter(column -> !IGNITE_DUMMY_ID.equalsIgnoreCase(column.getColumnName()))

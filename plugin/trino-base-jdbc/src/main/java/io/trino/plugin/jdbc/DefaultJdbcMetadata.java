@@ -1082,7 +1082,7 @@ public class DefaultJdbcMetadata
         for (SchemaTableName tableName : tables) {
             try {
                 jdbcClient.getTableHandle(session, tableName)
-                        .ifPresent(tableHandle -> columns.put(tableName, getTableMetadata(session, tableHandle).getColumns()));
+                        .ifPresent(tableHandle -> columns.put(tableName, getColumnMetadata(session, tableHandle)));
             }
             catch (TableNotFoundException | AccessDeniedException e) {
                 // table disappeared during listing operation or user is not allowed to access it
@@ -1090,6 +1090,15 @@ public class DefaultJdbcMetadata
             }
         }
         return columns.buildOrThrow();
+    }
+
+    public List<ColumnMetadata> getColumnMetadata(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        return getColumnHandles(session, tableHandle).values()
+                .stream()
+                .map(JdbcColumnHandle.class::cast)
+                .map(JdbcColumnHandle::getColumnMetadata)
+                .collect(toImmutableList());
     }
 
     @Override

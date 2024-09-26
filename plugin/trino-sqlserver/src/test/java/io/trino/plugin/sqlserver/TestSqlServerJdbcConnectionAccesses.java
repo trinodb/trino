@@ -98,7 +98,7 @@ public class TestSqlServerJdbcConnectionAccesses
         assertJdbcConnections("SELECT * FROM nation JOIN region USING(regionkey)", 10, Optional.empty());
         assertJdbcConnections("SELECT * FROM information_schema.schemata", 1, Optional.empty());
         assertJdbcConnections("SELECT * FROM information_schema.tables", 1, Optional.empty());
-        assertJdbcConnections("SELECT * FROM information_schema.columns", 1560, Optional.empty());
+        assertJdbcConnections("SELECT * FROM information_schema.columns", 1041, Optional.empty());
         assertJdbcConnections("SELECT * FROM nation", 3, Optional.empty());
         assertJdbcConnections("SELECT * FROM TABLE (system.query(query => 'SELECT * FROM dbo.nation'))", 2, Optional.empty());
         assertJdbcConnections("CREATE TABLE copy_of_nation AS SELECT * FROM nation", 15, Optional.empty());
@@ -110,7 +110,7 @@ public class TestSqlServerJdbcConnectionAccesses
         assertJdbcConnections("SHOW SCHEMAS", 1, Optional.empty());
         assertJdbcConnections("SHOW TABLES", 2, Optional.empty());
         assertJdbcConnections("SHOW STATS FOR nation", 4, Optional.empty());
-        assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE table_cat = 'counting_sqlserver'", 1560, Optional.empty());
+        assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE table_cat = 'counting_sqlserver'", 1041, Optional.empty());
     }
 
     private static final class TestingSqlServerModule
