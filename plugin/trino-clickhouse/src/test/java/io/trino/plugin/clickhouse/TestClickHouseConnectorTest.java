@@ -874,6 +874,10 @@ public class TestClickHouseConnectorTest
     @Test
     public void testTextualPredicatePushdown()
     {
+        Session smallDomainCompactionThreshold = Session.builder(getSession())
+                .setCatalogSessionProperty("clickhouse", "domain_compaction_threshold", "1")
+                .build();
+
         // varchar equality
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar))")
@@ -999,6 +1003,17 @@ public class TestClickHouseConnectorTest
             // not allowed because some operations (e.g. inequalities) may not be allowed in the native system on an unknown native types
             assertThat(query(convertToVarchar, "SELECT some_column FROM " + table.getName() + " WHERE unsupported_1 = unsupported_2")).isNotFullyPushedDown(FilterNode.class);
             assertThat(query(convertToVarchar, "SELECT some_column FROM " + table.getName() + " WHERE unsupported_1 = unsupported_2" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+
+            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string IN ('a', 'b')")).isFullyPushedDown();
+            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string IN ('a', 'b')" + withConnectorExpression)).isFullyPushedDown();
+            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 IN ('a', 'b')")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_enum_1 IN ('a', 'b')" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(convertToVarchar, "SELECT some_column FROM " + table.getName() + " WHERE unsupported_1 IN ('a', 'b')")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(convertToVarchar, "SELECT some_column FROM " + table.getName() + " WHERE unsupported_1 IN ('a', 'b')" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string IN (a_string_alias, 'b')")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT some_column FROM " + table.getName() + " WHERE a_string IN (a_string_alias, 'b')" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(smallDomainCompactionThreshold, "SELECT some_column FROM " + table.getName() + " WHERE a_string IN ('a', 'b')")).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(smallDomainCompactionThreshold, "SELECT some_column FROM " + table.getName() + " WHERE a_string IN ('a', 'b')" + withConnectorExpression)).isNotFullyPushedDown(FilterNode.class);
         }
     }
 
