@@ -28,6 +28,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
+import io.trino.plugin.base.expression.ConnectorExpressionRule.RewriteContext;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.clickhouse.expression.RewriteStringComparison;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -65,6 +66,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Variable;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -977,5 +979,19 @@ public class ClickHouseClient
     private static SliceWriteFunction uuidWriteFunction()
     {
         return (statement, index, value) -> statement.setObject(index, trinoUuidToJavaUuid(value), Types.OTHER);
+    }
+
+    public static boolean supportsPushdown(Variable variable, RewriteContext<ParameterizedExpression> context)
+    {
+        JdbcTypeHandle typeHandle = ((JdbcColumnHandle) context.getAssignment(variable.getName()))
+                .getJdbcTypeHandle();
+        String jdbcTypeName = typeHandle.jdbcTypeName()
+                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+        ClickHouseColumn column = ClickHouseColumn.of("", jdbcTypeName);
+        ClickHouseDataType columnDataType = column.getDataType();
+        return switch (columnDataType) {
+            case FixedString, String -> true;
+            default -> false;
+        };
     }
 }
