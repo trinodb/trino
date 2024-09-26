@@ -154,7 +154,7 @@ public class TaskResource
 
         Session session = taskUpdateRequest.session().toSession(sessionPropertyManager, taskUpdateRequest.extraCredentials(), taskUpdateRequest.exchangeEncryptionKey());
 
-        if (injectFailure(session.getTraceToken(), taskId, RequestType.CREATE_OR_UPDATE_TASK, asyncResponse)) {
+        if (injectFailure(taskId, RequestType.CREATE_OR_UPDATE_TASK, asyncResponse)) {
             return;
         }
 
@@ -191,7 +191,7 @@ public class TaskResource
             return;
         }
 
-        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.GET_TASK_INFO, asyncResponse)) {
+        if (injectFailure(taskId, RequestType.GET_TASK_INFO, asyncResponse)) {
             return;
         }
 
@@ -239,7 +239,7 @@ public class TaskResource
             return;
         }
 
-        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.GET_TASK_STATUS, asyncResponse)) {
+        if (injectFailure(taskId, RequestType.GET_TASK_STATUS, asyncResponse)) {
             return;
         }
 
@@ -283,7 +283,7 @@ public class TaskResource
             return;
         }
 
-        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.ACKNOWLEDGE_AND_GET_NEW_DYNAMIC_FILTER_DOMAINS, asyncResponse)) {
+        if (injectFailure(taskId, RequestType.ACKNOWLEDGE_AND_GET_NEW_DYNAMIC_FILTER_DOMAINS, asyncResponse)) {
             return;
         }
 
@@ -343,7 +343,7 @@ public class TaskResource
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
-        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.GET_RESULTS, asyncResponse)) {
+        if (injectFailure(taskId, RequestType.GET_RESULTS, asyncResponse)) {
             return;
         }
 
@@ -396,7 +396,7 @@ public class TaskResource
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
-        if (injectFailure(taskManager.getTraceToken(taskId), taskId, RequestType.DESTROY_RESULTS, asyncResponse)) {
+        if (injectFailure(taskId, RequestType.DESTROY_RESULTS, asyncResponse)) {
             return;
         }
 
@@ -427,17 +427,11 @@ public class TaskResource
     }
 
     private boolean injectFailure(
-            Optional<String> traceToken,
             TaskId taskId,
             RequestType requestType,
             AsyncResponse asyncResponse)
     {
-        if (traceToken.isEmpty()) {
-            return false;
-        }
-
         Optional<InjectedFailure> injectedFailure = failureInjector.getInjectedFailure(
-                traceToken.get(),
                 taskId.getStageId().getId(),
                 taskId.getPartitionId(),
                 taskId.getAttemptId());

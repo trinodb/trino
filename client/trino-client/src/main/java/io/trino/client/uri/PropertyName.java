@@ -74,7 +74,6 @@ public enum PropertyName
     SSL_VERIFICATION("SSLVerification"),
     TIMEOUT("timeout"),
     TIMEZONE("timezone"),
-    TRACE_TOKEN("traceToken"),
     USER("user");
 
     private final String key;

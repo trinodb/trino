@@ -118,7 +118,6 @@ public interface QueryRunner
     Lock getExclusiveLock();
 
     void injectTaskFailure(
-            String traceToken,
             int stageId,
             int partitionId,
             int attemptId,

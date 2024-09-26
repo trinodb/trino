@@ -18,12 +18,10 @@ import com.google.common.collect.Multiset;
 import io.airlift.units.Duration;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
-import io.trino.spi.QueryId;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
@@ -37,7 +35,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
@@ -753,51 +750,6 @@ public abstract class BaseBigQueryConnectorTest
         finally {
             onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + externalTable);
         }
-    }
-
-    @Test
-    public void testQueryLabeling()
-    {
-        Function<String, Session> sessionWithToken = token -> Session.builder(getSession())
-                .setTraceToken(Optional.of(token))
-                .setCatalogSessionProperty("bigquery", "skip_view_materialization", "true")
-                .build();
-
-        String materializedView = "test_query_label" + randomNameSuffix();
-        try {
-            onBigQuery("CREATE MATERIALIZED VIEW test." + materializedView + " AS SELECT count(1) AS cnt FROM tpch.region");
-
-            @Language("SQL")
-            String query = "SELECT * FROM test." + materializedView;
-
-            MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(sessionWithToken.apply("first_token"), query);
-            assertLabelForTable(materializedView, result.queryId(), "first_token");
-
-            MaterializedResultWithPlan result2 = getDistributedQueryRunner().executeWithPlan(sessionWithToken.apply("second_token"), query);
-            assertLabelForTable(materializedView, result2.queryId(), "second_token");
-
-            assertThatThrownBy(() -> getDistributedQueryRunner().executeWithPlan(sessionWithToken.apply("InvalidToken"), query))
-                    .hasMessageContaining("BigQuery label value can contain only lowercase letters, numeric characters, underscores, and dashes");
-        }
-        finally {
-            onBigQuery("DROP MATERIALIZED VIEW IF EXISTS test." + materializedView);
-        }
-    }
-
-    private void assertLabelForTable(String expectedView, QueryId queryId, String traceToken)
-    {
-        String expectedLabel = "q_" + queryId.toString() + "__t_" + traceToken;
-
-        @Language("SQL")
-        String checkForLabelQuery = """
-                    SELECT * FROM region-us.INFORMATION_SCHEMA.JOBS_BY_USER WHERE EXISTS(
-                        SELECT * FROM UNNEST(labels) AS label WHERE label.key = 'trino_query' AND label.value = '%s'
-                    )""".formatted(expectedLabel);
-
-        assertEventually(() -> assertThat(bigQuerySqlExecutor.executeQuery(checkForLabelQuery).getValues())
-                .extracting(values -> values.get("query").getStringValue())
-                .singleElement()
-                .matches(statement -> statement.contains(expectedView)));
     }
 
     @Test

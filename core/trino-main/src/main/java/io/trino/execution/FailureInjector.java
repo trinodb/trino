@@ -33,7 +33,6 @@ import static java.util.Objects.requireNonNull;
 public interface FailureInjector
 {
     void injectTaskFailure(
-            String traceToken,
             int stageId,
             int partitionId,
             int attemptId,
@@ -41,7 +40,6 @@ public interface FailureInjector
             Optional<ErrorType> errorType);
 
     Optional<InjectedFailure> getInjectedFailure(
-            String traceToken,
             int stageId,
             int partitionId,
             int attemptId);

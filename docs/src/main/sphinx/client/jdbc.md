@@ -140,8 +140,6 @@ may not be specified using both methods.
 * - `path`
   - Set the default [SQL path](/sql/set-path) for the session. Useful for
     setting a catalog and schema location for [catalog routines](routine-catalog).
-* - `traceToken`
-  - Trace token for correlating requests across systems.
 * - `source`
   - Source name for the Trino query. This parameter should be used in preference
     to `ApplicationName`. Thus, it takes precedence over `ApplicationName`

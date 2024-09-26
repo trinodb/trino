@@ -172,7 +172,6 @@ public interface QueryDao
             " :stageInfoJson,\n" +
             " :user,\n" +
             " :principal,\n" +
-            " :traceToken,\n" +
             " :remoteClientAddress,\n" +
             " :userAgent,\n" +
             " :clientInfo,\n" +

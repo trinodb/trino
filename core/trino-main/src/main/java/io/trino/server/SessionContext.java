@@ -45,7 +45,6 @@ public class SessionContext
     private final SelectedRole selectedRole;
 
     private final Optional<String> source;
-    private final Optional<String> traceToken;
     private final Optional<String> userAgent;
     private final Optional<String> remoteUserAddress;
     private final Optional<String> timeZoneId;
@@ -74,7 +73,6 @@ public class SessionContext
             Identity originalIdentity,
             SelectedRole selectedRole,
             Optional<String> source,
-            Optional<String> traceToken,
             Optional<String> userAgent,
             Optional<String> remoteUserAddress,
             Optional<String> timeZoneId,
@@ -99,7 +97,6 @@ public class SessionContext
         this.originalIdentity = requireNonNull(originalIdentity, "originalIdentity is null");
         this.selectedRole = requireNonNull(selectedRole, "selectedRole is null");
         this.source = requireNonNull(source, "source is null");
-        this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.remoteUserAddress = requireNonNull(remoteUserAddress, "remoteUserAddress is null");
         this.timeZoneId = requireNonNull(timeZoneId, "timeZoneId is null");
@@ -228,11 +225,6 @@ public class SessionContext
         return clientTransactionSupport;
     }
 
-    public Optional<String> getTraceToken()
-    {
-        return traceToken;
-    }
-
     public Optional<String> getQueryDataEncoding()
     {
         return queryDataEncoding;
@@ -265,7 +257,6 @@ public class SessionContext
                 session.getOriginalIdentity(),
                 selectedRole,
                 session.getSource(),
-                session.getTraceToken(),
                 session.getUserAgent(),
                 session.getRemoteUserAddress(),
                 Optional.of(session.getTimeZoneKey().getId()),

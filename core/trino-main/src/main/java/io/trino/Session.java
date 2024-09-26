@@ -79,7 +79,6 @@ public final class Session
     private final Optional<String> remoteUserAddress;
     private final Optional<String> userAgent;
     private final Optional<String> clientInfo;
-    private final Optional<String> traceToken;
     private final Set<String> clientTags;
     private final Set<String> clientCapabilities;
     private final ResourceEstimates resourceEstimates;
@@ -104,7 +103,6 @@ public final class Session
             Optional<String> catalog,
             Optional<String> schema,
             SqlPath path,
-            Optional<String> traceToken,
             TimeZoneKey timeZoneKey,
             Locale locale,
             Optional<String> remoteUserAddress,
@@ -132,7 +130,6 @@ public final class Session
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.path = requireNonNull(path, "path is null");
-        this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.remoteUserAddress = requireNonNull(remoteUserAddress, "remoteUserAddress is null");
@@ -237,11 +234,6 @@ public final class Session
     public Set<String> getClientCapabilities()
     {
         return clientCapabilities;
-    }
-
-    public Optional<String> getTraceToken()
-    {
-        return traceToken;
     }
 
     public ResourceEstimates getResourceEstimates()
@@ -377,7 +369,6 @@ public final class Session
                 catalog,
                 schema,
                 path,
-                traceToken,
                 timeZoneKey,
                 locale,
                 remoteUserAddress,
@@ -427,7 +418,6 @@ public final class Session
                 catalog,
                 schema,
                 path,
-                traceToken,
                 timeZoneKey,
                 locale,
                 remoteUserAddress,
@@ -460,7 +450,6 @@ public final class Session
                 catalog,
                 schema,
                 path,
-                traceToken,
                 timeZoneKey,
                 locale,
                 remoteUserAddress,
@@ -515,7 +504,6 @@ public final class Session
                 catalog,
                 schema,
                 path,
-                traceToken,
                 timeZoneKey,
                 locale,
                 remoteUserAddress,
@@ -546,7 +534,6 @@ public final class Session
                 .add("catalog", catalog.orElse(null))
                 .add("schema", schema.orElse(null))
                 .add("path", path)
-                .add("traceToken", traceToken.orElse(null))
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
                 .add("remoteUserAddress", remoteUserAddress.orElse(null))
@@ -652,7 +639,6 @@ public final class Session
         private String catalog;
         private String schema;
         private SqlPath path = EMPTY_PATH;
-        private Optional<String> traceToken = Optional.empty();
         private TimeZoneKey timeZoneKey;
         private Locale locale;
         private String remoteUserAddress;
@@ -688,7 +674,6 @@ public final class Session
             this.catalog = session.catalog.orElse(null);
             this.path = session.path;
             this.schema = session.schema.orElse(null);
-            this.traceToken = requireNonNull(session.traceToken, "traceToken is null");
             this.timeZoneKey = session.timeZoneKey;
             this.locale = session.locale;
             this.remoteUserAddress = session.remoteUserAddress.orElse(null);
@@ -801,13 +786,6 @@ public final class Session
         public SessionBuilder setSource(Optional<String> source)
         {
             this.source = source.orElse(null);
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public SessionBuilder setTraceToken(Optional<String> traceToken)
-        {
-            this.traceToken = requireNonNull(traceToken, "traceToken is null");
             return this;
         }
 
@@ -963,7 +941,6 @@ public final class Session
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),
                     path,
-                    traceToken,
                     timeZoneKey != null ? timeZoneKey : TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID()),
                     locale != null ? locale : Locale.getDefault(),
                     Optional.ofNullable(remoteUserAddress),

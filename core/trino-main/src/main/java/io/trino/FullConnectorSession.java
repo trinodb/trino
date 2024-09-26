@@ -109,12 +109,6 @@ public class FullConnectorSession
     }
 
     @Override
-    public Optional<String> getTraceToken()
-    {
-        return session.getTraceToken();
-    }
-
-    @Override
     public <T> T getProperty(String propertyName, Class<T> type)
     {
         if (properties == null) {
@@ -131,7 +125,6 @@ public class FullConnectorSession
                 .add("queryId", getQueryId())
                 .add("user", getUser())
                 .add("source", getSource().orElse(null))
-                .add("traceToken", getTraceToken().orElse(null))
                 .add("timeZoneKey", getTimeZoneKey())
                 .add("locale", getLocale())
                 .add("start", getStart())

@@ -33,7 +33,6 @@ public final class ProtocolHeaders
     private final String requestPath;
     private final String requestTimeZone;
     private final String requestLanguage;
-    private final String requestTraceToken;
     private final String requestSession;
     private final String requestRole;
     private final String requestPreparedStatement;
@@ -80,7 +79,6 @@ public final class ProtocolHeaders
         requestPath = prefix + "Path";
         requestTimeZone = prefix + "Time-Zone";
         requestLanguage = prefix + "Language";
-        requestTraceToken = prefix + "Trace-Token";
         requestSession = prefix + "Session";
         requestRole = prefix + "Role";
         requestPreparedStatement = prefix + "Prepared-Statement";
@@ -148,11 +146,6 @@ public final class ProtocolHeaders
     public String requestLanguage()
     {
         return requestLanguage;
-    }
-
-    public String requestTraceToken()
-    {
-        return requestTraceToken;
     }
 
     public String requestSession()

@@ -383,15 +383,6 @@ public class TestJdbcConnection
     }
 
     @Test
-    public void testTraceToken()
-            throws SQLException
-    {
-        try (Connection connection = createConnection("traceToken=trace%20me")) {
-            assertThat(connection.getClientInfo("TraceToken")).isEqualTo("trace me");
-        }
-    }
-
-    @Test
     public void testRole()
             throws SQLException
     {

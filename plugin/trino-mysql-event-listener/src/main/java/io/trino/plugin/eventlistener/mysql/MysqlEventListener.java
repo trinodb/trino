@@ -103,7 +103,6 @@ public class MysqlEventListener
                 metadata.getPayload(),
                 context.getUser(),
                 context.getPrincipal(),
-                context.getTraceToken(),
                 context.getRemoteClientAddress(),
                 context.getUserAgent(),
                 context.getClientInfo(),

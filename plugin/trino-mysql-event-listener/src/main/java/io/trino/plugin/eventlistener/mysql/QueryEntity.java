@@ -31,7 +31,6 @@ public class QueryEntity
 
     private final String user;
     private final Optional<String> principal;
-    private final Optional<String> traceToken;
     private final Optional<String> remoteClientAddress;
     private final Optional<String> userAgent;
     private final Optional<String> clientInfo;
@@ -114,7 +113,6 @@ public class QueryEntity
             Optional<String> stageInfoJson,
             String user,
             Optional<String> principal,
-            Optional<String> traceToken,
             Optional<String> remoteClientAddress,
             Optional<String> userAgent,
             Optional<String> clientInfo,
@@ -183,7 +181,6 @@ public class QueryEntity
         this.stageInfoJson = requireNonNull(stageInfoJson, "stageInfoJson is null");
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
-        this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.remoteClientAddress = requireNonNull(remoteClientAddress, "remoteClientAddress is null");
         this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
@@ -291,11 +288,6 @@ public class QueryEntity
     public Optional<String> getPrincipal()
     {
         return principal;
-    }
-
-    public Optional<String> getTraceToken()
-    {
-        return traceToken;
     }
 
     public Optional<String> getRemoteClientAddress()

@@ -106,7 +106,6 @@ public class SqlTask
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
     private final AtomicReference<Span> taskSpan = new AtomicReference<>(Span.getInvalid());
-    private final AtomicReference<String> traceToken = new AtomicReference<>();
     private final AtomicReference<Set<CatalogHandle>> catalogs = new AtomicReference<>();
     private final AtomicBoolean catalogsLoaded = new AtomicBoolean(false);
 
@@ -494,9 +493,6 @@ public class SqlTask
             boolean speculative)
     {
         try {
-            // trace token must be set first to make sure failure injection for getTaskResults requests works as expected
-            session.getTraceToken().ifPresent(traceToken::set);
-
             // The LazyOutput buffer does not support write methods, so the actual
             // output buffer must be established before drivers are created (e.g.
             // a VALUES query).
@@ -761,10 +757,5 @@ public class SqlTask
             return Optional.empty();
         }
         return Optional.of(taskExecution.getTaskContext());
-    }
-
-    public Optional<String> getTraceToken()
-    {
-        return Optional.ofNullable(traceToken.get());
     }
 }

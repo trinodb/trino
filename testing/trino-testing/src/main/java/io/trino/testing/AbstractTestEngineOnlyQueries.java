@@ -5353,7 +5353,6 @@ public abstract class AbstractTestEngineOnlyQueries
                 getSession().getCatalog(),
                 getSession().getSchema(),
                 getSession().getPath(),
-                getSession().getTraceToken(),
                 getSession().getTimeZoneKey(),
                 getSession().getLocale(),
                 getSession().getRemoteUserAddress(),

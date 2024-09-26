@@ -99,7 +99,6 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
     public static final ConnectionProperty<String, String> CLIENT_INFO = new ClientInfo();
     public static final ConnectionProperty<String, Set<String>> CLIENT_TAGS = new ClientTags();
-    public static final ConnectionProperty<String, String> TRACE_TOKEN = new TraceToken();
     public static final ConnectionProperty<String, Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
     public static final ConnectionProperty<String, String> SOURCE = new Source();
     public static final ConnectionProperty<String, String> CATALOG = new Catalog();
@@ -170,7 +169,6 @@ final class ConnectionProperties
             .add(SSL_VERIFICATION)
             .add(TIMEOUT)
             .add(TIMEZONE)
-            .add(TRACE_TOKEN)
             .add(USER)
             .build();
 
@@ -359,15 +357,6 @@ final class ConnectionProperties
         private static String toString(Set<String> clientTags)
         {
             return Joiner.on(",").join(clientTags);
-        }
-    }
-
-    private static class TraceToken
-            extends AbstractConnectionProperty<String, String>
-    {
-        public TraceToken()
-        {
-            super(PropertyName.TRACE_TOKEN, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 

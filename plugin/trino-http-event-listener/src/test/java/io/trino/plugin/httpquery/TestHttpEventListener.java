@@ -108,7 +108,6 @@ final class TestHttpEventListener
                 Optional.of("principal"),
                 Set.of(), // enabledRoles
                 Set.of(), // groups
-                Optional.empty(), // traceToken
                 Optional.empty(), // remoteClientAddress
                 Optional.empty(), // userAgent
                 Optional.empty(), // clientInfo

@@ -95,7 +95,6 @@ import static io.trino.client.uri.ConnectionProperties.SslVerificationMode;
 import static io.trino.client.uri.ConnectionProperties.SslVerificationMode.FULL;
 import static io.trino.client.uri.ConnectionProperties.TIMEOUT;
 import static io.trino.client.uri.ConnectionProperties.TIMEZONE;
-import static io.trino.client.uri.ConnectionProperties.TRACE_TOKEN;
 import static io.trino.client.uri.ConnectionProperties.USER;
 import static io.trino.client.uri.LoggingLevel.NONE;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
@@ -229,11 +228,6 @@ public class TrinoUri
     public Optional<Set<String>> getClientTags()
     {
         return resolveOptional(CLIENT_TAGS);
-    }
-
-    public Optional<String> getTraceToken()
-    {
-        return resolveOptional(TRACE_TOKEN);
     }
 
     public Map<String, String> getSessionProperties()
@@ -497,7 +491,6 @@ public class TrinoUri
                 .sessionUser(getSessionUser())
                 .clientTags(getClientTags().orElse(ImmutableSet.of()))
                 .source(getSource().orElse(null))
-                .traceToken(getTraceToken())
                 .clientInfo(getClientInfo().orElse(null))
                 .catalog(getCatalog().orElse(null))
                 .schema(getSchema().orElse(null))
@@ -980,11 +973,6 @@ public class TrinoUri
         public Builder setClientTags(Set<String> clientTags)
         {
             return setProperty(CLIENT_TAGS, requireNonNull(clientTags, "clientTags is null"));
-        }
-
-        public Builder setTraceToken(String traceToken)
-        {
-            return setProperty(TRACE_TOKEN, requireNonNull(traceToken, "traceToken is null"));
         }
 
         public Builder setSessionProperties(Map<String, String> sessionProperties)

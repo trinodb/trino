@@ -533,7 +533,7 @@ public abstract class BaseFailureRecoveryTest
 
         private ExecutionResult executeExpected()
         {
-            return execute(noRetries(session), query, Optional.empty());
+            return execute(noRetries(session), query);
         }
 
         private ExecutionResult executeActual(OptionalInt failureStageId)
@@ -551,20 +551,19 @@ public abstract class BaseFailureRecoveryTest
             String token = UUID.randomUUID().toString();
             if (failureType.isPresent()) {
                 getQueryRunner().injectTaskFailure(
-                        token,
                         failureStageId.orElseThrow(() -> new IllegalArgumentException("failure stageId not provided")),
                         0,
                         0,
                         failureType.get(),
                         errorType);
 
-                return execute(session, query, Optional.of(token));
+                return execute(session, query);
             }
             // no failure injected
-            return execute(session, query, Optional.of(token));
+            return execute(session, query);
         }
 
-        private ExecutionResult execute(Session session, String query, Optional<String> traceToken)
+        private ExecutionResult execute(Session session, String query)
         {
             String tableName = "table_" + randomNameSuffix();
             setup.ifPresent(sql -> getQueryRunner().execute(noRetries(session), resolveTableName(sql, tableName)));
@@ -573,7 +572,7 @@ public abstract class BaseFailureRecoveryTest
             RuntimeException failure = null;
             String queryId = null;
             try {
-                resultWithPlan = getDistributedQueryRunner().executeWithPlan(withTraceToken(session, traceToken), resolveTableName(query, tableName));
+                resultWithPlan = getDistributedQueryRunner().executeWithPlan(session, resolveTableName(query, tableName));
                 queryId = resultWithPlan.queryId().getId();
             }
             catch (RuntimeException e) {
@@ -782,13 +781,6 @@ public abstract class BaseFailureRecoveryTest
         {
             return Session.builder(session)
                     .setSystemProperty("retry_policy", "NONE")
-                    .build();
-        }
-
-        private Session withTraceToken(Session session, Optional<String> traceToken)
-        {
-            return Session.builder(session)
-                    .setTraceToken(traceToken)
                     .build();
         }
     }

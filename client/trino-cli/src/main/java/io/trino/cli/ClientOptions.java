@@ -84,7 +84,6 @@ import static io.trino.client.uri.PropertyName.SSL_USE_SYSTEM_TRUST_STORE;
 import static io.trino.client.uri.PropertyName.SSL_VERIFICATION;
 import static io.trino.client.uri.PropertyName.TIMEOUT;
 import static io.trino.client.uri.PropertyName.TIMEZONE;
-import static io.trino.client.uri.PropertyName.TRACE_TOKEN;
 import static io.trino.client.uri.PropertyName.USER;
 import static java.lang.String.format;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
@@ -203,10 +202,6 @@ public class ClientOptions
     @PropertyMapping(CLIENT_TAGS)
     @Option(names = "--client-tags", paramLabel = "<tags>", description = "Client tags", converter = ClientTagsConverter.class)
     public Optional<Set<String>> clientTags;
-
-    @PropertyMapping(TRACE_TOKEN)
-    @Option(names = "--trace-token", paramLabel = "<token>", description = "Trace token")
-    public Optional<String> traceToken;
 
     @PropertyMapping(CATALOG)
     @Option(names = "--catalog", paramLabel = "<catalog>", description = "Default catalog")
@@ -426,7 +421,6 @@ public class ClientOptions
         source.ifPresent(builder::setSource);
         clientInfo.ifPresent(builder::setClientInfo);
         clientTags.ifPresent(builder::setClientTags);
-        traceToken.ifPresent(builder::setTraceToken);
         socksProxy.ifPresent(builder::setSocksProxy);
         httpProxy.ifPresent(builder::setHttpProxy);
         builder.setTimeZone(timeZone);

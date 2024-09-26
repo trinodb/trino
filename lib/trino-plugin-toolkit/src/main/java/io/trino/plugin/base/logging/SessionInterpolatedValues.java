@@ -23,8 +23,7 @@ public enum SessionInterpolatedValues
 {
     QUERY_ID(ConnectorSession::getQueryId),
     SOURCE(session -> session.getSource().orElse("")),
-    USER(ConnectorSession::getUser),
-    TRACE_TOKEN(session -> session.getTraceToken().orElse(""));
+    USER(ConnectorSession::getUser);
 
     private final Function<ConnectorSession, String> valueProvider;
 

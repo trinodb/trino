@@ -157,8 +157,6 @@ class StatementClientV1
             builder.addHeader(TRINO_HEADERS.requestSource(), session.getSource());
         }
 
-        session.getTraceToken().ifPresent(token -> builder.addHeader(TRINO_HEADERS.requestTraceToken(), token));
-
         if (session.getClientTags() != null && !session.getClientTags().isEmpty()) {
             builder.addHeader(TRINO_HEADERS.requestClientTags(), Joiner.on(",").join(session.getClientTags()));
         }

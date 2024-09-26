@@ -26,7 +26,6 @@ enum ClientInfoProperty
     APPLICATION_NAME("ApplicationName"),
     CLIENT_INFO("ClientInfo"),
     CLIENT_TAGS("ClientTags"),
-    TRACE_TOKEN("TraceToken"),
     /**/;
 
     private static final Map<String, ClientInfoProperty> BY_NAME = Stream.of(values())

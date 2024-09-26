@@ -490,7 +490,6 @@ public class PlanTester
                 defaultSession.getCatalog(),
                 defaultSession.getSchema(),
                 defaultSession.getPath(),
-                defaultSession.getTraceToken(),
                 defaultSession.getTimeZoneKey(),
                 defaultSession.getLocale(),
                 defaultSession.getRemoteUserAddress(),

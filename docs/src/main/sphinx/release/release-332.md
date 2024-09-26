@@ -31,7 +31,6 @@
 ## JDBC driver
 
 - Add `clientInfo` property to set extra information about the client. ({issue}`3188`)
-- Add `traceToken` property to set a trace token for correlating requests across systems. ({issue}`3188`)
 
 ## BigQuery connector
 

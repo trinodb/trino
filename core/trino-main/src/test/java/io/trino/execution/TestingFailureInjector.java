@@ -49,19 +49,17 @@ public class TestingFailureInjector
 
     @Override
     public void injectTaskFailure(
-            String traceToken,
             int stageId,
             int partitionId,
             int attemptId,
             InjectedFailureType injectionType,
             Optional<ErrorType> errorType)
     {
-        failures.put(new Key(traceToken, stageId, partitionId, attemptId), new InjectedFailure(injectionType, errorType));
+        failures.put(new Key(stageId, partitionId, attemptId), new InjectedFailure(injectionType, errorType));
     }
 
     @Override
     public Optional<InjectedFailure> getInjectedFailure(
-            String traceToken,
             int stageId,
             int partitionId,
             int attemptId)
@@ -69,7 +67,7 @@ public class TestingFailureInjector
         if (failures.size() == 0) {
             return Optional.empty();
         }
-        return Optional.ofNullable(failures.getIfPresent(new Key(traceToken, stageId, partitionId, attemptId)));
+        return Optional.ofNullable(failures.getIfPresent(new Key(stageId, partitionId, attemptId)));
     }
 
     @Override
@@ -80,14 +78,12 @@ public class TestingFailureInjector
 
     private static class Key
     {
-        private final String traceToken;
         private final int stageId;
         private final int partitionId;
         private final int attemptId;
 
-        private Key(String traceToken, int stageId, int partitionId, int attemptId)
+        private Key(int stageId, int partitionId, int attemptId)
         {
-            this.traceToken = requireNonNull(traceToken, "traceToken is null");
             this.stageId = stageId;
             this.partitionId = partitionId;
             this.attemptId = attemptId;
@@ -103,13 +99,13 @@ public class TestingFailureInjector
                 return false;
             }
             Key key = (Key) o;
-            return stageId == key.stageId && partitionId == key.partitionId && attemptId == key.attemptId && Objects.equals(traceToken, key.traceToken);
+            return stageId == key.stageId && partitionId == key.partitionId && attemptId == key.attemptId;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(traceToken, stageId, partitionId, attemptId);
+            return Objects.hash(stageId, partitionId, attemptId);
         }
     }
 }

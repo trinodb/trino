@@ -37,8 +37,6 @@ public interface ConnectorSession
 
     Locale getLocale();
 
-    Optional<String> getTraceToken();
-
     Instant getStart();
 
     <T> T getProperty(String name, Class<T> type);

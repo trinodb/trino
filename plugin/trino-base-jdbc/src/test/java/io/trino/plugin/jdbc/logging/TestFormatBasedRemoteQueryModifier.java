@@ -27,7 +27,6 @@ public class TestFormatBasedRemoteQueryModifier
     public void testCreatingCommentToAppendBasedOnFormatAndConnectorSession()
     {
         TestingConnectorSession connectorSession = TestingConnectorSession.builder()
-                .setTraceToken("trace_token")
                 .setSource("source")
                 .setIdentity(ConnectorIdentity.ofUser("Alice"))
                 .build();
@@ -43,12 +42,11 @@ public class TestFormatBasedRemoteQueryModifier
     public void testCreatingCommentWithDuplicatedPredefinedValues()
     {
         TestingConnectorSession connectorSession = TestingConnectorSession.builder()
-                .setTraceToken("trace_token")
                 .setSource("source")
                 .setIdentity(ConnectorIdentity.ofUser("Alice"))
                 .build();
 
-        FormatBasedRemoteQueryModifier modifier = createRemoteQueryModifier("$QUERY_ID, $QUERY_ID, $QUERY_ID, $QUERY_ID, $USER, $USER, $SOURCE, $SOURCE, $SOURCE, $TRACE_TOKEN, $TRACE_TOKEN");
+        FormatBasedRemoteQueryModifier modifier = createRemoteQueryModifier("$QUERY_ID, $QUERY_ID, $QUERY_ID, $QUERY_ID, $USER, $USER, $SOURCE, $SOURCE, $SOURCE");
         String modifiedQuery = modifier.apply(connectorSession, "SELECT * from USERS");
 
         assertThat(modifiedQuery)
@@ -61,25 +59,7 @@ public class TestFormatBasedRemoteQueryModifier
                         "Alice",
                         "source",
                         "source",
-                        "source",
-                        "trace_token",
-                        "trace_token");
-    }
-
-    @Test
-    public void testForSQLInjectionsByTraceToken()
-    {
-        TestingConnectorSession connectorSession = TestingConnectorSession.builder()
-                .setTraceToken("*/; DROP TABLE TABLE_A; /*")
-                .setSource("source")
-                .setIdentity(ConnectorIdentity.ofUser("Alice"))
-                .build();
-
-        FormatBasedRemoteQueryModifier modifier = createRemoteQueryModifier("Query=$QUERY_ID Execution for user=$USER with source=$SOURCE ttoken=$TRACE_TOKEN");
-
-        assertThatThrownBy(() -> modifier.apply(connectorSession, "SELECT * from USERS"))
-                .isInstanceOf(TrinoException.class)
-                .hasMessageMatching("Rendering metadata using 'query.comment-format' does not meet security criteria: Query=.* Execution for user=Alice with source=source ttoken=\\*/; DROP TABLE TABLE_A; /\\*");
+                        "source");
     }
 
     @Test
@@ -99,7 +79,6 @@ public class TestFormatBasedRemoteQueryModifier
         TestingConnectorSession connectorSession = TestingConnectorSession.builder()
                 .setIdentity(ConnectorIdentity.ofUser("Alice"))
                 .setSource("$invalid@value")
-                .setTraceToken("#invalid&value")
                 .build();
 
         FormatBasedRemoteQueryModifier modifier = createRemoteQueryModifier("user=$USER");
@@ -117,31 +96,12 @@ public class TestFormatBasedRemoteQueryModifier
         TestingConnectorSession connectorSession = TestingConnectorSession.builder()
                 .setIdentity(ConnectorIdentity.ofUser("Alice"))
                 .setSource(validValue)
-                .setTraceToken(invalidValue)
                 .build();
 
         FormatBasedRemoteQueryModifier modifier = createRemoteQueryModifier("source=$SOURCE");
 
         assertThat(modifier.apply(connectorSession, "SELECT * FROM USERS"))
                 .isEqualTo("SELECT * FROM USERS /*source=valid-value*/");
-    }
-
-    @Test
-    public void testFormatQueryModifierWithTraceToken()
-    {
-        String validValue = "valid-value";
-        String invalidValue = "$invalid@value";
-
-        TestingConnectorSession connectorSession = TestingConnectorSession.builder()
-                .setIdentity(ConnectorIdentity.ofUser("Alice"))
-                .setSource(invalidValue)
-                .setTraceToken(validValue)
-                .build();
-
-        FormatBasedRemoteQueryModifier modifier = createRemoteQueryModifier("ttoken=$TRACE_TOKEN");
-
-        assertThat(modifier.apply(connectorSession, "SELECT * FROM USERS"))
-                .isEqualTo("SELECT * FROM USERS /*ttoken=valid-value*/");
     }
 
     @Test
@@ -164,7 +124,6 @@ public class TestFormatBasedRemoteQueryModifier
         TestingConnectorSession connectorSession = TestingConnectorSession.builder()
                 .setIdentity(ConnectorIdentity.ofUser("Alice"))
                 .setSource(value)
-                .setTraceToken(value)
                 .build();
 
         FormatBasedRemoteQueryModifier modifier = createRemoteQueryModifier("source=$SOURCE ttoken=$TRACE_TOKEN");
@@ -178,7 +137,6 @@ public class TestFormatBasedRemoteQueryModifier
     private void testForSQLInjectionsBySource(String sqlInjection)
     {
         TestingConnectorSession connectorSession = TestingConnectorSession.builder()
-                .setTraceToken("trace_token")
                 .setSource(sqlInjection)
                 .setIdentity(ConnectorIdentity.ofUser("Alice"))
                 .build();

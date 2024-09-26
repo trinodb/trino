@@ -59,14 +59,6 @@ public class TestClientOptions
     }
 
     @Test
-    public void testTraceToken()
-    {
-        Console console = createConsole("--trace-token", "test token");
-        ClientSession session = console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
-        assertThat(session.getTraceToken()).isEqualTo(Optional.of("test token"));
-    }
-
-    @Test
     public void testServerHostOnly()
     {
         Console console = createConsole("--server=test");

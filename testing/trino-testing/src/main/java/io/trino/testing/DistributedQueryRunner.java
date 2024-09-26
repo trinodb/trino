@@ -611,7 +611,6 @@ public class DistributedQueryRunner
 
     @Override
     public void injectTaskFailure(
-            String traceToken,
             int stageId,
             int partitionId,
             int attemptId,
@@ -620,7 +619,6 @@ public class DistributedQueryRunner
     {
         for (TestingTrinoServer server : servers) {
             server.injectTaskFailure(
-                    traceToken,
                     stageId,
                     partitionId,
                     attemptId,

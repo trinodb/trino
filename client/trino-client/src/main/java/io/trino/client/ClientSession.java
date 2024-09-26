@@ -40,7 +40,6 @@ public class ClientSession
     private final Optional<String> sessionUser;
     private final Optional<String> authorizationUser;
     private final String source;
-    private final Optional<String> traceToken;
     private final Set<String> clientTags;
     private final String clientInfo;
     private final Optional<String> catalog;
@@ -81,7 +80,6 @@ public class ClientSession
             Optional<String> sessionUser,
             Optional<String> authorizationUser,
             String source,
-            Optional<String> traceToken,
             Set<String> clientTags,
             String clientInfo,
             Optional<String> catalog,
@@ -104,7 +102,6 @@ public class ClientSession
         this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
         this.authorizationUser = requireNonNull(authorizationUser, "authorizationUser is null");
         this.source = requireNonNull(source, "source is null");
-        this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
         this.clientInfo = clientInfo;
         this.catalog = catalog;
@@ -174,11 +171,6 @@ public class ClientSession
     public String getSource()
     {
         return source;
-    }
-
-    public Optional<String> getTraceToken()
-    {
-        return traceToken;
     }
 
     public Set<String> getClientTags()
@@ -282,7 +274,6 @@ public class ClientSession
                 .add("catalog", catalog)
                 .add("schema", schema)
                 .add("path", path)
-                .add("traceToken", traceToken.orElse(null))
                 .add("timeZone", timeZone)
                 .add("locale", locale)
                 .add("properties", properties)
@@ -303,7 +294,6 @@ public class ClientSession
         private Optional<String> sessionUser = Optional.empty();
         private Optional<String> authorizationUser = Optional.empty();
         private String source;
-        private Optional<String> traceToken = Optional.empty();
         private Set<String> clientTags = ImmutableSet.of();
         private String clientInfo;
         private String catalog;
@@ -331,7 +321,6 @@ public class ClientSession
             sessionUser = clientSession.getSessionUser();
             authorizationUser = clientSession.getAuthorizationUser();
             source = clientSession.getSource();
-            traceToken = clientSession.getTraceToken();
             clientTags = clientSession.getClientTags();
             clientInfo = clientSession.getClientInfo();
             catalog = clientSession.getCatalog().orElse(null);
@@ -377,12 +366,6 @@ public class ClientSession
         public Builder source(String source)
         {
             this.source = source;
-            return this;
-        }
-
-        public Builder traceToken(Optional<String> traceToken)
-        {
-            this.traceToken = traceToken;
             return this;
         }
 
@@ -490,7 +473,6 @@ public class ClientSession
                     sessionUser,
                     authorizationUser,
                     source,
-                    traceToken,
                     clientTags,
                     clientInfo,
                     Optional.ofNullable(catalog),

@@ -725,17 +725,8 @@ public class SqlTaskManager
         tasks.getUnchecked(taskId).addSourceTaskFailureListener(listener);
     }
 
-    /**
-     * Return trace token for a given task (see Session#traceToken)
-     */
-    public Optional<String> getTraceToken(TaskId taskId)
-    {
-        return tasks.getUnchecked(taskId).getTraceToken();
-    }
-
     @VisibleForTesting
     public QueryContext getQueryContext(QueryId queryId)
-
     {
         return queryContexts.getUnchecked(queryId);
     }

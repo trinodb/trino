@@ -114,7 +114,6 @@ public class HttpRequestSessionContextFactory
         SelectedRole selectedRole = parseSystemRoleHeaders(protocolHeaders, headers);
 
         Optional<String> source = Optional.ofNullable(headers.getFirst(protocolHeaders.requestSource()));
-        Optional<String> traceToken = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestTraceToken())));
         Optional<String> userAgent = Optional.ofNullable(headers.getFirst(USER_AGENT));
         Optional<String> remoteUserAddress = requireNonNull(remoteAddress, "remoteAddress is null");
         Optional<String> timeZoneId = Optional.ofNullable(headers.getFirst(protocolHeaders.requestTimeZone()));
@@ -172,7 +171,6 @@ public class HttpRequestSessionContextFactory
                 originalIdentity,
                 selectedRole,
                 source,
-                traceToken,
                 userAgent,
                 remoteUserAddress,
                 timeZoneId,

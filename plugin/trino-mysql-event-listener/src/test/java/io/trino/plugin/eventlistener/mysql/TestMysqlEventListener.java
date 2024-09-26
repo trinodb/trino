@@ -144,7 +144,6 @@ final class TestMysqlEventListener
             Optional.of("principal"),
             Set.of("role1", "role2"),
             Set.of("group1", "group2"),
-            Optional.of("traceToken"),
             Optional.of("remoteAddress"),
             Optional.of("userAgent"),
             Optional.of("clientInfo"),
@@ -306,7 +305,6 @@ final class TestMysqlEventListener
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Set.of(),
             // not stored
             Set.of(),
@@ -394,7 +392,6 @@ final class TestMysqlEventListener
                     assertThat(resultSet.getString("stage_info_json")).isEqualTo("stageInfo");
                     assertThat(resultSet.getString("user")).isEqualTo("user");
                     assertThat(resultSet.getString("principal")).isEqualTo("principal");
-                    assertThat(resultSet.getString("trace_token")).isEqualTo("traceToken");
                     assertThat(resultSet.getString("remote_client_address")).isEqualTo("remoteAddress");
                     assertThat(resultSet.getString("user_agent")).isEqualTo("userAgent");
                     assertThat(resultSet.getString("client_info")).isEqualTo("clientInfo");
@@ -479,7 +476,6 @@ final class TestMysqlEventListener
                     assertThat(resultSet.getString("stage_info_json")).isNull();
                     assertThat(resultSet.getString("user")).isEqualTo("user");
                     assertThat(resultSet.getString("principal")).isNull();
-                    assertThat(resultSet.getString("trace_token")).isNull();
                     assertThat(resultSet.getString("remote_client_address")).isNull();
                     assertThat(resultSet.getString("user_agent")).isNull();
                     assertThat(resultSet.getString("client_info")).isNull();

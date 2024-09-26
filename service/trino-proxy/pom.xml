@@ -99,11 +99,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>trace-token</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>tracing</artifactId>
         </dependency>
 

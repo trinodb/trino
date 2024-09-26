@@ -73,7 +73,6 @@ public final class TestUtils
                 Optional.of("principal"),
                 Set.of(),
                 Set.of(), // groups
-                Optional.empty(), // traceToken
                 Optional.empty(), // remoteClientAddress
                 Optional.empty(), // userAgent
                 Optional.empty(), // clientInfo

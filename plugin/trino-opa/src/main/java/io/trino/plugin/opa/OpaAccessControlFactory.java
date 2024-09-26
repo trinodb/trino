@@ -22,7 +22,6 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonModule;
-import io.airlift.tracetoken.TraceTokenModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.plugin.opa.schema.OpaBatchColumnMaskQueryResult;
@@ -74,7 +73,6 @@ public class OpaAccessControlFactory
 
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
-                new TraceTokenModule(),
                 binder -> {
                     jsonCodecBinder(binder).bindJsonCodec(OpaQuery.class);
                     jsonCodecBinder(binder).bindJsonCodec(OpaQueryResult.class);

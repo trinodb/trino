@@ -265,6 +265,18 @@
                                     <old>interface io.trino.spi.protocol.SpoolingManagerFactory</old>
                                     <justification>Spooling SPI marked as experimental</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.Optional&lt;java.lang.String&gt; io.trino.spi.connector.ConnectorSession::getTraceToken()</old>
+                                    <justification>cleanup</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.util.Optional&lt;java.lang.String&gt; io.trino.spi.eventlistener.QueryContext::getTraceToken()</old>
+                                    <justification>cleanup</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

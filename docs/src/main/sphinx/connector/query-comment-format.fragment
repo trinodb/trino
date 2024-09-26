@@ -8,7 +8,6 @@ comment can contain any characters and the following metadata:
 - `$USER`: The name of the user who submits the query to Trino.
 - `$SOURCE`: The identifier of the client tool used to submit the query, for
   example `trino-cli`.
-- `$TRACE_TOKEN`: The trace token configured with the client tool.
 
 The comment can provide more context about the query. This additional
 information is available in the logs of the datasource. To include environment

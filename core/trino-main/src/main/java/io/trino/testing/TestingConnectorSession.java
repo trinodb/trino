@@ -47,7 +47,6 @@ public class TestingConnectorSession
     private final Optional<String> source;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
-    private final Optional<String> traceToken;
     private final Instant start;
     private final Map<String, PropertyMetadata<?>> properties;
     private final Map<String, Object> propertyValues;
@@ -55,7 +54,6 @@ public class TestingConnectorSession
     private TestingConnectorSession(
             ConnectorIdentity identity,
             Optional<String> source,
-            Optional<String> traceToken,
             TimeZoneKey timeZoneKey,
             Locale locale,
             Instant start,
@@ -64,7 +62,6 @@ public class TestingConnectorSession
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.source = requireNonNull(source, "source is null");
-        this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.start = start;
@@ -109,12 +106,6 @@ public class TestingConnectorSession
     }
 
     @Override
-    public Optional<String> getTraceToken()
-    {
-        return traceToken;
-    }
-
-    @Override
     public <T> T getProperty(String name, Class<T> type)
     {
         PropertyMetadata<?> metadata = properties.get(name);
@@ -134,7 +125,6 @@ public class TestingConnectorSession
         return toStringHelper(this)
                 .add("user", getUser())
                 .add("source", source.orElse(null))
-                .add("traceToken", traceToken.orElse(null))
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
                 .add("start", start)
@@ -154,7 +144,6 @@ public class TestingConnectorSession
         private Optional<String> source = Optional.of("test");
         private TimeZoneKey timeZoneKey = UTC_KEY;
         private final Locale locale = ENGLISH;
-        private Optional<String> traceToken = Optional.empty();
         private Optional<Instant> start = Optional.empty();
         private List<PropertyMetadata<?>> propertyMetadatas = ImmutableList.of();
         private Map<String, Object> propertyValues = ImmutableMap.of();
@@ -183,12 +172,6 @@ public class TestingConnectorSession
             return this;
         }
 
-        public Builder setTraceToken(String token)
-        {
-            this.traceToken = Optional.of(token);
-            return this;
-        }
-
         public Builder setPropertyMetadata(List<PropertyMetadata<?>> propertyMetadatas)
         {
             requireNonNull(propertyMetadatas, "propertyMetadatas is null");
@@ -208,7 +191,6 @@ public class TestingConnectorSession
             return new TestingConnectorSession(
                     identity,
                     source,
-                    traceToken,
                     timeZoneKey,
                     locale,
                     start.orElseGet(Instant::now),

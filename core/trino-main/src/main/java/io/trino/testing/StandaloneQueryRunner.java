@@ -295,7 +295,6 @@ public final class StandaloneQueryRunner
 
     @Override
     public void injectTaskFailure(
-            String traceToken,
             int stageId,
             int partitionId,
             int attemptId,
@@ -303,7 +302,6 @@ public final class StandaloneQueryRunner
             Optional<ErrorType> errorType)
     {
         server.injectTaskFailure(
-                traceToken,
                 stageId,
                 partitionId,
                 attemptId,
