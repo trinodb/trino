@@ -160,6 +160,7 @@ import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Term;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.IntegerType;
 import org.apache.iceberg.types.Types.NestedField;
@@ -252,8 +253,10 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPER
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
+import static io.trino.plugin.iceberg.IcebergUtil.buildPath;
 import static io.trino.plugin.iceberg.IcebergUtil.canEnforceColumnConstraintInSpecs;
 import static io.trino.plugin.iceberg.IcebergUtil.commit;
+import static io.trino.plugin.iceberg.IcebergUtil.createColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.fileName;
 import static io.trino.plugin.iceberg.IcebergUtil.firstSnapshot;
@@ -625,8 +628,7 @@ public class IcebergMetadata
         DiscretePredicates discretePredicates = null;
         if (!partitionSourceIds.isEmpty()) {
             // Extract identity partition columns
-            Map<Integer, IcebergColumnHandle> columns = getProjectedColumns(icebergTable.schema(), typeManager).stream()
-                    .filter(column -> partitionSourceIds.contains(column.getId()))
+            Map<Integer, IcebergColumnHandle> columns = getProjectedColumns(icebergTable.schema(), typeManager, partitionSourceIds).stream()
                     .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
 
             Supplier<List<FileScanTask>> lazyFiles = Suppliers.memoize(() -> {
@@ -1069,9 +1071,11 @@ public class IcebergMetadata
             return Optional.empty();
         }
 
-        Map<Integer, Integer> indexParents = indexParents(tableSchema.asStruct());
-        Map<Integer, IcebergColumnHandle> columnById = getProjectedColumns(tableSchema, typeManager).stream()
-                .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
+        StructType schemaAsStruct = tableSchema.asStruct();
+        Map<Integer, NestedField> indexById = TypeUtil.indexById(schemaAsStruct);
+        Map<Integer, Integer> indexParents = indexParents(schemaAsStruct);
+        Map<Integer, List<Integer>> indexPaths = indexById.entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableList.copyOf(buildPath(indexParents, entry.getKey()))));
 
         List<IcebergColumnHandle> partitioningColumns = partitionSpec.fields().stream()
                 .sorted(Comparator.comparing(PartitionField::sourceId))
@@ -1093,7 +1097,8 @@ public class IcebergMetadata
                     if (sourceType.isListType()) {
                         throw new TrinoException(NOT_SUPPORTED, "Partitioning field [" + field.name() + "] cannot be contained in a array");
                     }
-                    return requireNonNull(columnById.get(sourceId), () -> "Cannot find source column for partition field " + field);
+                    verify(indexById.containsKey(sourceId), "Cannot find source column for partition field " + field);
+                    return createColumnHandle(typeManager, sourceId, indexById, indexPaths);
                 })
                 .distinct()
                 .collect(toImmutableList());
