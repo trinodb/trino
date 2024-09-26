@@ -41,6 +41,8 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
+import jakarta.inject.Inject;
+
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -49,7 +51,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import javax.inject.Inject;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;

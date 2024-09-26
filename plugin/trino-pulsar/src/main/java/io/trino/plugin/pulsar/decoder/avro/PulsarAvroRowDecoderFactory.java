@@ -108,7 +108,7 @@ public class PulsarAvroRowDecoderFactory implements PulsarRowDecoderFactory {
                                     field.name()), parseAvroPrestoType(field.name(), field.schema()),
                                     field.schema().toString(), null, false, false,
                                     handleKeyValueType, new PulsarColumnMetadata.DecoderExtraInfo(field.name(),
-                                    null, null))
+                                    null, null), null)
 
                     ).collect(toList());
         } catch (StackOverflowError e){

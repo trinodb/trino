@@ -168,7 +168,7 @@ public class PulsarColumnHandle implements DecoderColumnHandle {
     ColumnMetadata getColumnMetadata() {
         return new PulsarColumnMetadata(name, type, null, null, hidden,
                 internal, handleKeyValueType, new PulsarColumnMetadata.DecoderExtraInfo(
-                        mapping, dataFormat, formatHint));
+                        mapping, dataFormat, formatHint), null);
     }
 
     @Override
