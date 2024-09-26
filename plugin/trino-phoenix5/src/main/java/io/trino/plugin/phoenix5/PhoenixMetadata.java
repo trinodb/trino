@@ -156,7 +156,8 @@ public class PhoenixMetadata
                 phoenixClient.getTableProperties(session, handle));
     }
 
-    private List<ColumnMetadata> getColumnMetadata(ConnectorSession session, JdbcTableHandle handle)
+    @Override
+    public List<ColumnMetadata> getColumnMetadata(ConnectorSession session, JdbcTableHandle handle)
     {
         return phoenixClient.getColumns(session, handle).stream()
                 .filter(column -> !ROWKEY.equalsIgnoreCase(column.getColumnName()))
