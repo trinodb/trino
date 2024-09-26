@@ -756,7 +756,7 @@ public class TrinoConnection
 
         ClientSession session = ClientSession.builder()
                 .server(httpUri)
-                .principal(user)
+                .user(user)
                 .sessionUser(sessionUser.get())
                 .authorizationUser(Optional.ofNullable(authorizationUser.get()))
                 .source(source)
