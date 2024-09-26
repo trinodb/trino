@@ -644,6 +644,7 @@ public class BinPackingNodeAllocatorService
     private static class BinPackingSimulation
     {
         private final List<InternalNode> allNodesSorted;
+        private final List<InternalNode> workerNodesSorted;
         private final Multimap<HostAddress, InternalNode> allNodesByAddress;
         private final boolean ignoreAcquiredSpeculative;
         private final Map<String, Long> nodesRemainingMemory;
@@ -651,6 +652,7 @@ public class BinPackingNodeAllocatorService
         private final Map<String, Long> nodesRemainingMemoryRuntimeAdjusted;
         private final Map<String, Long> speculativeMemoryReserved;
         private final NonEvictableLoadingCache<CatalogHandle, List<InternalNode>> catalogNodes;
+        private final NonEvictableLoadingCache<CatalogHandle, List<InternalNode>> catalogWorkerNodes;
 
         private final Map<String, MemoryPoolInfo> nodeMemoryPoolInfos;
         private final boolean scheduleOnCoordinator;
@@ -674,10 +676,20 @@ public class BinPackingNodeAllocatorService
                     .sorted(comparing(InternalNode::getNodeIdentifier))
                     .collect(toImmutableList());
 
+            this.workerNodesSorted = allNodesSorted.stream().filter(node -> !node.isCoordinator()).collect(toImmutableList());
+
             this.catalogNodes = buildNonEvictableCache(
                     CacheBuilder.newBuilder(),
                     CacheLoader.from(catalogHandle -> {
                         List<InternalNode> nodes = new ArrayList<>(allNodesSorted);
+                        nodes.retainAll(nodesSnapshot.getConnectorNodes(catalogHandle));
+                        return nodes;
+                    }));
+
+            this.catalogWorkerNodes = buildNonEvictableCache(
+                    CacheBuilder.newBuilder(),
+                    CacheLoader.from(catalogHandle -> {
+                        List<InternalNode> nodes = new ArrayList<>(workerNodesSorted);
                         nodes.retainAll(nodesSnapshot.getConnectorNodes(catalogHandle));
                         return nodes;
                     }));
@@ -760,32 +772,26 @@ public class BinPackingNodeAllocatorService
             }
         }
 
-        private List<InternalNode> dropCoordinatorsIfNecessary(List<InternalNode> candidates)
-        {
-            return scheduleOnCoordinator ? candidates : candidates.stream().filter(node -> !node.isCoordinator()).collect(toImmutableList());
-        }
-
         public ReserveResult tryReserve(PendingAcquire acquire)
         {
             NodeRequirements requirements = acquire.getNodeRequirements();
 
-            List<InternalNode> candidates = requirements.getCatalogHandle()
-                    .map(catalogNodes::getUnchecked)
-                    .orElse(allNodesSorted);
-
+            List<InternalNode> candidates;
             Optional<HostAddress> address = requirements.getAddress();
             if (address.isPresent() && (optimizedLocalScheduling || !requirements.isRemotelyAccessible())) {
                 Collection<InternalNode> preferred = allNodesByAddress.get(address.get());
-                if ((preferred.isEmpty() || acquire.getNotEnoughResourcesPeriod().compareTo(exhaustedNodeWaitPeriod) >= 0) && requirements.isRemotelyAccessible()) {
-                    candidates = dropCoordinatorsIfNecessary(candidates);
+                if ((!preferred.isEmpty() && acquire.getNotEnoughResourcesPeriod().compareTo(exhaustedNodeWaitPeriod) < 0) || !requirements.isRemotelyAccessible()) {
+                    // use preferred node if available
+                    candidates = getCandidatesWithCoordinator(requirements).stream().filter(preferred::contains).collect(toImmutableList());
                 }
                 else {
-                    // filter out preferred candidates (1 in most cases)
-                    candidates = candidates.stream().filter(preferred::contains).collect(toImmutableList());
+                    // use all nodes if we do not have preferences or waited to long
+                    candidates = scheduleOnCoordinator ? getCandidatesWithCoordinator(requirements) : getCandidatesExceptCoordinator(requirements);
                 }
             }
             else {
-                candidates = dropCoordinatorsIfNecessary(candidates);
+                // standard candidates
+                candidates = scheduleOnCoordinator ? getCandidatesWithCoordinator(requirements) : getCandidatesExceptCoordinator(requirements);
             }
 
             if (candidates.isEmpty()) {
@@ -832,6 +838,20 @@ public class BinPackingNodeAllocatorService
                     .orElseThrow();
             subtractFromRemainingMemory(fallbackNode.getNodeIdentifier(), memoryRequirements);
             return ReserveResult.NOT_ENOUGH_RESOURCES_NOW;
+        }
+
+        private List<InternalNode> getCandidatesExceptCoordinator(NodeRequirements requirements)
+        {
+            return requirements.getCatalogHandle()
+                    .map(catalogWorkerNodes::getUnchecked)
+                    .orElse(workerNodesSorted);
+        }
+
+        private List<InternalNode> getCandidatesWithCoordinator(NodeRequirements requirements)
+        {
+            return requirements.getCatalogHandle()
+                    .map(catalogNodes::getUnchecked)
+                    .orElse(allNodesSorted);
         }
 
         private Comparator<InternalNode> resolveTiesWithSpeculativeMemory(Comparator<InternalNode> comparator)
