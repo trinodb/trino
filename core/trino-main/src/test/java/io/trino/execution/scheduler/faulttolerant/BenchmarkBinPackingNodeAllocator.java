@@ -16,6 +16,7 @@ package io.trino.execution.scheduler.faulttolerant;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
+import io.trino.Session;
 import io.trino.SessionTestUtils;
 import io.trino.client.NodeVersion;
 import io.trino.execution.TaskId;
@@ -24,6 +25,7 @@ import io.trino.memory.MemoryInfo;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNode;
 import io.trino.spi.HostAddress;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.memory.MemoryPoolInfo;
 import io.trino.testing.assertions.Assert;
@@ -92,6 +94,9 @@ public class BenchmarkBinPackingNodeAllocator
         @Param({"100", "1000", "10000"})
         private int leasesCount = 1000;
 
+        @Param({"1", "10", "100"})
+        private int requestersCount = 10;
+
         @Param({"false", "true"})
         private boolean preferredNodes;
 
@@ -124,11 +129,11 @@ public class BenchmarkBinPackingNodeAllocator
                     DataSize.of(10, GIGABYTE), // allow overcommit of 10GB for EAGER_SPECULATIVE tasks
                     systemTicker());
             nodeAllocatorService.start();
-            NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SessionTestUtils.TEST_SESSION);
+            NodeAllocator setupNodeAllocator = nodeAllocatorService.getNodeAllocator(SessionTestUtils.TEST_SESSION);
 
             // fill the nodes
             for (int i = 0; i < nodeCount; i++) {
-                NodeAllocator.NodeLease lease = nodeAllocator.acquire(
+                NodeAllocator.NodeLease lease = setupNodeAllocator.acquire(
                         new NodeRequirements(Optional.empty(), Optional.empty(), true),
                         DataSize.of(64, GIGABYTE),
                         STANDARD);
@@ -136,6 +141,13 @@ public class BenchmarkBinPackingNodeAllocator
             }
 
             System.out.println("Creating leases");
+            List<NodeAllocator> nodeAllocators = new ArrayList<>();
+            for (int i = 0; i < requestersCount; i++) {
+                Session session = Session.builder(SessionTestUtils.TEST_SESSION)
+                        .setQueryId(QueryId.valueOf("query_" + i))
+                        .build();
+                nodeAllocators.add(nodeAllocatorService.getNodeAllocator(session));
+            }
             for (int i = 0; i < leasesCount; i++) {
                 Optional<HostAddress> preferredNode = Optional.empty();
                 if (preferredNodes) {
@@ -145,11 +157,12 @@ public class BenchmarkBinPackingNodeAllocator
                 if (specificCatalogs) {
                     catalog = Optional.of(createTestCatalogHandle("catalog" + (i % CATALOGS_COUNT)));
                 }
+
                 NodeRequirements requirements = new NodeRequirements(
                         catalog,
                         preferredNode,
                         true);
-                NodeAllocator.NodeLease lease = nodeAllocator.acquire(
+                NodeAllocator.NodeLease lease = nodeAllocators.get(i % requestersCount).acquire(
                         requirements,
                         DataSize.of(1, GIGABYTE),
                         STANDARD);
