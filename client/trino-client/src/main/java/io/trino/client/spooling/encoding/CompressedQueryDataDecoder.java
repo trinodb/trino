@@ -34,16 +34,16 @@ public abstract class CompressedQueryDataDecoder
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
-    abstract InputStream decompress(InputStream inputStream, int uncompressedSize)
+    abstract InputStream decompress(InputStream inputStream, int expectedDecompressedSize)
             throws IOException;
 
     @Override
     public Iterable<List<Object>> decode(InputStream stream, DataAttributes metadata)
             throws IOException
     {
-        Optional<Integer> uncompressedSize = metadata.getOptional(DataAttribute.UNCOMPRESSED_SIZE, Integer.class);
-        if (uncompressedSize.isPresent()) {
-            return delegate.decode(decompress(stream, uncompressedSize.get()), metadata);
+        Optional<Integer> expectedDecompressedSize = metadata.getOptional(DataAttribute.UNCOMPRESSED_SIZE, Integer.class);
+        if (expectedDecompressedSize.isPresent()) {
+            return delegate.decode(decompress(stream, expectedDecompressedSize.get()), metadata);
         }
         // Data not compressed - below threshold
         return delegate.decode(stream, metadata);
