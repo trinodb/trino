@@ -58,7 +58,7 @@ public class TestSetSessionAuthorization
     {
         ClientSession clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user"))
-                .user(Optional.of("user"))
+                .sessionUser(Optional.of("user"))
                 .build();
         assertThat(submitQuery("SET SESSION AUTHORIZATION user", clientSession).getSetAuthorizationUser().get()).isEqualTo("user");
         assertThat(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get()).isEqualTo("alice");
@@ -70,13 +70,13 @@ public class TestSetSessionAuthorization
     {
         ClientSession clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user"))
-                .user(Optional.of("user"))
+                .sessionUser(Optional.of("user"))
                 .build();
         assertThat(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get()).isEqualTo("alice");
 
         clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user2"))
-                .user(Optional.of("user2"))
+                .sessionUser(Optional.of("user2"))
                 .build();
         assertThat(submitQuery("SET SESSION AUTHORIZATION bob", clientSession).getSetAuthorizationUser().get()).isEqualTo("bob");
     }
@@ -86,7 +86,7 @@ public class TestSetSessionAuthorization
     {
         ClientSession clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user"))
-                .user(Optional.of("user"))
+                .sessionUser(Optional.of("user"))
                 .build();
         assertError(submitQuery("SET SESSION AUTHORIZATION user2", clientSession),
                 PERMISSION_DENIED.toErrorCode(), "Access Denied: User user cannot impersonate user user2");
@@ -108,19 +108,19 @@ public class TestSetSessionAuthorization
     {
         ClientSession clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user"))
-                .user(Optional.of("user"))
+                .sessionUser(Optional.of("user"))
                 .build();
         assertThat(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get()).isEqualTo("alice");
 
         clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("alice"))
-                .user(Optional.of("alice"))
+                .sessionUser(Optional.of("alice"))
                 .build();
         assertThat(submitQuery("SET SESSION AUTHORIZATION charlie", clientSession).getSetAuthorizationUser().get()).isEqualTo("charlie");
 
         clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user"))
-                .user(Optional.of("user"))
+                .sessionUser(Optional.of("user"))
                 .build();
         assertThat(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get()).isEqualTo("alice");
         assertError(submitQuery("SET SESSION AUTHORIZATION charlie", clientSession),
@@ -132,14 +132,14 @@ public class TestSetSessionAuthorization
     {
         ClientSession clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user"))
-                .user(Optional.of("user"))
+                .sessionUser(Optional.of("user"))
                 .authorizationUser(Optional.of("alice"))
                 .build();
         assertThat(submitQuery("SELECT 1+1", clientSession).currentStatusInfo().getError()).isEqualTo(null);
 
         clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user"))
-                .user(Optional.of("user"))
+                .sessionUser(Optional.of("user"))
                 .authorizationUser(Optional.of("user"))
                 .build();
         assertThat(submitQuery("SELECT 1+1", clientSession).currentStatusInfo().getError()).isEqualTo(null);
@@ -156,7 +156,7 @@ public class TestSetSessionAuthorization
     {
         ClientSession clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user"))
-                .user(Optional.of("user"))
+                .sessionUser(Optional.of("user"))
                 .authorizationUser(Optional.of("user2"))
                 .build();
         assertError(submitQuery("SELECT 1+1", clientSession),
@@ -164,7 +164,7 @@ public class TestSetSessionAuthorization
 
         clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user"))
-                .user(Optional.of("user"))
+                .sessionUser(Optional.of("user"))
                 .authorizationUser(Optional.of("user3"))
                 .build();
         assertError(submitQuery("SELECT 1+1", clientSession),
@@ -172,7 +172,7 @@ public class TestSetSessionAuthorization
 
         clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user"))
-                .user(Optional.of("user"))
+                .sessionUser(Optional.of("user"))
                 .authorizationUser(Optional.of("charlie"))
                 .build();
         assertError(submitQuery("SELECT 1+1", clientSession),
@@ -184,7 +184,7 @@ public class TestSetSessionAuthorization
     {
         ClientSession clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user"))
-                .user(Optional.of("user"))
+                .sessionUser(Optional.of("user"))
                 .authorizationUser(Optional.of("alice"))
                 .build();
 
@@ -199,7 +199,7 @@ public class TestSetSessionAuthorization
     {
         ClientSession clientSession = defaultClientSessionBuilder()
                 .principal(Optional.of("user"))
-                .user(Optional.of("user"))
+                .sessionUser(Optional.of("user"))
                 .build();
         assertResetAuthorizationUser(submitQuery("RESET SESSION AUTHORIZATION", clientSession));
         assertThat(submitQuery("SET SESSION AUTHORIZATION alice", clientSession).getSetAuthorizationUser().get()).isEqualTo("alice");
