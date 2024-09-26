@@ -48,7 +48,6 @@ public final class EnvMultinodeAllConnectors
         List.of(
                         // TODO accumulo needs to connect to ZooKeeper, it won't start otherwise
                         //"accumulo",
-                        "atop",
                         "bigquery",
                         "cassandra",
                         "clickhouse",
