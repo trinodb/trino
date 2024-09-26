@@ -921,6 +921,7 @@ public class DeltaLakeMetadata
 
             TableSnapshot snapshot = getSnapshot(session, tableName, tableLocation, Optional.empty());
             MetadataEntry metadata = transactionLogAccess.getMetadataEntry(session, snapshot);
+            enqueueUpdateInfo(session, table.getDatabaseName(), table.getTableName(), snapshot.getVersion(), metadata.getSchemaString(), Optional.ofNullable(metadata.getDescription()));
             return RelationCommentMetadata.forRelation(tableName, Optional.ofNullable(metadata.getDescription()));
         }
         catch (RuntimeException e) {
@@ -994,12 +995,11 @@ public class DeltaLakeMetadata
                             List<ColumnMetadata> columnsMetadata = metadataScheduler.getColumnsMetadata(table);
                             return Stream.of(TableColumnsMetadata.forTable(tableName, columnsMetadata));
                         }
-                        // Don't store cache in streamTableColumns method for avoiding too many update calls
-
                         TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, tableName, tableLocation, Optional.empty());
                         MetadataEntry metadata = transactionLogAccess.getMetadataEntry(session, snapshot);
                         ProtocolEntry protocol = transactionLogAccess.getProtocolEntry(session, snapshot);
                         List<ColumnMetadata> columnMetadata = getTableColumnMetadata(metadata, protocol);
+                        enqueueUpdateInfo(session, table.getDatabaseName(), table.getTableName(), snapshot.getVersion(), metadata.getSchemaString(), Optional.ofNullable(metadata.getDescription()));
                         return Stream.of(TableColumnsMetadata.forTable(tableName, columnMetadata));
                     }
                     catch (NotADeltaLakeTableException | IOException e) {
