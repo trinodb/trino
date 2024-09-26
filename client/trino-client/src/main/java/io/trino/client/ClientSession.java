@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class ClientSession
 {
     private final URI server;
-    private final Optional<String> principal;
+    private final Optional<String> user;
     private final Optional<String> sessionUser;
     private final Optional<String> authorizationUser;
     private final String source;
@@ -77,7 +77,7 @@ public class ClientSession
 
     private ClientSession(
             URI server,
-            Optional<String> principal,
+            Optional<String> user,
             Optional<String> sessionUser,
             Optional<String> authorizationUser,
             String source,
@@ -100,7 +100,7 @@ public class ClientSession
             Optional<String> encoding)
     {
         this.server = requireNonNull(server, "server is null");
-        this.principal = requireNonNull(principal, "principal is null");
+        this.user = requireNonNull(user, "user is null");
         this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
         this.authorizationUser = requireNonNull(authorizationUser, "authorizationUser is null");
         this.source = requireNonNull(source, "source is null");
@@ -156,9 +156,9 @@ public class ClientSession
         return server;
     }
 
-    public Optional<String> getPrincipal()
+    public Optional<String> getUser()
     {
-        return principal;
+        return user;
     }
 
     public Optional<String> getSessionUser()
@@ -274,7 +274,7 @@ public class ClientSession
     {
         return toStringHelper(this)
                 .add("server", server)
-                .add("principal", principal)
+                .add("user", user)
                 .add("sessionUser", sessionUser)
                 .add("authorizationUser", authorizationUser)
                 .add("clientTags", clientTags)
@@ -299,7 +299,7 @@ public class ClientSession
     public static final class Builder
     {
         private URI server;
-        private Optional<String> principal = Optional.empty();
+        private Optional<String> user = Optional.empty();
         private Optional<String> sessionUser = Optional.empty();
         private Optional<String> authorizationUser = Optional.empty();
         private String source;
@@ -327,7 +327,7 @@ public class ClientSession
         {
             requireNonNull(clientSession, "clientSession is null");
             server = clientSession.getServer();
-            principal = clientSession.getPrincipal();
+            user = clientSession.getUser();
             sessionUser = clientSession.getSessionUser();
             authorizationUser = clientSession.getAuthorizationUser();
             source = clientSession.getSource();
@@ -368,9 +368,9 @@ public class ClientSession
             return this;
         }
 
-        public Builder principal(Optional<String> principal)
+        public Builder user(Optional<String> user)
         {
-            this.principal = principal;
+            this.user = user;
             return this;
         }
 
@@ -486,7 +486,7 @@ public class ClientSession
         {
             return new ClientSession(
                     server,
-                    principal,
+                    user,
                     sessionUser,
                     authorizationUser,
                     source,

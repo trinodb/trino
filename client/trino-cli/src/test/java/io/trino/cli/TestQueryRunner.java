@@ -115,7 +115,7 @@ public class TestQueryRunner
     {
         return ClientSession.builder()
                 .server(server.url("/").uri())
-                .principal(Optional.of("user"))
+                .user(Optional.of("user"))
                 .source("source")
                 .clientInfo("clientInfo")
                 .catalog("catalog")

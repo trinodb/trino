@@ -81,7 +81,7 @@ public class TestUserImpersonationAccessControl
         try {
             ClientSession clientSession = ClientSession.builder()
                     .server(getDistributedQueryRunner().getCoordinator().getBaseUrl())
-                    .principal(Optional.of("user"))
+                    .user(Optional.of("user"))
                     .sessionUser(Optional.of(sessionUser))
                     .source("source")
                     .timeZone(ZoneId.of("America/Los_Angeles"))
