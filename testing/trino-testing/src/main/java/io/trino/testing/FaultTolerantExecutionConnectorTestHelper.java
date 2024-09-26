@@ -46,7 +46,7 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 // enable exchange compression to follow production deployment recommendations
                 .put("exchange.compression-codec", "LZ4")
                 .put("max-tasks-waiting-for-execution-per-query", "2")
-                .put("max-tasks-waiting-for-node-per-stage", "2")
+                .put("max-tasks-waiting-for-node-per-query", "2")
                 .put("query.schedule-split-batch-size", "2")
                 .buildOrThrow();
     }

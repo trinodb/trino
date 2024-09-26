@@ -363,9 +363,9 @@ fault-tolerant execution:
     property](session-properties-definition).
   - `50`
   - Only `TASK`
-* - `max-tasks-waiting-for-node-per-stage`
+* - `max-tasks-waiting-for-node-per-query`
   - Allow for up to configured number of tasks to wait for node allocation
-    per stage, before pausing scheduling for other tasks from this stage.
+    per query, before pausing scheduling for other tasks from this query.
   - 5
   - Only `TASK`
 :::
