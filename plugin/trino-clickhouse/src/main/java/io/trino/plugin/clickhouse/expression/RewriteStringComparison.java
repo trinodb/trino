@@ -13,19 +13,14 @@
  */
 package io.trino.plugin.clickhouse.expression;
 
-import com.clickhouse.data.ClickHouseColumn;
-import com.clickhouse.data.ClickHouseDataType;
 import com.google.common.collect.ImmutableList;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
-import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.QueryParameter;
 import io.trino.plugin.jdbc.expression.ComparisonOperator;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
-import io.trino.spi.TrinoException;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
@@ -44,7 +39,7 @@ import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.call;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.expression;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.functionName;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
-import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.clickhouse.ClickHouseClient.supportsPushdown;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
 
@@ -102,19 +97,5 @@ public class RewriteStringComparison
                         .addAll(left.get().parameters())
                         .addAll(right.get().parameters())
                         .build()));
-    }
-
-    private static boolean supportsPushdown(Variable variable, RewriteContext<?> context)
-    {
-        JdbcTypeHandle typeHandle = ((JdbcColumnHandle) context.getAssignment(variable.getName()))
-                .getJdbcTypeHandle();
-        String jdbcTypeName = typeHandle.jdbcTypeName()
-                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
-        ClickHouseColumn column = ClickHouseColumn.of("", jdbcTypeName);
-        ClickHouseDataType columnDataType = column.getDataType();
-        return switch (columnDataType) {
-            case FixedString, String -> true;
-            default -> false;
-        };
     }
 }
