@@ -366,7 +366,7 @@ fault-tolerant execution:
 * - `max-tasks-waiting-for-node-per-query`
   - Allow for up to configured number of tasks to wait for node allocation
     per query, before pausing scheduling for other tasks from this query.
-  - 5
+  - `50`
   - Only `TASK`
 :::
 
