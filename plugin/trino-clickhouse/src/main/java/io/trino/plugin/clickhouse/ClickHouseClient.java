@@ -30,6 +30,7 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.expression.ConnectorExpressionRule.RewriteContext;
 import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.clickhouse.expression.RewriteLike;
 import io.trino.plugin.clickhouse.expression.RewriteStringComparison;
 import io.trino.plugin.clickhouse.expression.RewriteStringIn;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -231,6 +232,7 @@ public class ClickHouseClient
                 .addStandardRules(this::quoted)
                 .add(new RewriteStringComparison())
                 .add(new RewriteStringIn())
+                .add(new RewriteLike())
                 .map("$not(value: boolean)").to("NOT value")
                 .build();
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
