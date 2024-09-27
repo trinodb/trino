@@ -22,6 +22,8 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.datatype.CreateAndInsertDataSetup;
+import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Disabled;
@@ -37,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.trino.plugin.clickhouse.ClickHouseSessionProperties.MAP_STRING_AS_VARCHAR;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PARTITION_BY_PROPERTY;
@@ -1087,6 +1090,61 @@ public class TestClickHouseConnectorTest
     }
 
     @Test
+    public void testIsNull()
+    {
+        Session mapStringAsVarbinary = Session.builder(getSession())
+                .setCatalogSessionProperty("clickhouse", MAP_STRING_AS_VARCHAR, "false")
+                .build();
+
+        NullPushdownDataTypeTest.connectorExpressionOnly()
+                .addSpecialColumn("String", "'z'", "CAST('z' AS varchar)")
+                .addTestCase("Nullable(real)")
+                .addTestCase("Nullable(decimal(3, 1))")
+                .addTestCase("Nullable(decimal(30, 5))")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_is_null"));
+
+        NullPushdownDataTypeTest.connectorExpressionOnly()
+                .addSpecialColumn("String", "'z'", "CAST('z' AS varbinary)")
+                .addTestCase("Nullable(char(10))")
+                .addTestCase("LowCardinality(Nullable(char(10)))")
+                .addTestCase("Nullable(FixedString(10))")
+                .addTestCase("LowCardinality(Nullable(FixedString(10)))")
+                .addTestCase("Nullable(varchar(30))")
+                .addTestCase("LowCardinality(Nullable(varchar(30)))")
+                .addTestCase("Nullable(String)")
+                .addTestCase("LowCardinality(Nullable(String))")
+                .execute(getQueryRunner(), mapStringAsVarbinary, clickhouseCreateAndInsert("tpch.test_is_null"));
+
+        NullPushdownDataTypeTest.create()
+                .addSpecialColumn("String", "'z'", "CAST('z' AS varchar)")
+                .addTestCase("Nullable(tinyint)")
+                .addTestCase("Nullable(smallint)")
+                .addTestCase("Nullable(integer)")
+                .addTestCase("Nullable(bigint)")
+                .addTestCase("Nullable(UInt8)")
+                .addTestCase("Nullable(UInt16)")
+                .addTestCase("Nullable(UInt32)")
+                .addTestCase("Nullable(UInt64)")
+                .addTestCase("Nullable(double)")
+                .addTestCase("Nullable(char(10))")
+                .addTestCase("LowCardinality(Nullable(char(10)))")
+                .addTestCase("Nullable(FixedString(10))")
+                .addTestCase("LowCardinality(Nullable(FixedString(10)))")
+                .addTestCase("Nullable(varchar(30))")
+                .addTestCase("LowCardinality(Nullable(varchar(30)))")
+                .addTestCase("Nullable(String)")
+                .addTestCase("LowCardinality(Nullable(String))")
+                .addTestCase("Nullable(date)")
+                .addTestCase("Nullable(timestamp)")
+                .addTestCase("Nullable(datetime)")
+                .addTestCase("Nullable(datetime('UTC'))")
+                .addTestCase("Nullable(UUID)")
+                .addTestCase("Nullable(IPv4)")
+                .addTestCase("Nullable(IPv6)")
+                .execute(getQueryRunner(), clickhouseCreateAndInsert("tpch.test_is_null"));
+    }
+
+    @Test
     @Override // Override because ClickHouse doesn't follow SQL standard syntax
     public void testExecuteProcedure()
     {
@@ -1153,5 +1211,10 @@ public class TestClickHouseConnectorTest
             }
             return properties.buildOrThrow();
         }
+    }
+
+    private DataSetup clickhouseCreateAndInsert(String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new ClickHouseSqlExecutor(onRemoteDatabase()), tableNamePrefix);
     }
 }
