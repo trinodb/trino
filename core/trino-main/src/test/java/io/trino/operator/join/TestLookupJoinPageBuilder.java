@@ -99,7 +99,7 @@ public class TestLookupJoinPageBuilder
         JoinProbe probe = joinProbeFactory.createJoinProbe(page);
         Page output = lookupJoinPageBuilder.build(probe);
         assertThat(output.getChannelCount()).isEqualTo(2);
-        assertThat(output.getBlock(0) instanceof LongArrayBlock).isTrue();
+        assertThat(output.getBlock(0)).isInstanceOf(LongArrayBlock.class);
         assertThat(output.getPositionCount()).isEqualTo(0);
         lookupJoinPageBuilder.reset();
 
@@ -113,7 +113,7 @@ public class TestLookupJoinPageBuilder
         }
         output = lookupJoinPageBuilder.build(probe);
         assertThat(output.getChannelCount()).isEqualTo(2);
-        assertThat(output.getBlock(0) instanceof DictionaryBlock).isTrue();
+        assertThat(output.getBlock(0)).isInstanceOf(DictionaryBlock.class);
         assertThat(output.getPositionCount()).isEqualTo(entries / 2);
         for (int i = 0; i < entries / 2; i++) {
             assertThat(BIGINT.getLong(output.getBlock(0), i)).isEqualTo(i * 2L);
@@ -128,7 +128,7 @@ public class TestLookupJoinPageBuilder
         }
         output = lookupJoinPageBuilder.build(probe);
         assertThat(output.getChannelCount()).isEqualTo(2);
-        assertThat(output.getBlock(0) instanceof DictionaryBlock).isFalse();
+        assertThat(output.getBlock(0)).isNotInstanceOf(DictionaryBlock.class);
         assertThat(output.getPositionCount()).isEqualTo(entries);
         for (int i = 0; i < entries; i++) {
             assertThat(BIGINT.getLong(output.getBlock(0), i)).isEqualTo(i);
@@ -146,7 +146,7 @@ public class TestLookupJoinPageBuilder
         }
         output = lookupJoinPageBuilder.build(probe);
         assertThat(output.getChannelCount()).isEqualTo(2);
-        assertThat(output.getBlock(0) instanceof DictionaryBlock).isFalse();
+        assertThat(output.getBlock(0)).isNotInstanceOf(DictionaryBlock.class);
         assertThat(output.getPositionCount()).isEqualTo(40);
         for (int i = 10; i < 50; i++) {
             assertThat(BIGINT.getLong(output.getBlock(0), i - 10)).isEqualTo(i);

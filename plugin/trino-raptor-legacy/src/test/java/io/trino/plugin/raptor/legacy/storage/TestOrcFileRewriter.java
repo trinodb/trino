@@ -284,7 +284,7 @@ public class TestOrcFileRewriter
         assertThat(info.getRowCount()).isEqualTo(0);
         assertThat(info.getUncompressedSize()).isEqualTo(0);
 
-        assertThat(newFile.exists()).isFalse();
+        assertThat(newFile).doesNotExist();
     }
 
     @Test

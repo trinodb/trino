@@ -47,8 +47,8 @@ public class TestBooleanType
         // wrapped instances have no nulls
         assertThat(wrappedBlock.mayHaveNull()).isFalse();
         // wrapped byte array instances and builder based instances both produce ByteArrayBlock
-        assertThat(wrappedBlock instanceof ByteArrayBlock).isTrue();
-        assertThat(builderBlock instanceof ByteArrayBlock).isTrue();
+        assertThat(wrappedBlock).isInstanceOf(ByteArrayBlock.class);
+        assertThat(builderBlock).isInstanceOf(ByteArrayBlock.class);
         assertBlockEquals(BOOLEAN, wrappedBlock, builderBlock);
         // the wrapping instance does not copy the byte array defensively
         assertThat(BOOLEAN.getBoolean(wrappedBlock, 0)).isTrue();

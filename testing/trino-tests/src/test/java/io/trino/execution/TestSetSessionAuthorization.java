@@ -219,8 +219,8 @@ public class TestSetSessionAuthorization
 
     private void assertResetAuthorizationUser(StatementClient client)
     {
-        assertThat(client.isResetAuthorizationUser()).isEqualTo(true);
-        assertThat(client.getSetAuthorizationUser().isEmpty()).isEqualTo(true);
+        assertThat(client.isResetAuthorizationUser()).isTrue();
+        assertThat(client.getSetAuthorizationUser()).isEmpty();
     }
 
     private ClientSession.Builder defaultClientSessionBuilder()

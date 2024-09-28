@@ -184,7 +184,7 @@ public class TestTrinoCli
             throws Exception
     {
         launchTrinoCliWithServerArgument("--execute", "");
-        assertThat(trimLines(trino.readRemainingOutputLines()).isEmpty()).isTrue();
+        assertThat(trimLines(trino.readRemainingOutputLines())).isEmpty();
         trino.waitForWithTimeoutAndKill();
     }
 

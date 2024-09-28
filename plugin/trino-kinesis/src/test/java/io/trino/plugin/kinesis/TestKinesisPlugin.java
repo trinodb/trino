@@ -59,7 +59,7 @@ public class TestKinesisPlugin
         assertThat(md).isNotNull();
 
         ConnectorTransactionHandle handle = c.beginTransaction(READ_COMMITTED, true, true);
-        assertThat(handle instanceof KinesisTransactionHandle).isTrue();
+        assertThat(handle).isInstanceOf(KinesisTransactionHandle.class);
 
         c.shutdown();
     }

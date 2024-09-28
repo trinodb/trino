@@ -145,7 +145,7 @@ public class TestMinimalFunctionality
                 .singleStatement()
                 .execute(SESSION, session -> {
                     Optional<TableHandle> handle = metadata.getTableHandle(session, name);
-                    assertThat(handle.isPresent()).isTrue();
+                    assertThat(handle).isPresent();
                 });
     }
 

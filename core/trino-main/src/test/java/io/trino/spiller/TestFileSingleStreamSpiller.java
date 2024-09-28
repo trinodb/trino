@@ -114,7 +114,7 @@ public class TestFileSingleStreamSpiller
                     encryption);
             LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
             SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, bytes -> {}, memoryContext);
-            assertThat(singleStreamSpiller instanceof FileSingleStreamSpiller).isTrue();
+            assertThat(singleStreamSpiller).isInstanceOf(FileSingleStreamSpiller.class);
             FileSingleStreamSpiller spiller = (FileSingleStreamSpiller) singleStreamSpiller;
 
             Page page = buildPage();

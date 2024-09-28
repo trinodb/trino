@@ -254,7 +254,7 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, firstQuery, RUNNING);
 
         Optional<ResourceGroupId> resourceGroup = queryManager.getFullQueryInfo(firstQuery).getResourceGroupId();
-        assertThat(resourceGroup.isPresent()).isTrue();
+        assertThat(resourceGroup).isPresent();
         assertThat(resourceGroup.get().toString()).isEqualTo("global.user-user.dashboard-user");
 
         // create a new resource group that rejects all queries submitted to it

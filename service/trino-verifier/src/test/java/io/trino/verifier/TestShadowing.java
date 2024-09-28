@@ -82,8 +82,8 @@ public class TestShadowing
 
         CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
         assertThat(createTableAs.getName().getParts().size()).isEqualTo(1);
-        assertThat(createTableAs.getName().getSuffix().startsWith("tmp_")).isTrue();
-        assertThat(createTableAs.getName().getSuffix().contains("my_test_table")).isFalse();
+        assertThat(createTableAs.getName().getSuffix()).startsWith("tmp_");
+        assertThat(createTableAs.getName().getSuffix()).doesNotContain("my_test_table");
 
         assertThat(statementToQueryType(parser, rewrittenQuery.getQuery())).isEqualTo(READ);
 
@@ -108,8 +108,8 @@ public class TestShadowing
         CreateTableAsSelect createTableAs = (CreateTableAsSelect) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
         assertThat(createTableAs.getName().getParts().size()).isEqualTo(3);
         assertThat(createTableAs.getName().getPrefix().get()).isEqualTo(QualifiedName.of("other_catalog", "other_schema"));
-        assertThat(createTableAs.getName().getSuffix().startsWith("tmp_")).isTrue();
-        assertThat(createTableAs.getName().getSuffix().contains("my_test_table")).isFalse();
+        assertThat(createTableAs.getName().getSuffix()).startsWith("tmp_");
+        assertThat(createTableAs.getName().getSuffix()).doesNotContain("my_test_table");
     }
 
     @Test
@@ -126,8 +126,8 @@ public class TestShadowing
         CreateTable createTable = (CreateTable) parser.createStatement(rewrittenQuery.getPreQueries().get(0));
         assertThat(createTable.getName().getParts().size()).isEqualTo(3);
         assertThat(createTable.getName().getPrefix().get()).isEqualTo(QualifiedName.of("other_catalog", "other_schema"));
-        assertThat(createTable.getName().getSuffix().startsWith("tmp_")).isTrue();
-        assertThat(createTable.getName().getSuffix().contains("test_insert_table")).isFalse();
+        assertThat(createTable.getName().getSuffix()).startsWith("tmp_");
+        assertThat(createTable.getName().getSuffix()).doesNotContain("test_insert_table");
 
         Insert insert = (Insert) parser.createStatement(rewrittenQuery.getPreQueries().get(1));
         assertThat(insert.getTarget()).isEqualTo(createTable.getName());

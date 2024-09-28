@@ -108,12 +108,12 @@ public class TestShardRecovery
         backupStore.backupShard(shardUuid, tempFile);
         assertThat(backupStore.shardExists(shardUuid)).isTrue();
         File backupFile = backupStore.getBackupFile(shardUuid);
-        assertThat(backupFile.exists()).isTrue();
+        assertThat(backupFile).exists();
         assertThat(backupFile.length()).isEqualTo(tempFile.length());
 
-        assertThat(file.exists()).isFalse();
+        assertThat(file).doesNotExist();
         recoveryManager.restoreFromBackup(shardUuid, tempFile.length(), OptionalLong.empty());
-        assertThat(file.exists()).isTrue();
+        assertThat(file).exists();
         assertThat(file.length()).isEqualTo(tempFile.length());
     }
 
@@ -139,7 +139,7 @@ public class TestShardRecovery
 
         writeString(storageFile.toPath(), "bad data");
 
-        assertThat(storageFile.exists()).isTrue();
+        assertThat(storageFile).exists();
         assertThat(storageFile.length())
                 .isNotEqualTo(tempFile.length());
         assertThat(Files.equal(storageFile, tempFile)).isFalse();
@@ -147,13 +147,13 @@ public class TestShardRecovery
         // restore from backup and verify
         recoveryManager.restoreFromBackup(shardUuid, tempFile.length(), OptionalLong.empty());
 
-        assertThat(storageFile.exists()).isTrue();
+        assertThat(storageFile).exists();
         assertThat(Files.equal(storageFile, tempFile)).isTrue();
 
         // verify quarantine exists
         List<String> quarantined = listFiles(storageService.getQuarantineFile(shardUuid).getParentFile());
         assertThat(quarantined.size()).isEqualTo(1);
-        assertThat(getOnlyElement(quarantined).startsWith(shardUuid + ".orc.corrupt")).isTrue();
+        assertThat(getOnlyElement(quarantined)).startsWith(shardUuid + ".orc.corrupt");
     }
 
     @Test
@@ -178,20 +178,20 @@ public class TestShardRecovery
 
         writeString(storageFile.toPath(), "test xata");
 
-        assertThat(storageFile.exists()).isTrue();
+        assertThat(storageFile).exists();
         assertThat(storageFile.length()).isEqualTo(tempFile.length());
         assertThat(Files.equal(storageFile, tempFile)).isFalse();
 
         // restore from backup and verify
         recoveryManager.restoreFromBackup(shardUuid, tempFile.length(), OptionalLong.of(xxhash64(tempFile)));
 
-        assertThat(storageFile.exists()).isTrue();
+        assertThat(storageFile).exists();
         assertThat(Files.equal(storageFile, tempFile)).isTrue();
 
         // verify quarantine exists
         List<String> quarantined = listFiles(storageService.getQuarantineFile(shardUuid).getParentFile());
         assertThat(quarantined.size()).isEqualTo(1);
-        assertThat(getOnlyElement(quarantined).startsWith(shardUuid + ".orc.corrupt")).isTrue();
+        assertThat(getOnlyElement(quarantined)).startsWith(shardUuid + ".orc.corrupt");
     }
 
     @Test
@@ -219,13 +219,13 @@ public class TestShardRecovery
         // corrupt backup file
         writeString(backupFile.toPath(), "test xata");
 
-        assertThat(backupFile.exists()).isTrue();
+        assertThat(backupFile).exists();
         assertThat(storageFile.length()).isEqualTo(backupFile.length());
         assertThat(Files.equal(storageFile, backupFile)).isFalse();
 
         // delete local file to force restore
         assertThat(storageFile.delete()).isTrue();
-        assertThat(storageFile.exists()).isFalse();
+        assertThat(storageFile).doesNotExist();
 
         // restore should fail
         assertTrinoExceptionThrownBy(() -> recoveryManager.restoreFromBackup(shardUuid, size, OptionalLong.of(xxhash64)))
@@ -235,7 +235,7 @@ public class TestShardRecovery
         // verify quarantine exists
         List<String> quarantined = listFiles(storageService.getQuarantineFile(shardUuid).getParentFile());
         assertThat(quarantined.size()).isEqualTo(1);
-        assertThat(getOnlyElement(quarantined).startsWith(shardUuid + ".orc.corrupt")).isTrue();
+        assertThat(getOnlyElement(quarantined)).startsWith(shardUuid + ".orc.corrupt");
     }
 
     @Test

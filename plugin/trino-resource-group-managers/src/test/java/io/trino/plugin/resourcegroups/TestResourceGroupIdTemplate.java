@@ -75,7 +75,7 @@ public class TestResourceGroupIdTemplate
         StaticSelector selector = new StaticSelector(Optional.empty(), Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
         SelectionCriteria context = new SelectionCriteria(true, "user", ImmutableSet.of(), Optional.of("scheduler.testpipeline[5]"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
 
-        assertThat(selector.match(context).isPresent()).isFalse();
+        assertThat(selector.match(context)).isEmpty();
     }
 
     @Test

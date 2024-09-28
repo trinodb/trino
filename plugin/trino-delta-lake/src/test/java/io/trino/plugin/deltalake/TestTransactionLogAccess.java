@@ -673,8 +673,8 @@ public class TestTransactionLogAccess
             assertThat(expected.isDataChange()).isEqualTo(actual.isDataChange());
             assertThat(expected.getTags()).isEqualTo(actual.getTags());
 
-            assertThat(expected.getStats().isPresent()).isTrue();
-            assertThat(actual.getStats().isPresent()).isTrue();
+            assertThat(expected.getStats()).isPresent();
+            assertThat(actual.getStats()).isPresent();
 
             for (ColumnMetadata column : columns) {
                 DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(column.getName(), column.getType(), OptionalInt.empty(), column.getName(), column.getType(), REGULAR, Optional.empty());

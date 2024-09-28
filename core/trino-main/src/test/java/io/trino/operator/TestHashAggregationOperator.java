@@ -624,7 +624,7 @@ public class TestHashAggregationOperator
             }
 
             // There should be some pages that were drained
-            assertThat(!outputPages.isEmpty()).isTrue();
+            assertThat(outputPages).isNotEmpty();
 
             // The operator need input again since this was a partial flush
             assertThat(operator.needsInput()).isTrue();
@@ -964,7 +964,7 @@ public class TestHashAggregationOperator
         if (aggregationBuilder == null) {
             return 0;
         }
-        assertThat(aggregationBuilder instanceof InMemoryHashAggregationBuilder).isTrue();
+        assertThat(aggregationBuilder).isInstanceOf(InMemoryHashAggregationBuilder.class);
         return ((InMemoryHashAggregationBuilder) aggregationBuilder).getCapacity();
     }
 

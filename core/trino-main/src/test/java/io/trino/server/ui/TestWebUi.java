@@ -373,7 +373,7 @@ public class TestWebUi
         try (Response response = client.newCall(request).execute()) {
             assertThat(response.code()).isEqualTo(SC_SEE_OTHER);
             assertThat(response.header(LOCATION)).isEqualTo(getLoginHtmlLocation(httpsUrl));
-            assertThat(cookieManager.getCookieStore().getCookies().isEmpty()).isTrue();
+            assertThat(cookieManager.getCookieStore().getCookies()).isEmpty();
         }
     }
 

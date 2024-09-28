@@ -73,7 +73,7 @@ public class TestCompactionSetCreator
         for (OrganizationSet set : compactionSets) {
             actual.addAll(set.getShards());
         }
-        assertThat(extractIndexes(inputShards, 0, 1, 2).containsAll(actual)).isTrue();
+        assertThat(extractIndexes(inputShards, 0, 1, 2)).containsAll(actual);
     }
 
     @Test
@@ -92,7 +92,7 @@ public class TestCompactionSetCreator
             actual.addAll(set.getShards());
         }
 
-        assertThat(extractIndexes(inputShards, 0, 2, 3).containsAll(actual)).isTrue();
+        assertThat(extractIndexes(inputShards, 0, 2, 3)).containsAll(actual);
     }
 
     @Test
