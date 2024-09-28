@@ -17,40 +17,39 @@ import alluxio.AlluxioURI;
 import io.trino.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.filesystem.alluxio.AlluxioUtils.convertToAlluxioURI;
+import static io.trino.filesystem.alluxio.AlluxioUtils.convertToLocation;
+import static io.trino.filesystem.alluxio.AlluxioUtils.simplifyPath;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestAlluxioUtils
+final class TestAlluxioUtils
 {
     @Test
-    public void testSimplifyPath()
+    void testSimplifyPath()
     {
-        String path = "test/level0-file0";
-        assertThat(path).isEqualTo(AlluxioUtils.simplifyPath(path));
-        path = "a/./b/../../c/";
-        assertThat("c/").isEqualTo(AlluxioUtils.simplifyPath(path));
+        assertThat(simplifyPath("test/level0-file0")).isEqualTo("test/level0-file0");
+        assertThat(simplifyPath("a/./b/../../c/")).isEqualTo("c/");
     }
 
     @Test
-    public void convertToLocation()
+    void testConvertToLocation()
     {
-        String mountRoot = "/";
-        String path = "/mnt/test/level0-file0";
-        assertThat(Location.of("alluxio:///mnt/test/level0-file0")).isEqualTo(AlluxioUtils.convertToLocation(path, mountRoot));
-        path = "/mnt/test/level0/level1-file0";
-        assertThat(Location.of("alluxio:///mnt/test/level0/level1-file0")).isEqualTo(AlluxioUtils.convertToLocation(path, mountRoot));
-        path = "/mnt/test2/level0/level1/level2-file0";
-        assertThat(Location.of("alluxio:///mnt/test2/level0/level1/level2-file0")).isEqualTo(AlluxioUtils.convertToLocation(path, mountRoot));
+        assertThat(convertToLocation("/mnt/test/level0-file0", "/"))
+                .isEqualTo(Location.of("alluxio:///mnt/test/level0-file0"));
+        assertThat(convertToLocation("/mnt/test/level0/level1-file0", "/"))
+                .isEqualTo(Location.of("alluxio:///mnt/test/level0/level1-file0"));
+        assertThat(convertToLocation("/mnt/test2/level0/level1/level2-file0", "/"))
+                .isEqualTo(Location.of("alluxio:///mnt/test2/level0/level1/level2-file0"));
     }
 
     @Test
-    public void testConvertToAlluxioURI()
+    void testConvertToAlluxioURI()
     {
-        Location location = Location.of("alluxio:///mnt/test/level0-file0");
-        String mountRoot = "/";
-        assertThat(new AlluxioURI("/mnt/test/level0-file0")).isEqualTo(AlluxioUtils.convertToAlluxioURI(location, mountRoot));
-        location = Location.of("alluxio:///mnt/test/level0/level1-file0");
-        assertThat(new AlluxioURI("/mnt/test/level0/level1-file0")).isEqualTo(AlluxioUtils.convertToAlluxioURI(location, mountRoot));
-        location = Location.of("alluxio:///mnt/test2/level0/level1/level2-file0");
-        assertThat(new AlluxioURI("/mnt/test2/level0/level1/level2-file0")).isEqualTo(AlluxioUtils.convertToAlluxioURI(location, mountRoot));
+        assertThat(convertToAlluxioURI(Location.of("alluxio:///mnt/test/level0-file0"), "/"))
+                .isEqualTo(new AlluxioURI("/mnt/test/level0-file0"));
+        assertThat(convertToAlluxioURI(Location.of("alluxio:///mnt/test/level0/level1-file0"), "/"))
+                .isEqualTo(new AlluxioURI("/mnt/test/level0/level1-file0"));
+        assertThat(convertToAlluxioURI(Location.of("alluxio:///mnt/test2/level0/level1/level2-file0"), "/"))
+                .isEqualTo(new AlluxioURI("/mnt/test2/level0/level1/level2-file0"));
     }
 }
