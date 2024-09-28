@@ -87,7 +87,7 @@ public class TestKuduIntegrationDynamicFilter
                 .beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());
         QualifiedObjectName tableName = new QualifiedObjectName("kudu", "tpch", "orders");
         Optional<TableHandle> tableHandle = runner.getPlannerContext().getMetadata().getTableHandle(session, tableName);
-        assertThat(tableHandle.isPresent()).isTrue();
+        assertThat(tableHandle).isPresent();
         CompletableFuture<Void> dynamicFilterBlocked = new CompletableFuture<>();
         try {
             SplitSource splitSource = runner.getSplitManager()
@@ -97,7 +97,7 @@ public class TestKuduIntegrationDynamicFilter
                 splits.addAll(splitSource.getNextBatch(1000).get().getSplits());
             }
             splitSource.close();
-            assertThat(splits.isEmpty()).isFalse();
+            assertThat(splits).isNotEmpty();
         }
         finally {
             dynamicFilterBlocked.complete(null);

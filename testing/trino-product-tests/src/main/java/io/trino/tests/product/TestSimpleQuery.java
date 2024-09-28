@@ -46,13 +46,13 @@ public class TestSimpleQuery
     @BeforeMethodWithContext
     public void beforeTest()
     {
-        assertThat(testContextIfSet().isPresent()).isTrue();
+        assertThat(testContextIfSet()).isPresent();
     }
 
     @AfterMethodWithContext
     public void afterTest()
     {
-        assertThat(testContextIfSet().isPresent()).isTrue();
+        assertThat(testContextIfSet()).isPresent();
     }
 
     @Test(groups = SMOKE)

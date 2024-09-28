@@ -401,7 +401,7 @@ public class TestProtobufDecoder
                 .orElseThrow(AssertionError::new);
 
         JsonNode actual = new ObjectMapper().readTree(decodedRow.get(testOneOfColumn).getSlice().toStringUtf8());
-        assertThat(actual.get("@type").textValue().contains("schema")).isTrue();
+        assertThat(actual.get("@type").textValue()).contains("schema");
         assertThat(actual.get("stringColumn").textValue()).isEqualTo(stringData);
         assertThat(actual.get("integerColumn").intValue()).isEqualTo(integerData);
         assertThat(actual.get("longColumn").textValue()).isEqualTo(Long.toString(longData));

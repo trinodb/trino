@@ -43,33 +43,33 @@ public class TestScope
         Expression c3 = name("c3");
         Expression c4 = name("c4");
 
-        assertThat(root.tryResolveField(c1).isPresent()).isFalse();
+        assertThat(root.tryResolveField(c1)).isEmpty();
 
-        assertThat(outer.tryResolveField(c1).isPresent()).isTrue();
+        assertThat(outer.tryResolveField(c1)).isPresent();
         assertThat(outer.tryResolveField(c1).get().getField()).isEqualTo(outerColumn1);
         assertThat(outer.tryResolveField(c1).get().isLocal()).isEqualTo(true);
         assertThat(outer.tryResolveField(c1).get().getHierarchyFieldIndex()).isEqualTo(0);
-        assertThat(outer.tryResolveField(c2).isPresent()).isTrue();
+        assertThat(outer.tryResolveField(c2)).isPresent();
         assertThat(outer.tryResolveField(c2).get().getField()).isEqualTo(outerColumn2);
         assertThat(outer.tryResolveField(c2).get().isLocal()).isEqualTo(true);
         assertThat(outer.tryResolveField(c2).get().getHierarchyFieldIndex()).isEqualTo(1);
-        assertThat(outer.tryResolveField(c3).isPresent()).isFalse();
-        assertThat(outer.tryResolveField(c4).isPresent()).isFalse();
+        assertThat(outer.tryResolveField(c3)).isEmpty();
+        assertThat(outer.tryResolveField(c4)).isEmpty();
 
-        assertThat(inner.tryResolveField(c1).isPresent()).isTrue();
+        assertThat(inner.tryResolveField(c1)).isPresent();
         assertThat(inner.tryResolveField(c1).get().getField()).isEqualTo(outerColumn1);
         assertThat(inner.tryResolveField(c1).get().isLocal()).isEqualTo(false);
         assertThat(inner.tryResolveField(c1).get().getHierarchyFieldIndex()).isEqualTo(0);
         assertThat(inner.tryResolveField(c1).get().getRelationFieldIndex()).isEqualTo(0);
-        assertThat(inner.tryResolveField(c2).isPresent()).isTrue();
+        assertThat(inner.tryResolveField(c2)).isPresent();
         assertThat(inner.tryResolveField(c2).get().getField()).isEqualTo(innerColumn2);
         assertThat(inner.tryResolveField(c2).get().isLocal()).isEqualTo(true);
         assertThat(inner.tryResolveField(c2).get().getHierarchyFieldIndex()).isEqualTo(0);
-        assertThat(inner.tryResolveField(c2).isPresent()).isTrue();
+        assertThat(inner.tryResolveField(c2)).isPresent();
         assertThat(inner.tryResolveField(c3).get().getField()).isEqualTo(innerColumn3);
         assertThat(inner.tryResolveField(c3).get().isLocal()).isEqualTo(true);
         assertThat(inner.tryResolveField(c3).get().getHierarchyFieldIndex()).isEqualTo(1);
-        assertThat(inner.tryResolveField(c4).isPresent()).isFalse();
+        assertThat(inner.tryResolveField(c4)).isEmpty();
 
         assertThat(inner.getOuterQueryParent()).isEqualTo(Optional.of(outer));
     }

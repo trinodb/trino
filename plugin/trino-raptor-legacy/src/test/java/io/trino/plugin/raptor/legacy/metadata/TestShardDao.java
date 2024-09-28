@@ -76,7 +76,7 @@ public class TestShardDao
         assertThatThrownBy(() -> dao.insertExternalBatch("foo"))
                 .isInstanceOfSatisfying(UnableToExecuteStatementException.class, e -> {
                     assertInstanceOf(e.getCause(), SQLException.class);
-                    assertThat(((SQLException) e.getCause()).getSQLState().startsWith("23")).isTrue();
+                    assertThat(((SQLException) e.getCause()).getSQLState()).startsWith("23");
                 });
     }
 

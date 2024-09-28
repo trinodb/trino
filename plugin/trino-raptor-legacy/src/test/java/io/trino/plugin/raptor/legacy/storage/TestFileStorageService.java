@@ -93,14 +93,14 @@ public class TestFileStorageService
 
         File file = store.getStagingFile(randomUUID());
         store.createParents(file);
-        assertThat(file.exists()).isFalse();
+        assertThat(file).doesNotExist();
         assertThat(file.createNewFile()).isTrue();
         assertThat(file).isFile();
 
         store.stop();
 
-        assertThat(file.exists()).isFalse();
-        assertThat(staging.exists()).isFalse();
+        assertThat(file).doesNotExist();
+        assertThat(staging).doesNotExist();
         assertThat(storage).isDirectory();
         assertThat(quarantine).isDirectory();
     }

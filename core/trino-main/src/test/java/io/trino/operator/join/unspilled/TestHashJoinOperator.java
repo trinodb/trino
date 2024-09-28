@@ -302,7 +302,7 @@ public class TestHashJoinOperator
         operator.finish();
 
         Page output = operator.getOutput();
-        assertThat(output.getBlock(1) instanceof LazyBlock).isFalse();
+        assertThat(output.getBlock(1)).isNotInstanceOf(LazyBlock.class);
     }
 
     @Test

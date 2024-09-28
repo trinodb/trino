@@ -221,7 +221,7 @@ public class TestRaptorStorageManager
         // remove primary shard to force recovery from backup
         assertThat(file.delete()).isTrue();
         assertThat(file.getParentFile().delete()).isTrue();
-        assertThat(file.exists()).isFalse();
+        assertThat(file).doesNotExist();
 
         recoveryManager.restoreFromBackup(shardUuid, shardInfo.getCompressedSize(), OptionalLong.of(shardInfo.getXxhash64()));
 

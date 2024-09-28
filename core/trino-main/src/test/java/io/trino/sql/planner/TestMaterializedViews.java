@@ -337,37 +337,37 @@ public class TestMaterializedViews
     {
         createMaterializedView("simple_materialized_view", "SELECT a as new_name, b FROM test_table WHERE a is not null and b > 1");
         Optional<RefreshType> refreshType = getRefreshType("simple_materialized_view");
-        assertThat(refreshType.isPresent()).isTrue();
+        assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(INCREMENTAL);
 
         createMaterializedView("aggregation_materialized_view", "SELECT a, count(*) FROM test_table GROUP BY a");
         refreshType = getRefreshType("aggregation_materialized_view");
-        assertThat(refreshType.isPresent()).isTrue();
+        assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(FULL);
 
         createMaterializedView("join_materialized_view", "SELECT a.a, b.b FROM test_table a JOIN test_table b on a.a = b.a");
         refreshType = getRefreshType("join_materialized_view");
-        assertThat(refreshType.isPresent()).isTrue();
+        assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(FULL);
 
         createMaterializedView("distinct_materialized_view", "SELECT distinct a, b FROM test_table");
         refreshType = getRefreshType("distinct_materialized_view");
-        assertThat(refreshType.isPresent()).isTrue();
+        assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(FULL);
 
         createMaterializedView("table_subquery_materialized_view", "SELECT a, b FROM (SELECT a, b FROM (VALUES (1, 2), (3, 4)) t(a, b))");
         refreshType = getRefreshType("table_subquery_materialized_view");
-        assertThat(refreshType.isPresent()).isTrue();
+        assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(FULL);
 
         createMaterializedView("where_subquery_materialized_view", "SELECT a, b FROM test_table WHERE b in (SELECT b FROM test_table WHERE a < 0)");
         refreshType = getRefreshType("where_subquery_materialized_view");
-        assertThat(refreshType.isPresent()).isTrue();
+        assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(FULL);
 
         createMaterializedView("union_view", "SELECT a, b FROM test_table a WHERE a.b in (6, 9) UNION ALL SELECT a, b FROM test_table b WHERE b.b in (1, 5)");
         refreshType = getRefreshType("union_view");
-        assertThat(refreshType.isPresent()).isTrue();
+        assertThat(refreshType).isPresent();
         assertThat(refreshType.get()).isEqualTo(FULL);
     }
 

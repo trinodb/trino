@@ -14,7 +14,6 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -73,7 +72,7 @@ public class TestJdbcClient
     @Test
     public void testMetadata()
     {
-        assertThat(jdbcClient.getSchemaNames(session).containsAll(ImmutableSet.of("example", "tpch"))).isTrue();
+        assertThat(jdbcClient.getSchemaNames(session)).contains("example", "tpch");
         assertThat(jdbcClient.getTableNames(session, Optional.of("example"))).containsExactly(
                 new SchemaTableName("example", "numbers"),
                 new SchemaTableName("example", "timestamps"),

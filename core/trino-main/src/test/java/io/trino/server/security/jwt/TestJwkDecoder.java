@@ -69,8 +69,8 @@ public class TestJwkDecoder
                 "  ]\n" +
                 "}");
         assertThat(keys.size()).isEqualTo(2);
-        assertThat(keys.get("example-rsa") instanceof JwkRsaPublicKey).isTrue();
-        assertThat(keys.get("example-ec") instanceof JwkEcPublicKey).isTrue();
+        assertThat(keys.get("example-rsa")).isInstanceOf(JwkRsaPublicKey.class);
+        assertThat(keys.get("example-ec")).isInstanceOf(JwkEcPublicKey.class);
     }
 
     @Test
@@ -228,7 +228,7 @@ public class TestJwkDecoder
                 "  ]\n" +
                 "}");
         assertThat(keys.size()).isEqualTo(1);
-        assertThat(keys.get("test-ec") instanceof JwkEcPublicKey).isTrue();
+        assertThat(keys.get("test-ec")).isInstanceOf(JwkEcPublicKey.class);
     }
 
     @Test

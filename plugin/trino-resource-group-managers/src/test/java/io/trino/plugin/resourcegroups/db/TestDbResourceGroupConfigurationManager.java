@@ -132,8 +132,8 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
         assertThatThrownBy(() -> dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, ENVIRONMENT))
                 .isInstanceOfSatisfying(UnableToExecuteStatementException.class, ex -> {
-                    assertThat(ex.getCause() instanceof JdbcException).isTrue();
-                    assertThat(ex.getCause().getMessage().startsWith("Unique index or primary key violation")).isTrue();
+                    assertThat(ex.getCause()).isInstanceOf(JdbcException.class);
+                    assertThat(ex.getCause().getMessage()).startsWith("Unique index or primary key violation");
                 });
         dao.insertSelector(1, 1, null, null, null, null, null, null);
     }
@@ -150,8 +150,8 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroup(2, "sub", "1MB", 1000, 100, 100, null, null, null, null, null, 1L, ENVIRONMENT);
         assertThatThrownBy(() -> dao.insertResourceGroup(2, "sub", "1MB", 1000, 100, 100, null, null, null, null, null, 1L, ENVIRONMENT))
                 .isInstanceOfSatisfying(UnableToExecuteStatementException.class, ex -> {
-                    assertThat(ex.getCause() instanceof JdbcException).isTrue();
-                    assertThat(ex.getCause().getMessage().startsWith("Unique index or primary key violation")).isTrue();
+                    assertThat(ex.getCause()).isInstanceOf(JdbcException.class);
+                    assertThat(ex.getCause().getMessage()).startsWith("Unique index or primary key violation");
                 });
         dao.insertSelector(2, 2, null, null, null, null, null, null);
     }
@@ -232,7 +232,7 @@ public class TestDbResourceGroupConfigurationManager
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(listener -> {}, config, daoProvider.get(), ENVIRONMENT);
         manager.load();
         assertThat(manager.getSelectors().size()).isEqualTo(2);
-        assertThat(manager.getSelectors().get(0) instanceof DbSourceExactMatchSelector).isTrue();
+        assertThat(manager.getSelectors().get(0)).isInstanceOf(DbSourceExactMatchSelector.class);
 
         config.setExactMatchSelectorEnabled(false);
         manager = new DbResourceGroupConfigurationManager(listener -> {}, config, daoProvider.get(), ENVIRONMENT);
@@ -279,7 +279,7 @@ public class TestDbResourceGroupConfigurationManager
 
         for (int i = 0; i < numberOfUsers; i++) {
             Optional<Pattern> user = ((StaticSelector) selectors.get(i)).getUserRegex();
-            assertThat(user.isPresent()).isTrue();
+            assertThat(user).isPresent();
             assertThat(user.get().pattern()).isEqualTo(expectedUsers.get(i));
         }
     }

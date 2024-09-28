@@ -2430,7 +2430,7 @@ public abstract class BaseOpenSearchConnectorTest
     {
         String catalogName = getSession().getCatalog().orElseThrow();
         assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
-        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(name)).isFalse();
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).doesNotContain(name);
         assertQueryFails("SELECT * FROM " + name, ".*Table '" + catalogName + ".tpch." + name + "' does not exist");
     }
 

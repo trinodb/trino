@@ -193,7 +193,7 @@ public class TestShardWriter
         }
 
         File crcFile = new File(file.getParentFile(), "." + file.getName() + ".crc");
-        assertThat(crcFile.exists()).isFalse();
+        assertThat(crcFile).doesNotExist();
     }
 
     @SuppressWarnings("EmptyClass")

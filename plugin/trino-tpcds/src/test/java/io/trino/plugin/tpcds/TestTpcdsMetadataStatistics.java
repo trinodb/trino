@@ -49,7 +49,7 @@ public class TestTpcdsMetadataStatistics
                             ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
                             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle);
                             assertThat(tableStatistics.getRowCount().isUnknown()).isTrue();
-                            assertThat(tableStatistics.getColumnStatistics().isEmpty()).isTrue();
+                            assertThat(tableStatistics.getColumnStatistics()).isEmpty();
                         }));
     }
 

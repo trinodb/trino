@@ -84,7 +84,7 @@ public class TestHeartbeatFailureDetector
         assertThat(detector.getTotalCount()).isEqualTo(0);
         assertThat(detector.getActiveCount()).isEqualTo(0);
         assertThat(detector.getFailedCount()).isEqualTo(0);
-        assertThat(detector.getFailed().isEmpty()).isTrue();
+        assertThat(detector.getFailed()).isEmpty();
     }
 
     @Test

@@ -158,13 +158,13 @@ public class TestShardEjector
         Set<UUID> remaining = uuids(shardManager.getNodeShards("node1"));
 
         for (UUID uuid : ejectedShards) {
-            assertThat(remaining.contains(uuid)).isFalse();
-            assertThat(storageService.getStorageFile(uuid).exists()).isFalse();
+            assertThat(remaining).doesNotContain(uuid);
+            assertThat(storageService.getStorageFile(uuid)).doesNotExist();
         }
 
         assertThat(remaining).isEqualTo(keptShards);
         for (UUID uuid : keptShards) {
-            assertThat(storageService.getStorageFile(uuid).exists()).isTrue();
+            assertThat(storageService.getStorageFile(uuid)).exists();
         }
 
         Set<UUID> others = ImmutableSet.<UUID>builder()
@@ -174,7 +174,7 @@ public class TestShardEjector
                 .addAll(uuids(shardManager.getNodeShards("node5")))
                 .build();
 
-        assertThat(others.containsAll(ejectedShards)).isTrue();
+        assertThat(others).containsAll(ejectedShards);
     }
 
     private long createTable(String name)

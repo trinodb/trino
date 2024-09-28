@@ -157,7 +157,7 @@ public class TestMatcher
         Optional<Match> match = pattern.match(42)
                 .collect(toOptional());
 
-        assertThat(match.isPresent()).isFalse();
+        assertThat(match).isEmpty();
     }
 
     @Test
@@ -223,6 +223,6 @@ public class TestMatcher
     {
         Optional<Match> match = pattern.match(expectedNoMatch)
                 .collect(toOptional());
-        assertThat(match.isPresent()).isFalse();
+        assertThat(match).isEmpty();
     }
 }

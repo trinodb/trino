@@ -165,7 +165,7 @@ public class TestLocalDispatchQuery
         });
         localDispatchQuery.startWaitingForResources();
         countDownLatch.await();
-        assertThat(localDispatchQuery.getDispatchInfo().getCoordinatorLocation().isPresent()).isTrue();
+        assertThat(localDispatchQuery.getDispatchInfo().getCoordinatorLocation()).isPresent();
     }
 
     private static class NoConnectorServicesProvider

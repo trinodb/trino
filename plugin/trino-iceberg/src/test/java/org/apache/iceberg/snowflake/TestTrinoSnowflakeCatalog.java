@@ -362,7 +362,7 @@ public class TestTrinoSnowflakeCatalog
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
         Map<String, Object> metadata = catalog.loadNamespaceMetadata(SESSION, SNOWFLAKE_TEST_SCHEMA);
-        assertThat(metadata.isEmpty()).isTrue();
+        assertThat(metadata).isEmpty();
     }
 
     @Test
