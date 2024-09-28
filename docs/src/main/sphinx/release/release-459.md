@@ -13,7 +13,7 @@
 
 * Display data sizes and rates with binary (1024-based) abbreviations such as
   `KiB` and `MiB`. Add flag `--decimal-data-size` to use decimal (1000-based)
-  values and abbreviations such as `KB` and `MB`. (#13054)
+  values and abbreviations such as `KB` and `MB`. ({issue}`13054`)
 
 ## BigQuery connector
 
