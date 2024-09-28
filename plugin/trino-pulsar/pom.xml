@@ -20,8 +20,6 @@
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
         <bookkeeer.version>4.17.1</bookkeeer.version>
-        <!--<pulsar.version>3.3.1</pulsar.version>-->
-        <pulsar.version>4.0.0-preview.1</pulsar.version>
     </properties>
     <dependencies>
         <dependency>
@@ -37,52 +35,18 @@
         <dependency>
             <groupId>org.apache.pulsar</groupId>
             <artifactId>pulsar-client-original</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.pulsar</groupId>
             <artifactId>pulsar-client-admin-original</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>jakarta.activation</groupId>
-                    <artifactId>jakarta.activation-api</artifactId>
-                </exclusion>
-            </exclusions>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.pulsar</groupId>
             <artifactId>managed-ledger</artifactId>
-            <version>${pulsar.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.netty.incubator</groupId>
-                    <artifactId>netty-incubator-transport-native-io_uring</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.prometheus</groupId>
-                    <artifactId>simpleclient</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>animal-sniffer-annotations</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.perfmark</groupId>
-                    <artifactId>perfmark-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>log4j-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>javax.annotation</groupId>
-                    <artifactId>javax.annotation-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.guava</groupId>
-                    <artifactId>listenablefuture</artifactId>
-                </exclusion>
-            </exclusions>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
