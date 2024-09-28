@@ -26,7 +26,7 @@ import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.protocol.schema.BytesSchemaVersion;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.util.FutureUtil;
-import org.apache.pulsar.shade.org.glassfish.jersey.internal.inject.InjectionManagerFactory;
+import org.glassfish.jersey.internal.inject.InjectionManagerFactory;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;

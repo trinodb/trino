@@ -31,7 +31,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.pulsar.client.impl.schema.AbstractSchema;
-import org.apache.pulsar.shade.io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBuf;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.Time;

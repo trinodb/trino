@@ -49,7 +49,7 @@ import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.policies.data.OffloadPoliciesImpl;
 import org.apache.pulsar.common.protocol.Commands;
 import org.apache.pulsar.common.schema.SchemaInfo;
-import org.apache.pulsar.shade.org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.commons.lang.exception.ExceptionUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -457,7 +457,7 @@ public class PulsarSplitManager
     
     private static PositionImpl findPosition(ReadOnlyCursor readOnlyCursor, long timestamp) throws ManagedLedgerException, InterruptedException
     {
-        return (PositionImpl) readOnlyCursor.findNewestMatching(SearchAllAvailableEntries, new org.apache.pulsar.shade.com.google.common.base.Predicate<Entry>() {
+        return (PositionImpl) readOnlyCursor.findNewestMatching(SearchAllAvailableEntries, new com.google.common.base.Predicate<Entry>() {
             @Override
             public boolean apply(Entry entry)
             {

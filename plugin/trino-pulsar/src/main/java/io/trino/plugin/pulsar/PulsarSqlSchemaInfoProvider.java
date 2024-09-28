@@ -35,7 +35,7 @@ import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.protocol.schema.BytesSchemaVersion;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.util.FutureUtil;
-import org.apache.pulsar.shade.org.glassfish.jersey.internal.inject.InjectionManagerFactory;
+import org.glassfish.jersey.internal.inject.InjectionManagerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

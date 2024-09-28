@@ -15,6 +15,7 @@ package io.trino.plugin.pulsar;
 
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static io.trino.plugin.pulsar.PulsarConnectorUtils.restoreNamespaceDelimiterIfNeeded;
 import static io.trino.plugin.pulsar.PulsarConnectorUtils.rewriteNamespaceDelimiterIfNeeded;
@@ -33,6 +34,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -159,7 +161,7 @@ public class PulsarMetadata implements ConnectorMetadata {
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table) {
         ConnectorTableMetadata connectorTableMetadata;
-        SchemaTableName schemaTableName = convertTableHandle(table).toSchemaTableName();
+        SchemaTableName schemaTableName = ((PulsarTableHandle)table).toSchemaTableName();
         connectorTableMetadata = getTableMetadata(session, schemaTableName, true);
         if (connectorTableMetadata == null) {
             ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
@@ -208,7 +210,7 @@ public class PulsarMetadata implements ConnectorMetadata {
 
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle) {
-        PulsarTableHandle pulsarTableHandle = convertTableHandle(tableHandle);
+        PulsarTableHandle pulsarTableHandle = (PulsarTableHandle)tableHandle;
 
         ConnectorTableMetadata tableMetaData = getTableMetadata(session, pulsarTableHandle.toSchemaTableName(), false);
         if (tableMetaData == null) {
@@ -431,6 +433,24 @@ public class PulsarMetadata implements ConnectorMetadata {
             return;
         }
         pulsarAuth.checkTopicAuth(session, topic);
+    }
+static PulsarTableHandle convertTableHandle(ConnectorTableHandle tableHandle) {
+        requireNonNull(tableHandle, "tableHandle is null");
+        checkArgument(tableHandle instanceof PulsarTableHandle, "tableHandle is not an instance of PulsarTableHandle");
+        return (PulsarTableHandle) tableHandle;
+    }
+
+    static PulsarColumnHandle convertColumnHandle(ColumnHandle columnHandle) {
+        requireNonNull(columnHandle, "columnHandle is null");
+        checkArgument(columnHandle instanceof PulsarColumnHandle, "columnHandle is not an instance of "
+            + "PulsarColumnHandle");
+        return (PulsarColumnHandle) columnHandle;
+    }
+
+    static PulsarSplit convertSplit(ConnectorSplit split) {
+        requireNonNull(split, "split is null");
+        checkArgument(split instanceof PulsarSplit, "split is not an instance of PulsarSplit");
+        return (PulsarSplit) split;
     }
 
 }

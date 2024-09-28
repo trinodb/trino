@@ -21,7 +21,7 @@ import org.apache.pulsar.client.api.SchemaSerializationException;
 import org.apache.pulsar.client.impl.schema.generic.GenericProtobufNativeRecord;
 import org.apache.pulsar.client.impl.schema.generic.GenericProtobufNativeSchema;
 import com.google.protobuf.DynamicMessage;
-import org.apache.pulsar.shade.io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBuf;
 
 import java.util.Map;
 import java.util.Optional;
@@ -33,7 +33,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Pulsar {@link org.apache.pulsar.shade.org.apache.pulsar.common.schema.SchemaType#PROTOBUF_NATIVE} RowDecoder.
+ * Pulsar {@link org.apache.pulsar.common.schema.SchemaType#PROTOBUF_NATIVE} RowDecoder.
  */
 public class PulsarProtobufNativeRowDecoder
         implements PulsarRowDecoder
