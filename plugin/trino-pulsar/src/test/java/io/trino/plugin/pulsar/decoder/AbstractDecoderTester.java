@@ -22,6 +22,8 @@ import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorContext;
 import java.math.BigDecimal;
+
+import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.schema.SchemaInfo;
@@ -56,7 +58,7 @@ public abstract class AbstractDecoderTester {
     protected PulsarConnectorConfig pulsarConnectorConfig;
     protected PulsarMetadata pulsarMetadata;
 
-    protected void init() {
+    protected void init() throws PulsarClientException {
         ConnectorContext prestoConnectorContext = new TestingConnectorContext();
         this.decoderFactory = new PulsarDispatchingRowDecoderFactory(prestoConnectorContext.getTypeManager());
         this.pulsarConnectorConfig = spy(PulsarConnectorConfig.class);

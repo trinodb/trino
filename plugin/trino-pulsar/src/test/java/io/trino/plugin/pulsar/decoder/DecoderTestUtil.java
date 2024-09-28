@@ -61,7 +61,10 @@ public abstract class DecoderTestUtil
         assertNotNull(expectedValue, "expectedValue is null");
 
         if (type instanceof ArrayType) {
-            checkArrayValues(actualBlock.getObject(position, Block.class), type, expectedValue);
+            Block b = actualBlock.getUnderlyingValueBlock();
+            int valuePosition = actualBlock.getUnderlyingValuePosition(position);
+            //b.getSlice(valuePosition);
+            checkArrayValues(actualBlock.getRegion(position, actualBlock.getPositionCount()), type, expectedValue);
         }
         else if (type instanceof MapType) {
             checkMapValues(actualBlock.getObject(position, Block.class), type, expectedValue);

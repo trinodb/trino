@@ -29,10 +29,10 @@ import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.SubscriptionInitialPosition;
 import org.apache.pulsar.client.impl.schema.AvroSchema;
 import org.apache.pulsar.client.impl.schema.JSONSchema;
-import org.apache.pulsar.shade.com.fasterxml.jackson.core.JsonGenerator;
-import org.apache.pulsar.shade.com.fasterxml.jackson.databind.SerializerProvider;
-import org.apache.pulsar.shade.com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import org.apache.pulsar.shade.com.fasterxml.jackson.databind.ser.std.StdSerializer;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 
@@ -129,7 +129,7 @@ public class PulsarServer
     public static final int PULSAR_PORT = 6650;
     public static final int ZK_PORT = 2181;
     public static final int BK_PORT = 3181;
-    public static final String DEFAULT_IMAGE_NAME = "apachepulsar/pulsar:2.8.0";
+    public static final String DEFAULT_IMAGE_NAME = "apachepulsar/pulsar:4.0.0-preview.1";
 
     private final GenericContainer<?> pulsar;
     private final List<Consumer> consumers = new ArrayList<>();
@@ -363,13 +363,13 @@ public class PulsarServer
         public double tax;
         public String returnflag;
         public String linestatus;
-        @org.apache.pulsar.shade.org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"date\" }")
+        @org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"date\" }")
         @JsonSerialize(using = LocalDateSerializer.class)
         public LocalDate shipdate;
-        @org.apache.pulsar.shade.org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"date\" }")
+        @org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"date\" }")
         @JsonSerialize(using = LocalDateSerializer.class)
         public LocalDate commitdate;
-        @org.apache.pulsar.shade.org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"date\" }")
+        @org.apache.avro.reflect.AvroSchema("{ \"type\": \"int\", \"logicalType\": \"date\" }")
         @JsonSerialize(using = LocalDateSerializer.class)
         public LocalDate receiptdate;
         public String shipinstruct;

@@ -24,8 +24,9 @@ import io.trino.plugin.pulsar.util.ObjectMapperFactory;
 import io.trino.spi.TrinoException;
 import org.apache.pulsar.client.impl.schema.generic.GenericJsonRecord;
 import org.apache.pulsar.client.impl.schema.generic.GenericJsonSchema;
+import com.fasterxml.jackson.databind.JsonNode;
 //import org.apache.pulsar.shade.com.fasterxml.jackson.databind.node.MissingNode;
-import org.apache.pulsar.shade.io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBuf;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 /**
- * Pulsar {@link org.apache.pulsar.shade.org.apache.pulsar.common.schema.SchemaType#JSON} RowDecoder.
+ * Pulsar {@link org.apache.pulsar.common.schema.SchemaType#JSON} RowDecoder.
  */
 public class PulsarJsonRowDecoder
         implements PulsarRowDecoder
@@ -55,11 +56,11 @@ public class PulsarJsonRowDecoder
         this.fieldDecoders = columns.stream().collect(toImmutableMap(identity(), PulsarJsonFieldDecoder::new));
     }
 
-    private static com.fasterxml.jackson.databind.JsonNode locateNode(com.fasterxml.jackson.databind.JsonNode tree, DecoderColumnHandle columnHandle)
+    private static JsonNode locateNode(JsonNode tree, DecoderColumnHandle columnHandle)
     {
         String mapping = columnHandle.getMapping();
         checkState(mapping != null, "No mapping for %s", columnHandle.getName());
-        com.fasterxml.jackson.databind.JsonNode currentNode = tree;
+        JsonNode currentNode = tree;
         for (String pathElement : Splitter.on('/').omitEmptyStrings().split(mapping)) {
             if (!currentNode.has(pathElement)) {
                 return MissingNode.getInstance();

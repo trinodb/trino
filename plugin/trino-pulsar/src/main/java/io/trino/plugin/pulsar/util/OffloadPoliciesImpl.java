@@ -16,7 +16,7 @@ package io.trino.plugin.pulsar.util;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
-import org.apache.pulsar.shade.org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.pulsar.common.policies.data.OffloadPolicies;
 import org.apache.pulsar.common.policies.data.OffloadedReadPriority;
 import org.apache.pulsar.common.policies.data.Policies;

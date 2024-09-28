@@ -22,7 +22,7 @@ import io.trino.plugin.pulsar.decoder.AbstractDecoderTester;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.impl.schema.SchemaInfoImpl;
-import org.apache.pulsar.shade.io.netty.buffer.Unpooled;
+import io.netty.buffer.Unpooled;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 import org.testng.annotations.BeforeMethod;
@@ -214,7 +214,7 @@ public class TestPrimitiveDecoder
                 pulsarRowDecoderTime.decodeRow(Unpooled
                         .copiedBuffer(schemaTime.encode(timeValue))).get();
         checkValue(decodedRowTime, new PulsarColumnHandle(getCatalogName().toString(),
-                PRIMITIVE_COLUMN_NAME, TIME, false, false, PRIMITIVE_COLUMN_NAME, null, null,
+                PRIMITIVE_COLUMN_NAME, TIMESTAMP_MILLIS, false, false, PRIMITIVE_COLUMN_NAME, null, null,
                 PulsarColumnHandle.HandleKeyValueType.NONE), timeValue.getTime());
 
         Timestamp timestampValue = new Timestamp(System.currentTimeMillis());
@@ -228,7 +228,7 @@ public class TestPrimitiveDecoder
                 pulsarRowDecoderTimestamp.decodeRow(Unpooled
                         .copiedBuffer(schemaTimestamp.encode(timestampValue))).get();
         checkValue(decodedRowTimestamp, new PulsarColumnHandle(getCatalogName().toString(),
-                PRIMITIVE_COLUMN_NAME, TIMESTAMP, false, false, PRIMITIVE_COLUMN_NAME, null, null,
+                PRIMITIVE_COLUMN_NAME, TIMESTAMP_MILLIS, false, false, PRIMITIVE_COLUMN_NAME, null, null,
                 PulsarColumnHandle.HandleKeyValueType.NONE), timestampValue.getTime());
     }
 }
