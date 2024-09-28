@@ -847,58 +847,7 @@
                 <artifactId>kafka-schema-serializer</artifactId>
                 <version>${dep.confluent.version}</version>
             </dependency>
-        <dependency>
-            <groupId>org.apache.pulsar</groupId>
-            <artifactId>pulsar-client-original</artifactId>
-            <version>${dep.pulsar.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.pulsar</groupId>
-            <artifactId>pulsar-client-admin-original</artifactId>
-            <version>${dep.pulsar.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>jakarta.activation</groupId>
-                    <artifactId>jakarta.activation-api</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.pulsar</groupId>
-            <artifactId>managed-ledger</artifactId>
-            <version>${dep.pulsar.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.netty.incubator</groupId>
-                    <artifactId>netty-incubator-transport-native-io_uring</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.prometheus</groupId>
-                    <artifactId>simpleclient</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>animal-sniffer-annotations</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.perfmark</groupId>
-                    <artifactId>perfmark-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>log4j-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>javax.annotation</groupId>
-                    <artifactId>javax.annotation-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.google.guava</groupId>
-                    <artifactId>listenablefuture</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+        
             <dependency>
                 <groupId>io.dropwizard.metrics</groupId>
                 <artifactId>metrics-core</artifactId>
