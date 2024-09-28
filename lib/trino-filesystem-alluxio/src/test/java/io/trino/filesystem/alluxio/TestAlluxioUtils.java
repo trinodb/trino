@@ -14,8 +14,6 @@
 package io.trino.filesystem.alluxio;
 
 import alluxio.AlluxioURI;
-import alluxio.client.file.URIStatus;
-import alluxio.wire.FileInfo;
 import io.trino.filesystem.Location;
 import org.junit.jupiter.api.Test;
 
@@ -36,12 +34,12 @@ public class TestAlluxioUtils
     public void convertToLocation()
     {
         String mountRoot = "/";
-        URIStatus fileStatus = new URIStatus(new FileInfo().setPath("/mnt/test/level0-file0"));
-        assertThat(Location.of("alluxio:///mnt/test/level0-file0")).isEqualTo(AlluxioUtils.convertToLocation(fileStatus, mountRoot));
-        fileStatus = new URIStatus(new FileInfo().setPath("/mnt/test/level0/level1-file0"));
-        assertThat(Location.of("alluxio:///mnt/test/level0/level1-file0")).isEqualTo(AlluxioUtils.convertToLocation(fileStatus, mountRoot));
-        fileStatus = new URIStatus(new FileInfo().setPath("/mnt/test2/level0/level1/level2-file0"));
-        assertThat(Location.of("alluxio:///mnt/test2/level0/level1/level2-file0")).isEqualTo(AlluxioUtils.convertToLocation(fileStatus, mountRoot));
+        String path = "/mnt/test/level0-file0";
+        assertThat(Location.of("alluxio:///mnt/test/level0-file0")).isEqualTo(AlluxioUtils.convertToLocation(path, mountRoot));
+        path = "/mnt/test/level0/level1-file0";
+        assertThat(Location.of("alluxio:///mnt/test/level0/level1-file0")).isEqualTo(AlluxioUtils.convertToLocation(path, mountRoot));
+        path = "/mnt/test2/level0/level1/level2-file0";
+        assertThat(Location.of("alluxio:///mnt/test2/level0/level1/level2-file0")).isEqualTo(AlluxioUtils.convertToLocation(path, mountRoot));
     }
 
     @Test

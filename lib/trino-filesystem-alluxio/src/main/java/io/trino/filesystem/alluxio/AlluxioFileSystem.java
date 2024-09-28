@@ -291,7 +291,7 @@ public class AlluxioFileSystem
             List<URIStatus> filesStatus = alluxioClient.listStatus(convertToAlluxioURI(location, mountRoot));
             return filesStatus.stream()
                     .filter(URIStatus::isFolder)
-                    .map((URIStatus fileStatus) -> AlluxioUtils.convertToLocation(fileStatus, mountRoot))
+                    .map((URIStatus fileStatus) -> AlluxioUtils.convertToLocation(fileStatus.getPath(), mountRoot))
                     .map(loc -> {
                         if (!loc.toString().endsWith("/")) {
                             return Location.of(loc + "/");

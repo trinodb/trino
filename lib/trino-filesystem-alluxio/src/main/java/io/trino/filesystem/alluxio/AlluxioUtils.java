@@ -14,31 +14,27 @@
 package io.trino.filesystem.alluxio;
 
 import alluxio.AlluxioURI;
-import alluxio.client.file.URIStatus;
 import io.trino.filesystem.Location;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public class AlluxioUtils
 {
     private AlluxioUtils() {}
 
-    public static Location convertToLocation(URIStatus fileStatus, String mountRoot)
+    public static Location convertToLocation(String path, String mountRoot)
     {
-        if (fileStatus == null) {
-            return null;
-        }
-        String path = fileStatus.getPath();
-        if (path == null) {
-            return null;
-        }
+        requireNonNull(path, "path is null");
+
         if (path.isEmpty()) {
             return Location.of("");
         }
         if (path.startsWith("alluxio://")) {
-            return Location.of(fileStatus.getPath());
+            return Location.of(path);
         }
 
         String schema = "alluxio://";

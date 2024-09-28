@@ -54,7 +54,7 @@ public class AlluxioFileIterator
             return null;
         }
         URIStatus fileStatus = files.next();
-        Location location = convertToLocation(fileStatus, mountRoot);
+        Location location = convertToLocation(fileStatus.getPath(), mountRoot);
         return new FileEntry(
                 location,
                 fileStatus.getLength(),
