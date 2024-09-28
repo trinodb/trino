@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,7 +28,7 @@ public final class PathSpecification
 
     public PathSpecification(NodeLocation location, List<PathElement> path)
     {
-        super(Optional.of(location));
+        super(location);
         this.path = ImmutableList.copyOf(requireNonNull(path, "path is null"));
     }
 

@@ -28,17 +28,16 @@ public class OrderBy
 {
     private final List<SortItem> sortItems;
 
+    @Deprecated
     public OrderBy(List<SortItem> sortItems)
     {
-        this(Optional.empty(), sortItems);
+        super(Optional.empty());
+        requireNonNull(sortItems, "sortItems is null");
+        checkArgument(!sortItems.isEmpty(), "sortItems should not be empty");
+        this.sortItems = ImmutableList.copyOf(sortItems);
     }
 
     public OrderBy(NodeLocation location, List<SortItem> sortItems)
-    {
-        this(Optional.of(location), sortItems);
-    }
-
-    private OrderBy(Optional<NodeLocation> location, List<SortItem> sortItems)
     {
         super(location);
         requireNonNull(sortItems, "sortItems is null");

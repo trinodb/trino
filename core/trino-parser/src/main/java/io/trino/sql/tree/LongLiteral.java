@@ -25,6 +25,7 @@ public class LongLiteral
     private final String value;
     private final long parsedValue;
 
+    @Deprecated
     public LongLiteral(String value)
     {
         this(Optional.empty(), value);

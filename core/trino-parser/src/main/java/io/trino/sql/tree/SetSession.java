@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -29,7 +28,7 @@ public class SetSession
 
     public SetSession(NodeLocation location, QualifiedName name, Expression value)
     {
-        super(Optional.of(location));
+        super(location);
         this.name = name;
         this.value = value;
     }

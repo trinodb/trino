@@ -32,7 +32,7 @@ public class Revoke
 
     public Revoke(NodeLocation location, boolean grantOptionFor, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee)
     {
-        super(Optional.of(location));
+        super(location);
         this.grantOptionFor = grantOptionFor;
         requireNonNull(privileges, "privileges is null");
         this.privileges = privileges.map(ImmutableList::copyOf);

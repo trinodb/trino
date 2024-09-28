@@ -64,7 +64,7 @@ public class SkipTo
 
     private SkipTo(NodeLocation location, Position position, Optional<Identifier> identifier)
     {
-        super(Optional.of(location));
+        super(location);
         requireNonNull(position, "position is null");
         requireNonNull(identifier, "identifier is null");
         checkArgument(identifier.isPresent() || (position == PAST_LAST || position == NEXT), "missing identifier in SKIP TO %s", position.name());

@@ -13,12 +13,10 @@
  */
 package io.trino.sql.tree;
 
-import java.util.Optional;
-
 public abstract class ExplainOption
         extends Node
 {
-    protected ExplainOption(Optional<NodeLocation> location)
+    protected ExplainOption(NodeLocation location)
     {
         super(location);
     }

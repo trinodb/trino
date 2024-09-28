@@ -82,12 +82,13 @@ public final class RowDataType
 
         public Field(NodeLocation location, Optional<Identifier> name, DataType type)
         {
-            super(Optional.of(location));
+            super(location);
 
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
         }
 
+        @Deprecated
         public Field(Optional<NodeLocation> location, Optional<Identifier> name, DataType type)
         {
             super(location);

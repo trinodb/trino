@@ -540,7 +540,7 @@ public abstract class BaseIcebergMaterializedViewTest
                         "  base_table1");
 
         assertQueryFails("INSERT INTO materialized_view_window VALUES (0, '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')",
-                "Inserting into materialized views is not supported");
+                "line 1:1: Inserting into materialized views is not supported");
 
         computeScalar("EXPLAIN (TYPE LOGICAL) REFRESH MATERIALIZED VIEW materialized_view_window");
         computeScalar("EXPLAIN (TYPE DISTRIBUTED) REFRESH MATERIALIZED VIEW materialized_view_window");

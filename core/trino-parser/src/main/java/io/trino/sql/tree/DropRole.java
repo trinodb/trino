@@ -31,7 +31,7 @@ public class DropRole
 
     public DropRole(NodeLocation location, Identifier name, Optional<Identifier> catalog, boolean exists)
     {
-        super(Optional.of(location));
+        super(location);
         this.name = requireNonNull(name, "name is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.exists = exists;

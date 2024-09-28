@@ -32,7 +32,7 @@ public class CreateSchema
 
     public CreateSchema(NodeLocation location, QualifiedName schemaName, boolean notExists, List<Property> properties, Optional<PrincipalSpecification> principal)
     {
-        super(Optional.of(location));
+        super(location);
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.notExists = notExists;
         this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));

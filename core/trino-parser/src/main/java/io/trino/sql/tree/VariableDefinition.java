@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -30,7 +29,7 @@ public class VariableDefinition
 
     public VariableDefinition(NodeLocation location, Identifier name, Expression expression)
     {
-        super(Optional.of(location));
+        super(location);
         this.name = requireNonNull(name, "name is null");
         this.expression = requireNonNull(expression, "expression is null");
     }

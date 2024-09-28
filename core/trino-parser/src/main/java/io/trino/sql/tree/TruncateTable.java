@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -28,7 +27,7 @@ public class TruncateTable
 
     public TruncateTable(NodeLocation location, QualifiedName tableName)
     {
-        super(Optional.of(location));
+        super(location);
         this.tableName = tableName;
     }
 

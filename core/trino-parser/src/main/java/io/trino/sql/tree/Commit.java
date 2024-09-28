@@ -16,14 +16,13 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 public final class Commit
         extends Statement
 {
     public Commit(NodeLocation location)
     {
-        super(Optional.of(location));
+        super(location);
     }
 
     @Override

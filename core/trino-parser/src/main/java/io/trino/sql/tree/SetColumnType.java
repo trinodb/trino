@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -32,7 +31,7 @@ public class SetColumnType
 
     public SetColumnType(NodeLocation location, QualifiedName tableName, QualifiedName columnName, DataType type, boolean tableExists)
     {
-        super(Optional.of(location));
+        super(location);
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.type = requireNonNull(type, "type is null");

@@ -801,7 +801,7 @@ public class TestColumnMask
                         .expression("clerk")
                         .build());
         assertThat(assertions.query("INSERT INTO orders SELECT * FROM orders"))
-                .failure().hasMessage("Insert into table with column masks is not supported");
+                .failure().hasMessage("line 1:1: Insert into table with column masks is not supported");
     }
 
     @Test
@@ -906,7 +906,7 @@ public class TestColumnMask
                 .skippingTypesCheck()
                 .matches("VALUES 'POLAND'");
         assertThat(assertions.query("INSERT INTO mock.tiny.nation_with_hidden_column SELECT * FROM mock.tiny.nation_with_hidden_column"))
-                .failure().hasMessage("Insert into table with column masks is not supported");
+                .failure().hasMessage("line 1:1: Insert into table with column masks is not supported");
         assertThat(assertions.query("DELETE FROM mock.tiny.nation_with_hidden_column"))
                 .failure().hasMessage("line 1:1: Delete from table with column mask");
         assertThat(assertions.query("UPDATE mock.tiny.nation_with_hidden_column SET name = 'X'"))

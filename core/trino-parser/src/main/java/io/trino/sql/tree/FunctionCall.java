@@ -34,6 +34,7 @@ public class FunctionCall
     private final Optional<ProcessingMode> processingMode;
     private final List<Expression> arguments;
 
+    @Deprecated
     public FunctionCall(QualifiedName name, List<Expression> arguments)
     {
         this(Optional.empty(), name, Optional.empty(), Optional.empty(), Optional.empty(), false, Optional.empty(), Optional.empty(), arguments);

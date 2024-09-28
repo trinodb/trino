@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -29,7 +28,7 @@ public final class EmptyTableTreatment
 
     public EmptyTableTreatment(NodeLocation location, Treatment treatment)
     {
-        super(Optional.of(location));
+        super(location);
         this.treatment = requireNonNull(treatment, "treatment is null");
     }
 

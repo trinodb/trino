@@ -27,23 +27,11 @@ public class SearchedCaseExpression
     private final List<WhenClause> whenClauses;
     private final Optional<Expression> defaultValue;
 
-    public SearchedCaseExpression(List<WhenClause> whenClauses, Optional<Expression> defaultValue)
-    {
-        this(Optional.empty(), whenClauses, defaultValue);
-    }
-
     public SearchedCaseExpression(NodeLocation location, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
     {
-        this(Optional.of(location), whenClauses, defaultValue);
-    }
-
-    private SearchedCaseExpression(Optional<NodeLocation> location, List<WhenClause> whenClauses, Optional<Expression> defaultValue)
-    {
         super(location);
-        requireNonNull(whenClauses, "whenClauses is null");
-        requireNonNull(defaultValue, "defaultValue is null");
         this.whenClauses = ImmutableList.copyOf(whenClauses);
-        this.defaultValue = defaultValue;
+        this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
     }
 
     public List<WhenClause> getWhenClauses()

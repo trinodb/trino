@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -32,7 +31,7 @@ public class DropColumn
 
     public DropColumn(NodeLocation location, QualifiedName table, QualifiedName field, boolean tableExists, boolean columnExists)
     {
-        super(Optional.of(location));
+        super(location);
         this.table = requireNonNull(table, "table is null");
         this.field = requireNonNull(field, "field is null");
         this.tableExists = tableExists;

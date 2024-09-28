@@ -31,7 +31,7 @@ public class Deny
 
     public Deny(NodeLocation location, Optional<List<String>> privileges, GrantObject grantObject, PrincipalSpecification grantee)
     {
-        super(Optional.of(location));
+        super(location);
         requireNonNull(privileges, "privileges is null");
         this.privileges = privileges.map(ImmutableList::copyOf);
         this.grantObject = requireNonNull(grantObject, "grantScope is null");

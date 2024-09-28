@@ -192,7 +192,7 @@ public class TestHiveRedirectionToHudi
         createHudiCowTable(schemaTableName, false);
 
         assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO " + hiveTableName + " VALUES (3, 'a3', 60, 3000)"))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Insert query has mismatched column types: Table: [varchar, varchar, varchar, varchar, varchar, bigint, varchar, integer, bigint], Query: [integer, varchar(2), integer, integer]");
+                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): line 1:1: Insert query has mismatched column types: Table: [varchar, varchar, varchar, varchar, varchar, bigint, varchar, integer, bigint], Query: [integer, varchar(2), integer, integer]");
 
         onHudi().executeQuery("DROP TABLE " + schemaTableName);
     }

@@ -230,14 +230,14 @@ public final class ShowQueriesRewrite
         protected Node visitExplain(Explain node, Void context)
         {
             Statement statement = (Statement) process(node.getStatement(), null);
-            return new Explain(node.getLocation(), statement, node.getOptions());
+            return new Explain(node.getLocation().orElseThrow(), statement, node.getOptions());
         }
 
         @Override
         protected Node visitExplainAnalyze(ExplainAnalyze node, Void context)
         {
             Statement statement = (Statement) process(node.getStatement(), null);
-            return new ExplainAnalyze(node.getLocation(), statement, node.isVerbose());
+            return new ExplainAnalyze(node.getLocation().orElseThrow(), statement, node.isVerbose());
         }
 
         @Override
