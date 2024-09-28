@@ -23,6 +23,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -61,16 +62,16 @@ public abstract class DecoderTestUtil
         assertNotNull(expectedValue, "expectedValue is null");
 
         if (type instanceof ArrayType) {
-            Block b = actualBlock.getUnderlyingValueBlock();
-            int valuePosition = actualBlock.getUnderlyingValuePosition(position);
-            //b.getSlice(valuePosition);
-            checkArrayValues(actualBlock.getRegion(position, actualBlock.getPositionCount()), type, expectedValue);
+            //checkRowValues(actualBlock.getObject(position, Block.class), type, expectedValue);
+            checkArrayValues(actualBlock, type, expectedValue);
         }
         else if (type instanceof MapType) {
-            checkMapValues(actualBlock.getObject(position, Block.class), type, expectedValue);
+            //checkRowValues(actualBlock.getObject(position, Block.class), type, expectedValue);
+            checkMapValues(actualBlock, type, expectedValue);
         }
         else if (type instanceof RowType) {
-            checkRowValues(actualBlock.getObject(position, Block.class), type, expectedValue);
+            //checkRowValues(actualBlock.getObject(position, Block.class), type, expectedValue);
+            checkRowValues(actualBlock, type, expectedValue);
         }
         else {
             checkPrimitiveValue(getObjectValue(type, actualBlock, position), expectedValue);
@@ -97,8 +98,13 @@ public abstract class DecoderTestUtil
         }
         return type.getObjectValue(SESSION, block, position);
     }
-
     public void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Slice value)
+    {
+        FieldValueProvider provider = decodedRow.get(handle);
+        assertNotNull(provider);
+        assertEquals(provider.getSlice(), value);
+    }
+    public void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, BigDecimal value)
     {
         FieldValueProvider provider = decodedRow.get(handle);
         assertNotNull(provider);

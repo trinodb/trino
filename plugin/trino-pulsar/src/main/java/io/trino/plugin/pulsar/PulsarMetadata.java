@@ -19,8 +19,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static io.trino.plugin.pulsar.PulsarConnectorUtils.restoreNamespaceDelimiterIfNeeded;
 import static io.trino.plugin.pulsar.PulsarConnectorUtils.rewriteNamespaceDelimiterIfNeeded;
-import static io.trino.plugin.pulsar.PulsarHandleResolver.convertColumnHandle;
-import static io.trino.plugin.pulsar.PulsarHandleResolver.convertTableHandle;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;

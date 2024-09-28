@@ -20,7 +20,8 @@
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
         <bookkeeer.version>4.17.1</bookkeeer.version>
-        <pulsar.version>3.3.1</pulsar.version>
+        <!--<pulsar.version>3.3.1</pulsar.version>-->
+        <pulsar.version>4.0.0-preview.1</pulsar.version>
     </properties>
     <dependencies>
         <dependency>
@@ -36,12 +37,10 @@
         <dependency>
             <groupId>org.apache.pulsar</groupId>
             <artifactId>pulsar-client-original</artifactId>
-            <version>${pulsar.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.pulsar</groupId>
             <artifactId>pulsar-client-admin-original</artifactId>
-            <version>${pulsar.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>jakarta.activation</groupId>
@@ -187,19 +186,16 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -255,25 +251,4 @@
         <version>1.2</version>
       </dependency>
     </dependencies>
-    <profiles>
-        <profile>
-            <!-- enables builds with -Dmaven.test.skip=true -->
-            <id>test-jar-dependencies</id>
-            <activation>
-                <property>
-                    <name>maven.test.skip</name>
-                    <value>!true</value>
-                </property>
-            </activation>
-            <dependencies>
-                <dependency>
-                    <groupId>org.apache.pulsar</groupId>
-                    <artifactId>pulsar-broker</artifactId>
-                    <version>${pulsar.version}</version>
-                    <type>test-jar</type>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-    </profiles>
 </project>
