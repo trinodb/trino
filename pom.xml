@@ -101,7 +101,9 @@
         <module>plugin/trino-phoenix5</module>
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
-        <module>plugin/trino-prometheus</module>
+        <module>plugin/trino-prometheus</module>       
+        <module>plugin/trino-pulsar</module>
+        <module>plugin/trino-raptor-legacy</module>
         <module>plugin/trino-redis</module>
         <module>plugin/trino-redshift</module>
         <module>plugin/trino-resource-group-managers</module>
@@ -115,8 +117,7 @@
         <module>plugin/trino-thrift-api</module>
         <module>plugin/trino-thrift-testing-server</module>
         <module>plugin/trino-tpcds</module>
-        <module>plugin/trino-tpch</module>        
-        <module>plugin/trino-pulsar</module>
+        <module>plugin/trino-tpch</module> 
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
         <module>testing/trino-benchmark-queries</module>

@@ -173,7 +173,6 @@
         <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>io.opentelemetry</groupId>
