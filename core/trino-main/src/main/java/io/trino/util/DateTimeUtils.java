@@ -191,24 +191,24 @@ public final class DateTimeUtils
     private static final int SECOND_FIELD = 6;
     private static final int MILLIS_FIELD = 7;
 
-    private static final PeriodFormatter INTERVAL_DAY_SECOND_FORMATTER = cretePeriodFormatter(IntervalField.DAY, IntervalField.SECOND);
-    private static final PeriodFormatter INTERVAL_DAY_MINUTE_FORMATTER = cretePeriodFormatter(IntervalField.DAY, IntervalField.MINUTE);
-    private static final PeriodFormatter INTERVAL_DAY_HOUR_FORMATTER = cretePeriodFormatter(IntervalField.DAY, IntervalField.HOUR);
-    private static final PeriodFormatter INTERVAL_DAY_FORMATTER = cretePeriodFormatter(IntervalField.DAY, IntervalField.DAY);
+    private static final PeriodFormatter INTERVAL_DAY_SECOND_FORMATTER = createPeriodFormatter(IntervalField.DAY, IntervalField.SECOND);
+    private static final PeriodFormatter INTERVAL_DAY_MINUTE_FORMATTER = createPeriodFormatter(IntervalField.DAY, IntervalField.MINUTE);
+    private static final PeriodFormatter INTERVAL_DAY_HOUR_FORMATTER = createPeriodFormatter(IntervalField.DAY, IntervalField.HOUR);
+    private static final PeriodFormatter INTERVAL_DAY_FORMATTER = createPeriodFormatter(IntervalField.DAY, IntervalField.DAY);
 
-    private static final PeriodFormatter INTERVAL_HOUR_SECOND_FORMATTER = cretePeriodFormatter(IntervalField.HOUR, IntervalField.SECOND);
-    private static final PeriodFormatter INTERVAL_HOUR_MINUTE_FORMATTER = cretePeriodFormatter(IntervalField.HOUR, IntervalField.MINUTE);
-    private static final PeriodFormatter INTERVAL_HOUR_FORMATTER = cretePeriodFormatter(IntervalField.HOUR, IntervalField.HOUR);
+    private static final PeriodFormatter INTERVAL_HOUR_SECOND_FORMATTER = createPeriodFormatter(IntervalField.HOUR, IntervalField.SECOND);
+    private static final PeriodFormatter INTERVAL_HOUR_MINUTE_FORMATTER = createPeriodFormatter(IntervalField.HOUR, IntervalField.MINUTE);
+    private static final PeriodFormatter INTERVAL_HOUR_FORMATTER = createPeriodFormatter(IntervalField.HOUR, IntervalField.HOUR);
 
-    private static final PeriodFormatter INTERVAL_MINUTE_SECOND_FORMATTER = cretePeriodFormatter(IntervalField.MINUTE, IntervalField.SECOND);
-    private static final PeriodFormatter INTERVAL_MINUTE_FORMATTER = cretePeriodFormatter(IntervalField.MINUTE, IntervalField.MINUTE);
+    private static final PeriodFormatter INTERVAL_MINUTE_SECOND_FORMATTER = createPeriodFormatter(IntervalField.MINUTE, IntervalField.SECOND);
+    private static final PeriodFormatter INTERVAL_MINUTE_FORMATTER = createPeriodFormatter(IntervalField.MINUTE, IntervalField.MINUTE);
 
-    private static final PeriodFormatter INTERVAL_SECOND_FORMATTER = cretePeriodFormatter(IntervalField.SECOND, IntervalField.SECOND);
+    private static final PeriodFormatter INTERVAL_SECOND_FORMATTER = createPeriodFormatter(IntervalField.SECOND, IntervalField.SECOND);
 
-    private static final PeriodFormatter INTERVAL_YEAR_MONTH_FORMATTER = cretePeriodFormatter(IntervalField.YEAR, IntervalField.MONTH);
-    private static final PeriodFormatter INTERVAL_YEAR_FORMATTER = cretePeriodFormatter(IntervalField.YEAR, IntervalField.YEAR);
+    private static final PeriodFormatter INTERVAL_YEAR_MONTH_FORMATTER = createPeriodFormatter(IntervalField.YEAR, IntervalField.MONTH);
+    private static final PeriodFormatter INTERVAL_YEAR_FORMATTER = createPeriodFormatter(IntervalField.YEAR, IntervalField.YEAR);
 
-    private static final PeriodFormatter INTERVAL_MONTH_FORMATTER = cretePeriodFormatter(IntervalField.MONTH, IntervalField.MONTH);
+    private static final PeriodFormatter INTERVAL_MONTH_FORMATTER = createPeriodFormatter(IntervalField.MONTH, IntervalField.MONTH);
 
     public static long parseDayTimeInterval(String value, IntervalField startField, Optional<IntervalField> endField)
     {
@@ -329,7 +329,7 @@ public final class DateTimeUtils
         throw new TrinoException(INVALID_LITERAL, "Invalid interval qualifier: " + startField + " TO " + endField);
     }
 
-    private static PeriodFormatter cretePeriodFormatter(IntervalField startField, IntervalField endField)
+    private static PeriodFormatter createPeriodFormatter(IntervalField startField, IntervalField endField)
     {
         if (endField == null) {
             endField = startField;
