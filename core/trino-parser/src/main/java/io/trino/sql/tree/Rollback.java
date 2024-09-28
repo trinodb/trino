@@ -17,14 +17,13 @@ package io.trino.sql.tree;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 public final class Rollback
         extends Statement
 {
     public Rollback(NodeLocation location)
     {
-        super(Optional.of(location));
+        super(location);
     }
 
     @Override

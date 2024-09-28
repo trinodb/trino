@@ -1326,7 +1326,7 @@ class StatementAnalyzer
                     if (!names.add(name.getCanonicalValue())) {
                         throw semanticException(DUPLICATE_PROPERTY, argument, "Duplicate named argument: %s", name);
                     }
-                    properties.add(new Property(argument.getLocation(), name, argument.getValue()));
+                    properties.add(new Property(argument.getLocation().orElseThrow(), name, argument.getValue()));
                 }
             }
             else {
@@ -1334,7 +1334,7 @@ class StatementAnalyzer
                 int pos = 0;
                 for (CallArgument argument : arguments) {
                     Identifier name = new Identifier(procedureMetadata.getProperties().get(pos).getName());
-                    properties.add(new Property(argument.getLocation(), name, argument.getValue()));
+                    properties.add(new Property(argument.getLocation().orElseThrow(), name, argument.getValue()));
                     pos++;
                 }
             }

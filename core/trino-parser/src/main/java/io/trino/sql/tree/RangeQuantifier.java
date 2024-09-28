@@ -30,7 +30,7 @@ public class RangeQuantifier
 
     public RangeQuantifier(NodeLocation location, boolean greedy, Optional<LongLiteral> atLeast, Optional<LongLiteral> atMost)
     {
-        super(Optional.of(location), greedy);
+        super(location, greedy);
         this.atLeast = requireNonNull(atLeast, "atLeast is null");
         this.atMost = requireNonNull(atMost, "atMost is null");
     }

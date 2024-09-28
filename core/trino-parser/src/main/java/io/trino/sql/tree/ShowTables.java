@@ -31,7 +31,7 @@ public class ShowTables
 
     public ShowTables(NodeLocation location, Optional<QualifiedName> schema, Optional<String> likePattern, Optional<String> escape)
     {
-        super(Optional.of(location));
+        super(location);
         requireNonNull(schema, "schema is null");
         requireNonNull(likePattern, "likePattern is null");
         requireNonNull(escape, "escape is null");

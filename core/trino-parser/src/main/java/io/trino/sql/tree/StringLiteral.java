@@ -24,6 +24,7 @@ public class StringLiteral
     private final String value;
     private final int length;
 
+    @Deprecated
     public StringLiteral(String value)
     {
         this(Optional.empty(), value);

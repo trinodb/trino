@@ -1539,7 +1539,7 @@ public class ExpressionAnalyzer
 
                 // validate frame start and end types
                 FrameBound.Type startType = frame.getStart().getType();
-                FrameBound.Type endType = frame.getEnd().orElse(new FrameBound(CURRENT_ROW)).getType();
+                FrameBound.Type endType = frame.getEnd().map(FrameBound::getType).orElse(CURRENT_ROW);
                 if (startType == UNBOUNDED_FOLLOWING) {
                     throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame start cannot be UNBOUNDED FOLLOWING");
                 }

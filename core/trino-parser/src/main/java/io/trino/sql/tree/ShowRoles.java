@@ -30,7 +30,7 @@ public class ShowRoles
 
     public ShowRoles(NodeLocation location, Optional<Identifier> catalog, boolean current)
     {
-        super(Optional.of(location));
+        super(location);
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.current = current;
     }

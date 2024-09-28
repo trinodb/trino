@@ -30,7 +30,7 @@ public final class ShowCatalogs
 
     public ShowCatalogs(NodeLocation location, Optional<String> likePattern, Optional<String> escape)
     {
-        super(Optional.of(location));
+        super(location);
         this.likePattern = requireNonNull(likePattern, "likePattern is null");
         this.escape = requireNonNull(escape, "escape is null");
     }

@@ -29,7 +29,7 @@ public class ShowRoleGrants
 
     public ShowRoleGrants(NodeLocation location, Optional<Identifier> catalog)
     {
-        super(Optional.of(location));
+        super(location);
         this.catalog = requireNonNull(catalog, "catalog is null");
     }
 

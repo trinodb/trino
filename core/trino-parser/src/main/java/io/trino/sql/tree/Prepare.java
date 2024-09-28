@@ -30,17 +30,15 @@ public class Prepare
 
     public Prepare(NodeLocation location, Identifier name, Statement statement)
     {
-        this(Optional.of(location), name, statement);
+        super(location);
+        this.name = requireNonNull(name, "name is null");
+        this.statement = requireNonNull(statement, "statement is null");
     }
 
+    @Deprecated
     public Prepare(Identifier name, Statement statement)
     {
-        this(Optional.empty(), name, statement);
-    }
-
-    private Prepare(Optional<NodeLocation> location, Identifier name, Statement statement)
-    {
-        super(location);
+        super(Optional.empty());
         this.name = requireNonNull(name, "name is null");
         this.statement = requireNonNull(statement, "statement is null");
     }

@@ -30,7 +30,7 @@ public class GrantObject
 
     public GrantObject(NodeLocation location, Optional<String> entityKind, QualifiedName name)
     {
-        super(Optional.of(location));
+        super(location);
         this.entityKind = requireNonNull(entityKind, "entityKind is null");
         this.name = requireNonNull(name, "name is null");
     }

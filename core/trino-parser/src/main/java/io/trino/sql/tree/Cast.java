@@ -28,11 +28,13 @@ public final class Cast
     private final DataType type;
     private final boolean safe;
 
+    @Deprecated
     public Cast(Expression expression, DataType type)
     {
         this(Optional.empty(), expression, type, false);
     }
 
+    @Deprecated
     public Cast(Expression expression, DataType type, boolean safe)
     {
         this(Optional.empty(), expression, type, safe);
@@ -40,12 +42,15 @@ public final class Cast
 
     public Cast(NodeLocation location, Expression expression, DataType type)
     {
-        this(Optional.of(location), expression, type, false);
+        this(location, expression, type, false);
     }
 
     public Cast(NodeLocation location, Expression expression, DataType type, boolean safe)
     {
-        this(Optional.of(location), expression, type, safe);
+        super(location);
+        this.expression = requireNonNull(expression, "expression is null");
+        this.type = requireNonNull(type, "type is null");
+        this.safe = safe;
     }
 
     private Cast(Optional<NodeLocation> location, Expression expression, DataType type, boolean safe)

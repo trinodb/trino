@@ -23,6 +23,13 @@ public abstract class MergeCase
 {
     protected final Optional<Expression> expression;
 
+    protected MergeCase(NodeLocation location, Optional<Expression> expression)
+    {
+        super(location);
+        this.expression = requireNonNull(expression, "expression is null");
+    }
+
+    @Deprecated
     protected MergeCase(Optional<NodeLocation> location, Optional<Expression> expression)
     {
         super(location);

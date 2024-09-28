@@ -36,7 +36,7 @@ public class SetRole
 
     public SetRole(NodeLocation location, Type type, Optional<Identifier> role, Optional<Identifier> catalog)
     {
-        super(Optional.of(location));
+        super(location);
         this.type = requireNonNull(type, "type is null");
         this.role = requireNonNull(role, "role is null");
         this.catalog = requireNonNull(catalog, "catalog is null");

@@ -27,14 +27,11 @@ public class LambdaExpression
     private final List<LambdaArgumentDeclaration> arguments;
     private final Expression body;
 
-    public LambdaExpression(List<LambdaArgumentDeclaration> arguments, Expression body)
-    {
-        this(Optional.empty(), arguments, body);
-    }
-
     public LambdaExpression(NodeLocation location, List<LambdaArgumentDeclaration> arguments, Expression body)
     {
-        this(Optional.of(location), arguments, body);
+        super(location);
+        this.arguments = requireNonNull(arguments, "arguments is null");
+        this.body = requireNonNull(body, "body is null");
     }
 
     private LambdaExpression(Optional<NodeLocation> location, List<LambdaArgumentDeclaration> arguments, Expression body)

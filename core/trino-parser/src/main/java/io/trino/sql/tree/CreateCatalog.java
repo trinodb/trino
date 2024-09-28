@@ -41,7 +41,7 @@ public class CreateCatalog
             Optional<PrincipalSpecification> principal,
             Optional<String> comment)
     {
-        super(Optional.of(location));
+        super(location);
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.notExists = notExists;
         this.connectorName = requireNonNull(connectorName, "connectorName is null");
