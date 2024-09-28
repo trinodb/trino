@@ -19,7 +19,6 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <bookkeeer.version>4.17.1</bookkeeer.version>        
         <pulsar.version>4.0.0-preview.1</pulsar.version>
     </properties>
     <dependencies>

@@ -49,15 +49,15 @@ import org.apache.bookkeeper.mledger.ManagedLedgerConfig;
 import org.apache.bookkeeper.mledger.ManagedLedgerException;
 import org.apache.bookkeeper.mledger.ManagedLedgerFactory;
 import org.apache.bookkeeper.mledger.Position;
+import org.apache.bookkeeper.mledger.PositionFactory;
 import org.apache.bookkeeper.mledger.ReadOnlyCursor;
-import org.apache.bookkeeper.mledger.impl.PositionImpl;
+import org.apache.bookkeeper.mledger.impl.ImmutablePositionImpl;
 import org.apache.bookkeeper.mledger.impl.ReadOnlyCursorImpl;
+import org.apache.bookkeeper.util.collections.ConcurrentOpenHashMap;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.Schema;
-import org.apache.pulsar.client.impl.MessageImpl;
 import org.apache.pulsar.client.impl.schema.KeyValueSchemaInfo;
 import org.apache.pulsar.common.api.raw.MessageParser;
-import org.apache.pulsar.common.api.raw.MessageParser.MessageProcessor;
 import org.apache.pulsar.common.api.raw.RawMessage;
 import org.apache.pulsar.common.api.raw.RawMessageIdImpl;
 import org.apache.pulsar.common.api.raw.RawMessageImpl;
@@ -69,10 +69,8 @@ import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
-import org.apache.pulsar.common.util.collections.ConcurrentOpenHashMap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-
 import io.trino.plugin.pulsar.util.CacheSizeAllocator;
 import io.trino.plugin.pulsar.util.NoStrictCacheSizeAllocator;
 import io.trino.plugin.pulsar.util.NullCacheSizeAllocator;
@@ -290,9 +288,8 @@ public class PulsarRecordCursor implements RecordCursor {
                                 metricsTracker.start_ENTRY_DESERIALIZE_TIME();
 
                                 try {
-                                    MessageImpl<byte[]> msg = MessageImpl.deserialize(entry.getDataBuffer());
                                     MessageParser.parseMessage(topicName, entry.getLedgerId(), entry.getEntryId(),
-                                            msg.getDataBuffer(), (message) -> {
+                                            entry.getDataBuffer(), (message) -> {
                                                 try {
                                                     // start time for message queue read
                                                     metricsTracker.start_MESSAGE_QUEUE_ENQUEUE_WAIT_TIME();
@@ -363,7 +360,7 @@ public class PulsarRecordCursor implements RecordCursor {
     }
 
     private boolean entryExceedSplitEndPosition(Entry entry) {
-        return ((PositionImpl) entry.getPosition()).compareTo(pulsarSplit.getEndPosition()) >= 0;
+        return ((ImmutablePositionImpl) entry.getPosition()).compareTo(pulsarSplit.getEndPosition()) >= 0;
     }
 
     @VisibleForTesting
@@ -380,7 +377,7 @@ public class PulsarRecordCursor implements RecordCursor {
 
             if (outstandingReadsRequests.get() > 0) {
                 if (!cursor.hasMoreEntries()
-                        || (((PositionImpl) cursor.getReadPosition()).compareTo(pulsarSplit.getEndPosition()) >= 0
+                        || (((ImmutablePositionImpl) cursor.getReadPosition()).compareTo(pulsarSplit.getEndPosition()) >= 0
                         && chunkedMessagesMap.isEmpty())) {
                     isDone = true;
 
@@ -398,7 +395,7 @@ public class PulsarRecordCursor implements RecordCursor {
 
                             long numEntries = readOnlyCursorImpl.getCurrentLedgerInfo().getEntries();
                             long entriesToSkip =
-                                    (numEntries - ((PositionImpl) cursor.getReadPosition()).getEntryId()) + 1;
+                                    (numEntries - ((ImmutablePositionImpl) cursor.getReadPosition()).getEntryId()) + 1;
                             cursor.skipEntries(Math.toIntExact((entriesToSkip)));
 
                             entriesProcessed += entriesToSkip;
@@ -410,7 +407,7 @@ public class PulsarRecordCursor implements RecordCursor {
                             // if the available size is invalid and the entry queue size is 0, read one entry
                             outstandingReadsRequests.decrementAndGet();
                             cursor.asyncReadEntries(batchSize, entryQueueCacheSizeAllocator.getAvailableCacheSize(),
-                                    this, System.nanoTime(), PositionImpl.LATEST);
+                                    this, System.nanoTime(), PositionFactory.LATEST);
                         }
 
                         // stats for successful read request
