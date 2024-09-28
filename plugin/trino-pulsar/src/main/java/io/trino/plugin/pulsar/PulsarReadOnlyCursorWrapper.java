@@ -19,7 +19,6 @@ import org.apache.bookkeeper.mledger.ManagedCursor.FindPositionConstraint;
 import org.apache.bookkeeper.mledger.ManagedLedgerException;
 import org.apache.bookkeeper.mledger.Position;
 import org.apache.bookkeeper.mledger.ReadOnlyCursor;
-import org.apache.bookkeeper.mledger.impl.PositionImpl;
 import org.apache.bookkeeper.mledger.impl.ReadOnlyCursorImpl;
 import org.apache.bookkeeper.mledger.proto.MLDataFormats;
 
@@ -58,13 +57,13 @@ public class PulsarReadOnlyCursorWrapper
     }
 
     @Override
-    public void asyncReadEntries(int i, AsyncCallbacks.ReadEntriesCallback readEntriesCallback, Object o, PositionImpl maxPosition)
+    public void asyncReadEntries(int i, AsyncCallbacks.ReadEntriesCallback readEntriesCallback, Object o, Position maxPosition)
     {
         delegate.asyncReadEntries(i, readEntriesCallback, o, maxPosition);
     }
 
     @Override
-    public void asyncReadEntries(int i, long l, AsyncCallbacks.ReadEntriesCallback readEntriesCallback, Object o, PositionImpl maxPosition)
+    public void asyncReadEntries(int i, long l, AsyncCallbacks.ReadEntriesCallback readEntriesCallback, Object o, Position maxPosition)
     {
         delegate.asyncReadEntries(i, l, readEntriesCallback, o, maxPosition);
     }
@@ -113,7 +112,7 @@ public class PulsarReadOnlyCursorWrapper
     }
 
     @Override
-    public long getNumberOfEntries(Range<PositionImpl> range) {
+    public long getNumberOfEntries(Range<Position> range) {
         return delegate.getNumberOfEntries(range);
     }
 }

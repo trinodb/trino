@@ -38,8 +38,10 @@ import org.apache.bookkeeper.mledger.Entry;
 import org.apache.bookkeeper.mledger.ManagedLedgerConfig;
 import org.apache.bookkeeper.mledger.ManagedLedgerException;
 import org.apache.bookkeeper.mledger.ManagedLedgerFactory;
+import org.apache.bookkeeper.mledger.Position;
+import org.apache.bookkeeper.mledger.PositionFactory;
 import org.apache.bookkeeper.mledger.ReadOnlyCursor;
-import org.apache.bookkeeper.mledger.impl.PositionImpl;
+import org.apache.bookkeeper.mledger.impl.ImmutablePositionImpl;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.client.api.PulsarClientException;
@@ -47,25 +49,17 @@ import org.apache.pulsar.client.impl.MessageImpl;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.policies.data.OffloadPoliciesImpl;
-import org.apache.pulsar.common.protocol.Commands;
 import org.apache.pulsar.common.schema.SchemaInfo;
-import org.apache.commons.lang.exception.ExceptionUtils;
-
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Properties;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.pulsar.PulsarErrorCode.PULSAR_ADMIN_ERROR;
 import static io.trino.plugin.pulsar.PulsarErrorCode.PULSAR_SPLIT_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.bookkeeper.mledger.ManagedCursor.FindPositionConstraint.SearchAllAvailableEntries;
@@ -289,7 +283,7 @@ public class PulsarSplitManager
         try {
             readOnlyCursor = managedLedgerFactory.openReadOnlyCursor(
                     topicNamePersistenceEncoding,
-                    PositionImpl.EARLIEST, managedLedgerConfig);
+                    PositionFactory.EARLIEST, managedLedgerConfig);
 
             long numEntries = readOnlyCursor.getNumberOfEntries();
             if (numEntries <= 0) {
@@ -304,12 +298,12 @@ public class PulsarSplitManager
                     topicNamePersistenceEncoding,
                     numEntries);
 
-            PositionImpl initialStartPosition;
+            ImmutablePositionImpl initialStartPosition;
             if (predicatePushdownInfo != null) {
                 numEntries = predicatePushdownInfo.numOfEntries;
                 initialStartPosition = predicatePushdownInfo.startPosition;
             } else {
-                initialStartPosition = (PositionImpl) readOnlyCursor.getReadPosition();
+                initialStartPosition = (ImmutablePositionImpl) readOnlyCursor.getReadPosition();
             }
 
 
@@ -325,9 +319,9 @@ public class PulsarSplitManager
             List<PulsarSplit> splits = new LinkedList<>();
             for (int i = 0; i < numSplits; i++) {
                 long entriesForSplit = (remainder > i) ? avgEntriesPerSplit + 1 : avgEntriesPerSplit;
-                PositionImpl startPosition = (PositionImpl) readOnlyCursor.getReadPosition();
+                ImmutablePositionImpl startPosition = (ImmutablePositionImpl) readOnlyCursor.getReadPosition();
                 readOnlyCursor.skipEntries(Math.toIntExact(entriesForSplit));
-                PositionImpl endPosition = (PositionImpl) readOnlyCursor.getReadPosition();
+                ImmutablePositionImpl endPosition = (ImmutablePositionImpl) readOnlyCursor.getReadPosition();
 
                 PulsarSplit pulsarSplit = new PulsarSplit(i, this.connectorId,
                         PulsarConnectorUtils.restoreNamespaceDelimiterIfNeeded(tableHandle.getSchemaName(), pulsarConnectorConfig),
@@ -358,11 +352,11 @@ public class PulsarSplitManager
     }
     
     private static class PredicatePushdownInfo {
-        private PositionImpl startPosition;
-        private PositionImpl endPosition;
+        private ImmutablePositionImpl startPosition;
+        private ImmutablePositionImpl endPosition;
         private long numOfEntries;
 
-        private PredicatePushdownInfo(PositionImpl startPosition, PositionImpl endPosition, long numOfEntries) {
+        private PredicatePushdownInfo(ImmutablePositionImpl startPosition, ImmutablePositionImpl endPosition, long numOfEntries) {
             this.startPosition = startPosition;
             this.endPosition = endPosition;
             this.numOfEntries = numOfEntries;
@@ -380,7 +374,7 @@ public class PulsarSplitManager
             try {
                 readOnlyCursor = managedLedgerFactory.openReadOnlyCursor(
                         topicNamePersistenceEncoding,
-                        PositionImpl.EARLIEST, managedLedgerConfig);
+                        PositionFactory.EARLIEST, managedLedgerConfig);
 
                 if (tupleDomain.getDomains().isPresent()) {
                     Domain domain = tupleDomain.getDomains().get().get(PulsarInternalColumn.PUBLISH_TIME
@@ -407,20 +401,20 @@ public class PulsarSplitManager
                                 lowerBoundTs = block.getEstimatedDataSizeForStats(0) / 1000;//block.getLong(0, 0) / 1000;
                             }
 
-                            PositionImpl overallStartPos;
+                            ImmutablePositionImpl overallStartPos;
                             if (lowerBoundTs == null) {
-                                overallStartPos = (PositionImpl) readOnlyCursor.getReadPosition();
+                                overallStartPos = (ImmutablePositionImpl) readOnlyCursor.getReadPosition();
                             } else {
                                 overallStartPos = findPosition(readOnlyCursor, lowerBoundTs);
                                 if (overallStartPos == null) {
-                                    overallStartPos = (PositionImpl) readOnlyCursor.getReadPosition();
+                                    overallStartPos = (ImmutablePositionImpl) readOnlyCursor.getReadPosition();
                                 }
                             }
 
-                            PositionImpl overallEndPos;
+                            ImmutablePositionImpl overallEndPos;
                             if (upperBoundTs == null) {
                                 readOnlyCursor.skipEntries(Math.toIntExact(totalNumEntries));
-                                overallEndPos = (PositionImpl) readOnlyCursor.getReadPosition();
+                                overallEndPos = (ImmutablePositionImpl) readOnlyCursor.getReadPosition();
                             } else {
                                 overallEndPos = findPosition(readOnlyCursor, upperBoundTs);
                                 if (overallEndPos == null) {
@@ -431,7 +425,7 @@ public class PulsarSplitManager
                             // Just use a close bound since presto can always filter out the extra entries even if
                             // the bound
                             // should be open or a mixture of open and closed
-                            com.google.common.collect.Range<PositionImpl> posRange =
+                            com.google.common.collect.Range<Position> posRange =
                                 com.google.common.collect.Range.range(overallStartPos,
                                     com.google.common.collect.BoundType.CLOSED,
                                     overallEndPos, com.google.common.collect.BoundType.CLOSED);
@@ -455,9 +449,9 @@ public class PulsarSplitManager
     }
 
     
-    private static PositionImpl findPosition(ReadOnlyCursor readOnlyCursor, long timestamp) throws ManagedLedgerException, InterruptedException
+    private static ImmutablePositionImpl findPosition(ReadOnlyCursor readOnlyCursor, long timestamp) throws ManagedLedgerException, InterruptedException
     {
-        return (PositionImpl) readOnlyCursor.findNewestMatching(SearchAllAvailableEntries, new com.google.common.base.Predicate<Entry>() {
+        return (ImmutablePositionImpl) readOnlyCursor.findNewestMatching(SearchAllAvailableEntries, new com.google.common.base.Predicate<Entry>() {
             @Override
             public boolean apply(Entry entry)
             {
