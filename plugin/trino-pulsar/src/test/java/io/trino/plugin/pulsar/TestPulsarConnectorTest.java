@@ -28,7 +28,7 @@ import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_ORDERS;
 import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
+import static org.junit.Assert.assertEquals;
 
 public class TestPulsarConnectorTest
         extends BaseConnectorTest

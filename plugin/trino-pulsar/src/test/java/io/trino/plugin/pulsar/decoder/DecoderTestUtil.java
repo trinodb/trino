@@ -27,9 +27,9 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Abstract util superclass for  XXDecoderTestUtil (e.g. AvroDecoderTestUtil 、JsonDecoderTestUtil)
@@ -56,10 +56,10 @@ public abstract class DecoderTestUtil
 
     public void checkField(Block actualBlock, Type type, int position, Object expectedValue)
     {
-        assertNotNull(type, "Type is null");
-        assertNotNull(actualBlock, "actualBlock is null");
+        assertNotNull("Type is null", type);
+        assertNotNull("actualBlock is null", actualBlock);
         assertTrue(!actualBlock.isNull(position));
-        assertNotNull(expectedValue, "expectedValue is null");
+        assertNotNull("expectedValue is null", expectedValue);
 
         if (type instanceof ArrayType) {
             //checkRowValues(actualBlock.getObject(position, Block.class), type, expectedValue);

@@ -56,9 +56,9 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Math.toIntExact;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.expectThrows;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertThrows;
 
 @Test(singleThreaded = true)
 public class TestJsonDecoder
@@ -285,7 +285,7 @@ public class TestJsonDecoder
     public void testCyclicDefinitionDetect()
     {
         JSONSchema cyclicSchema = JSONSchema.of(DecoderTestMessage.CyclicFoo.class);
-        TrinoException exception = expectThrows(TrinoException.class,
+        TrinoException exception = assertThrows(TrinoException.class,
                 () -> {
                     decoderFactory.extractColumnMetadata(topicName, cyclicSchema.getSchemaInfo(),
                             PulsarColumnHandle.HandleKeyValueType.NONE);

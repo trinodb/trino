@@ -16,7 +16,7 @@ package io.trino.plugin.pulsar;
 import io.trino.plugin.pulsar.util.NoStrictCacheSizeAllocator;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertEquals;
+import static org.junit.Assert.assertEquals;
 
 /**
  * Cache size allocator test.

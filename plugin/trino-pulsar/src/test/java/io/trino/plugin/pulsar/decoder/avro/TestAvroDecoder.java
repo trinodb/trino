@@ -45,7 +45,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static io.trino.plugin.pulsar.decoder.DecoderTestUtil.getCatalogName;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -56,9 +55,9 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Math.toIntExact;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.expectThrows;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertThrows;
 
 @Test(singleThreaded = true)
 public class TestAvroDecoder
@@ -295,7 +294,7 @@ public class TestAvroDecoder
     public void testCyclicDefinitionDetect()
     {
         AvroSchema cyclicSchema = AvroSchema.of(DecoderTestMessage.CyclicFoo.class);
-        TrinoException exception = expectThrows(TrinoException.class,
+        TrinoException exception = assertThrows(TrinoException.class,
                 () -> {
                     decoderFactory.extractColumnMetadata(topicName, cyclicSchema.getSchemaInfo(),
                             PulsarColumnHandle.HandleKeyValueType.NONE);
