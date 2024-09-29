@@ -40,8 +40,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.Assert.assertNotNull;
 import static org.mockito.Mockito.spy;
-import static org.testng.Assert.assertNotNull;
+//import static org.testng.Assert.assertNotNull;
 
 /**
  * Abstract superclass for TestXXDecoder (e.g. TestAvroDecoder 、TestJsonDecoder).
@@ -108,7 +109,7 @@ public abstract class AbstractDecoderTester {
 
     protected Block getBlock(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle) {
         FieldValueProvider provider = decodedRow.get(handle);
-        assertNotNull(provider);
+        assertNotNull(provider); 
         return (Block)provider.getObject();
     }
 

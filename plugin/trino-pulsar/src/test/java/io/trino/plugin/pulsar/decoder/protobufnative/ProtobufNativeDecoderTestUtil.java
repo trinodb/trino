@@ -28,11 +28,11 @@ import java.util.List;
 import java.util.Map;
 
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * TestUtil for ProtobufNativeDecoder.
@@ -87,10 +87,10 @@ public class ProtobufNativeDecoderTestUtil
     @Override
     public void checkArrayValues(Block block, Type type, Object value)
     {
-        assertNotNull(type, "Type is null");
-        assertTrue(type instanceof ArrayType, "Unexpected type");
-        assertNotNull(block, "Block is null");
-        assertNotNull(value, "Value is null");
+        assertNotNull("Type is null", type);
+        assertTrue("Unexpected type", type instanceof ArrayType);
+        assertNotNull("Block is null", block);
+        assertNotNull("Value is null", value);
 
         List<?> list = (List<?>) value;
 
@@ -136,10 +136,10 @@ public class ProtobufNativeDecoderTestUtil
     @Override
     public void checkMapValues(Block block, Type type, Object value)
     {
-        assertNotNull(type, "Type is null");
-        assertTrue(type instanceof MapType, "Unexpected type");
-        assertNotNull(block, "Block is null");
-        assertNotNull(value, "Value is null");
+        assertNotNull("Type is null", type);
+        assertTrue("Unexpected type", type instanceof MapType);
+        assertNotNull("Block is null", block);
+        assertNotNull("Value is null", value);
 
         Map<?, ?> expected = PulsarProtobufNativeColumnDecoder.parseProtobufMap(value);
 
@@ -201,15 +201,15 @@ public class ProtobufNativeDecoderTestUtil
     @Override
     public void checkRowValues(Block block, Type type, Object value)
     {
-        assertNotNull(type, "Type is null");
-        assertTrue(type instanceof RowType, "Unexpected type");
-        assertNotNull(block, "Block is null");
-        assertNotNull(value, "Value is null");
+        assertNotNull("Type is null", type);
+        assertTrue("Unexpected type", type instanceof RowType);
+        assertNotNull("Block is null", block);
+        assertNotNull("Value is null", value);
 
         DynamicMessage record = (DynamicMessage) value;
         RowType rowType = (RowType) type;
-        assertEquals(record.getAllFields().size(), rowType.getFields().size(), "Protobuf field size mismatch");
-        assertEquals(block.getPositionCount(), rowType.getFields().size(), "Trino type field size mismatch");
+        assertEquals("Protobuf field size mismatch", record.getAllFields().size(), rowType.getFields().size());
+        assertEquals("Trino type field size mismatch", block.getPositionCount(), rowType.getFields().size());
         for (int fieldIndex = 0; fieldIndex < rowType.getFields().size(); fieldIndex++) {
             RowType.Field rowField = rowType.getFields().get(fieldIndex);
             Object expectedValue =

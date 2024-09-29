@@ -32,11 +32,11 @@ import java.util.Map;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  *
@@ -83,13 +83,13 @@ public class JsonDecoderTestUtil
     @Override
     public void checkMapValues(Block block, Type type, Object value)
     {
-        assertNotNull(type, "Type is null");
-        assertTrue(type instanceof MapType, "Unexpected type");
-        assertTrue(((MapType) type).getKeyType() instanceof VarcharType, "Unexpected key type");
-        assertNotNull(block, "Block is null");
-        assertNotNull(value, "Value is null");
+        assertNotNull("Type is null", type);
+        assertTrue("Unexpected type", type instanceof MapType);
+        assertTrue("Unexpected key type", ((MapType) type).getKeyType() instanceof VarcharType);
+        assertNotNull("Block is null", block);
+        assertNotNull("Value is null", value);
 
-        assertTrue(value instanceof ObjectNode, "map node isn't ObjectNode type");
+        assertTrue("map node isn't ObjectNode type", value instanceof ObjectNode);
 
         ObjectNode expected = (ObjectNode) value;
 
@@ -148,15 +148,15 @@ public class JsonDecoderTestUtil
     @Override
     public void checkRowValues(Block block, Type type, Object value)
     {
-        assertNotNull(type, "Type is null");
-        assertTrue(type instanceof RowType, "Unexpected type");
-        assertNotNull(block, "Block is null");
-        assertNotNull(value, "Value is null");
+        assertNotNull("Type is null", type);
+        assertTrue("Unexpected type", type instanceof RowType);
+        assertNotNull("Block is null", block);
+        assertNotNull("Value is null", value);
 
         ObjectNode record = (ObjectNode) value;
         RowType rowType = (RowType) type;
-        assertEquals(Iterators.size(record.fields()), rowType.getFields().size(), "Json field size mismatch");
-        assertEquals(block.getPositionCount(), rowType.getFields().size(), "Trino type field size mismatch");
+        assertEquals("Json field size mismatch", Iterators.size(record.fields()), rowType.getFields().size());
+        assertEquals("Trino type field size mismatch", block.getPositionCount(), rowType.getFields().size());
         for (int fieldIndex = 0; fieldIndex < rowType.getFields().size(); fieldIndex++) {
             RowType.Field rowField = rowType.getFields().get(fieldIndex);
             Object expectedValue = record.get(rowField.getName().get());
@@ -171,12 +171,12 @@ public class JsonDecoderTestUtil
     @Override
     public void checkArrayValues(Block block, Type type, Object value)
     {
-        assertNotNull(type, "Type is null");
-        assertTrue(type instanceof ArrayType, "Unexpected type");
-        assertNotNull(block, "Block is null");
-        assertNotNull(value, "Value is null");
+        assertNotNull("Type is null", type);
+        assertTrue("Unexpected type", type instanceof ArrayType);
+        assertNotNull("Block is null", block);
+        assertNotNull("Value is null", value);
 
-        assertTrue(value instanceof ArrayNode, "Array node isn't ArrayNode type");
+        assertTrue("Array node isn't ArrayNode type", value instanceof ArrayNode);
         ArrayNode arrayNode = (ArrayNode) value;
 
         assertEquals(block.getPositionCount(), arrayNode.size());
