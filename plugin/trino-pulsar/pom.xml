@@ -6,13 +6,12 @@
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
         <version>458</version>
-        <!--<version>460-SNAPSHOT</version>-->
+        <!--<version>459-SNAPSHOT</version>-->
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>trino-pulsar</artifactId>
     <packaging>trino-plugin</packaging>
-    <name>Pulsar SQL :: Pulsar Trino Connector Packaging</name>
     <description>Trino - Pulsar connector</description>
 
     <properties>
@@ -113,7 +112,6 @@
             <artifactId>commons-collections4</artifactId>
             <version>4.4</version>
         </dependency>
-
         <dependency>
             <groupId>org.apache.pulsar</groupId>
             <artifactId>managed-ledger</artifactId>
@@ -165,7 +163,6 @@
             <artifactId>pulsar-client-original</artifactId>
             <version>${pulsar.version}</version>
         </dependency>
-
         <dependency>
             <groupId>org.jctools</groupId>
             <artifactId>jctools-core</artifactId>
@@ -264,20 +261,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>com.github.ekryd.sortpom</groupId>
-                <artifactId>sortpom-maven-plugin</artifactId>
-                <version>3.4.0</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>sort</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
 </project>
