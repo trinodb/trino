@@ -211,7 +211,8 @@
         <dep.okio.version>3.9.1</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.14.2</dep.parquet.version>
-        <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
+        <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>        
+        <dep.pulsar.version>4.0.0-preview.1</dep.pulsar.version>
         <dep.protobuf.version>3.25.4</dep.protobuf.version>
         <dep.snowflake.version>3.19.0</dep.snowflake.version>
         <dep.swagger.version>2.2.23</dep.swagger.version>
@@ -303,7 +304,13 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-
+            <dependency>
+                <groupId>org.apache.pulsar</groupId>
+                <artifactId>pulsar-bom</artifactId>
+                <version>${dep.pulsar.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-bom</artifactId>
@@ -2340,7 +2347,8 @@
                 <!-- This is under Confluent Community License and it should not be used with compile scope -->
                 <scope>test</scope>
             </dependency>
-        </dependencies>
+            
+      </dependencies>
     </dependencyManagement>
 
     <build>
