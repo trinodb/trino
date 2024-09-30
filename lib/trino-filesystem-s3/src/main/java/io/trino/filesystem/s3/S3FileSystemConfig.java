@@ -519,7 +519,7 @@ public class S3FileSystemConfig
     }
 
     @Config("s3.enable-set-content-md5")
-    @ConfigDescription("Whether to set content md5 for s3 write requests")
+    @ConfigDescription("Whether to set content md5 header for the s3 write requests. The header can be used to provide end-to-end integrity check, but it introduces additional latency to compute the MD5 digest")
     public S3FileSystemConfig setEnableSetContentMd5(boolean setContentMd5)
     {
         this.enableSetContentMd5 = setContentMd5;
