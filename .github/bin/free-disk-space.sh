@@ -37,8 +37,12 @@ function free_up_disk_space_ubuntu()
 
     for package in "${packages[@]}"; do
         mapfile -t installed_packages < <(list_installed_packages "${package}")
-        echo "Removing packages by pattern ${package}: ${installed_packages[*]}"
-        sudo apt-get --auto-remove -y purge "${installed_packages[@]}"
+        if [ ${#installed_packages[@]} -eq 0 ]; then
+            echo "No packages matched by pattern ${package}"
+        else
+            echo "Removing packages by pattern ${package}: ${installed_packages[*]}"
+            sudo apt-get --auto-remove -y purge "${installed_packages[@]}"
+        fi
     done
 
     echo "Autoremoving packages"
