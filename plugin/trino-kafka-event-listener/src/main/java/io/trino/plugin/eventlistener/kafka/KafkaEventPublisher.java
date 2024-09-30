@@ -176,9 +176,9 @@ public class KafkaEventPublisher
             getProducer().send(record, (metadata, exception) -> {
                 if (exception != null) {
                     switch (exception) {
-                        case TimeoutException e -> stats.completedEventSendFailureTimeout();
-                        case RecordTooLargeException e -> stats.completedEventSendFailureTooLarge();
-                        case InvalidRecordException e -> stats.completedEventSendFailureInvalidRecord();
+                        case TimeoutException _ -> stats.completedEventSendFailureTimeout();
+                        case RecordTooLargeException _ -> stats.completedEventSendFailureTooLarge();
+                        case InvalidRecordException _ -> stats.completedEventSendFailureInvalidRecord();
                         default -> stats.completedEventSendFailureOther();
                     }
                     LOG.warn(exception, "failed to send QueryCompletedEvent for query id: %s. Uncompressed message size: %s. Partition: %s",
@@ -209,9 +209,9 @@ public class KafkaEventPublisher
             getProducer().send(record, (metadata, exception) -> {
                 if (exception != null) {
                     switch (exception) {
-                        case TimeoutException e -> stats.createdEventSendFailureTimeout();
-                        case RecordTooLargeException e -> stats.createdEventSendFailureTooLarge();
-                        case InvalidRecordException e -> stats.createdEventSendFailureInvalidRecord();
+                        case TimeoutException _ -> stats.createdEventSendFailureTimeout();
+                        case RecordTooLargeException _ -> stats.createdEventSendFailureTooLarge();
+                        case InvalidRecordException _ -> stats.createdEventSendFailureInvalidRecord();
                         default -> stats.createdEventSendFailureOther();
                     }
                     LOG.warn(exception, "failed to send QueryCreatedEvent for query id: %s. Uncompressed message size: %s. Partition: %s",
@@ -242,9 +242,9 @@ public class KafkaEventPublisher
             getProducer().send(record, (metadata, exception) -> {
                 if (exception != null) {
                     switch (exception) {
-                        case TimeoutException e -> stats.splitCompletedEventSendFailureTimeout();
-                        case RecordTooLargeException e -> stats.splitCompletedEventSendFailureTooLarge();
-                        case InvalidRecordException e -> stats.splitCompletedEventSendFailureInvalidRecord();
+                        case TimeoutException _ -> stats.splitCompletedEventSendFailureTimeout();
+                        case RecordTooLargeException _ -> stats.splitCompletedEventSendFailureTooLarge();
+                        case InvalidRecordException _ -> stats.splitCompletedEventSendFailureInvalidRecord();
                         default -> stats.splitCompletedEventSendFailureOther();
                     }
                     LOG.warn(exception, "failed to send SplitCompletedEvent for query id: %s. Uncompressed message size: %s. Partition: %s",
