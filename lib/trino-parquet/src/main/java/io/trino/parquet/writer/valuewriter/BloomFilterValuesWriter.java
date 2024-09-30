@@ -23,8 +23,6 @@ import org.apache.parquet.io.api.Binary;
 
 import java.util.Optional;
 
-import static java.lang.Math.toIntExact;
-
 public class BloomFilterValuesWriter
         extends ValuesWriter
 {
@@ -122,14 +120,14 @@ public class BloomFilterValuesWriter
     public void writeInteger(int v)
     {
         writer.writeInteger(v);
-        bloomFilter.insertHash(bloomFilter.hash(toIntExact(((Number) v).longValue())));
+        bloomFilter.insertHash(bloomFilter.hash(v));
     }
 
     @Override
     public void writeLong(long v)
     {
         writer.writeLong(v);
-        bloomFilter.insertHash(bloomFilter.hash(((Number) v).longValue()));
+        bloomFilter.insertHash(bloomFilter.hash(v));
     }
 
     @Override
