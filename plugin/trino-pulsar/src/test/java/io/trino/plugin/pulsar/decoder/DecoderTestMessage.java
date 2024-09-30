@@ -34,6 +34,7 @@ public class DecoderTestMessage {
     public List<String> arrayField;
     public Map<String, Long> mapField;
     public CompositeRow compositeRow;
+
     public enum TestEnum {
         TEST_ENUM_1,
         TEST_ENUM_2,
