@@ -16,15 +16,9 @@ function free_up_disk_space_ubuntu()
         'google-cloud-*'
         'libmono-*'
         'llvm-*'
-        'imagemagick'
-        'postgresql-*'
-        'unixodbc-dev'
-        'mercurial'
         'mysql-server-core-*'
-        'php-*'
         'powershell*'
-        'microsoft-edge*'
-        'subversion')
+        'microsoft-edge*')
 
     for package in "${packages[@]}"; do
         mapfile -t installed_packages < <(list_installed_packages "${package}")
