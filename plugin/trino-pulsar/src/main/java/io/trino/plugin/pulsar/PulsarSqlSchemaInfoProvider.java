@@ -13,16 +13,9 @@
  */
 package io.trino.plugin.pulsar;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import javax.annotation.Nonnull;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.schema.SchemaInfoProvider;
@@ -33,6 +26,15 @@ import org.apache.pulsar.common.util.FutureUtil;
 import org.glassfish.jersey.internal.inject.InjectionManagerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nonnull;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 /**
  * Multi version schema info provider for Pulsar SQL leverage guava cache.
@@ -59,6 +61,10 @@ public class PulsarSqlSchemaInfoProvider implements SchemaInfoProvider {
     public PulsarSqlSchemaInfoProvider(TopicName topicName, PulsarAdmin pulsarAdmin) {
         this.topicName = topicName;
         this.pulsarAdmin = pulsarAdmin;
+    }
+
+    public static SchemaInfo defaultSchema() {
+        return Schema.BYTES.getSchemaInfo();
     }
 
     @Override
@@ -94,11 +100,6 @@ public class PulsarSqlSchemaInfoProvider implements SchemaInfoProvider {
         } finally {
             Thread.currentThread().setContextClassLoader(originalContextLoader);
         }
-    }
-
-
-    public static SchemaInfo defaultSchema() {
-        return Schema.BYTES.getSchemaInfo();
     }
 
 }

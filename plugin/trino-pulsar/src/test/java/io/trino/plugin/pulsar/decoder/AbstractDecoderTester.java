@@ -16,26 +16,18 @@ package io.trino.plugin.pulsar.decoder;
 import io.airlift.slice.Slice;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
+import io.trino.plugin.pulsar.*;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorContext;
-import java.math.BigDecimal;
-
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.common.naming.NamespaceName;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.schema.SchemaInfo;
-import io.trino.plugin.pulsar.PulsarAuth;
-import io.trino.plugin.pulsar.PulsarColumnHandle;
-import io.trino.plugin.pulsar.PulsarColumnMetadata;
-import io.trino.plugin.pulsar.PulsarConnectorConfig;
-import io.trino.plugin.pulsar.PulsarConnectorId;
-import io.trino.plugin.pulsar.PulsarDispatchingRowDecoderFactory;
-import io.trino.plugin.pulsar.PulsarMetadata;
-import io.trino.plugin.pulsar.PulsarRowDecoder;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -109,8 +101,8 @@ public abstract class AbstractDecoderTester {
 
     protected Block getBlock(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle) {
         FieldValueProvider provider = decodedRow.get(handle);
-        assertNotNull(provider); 
-        return (Block)provider.getObject();
+        assertNotNull(provider);
+        return (Block) provider.getObject();
     }
 
     protected List<PulsarColumnHandle> getColumnColumnHandles(TopicName topicName, SchemaInfo schemaInfo,

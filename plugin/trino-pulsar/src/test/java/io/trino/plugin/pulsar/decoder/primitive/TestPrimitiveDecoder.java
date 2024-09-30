@@ -14,6 +14,7 @@
 package io.trino.plugin.pulsar.decoder.primitive;
 
 import io.airlift.slice.Slices;
+import io.netty.buffer.Unpooled;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.plugin.pulsar.PulsarColumnHandle;
@@ -22,7 +23,6 @@ import io.trino.plugin.pulsar.decoder.AbstractDecoderTester;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.impl.schema.SchemaInfoImpl;
-import io.netty.buffer.Unpooled;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 import org.testng.annotations.BeforeMethod;
@@ -34,6 +34,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+
 import static io.trino.plugin.pulsar.decoder.DecoderTestUtil.getCatalogName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -49,21 +50,18 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 
 @Test(singleThreaded = true)
 public class TestPrimitiveDecoder
-        extends AbstractDecoderTester
-{
+        extends AbstractDecoderTester {
     public static final String PRIMITIVE_COLUMN_NAME = "__value__";
 
     @Override
     @BeforeMethod
-    public void init() throws PulsarClientException
-    {
+    public void init() throws PulsarClientException {
         decoderTestUtil = new PrimitiveDecoderTestUtil();
         super.init();
     }
 
     @Test(singleThreaded = true)
-    public void testPrimitiveType()
-    {
+    public void testPrimitiveType() {
         byte int8Value = 1;
         SchemaInfo schemaInfoInt8 = SchemaInfoImpl.builder().type(SchemaType.INT8).build();
         Schema schemaInt8 = Schema.getSchema(schemaInfoInt8);

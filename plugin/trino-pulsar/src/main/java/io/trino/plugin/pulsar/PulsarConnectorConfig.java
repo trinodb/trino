@@ -15,13 +15,6 @@ package io.trino.plugin.pulsar;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.configuration.Config;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.regex.Matcher;
-import javax.validation.constraints.NotNull;
-import javax.ws.rs.client.ClientBuilder;
 import org.apache.bookkeeper.stats.NullStatsProvider;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.client.admin.PulsarAdmin;
@@ -31,6 +24,14 @@ import org.apache.pulsar.common.naming.NamedEntity;
 import org.apache.pulsar.common.nar.NarClassLoader;
 import org.apache.pulsar.common.policies.data.OffloadPoliciesImpl;
 import org.apache.pulsar.common.protocol.Commands;
+
+import javax.validation.constraints.NotNull;
+import javax.ws.rs.client.ClientBuilder;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.util.regex.Matcher;
 
 /**
  * This object handles configuration of the Pulsar connector for the Presto engine.
@@ -92,28 +93,26 @@ public class PulsarConnectorConfig implements AutoCloseable {
 
     @NotNull
     public String getBrokerServiceUrl() {
-        if (StringUtils.isEmpty(webServiceUrl)){
+        if (StringUtils.isEmpty(webServiceUrl)) {
             return brokerServiceUrl;
         } else {
             return getWebServiceUrl();
         }
     }
+
     @Config("pulsar.broker-service-url")
     public PulsarConnectorConfig setBrokerServiceUrl(String brokerServiceUrl) {
         this.brokerServiceUrl = brokerServiceUrl;
         return this;
     }
+
     public String getBrokerBinaryServiceUrl() {
         return this.brokerBinaryServiceUrl;
     }
+
     @Config("pulsar.broker-binary-service-url")
     public PulsarConnectorConfig setBrokerBinaryServiceUrl(String brokerBinaryServiceUrl) {
         this.brokerBinaryServiceUrl = brokerBinaryServiceUrl;
-        return this;
-    }
-    @Config("pulsar.web-service-url")
-    public PulsarConnectorConfig setWebServiceUrl(String webServiceUrl) {
-        this.webServiceUrl = webServiceUrl;
         return this;
     }
 
@@ -121,14 +120,20 @@ public class PulsarConnectorConfig implements AutoCloseable {
         return webServiceUrl;
     }
 
-    @Config("pulsar.max-message-size")
-    public PulsarConnectorConfig setMaxMessageSize(int maxMessageSize) {
-        this.maxMessageSize = maxMessageSize;
+    @Config("pulsar.web-service-url")
+    public PulsarConnectorConfig setWebServiceUrl(String webServiceUrl) {
+        this.webServiceUrl = webServiceUrl;
         return this;
     }
 
     public int getMaxMessageSize() {
         return this.maxMessageSize;
+    }
+
+    @Config("pulsar.max-message-size")
+    public PulsarConnectorConfig setMaxMessageSize(int maxMessageSize) {
+        this.maxMessageSize = maxMessageSize;
+        return this;
     }
 
     /**
@@ -287,7 +292,7 @@ public class PulsarConnectorConfig implements AutoCloseable {
 
     @Config("pulsar.managed-ledger-offload-max-threads")
     public PulsarConnectorConfig setManagedLedgerOffloadMaxThreads(int managedLedgerOffloadMaxThreads)
-        throws IOException {
+            throws IOException {
         this.managedLedgerOffloadMaxThreads = managedLedgerOffloadMaxThreads;
         return this;
     }
@@ -323,14 +328,18 @@ public class PulsarConnectorConfig implements AutoCloseable {
         return this;
     }
 
+    public boolean isExposeTopicLevelMetricsInPrometheus() {
+        return exposeTopicLevelMetricsInPrometheus;
+    }
+
     @Config("pulsar.expose-topic-level-metrics-in-prometheus")
     public PulsarConnectorConfig setExposeTopicLevelMetricsInPrometheus(boolean exposeTopicLevelMetricsInPrometheus) {
         this.exposeTopicLevelMetricsInPrometheus = exposeTopicLevelMetricsInPrometheus;
         return this;
     }
 
-    public boolean isExposeTopicLevelMetricsInPrometheus() {
-        return exposeTopicLevelMetricsInPrometheus;
+    public boolean isExposeManagedLedgerMetricsInPrometheus() {
+        return exposeManagedLedgerMetricsInPrometheus;
     }
 
     @Config("pulsar.expose-managed-ledger-metrics-in-prometheus")
@@ -340,18 +349,14 @@ public class PulsarConnectorConfig implements AutoCloseable {
         return this;
     }
 
-    public boolean isExposeManagedLedgerMetricsInPrometheus() {
-        return exposeManagedLedgerMetricsInPrometheus;
+    public int getManagedLedgerStatsPeriodSeconds() {
+        return managedLedgerStatsPeriodSeconds;
     }
 
     @Config("pulsar.managed-ledger-stats-period-seconds")
     public PulsarConnectorConfig setManagedLedgerStatsPeriodSeconds(int managedLedgerStatsPeriodSeconds) {
         this.managedLedgerStatsPeriodSeconds = managedLedgerStatsPeriodSeconds;
         return this;
-    }
-
-    public int getManagedLedgerStatsPeriodSeconds() {
-        return managedLedgerStatsPeriodSeconds;
     }
 
     // --- Authentication ---
@@ -465,7 +470,7 @@ public class PulsarConnectorConfig implements AutoCloseable {
 
     @Config("pulsar.managed-ledger-cache-size-MB")
     public PulsarConnectorConfig setManagedLedgerCacheSizeMB(int managedLedgerCacheSizeMB) {
-        this.managedLedgerCacheSizeMB = managedLedgerCacheSizeMB * 1024 * 1024;
+        this.managedLedgerCacheSizeMB = (long) managedLedgerCacheSizeMB * 1024 * 1024;
         return this;
     }
 
@@ -534,14 +539,14 @@ public class PulsarConnectorConfig implements AutoCloseable {
 
     @Override
     public String toString() {
-       if (StringUtils.isEmpty(webServiceUrl)){
-           return "PulsarConnectorConfig{"
-            + "brokerServiceUrl='" + brokerServiceUrl + '\''
-            + '}';
+        if (StringUtils.isEmpty(webServiceUrl)) {
+            return "PulsarConnectorConfig{"
+                    + "brokerServiceUrl='" + brokerServiceUrl + '\''
+                    + '}';
         } else {
             return "PulsarConnectorConfig{"
-            + "brokerServiceUrl='" + webServiceUrl + '\''
-            + '}';
+                    + "brokerServiceUrl='" + webServiceUrl + '\''
+                    + '}';
         }
     }
 }

@@ -13,48 +13,38 @@
  */
 package io.trino.plugin.pulsar.decoder.protobufnative;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.util.stream.Collectors.toList;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.TimestampProto;
 import io.airlift.log.Logger;
 import io.trino.decoder.DecoderColumnHandle;
-import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.RealType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
-import io.trino.spi.type.VarbinaryType;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.pulsar.client.impl.schema.generic.GenericProtobufNativeSchema;
-import org.apache.pulsar.common.naming.TopicName;
-import org.apache.pulsar.common.schema.SchemaInfo;
 import io.trino.plugin.pulsar.PulsarColumnHandle;
 import io.trino.plugin.pulsar.PulsarColumnMetadata;
 import io.trino.plugin.pulsar.PulsarRowDecoder;
 import io.trino.plugin.pulsar.PulsarRowDecoderFactory;
+import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.*;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.pulsar.client.impl.schema.generic.GenericProtobufNativeSchema;
+import org.apache.pulsar.common.naming.TopicName;
+import org.apache.pulsar.common.schema.SchemaInfo;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.util.stream.Collectors.toList;
 
 /**
  * PulsarRowDecoderFactory for {@link org.apache.pulsar.common.schema.SchemaType#PROTOBUF_NATIVE}.
  */
 public class PulsarProtobufNativeRowDecoderFactory implements PulsarRowDecoderFactory {
 
+    private static final Logger log = Logger.get(PulsarProtobufNativeRowDecoderFactory.class);
     private final TypeManager typeManager;
 
     public PulsarProtobufNativeRowDecoderFactory(TypeManager typeManager) {
@@ -155,7 +145,7 @@ public class PulsarProtobufNativeRowDecoderFactory implements PulsarRowDecoderFa
                 }
                 break;
             default:
-                throw new RuntimeException("Unknown type: " + type.toString() + " for FieldDescriptor: "
+                throw new RuntimeException("Unknown type: " + type + " for FieldDescriptor: "
                         + field.getName());
         }
         //list
@@ -165,7 +155,5 @@ public class PulsarProtobufNativeRowDecoderFactory implements PulsarRowDecoderFa
 
         return dataType;
     }
-
-    private static final Logger log = Logger.get(PulsarProtobufNativeRowDecoderFactory.class);
 
 }

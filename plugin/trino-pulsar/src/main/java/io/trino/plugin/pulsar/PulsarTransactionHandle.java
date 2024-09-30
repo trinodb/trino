@@ -15,7 +15,6 @@ package io.trino.plugin.pulsar;
 
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
-public enum PulsarTransactionHandle implements ConnectorTransactionHandle
-{
+public enum PulsarTransactionHandle implements ConnectorTransactionHandle {
     INSTANCE
 }

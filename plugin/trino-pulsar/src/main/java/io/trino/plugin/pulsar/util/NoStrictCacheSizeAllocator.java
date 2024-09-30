@@ -20,14 +20,12 @@ import java.util.concurrent.locks.ReentrantLock;
  * A {@link CacheSizeAllocator} that will ease cache limit under certain circumstance.
  */
 public class NoStrictCacheSizeAllocator
-        implements CacheSizeAllocator
-{
+        implements CacheSizeAllocator {
     private final long maxCacheSize;
     private final LongAdder availableCacheSize;
     private final ReentrantLock lock;
 
-    public NoStrictCacheSizeAllocator(long maxCacheSize)
-    {
+    public NoStrictCacheSizeAllocator(long maxCacheSize) {
         this.maxCacheSize = maxCacheSize;
         this.availableCacheSize = new LongAdder();
         this.availableCacheSize.add(maxCacheSize);
@@ -35,8 +33,7 @@ public class NoStrictCacheSizeAllocator
     }
 
     @Override
-    public long getAvailableCacheSize()
-    {
+    public long getAvailableCacheSize() {
         if (availableCacheSize.longValue() < 0) {
             return 0;
         }
@@ -51,13 +48,11 @@ public class NoStrictCacheSizeAllocator
      * @param size allocate size
      */
     @Override
-    public void allocate(long size)
-    {
+    public void allocate(long size) {
         try {
             lock.lock();
             availableCacheSize.add(-size);
-        }
-        finally {
+        } finally {
             lock.unlock();
         }
     }
@@ -68,8 +63,7 @@ public class NoStrictCacheSizeAllocator
      * @param size release size
      */
     @Override
-    public void release(long size)
-    {
+    public void release(long size) {
         try {
             lock.lock();
             availableCacheSize.add(size);
@@ -77,8 +71,7 @@ public class NoStrictCacheSizeAllocator
                 availableCacheSize.reset();
                 availableCacheSize.add(maxCacheSize);
             }
-        }
-        finally {
+        } finally {
             lock.unlock();
         }
     }

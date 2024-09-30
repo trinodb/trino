@@ -13,21 +13,16 @@
  */
 package io.trino.plugin.pulsar;
 
-import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
-import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
-import static java.util.Objects.requireNonNull;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
-import io.trino.spi.connector.Connector;
-import io.trino.spi.connector.ConnectorMetadata;
-import io.trino.spi.connector.ConnectorRecordSetProvider;
-import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorSplitManager;
-import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.*;
 import io.trino.spi.transaction.IsolationLevel;
-//import javax.inject.Inject;
 import jakarta.inject.Inject;
+
+import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This file contains implementation of the connector to the Presto engine.

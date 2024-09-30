@@ -13,21 +13,23 @@
  */
 package io.trino.plugin.pulsar.decoder.avro;
 
+import io.netty.buffer.ByteBuf;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.FieldValueProvider;
+import io.trino.plugin.pulsar.PulsarRowDecoder;
+import io.trino.spi.TrinoException;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.pulsar.client.impl.schema.generic.GenericAvroRecord;
+import org.apache.pulsar.client.impl.schema.generic.GenericAvroSchema;
+
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
 import static com.google.common.base.Functions.identity;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
-import io.netty.buffer.ByteBuf;
-import io.trino.decoder.DecoderColumnHandle;
-import io.trino.decoder.FieldValueProvider;
-import io.trino.spi.TrinoException;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.pulsar.client.impl.schema.generic.GenericAvroRecord;
-import org.apache.pulsar.client.impl.schema.generic.GenericAvroSchema;
-import io.trino.plugin.pulsar.PulsarRowDecoder;
 
 public class PulsarAvroRowDecoder implements PulsarRowDecoder {
 
@@ -46,16 +48,16 @@ public class PulsarAvroRowDecoder implements PulsarRowDecoder {
 
     /**
      * decode ByteBuf by {@link org.apache.pulsar.client.api.schema.GenericSchema}.
+     *
      * @param byteBuf
      * @return
      */
     @Override
-    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(ByteBuf byteBuf)
-    {
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(ByteBuf byteBuf) {
         GenericRecord avroRecord;
         try {
             GenericAvroRecord record = (GenericAvroRecord) genericAvroSchema.decode(byteBuf.array());
-            avroRecord = (GenericRecord) record.getAvroRecord();
+            avroRecord = record.getAvroRecord();
         } catch (Exception e) {
             e.printStackTrace();
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Decoding avro record failed.", e);
@@ -65,5 +67,5 @@ public class PulsarAvroRowDecoder implements PulsarRowDecoder {
                         Map.Entry::getKey,
                         entry -> entry.getValue().decodeField(avroRecord))));
     }
-   
+
 }

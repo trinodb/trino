@@ -13,40 +13,41 @@
  */
 package io.trino.plugin.pulsar;
 
-import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
-import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.SubscriptionMode;
 import org.apache.pulsar.client.api.SubscriptionType;
 
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
+import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
+
 /**
  * This class implements the authentication and authorization integration between the Pulsar SQL worker and the
  * Pulsar broker.
- *
+ * <p>
  * It will check permissions against the session-topic pair by trying to subscribe to a topic using the Pulsar Reader
  * to check the consumption privilege. The same topic will only be checked once during the same session.
  */
 public class PulsarAuth {
 
     private static final Logger log = Logger.get(PulsarAuth.class);
-
-    private final PulsarConnectorConfig pulsarConnectorConfig;
     private static final String CREDENTIALS_AUTH_PLUGIN = "auth-plugin";
     private static final String CREDENTIALS_AUTH_PARAMS = "auth-params";
     @VisibleForTesting
     final Map<String, Set<String>> authorizedQueryTopicsMap = new ConcurrentHashMap<>();
+    private final PulsarConnectorConfig pulsarConnectorConfig;
 
     @Inject
     public PulsarAuth(PulsarConnectorConfig pulsarConnectorConfig) {

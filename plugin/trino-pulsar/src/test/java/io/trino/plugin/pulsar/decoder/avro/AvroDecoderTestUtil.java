@@ -15,12 +15,7 @@ package io.trino.plugin.pulsar.decoder.avro;
 
 import io.trino.plugin.pulsar.decoder.DecoderTestUtil;
 import io.trino.spi.block.Block;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.SqlVarbinary;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.*;
 import org.apache.avro.generic.GenericEnumSymbol;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
@@ -31,60 +26,45 @@ import java.util.Map;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 /**
  * TestUtil for AvroDecoder
  */
 public class AvroDecoderTestUtil
-        extends DecoderTestUtil
-{
-    public AvroDecoderTestUtil()
-    {
+        extends DecoderTestUtil {
+    public AvroDecoderTestUtil() {
         super();
     }
 
     @Override
-    public void checkPrimitiveValue(Object actual, Object expected)
-    {
+    public void checkPrimitiveValue(Object actual, Object expected) {
         if (actual == null || expected == null) {
             assertNull(expected);
             assertNull(actual);
-        }
-        else if (actual instanceof CharSequence) {
+        } else if (actual instanceof CharSequence) {
             assertTrue(expected instanceof CharSequence || expected instanceof GenericEnumSymbol);
             assertEquals(actual.toString(), expected.toString());
-        }
-        else if (actual instanceof SqlVarbinary) {
+        } else if (actual instanceof SqlVarbinary) {
             if (expected instanceof GenericFixed) {
                 assertEquals(((SqlVarbinary) actual).getBytes(), ((GenericFixed) expected).bytes());
-            }
-            else if (expected instanceof ByteBuffer) {
+            } else if (expected instanceof ByteBuffer) {
                 assertEquals(((SqlVarbinary) actual).getBytes(), ((ByteBuffer) expected).array());
-            }
-            else {
+            } else {
                 fail(format("Unexpected value type %s", actual.getClass()));
             }
-        }
-        else if (isIntegralType(actual) && isIntegralType(expected)) {
+        } else if (isIntegralType(actual) && isIntegralType(expected)) {
             assertEquals(((Number) actual).longValue(), ((Number) expected).longValue());
-        }
-        else if (isRealType(actual) && isRealType(expected)) {
+        } else if (isRealType(actual) && isRealType(expected)) {
             assertEquals(((Number) actual).doubleValue(), ((Number) expected).doubleValue());
-        }
-        else {
+        } else {
             assertEquals(actual, expected);
         }
     }
 
     @Override
-    public void checkArrayValues(Block block, Type type, Object value)
-    {
-        assertNotNull("Type is null", type); 
+    public void checkArrayValues(Block block, Type type, Object value) {
+        assertNotNull("Type is null", type);
         assertTrue("Unexpected type", type instanceof ArrayType);
         assertNotNull("Block is null", block);
         assertNotNull("Value is null", value);
@@ -102,8 +82,7 @@ public class AvroDecoderTestUtil
                 Block arrayBlock = block.getSingleValueBlock(index);//.getObject(index, Block.class);
                 checkArrayValues(arrayBlock, elementType, list.get(index));
             }
-        }
-        else if (elementType instanceof MapType) {
+        } else if (elementType instanceof MapType) {
             for (int index = 0; index < block.getPositionCount(); index++) {
                 if (block.isNull(index)) {
                     assertNull(list.get(index));
@@ -112,8 +91,7 @@ public class AvroDecoderTestUtil
                 Block mapBlock = block.getSingleValueBlock(index);//.getObject(index, Block.class);
                 checkMapValues(mapBlock, elementType, list.get(index));
             }
-        }
-        else if (elementType instanceof RowType) {
+        } else if (elementType instanceof RowType) {
             for (int index = 0; index < block.getPositionCount(); index++) {
                 if (block.isNull(index)) {
                     assertNull(list.get(index));
@@ -122,8 +100,7 @@ public class AvroDecoderTestUtil
                 Block rowBlock = block.getSingleValueBlock(index);//.getObject(index, Block.class);
                 checkRowValues(rowBlock, elementType, list.get(index));
             }
-        }
-        else {
+        } else {
             for (int index = 0; index < block.getPositionCount(); index++) {
                 checkPrimitiveValue(getObjectValue(elementType, block, index), list.get(index));
             }
@@ -138,8 +115,7 @@ public class AvroDecoderTestUtil
      * @param value
      */
     @Override
-    public void checkMapValues(Block block, Type type, Object value)
-    {
+    public void checkMapValues(Block block, Type type, Object value) {
         assertNotNull("Type is null", type);
         assertTrue("Unexpected type", type instanceof MapType);
         assertTrue("Unexpected key type", ((MapType) type).getKeyType() instanceof VarcharType);
@@ -162,8 +138,7 @@ public class AvroDecoderTestUtil
                 Object keyValue = expected.entrySet().stream().filter(e -> e.getKey().toString().equals(actualKey)).findFirst().get().getValue();
                 checkArrayValues(arrayBlock, valueType, keyValue);
             }
-        }
-        else if (valueType instanceof MapType) {
+        } else if (valueType instanceof MapType) {
             for (int index = 0; index < block.getPositionCount(); index += 2) {
                 String actualKey = VARCHAR.getSlice(block, index).toStringUtf8();
                 assertTrue(expected.keySet().stream().anyMatch(e -> e.toString().equals(actualKey)));
@@ -175,8 +150,7 @@ public class AvroDecoderTestUtil
                 Object keyValue = expected.entrySet().stream().filter(e -> e.getKey().toString().equals(actualKey)).findFirst().get().getValue();
                 checkMapValues(mapBlock, valueType, keyValue);
             }
-        }
-        else if (valueType instanceof RowType) {
+        } else if (valueType instanceof RowType) {
             for (int index = 0; index < block.getPositionCount(); index += 2) {
                 String actualKey = VARCHAR.getSlice(block, index).toStringUtf8();
                 assertTrue(expected.keySet().stream().anyMatch(e -> e.toString().equals(actualKey)));
@@ -188,8 +162,7 @@ public class AvroDecoderTestUtil
                 Object keyValue = expected.entrySet().stream().filter(e -> e.getKey().toString().equals(actualKey)).findFirst().get().getValue();
                 checkRowValues(rowBlock, valueType, keyValue);
             }
-        }
-        else {
+        } else {
             for (int index = 0; index < block.getPositionCount(); index += 2) {
                 String actualKey = VARCHAR.getSlice(block, index).toStringUtf8();
                 assertTrue(expected.keySet().stream().anyMatch(e -> e.toString().equals(actualKey)));
@@ -200,8 +173,7 @@ public class AvroDecoderTestUtil
     }
 
     @Override
-    public void checkRowValues(Block block, Type type, Object value)
-    {
+    public void checkRowValues(Block block, Type type, Object value) {
         assertNotNull("Type is null", type);
         assertTrue("Unexpected type", type instanceof RowType);
         assertNotNull("Block is null", block);

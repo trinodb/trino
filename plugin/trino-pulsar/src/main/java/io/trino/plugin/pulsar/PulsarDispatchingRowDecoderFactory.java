@@ -13,22 +13,23 @@
  */
 package io.trino.plugin.pulsar;
 
-import static java.lang.String.format;
 import com.google.inject.Inject;
 import io.trino.decoder.DecoderColumnHandle;
-import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.type.TypeManager;
-import java.util.List;
-import java.util.Set;
-import java.util.function.Function;
-//import lombok.extern.slf4j.Slf4j;
-import org.apache.pulsar.common.naming.TopicName;
-import org.apache.pulsar.common.schema.SchemaInfo;
-import org.apache.pulsar.common.schema.SchemaType;
 import io.trino.plugin.pulsar.decoder.avro.PulsarAvroRowDecoderFactory;
 import io.trino.plugin.pulsar.decoder.json.PulsarJsonRowDecoderFactory;
 import io.trino.plugin.pulsar.decoder.primitive.PulsarPrimitiveRowDecoderFactory;
 import io.trino.plugin.pulsar.decoder.protobufnative.PulsarProtobufNativeRowDecoderFactory;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.TypeManager;
+import org.apache.pulsar.common.naming.TopicName;
+import org.apache.pulsar.common.schema.SchemaInfo;
+import org.apache.pulsar.common.schema.SchemaType;
+
+import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
+
+import static java.lang.String.format;
 
 /**
  * dispatcher RowDecoderFactory for {@link org.apache.pulsar.common.schema.SchemaType}.

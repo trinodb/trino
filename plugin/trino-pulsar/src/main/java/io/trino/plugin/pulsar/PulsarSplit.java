@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.pulsar;
 
-import static java.util.Objects.requireNonNull;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,13 +22,16 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
 import org.apache.bookkeeper.mledger.impl.ImmutablePositionImpl;
 import org.apache.pulsar.common.policies.data.OffloadPoliciesImpl;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * This class represents information for a split.
@@ -201,21 +203,21 @@ public class PulsarSplit implements ConnectorSplit {
     @Override
     public String toString() {
         return "PulsarSplit{"
-            + "splitId=" + splitId
-            + ", connectorId='" + connectorId + '\''
-            + ", originSchemaName='" + originSchemaName + '\''
-            + ", schemaName='" + schemaName + '\''
-            + ", tableName='" + tableName + '\''
-            + ", splitSize=" + splitSize
-            + ", schema='" + schema + '\''
-            + ", schemaType=" + schemaType
-            + ", startPositionEntryId=" + startPositionEntryId
-            + ", endPositionEntryId=" + endPositionEntryId
-            + ", startPositionLedgerId=" + startPositionLedgerId
-            + ", endPositionLedgerId=" + endPositionLedgerId
-            + ", schemaInfoProperties=" + schemaInfoProperties
-            + (offloadPolicies == null ? "" : offloadPolicies.toString())
-            + '}';
+                + "splitId=" + splitId
+                + ", connectorId='" + connectorId + '\''
+                + ", originSchemaName='" + originSchemaName + '\''
+                + ", schemaName='" + schemaName + '\''
+                + ", tableName='" + tableName + '\''
+                + ", splitSize=" + splitSize
+                + ", schema='" + schema + '\''
+                + ", schemaType=" + schemaType
+                + ", startPositionEntryId=" + startPositionEntryId
+                + ", endPositionEntryId=" + endPositionEntryId
+                + ", startPositionLedgerId=" + startPositionLedgerId
+                + ", endPositionLedgerId=" + endPositionLedgerId
+                + ", schemaInfoProperties=" + schemaInfoProperties
+                + (offloadPolicies == null ? "" : offloadPolicies.toString())
+                + '}';
     }
 
     public SchemaInfo getSchemaInfo() {

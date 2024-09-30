@@ -13,15 +13,6 @@
  */
 package io.trino.plugin.pulsar.decoder.json;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
-import static io.trino.spi.type.Varchars.truncateToLength;
-import static java.lang.Double.parseDouble;
-import static java.lang.Float.floatToIntBits;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.DecimalNode;
@@ -36,30 +27,22 @@ import io.trino.decoder.json.JsonRowDecoderFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.DateType;
-import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.Int128;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RealType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.Timestamps;
-import io.trino.spi.type.TinyintType;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.UuidType;
-import io.trino.spi.type.VarbinaryType;
-import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.*;
+import org.apache.commons.lang3.tuple.Pair;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import org.apache.commons.lang3.tuple.Pair;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
+import static io.trino.spi.type.Varchars.truncateToLength;
+import static java.lang.Double.parseDouble;
+import static java.lang.Float.floatToIntBits;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Copy from {@link io.trino.decoder.json.DefaultJsonFieldDecoder} with some pulsar's extensions.
@@ -67,15 +50,16 @@ import org.apache.commons.lang3.tuple.Pair;
  * 2) support {@link io.trino.spi.type.MapType}.
  * 3) support {@link io.trino.spi.type.RowType}.
  * 4) support date and time types.
- *  {@link io.trino.spi.type.TimestampType}
- *  {@link io.trino.spi.type.DateType}
- *  {@link io.trino.spi.type.TimeType}
+ * {@link io.trino.spi.type.TimestampType}
+ * {@link io.trino.spi.type.DateType}
+ * {@link io.trino.spi.type.TimeType}
  * 5) support {@link io.trino.spi.type.RealType}.
  * 6) support {@link io.trino.spi.type.DecimalType}.
  */
 public class PulsarJsonFieldDecoder
         implements JsonFieldDecoder {
 
+    private static final Logger log = Logger.get(PulsarJsonFieldDecoder.class);
     private final DecoderColumnHandle columnHandle;
     private final long minValue;
     private final long maxValue;
@@ -172,37 +156,6 @@ public class PulsarJsonFieldDecoder
             this.maxValue = maxValue;
         }
 
-        @Override
-        public final boolean isNull() {
-            return value.isMissingNode() || value.isNull();
-        }
-
-        @Override
-        public boolean getBoolean() {
-            return getBoolean(value, columnHandle.getType(), columnHandle.getName());
-        }
-
-        @Override
-        public long getLong() {
-            return getLong(value, columnHandle.getType(), columnHandle.getName(), minValue, maxValue);
-        }
-
-        @Override
-        public double getDouble() {
-            return getDouble(value, columnHandle.getType(), columnHandle.getName());
-        }
-
-        @Override
-        public Slice getSlice() {
-            return getSlice(value, columnHandle.getType(), columnHandle.getName());
-        }
-
-        @Override
-        public Object getObject() {
-            return serializeObject(null, value, columnHandle.getType(), columnHandle.getName());
-        }
-
-
         public static boolean getBoolean(JsonNode value, Type type, String columnName) {
             if (value.isValueNode()) {
                 return value.asBoolean();
@@ -278,6 +231,57 @@ public class PulsarJsonFieldDecoder
             return slice;
         }
 
+        private static Block serializeLongDecimal(
+                BlockBuilder parentBlockBuilder, Object value, Type type, String columnName) {
+            final BlockBuilder blockBuilder;
+            if (parentBlockBuilder != null) {
+                blockBuilder = parentBlockBuilder;
+            } else {
+                blockBuilder = type.createBlockBuilder(null, 1);
+            }
+
+            assert value instanceof DecimalNode;
+            final DecimalNode node = (DecimalNode) value;
+            // For decimalType, need to eliminate the decimal point,
+            // and give it to trino to set the decimal point
+            type.writeObject(blockBuilder, Int128.valueOf(node.asText().replace(".", "")));
+
+            if (parentBlockBuilder == null) {
+                return (Block) blockBuilder.newBlockBuilderLike(0, null);//.getSingleValueBlock(0);
+            }
+            return null;
+        }
+
+        @Override
+        public final boolean isNull() {
+            return value.isMissingNode() || value.isNull();
+        }
+
+        @Override
+        public boolean getBoolean() {
+            return getBoolean(value, columnHandle.getType(), columnHandle.getName());
+        }
+
+        @Override
+        public long getLong() {
+            return getLong(value, columnHandle.getType(), columnHandle.getName(), minValue, maxValue);
+        }
+
+        @Override
+        public double getDouble() {
+            return getDouble(value, columnHandle.getType(), columnHandle.getName());
+        }
+
+        @Override
+        public Slice getSlice() {
+            return getSlice(value, columnHandle.getType(), columnHandle.getName());
+        }
+
+        @Override
+        public Object getObject() {
+            return serializeObject(null, value, columnHandle.getType(), columnHandle.getName());
+        }
+
         private Block serializeObject(BlockBuilder builder, Object value, Type type, String columnName) {
             if (type instanceof ArrayType) {
                 return serializeList(builder, value, type, columnName);
@@ -321,27 +325,6 @@ public class PulsarJsonFieldDecoder
                 return null;
             }
             return blockBuilder.build();
-        }
-
-        private static Block serializeLongDecimal(
-                BlockBuilder parentBlockBuilder, Object value, Type type, String columnName) {
-            final BlockBuilder blockBuilder;
-            if (parentBlockBuilder != null) {
-                blockBuilder = parentBlockBuilder;
-            } else {
-                blockBuilder = type.createBlockBuilder(null, 1);
-            }
-
-            assert value instanceof DecimalNode;
-            final DecimalNode node = (DecimalNode) value;
-            // For decimalType, need to eliminate the decimal point,
-            // and give it to trino to set the decimal point
-            type.writeObject(blockBuilder, Int128.valueOf(node.asText().replace(".", "")));
-
-            if (parentBlockBuilder == null) {
-                return (Block) blockBuilder.newBlockBuilderLike(0, null);//.getSingleValueBlock(0);
-            }
-            return null;
         }
 
         private void serializePrimitive(BlockBuilder blockBuilder, Object node, Type type, String columnName) {
@@ -460,7 +443,5 @@ public class PulsarJsonFieldDecoder
         }
 
     }
-
-    private static final Logger log = Logger.get(PulsarJsonFieldDecoder.class);
 
 }
