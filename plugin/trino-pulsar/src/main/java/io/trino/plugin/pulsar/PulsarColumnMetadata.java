@@ -167,11 +167,13 @@ public class PulsarColumnMetadata extends ColumnMetadata {
         private String dataFormat;
         //reserved formatHint used by RowDecoder.
         private String formatHint;
+
         public DecoderExtraInfo(String mapping, String dataFormat, String formatHint) {
             this.mapping = mapping;
             this.dataFormat = dataFormat;
             this.formatHint = formatHint;
         }
+
         public DecoderExtraInfo() {
         }
 

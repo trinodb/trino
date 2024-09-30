@@ -92,6 +92,7 @@ public final class TestMsg {
         internal_static_proto_TestMessage_MapFieldEntry_descriptor =
                 internal_static_proto_TestMessage_descriptor.getNestedTypes().get(0);
     }
+
     private TestMsg() {
     }
 
@@ -108,6 +109,7 @@ public final class TestMsg {
     public static com.google.protobuf.Descriptors.FileDescriptor getDescriptor() {
         return descriptor;
     }
+
     /**
      * Protobuf enum {@code proto.TestEnum}
      */
@@ -211,6 +213,7 @@ public final class TestMsg {
 
         // @@protoc_insertion_point(enum_scope:proto.TestEnum)
     }
+
     public interface SubMessageOrBuilder
             extends
             // @@protoc_insertion_point(interface_extends:proto.SubMessage)
@@ -2115,6 +2118,7 @@ public final class TestMsg {
         private com.google.protobuf.MapField<
                 String, Double> mapField;
         private byte memoizedIsInitialized = -1;
+
         // Use TestMessage.newBuilder() to construct.
         private TestMessage(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
             super(builder);
