@@ -49,20 +49,11 @@ public class KafkaEventListener
         publishSplitCompletedEvent = config.getPublishSplitCompletedEvent();
         isAnonymizationEnabled = config.isAnonymizationEnabled();
 
-        try {
-            if (publishCreatedEvent || publishCompletedEvent) {
-                kafkaPublisher = new KafkaEventPublisher(config, producerFactory, stats);
-            }
-            else {
-                LOG.warn("Event listener will be no-op, as neither created events nor completed events are published.");
-            }
+        if (publishCreatedEvent || publishCompletedEvent) {
+            kafkaPublisher = new KafkaEventPublisher(config, producerFactory, stats);
         }
-        catch (Exception e) {
-            if (config.getTerminateOnInitializationFailure()) {
-                throw e;
-            }
-            LOG.error(e, "Failed to initialize Kafka publisher.");
-            stats.kafkaPublisherFailedToInitialize();
+        else {
+            LOG.warn("Event listener will be no-op, as neither created events nor completed events are published.");
         }
     }
 
