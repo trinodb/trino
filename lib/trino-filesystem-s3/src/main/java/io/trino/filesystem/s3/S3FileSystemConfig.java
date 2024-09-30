@@ -115,7 +115,7 @@ public class S3FileSystemConfig
     private RetryMode retryMode = RetryMode.LEGACY;
     private int maxErrorRetries = 10;
     private boolean supportsExclusiveCreate = true;
-    private boolean enableSetContentMd5;
+    private boolean enableSetContentMd5 = true;
 
     public String getAwsAccessKey()
     {
