@@ -11,7 +11,6 @@ function free_up_disk_space_ubuntu()
     local packages=(
         'azure-cli'
         'aspnetcore-*'
-        'dotnet-*'
         'firefox*'
         'google-chrome-*'
         'google-cloud-*'
@@ -19,19 +18,11 @@ function free_up_disk_space_ubuntu()
         'llvm-*'
         'imagemagick'
         'postgresql-*'
-        'rubu-*'
-        'spinxsearch'
         'unixodbc-dev'
         'mercurial'
-        'esl-erlang'
-        'microsoft-edge-stable'
-        'mono-*'
-        'msbuild'
         'mysql-server-core-*'
         'php-*'
-        'php7*'
         'powershell*'
-        'mongo*'
         'microsoft-edge*'
         'subversion')
 
