@@ -79,7 +79,7 @@
                 <groupId>com.github.eirslett</groupId>
                 <artifactId>frontend-maven-plugin</artifactId>
                 <configuration>
-                    <installDirectory>${project.build.directory}</installDirectory>
+                    <installDirectory>${node.tmpdir}</installDirectory>
                 </configuration>
                 <executions>
                     <execution>
