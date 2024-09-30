@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.s3;
 
+import com.google.common.hash.Hashing;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -38,6 +39,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -74,6 +76,7 @@ final class S3OutputStream
     private final ObjectCannedACL cannedAcl;
     private final boolean exclusiveCreate;
     private final Optional<EncryptionKey> key;
+    private final boolean enableSetContentMd5;
 
     private int currentPartNumber;
     private byte[] buffer = new byte[0];
@@ -104,6 +107,7 @@ final class S3OutputStream
         this.sseKmsKeyId = context.sseKmsKeyId();
         this.cannedAcl = getCannedAcl(context.cannedAcl());
         this.key = requireNonNull(key, "key is null");
+        this.enableSetContentMd5 = context.enableSetContentMd5();
 
         verify(key.isEmpty() || sseType == S3SseType.NONE, "Encryption key cannot be used with sse configuration");
     }
@@ -234,6 +238,9 @@ final class S3OutputStream
                             case S3 -> builder.serverSideEncryption(AES256);
                             case KMS -> builder.serverSideEncryption(AWS_KMS).ssekmsKeyId(sseKmsKeyId);
                         }
+                        if (enableSetContentMd5) {
+                            builder.contentMD5(getMd5AsBase64(buffer, 0, bufferSize));
+                        }
                     })
                     .build();
 
@@ -339,11 +346,16 @@ final class S3OutputStream
                 .contentLength((long) length)
                 .uploadId(uploadId.get())
                 .partNumber(currentPartNumber)
-                .applyMutation(builder -> key.ifPresent(encryption -> {
-                    builder.sseCustomerKey(encoded(encryption));
-                    builder.sseCustomerAlgorithm(encryption.algorithm());
-                    builder.sseCustomerKeyMD5(md5Checksum(encryption));
-                }))
+                .applyMutation(builder -> {
+                    key.ifPresent(encryption -> {
+                        builder.sseCustomerKey(encoded(encryption));
+                        builder.sseCustomerAlgorithm(encryption.algorithm());
+                        builder.sseCustomerKeyMD5(md5Checksum(encryption));
+                    });
+                    if (enableSetContentMd5) {
+                        builder.contentMD5(getMd5AsBase64(data, 0, length));
+                    }
+                })
                 .build();
 
         ByteBuffer bytes = ByteBuffer.wrap(data, 0, length);
@@ -406,5 +418,13 @@ final class S3OutputStream
                 throwable.addSuppressed(t);
             }
         }
+    }
+
+    private String getMd5AsBase64(byte[] data, int offset, int length)
+    {
+        // Suppress warning because it is not used for security feature
+        @SuppressWarnings("deprecation")
+        byte[] md5 = Hashing.md5().hashBytes(data, offset, length).asBytes();
+        return Base64.getEncoder().encodeToString(md5);
     }
 }

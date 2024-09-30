@@ -115,6 +115,7 @@ public class S3FileSystemConfig
     private RetryMode retryMode = RetryMode.LEGACY;
     private int maxErrorRetries = 10;
     private boolean supportsExclusiveCreate = true;
+    private boolean enableSetContentMd5;
 
     public String getAwsAccessKey()
     {
@@ -509,6 +510,19 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setSupportsExclusiveCreate(boolean supportsExclusiveCreate)
     {
         this.supportsExclusiveCreate = supportsExclusiveCreate;
+        return this;
+    }
+
+    public boolean isEnableSetContentMd5()
+    {
+        return enableSetContentMd5;
+    }
+
+    @Config("s3.enable-set-content-md5")
+    @ConfigDescription("Whether to set content md5 for s3 write requests")
+    public S3FileSystemConfig setEnableSetContentMd5(boolean setContentMd5)
+    {
+        this.enableSetContentMd5 = setContentMd5;
         return this;
     }
 }
