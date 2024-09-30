@@ -57,7 +57,7 @@ public abstract class AbstractColumnWriterBenchmark
     @Param({
             "1", "1048576" // 1MB is default page size
     })
-    public int dictionaryPageSize;
+    public int maxDictionaryPageSize;
 
     public enum BloomFilterType
     {
@@ -94,7 +94,7 @@ public abstract class AbstractColumnWriterBenchmark
 
     private PrimitiveValueWriter createValuesWriter()
     {
-        TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(1024 * 1024, dictionaryPageSize);
+        TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(1024 * 1024, maxDictionaryPageSize);
         ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"test"}, getParquetType(), 0, 0);
         return getValueWriter(valuesWriterFactory.newValuesWriter(columnDescriptor, bloomFilterType.getBloomFilter()), getTrinoType(), columnDescriptor.getPrimitiveType(), Optional.empty());
     }
