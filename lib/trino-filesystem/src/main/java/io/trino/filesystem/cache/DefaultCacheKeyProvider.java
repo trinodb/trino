@@ -25,6 +25,6 @@ public final class DefaultCacheKeyProvider
     public Optional<String> getCacheKey(TrinoInputFile inputFile)
             throws IOException
     {
-        return Optional.of(inputFile.location().path() + inputFile.lastModified());
+        return Optional.of(inputFile.location().path() + "#" + inputFile.lastModified() + "#" + inputFile.length());
     }
 }
