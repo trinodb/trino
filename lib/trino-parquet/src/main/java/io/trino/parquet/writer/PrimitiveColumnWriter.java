@@ -27,6 +27,7 @@ import jakarta.annotation.Nullable;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
+import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.page.DictionaryPage;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.bloomfilter.BloomFilter;
@@ -51,6 +52,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.parquet.ParquetMetadataConverter.convertEncodingStats;
 import static io.trino.parquet.ParquetMetadataConverter.getEncoding;
 import static io.trino.parquet.writer.ParquetCompressor.getCompressor;
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
@@ -183,7 +185,16 @@ public class PrimitiveColumnWriter
     {
         checkState(closed);
         DataStreams dataStreams = getDataStreams();
-        return ImmutableList.of(new BufferData(dataStreams.data(), dataStreams.dictionaryPageSize(), dataStreams.bloomFilter(), getColumnMetaData()));
+        ColumnMetaData columnMetaData = getColumnMetaData();
+
+        EncodingStats stats = convertEncodingStats(columnMetaData.getEncoding_stats());
+        boolean isOnlyDictionaryEncodingPages = stats.hasDictionaryPages() && !stats.hasNonDictionaryEncodedPages();
+
+        return ImmutableList.of(new BufferData(
+                dataStreams.data(),
+                dataStreams.dictionaryPageSize(),
+                isOnlyDictionaryEncodingPages ? Optional.empty() : dataStreams.bloomFilter(),
+                columnMetaData));
     }
 
     // Returns ColumnMetaData that offset is invalid
