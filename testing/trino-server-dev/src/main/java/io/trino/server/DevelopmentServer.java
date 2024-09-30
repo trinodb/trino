@@ -31,7 +31,9 @@ public final class DevelopmentServer
     {
         return ImmutableList.of(binder -> {
             newOptionalBinder(binder, PluginsProvider.class).setBinding()
-                    .to(DevelopmentPluginsProvider.class).in(Scopes.SINGLETON);
+                    .to(HybridDevelopmentPluginsProvider.class).in(Scopes.SINGLETON);
+            binder.bind(DevelopmentPluginsProvider.class).in(Scopes.SINGLETON);
+            binder.bind(ServerPluginsProvider.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(DevelopmentLoaderConfig.class);
         });
     }
