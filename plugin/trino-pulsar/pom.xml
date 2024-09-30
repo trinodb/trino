@@ -5,8 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <!--<version>458</version>-->
-        <version>459-SNAPSHOT</version>
+        <version>458</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -275,7 +274,7 @@
                     </execution>
                 </executions>
             </plugin>
-            <!--<plugin>
+            <plugin>
                 <groupId>org.openrewrite.maven</groupId>
                 <artifactId>rewrite-maven-plugin</artifactId>
                 <version>5.41.0</version>
@@ -299,7 +298,7 @@
                 <configuration>
                     <configLocation>checkstyle</configLocation>
                 </configuration>
-            </plugin>-->
+            </plugin>
         </plugins>
     </build>
 </project>
