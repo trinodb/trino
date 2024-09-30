@@ -52,7 +52,7 @@ public class BloomFilterValuesWriter
     @Override
     public long getBufferedSize()
     {
-        return writer.getBufferedSize() + bloomFilter.getBitsetSize();
+        return writer.getBufferedSize();
     }
 
     @Override
@@ -94,7 +94,7 @@ public class BloomFilterValuesWriter
     @Override
     public long getAllocatedSize()
     {
-        return writer.getAllocatedSize();
+        return writer.getAllocatedSize() + bloomFilter.getBitsetSize();
     }
 
     @Override
