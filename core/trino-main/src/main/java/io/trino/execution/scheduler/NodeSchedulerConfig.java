@@ -182,8 +182,9 @@ public class NodeSchedulerConfig
         return this;
     }
 
+    // TODO: respect in pipelined mode
     @Config("node-scheduler.allowed-no-matching-node-period")
-    @ConfigDescription("How long scheduler should wait before failing a query for which hard task requirements (e.g. node exposing specific catalog) cannot be satisfied")
+    @ConfigDescription("How long scheduler should wait before failing a query for which hard task requirements (e.g. node exposing specific catalog) cannot be satisfied. Relevant for TASK retry policy only.")
     public NodeSchedulerConfig setAllowedNoMatchingNodePeriod(Duration allowedNoMatchingNodePeriod)
     {
         this.allowedNoMatchingNodePeriod = allowedNoMatchingNodePeriod;
@@ -195,8 +196,9 @@ public class NodeSchedulerConfig
         return allowedNoMatchingNodePeriod;
     }
 
+    // TODO: respect in pipelined mode
     @Config("node-scheduler.exhausted-node-wait-period")
-    @ConfigDescription("Maximum time to wait for resource availability on preferred nodes before scheduling a remotely accessible split on other nodes")
+    @ConfigDescription("Maximum time to wait for resource availability on preferred nodes before scheduling a remotely accessible split on other nodes. Relevant for TASK retry policy only.")
     public NodeSchedulerConfig setExhaustedNodeWaitPeriod(Duration exhaustedNodeWaitPeriod)
     {
         this.exhaustedNodeWaitPeriod = exhaustedNodeWaitPeriod;
