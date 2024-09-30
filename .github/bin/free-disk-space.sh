@@ -60,11 +60,14 @@ function free_up_disk_space_ubuntu()
       sudo docker system prune --all -f
 }
 
+
 echo "Disk space usage before cleaning:"
 df -k .
 
-echo "Clearing up disk usage:"
+echo "::group::Clearing up disk usage"
 free_up_disk_space_ubuntu
+echo "::endgroup::"
 
 echo "Disk space usage after cleaning:"
 df -k .
+
