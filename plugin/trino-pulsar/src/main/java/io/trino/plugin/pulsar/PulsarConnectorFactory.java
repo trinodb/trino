@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.pulsar;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
-import static java.util.Objects.requireNonNull;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
@@ -22,7 +20,11 @@ import io.airlift.log.Logger;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
+
 import java.util.Map;
+
+import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.util.Objects.requireNonNull;
 
 /**
  * The factory class which helps to build the presto connector.

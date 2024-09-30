@@ -24,8 +24,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class PulsarTableHandle
-        implements ConnectorTableHandle
-{
+        implements ConnectorTableHandle {
     /**
      * Connector id.
      */
@@ -45,24 +44,22 @@ public class PulsarTableHandle
      */
     private final String topicName;
 /**
-     * The key message used by Trino.
-     */
+ * The key message used by Trino.
+ */
     //private final Optional<PulsarTopicFieldGroup> key;
 
     /**
      * The message used by Trino.
      */
     //private final Optional<PulsarTopicFieldGroup> message;
-
     @JsonCreator
     public PulsarTableHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("topicName") String topicName/*, 
+            @JsonProperty("topicName") String topicName/*,
             @JsonProperty("key") Optional<PulsarTopicFieldGroup> key,
-            @JsonProperty("message") Optional<PulsarTopicFieldGroup> message*/)
-    {
+            @JsonProperty("message") Optional<PulsarTopicFieldGroup> message*/) {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -77,25 +74,21 @@ public class PulsarTableHandle
     }
 
     @JsonProperty
-    public String getSchemaName()
-    {
+    public String getSchemaName() {
         return schemaName;
     }
 
     @JsonProperty
-    public String getTableName()
-    {
+    public String getTableName() {
         return tableName;
     }
 
     @JsonProperty
-    public String getTopicName()
-    {
+    public String getTopicName() {
         return topicName;
     }
 
-    public SchemaTableName toSchemaTableName()
-    {
+    public SchemaTableName toSchemaTableName() {
         return new SchemaTableName(schemaName, tableName);
     }
 

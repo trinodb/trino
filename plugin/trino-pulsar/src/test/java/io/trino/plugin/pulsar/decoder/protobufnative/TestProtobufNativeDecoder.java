@@ -14,15 +14,14 @@
 package io.trino.plugin.pulsar.decoder.protobufnative;
 
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.ByteString;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.plugin.pulsar.PulsarColumnHandle;
 import io.trino.plugin.pulsar.decoder.AbstractDecoderTester;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.*;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.impl.schema.ProtobufNativeSchema;
 import org.apache.pulsar.client.impl.schema.generic.GenericProtobufNativeRecord;
@@ -30,9 +29,6 @@ import org.apache.pulsar.client.impl.schema.generic.GenericProtobufNativeSchema;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import com.google.protobuf.ByteString;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -50,14 +46,12 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 
 @Test(singleThreaded = true)
 public class TestProtobufNativeDecoder
-        extends AbstractDecoderTester
-{
+        extends AbstractDecoderTester {
     private ProtobufNativeSchema schema;
 
     @Override
     @BeforeMethod
-    public void init() throws PulsarClientException
-    {
+    public void init() throws PulsarClientException {
         super.init();
         schema = ProtobufNativeSchema.of(TestMsg.TestMessage.class, new HashMap<>());
         schemaInfo = schema.getSchemaInfo();
@@ -68,8 +62,7 @@ public class TestProtobufNativeDecoder
     }
 
     @Test
-    public void testPrimitiveType()
-    {
+    public void testPrimitiveType() {
         TestMsg.TestMessage testMessage = TestMsg.TestMessage.newBuilder()
                 .setStringField("aaa")
                 .setDoubleField(3.3D)
@@ -170,8 +163,7 @@ public class TestProtobufNativeDecoder
     }
 
     @Test
-    public void testRow()
-    {
+    public void testRow() {
         TestMsg.SubMessage.NestedMessage nestedMessage = TestMsg.SubMessage.NestedMessage.newBuilder()
                 .setTitle("nestedMessage_title")
                 .addUrls("aa")
@@ -212,8 +204,7 @@ public class TestProtobufNativeDecoder
     }
 
     @Test
-    public void testArray()
-    {
+    public void testArray() {
         TestMsg.TestMessage testMessage = TestMsg.TestMessage.newBuilder()
                 .addRepeatedField("first").addRepeatedField("second")
                 .build();
@@ -238,8 +229,7 @@ public class TestProtobufNativeDecoder
     }
 
     @Test
-    public void testMap()
-    {
+    public void testMap() {
         TestMsg.TestMessage testMessage = TestMsg.TestMessage.newBuilder()
                 .putMapField("key_a", 1.1d)
                 .putMapField("key_b", 2.2d)

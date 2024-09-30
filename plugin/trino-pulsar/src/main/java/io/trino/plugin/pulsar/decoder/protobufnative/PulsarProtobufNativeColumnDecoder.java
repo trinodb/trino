@@ -13,15 +13,6 @@
  */
 package io.trino.plugin.pulsar.decoder.protobufnative;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
-import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static io.trino.spi.type.Varchars.truncateToLength;
-import static java.lang.Float.floatToIntBits;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
@@ -34,31 +25,30 @@ import io.trino.decoder.FieldValueProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RealType;
-import io.trino.spi.type.RowType;
+import io.trino.spi.type.*;
 import io.trino.spi.type.RowType.Field;
-import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.Timestamps;
-import io.trino.spi.type.TinyintType;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.VarbinaryType;
-import io.trino.spi.type.VarcharType;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.type.Varchars.truncateToLength;
+import static java.lang.Float.floatToIntBits;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+
 /**
  * Pulsar {@link org.apache.pulsar.common.schema.SchemaType#PROTOBUF_NATIVE} ColumnDecoder.
  */
 public class PulsarProtobufNativeColumnDecoder {
+    protected static final String PROTOBUF_MAP_KEY_NAME = "key";
+    protected static final String PROTOBUF_MAP_VALUE_NAME = "value";
     private static final Set<Type> SUPPORTED_PRIMITIVE_TYPES = ImmutableSet.of(
             BooleanType.BOOLEAN,
             IntegerType.INTEGER,
@@ -67,7 +57,8 @@ public class PulsarProtobufNativeColumnDecoder {
             DoubleType.DOUBLE,
             VarbinaryType.VARBINARY,
             TimestampType.TIMESTAMP_MILLIS);
-
+    private static final long MILLIS_PER_SECOND = 1000;
+    private static final long NANOS_PER_MILLISECOND = 1000000;
     private final Type columnType;
     private final String columnMapping;
     private final String columnName;
@@ -126,11 +117,6 @@ public class PulsarProtobufNativeColumnDecoder {
         return type instanceof VarcharType || SUPPORTED_PRIMITIVE_TYPES.contains(type);
     }
 
-    public FieldValueProvider decodeField(DynamicMessage dynamicMessage) {
-        Object columnValue = locateNode(dynamicMessage, columnMapping);
-        return new ObjectValueProvider(columnValue, columnType, columnName);
-    }
-
     private static Object locateNode(DynamicMessage element, String columnMapping) {
         Object value = element;
         for (String pathElement : Splitter.on('/').omitEmptyStrings().split(columnMapping)) {
@@ -141,79 +127,6 @@ public class PulsarProtobufNativeColumnDecoder {
                     .findFieldByName(pathElement));
         }
         return value;
-    }
-
-    private static class ObjectValueProvider
-            extends FieldValueProvider {
-        private final Object value;
-        private final Type columnType;
-        private final String columnName;
-
-        public ObjectValueProvider(Object value, Type columnType, String columnName) {
-            this.value = value;
-            this.columnType = columnType;
-            this.columnName = columnName;
-        }
-
-        @Override
-        public boolean isNull() {
-            return value == null;
-        }
-
-        @Override
-        public double getDouble() {
-            if (value instanceof Double || value instanceof Float) {
-                return ((Number) value).doubleValue();
-            }
-            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED,
-                    format("cannot decode object of '%s' as '%s' for column '%s'",
-                            value.getClass(), columnType, columnName));
-        }
-
-        @Override
-        public boolean getBoolean() {
-            if (value instanceof Boolean) {
-                return (Boolean) value;
-            }
-            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED,
-                    format("cannot decode object of '%s' as '%s' for column '%s'",
-                            value.getClass(), columnType, columnName));
-        }
-
-        @Override
-        public long getLong() {
-            if (value instanceof Long || value instanceof Integer) {
-                return ((Number) value).longValue();
-            }
-
-            if (columnType instanceof RealType) {
-                return floatToIntBits((Float) value);
-            }
-
-            //return millisecond which parsed from protobuf/timestamp
-            if (TimestampType.TIMESTAMP_MILLIS.equals(columnType) && value instanceof DynamicMessage) {
-                DynamicMessage message = (DynamicMessage) value;
-                int nanos = (int) message.getField(message.getDescriptorForType().findFieldByName("nanos"));
-                long seconds = (long) message.getField(message.getDescriptorForType().findFieldByName("seconds"));
-                //maybe an exception here, but seems will never happen in hundred years.
-                long millis = seconds * MILLIS_PER_SECOND + nanos / NANOS_PER_MILLISECOND;
-                return millis * Timestamps.MICROSECONDS_PER_MILLISECOND;
-            }
-
-            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED,
-                    format("cannot decode object of '%s' as '%s' for column '%s'",
-                            value.getClass(), columnType, columnName));
-        }
-
-        @Override
-        public Slice getSlice() {
-            return PulsarProtobufNativeColumnDecoder.getSlice(value, columnType, columnName);
-        }
-
-        @Override
-        public Object getObject() {
-            return serializeObject(null, value, columnType, columnName);
-        }
     }
 
     private static Slice getSlice(Object value, Type type, String columnName) {
@@ -386,8 +299,80 @@ public class PulsarProtobufNativeColumnDecoder {
         return null;
     }
 
-    protected static final String PROTOBUF_MAP_KEY_NAME = "key";
-    protected static final String PROTOBUF_MAP_VALUE_NAME = "value";
-    private static final long MILLIS_PER_SECOND = 1000;
-    private static final long NANOS_PER_MILLISECOND = 1000000;
+    public FieldValueProvider decodeField(DynamicMessage dynamicMessage) {
+        Object columnValue = locateNode(dynamicMessage, columnMapping);
+        return new ObjectValueProvider(columnValue, columnType, columnName);
+    }
+
+    private static class ObjectValueProvider
+            extends FieldValueProvider {
+        private final Object value;
+        private final Type columnType;
+        private final String columnName;
+
+        public ObjectValueProvider(Object value, Type columnType, String columnName) {
+            this.value = value;
+            this.columnType = columnType;
+            this.columnName = columnName;
+        }
+
+        @Override
+        public boolean isNull() {
+            return value == null;
+        }
+
+        @Override
+        public double getDouble() {
+            if (value instanceof Double || value instanceof Float) {
+                return ((Number) value).doubleValue();
+            }
+            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED,
+                    format("cannot decode object of '%s' as '%s' for column '%s'",
+                            value.getClass(), columnType, columnName));
+        }
+
+        @Override
+        public boolean getBoolean() {
+            if (value instanceof Boolean) {
+                return (Boolean) value;
+            }
+            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED,
+                    format("cannot decode object of '%s' as '%s' for column '%s'",
+                            value.getClass(), columnType, columnName));
+        }
+
+        @Override
+        public long getLong() {
+            if (value instanceof Long || value instanceof Integer) {
+                return ((Number) value).longValue();
+            }
+
+            if (columnType instanceof RealType) {
+                return floatToIntBits((Float) value);
+            }
+
+            //return millisecond which parsed from protobuf/timestamp
+            if (TimestampType.TIMESTAMP_MILLIS.equals(columnType) && value instanceof DynamicMessage message) {
+                int nanos = (int) message.getField(message.getDescriptorForType().findFieldByName("nanos"));
+                long seconds = (long) message.getField(message.getDescriptorForType().findFieldByName("seconds"));
+                //maybe an exception here, but seems will never happen in hundred years.
+                long millis = seconds * MILLIS_PER_SECOND + nanos / NANOS_PER_MILLISECOND;
+                return millis * Timestamps.MICROSECONDS_PER_MILLISECOND;
+            }
+
+            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED,
+                    format("cannot decode object of '%s' as '%s' for column '%s'",
+                            value.getClass(), columnType, columnName));
+        }
+
+        @Override
+        public Slice getSlice() {
+            return PulsarProtobufNativeColumnDecoder.getSlice(value, columnType, columnName);
+        }
+
+        @Override
+        public Object getObject() {
+            return serializeObject(null, value, columnType, columnName);
+        }
+    }
 }

@@ -13,25 +13,13 @@
  */
 package io.trino.plugin.pulsar.decoder.primitive;
 
+import io.netty.buffer.ByteBuf;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.FieldValueProviders;
 import io.trino.plugin.pulsar.PulsarRowDecoder;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.DateType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.RealType;
-import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TinyintType;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.VarbinaryType;
-import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.*;
 import org.apache.pulsar.client.impl.schema.AbstractSchema;
-import io.netty.buffer.ByteBuf;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.Time;
@@ -41,27 +29,22 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.decoder.FieldValueProviders.booleanValueProvider;
-import static io.trino.decoder.FieldValueProviders.bytesValueProvider;
-import static io.trino.decoder.FieldValueProviders.longValueProvider;
+import static io.trino.decoder.FieldValueProviders.*;
 import static io.trino.plugin.pulsar.PulsarFieldValueProviders.doubleValueProvider;
 
 public class PulsarPrimitiveRowDecoder
-        implements PulsarRowDecoder
-{
+        implements PulsarRowDecoder {
     private final DecoderColumnHandle columnHandle;
-    private AbstractSchema schema;
+    private final AbstractSchema schema;
 
     @SuppressWarnings("rawtypes")
-    public PulsarPrimitiveRowDecoder(AbstractSchema schema, DecoderColumnHandle columnHandle)
-    {
+    public PulsarPrimitiveRowDecoder(AbstractSchema schema, DecoderColumnHandle columnHandle) {
         this.columnHandle = columnHandle;
         this.schema = schema;
     }
 
     @Override
-    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(ByteBuf byteBuf)
-    {
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(ByteBuf byteBuf) {
         if (columnHandle == null) {
             return Optional.empty();
         }
@@ -70,39 +53,29 @@ public class PulsarPrimitiveRowDecoder
         Map<DecoderColumnHandle, FieldValueProvider> primitiveColumn = new HashMap<>();
         if (value == null) {
             primitiveColumn.put(columnHandle, FieldValueProviders.nullValueProvider());
-        }
-        else {
+        } else {
             Type type = columnHandle.getType();
             if (type instanceof BooleanType) {
-                primitiveColumn.put(columnHandle, booleanValueProvider(Boolean.valueOf((Boolean) value)));
-            }
-            else if (type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType
+                primitiveColumn.put(columnHandle, booleanValueProvider((Boolean) value));
+            } else if (type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType
                     || type instanceof BigintType) {
                 primitiveColumn.put(columnHandle, longValueProvider(Long.valueOf(value.toString())));
-            }
-            else if (type instanceof DoubleType) {
+            } else if (type instanceof DoubleType) {
                 primitiveColumn.put(columnHandle, doubleValueProvider(Double.valueOf(value.toString())));
-            }
-            else if (type instanceof RealType) {
+            } else if (type instanceof RealType) {
                 primitiveColumn.put(columnHandle, longValueProvider(
                         Float.floatToIntBits((Float.valueOf(value.toString())))));
-            }
-            else if (type instanceof VarbinaryType) {
+            } else if (type instanceof VarbinaryType) {
                 primitiveColumn.put(columnHandle, bytesValueProvider((byte[]) value));
-            }
-            else if (type instanceof VarcharType) {
+            } else if (type instanceof VarcharType) {
                 primitiveColumn.put(columnHandle, bytesValueProvider(value.toString().getBytes(StandardCharsets.UTF_8)));
-            }
-            else if (type instanceof DateType) {
+            } else if (type instanceof DateType) {
                 primitiveColumn.put(columnHandle, longValueProvider(((Date) value).getTime()));
-            }
-            else if (type instanceof TimeType) {
+            } else if (type instanceof TimeType) {
                 primitiveColumn.put(columnHandle, longValueProvider(((Time) value).getTime()));
-            }
-            else if (type instanceof TimestampType) {
+            } else if (type instanceof TimestampType) {
                 primitiveColumn.put(columnHandle, longValueProvider(((Timestamp) value).getTime()));
-            }
-            else {
+            } else {
                 primitiveColumn.put(columnHandle, bytesValueProvider(value.toString().getBytes(StandardCharsets.UTF_8)));
             }
         }

@@ -14,23 +14,19 @@
 package io.trino.plugin.pulsar.util;
 
 public class NullCacheSizeAllocator
-        implements CacheSizeAllocator
-{
+        implements CacheSizeAllocator {
     @Override
-    public long getAvailableCacheSize()
-    {
+    public long getAvailableCacheSize() {
         return -1;
     }
 
     @Override
-    public void allocate(long size)
-    {
+    public void allocate(long size) {
         // no op
     }
 
     @Override
-    public void release(long size)
-    {
+    public void release(long size) {
         // no op
     }
 }

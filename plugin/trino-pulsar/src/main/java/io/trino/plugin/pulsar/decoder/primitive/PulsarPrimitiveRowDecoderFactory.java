@@ -15,41 +15,28 @@ package io.trino.plugin.pulsar.decoder.primitive;
 
 import io.airlift.log.Logger;
 import io.trino.decoder.DecoderColumnHandle;
+import io.trino.plugin.pulsar.PulsarColumnHandle;
+import io.trino.plugin.pulsar.PulsarColumnMetadata;
+import io.trino.plugin.pulsar.PulsarRowDecoder;
+import io.trino.plugin.pulsar.PulsarRowDecoderFactory;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.DateType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.RealType;
-import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TinyintType;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.VarbinaryType;
-import io.trino.spi.type.VarcharType;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
+import io.trino.spi.type.*;
 import org.apache.pulsar.client.impl.schema.AbstractSchema;
 import org.apache.pulsar.client.impl.schema.AutoConsumeSchema;
 import org.apache.pulsar.common.naming.TopicName;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
-import io.trino.plugin.pulsar.PulsarColumnHandle;
-import io.trino.plugin.pulsar.PulsarColumnMetadata;
-import io.trino.plugin.pulsar.PulsarRowDecoder;
-import io.trino.plugin.pulsar.PulsarRowDecoderFactory;
+
+import java.util.List;
+import java.util.Set;
 
 /**
  * Primitive Schema PulsarRowDecoderFactory.
  */
 public class PulsarPrimitiveRowDecoderFactory implements PulsarRowDecoderFactory {
 
-    private static final Logger log = Logger.get(PulsarPrimitiveRowDecoderFactory.class);
-
     public static final String PRIMITIVE_COLUMN_NAME = "__value__";
+    private static final Logger log = Logger.get(PulsarPrimitiveRowDecoderFactory.class);
 
     @Override
     public PulsarRowDecoder createRowDecoder(TopicName topicName, SchemaInfo schemaInfo,
@@ -72,7 +59,7 @@ public class PulsarPrimitiveRowDecoderFactory implements PulsarRowDecoderFactory
                 "The value of the message with primitive type schema", null, false, false,
                 handleKeyValueType, new PulsarColumnMetadata.DecoderExtraInfo(PRIMITIVE_COLUMN_NAME,
                 null, null), null);
-        return Arrays.asList(valueColumn);
+        return List.of(valueColumn);
     }
 
     private Type parsePrimitivePrestoType(String fieldName, SchemaType pulsarType) {

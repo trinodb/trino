@@ -13,12 +13,14 @@
  */
 package io.trino.plugin.pulsar;
 
-import static java.util.Objects.requireNonNull;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
+
 import java.util.List;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * Implementation of a record set.
@@ -30,7 +32,7 @@ public class PulsarRecordSet implements RecordSet {
     private final PulsarSplit pulsarSplit;
     private final PulsarConnectorConfig pulsarConnectorConfig;
 
-    private PulsarDispatchingRowDecoderFactory decoderFactory;
+    private final PulsarDispatchingRowDecoderFactory decoderFactory;
 
     public PulsarRecordSet(PulsarSplit split, List<PulsarColumnHandle> columnHandles, PulsarConnectorConfig
             pulsarConnectorConfig, PulsarDispatchingRowDecoderFactory decoderFactory) {

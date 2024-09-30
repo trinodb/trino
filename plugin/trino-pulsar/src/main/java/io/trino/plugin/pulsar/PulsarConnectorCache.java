@@ -13,22 +13,12 @@
  */
 package io.trino.plugin.pulsar;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import java.io.IOException;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.bookkeeper.common.util.OrderedScheduler;
 import org.apache.bookkeeper.conf.ClientConfiguration;
-import org.apache.bookkeeper.mledger.LedgerOffloader;
-import org.apache.bookkeeper.mledger.LedgerOffloaderFactory;
-import org.apache.bookkeeper.mledger.LedgerOffloaderStats;
-import org.apache.bookkeeper.mledger.ManagedLedgerConfig;
-import org.apache.bookkeeper.mledger.ManagedLedgerFactory;
-import org.apache.bookkeeper.mledger.ManagedLedgerFactoryConfig;
+import org.apache.bookkeeper.mledger.*;
 import org.apache.bookkeeper.mledger.impl.ManagedLedgerFactoryImpl;
 import org.apache.bookkeeper.mledger.impl.NullLedgerOffloader;
 import org.apache.bookkeeper.mledger.offload.Offloaders;
@@ -43,29 +33,32 @@ import org.apache.pulsar.metadata.api.MetadataStoreConfig;
 import org.apache.pulsar.metadata.api.extended.MetadataStoreExtended;
 import org.apache.pulsar.metadata.bookkeeper.PulsarMetadataClientDriver;
 
+import java.io.IOException;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * Implementation of a cache for the Pulsar connector.
  */
 public class PulsarConnectorCache {
 
     private static final Logger log = Logger.get(PulsarConnectorCache.class);
-
-    @VisibleForTesting
-    static PulsarConnectorCache instance;
-
-    private final MetadataStoreExtended metadataStore;
-    private final ManagedLedgerFactory managedLedgerFactory;
-
-    private final StatsProvider statsProvider;
-    private OrderedScheduler offloaderScheduler;
-    private final LedgerOffloaderStats offloaderStats;
-    private OffloadersCache offloadersCache = new OffloadersCache();
-    private LedgerOffloader defaultOffloader;
-    private Map<NamespaceName, LedgerOffloader> offloaderMap = new ConcurrentHashMap<>();
-
     private static final String OFFLOADERS_DIRECTOR = "offloadersDirectory";
     private static final String MANAGED_LEDGER_OFFLOAD_DRIVER = "managedLedgerOffloadDriver";
     private static final String MANAGED_LEDGER_OFFLOAD_MAX_THREADS = "managedLedgerOffloadMaxThreads";
+    @VisibleForTesting
+    static PulsarConnectorCache instance;
+    private final MetadataStoreExtended metadataStore;
+    private final ManagedLedgerFactory managedLedgerFactory;
+    private final StatsProvider statsProvider;
+    private final LedgerOffloaderStats offloaderStats;
+    private final OffloadersCache offloadersCache = new OffloadersCache();
+    private final LedgerOffloader defaultOffloader;
+    private final Map<NamespaceName, LedgerOffloader> offloaderMap = new ConcurrentHashMap<>();
+    private OrderedScheduler offloaderScheduler;
 
 
     private PulsarConnectorCache(PulsarConnectorConfig pulsarConnectorConfig) throws Exception {
@@ -103,21 +96,33 @@ public class PulsarConnectorCache {
         return instance;
     }
 
+    public static void shutdown() throws Exception {
+        synchronized (PulsarConnectorCache.class) {
+            if (instance != null) {
+                instance.statsProvider.stop();
+                instance.managedLedgerFactory.shutdown();
+                instance.metadataStore.close();
+                instance.offloaderScheduler.shutdown();
+                instance.offloadersCache.close();
+            }
+        }
+    }
+
     private ManagedLedgerFactory initManagedLedgerFactory(PulsarConnectorConfig pulsarConnectorConfig)
-        throws Exception {
+            throws Exception {
         PulsarMetadataClientDriver.init();
 
         ClientConfiguration bkClientConfiguration = new ClientConfiguration()
-            .setMetadataServiceUri("metadata-store:" + pulsarConnectorConfig.getMetadataUrl())
-            .setClientTcpNoDelay(false)
-            .setUseV2WireProtocol(pulsarConnectorConfig.getBookkeeperUseV2Protocol())
-            .setExplictLacInterval(pulsarConnectorConfig.getBookkeeperExplicitInterval())
-            .setStickyReadsEnabled(false)
-            .setReadEntryTimeout(60)
-            .setThrottleValue(pulsarConnectorConfig.getBookkeeperThrottleValue())
-            .setNumIOThreads(pulsarConnectorConfig.getBookkeeperNumIOThreads())
-            .setNumWorkerThreads(pulsarConnectorConfig.getBookkeeperNumWorkerThreads())
-            .setNettyMaxFrameSizeBytes(pulsarConnectorConfig.getMaxMessageSize() + Commands.MESSAGE_SIZE_FRAME_PADDING);
+                .setMetadataServiceUri("metadata-store:" + pulsarConnectorConfig.getMetadataUrl())
+                .setClientTcpNoDelay(false)
+                .setUseV2WireProtocol(pulsarConnectorConfig.getBookkeeperUseV2Protocol())
+                .setExplictLacInterval(pulsarConnectorConfig.getBookkeeperExplicitInterval())
+                .setStickyReadsEnabled(false)
+                .setReadEntryTimeout(60)
+                .setThrottleValue(pulsarConnectorConfig.getBookkeeperThrottleValue())
+                .setNumIOThreads(pulsarConnectorConfig.getBookkeeperNumIOThreads())
+                .setNumWorkerThreads(pulsarConnectorConfig.getBookkeeperNumWorkerThreads())
+                .setNettyMaxFrameSizeBytes(pulsarConnectorConfig.getMaxMessageSize() + Commands.MESSAGE_SIZE_FRAME_PADDING);
 
         ManagedLedgerFactoryConfig managedLedgerFactoryConfig = new ManagedLedgerFactoryConfig();
         managedLedgerFactoryConfig.setMaxCacheSize(pulsarConnectorConfig.getManagedLedgerCacheSizeMB());
@@ -149,12 +154,12 @@ public class PulsarConnectorCache {
     }
 
     private void initOffloaderScheduler(OffloadPoliciesImpl offloadPolicies) {
-            this.offloaderScheduler = OrderedScheduler.newSchedulerBuilder()
-                    .numThreads(offloadPolicies.getManagedLedgerOffloadMaxThreads())
-                    .name("pulsar-offloader").build();
+        this.offloaderScheduler = OrderedScheduler.newSchedulerBuilder()
+                .numThreads(offloadPolicies.getManagedLedgerOffloadMaxThreads())
+                .name("pulsar-offloader").build();
     }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private LedgerOffloader initManagedLedgerOffloader(OffloadPoliciesImpl offloadPolicies,
                                                        PulsarConnectorConfig pulsarConnectorConfig) {
 
@@ -170,12 +175,12 @@ public class PulsarConnectorCache {
 
                 try {
                     return offloaderFactory.create(
-                        offloadPolicies,
-                        ImmutableMap.of(
-                            LedgerOffloader.METADATA_SOFTWARE_VERSION_KEY.toLowerCase(), PulsarVersion.getVersion(),
-                            LedgerOffloader.METADATA_SOFTWARE_GITSHA_KEY.toLowerCase(), PulsarVersion.getGitSha()
-                        ),
-                        this.offloaderScheduler, this.offloaderStats);
+                            offloadPolicies,
+                            ImmutableMap.of(
+                                    LedgerOffloader.METADATA_SOFTWARE_VERSION_KEY.toLowerCase(), PulsarVersion.getVersion(),
+                                    LedgerOffloader.METADATA_SOFTWARE_GITSHA_KEY.toLowerCase(), PulsarVersion.getGitSha()
+                            ),
+                            this.offloaderScheduler, this.offloaderStats);
                 } catch (IOException ioe) {
                     log.error("Failed to create offloader: ", ioe);
                     throw new RuntimeException(ioe.getMessage(), ioe.getCause());
@@ -195,17 +200,5 @@ public class PulsarConnectorCache {
 
     public StatsProvider getStatsProvider() {
         return statsProvider;
-    }
-
-    public static void shutdown() throws Exception {
-        synchronized (PulsarConnectorCache.class) {
-            if (instance != null) {
-                instance.statsProvider.stop();
-                instance.managedLedgerFactory.shutdown();
-                instance.metadataStore.close();
-                instance.offloaderScheduler.shutdown();
-                instance.offloadersCache.close();
-            }
-        }
     }
 }

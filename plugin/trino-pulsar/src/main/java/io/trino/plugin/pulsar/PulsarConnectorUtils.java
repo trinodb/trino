@@ -13,24 +13,22 @@
  */
 package io.trino.plugin.pulsar;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.time.ZoneId;
-import java.util.Map;
-import java.util.Properties;
 import org.apache.avro.Schema;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.common.naming.TopicName;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Map;
+import java.util.Properties;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
-import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
-import static io.trino.spi.type.Timestamps.round;
+import static io.trino.spi.type.Timestamps.*;
 import static java.lang.Math.toIntExact;
 import static java.time.ZoneOffset.UTC;
 
@@ -45,8 +43,7 @@ public class PulsarConnectorUtils {
         return parser.parse(schemaJson);
     }
 
-    public static boolean isPartitionedTopic(TopicName topicName, PulsarConnectorConfig pulsarConnectorConfig) throws PulsarClientException, PulsarAdminException
-    {
+    public static boolean isPartitionedTopic(TopicName topicName, PulsarConnectorConfig pulsarConnectorConfig) throws PulsarClientException, PulsarAdminException {
         try (PulsarAdmin pulsarAdmin = PulsarAdminClientProvider.getPulsarAdmin(pulsarConnectorConfig)) {
             return pulsarAdmin.topics().getPartitionedTopicMetadata(topicName.toString()).partitions > 0;
         }
@@ -108,8 +105,8 @@ public class PulsarConnectorUtils {
                 ? namespace.replace(config.getRewriteNamespaceDelimiter(), "/")
                 : namespace;
     }
-    public static long roundToTrinoTime(long timestamp)
-    {
+
+    public static long roundToTrinoTime(long timestamp) {
         Instant.ofEpochMilli(timestamp);
         LocalDateTime date = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault());
         int roundedNanos = toIntExact(round(date.getNano(), 6));

@@ -16,35 +16,30 @@ package io.trino.plugin.pulsar;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-
-import org.checkerframework.checker.units.qual.m;
 
 /**
  * Description of the column metadata.
  */
 public class PulsarColumnMetadata extends ColumnMetadata {
-    
-    private boolean nullable;
-    private String comment;
-    private String extraInfo;
-    private boolean hidden;
-    private Map<String, Object> properties;
-    private boolean isInternal;
-    // need this because presto ColumnMetadata saves name in lowercase
-    private String nameWithCase;
-    private PulsarColumnHandle.HandleKeyValueType handleKeyValueType;
-    public static final String KEY_SCHEMA_COLUMN_PREFIX = "__key.";
 
-    private DecoderExtraInfo decoderExtraInfo;
+    public static final String KEY_SCHEMA_COLUMN_PREFIX = "__key.";
+    private final boolean nullable;
+    private final String comment;
+    private final String extraInfo;
+    private final boolean hidden;
+    private final Map<String, Object> properties;
+    private final boolean isInternal;
+    // need this because presto ColumnMetadata saves name in lowercase
+    private final String nameWithCase;
+    private final PulsarColumnHandle.HandleKeyValueType handleKeyValueType;
+    private final DecoderExtraInfo decoderExtraInfo;
 
     public PulsarColumnMetadata(String name, Type type, String comment, String extraInfo,
                                 boolean hidden, boolean isInternal,
                                 PulsarColumnHandle.HandleKeyValueType handleKeyValueType,
-                                DecoderExtraInfo decoderExtraInfo, Map<String, Object> map) 
-    {
+                                DecoderExtraInfo decoderExtraInfo, Map<String, Object> map) {
         super(name, type);
         this.nullable = true;
         this.comment = comment;
@@ -56,35 +51,42 @@ public class PulsarColumnMetadata extends ColumnMetadata {
         this.decoderExtraInfo = decoderExtraInfo;
         this.properties = map;
     }
-    
-     @Override
-     public boolean isNullable() {
+
+    public static String getColumnName(PulsarColumnHandle.HandleKeyValueType handleKeyValueType, String name) {
+        if (Objects.equals(PulsarColumnHandle.HandleKeyValueType.KEY, handleKeyValueType)) {
+            return KEY_SCHEMA_COLUMN_PREFIX + name;
+        }
+        return name;
+    }
+
+    @Override
+    public boolean isNullable() {
         return this.nullable;
-     }
-  
-     @Override
-     public String getComment() {
+    }
+
+    @Override
+    public String getComment() {
         return this.comment;
-     }
-  
-     @Override
-     public String getExtraInfo() {
+    }
+
+    @Override
+    public String getExtraInfo() {
         return this.extraInfo;
-     }
-  
-     @Override
-     public boolean isHidden() {
+    }
+
+    @Override
+    public boolean isHidden() {
         return this.hidden;
-     }
-  
-     @Override
-     public Map<String, Object> getProperties() {
+    }
+
+    @Override
+    public Map<String, Object> getProperties() {
         return this.properties;
-     }
+    }
+
     public DecoderExtraInfo getDecoderExtraInfo() {
         return decoderExtraInfo;
     }
-
 
     public String getNameWithCase() {
         return nameWithCase;
@@ -93,7 +95,6 @@ public class PulsarColumnMetadata extends ColumnMetadata {
     public boolean isInternal() {
         return isInternal;
     }
-
 
     public PulsarColumnHandle.HandleKeyValueType getHandleKeyValueType() {
         return handleKeyValueType;
@@ -107,21 +108,14 @@ public class PulsarColumnMetadata extends ColumnMetadata {
         return Objects.equals(handleKeyValueType, PulsarColumnHandle.HandleKeyValueType.VALUE);
     }
 
-    public static String getColumnName(PulsarColumnHandle.HandleKeyValueType handleKeyValueType, String name) {
-        if (Objects.equals(PulsarColumnHandle.HandleKeyValueType.KEY, handleKeyValueType)) {
-            return KEY_SCHEMA_COLUMN_PREFIX + name;
-        }
-        return name;
-    }
-
     @Override
     public String toString() {
         return "PulsarColumnMetadata{"
-            + "isInternal=" + isInternal
-            + ", nameWithCase='" + nameWithCase + '\''
-            + ", handleKeyValueType=" + handleKeyValueType
-            + ", decoderExtraInfo=" + decoderExtraInfo.toString()
-            + '}';
+                + "isInternal=" + isInternal
+                + ", nameWithCase='" + nameWithCase + '\''
+                + ", handleKeyValueType=" + handleKeyValueType
+                + ", decoderExtraInfo=" + decoderExtraInfo.toString()
+                + '}';
     }
 
     @Override
@@ -167,20 +161,19 @@ public class PulsarColumnMetadata extends ColumnMetadata {
      */
     public static class DecoderExtraInfo {
 
-        public DecoderExtraInfo(String mapping, String dataFormat, String formatHint) {
-            this.mapping = mapping;
-            this.dataFormat = dataFormat;
-            this.formatHint = formatHint;
-        }
-
-        public DecoderExtraInfo() {}
-
         //equals ColumnName in general, may used as alias or embedded field in future.
         private String mapping;
         //reserved dataFormat used by RowDecoder.
         private String dataFormat;
         //reserved formatHint used by RowDecoder.
         private String formatHint;
+        public DecoderExtraInfo(String mapping, String dataFormat, String formatHint) {
+            this.mapping = mapping;
+            this.dataFormat = dataFormat;
+            this.formatHint = formatHint;
+        }
+        public DecoderExtraInfo() {
+        }
 
         public String getMapping() {
             return mapping;
@@ -231,7 +224,7 @@ public class PulsarColumnMetadata extends ColumnMetadata {
         }
 
         @Override
-        public String  toString() {
+        public String toString() {
             return "DecoderExtraInfo{"
                     + "mapping=" + mapping
                     + ", dataFormat=" + dataFormat

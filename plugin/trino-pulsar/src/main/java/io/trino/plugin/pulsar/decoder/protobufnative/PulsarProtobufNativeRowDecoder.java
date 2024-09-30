@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.pulsar.decoder.protobufnative;
 
+import com.google.protobuf.DynamicMessage;
+import io.netty.buffer.ByteBuf;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.plugin.pulsar.PulsarRowDecoder;
@@ -20,8 +22,6 @@ import io.trino.spi.TrinoException;
 import org.apache.pulsar.client.api.SchemaSerializationException;
 import org.apache.pulsar.client.impl.schema.generic.GenericProtobufNativeRecord;
 import org.apache.pulsar.client.impl.schema.generic.GenericProtobufNativeSchema;
-import com.google.protobuf.DynamicMessage;
-import io.netty.buffer.ByteBuf;
 
 import java.util.Map;
 import java.util.Optional;
@@ -36,19 +36,16 @@ import static java.util.Objects.requireNonNull;
  * Pulsar {@link org.apache.pulsar.common.schema.SchemaType#PROTOBUF_NATIVE} RowDecoder.
  */
 public class PulsarProtobufNativeRowDecoder
-        implements PulsarRowDecoder
-{
+        implements PulsarRowDecoder {
     private final GenericProtobufNativeSchema genericProtobufNativeSchema;
     private final Map<DecoderColumnHandle, PulsarProtobufNativeColumnDecoder> columnDecoders;
 
-    public PulsarProtobufNativeRowDecoder(GenericProtobufNativeSchema genericProtobufNativeSchema, Set<DecoderColumnHandle> columns)
-    {
+    public PulsarProtobufNativeRowDecoder(GenericProtobufNativeSchema genericProtobufNativeSchema, Set<DecoderColumnHandle> columns) {
         this.genericProtobufNativeSchema = requireNonNull(genericProtobufNativeSchema, "genericProtobufNativeSchema is null");
         columnDecoders = columns.stream().collect(toImmutableMap(identity(), this::createColumnDecoder));
     }
 
-    private PulsarProtobufNativeColumnDecoder createColumnDecoder(DecoderColumnHandle columnHandle)
-    {
+    private PulsarProtobufNativeColumnDecoder createColumnDecoder(DecoderColumnHandle columnHandle) {
         return new PulsarProtobufNativeColumnDecoder(columnHandle);
     }
 
@@ -59,14 +56,12 @@ public class PulsarProtobufNativeRowDecoder
      * @return
      */
     @Override
-    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(ByteBuf byteBuf)
-    {
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(ByteBuf byteBuf) {
         DynamicMessage dynamicMessage;
         try {
             GenericProtobufNativeRecord record = (GenericProtobufNativeRecord) genericProtobufNativeSchema.decode(byteBuf.array());
             dynamicMessage = record.getProtobufRecord();
-        }
-        catch (SchemaSerializationException e) {
+        } catch (SchemaSerializationException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Decoding protobuf record failed.", e);
         }
         return Optional.of(columnDecoders.entrySet().stream()

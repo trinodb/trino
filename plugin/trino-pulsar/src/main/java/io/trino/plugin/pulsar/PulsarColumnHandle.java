@@ -13,14 +13,16 @@
  */
 package io.trino.plugin.pulsar;
 
-import static java.util.Objects.requireNonNull;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
+
 import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * This class represents the basic information about a presto column.
@@ -50,39 +52,21 @@ public class PulsarColumnHandle implements DecoderColumnHandle {
     private final boolean internal;
 
 
-    private HandleKeyValueType handleKeyValueType;
+    private final HandleKeyValueType handleKeyValueType;
 
     /**
      * {@link org.apache.pulsar.sql.presto.PulsarColumnMetadata.DecoderExtraInfo#mapping}.
      */
-    private String mapping;
+    private final String mapping;
     /**
      * {@link org.apache.pulsar.sql.presto.PulsarColumnMetadata.DecoderExtraInfo#dataFormat}.
      */
-    private String dataFormat;
+    private final String dataFormat;
 
     /**
      * {@link org.apache.pulsar.sql.presto.PulsarColumnMetadata.DecoderExtraInfo#formatHint}.
      */
-    private String formatHint;
-
-    /**
-     * Column Handle keyValue type, used for keyValue schema.
-     */
-    public enum HandleKeyValueType {
-        /**
-         * The handle not for keyValue schema.
-         */
-        NONE,
-        /**
-         * The key schema handle for keyValue schema.
-         */
-        KEY,
-        /**
-         * The value schema handle for keyValue schema.
-         */
-        VALUE
-    }
+    private final String formatHint;
 
     @JsonCreator
     public PulsarColumnHandle(
@@ -168,7 +152,7 @@ public class PulsarColumnHandle implements DecoderColumnHandle {
     ColumnMetadata getColumnMetadata() {
         return new PulsarColumnMetadata(name, type, null, null, hidden,
                 internal, handleKeyValueType, new PulsarColumnMetadata.DecoderExtraInfo(
-                        mapping, dataFormat, formatHint), null);
+                mapping, dataFormat, formatHint), null);
     }
 
     @Override
@@ -188,23 +172,23 @@ public class PulsarColumnHandle implements DecoderColumnHandle {
         if (internal != that.internal) {
             return false;
         }
-        if (connectorId != null ? !connectorId.equals(that.connectorId) : that.connectorId != null) {
+        if (!Objects.equals(connectorId, that.connectorId)) {
             return false;
         }
-        if (name != null ? !name.equals(that.name) : that.name != null) {
+        if (!Objects.equals(name, that.name)) {
             return false;
         }
-        if (type != null ? !type.equals(that.type) : that.type != null) {
+        if (!Objects.equals(type, that.type)) {
             return false;
         }
-        if (mapping != null ? !mapping.equals(that.mapping) : that.mapping != null) {
+        if (!Objects.equals(mapping, that.mapping)) {
             return false;
         }
-        if (dataFormat != null ? !dataFormat.equals(that.dataFormat) : that.dataFormat != null) {
+        if (!Objects.equals(dataFormat, that.dataFormat)) {
             return false;
         }
 
-        if (formatHint != null ? !formatHint.equals(that.formatHint) : that.formatHint != null) {
+        if (!Objects.equals(formatHint, that.formatHint)) {
             return false;
         }
 
@@ -218,7 +202,7 @@ public class PulsarColumnHandle implements DecoderColumnHandle {
         result = 31 * result + (type != null ? type.hashCode() : 0);
         result = 31 * result + (hidden ? 1 : 0);
         result = 31 * result + (internal ? 1 : 0);
-        result =  31 * result + (mapping != null ? mapping.hashCode() : 0);
+        result = 31 * result + (mapping != null ? mapping.hashCode() : 0);
         result = 31 * result + (dataFormat != null ? dataFormat.hashCode() : 0);
         result = 31 * result + (formatHint != null ? formatHint.hashCode() : 0);
         result = 31 * result + (handleKeyValueType != null ? handleKeyValueType.hashCode() : 0);
@@ -228,16 +212,34 @@ public class PulsarColumnHandle implements DecoderColumnHandle {
     @Override
     public String toString() {
         return "PulsarColumnHandle{"
-            + "connectorId='" + connectorId + '\''
-            + ", name='" + name + '\''
-            + ", type=" + type
-            + ", hidden=" + hidden
-            + ", internal=" + internal
-            + ", mapping=" + mapping
-            + ", dataFormat=" + dataFormat
-            + ", formatHint=" + formatHint
-            + ", handleKeyValueType=" + handleKeyValueType
-            + '}';
+                + "connectorId='" + connectorId + '\''
+                + ", name='" + name + '\''
+                + ", type=" + type
+                + ", hidden=" + hidden
+                + ", internal=" + internal
+                + ", mapping=" + mapping
+                + ", dataFormat=" + dataFormat
+                + ", formatHint=" + formatHint
+                + ", handleKeyValueType=" + handleKeyValueType
+                + '}';
+    }
+
+    /**
+     * Column Handle keyValue type, used for keyValue schema.
+     */
+    public enum HandleKeyValueType {
+        /**
+         * The handle not for keyValue schema.
+         */
+        NONE,
+        /**
+         * The key schema handle for keyValue schema.
+         */
+        KEY,
+        /**
+         * The value schema handle for keyValue schema.
+         */
+        VALUE
     }
 }
 

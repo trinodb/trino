@@ -13,16 +13,14 @@
  */
 package io.trino.plugin.pulsar;
 
+import io.netty.buffer.ByteBuf;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
-//import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBuf;
 
 import java.util.Map;
 import java.util.Optional;
 
-public interface PulsarRowDecoder
-{
+public interface PulsarRowDecoder {
     /**
      * decode byteBuf to Column FieldValueProvider.
      *

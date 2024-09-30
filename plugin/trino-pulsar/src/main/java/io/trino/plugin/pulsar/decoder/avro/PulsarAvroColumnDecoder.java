@@ -13,65 +13,45 @@
  */
 package io.trino.plugin.pulsar.decoder.avro;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.Slices.utf8Slice;
-//import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
-import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static io.trino.spi.type.Varchars.truncateToLength;
-import static java.lang.Float.floatToIntBits;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
-//import io.trino.decoder.DecoderColumnHandle;
-//import io.trino.decoder.FieldValueProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.DateType;
-import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.Int128;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RealType;
-import io.trino.spi.type.RowType;
+import io.trino.spi.type.*;
 import io.trino.spi.type.RowType.Field;
-import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.Timestamps;
-import io.trino.spi.type.TinyintType;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.UuidType;
-import io.trino.spi.type.VarbinaryType;
-import io.trino.spi.type.VarcharType;
+import org.apache.avro.generic.GenericEnumSymbol;
+import org.apache.avro.generic.GenericFixed;
+import org.apache.avro.generic.GenericRecord;
+
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import org.apache.avro.generic.GenericEnumSymbol;
-import org.apache.avro.generic.GenericFixed;
-import org.apache.avro.generic.GenericRecord;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.type.Varchars.truncateToLength;
+import static java.lang.Float.floatToIntBits;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Copy from {@link io.trino.decoder.avro.AvroColumnDecoder}
  * with A little pulsar's extensions.
  * 1) support date and time types.
- *  {@link TimestampType}
- *  {@link DateType}
- *  {@link TimeType}
+ * {@link TimestampType}
+ * {@link DateType}
+ * {@link TimeType}
  * 2) support {@link RealType}.
  * 3) support {@link DecimalType}.
  */
@@ -115,46 +95,6 @@ public class PulsarAvroColumnDecoder {
         }
     }
 
-    private boolean isSupportedType(Type type) {
-        if (isSupportedPrimitive(type)) {
-            return true;
-        }
-
-        if (type instanceof ArrayType) {
-            checkArgument(type.getTypeParameters().size() == 1,
-                    "expecting exactly one type parameter for array");
-            return isSupportedType(type.getTypeParameters().get(0));
-        }
-
-        if (type instanceof MapType) {
-            List<Type> typeParameters = type.getTypeParameters();
-            checkArgument(typeParameters.size() == 2,
-                    "expecting exactly two type parameters for map");
-            checkArgument(typeParameters.get(0) instanceof VarcharType,
-                    "Unsupported column type '%s' for map key", typeParameters.get(0));
-            return isSupportedType(type.getTypeParameters().get(1));
-        }
-
-        if (type instanceof RowType) {
-            for (Type fieldType : type.getTypeParameters()) {
-                if (!isSupportedType(fieldType)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        return false;
-    }
-
-    private boolean isSupportedPrimitive(Type type) {
-        return type instanceof VarcharType || type instanceof DecimalType || SUPPORTED_PRIMITIVE_TYPES.contains(type);
-    }
-
-    public FieldValueProvider decodeField(GenericRecord avroRecord) {
-        Object avroColumnValue = locateNode(avroRecord, columnMapping);
-        return new ObjectValueProvider(avroColumnValue, columnType, columnName);
-    }
-
     private static Object locateNode(GenericRecord element, String columnMapping) {
         Object value = element;
         for (String pathElement : Splitter.on('/').omitEmptyStrings().split(columnMapping)) {
@@ -164,83 +104,6 @@ public class PulsarAvroColumnDecoder {
             value = ((GenericRecord) value).get(pathElement);
         }
         return value;
-    }
-
-    private static class ObjectValueProvider
-            extends FieldValueProvider {
-        private final Object value;
-        private final Type columnType;
-        private final String columnName;
-
-        public ObjectValueProvider(Object value, Type columnType, String columnName) {
-            this.value = value;
-            this.columnType = columnType;
-            this.columnName = columnName;
-        }
-
-        @Override
-        public boolean isNull() {
-            return value == null;
-        }
-
-        @Override
-        public double getDouble() {
-            if (value instanceof Double || value instanceof Float) {
-                return ((Number) value).doubleValue();
-            }
-            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED,
-                    format("cannot decode object of '%s' as '%s' for column '%s'",
-                            value.getClass(), columnType, columnName));
-        }
-
-        @Override
-        public boolean getBoolean() {
-            if (value instanceof Boolean) {
-                return (Boolean) value;
-            }
-            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED,
-                    format("cannot decode object of '%s' as '%s' for column '%s'",
-                            value.getClass(), columnType, columnName));
-        }
-
-        @Override
-        public long getLong() {
-            if (value instanceof Long || value instanceof Integer) {
-                final long payload = ((Number) value).longValue();
-                if (TimestampType.TIMESTAMP_MILLIS.equals(columnType)) {
-                    return payload * Timestamps.MICROSECONDS_PER_MILLISECOND;
-                }
-                if (TimeType.TIME_MILLIS.equals(columnType)) {
-                    return payload * Timestamps.PICOSECONDS_PER_MILLISECOND;
-                }
-                return payload;
-            }
-
-            if (columnType instanceof RealType) {
-                return floatToIntBits((Float) value);
-            }
-
-            if (columnType instanceof DecimalType) {
-                ByteBuffer buffer = (ByteBuffer) value;
-                byte[] bytes = new byte[buffer.remaining()];
-                buffer.get(bytes);
-                return new BigInteger(bytes).longValue();
-            }
-
-            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED,
-                    format("cannot decode object of '%s' as '%s' for column '%s'",
-                            value.getClass(), columnType, columnName));
-        }
-
-        @Override
-        public Slice getSlice() {
-            return PulsarAvroColumnDecoder.getSlice(value, columnType, columnName);
-        }
-
-        @Override
-        public Object getObject() {
-            return serializeObject(null, value, columnType, columnName);
-        }
     }
 
     private static Slice getSlice(Object value, Type type, String columnName) {
@@ -428,5 +291,122 @@ public class PulsarAvroColumnDecoder {
             return blockBuilder.build();//.getObject(0, Block.class);
         }
         return null;
+    }
+
+    private boolean isSupportedType(Type type) {
+        if (isSupportedPrimitive(type)) {
+            return true;
+        }
+
+        if (type instanceof ArrayType) {
+            checkArgument(type.getTypeParameters().size() == 1,
+                    "expecting exactly one type parameter for array");
+            return isSupportedType(type.getTypeParameters().get(0));
+        }
+
+        if (type instanceof MapType) {
+            List<Type> typeParameters = type.getTypeParameters();
+            checkArgument(typeParameters.size() == 2,
+                    "expecting exactly two type parameters for map");
+            checkArgument(typeParameters.get(0) instanceof VarcharType,
+                    "Unsupported column type '%s' for map key", typeParameters.get(0));
+            return isSupportedType(type.getTypeParameters().get(1));
+        }
+
+        if (type instanceof RowType) {
+            for (Type fieldType : type.getTypeParameters()) {
+                if (!isSupportedType(fieldType)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isSupportedPrimitive(Type type) {
+        return type instanceof VarcharType || type instanceof DecimalType || SUPPORTED_PRIMITIVE_TYPES.contains(type);
+    }
+
+    public FieldValueProvider decodeField(GenericRecord avroRecord) {
+        Object avroColumnValue = locateNode(avroRecord, columnMapping);
+        return new ObjectValueProvider(avroColumnValue, columnType, columnName);
+    }
+
+    private static class ObjectValueProvider
+            extends FieldValueProvider {
+        private final Object value;
+        private final Type columnType;
+        private final String columnName;
+
+        public ObjectValueProvider(Object value, Type columnType, String columnName) {
+            this.value = value;
+            this.columnType = columnType;
+            this.columnName = columnName;
+        }
+
+        @Override
+        public boolean isNull() {
+            return value == null;
+        }
+
+        @Override
+        public double getDouble() {
+            if (value instanceof Double || value instanceof Float) {
+                return ((Number) value).doubleValue();
+            }
+            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED,
+                    format("cannot decode object of '%s' as '%s' for column '%s'",
+                            value.getClass(), columnType, columnName));
+        }
+
+        @Override
+        public boolean getBoolean() {
+            if (value instanceof Boolean) {
+                return (Boolean) value;
+            }
+            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED,
+                    format("cannot decode object of '%s' as '%s' for column '%s'",
+                            value.getClass(), columnType, columnName));
+        }
+
+        @Override
+        public long getLong() {
+            if (value instanceof Long || value instanceof Integer) {
+                final long payload = ((Number) value).longValue();
+                if (TimestampType.TIMESTAMP_MILLIS.equals(columnType)) {
+                    return payload * Timestamps.MICROSECONDS_PER_MILLISECOND;
+                }
+                if (TimeType.TIME_MILLIS.equals(columnType)) {
+                    return payload * Timestamps.PICOSECONDS_PER_MILLISECOND;
+                }
+                return payload;
+            }
+
+            if (columnType instanceof RealType) {
+                return floatToIntBits((Float) value);
+            }
+
+            if (columnType instanceof DecimalType) {
+                ByteBuffer buffer = (ByteBuffer) value;
+                byte[] bytes = new byte[buffer.remaining()];
+                buffer.get(bytes);
+                return new BigInteger(bytes).longValue();
+            }
+
+            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED,
+                    format("cannot decode object of '%s' as '%s' for column '%s'",
+                            value.getClass(), columnType, columnName));
+        }
+
+        @Override
+        public Slice getSlice() {
+            return PulsarAvroColumnDecoder.getSlice(value, columnType, columnName);
+        }
+
+        @Override
+        public Object getObject() {
+            return serializeObject(null, value, columnType, columnName);
+        }
     }
 }

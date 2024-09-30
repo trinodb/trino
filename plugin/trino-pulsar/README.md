@@ -41,12 +41,12 @@ Learn more about Pulsar at https://pulsar.apache.org
 - Topic and queue semantics
 - Load balancer
 - Designed for being deployed as a hosted service:
-  - Multi-tenant
-  - Authentication
-  - Authorization
-  - Quotas
-  - Support mixing very different workloads
-  - Optional hardware isolation
+    - Multi-tenant
+    - Authentication
+    - Authorization
+    - Quotas
+    - Support mixing very different workloads
+    - Optional hardware isolation
 - Keeps track of consumer cursor position
 - REST API for provisioning, admin and stats
 - Geo replication
@@ -128,21 +128,23 @@ components in the Pulsar ecosystem, including connectors, adapters, and other la
 
 - JDK
 
-    | Pulsar Version    |                    JDK Version                    |
-    |-------------------|:-------------------------------------------------:|
-    | master and 2.11 + | [JDK 17](https://adoptium.net/?variant=openjdk17) |
-    | 2.8 / 2.9 / 2.10  | [JDK 11](https://adoptium.net/?variant=openjdk11) |
-    | 2.7 -             |  [JDK 8](https://adoptium.net/?variant=openjdk8)  |
+  | Pulsar Version    |                    JDK Version                    |
+      |-------------------|:-------------------------------------------------:|
+  | master and 2.11 + | [JDK 17](https://adoptium.net/?variant=openjdk17) |
+  | 2.8 / 2.9 / 2.10  | [JDK 11](https://adoptium.net/?variant=openjdk11) |
+  | 2.7 -             |  [JDK 8](https://adoptium.net/?variant=openjdk8)  |
 
 - Maven 3.6.1+
 - zip
 
 > **Note**:
 >
-> This project includes a [Maven Wrapper](https://maven.apache.org/wrapper/) that can be used instead of a system-installed Maven.
-> Use it by replacing `mvn` by `./mvnw` on Linux and `mvnw.cmd` on Windows in the commands below.    
+> This project includes a [Maven Wrapper](https://maven.apache.org/wrapper/) that can be used instead of a
+> system-installed Maven.
+> Use it by replacing `mvn` by `./mvnw` on Linux and `mvnw.cmd` on Windows in the commands below.
 >
-> It's better to use CMD rather than Powershell on Windows. Because maven will activate the `windows` profile which runs `rename-netty-native-libs.cmd`.
+> It's better to use CMD rather than Powershell on Windows. Because maven will activate the `windows` profile which runs
+`rename-netty-native-libs.cmd`.
 
 ### Build
 
@@ -192,7 +194,8 @@ Check https://pulsar.apache.org for documentation and examples.
 
 ## Build custom docker images
 
-* Docker images must be built with Java 8 for `branch-2.7` or previous branches because of [ISSUE-8445](https://github.com/apache/pulsar/issues/8445).
+* Docker images must be built with Java 8 for `branch-2.7` or previous branches because
+  of [ISSUE-8445](https://github.com/apache/pulsar/issues/8445).
 * Java 11 is the recommended JDK version in `branch-2.8`, `branch-2.9` and `branch-2.10`.
 * Java 17 is the recommended JDK version in `master`.
 
@@ -203,7 +206,8 @@ mvn clean install -DskipTests
 mvn package -Pdocker,-main -am -pl docker/pulsar-all -DskipTests
 ```
 
-After the images are built, they can be tagged and pushed to your custom repository. Here's an example of a bash script that tags the docker images with the current version and git revision and pushes them to `localhost:32000/apachepulsar`.
+After the images are built, they can be tagged and pushed to your custom repository. Here's an example of a bash script
+that tags the docker images with the current version and git revision and pushes them to `localhost:32000/apachepulsar`.
 
 ```bash
 image_repo_and_project=localhost:32000/apachepulsar
@@ -225,7 +229,8 @@ Read https://pulsar.apache.org/contribute/setup-ide for setting up IntelliJ IDEA
 
 > **Note**:
 >
-> For how to make contributions to Pulsar documentation, see [Pulsar Documentation Contribution Guide](https://pulsar.apache.org/contribute/document-intro/).
+> For how to make contributions to Pulsar documentation,
+> see [Pulsar Documentation Contribution Guide](https://pulsar.apache.org/contribute/document-intro/).
 
 ## Contact
 
@@ -244,7 +249,10 @@ You can self-register at https://communityinviter.com/apps/apache-pulsar/apache-
 
 ##### Report a security vulnerability
 
-To report a vulnerability for Pulsar, contact the [Apache Security Team](https://www.apache.org/security/). When reporting a vulnerability to [security@apache.org](mailto:security@apache.org), you can copy your email to [private@pulsar.apache.org](mailto:private@pulsar.apache.org) to send your report to the Apache Pulsar Project Management Committee. This is a private mailing list.
+To report a vulnerability for Pulsar, contact the [Apache Security Team](https://www.apache.org/security/). When
+reporting a vulnerability to [security@apache.org](mailto:security@apache.org), you can copy your email
+to [private@pulsar.apache.org](mailto:private@pulsar.apache.org) to send your report to the Apache Pulsar Project
+Management Committee. This is a private mailing list.
 
 https://github.com/apache/pulsar/security/policy contains more details.
 
@@ -254,8 +262,17 @@ Licensed under the Apache License, Version 2.0: http://www.apache.org/licenses/L
 
 ## Crypto Notice
 
-This distribution includes cryptographic software. The country in which you currently reside may have restrictions on the import, possession, use, and/or re-export to another country, of encryption software. BEFORE using any encryption software, please check your country's laws, regulations and policies concerning the import, possession, or use, and re-export of encryption software, to see if this is permitted. See [The Wassenaar Arrangement](http://www.wassenaar.org/) for more information.
+This distribution includes cryptographic software. The country in which you currently reside may have restrictions on
+the import, possession, use, and/or re-export to another country, of encryption software. BEFORE using any encryption
+software, please check your country's laws, regulations and policies concerning the import, possession, or use, and
+re-export of encryption software, to see if this is permitted.
+See [The Wassenaar Arrangement](http://www.wassenaar.org/) for more information.
 
-The U.S. Government Department of Commerce, Bureau of Industry and Security (BIS), has classified this software as Export Commodity Control Number (ECCN) 5D002.C.1, which includes information security software using or performing cryptographic functions with asymmetric algorithms. The form and manner of this Apache Software Foundation distribution makes it eligible for export under the License Exception ENC Technology Software Unrestricted (TSU) exception (see the BIS Export Administration Regulations, Section 740.13) for both object code and source code.
+The U.S. Government Department of Commerce, Bureau of Industry and Security (BIS), has classified this software as
+Export Commodity Control Number (ECCN) 5D002.C.1, which includes information security software using or performing
+cryptographic functions with asymmetric algorithms. The form and manner of this Apache Software Foundation distribution
+makes it eligible for export under the License Exception ENC Technology Software Unrestricted (TSU) exception (see the
+BIS Export Administration Regulations, Section 740.13) for both object code and source code.
 
-The following provides more details on the included cryptographic software: Pulsar uses the SSL library from Bouncy Castle written by http://www.bouncycastle.org.
+The following provides more details on the included cryptographic software: Pulsar uses the SSL library from Bouncy
+Castle written by http://www.bouncycastle.org.

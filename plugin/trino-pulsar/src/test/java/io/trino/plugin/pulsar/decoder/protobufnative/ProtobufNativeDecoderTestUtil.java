@@ -13,80 +13,60 @@
  */
 package io.trino.plugin.pulsar.decoder.protobufnative;
 
-import io.trino.plugin.pulsar.decoder.DecoderTestUtil;
-import io.trino.spi.block.Block;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.SqlVarbinary;
-import io.trino.spi.type.Type;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.EnumValue;
+import io.trino.plugin.pulsar.decoder.DecoderTestUtil;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.*;
 
 import java.util.List;
 import java.util.Map;
 
 import static java.lang.String.format;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 /**
  * TestUtil for ProtobufNativeDecoder.
  */
 public class ProtobufNativeDecoderTestUtil
-        extends DecoderTestUtil
-{
-    public ProtobufNativeDecoderTestUtil()
-    {
+        extends DecoderTestUtil {
+    public ProtobufNativeDecoderTestUtil() {
         super();
     }
 
     @Override
-    public void checkPrimitiveValue(Object actual, Object expected)
-    {
+    public void checkPrimitiveValue(Object actual, Object expected) {
         if (actual == null || expected == null) {
             assertNull(expected);
             assertNull(actual);
-        }
-        else if (actual instanceof CharSequence) {
+        } else if (actual instanceof CharSequence) {
             assertTrue(expected instanceof CharSequence || expected instanceof EnumValue);
             assertEquals(actual.toString(), expected.toString());
             if (expected instanceof EnumValue) {
-                assertEquals(((CharSequence) actual.toString()), ((EnumValue) expected).getName());
-            }
-            else if (expected instanceof CharSequence) {
+                assertEquals(actual.toString(), ((EnumValue) expected).getName());
+            } else if (expected instanceof CharSequence) {
                 assertEquals(actual.toString(), expected.toString());
             }
-        }
-        else if (actual instanceof SqlVarbinary) {
+        } else if (actual instanceof SqlVarbinary) {
             if (actual instanceof ByteString) {
                 assertEquals(((SqlVarbinary) actual).getBytes(), ((ByteString) expected).toByteArray());
-            }
-            else if (expected instanceof byte[]) {
+            } else if (expected instanceof byte[]) {
                 assertEquals(((SqlVarbinary) actual).getBytes(), expected);
-            }
-            else {
+            } else {
                 fail(format("Unexpected value type %s", actual.getClass()));
             }
-        }
-        else if (isIntegralType(actual) && isIntegralType(expected)) {
+        } else if (isIntegralType(actual) && isIntegralType(expected)) {
             assertEquals(((Number) actual).longValue(), ((Number) expected).longValue());
-        }
-        else if (isRealType(actual) && isRealType(expected)) {
+        } else if (isRealType(actual) && isRealType(expected)) {
             assertEquals(((Number) actual).doubleValue(), ((Number) expected).doubleValue());
-        }
-        else {
+        } else {
             assertEquals(actual, expected);
         }
     }
 
     @Override
-    public void checkArrayValues(Block block, Type type, Object value)
-    {
+    public void checkArrayValues(Block block, Type type, Object value) {
         assertNotNull("Type is null", type);
         assertTrue("Unexpected type", type instanceof ArrayType);
         assertNotNull("Block is null", block);
@@ -105,8 +85,7 @@ public class ProtobufNativeDecoderTestUtil
                 Block arrayBlock = block.getSingleValueBlock(index);//.getObject(index, Block.class);
                 checkArrayValues(arrayBlock, elementType, list.get(index));
             }
-        }
-        else if (elementType instanceof MapType) {
+        } else if (elementType instanceof MapType) {
             for (int index = 0; index < block.getPositionCount(); index++) {
                 if (block.isNull(index)) {
                     assertNull(list.get(index));
@@ -115,8 +94,7 @@ public class ProtobufNativeDecoderTestUtil
                 Block mapBlock = block.getSingleValueBlock(index);//.getObject(index, Block.class);
                 checkMapValues(mapBlock, elementType, list.get(index));
             }
-        }
-        else if (elementType instanceof RowType) {
+        } else if (elementType instanceof RowType) {
             for (int index = 0; index < block.getPositionCount(); index++) {
                 if (block.isNull(index)) {
                     assertNull(list.get(index));
@@ -125,8 +103,7 @@ public class ProtobufNativeDecoderTestUtil
                 Block rowBlock = block.getSingleValueBlock(index);//.getObject(index, Block.class);
                 checkRowValues(rowBlock, elementType, list.get(index));
             }
-        }
-        else {
+        } else {
             for (int index = 0; index < block.getPositionCount(); index++) {
                 checkPrimitiveValue(getObjectValue(elementType, block, index), list.get(index));
             }
@@ -134,8 +111,7 @@ public class ProtobufNativeDecoderTestUtil
     }
 
     @Override
-    public void checkMapValues(Block block, Type type, Object value)
-    {
+    public void checkMapValues(Block block, Type type, Object value) {
         assertNotNull("Type is null", type);
         assertTrue("Unexpected type", type instanceof MapType);
         assertNotNull("Block is null", block);
@@ -161,8 +137,7 @@ public class ProtobufNativeDecoderTestUtil
                 Object keyValue = expected.entrySet().stream().filter(e -> e.getKey().equals(actualKey)).findFirst().get().getValue();
                 checkArrayValues(arrayBlock, valueType, keyValue);
             }
-        }
-        else if (valueType instanceof MapType) {
+        } else if (valueType instanceof MapType) {
             for (int index = 0; index < block.getPositionCount(); index += 2) {
                 Object actualKey = getObjectValue(keyType, block, index);
                 assertTrue(expected.keySet().stream().anyMatch(e -> e.equals(actualKey)));
@@ -174,8 +149,7 @@ public class ProtobufNativeDecoderTestUtil
                 Object keyValue = expected.entrySet().stream().filter(e -> e.getKey().equals(actualKey)).findFirst().get().getValue();
                 checkMapValues(mapBlock, valueType, keyValue);
             }
-        }
-        else if (valueType instanceof RowType) {
+        } else if (valueType instanceof RowType) {
             for (int index = 0; index < block.getPositionCount(); index += 2) {
                 Object actualKey = getObjectValue(keyType, block, index);
                 assertTrue(expected.keySet().stream().anyMatch(e -> e.equals(actualKey)));
@@ -187,8 +161,7 @@ public class ProtobufNativeDecoderTestUtil
                 Object keyValue = expected.entrySet().stream().filter(e -> e.getKey().equals(actualKey)).findFirst().get().getValue();
                 checkRowValues(rowBlock, valueType, keyValue);
             }
-        }
-        else {
+        } else {
             for (int index = 0; index < block.getPositionCount(); index += 2) {
                 Object actualKey = getObjectValue(keyType, block, index);
                 assertTrue(expected.keySet().stream().anyMatch(e -> e.equals(actualKey)));
@@ -199,8 +172,7 @@ public class ProtobufNativeDecoderTestUtil
     }
 
     @Override
-    public void checkRowValues(Block block, Type type, Object value)
-    {
+    public void checkRowValues(Block block, Type type, Object value) {
         assertNotNull("Type is null", type);
         assertTrue("Unexpected type", type instanceof RowType);
         assertNotNull("Block is null", block);

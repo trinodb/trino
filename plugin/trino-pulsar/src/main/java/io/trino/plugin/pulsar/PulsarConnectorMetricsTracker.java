@@ -13,90 +13,63 @@
  */
 package io.trino.plugin.pulsar;
 
+import org.apache.bookkeeper.stats.*;
+
 import java.util.concurrent.TimeUnit;
-import org.apache.bookkeeper.stats.Counter;
-import org.apache.bookkeeper.stats.NullStatsProvider;
-import org.apache.bookkeeper.stats.OpStatsLogger;
-import org.apache.bookkeeper.stats.StatsLogger;
-import org.apache.bookkeeper.stats.StatsProvider;
 
 /**
  * This class helps to track metrics related to the connector.
  */
-public class PulsarConnectorMetricsTracker implements AutoCloseable{
-
-    private final StatsLogger statsLogger;
-
-    private static final String SCOPE = "split";
-
-    // metric names
-
-    // time spend on waiting to get entry from entry queue because it is empty
-    private static final String ENTRY_QUEUE_DEQUEUE_WAIT_TIME = "entry-queue-dequeue-wait-time";
-
-    // total time spent on waiting to get entry from entry queue per query
-    private static final String ENTRY_QUEUE_DEQUEUE_WAIT_TIME_PER_QUERY = "entry-queue-dequeue-wait-time-per-query";
-
-    // number of bytes read from BookKeeper
-    private static final String BYTES_READ = "bytes-read";
-
-    // total number of bytes read per query
-    private static final String BYTES_READ_PER_QUERY = "bytes-read-per-query";
-
-    // time spent on derserializing entries
-    private static final String ENTRY_DESERIALIZE_TIME = "entry-deserialize-time";
-
-    // time spent on derserializing entries per query
-    private static final String ENTRY_DESERIALIZE_TIME_PER_QUERY = "entry-deserialize-time_per_query";
-
-    // time spent on waiting for message queue enqueue because the message queue is full
-    private static final String MESSAGE_QUEUE_ENQUEUE_WAIT_TIME = "message-queue-enqueue-wait-time";
-
-    // time spent on waiting for message queue enqueue because message queue is full per query
-    private static final String MESSAGE_QUEUE_ENQUEUE_WAIT_TIME_PER_QUERY = "message-queue-enqueue-wait-time-per-query";
-
-    private static final String NUM_MESSAGES_DERSERIALIZED = "num-messages-deserialized";
+public class PulsarConnectorMetricsTracker implements AutoCloseable {
 
     // number of messages deserialized
     public static final String NUM_MESSAGES_DERSERIALIZED_PER_ENTRY = "num-messages-deserialized-per-entry";
-
     // number of messages deserialized per query
     public static final String NUM_MESSAGES_DERSERIALIZED_PER_QUERY = "num-messages-deserialized-per-query";
 
+    // metric names
     // number of read attempts (fail if queues are full)
     public static final String READ_ATTEMPTS = "read-attempts";
-
     // number of read attempts per query
     public static final String READ_ATTEMTPS_PER_QUERY = "read-attempts-per-query";
-
     // latency of reads per batch
     public static final String READ_LATENCY_PER_BATCH = "read-latency-per-batch";
-
     // total read latency per query
     public static final String READ_LATENCY_PER_QUERY = "read-latency-per-query";
-
     // number of entries per batch
     public static final String NUM_ENTRIES_PER_BATCH = "num-entries-per-batch";
-
     // number of entries per query
     public static final String NUM_ENTRIES_PER_QUERY = "num-entries-per-query";
-
     // time spent on waiting to dequeue from message queue because it is empty per query
     public static final String MESSAGE_QUEUE_DEQUEUE_WAIT_TIME_PER_QUERY = "message-queue-dequeue-wait-time-per-query";
-
     // time spent on deserializing message to record. For example, Avro, JSON, and so on
     public static final String RECORD_DESERIALIZE_TIME = "record-deserialize-time";
-
+    private static final String SCOPE = "split";
+    // time spend on waiting to get entry from entry queue because it is empty
+    private static final String ENTRY_QUEUE_DEQUEUE_WAIT_TIME = "entry-queue-dequeue-wait-time";
+    // total time spent on waiting to get entry from entry queue per query
+    private static final String ENTRY_QUEUE_DEQUEUE_WAIT_TIME_PER_QUERY = "entry-queue-dequeue-wait-time-per-query";
+    // number of bytes read from BookKeeper
+    private static final String BYTES_READ = "bytes-read";
+    // total number of bytes read per query
+    private static final String BYTES_READ_PER_QUERY = "bytes-read-per-query";
+    // time spent on derserializing entries
+    private static final String ENTRY_DESERIALIZE_TIME = "entry-deserialize-time";
+    // time spent on derserializing entries per query
+    private static final String ENTRY_DESERIALIZE_TIME_PER_QUERY = "entry-deserialize-time_per_query";
+    // time spent on waiting for message queue enqueue because the message queue is full
+    private static final String MESSAGE_QUEUE_ENQUEUE_WAIT_TIME = "message-queue-enqueue-wait-time";
+    // time spent on waiting for message queue enqueue because message queue is full per query
+    private static final String MESSAGE_QUEUE_ENQUEUE_WAIT_TIME_PER_QUERY = "message-queue-enqueue-wait-time-per-query";
+    private static final String NUM_MESSAGES_DERSERIALIZED = "num-messages-deserialized";
     // time spent on deserializing message to record per query
     private static final String RECORD_DESERIALIZE_TIME_PER_QUERY = "record-deserialize-time-per-query";
-
     // Number of records deserialized
     private static final String NUM_RECORD_DESERIALIZED = "num-record-deserialized";
-
     private static final String TOTAL_EXECUTION_TIME = "total-execution-time";
+    private final StatsLogger statsLogger;
 
     // stats loggers
-
     private final OpStatsLogger statsLoggerEntryQueueDequeueWaitTime;
     private final Counter statsLoggerBytesRead;
     private final OpStatsLogger statsLoggerEntryDeserializeTime;
@@ -140,7 +113,7 @@ public class PulsarConnectorMetricsTracker implements AutoCloseable{
             statsLoggerMessageQueueEnqueueWaitTime = statsLogger.getOpStatsLogger(MESSAGE_QUEUE_ENQUEUE_WAIT_TIME);
             statsLoggerNumMessagesDeserialized = statsLogger.getCounter(NUM_MESSAGES_DERSERIALIZED);
             statsLoggerNumMessagesDeserializedPerEntry = statsLogger
-                .getOpStatsLogger(NUM_MESSAGES_DERSERIALIZED_PER_ENTRY);
+                    .getOpStatsLogger(NUM_MESSAGES_DERSERIALIZED_PER_ENTRY);
             statsLoggerReadAttempts = statsLogger.getOpStatsLogger(READ_ATTEMPTS);
             statsLoggerReadLatencyPerBatch = statsLogger.getOpStatsLogger(READ_LATENCY_PER_BATCH);
             statsLoggerNumEntriesPerBatch = statsLogger.getOpStatsLogger(NUM_ENTRIES_PER_BATCH);

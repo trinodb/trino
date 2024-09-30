@@ -16,15 +16,7 @@ package io.trino.plugin.pulsar.decoder;
 import java.util.List;
 import java.util.Map;
 
-public class DecoderTestMessage
-{
-    public static enum TestEnum
-    {
-        TEST_ENUM_1,
-        TEST_ENUM_2,
-        TEST_ENUM_3
-    }
-
+public class DecoderTestMessage {
     public int intField;
     public String stringField;
     public float floatField;
@@ -39,26 +31,27 @@ public class DecoderTestMessage
     public int dateField;
     public TestRow rowField;
     public TestEnum enumField;
-
     public List<String> arrayField;
     public Map<String, Long> mapField;
     public CompositeRow compositeRow;
+    public enum TestEnum {
+        TEST_ENUM_1,
+        TEST_ENUM_2,
+        TEST_ENUM_3
+    }
 
-    public static class TestRow
-    {
+    public static class TestRow {
         public String stringField;
         public int intField;
         public NestedRow nestedRow;
     }
 
-    public static class NestedRow
-    {
+    public static class NestedRow {
         public String stringField;
         public long longField;
     }
 
-    public static class CompositeRow
-    {
+    public static class CompositeRow {
         public String stringField;
         public List<NestedRow> arrayField;
         public Map<String, NestedRow> mapField;
@@ -69,77 +62,63 @@ public class DecoderTestMessage
     /**
      * POJO for cyclic detect.
      */
-    public static class CyclicFoo
-    {
-        public String getField1()
-        {
-            return field1;
-        }
-
-        public void setField1(String field1)
-        {
-            this.field1 = field1;
-        }
-
-        public Integer getField2()
-        {
-            return field2;
-        }
-
-        public void setField2(Integer field2)
-        {
-            this.field2 = field2;
-        }
-
-        public CyclicBoo getBoo()
-        {
-            return boo;
-        }
-
-        public void setBoo(CyclicBoo boo)
-        {
-            this.boo = boo;
-        }
-
+    public static class CyclicFoo {
         private String field1;
         private Integer field2;
         private CyclicBoo boo;
-    }
 
-    public static class CyclicBoo
-    {
-        public String getField1()
-        {
+        public String getField1() {
             return field1;
         }
 
-        public void setField1(String field1)
-        {
+        public void setField1(String field1) {
             this.field1 = field1;
         }
 
-        public Boolean getField2()
-        {
+        public Integer getField2() {
             return field2;
         }
 
-        public void setField2(Boolean field2)
-        {
+        public void setField2(Integer field2) {
             this.field2 = field2;
         }
 
-        public CyclicFoo getFoo()
-        {
-            return foo;
+        public CyclicBoo getBoo() {
+            return boo;
         }
 
-        public void setFoo(CyclicFoo foo)
-        {
-            this.foo = foo;
+        public void setBoo(CyclicBoo boo) {
+            this.boo = boo;
         }
+    }
 
+    public static class CyclicBoo {
         private String field1;
         private Boolean field2;
         private CyclicFoo foo;
+
+        public String getField1() {
+            return field1;
+        }
+
+        public void setField1(String field1) {
+            this.field1 = field1;
+        }
+
+        public Boolean getField2() {
+            return field2;
+        }
+
+        public void setField2(Boolean field2) {
+            this.field2 = field2;
+        }
+
+        public CyclicFoo getFoo() {
+            return foo;
+        }
+
+        public void setFoo(CyclicFoo foo) {
+            this.foo = foo;
+        }
     }
 }

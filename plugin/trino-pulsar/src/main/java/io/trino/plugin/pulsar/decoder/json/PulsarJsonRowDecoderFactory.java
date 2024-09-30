@@ -13,67 +13,40 @@
  */
 package io.trino.plugin.pulsar.decoder.json;
 
+import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.plugin.pulsar.PulsarColumnHandle;
+import io.trino.plugin.pulsar.PulsarColumnMetadata;
+import io.trino.plugin.pulsar.PulsarRowDecoderFactory;
+import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.*;
+import org.apache.avro.LogicalType;
+import org.apache.avro.LogicalTypes;
+import org.apache.avro.Schema;
+import org.apache.avro.SchemaParseException;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.pulsar.client.impl.schema.generic.GenericJsonSchema;
+import org.apache.pulsar.common.naming.TopicName;
+import org.apache.pulsar.common.schema.SchemaInfo;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
-import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
-import io.trino.decoder.DecoderColumnHandle;
-import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
-import io.trino.spi.type.DateType;
-import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.RealType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
-import io.trino.spi.type.UuidType;
-import io.trino.spi.type.VarbinaryType;
-import io.trino.spi.type.VarcharType;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-
-import org.apache.avro.LogicalType;
-import org.apache.avro.LogicalTypes;
-//import org.apache.avro.Schema;
-//import org.apache.avro.LogicalType;
-//import org.apache.avro.LogicalTypes;
-import org.apache.avro.Schema;
-import org.apache.avro.SchemaParseException;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.pulsar.client.impl.schema.generic.GenericJsonSchema;
-//import org.apache.pulsar.client.impl.schema.generic.GenericJsonSchema;
-import org.apache.pulsar.common.naming.TopicName;
-import org.apache.pulsar.common.schema.SchemaInfo;
-//import org.apache.pulsar.shade.org.apache.avro.LogicalType;
-//import org.apache.pulsar.shade.org.apache.avro.LogicalTypes;
-//import org.apache.pulsar.shade.org.apache.avro.LogicalType;
-//import org.apache.pulsar.shade.org.apache.avro.LogicalTypes;
-//import org.apache.pulsar.shade.org.apache.avro.Schema;
-//import org.apache.pulsar.shade.org.apache.avro.Schema;
-
-import io.trino.plugin.pulsar.PulsarColumnHandle;
-import io.trino.plugin.pulsar.PulsarColumnMetadata;
-import io.trino.plugin.pulsar.PulsarRowDecoderFactory;
 
 /**
  * PulsarRowDecoderFactory for {@link org.apache.pulsar.common.schema.SchemaType#JSON}.
  */
 public class PulsarJsonRowDecoderFactory implements PulsarRowDecoderFactory {
 
+    private static final Logger log = Logger.get(PulsarJsonRowDecoderFactory.class);
     private final TypeManager typeManager;
 
     public PulsarJsonRowDecoderFactory(TypeManager typeManager) {
@@ -118,15 +91,14 @@ public class PulsarJsonRowDecoderFactory implements PulsarRowDecoderFactory {
             log.warn(e, "Topic "
                     + topicName.toString() + " extractColumnMetadata failed.");
             throw new TrinoException(NOT_SUPPORTED, "Topic "
-                    + topicName.toString() + " schema may contains cyclic definitions.", e);
+                    + topicName + " schema may contains cyclic definitions.", e);
         }
         return columnMetadata;
     }
 
-
     private Type parseJsonPrestoType(String fieldName, Schema schema) {
         Schema.Type type = schema.getType();
-        LogicalType logicalType  = schema.getLogicalType();
+        LogicalType logicalType = schema.getLogicalType();
         switch (type) {
             case STRING:
                 if (logicalType != null && logicalType.equals(LogicalTypes.uuid())) {
@@ -145,8 +117,7 @@ public class PulsarJsonRowDecoderFactory implements PulsarRowDecoderFactory {
                 //  When the precision > 0 and <= 18, use ShortDecimalType. and mapping Long
                 //  When the precision > 18 and <= 36, use LongDecimalType. and mapping Slice
                 //  When the precision > 36, throw Exception.
-                if (logicalType instanceof LogicalTypes.Decimal) {
-                    LogicalTypes.Decimal decimal = (LogicalTypes.Decimal) logicalType;
+                if (logicalType instanceof LogicalTypes.Decimal decimal) {
                     return DecimalType.createDecimalType(decimal.getPrecision(), decimal.getScale());
                 }
                 return VarbinaryType.VARBINARY;
@@ -174,7 +145,7 @@ public class PulsarJsonRowDecoderFactory implements PulsarRowDecoderFactory {
                 //The key for an avro map must be string.
                 TypeSignature valueType = parseJsonPrestoType(fieldName, schema.getValueType()).getTypeSignature();
                 return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.
-                        typeParameter(VarcharType.VARCHAR.getTypeSignature()),
+                                typeParameter(VarcharType.VARCHAR.getTypeSignature()),
                         TypeSignatureParameter.typeParameter(valueType)));
             case RECORD:
                 if (schema.getFields().size() > 0) {
@@ -201,7 +172,5 @@ public class PulsarJsonRowDecoderFactory implements PulsarRowDecoderFactory {
                         schema.getType(), schema.getFullName()));
         }
     }
-
-    private static final Logger log = Logger.get(PulsarJsonRowDecoderFactory.class);
 
 }

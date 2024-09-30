@@ -13,20 +13,18 @@
  */
 package io.trino.plugin.pulsar;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.util.Objects.requireNonNull;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import java.util.*; 
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.*;
+
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Objects.requireNonNull;
 
 /**
  * This abstract class represents internal columns.
@@ -58,7 +56,7 @@ public class PulsarInternalColumn {
     public static final PulsarInternalColumn PROPERTIES = new PulsarInternalColumn("__properties__",
             VarcharType.VARCHAR, "User defined properties");
 
-    private static Set<PulsarInternalColumn> internalFields = ImmutableSet.of(PARTITION, EVENT_TIME, PUBLISH_TIME,
+    private static final Set<PulsarInternalColumn> internalFields = ImmutableSet.of(PARTITION, EVENT_TIME, PUBLISH_TIME,
             MESSAGE_ID, SEQUENCE_ID, PRODUCER_NAME, KEY, PROPERTIES);
 
 
@@ -74,6 +72,21 @@ public class PulsarInternalColumn {
         this.name = name;
         this.type = requireNonNull(type, "type is null");
         this.comment = requireNonNull(comment, "comment is null");
+    }
+
+    public static Set<PulsarInternalColumn> getInternalFields() {
+        return internalFields;
+    }
+
+    public static Map<String, PulsarInternalColumn> getInternalFieldsMap() {
+        ImmutableMap.Builder<String, PulsarInternalColumn> builder = ImmutableMap.builder();
+        getInternalFields().forEach(new Consumer<PulsarInternalColumn>() {
+            @Override
+            public void accept(PulsarInternalColumn pulsarInternalColumn) {
+                builder.put(pulsarInternalColumn.getName(), pulsarInternalColumn);
+            }
+        });
+        return builder.build();
     }
 
     public String getName() {
@@ -95,21 +108,6 @@ public class PulsarInternalColumn {
     PulsarColumnMetadata getColumnMetadata(boolean hidden) {
         return new PulsarColumnMetadata(name, type, comment, null, hidden, true,
                 PulsarColumnHandle.HandleKeyValueType.NONE, new PulsarColumnMetadata.DecoderExtraInfo(), Collections.emptyMap());
-    }
-
-    public static Set<PulsarInternalColumn> getInternalFields() {
-        return internalFields;
-    }
-
-    public static Map<String, PulsarInternalColumn> getInternalFieldsMap() {
-        ImmutableMap.Builder<String, PulsarInternalColumn> builder = ImmutableMap.builder();
-        getInternalFields().forEach(new Consumer<PulsarInternalColumn>() {
-            @Override
-            public void accept(PulsarInternalColumn pulsarInternalColumn) {
-                builder.put(pulsarInternalColumn.getName(), pulsarInternalColumn);
-            }
-        });
-        return builder.build();
     }
 
 }
