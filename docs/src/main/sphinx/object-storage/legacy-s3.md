@@ -380,7 +380,7 @@ the following edits to your catalog configuration:
      -
    * - `hive.s3.endpoint`
      - `s3.endpoint`
-     -
+     - Add the `https://` prefix to make the value a correct URL.
    * - `hive.s3.region`
      - `s3.region`
      -
