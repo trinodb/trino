@@ -21,18 +21,24 @@ import io.trino.testing.TestingConnectorBehavior;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.testng.annotations.Test;
 
-import static io.trino.plugin.pulsar.PulsarServer.*;
+import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_CUSTOMER;
+import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_LINEITEM;
+import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_NATION;
+import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_ORDERS;
+import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 
 public class TestPulsarConnectorTest
-        extends BaseConnectorTest {
+        extends BaseConnectorTest
+{
     protected PulsarServer pulsarServer;
 
     @Override
     protected QueryRunner createQueryRunner()
-            throws Exception {
+            throws Exception
+    {
         pulsarServer = closeAfterClass(new PulsarServer(PulsarServer.DEFAULT_IMAGE_NAME));
         QueryRunner runner = PulsarQueryRunner.createPulsarQueryRunner(pulsarServer, ImmutableMap.of("http-server.http.port", "8080"));
         pulsarServer.copyAndIngestTpchData(runner.execute(SELECT_FROM_CUSTOMER), PulsarServer.CUSTOMER, PulsarServer.Customer.class, 2);
@@ -44,7 +50,8 @@ public class TestPulsarConnectorTest
     }
 
     @Override
-    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior) {
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
         switch (connectorBehavior) {
             case SUPPORTS_DELETE:
             case SUPPORTS_INSERT:
@@ -63,7 +70,8 @@ public class TestPulsarConnectorTest
     }
 
     @Override
-    public void testShowColumns() {
+    public void testShowColumns()
+    {
         MaterializedResult actualColumns = computeActual("SHOW COLUMNS FROM orders");
 
         assertEquals(actualColumns.getMaterializedRows().size(), 9);
@@ -88,7 +96,8 @@ public class TestPulsarConnectorTest
     }
 
     @Override
-    public void testDescribeTable() {
+    public void testDescribeTable()
+    {
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
 
         assertEquals(actualColumns.getMaterializedRows().size(), 9);
@@ -113,14 +122,16 @@ public class TestPulsarConnectorTest
     }
 
     @Test
-    public void testShowCreateSchema() {
+    public void testShowCreateSchema()
+    {
         String schemaName = getSession().getSchema().orElseThrow();
         assertThat((String) computeScalar("SHOW CREATE SCHEMA \"" + schemaName + "\""))
                 .isEqualTo(format("CREATE SCHEMA %s.\"%s\"", getSession().getCatalog().orElseThrow(), schemaName));
     }
 
     @Test
-    public void testShowCreateTable() {
+    public void testShowCreateTable()
+    {
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
                 .matches("CREATE TABLE \\w+\\.\"\\w+\\/\\w+\"\\.orders \\Q(\n" +
@@ -137,12 +148,14 @@ public class TestPulsarConnectorTest
     }
 
     @Test
-    public void testSelectAll() {
+    public void testSelectAll()
+    {
         assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment  FROM orders");
     }
 
     @Test
-    public void testListSchemaNames() {
+    public void testListSchemaNames()
+    {
         MaterializedResult actualColumns = computeActual("SHOW SCHEMAS in pulsar");
 
         assertEquals(actualColumns.getMaterializedRows().get(0).getField(0), "information_schema");
@@ -153,17 +166,21 @@ public class TestPulsarConnectorTest
     }
 
     @Test
-    public void testQueryTableNotExist() {
+    public void testQueryTableNotExist()
+    {
         assertQueryFails("DESCRIBE \"wrongtenant/wrongnamespace\".orders", "line 1:1: Schema 'wrongtenant/wrongnamespace' does not exist");
     }
 
     @Test
-    public void testGetTableMetadataWrongSchema() {
+    public void testGetTableMetadataWrongSchema()
+    {
         assertQueryFails("SELECT * FROM \"public/default\".orderss", "line 1:15: Table 'pulsar.public/default.orderss' does not exist");
     }
 
     @Test
-    public void testGetTableMetadataTableNoSchema() throws Exception {
+    public void testGetTableMetadataTableNoSchema()
+            throws Exception
+    {
         PulsarAdmin pulsarAdmin = PulsarAdmin.builder().serviceHttpUrl(pulsarServer.getPulsarAdminUrl()).build();
         pulsarAdmin.topics().createNonPartitionedTopic("persistent://public/default/trino-test-1");
         Thread.sleep(500);
@@ -175,7 +192,8 @@ public class TestPulsarConnectorTest
     }
 
     @Test
-    public void testPushDown() {
+    public void testPushDown()
+    {
         assertEquals(computeActual("SELECT count(*) from orders where orderdate between date '1994-01-01' and date '1994-12-31'").getOnlyValue(), Long.valueOf(2303));
     }
 }
