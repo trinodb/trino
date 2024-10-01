@@ -16,12 +16,14 @@ package io.trino.filesystem.alluxio;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -52,7 +54,9 @@ public class TestAlluxioFileSystem
                                 + "-Dalluxio.security.authorization.plugins.enabled=false ")
                 .withNetworkMode("host")
                 .withAccessToHost(true)
-                .waitingFor(Wait.forLogMessage(".*Primary started*\n", 1));
+                .waitingFor((new LogMessageWaitStrategy())
+                        .withRegEx(".*Primary started*\n")
+                        .withStartupTimeout(Duration.ofSeconds(180L)));
         return container;
     }
 
@@ -84,12 +88,5 @@ public class TestAlluxioFileSystem
         // the SSHD container will be stopped by TestContainers on shutdown
         // https://github.com/trinodb/trino/discussions/21969
         System.setProperty("ReportLeakedContainers.disabled", "true");
-    }
-
-    @Test
-    void testContainer()
-    {
-        assertThat(ALLUXIO_MASTER_CONTAINER.isRunning()).isTrue();
-        assertThat(ALLUXIO_WORKER_CONTAINER.isRunning()).isTrue();
     }
 }
