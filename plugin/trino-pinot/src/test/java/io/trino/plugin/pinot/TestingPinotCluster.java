@@ -60,7 +60,6 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.pinot.common.utils.http.HttpClient.DEFAULT_SOCKET_TIMEOUT_MS;
-import static org.testcontainers.containers.KafkaContainer.ZOOKEEPER_PORT;
 import static org.testcontainers.utility.DockerImageName.parse;
 
 public class TestingPinotCluster
@@ -72,6 +71,7 @@ public class TestingPinotCluster
     private static final JsonCodec<PinotSuccessResponse> PINOT_SUCCESS_RESPONSE_JSON_CODEC = jsonCodec(PinotSuccessResponse.class);
     private static final FileUploadDownloadClient FILE_UPLOAD_DOWNLOAD_CLIENT = new FileUploadDownloadClient();
 
+    public static final int ZOOKEEPER_PORT = 2181;
     public static final int CONTROLLER_PORT = 9000;
     public static final int BROKER_PORT = 8099;
     public static final int SERVER_ADMIN_PORT = 8097;
