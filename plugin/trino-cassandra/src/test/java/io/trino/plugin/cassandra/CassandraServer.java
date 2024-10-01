@@ -24,7 +24,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.testing.ResourcePresence;
-import org.testcontainers.containers.CassandraContainer;
+import org.testcontainers.cassandra.CassandraContainer;
 import org.testcontainers.containers.wait.CassandraQueryWaitStrategy;
 import org.testcontainers.utility.DockerImageName;
 
@@ -50,17 +50,15 @@ import static java.nio.file.Files.writeString;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testcontainers.containers.CassandraContainer.CQL_PORT;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class CassandraServer
         implements Closeable
 {
     private static final Logger log = Logger.get(CassandraServer.class);
-
     private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
 
-    private final CassandraContainer<?> dockerContainer;
+    private final CassandraContainer dockerContainer;
     private final CassandraSession session;
 
     public CassandraServer()
@@ -75,16 +73,18 @@ public class CassandraServer
         this(DockerImageName.parse(imageName), ImmutableMap.of(), "/etc/cassandra/cassandra.yaml", configFileName);
     }
 
+    @SuppressWarnings("deprecation")
     public CassandraServer(DockerImageName imageName, Map<String, String> environmentVariables, String configPath, String configFileName)
             throws Exception
     {
         log.debug("Starting cassandra...");
 
-        this.dockerContainer = new CassandraContainer<>(imageName)
+        this.dockerContainer = new CassandraContainer(imageName)
                 .withCopyFileToContainer(forHostPath(prepareCassandraYaml(configFileName)), configPath)
                 .withEnv(environmentVariables)
-                .waitingFor(new CassandraQueryWaitStrategy())
-                .withStartupTimeout(java.time.Duration.ofMinutes(10));
+                .withStartupTimeout(java.time.Duration.ofMinutes(10))
+                // TODO: https://github.com/testcontainers/testcontainers-java/issues/9337
+                .waitingFor(new CassandraQueryWaitStrategy());
         this.dockerContainer.start();
 
         ProgrammaticDriverConfigLoaderBuilder driverConfigLoaderBuilder = DriverConfigLoader.programmaticBuilder();
@@ -136,7 +136,7 @@ public class CassandraServer
 
     public int getPort()
     {
-        return dockerContainer.getMappedPort(CQL_PORT);
+        return dockerContainer.getContactPoint().getPort();
     }
 
     public void refreshSizeEstimates(String keyspace, String table)
