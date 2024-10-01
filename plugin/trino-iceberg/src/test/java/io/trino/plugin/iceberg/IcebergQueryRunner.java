@@ -25,6 +25,7 @@ import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer;
 import io.trino.plugin.iceberg.catalog.rest.TestingPolarisCatalog;
+import io.trino.plugin.iceberg.containers.NessieContainer;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -449,6 +450,36 @@ public final class IcebergQueryRunner
                     .build();
 
             Logger log = Logger.get(IcebergSnowflakeQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class IcebergNessieQueryRunnerMain
+    {
+        private IcebergNessieQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            NessieContainer nessieContainer = NessieContainer.builder().build();
+            nessieContainer.start();
+
+            Path tempDir = createTempDirectory("trino_nessie_catalog");
+
+            @SuppressWarnings("resource")
+            QueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .addCoordinatorProperty("http-server.http.port", "8080")
+                    .setBaseDataDir(Optional.of(tempDir))
+                    .setIcebergProperties(ImmutableMap.<String, String>builder()
+                            .put("iceberg.catalog.type", "nessie")
+                            .put("iceberg.nessie-catalog.uri", nessieContainer.getRestApiUri())
+                            .put("iceberg.nessie-catalog.default-warehouse-dir", tempDir.toString())
+                            .buildOrThrow())
+                    .setInitialTables(TpchTable.getTables())
+                    .build();
+
+            Logger log = Logger.get(IcebergNessieQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
