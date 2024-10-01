@@ -16,22 +16,29 @@ package io.trino.plugin.pulsar;
 import org.apache.pulsar.common.policies.data.OffloadPolicies;
 import org.testng.annotations.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
-public class TestPulsarConnectorConfig {
+public class TestPulsarConnectorConfig
+{
     @Test
-    public void testDefaultNamespaceDelimiterRewrite() {
+    public void testDefaultNamespaceDelimiterRewrite()
+    {
         PulsarConnectorConfig connectorConfig = new PulsarConnectorConfig();
         assertFalse(connectorConfig.getNamespaceDelimiterRewriteEnable());
         assertEquals("/", connectorConfig.getRewriteNamespaceDelimiter());
     }
 
     @Test
-    public void testNamespaceRewriteDelimiterRestriction() {
+    public void testNamespaceRewriteDelimiterRestriction()
+    {
         PulsarConnectorConfig connectorConfig = new PulsarConnectorConfig();
         try {
             connectorConfig.setRewriteNamespaceDelimiter("-=:.Az09_");
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             assertTrue(e instanceof IllegalArgumentException);
         }
         connectorConfig.setRewriteNamespaceDelimiter("|");
@@ -47,7 +54,8 @@ public class TestPulsarConnectorConfig {
     }
 
     @Test
-    public void testDefaultBookkeeperConfig() {
+    public void testDefaultBookkeeperConfig()
+    {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         PulsarConnectorConfig connectorConfig = new PulsarConnectorConfig();
         assertEquals(0, connectorConfig.getBookkeeperThrottleValue());
@@ -56,7 +64,8 @@ public class TestPulsarConnectorConfig {
     }
 
     @Test
-    public void testDefaultManagedLedgerConfig() {
+    public void testDefaultManagedLedgerConfig()
+    {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         PulsarConnectorConfig connectorConfig = new PulsarConnectorConfig();
         assertEquals(0L, connectorConfig.getManagedLedgerCacheSizeMB());
@@ -66,7 +75,9 @@ public class TestPulsarConnectorConfig {
     }
 
     @Test
-    public void testGetOffloadPolices() throws Exception {
+    public void testGetOffloadPolices()
+            throws Exception
+    {
         PulsarConnectorConfig connectorConfig = new PulsarConnectorConfig();
 
         final String managedLedgerOffloadDriver = "s3";
