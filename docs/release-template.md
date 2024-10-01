@@ -70,8 +70,6 @@
 
 ## Prometheus connector
 
-## Raptor connector
-
 ## Redis connector
 
 ## Redshift connector

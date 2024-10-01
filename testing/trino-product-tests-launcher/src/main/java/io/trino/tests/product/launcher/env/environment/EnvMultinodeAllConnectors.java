@@ -73,7 +73,6 @@ public final class EnvMultinodeAllConnectors
                         "pinot",
                         "postgresql",
                         "prometheus",
-                        "raptor_legacy",
                         "redis",
                         "redshift",
                         "snowflake",
