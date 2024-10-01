@@ -23,13 +23,26 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
-import org.apache.pulsar.client.api.*;
+import org.apache.pulsar.client.api.CompressionType;
+import org.apache.pulsar.client.api.Consumer;
+import org.apache.pulsar.client.api.MessageRoutingMode;
+import org.apache.pulsar.client.api.Producer;
+import org.apache.pulsar.client.api.PulsarClient;
+import org.apache.pulsar.client.api.PulsarClientException;
+import org.apache.pulsar.client.api.Schema;
+import org.apache.pulsar.client.api.SubscriptionInitialPosition;
 import org.apache.pulsar.client.impl.schema.AvroSchema;
 import org.apache.pulsar.client.impl.schema.JSONSchema;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.Closeable;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.ParseException;
@@ -46,7 +59,8 @@ import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.UUID.randomUUID;
 
 public class PulsarServer
-        implements Closeable {
+            implements Closeable
+{
     public static final String CUSTOMER = "customer";
     public static final String ORDERS = "orders";
     public static final String LINEITEM = "lineitem";
@@ -113,7 +127,9 @@ public class PulsarServer
     private final GenericContainer<?> pulsar;
     private final List<Consumer> consumers = new ArrayList<>();
 
-    public PulsarServer(String pulsarImage) throws IOException {
+    public PulsarServer(String pulsarImage)
+            throws IOException
+    {
         hostWorkingDirectory = Files.createDirectory(
                         Paths.get("/tmp/docker-tests-files-" + randomUUID()))
                 .toAbsolutePath().toString();
@@ -134,19 +150,22 @@ public class PulsarServer
         pulsar.start();
     }
 
-    private static <T> void sendMsgWithRetry(Producer<T> producer, Object data, String key, int retry, LongAdder counter) {
+    private static <T> void sendMsgWithRetry(Producer<T> producer, Object data, String key, int retry, LongAdder counter)
+    {
         if (retry > 0) {
             try {
                 producer.newMessage().value((T) data).key(key).send();
                 counter.increment();
-            } catch (PulsarClientException e) {
+            }
+            catch (PulsarClientException e) {
                 sendMsgWithRetry(producer, data, key, retry - 1, counter);
             }
         }
     }
 
     private static void writeTpchDataAsTsv(MaterializedResult rows, String dataFile)
-            throws IOException {
+            throws IOException
+    {
         File file = new File(dataFile);
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(file))) {
             for (MaterializedRow row : rows.getMaterializedRows()) {
@@ -156,26 +175,31 @@ public class PulsarServer
         }
     }
 
-    private static String convertToTSV(List<Object> data) {
+    private static String convertToTSV(List<Object> data)
+    {
         return data.stream()
                 .map(String::valueOf)
                 .collect(Collectors.joining("\t"));
     }
 
-    public String getZKUrl() {
+    public String getZKUrl()
+    {
         return String.format("%s:%s", "localhost", pulsar.getMappedPort(ZK_PORT));
     }
 
-    public String getPulsarAdminUrl() {
+    public String getPulsarAdminUrl()
+    {
         return String.format("http://%s:%s", "localhost", pulsar.getMappedPort(BROKER_HTTP_PORT));
     }
 
-    public String getPlainTextPulsarBrokerUrl() {
+    public String getPlainTextPulsarBrokerUrl()
+    {
         return String.format("pulsar://%s:%s", "localhost", pulsar.getMappedPort(PULSAR_PORT));
     }
 
     public void copyAndIngestTpchData(MaterializedResult rows, String datasource, Class clazz, int partition)
-            throws IOException, ParseException, PulsarAdminException {
+            throws IOException, ParseException, PulsarAdminException
+    {
         String tsvFileLocation = format("%s/%s.tsv", hostWorkingDirectory, datasource);
         writeTpchDataAsTsv(rows, tsvFileLocation);
         PulsarAdmin pulsarAdmin = PulsarAdmin.builder().serviceHttpUrl(getPulsarAdminUrl()).build();
@@ -183,7 +207,9 @@ public class PulsarServer
         ingestData(tsvFileLocation, datasource, clazz, partition);
     }
 
-    public <T> void ingestData(String inputTSV, String source, Class<T> clazz, int partition) throws IOException, ParseException {
+    public <T> void ingestData(String inputTSV, String source, Class<T> clazz, int partition)
+            throws IOException, ParseException
+    {
         PulsarClient pulsarClient = PulsarClient.builder()
                 .serviceUrl(getPlainTextPulsarBrokerUrl())
                 .build();
@@ -207,16 +233,20 @@ public class PulsarServer
             if (source.equalsIgnoreCase(CUSTOMER)) {
                 Customer c = toCustomer(line);
                 sendMsgWithRetry(producer, c, "" + c.custkey, 3, counter);
-            } else if (source.equalsIgnoreCase(ORDERS)) {
+            }
+            else if (source.equalsIgnoreCase(ORDERS)) {
                 Orders o = toOrders(line);
                 sendMsgWithRetry(producer, o, "" + o.orderkey, 3, counter);
-            } else if (source.equalsIgnoreCase(LINEITEM)) {
+            }
+            else if (source.equalsIgnoreCase(LINEITEM)) {
                 LineItem l = toLineItem(line);
                 sendMsgWithRetry(producer, l, "" + l.linenumber, 3, counter);
-            } else if (source.equalsIgnoreCase(NATION)) {
+            }
+            else if (source.equalsIgnoreCase(NATION)) {
                 Nation n = toNation(line);
                 sendMsgWithRetry(producer, n, "" + n.nationkey, 3, counter);
-            } else if (source.equalsIgnoreCase(REGION)) {
+            }
+            else if (source.equalsIgnoreCase(REGION)) {
                 Region r = toRegion(line);
                 sendMsgWithRetry(producer, r, "" + r.regionkey, 3, counter);
             }
@@ -225,19 +255,24 @@ public class PulsarServer
         for (int i = 0; i < partition; i++) {
             if (source.equalsIgnoreCase(CUSTOMER)) {
                 sendMsgWithRetry(producer, new Customer(), "" + i, 3, counter);
-            } else if (source.equalsIgnoreCase(ORDERS)) {
+            }
+            else if (source.equalsIgnoreCase(ORDERS)) {
                 sendMsgWithRetry(producer, new Orders(), "" + i, 3, counter);
-            } else if (source.equalsIgnoreCase(LINEITEM)) {
+            }
+            else if (source.equalsIgnoreCase(LINEITEM)) {
                 sendMsgWithRetry(producer, new LineItem(), "" + i, 3, counter);
-            } else if (source.equalsIgnoreCase(NATION)) {
+            }
+            else if (source.equalsIgnoreCase(NATION)) {
                 sendMsgWithRetry(producer, new Nation(), "" + i, 3, counter);
-            } else if (source.equalsIgnoreCase(REGION)) {
+            }
+            else if (source.equalsIgnoreCase(REGION)) {
                 sendMsgWithRetry(producer, new Region(), "" + i, 3, counter);
             }
         }
     }
 
-    private Customer toCustomer(String line) {
+    private Customer toCustomer(String line)
+    {
         String[] fields = line.split("\t");
         Customer customer = new Customer();
         customer.custkey = Long.parseLong(fields[0]);
@@ -251,7 +286,9 @@ public class PulsarServer
         return customer;
     }
 
-    private Orders toOrders(String line) throws ParseException {
+    private Orders toOrders(String line)
+            throws ParseException
+    {
         String[] fields = line.split("\t");
         Orders orders = new Orders();
         orders.orderkey = Long.parseLong(fields[0]);
@@ -266,7 +303,9 @@ public class PulsarServer
         return orders;
     }
 
-    private LineItem toLineItem(String line) throws ParseException {
+    private LineItem toLineItem(String line)
+            throws ParseException
+    {
         String[] fields = line.split("\t");
         LineItem lineItem = new LineItem();
         lineItem.orderkey = Long.parseLong(fields[0]);
@@ -288,7 +327,8 @@ public class PulsarServer
         return lineItem;
     }
 
-    private Nation toNation(String line) {
+    private Nation toNation(String line)
+    {
         String[] fields = line.split("\t");
         Nation nation = new Nation();
         nation.nationkey = Long.parseLong(fields[0]);
@@ -298,7 +338,8 @@ public class PulsarServer
         return nation;
     }
 
-    private Region toRegion(String line) {
+    private Region toRegion(String line)
+    {
         String[] fields = line.split("\t");
         Region region = new Region();
         region.regionkey = Long.parseLong(fields[0]);
@@ -308,31 +349,38 @@ public class PulsarServer
     }
 
     @Override
-    public void close() {
+    public void close()
+    {
         pulsar.close();
         for (Consumer consumer : consumers) {
             try {
                 consumer.close();
-            } catch (PulsarClientException e) {
+            }
+            catch (PulsarClientException e) {
             }
         }
     }
 
     public static class LocalDateSerializer
-            extends StdSerializer<LocalDate> {
+            extends StdSerializer<LocalDate>
+    {
         private static final long serialVersionUID = 1L;
 
-        public LocalDateSerializer() {
+        public LocalDateSerializer()
+        {
             super(LocalDate.class);
         }
 
         @Override
-        public void serialize(LocalDate value, JsonGenerator gen, SerializerProvider sp) throws IOException {
+        public void serialize(LocalDate value, JsonGenerator gen, SerializerProvider sp)
+                throws IOException
+        {
             gen.writeNumber(value.toEpochDay());
         }
     }
 
-    public static class Customer {
+    public static class Customer
+    {
         public long custkey;
         public String name;
         public String address;
@@ -343,7 +391,8 @@ public class PulsarServer
         public String comment;
     }
 
-    public static class Orders {
+    public static class Orders
+    {
         public long orderkey;
         public long custkey;
         public String orderstatus;
@@ -357,7 +406,8 @@ public class PulsarServer
         public String comment;
     }
 
-    public static class LineItem {
+    public static class LineItem
+    {
         public long orderkey;
         public long partkey;
         public long suppkey;
@@ -382,14 +432,16 @@ public class PulsarServer
         public String comment;
     }
 
-    public static class Nation {
+    public static class Nation
+    {
         public long nationkey;
         public String name;
         public long regionkey;
         public String comment;
     }
 
-    public static class Region {
+    public static class Region
+    {
         public long regionkey;
         public String name;
         public String comment;
