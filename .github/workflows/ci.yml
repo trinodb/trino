@@ -370,7 +370,6 @@ jobs:
             !:trino-phoenix5,
             !:trino-pinot,
             !:trino-postgresql,
-            !:trino-raptor-legacy,
             !:trino-redis,
             !:trino-redshift,
             !:trino-resource-group-managers,
@@ -476,7 +475,6 @@ jobs:
             - { modules: plugin/trino-phoenix5 }
             - { modules: plugin/trino-pinot }
             - { modules: plugin/trino-postgresql }
-            - { modules: plugin/trino-raptor-legacy }
             - { modules: plugin/trino-redis }
             - { modules: plugin/trino-redshift }
             - { modules: plugin/trino-redshift, profile: cloud-tests }
