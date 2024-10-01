@@ -21,9 +21,11 @@ import static org.junit.Assert.assertEquals;
 /**
  * Cache size allocator test.
  */
-public class TestNoStrictCacheSizeAllocator {
+public class TestNoStrictCacheSizeAllocator
+{
     @Test
-    public void allocatorTest() {
+    public void allocatorTest()
+    {
         NoStrictCacheSizeAllocator noStrictCacheSizeAllocator = new NoStrictCacheSizeAllocator(1000);
         assertEquals(noStrictCacheSizeAllocator.getAvailableCacheSize(), 1000);
 

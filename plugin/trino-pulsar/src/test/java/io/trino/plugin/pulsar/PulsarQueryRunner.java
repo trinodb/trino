@@ -24,15 +24,22 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.trino.plugin.pulsar.PulsarServer.*;
+import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_CUSTOMER;
+import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_LINEITEM;
+import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_NATION;
+import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_ORDERS;
+import static io.trino.plugin.pulsar.PulsarServer.SELECT_FROM_REGION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public class PulsarQueryRunner {
-    private PulsarQueryRunner() {
+public class PulsarQueryRunner
+{
+    private PulsarQueryRunner()
+    {
     }
 
     public static DistributedQueryRunner createPulsarQueryRunner(PulsarServer testServer, Map<String, String> extraProperties)
-            throws Exception {
+            throws Exception
+    {
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
@@ -49,13 +56,15 @@ public class PulsarQueryRunner {
             queryRunner.installPlugin(new PulsarPlugin());
             queryRunner.createCatalog("pulsar", "pulsar", connectorProperties);
             return queryRunner;
-        } catch (Throwable e) {
+        }
+        catch (Throwable e) {
             closeAllSuppress(e, queryRunner);
             throw e;
         }
     }
 
-    private static Session createSession() {
+    private static Session createSession()
+    {
         return testSessionBuilder()
                 .setCatalog("pulsar")
                 .setSchema("public/default")
@@ -63,7 +72,8 @@ public class PulsarQueryRunner {
     }
 
     public static void main(String[] args)
-            throws Exception {
+            throws Exception
+    {
         Logging.initialize();
         PulsarServer pulsarServer = new PulsarServer(PulsarServer.DEFAULT_IMAGE_NAME);
         DistributedQueryRunner queryRunner = createPulsarQueryRunner(
