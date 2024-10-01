@@ -54,7 +54,7 @@ public class TestAlluxioFileSystem
                                 + "-Dalluxio.security.authorization.plugins.enabled=false ")
                 .withNetworkMode("host")
                 .withAccessToHost(true)
-                .waitingFor((new LogMessageWaitStrategy())
+                .waitingFor(new LogMessageWaitStrategy()
                         .withRegEx(".*Primary started*\n")
                         .withStartupTimeout(Duration.ofSeconds(180L)));
         return container;
