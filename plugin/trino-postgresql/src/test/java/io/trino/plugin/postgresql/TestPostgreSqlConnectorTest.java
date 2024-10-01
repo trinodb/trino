@@ -103,6 +103,7 @@ public class TestPostgreSqlConnectorTest
         postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
         return PostgreSqlQueryRunner.builder(postgreSqlServer)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
+                .withProtocolSpooling("json")
                 .build();
     }
 
