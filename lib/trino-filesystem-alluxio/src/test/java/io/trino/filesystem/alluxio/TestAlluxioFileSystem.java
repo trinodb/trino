@@ -14,7 +14,6 @@
 package io.trino.filesystem.alluxio;
 
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -24,8 +23,6 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.time.Duration;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 @Testcontainers
 public class TestAlluxioFileSystem
