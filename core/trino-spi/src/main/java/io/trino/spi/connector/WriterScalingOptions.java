@@ -55,6 +55,7 @@ public record WriterScalingOptions(boolean isWriterTasksScalingEnabled, boolean 
         return isPerTaskWriterScalingEnabled;
     }
 
+    @Override
     @JsonProperty
     public Optional<Integer> perTaskMaxScaledWriterCount()
     {
