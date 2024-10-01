@@ -883,15 +883,17 @@ public final class TestMsg {
             // @@protoc_insertion_point(class_scope:proto.SubMessage.NestedMessage)
             private static final NestedMessage DEFAULT_INSTANCE;
             private static final com.google.protobuf.Parser<NestedMessage>
-                    PARSER = new com.google.protobuf.AbstractParser<NestedMessage>() {
-                @Override
-                public NestedMessage parsePartialFrom(
+                    PARSER = new com.google.protobuf.AbstractParser<NestedMessage>()
+                {
+                   @Override
+                   public NestedMessage parsePartialFrom(
                         com.google.protobuf.CodedInputStream input,
                         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                        throws com.google.protobuf.InvalidProtocolBufferException {
-                    return new NestedMessage(input, extensionRegistry);
-                }
-            };
+                        throws com.google.protobuf.InvalidProtocolBufferException
+                   {
+                       return new NestedMessage(input, extensionRegistry);
+                   }
+               };
 
             static {
                 DEFAULT_INSTANCE = new NestedMessage();
@@ -902,11 +904,13 @@ public final class TestMsg {
             private byte memoizedIsInitialized = -1;
 
             // Use NestedMessage.newBuilder() to construct.
-            private NestedMessage(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+            private NestedMessage(com.google.protobuf.GeneratedMessageV3.Builder<?> builder)
+            {
                 super(builder);
             }
 
-            private NestedMessage() {
+            private NestedMessage()
+            {
                 title = "";
                 urls = com.google.protobuf.LazyStringArrayList.EMPTY;
             }
@@ -914,7 +918,8 @@ public final class TestMsg {
             private NestedMessage(
                     com.google.protobuf.CodedInputStream input,
                     com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                    throws com.google.protobuf.InvalidProtocolBufferException {
+                    throws com.google.protobuf.InvalidProtocolBufferException
+            {
                 this();
                 if (extensionRegistry == null) {
                     throw new NullPointerException();
@@ -954,12 +959,15 @@ public final class TestMsg {
                             }
                         }
                     }
-                } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+                }
+                catch (com.google.protobuf.InvalidProtocolBufferException e) {
                     throw e.setUnfinishedMessage(this);
-                } catch (java.io.IOException e) {
+                }
+                catch (java.io.IOException e) {
                     throw new com.google.protobuf.InvalidProtocolBufferException(
                             e).setUnfinishedMessage(this);
-                } finally {
+                }
+                finally {
                     if (((mutableBitField0 & 0x00000002) == 0x00000002)) {
                         urls = urls.getUnmodifiableView();
                     }
@@ -968,51 +976,58 @@ public final class TestMsg {
                 }
             }
 
-            public static com.google.protobuf.Descriptors.Descriptor
-            getDescriptor() {
+            public static com.google.protobuf.Descriptors.Descriptor getDescriptor()
+            {
                 return TestMsg.internal_static_proto_SubMessage_NestedMessage_descriptor;
             }
 
             public static NestedMessage parseFrom(
                     java.nio.ByteBuffer data)
-                    throws com.google.protobuf.InvalidProtocolBufferException {
+                    throws com.google.protobuf.InvalidProtocolBufferException
+            {
                 return PARSER.parseFrom(data);
             }
 
             public static NestedMessage parseFrom(
                     java.nio.ByteBuffer data,
                     com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                    throws com.google.protobuf.InvalidProtocolBufferException {
+                    throws com.google.protobuf.InvalidProtocolBufferException
+            {
                 return PARSER.parseFrom(data, extensionRegistry);
             }
 
             public static NestedMessage parseFrom(
                     com.google.protobuf.ByteString data)
-                    throws com.google.protobuf.InvalidProtocolBufferException {
+                    throws com.google.protobuf.InvalidProtocolBufferException
+            {
                 return PARSER.parseFrom(data);
             }
 
             public static NestedMessage parseFrom(
                     com.google.protobuf.ByteString data,
                     com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                    throws com.google.protobuf.InvalidProtocolBufferException {
+                    throws com.google.protobuf.InvalidProtocolBufferException
+            {
                 return PARSER.parseFrom(data, extensionRegistry);
             }
 
             public static NestedMessage parseFrom(byte[] data)
-                    throws com.google.protobuf.InvalidProtocolBufferException {
+                    throws com.google.protobuf.InvalidProtocolBufferException
+            {
                 return PARSER.parseFrom(data);
             }
 
             public static NestedMessage parseFrom(
                     byte[] data,
                     com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                    throws com.google.protobuf.InvalidProtocolBufferException {
+                    throws com.google.protobuf.InvalidProtocolBufferException
+            {
                 return PARSER.parseFrom(data, extensionRegistry);
             }
 
             public static NestedMessage parseFrom(java.io.InputStream input)
-                    throws java.io.IOException {
+                    throws java.io.IOException
+            {
                 return com.google.protobuf.GeneratedMessageV3
                         .parseWithIOException(PARSER, input);
             }
@@ -1020,13 +1035,15 @@ public final class TestMsg {
             public static NestedMessage parseFrom(
                     java.io.InputStream input,
                     com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                    throws java.io.IOException {
+                    throws java.io.IOException
+            {
                 return com.google.protobuf.GeneratedMessageV3
                         .parseWithIOException(PARSER, input, extensionRegistry);
             }
 
             public static NestedMessage parseDelimitedFrom(java.io.InputStream input)
-                    throws java.io.IOException {
+                    throws java.io.IOException
+            {
                 return com.google.protobuf.GeneratedMessageV3
                         .parseDelimitedWithIOException(PARSER, input);
             }
@@ -1034,14 +1051,16 @@ public final class TestMsg {
             public static NestedMessage parseDelimitedFrom(
                     java.io.InputStream input,
                     com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                    throws java.io.IOException {
+                    throws java.io.IOException
+            {
                 return com.google.protobuf.GeneratedMessageV3
                         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
             }
 
             public static NestedMessage parseFrom(
                     com.google.protobuf.CodedInputStream input)
-                    throws java.io.IOException {
+                    throws java.io.IOException
+            {
                 return com.google.protobuf.GeneratedMessageV3
                         .parseWithIOException(PARSER, input);
             }
@@ -1049,36 +1068,41 @@ public final class TestMsg {
             public static NestedMessage parseFrom(
                     com.google.protobuf.CodedInputStream input,
                     com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                    throws java.io.IOException {
+                    throws java.io.IOException
+            {
                 return com.google.protobuf.GeneratedMessageV3
                         .parseWithIOException(PARSER, input, extensionRegistry);
             }
 
-            public static Builder newBuilder() {
+            public static Builder newBuilder()
+            {
                 return DEFAULT_INSTANCE.toBuilder();
             }
 
-            public static Builder newBuilder(NestedMessage prototype) {
+            public static Builder newBuilder(NestedMessage prototype)
+            {
                 return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
             }
 
-            public static NestedMessage getDefaultInstance() {
+            public static NestedMessage getDefaultInstance()
+            {
                 return DEFAULT_INSTANCE;
             }
 
-            public static com.google.protobuf.Parser<NestedMessage> parser() {
+            public static com.google.protobuf.Parser<NestedMessage> parser()
+            {
                 return PARSER;
             }
 
             @Override
-            public com.google.protobuf.UnknownFieldSet
-            getUnknownFields() {
+            public com.google.protobuf.UnknownFieldSet getUnknownFields()
+            {
                 return unknownFields;
             }
 
             @Override
-            protected FieldAccessorTable
-            internalGetFieldAccessorTable() {
+            protected FieldAccessorTable internalGetFieldAccessorTable()
+            {
                 return TestMsg.internal_static_proto_SubMessage_NestedMessage_fieldAccessorTable
                         .ensureFieldAccessorsInitialized(
                                 NestedMessage.class, Builder.class);
@@ -1088,11 +1112,13 @@ public final class TestMsg {
              * <code>string title = 1;</code>
              */
             @Override
-            public String getTitle() {
+            public String getTitle()
+            {
                 Object ref = title;
                 if (ref instanceof String) {
                     return (String) ref;
-                } else {
+                }
+                else {
                     com.google.protobuf.ByteString bs =
                             (com.google.protobuf.ByteString) ref;
                     String s = bs.toStringUtf8();
@@ -1105,8 +1131,8 @@ public final class TestMsg {
              * <code>string title = 1;</code>
              */
             @Override
-            public com.google.protobuf.ByteString
-            getTitleBytes() {
+            public com.google.protobuf.ByteString getTitleBytes()
+            {
                 Object ref = title;
                 if (ref instanceof String) {
                     com.google.protobuf.ByteString b =
@@ -1114,7 +1140,8 @@ public final class TestMsg {
                                     (String) ref);
                     title = b;
                     return b;
-                } else {
+                }
+                else {
                     return (com.google.protobuf.ByteString) ref;
                 }
             }
@@ -1123,8 +1150,8 @@ public final class TestMsg {
              * <code>repeated string urls = 2;</code>
              */
             @Override
-            public com.google.protobuf.ProtocolStringList
-            getUrlsList() {
+            public com.google.protobuf.ProtocolStringList getUrlsList()
+            {
                 return urls;
             }
 
@@ -1132,7 +1159,8 @@ public final class TestMsg {
              * <code>repeated string urls = 2;</code>
              */
             @Override
-            public int getUrlsCount() {
+            public int getUrlsCount()
+            {
                 return urls.size();
             }
 
@@ -1140,7 +1168,8 @@ public final class TestMsg {
              * <code>repeated string urls = 2;</code>
              */
             @Override
-            public String getUrls(int index) {
+            public String getUrls(int index)
+            {
                 return urls.get(index);
             }
 
@@ -1148,13 +1177,14 @@ public final class TestMsg {
              * <code>repeated string urls = 2;</code>
              */
             @Override
-            public com.google.protobuf.ByteString
-            getUrlsBytes(int index) {
+            public com.google.protobuf.ByteString getUrlsBytes(int index)
+            {
                 return urls.getByteString(index);
             }
 
             @Override
-            public boolean isInitialized() {
+            public boolean isInitialized()
+            {
                 byte isInitialized = memoizedIsInitialized;
                 if (isInitialized == 1) {
                     return true;
@@ -1169,7 +1199,8 @@ public final class TestMsg {
 
             @Override
             public void writeTo(com.google.protobuf.CodedOutputStream output)
-                    throws java.io.IOException {
+                    throws java.io.IOException
+            {
                 if (!getTitleBytes().isEmpty()) {
                     com.google.protobuf.GeneratedMessageV3.writeString(output, 1, title);
                 }
@@ -1180,7 +1211,8 @@ public final class TestMsg {
             }
 
             @Override
-            public int getSerializedSize() {
+            public int getSerializedSize()
+            {
                 int size = memoizedSize;
                 if (size != -1) {
                     return size;
@@ -1204,7 +1236,8 @@ public final class TestMsg {
             }
 
             @Override
-            public boolean equals(final Object obj) {
+            public boolean equals(final Object obj)
+            {
                 if (obj == this) {
                     return true;
                 }
@@ -1222,7 +1255,8 @@ public final class TestMsg {
             }
 
             @Override
-            public int hashCode() {
+            public int hashCode()
+            {
                 if (memoizedHashCode != 0) {
                     return memoizedHashCode;
                 }
@@ -1240,30 +1274,35 @@ public final class TestMsg {
             }
 
             @Override
-            public Builder newBuilderForType() {
+            public Builder newBuilderForType()
+            {
                 return newBuilder();
             }
 
             @Override
-            public Builder toBuilder() {
+            public Builder toBuilder()
+            {
                 return this == DEFAULT_INSTANCE
                         ? new Builder() : new Builder().mergeFrom(this);
             }
 
             @Override
             protected Builder newBuilderForType(
-                    BuilderParent parent) {
+                    BuilderParent parent)
+            {
                 Builder builder = new Builder(parent);
                 return builder;
             }
 
             @Override
-            public com.google.protobuf.Parser<NestedMessage> getParserForType() {
+            public com.google.protobuf.Parser<NestedMessage> getParserForType()
+            {
                 return PARSER;
             }
 
             @Override
-            public NestedMessage getDefaultInstanceForType() {
+            public NestedMessage getDefaultInstanceForType()
+            {
                 return DEFAULT_INSTANCE;
             }
 
@@ -1274,40 +1313,45 @@ public final class TestMsg {
                     extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
                     implements
                     // @@protoc_insertion_point(builder_implements:proto.SubMessage.NestedMessage)
-                    NestedMessageOrBuilder {
+                    NestedMessageOrBuilder
+            {
                 private int bitField0;
                 private Object title = "";
                 private com.google.protobuf.LazyStringList urls = com.google.protobuf.LazyStringArrayList.EMPTY;
 
                 // Construct using io.trino.plugin.pulsar.decoder.protobufnative.TestMsg.SubMessage.NestedMessage.newBuilder()
-                private Builder() {
+                private Builder()
+                {
                     maybeForceBuilderInitialization();
                 }
 
                 private Builder(
-                        BuilderParent parent) {
+                        BuilderParent parent)
+                {
                     super(parent);
                     maybeForceBuilderInitialization();
                 }
 
-                public static com.google.protobuf.Descriptors.Descriptor
-                getDescriptor() {
+                public static com.google.protobuf.Descriptors.Descriptor getDescriptor()
+                {
                     return TestMsg.internal_static_proto_SubMessage_NestedMessage_descriptor;
                 }
 
                 @Override
-                protected FieldAccessorTable
-                internalGetFieldAccessorTable() {
+                protected FieldAccessorTable internalGetFieldAccessorTable()
+                {
                     return TestMsg.internal_static_proto_SubMessage_NestedMessage_fieldAccessorTable
                             .ensureFieldAccessorsInitialized(
                                     NestedMessage.class, Builder.class);
                 }
 
-                private void maybeForceBuilderInitialization() {
+                private void maybeForceBuilderInitialization()
+                {
                 }
 
                 @Override
-                public Builder clear() {
+                public Builder clear()
+                {
                     super.clear();
                     title = "";
 
@@ -1317,17 +1361,20 @@ public final class TestMsg {
                 }
 
                 @Override
-                public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+                public com.google.protobuf.Descriptors.Descriptor getDescriptorForType()
+                {
                     return TestMsg.internal_static_proto_SubMessage_NestedMessage_descriptor;
                 }
 
                 @Override
-                public NestedMessage getDefaultInstanceForType() {
+                public NestedMessage getDefaultInstanceForType()
+                {
                     return NestedMessage.getDefaultInstance();
                 }
 
                 @Override
-                public NestedMessage build() {
+                public NestedMessage build()
+                {
                     NestedMessage result = buildPartial();
                     if (!result.isInitialized()) {
                         throw newUninitializedMessageException(result);
@@ -1336,7 +1383,8 @@ public final class TestMsg {
                 }
 
                 @Override
-                public NestedMessage buildPartial() {
+                public NestedMessage buildPartial()
+                {
                     NestedMessage result = new NestedMessage(this);
                     result.title = title;
                     if (((bitField0 & 0x00000002) == 0x00000002)) {
@@ -1349,54 +1397,63 @@ public final class TestMsg {
                 }
 
                 @Override
-                public Builder clone() {
+                public Builder clone()
+                {
                     return super.clone();
                 }
 
                 @Override
                 public Builder setField(
                         com.google.protobuf.Descriptors.FieldDescriptor field,
-                        Object value) {
+                        Object value)
+                {
                     return super.setField(field, value);
                 }
 
                 @Override
                 public Builder clearField(
-                        com.google.protobuf.Descriptors.FieldDescriptor field) {
+                        com.google.protobuf.Descriptors.FieldDescriptor field)
+                {
                     return super.clearField(field);
                 }
 
                 @Override
                 public Builder clearOneof(
-                        com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+                        com.google.protobuf.Descriptors.OneofDescriptor oneof)
+                {
                     return super.clearOneof(oneof);
                 }
 
                 @Override
                 public Builder setRepeatedField(
                         com.google.protobuf.Descriptors.FieldDescriptor field,
-                        int index, Object value) {
+                        int index, Object value)
+                {
                     return super.setRepeatedField(field, index, value);
                 }
 
                 @Override
                 public Builder addRepeatedField(
                         com.google.protobuf.Descriptors.FieldDescriptor field,
-                        Object value) {
+                        Object value)
+                {
                     return super.addRepeatedField(field, value);
                 }
 
                 @Override
-                public Builder mergeFrom(com.google.protobuf.Message other) {
+                public Builder mergeFrom(com.google.protobuf.Message other)
+                {
                     if (other instanceof NestedMessage) {
                         return mergeFrom((NestedMessage) other);
-                    } else {
+                    }
+                    else {
                         super.mergeFrom(other);
                         return this;
                     }
                 }
 
-                public Builder mergeFrom(NestedMessage other) {
+                public Builder mergeFrom(NestedMessage other)
+                {
                     if (other == NestedMessage.getDefaultInstance()) {
                         return this;
                     }
@@ -1408,7 +1465,8 @@ public final class TestMsg {
                         if (urls.isEmpty()) {
                             urls = other.urls;
                             bitField0 = (bitField0 & ~0x00000002);
-                        } else {
+                        }
+                        else {
                             ensureUrlsIsMutable();
                             urls.addAll(other.urls);
                         }
@@ -1420,7 +1478,8 @@ public final class TestMsg {
                 }
 
                 @Override
-                public boolean isInitialized() {
+                public boolean isInitialized()
+                {
                     return true;
                 }
 
@@ -1428,14 +1487,17 @@ public final class TestMsg {
                 public Builder mergeFrom(
                         com.google.protobuf.CodedInputStream input,
                         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                        throws java.io.IOException {
+                        throws java.io.IOException
+                {
                     NestedMessage parsedMessage = null;
                     try {
                         parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-                    } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+                    }
+                    catch (com.google.protobuf.InvalidProtocolBufferException e) {
                         parsedMessage = (NestedMessage) e.getUnfinishedMessage();
                         throw e.unwrapIOException();
-                    } finally {
+                    }
+                    finally {
                         if (parsedMessage != null) {
                             mergeFrom(parsedMessage);
                         }
@@ -1447,7 +1509,8 @@ public final class TestMsg {
                  * <code>string title = 1;</code>
                  */
                 @Override
-                public String getTitle() {
+                public String getTitle()
+                {
                     Object ref = title;
                     if (!(ref instanceof String)) {
                         com.google.protobuf.ByteString bs =
@@ -1455,7 +1518,8 @@ public final class TestMsg {
                         String s = bs.toStringUtf8();
                         title = s;
                         return s;
-                    } else {
+                    }
+                    else {
                         return (String) ref;
                     }
                 }
@@ -1464,7 +1528,8 @@ public final class TestMsg {
                  * <code>string title = 1;</code>
                  */
                 public Builder setTitle(
-                        String value) {
+                        String value)
+                {
                     if (value == null) {
                         throw new NullPointerException();
                     }
@@ -1478,7 +1543,8 @@ public final class TestMsg {
                  * <code>string title = 1;</code>
                  */
                 @Override
-                public com.google.protobuf.ByteString getTitleBytes() {
+                public com.google.protobuf.ByteString getTitleBytes()
+                {
                     Object ref = title;
                     if (ref instanceof String) {
                         com.google.protobuf.ByteString b =
@@ -1486,7 +1552,8 @@ public final class TestMsg {
                                         (String) ref);
                         title = b;
                         return b;
-                    } else {
+                    }
+                    else {
                         return (com.google.protobuf.ByteString) ref;
                     }
                 }
@@ -1495,7 +1562,8 @@ public final class TestMsg {
                  * <code>string title = 1;</code>
                  */
                 public Builder setTitleBytes(
-                        com.google.protobuf.ByteString value) {
+                        com.google.protobuf.ByteString value)
+                {
                     if (value == null) {
                         throw new NullPointerException();
                     }
@@ -1509,13 +1577,15 @@ public final class TestMsg {
                 /**
                  * <code>string title = 1;</code>
                  */
-                public Builder clearTitle() {
+                public Builder clearTitle()
+                {
                     title = getDefaultInstance().getTitle();
                     onChanged();
                     return this;
                 }
 
-                private void ensureUrlsIsMutable() {
+                private void ensureUrlsIsMutable()
+                {
                     if (!((bitField0 & 0x00000002) == 0x00000002)) {
                         urls = new com.google.protobuf.LazyStringArrayList(urls);
                         bitField0 |= 0x00000002;
@@ -1526,7 +1596,8 @@ public final class TestMsg {
                  * <code>repeated string urls = 2;</code>
                  */
                 @Override
-                public com.google.protobuf.ProtocolStringList getUrlsList() {
+                public com.google.protobuf.ProtocolStringList getUrlsList()
+                {
                     return urls.getUnmodifiableView();
                 }
 
@@ -1534,7 +1605,8 @@ public final class TestMsg {
                  * <code>repeated string urls = 2;</code>
                  */
                 @Override
-                public int getUrlsCount() {
+                public int getUrlsCount()
+                {
                     return urls.size();
                 }
 
@@ -1542,7 +1614,8 @@ public final class TestMsg {
                  * <code>repeated string urls = 2;</code>
                  */
                 @Override
-                public String getUrls(int index) {
+                public String getUrls(int index)
+                {
                     return urls.get(index);
                 }
 
@@ -1550,7 +1623,8 @@ public final class TestMsg {
                  * <code>repeated string urls = 2;</code>
                  */
                 @Override
-                public com.google.protobuf.ByteString getUrlsBytes(int index) {
+                public com.google.protobuf.ByteString getUrlsBytes(int index)
+                {
                     return urls.getByteString(index);
                 }
 
@@ -1558,7 +1632,8 @@ public final class TestMsg {
                  * <code>repeated string urls = 2;</code>
                  */
                 public Builder setUrls(
-                        int index, String value) {
+                        int index, String value)
+                {
                     if (value == null) {
                         throw new NullPointerException();
                     }
@@ -1572,7 +1647,8 @@ public final class TestMsg {
                  * <code>repeated string urls = 2;</code>
                  */
                 public Builder addUrls(
-                        String value) {
+                        String value)
+                {
                     if (value == null) {
                         throw new NullPointerException();
                     }
@@ -1586,7 +1662,8 @@ public final class TestMsg {
                  * <code>repeated string urls = 2;</code>
                  */
                 public Builder addAllUrls(
-                        Iterable<String> values) {
+                        Iterable<String> values)
+                {
                     ensureUrlsIsMutable();
                     com.google.protobuf.AbstractMessageLite.Builder.addAll(
                             values, urls);
@@ -1597,7 +1674,8 @@ public final class TestMsg {
                 /**
                  * <code>repeated string urls = 2;</code>
                  */
-                public Builder clearUrls() {
+                public Builder clearUrls()
+                {
                     urls = com.google.protobuf.LazyStringArrayList.EMPTY;
                     bitField0 = (bitField0 & ~0x00000002);
                     onChanged();
@@ -1608,7 +1686,8 @@ public final class TestMsg {
                  * <code>repeated string urls = 2;</code>
                  */
                 public Builder addUrlsBytes(
-                        com.google.protobuf.ByteString value) {
+                        com.google.protobuf.ByteString value)
+                {
                     if (value == null) {
                         throw new NullPointerException();
                     }
@@ -1621,13 +1700,15 @@ public final class TestMsg {
 
                 @Override
                 public Builder setUnknownFields(
-                        final com.google.protobuf.UnknownFieldSet unknownFields) {
+                        final com.google.protobuf.UnknownFieldSet unknownFields)
+                {
                     return super.setUnknownFieldsProto3(unknownFields);
                 }
 
                 @Override
                 public Builder mergeUnknownFields(
-                        final com.google.protobuf.UnknownFieldSet unknownFields) {
+                        final com.google.protobuf.UnknownFieldSet unknownFields)
+                {
                     return super.mergeUnknownFields(unknownFields);
                 }
 
@@ -1642,7 +1723,8 @@ public final class TestMsg {
                 extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
                 implements
                 // @@protoc_insertion_point(builder_implements:proto.SubMessage)
-                SubMessageOrBuilder {
+                SubMessageOrBuilder
+        {
             private Object foo = "";
             private double bar;
             private NestedMessage nestedMessage;
@@ -1650,32 +1732,38 @@ public final class TestMsg {
                     NestedMessage, NestedMessage.Builder, NestedMessageOrBuilder> nestedMessageBuilder;
 
             // Construct using io.trino.plugin.pulsar.decoder.protobufnative.TestMsg.SubMessage.newBuilder()
-            private Builder() {
+            private Builder()
+            {
                 maybeForceBuilderInitialization();
             }
 
             private Builder(
-                    BuilderParent parent) {
+                    BuilderParent parent)
+            {
                 super(parent);
                 maybeForceBuilderInitialization();
             }
 
-            public static com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+            public static com.google.protobuf.Descriptors.Descriptor getDescriptor()
+            {
                 return TestMsg.internal_static_proto_SubMessage_descriptor;
             }
 
             @Override
-            protected FieldAccessorTable internalGetFieldAccessorTable() {
+            protected FieldAccessorTable internalGetFieldAccessorTable()
+            {
                 return TestMsg.internal_static_proto_SubMessage_fieldAccessorTable
                         .ensureFieldAccessorsInitialized(
                                 SubMessage.class, Builder.class);
             }
 
-            private void maybeForceBuilderInitialization() {
+            private void maybeForceBuilderInitialization()
+            {
             }
 
             @Override
-            public Builder clear() {
+            public Builder clear()
+            {
                 super.clear();
                 foo = "";
 
@@ -1683,7 +1771,8 @@ public final class TestMsg {
 
                 if (nestedMessageBuilder == null) {
                     nestedMessage = null;
-                } else {
+                }
+                else {
                     nestedMessage = null;
                     nestedMessageBuilder = null;
                 }
@@ -1691,17 +1780,20 @@ public final class TestMsg {
             }
 
             @Override
-            public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+            public com.google.protobuf.Descriptors.Descriptor getDescriptorForType()
+            {
                 return TestMsg.internal_static_proto_SubMessage_descriptor;
             }
 
             @Override
-            public SubMessage getDefaultInstanceForType() {
+            public SubMessage getDefaultInstanceForType()
+            {
                 return SubMessage.getDefaultInstance();
             }
 
             @Override
-            public SubMessage build() {
+            public SubMessage build()
+            {
                 SubMessage result = buildPartial();
                 if (!result.isInitialized()) {
                     throw newUninitializedMessageException(result);
@@ -1710,13 +1802,15 @@ public final class TestMsg {
             }
 
             @Override
-            public SubMessage buildPartial() {
+            public SubMessage buildPartial()
+            {
                 SubMessage result = new SubMessage(this);
                 result.foo = foo;
                 result.bar = bar;
                 if (nestedMessageBuilder == null) {
                     result.nestedMessage = nestedMessage;
-                } else {
+                }
+                else {
                     result.nestedMessage = nestedMessageBuilder.build();
                 }
                 onBuilt();
@@ -1724,54 +1818,63 @@ public final class TestMsg {
             }
 
             @Override
-            public Builder clone() {
+            public Builder clone()
+            {
                 return super.clone();
             }
 
             @Override
             public Builder setField(
                     com.google.protobuf.Descriptors.FieldDescriptor field,
-                    Object value) {
+                    Object value)
+            {
                 return super.setField(field, value);
             }
 
             @Override
             public Builder clearField(
-                    com.google.protobuf.Descriptors.FieldDescriptor field) {
+                    com.google.protobuf.Descriptors.FieldDescriptor field)
+            {
                 return super.clearField(field);
             }
 
             @Override
             public Builder clearOneof(
-                    com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+                    com.google.protobuf.Descriptors.OneofDescriptor oneof)
+            {
                 return super.clearOneof(oneof);
             }
 
             @Override
             public Builder setRepeatedField(
                     com.google.protobuf.Descriptors.FieldDescriptor field,
-                    int index, Object value) {
+                    int index, Object value)
+            {
                 return super.setRepeatedField(field, index, value);
             }
 
             @Override
             public Builder addRepeatedField(
                     com.google.protobuf.Descriptors.FieldDescriptor field,
-                    Object value) {
+                    Object value)
+            {
                 return super.addRepeatedField(field, value);
             }
 
             @Override
-            public Builder mergeFrom(com.google.protobuf.Message other) {
+            public Builder mergeFrom(com.google.protobuf.Message other)
+            {
                 if (other instanceof SubMessage) {
                     return mergeFrom((SubMessage) other);
-                } else {
+                }
+                else {
                     super.mergeFrom(other);
                     return this;
                 }
             }
 
-            public Builder mergeFrom(SubMessage other) {
+            public Builder mergeFrom(SubMessage other)
+            {
                 if (other == SubMessage.getDefaultInstance()) {
                     return this;
                 }
@@ -1791,7 +1894,8 @@ public final class TestMsg {
             }
 
             @Override
-            public boolean isInitialized() {
+            public boolean isInitialized()
+            {
                 return true;
             }
 
@@ -1799,14 +1903,17 @@ public final class TestMsg {
             public Builder mergeFrom(
                     com.google.protobuf.CodedInputStream input,
                     com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                    throws java.io.IOException {
+                    throws java.io.IOException
+            {
                 SubMessage parsedMessage = null;
                 try {
                     parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-                } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+                }
+                catch (com.google.protobuf.InvalidProtocolBufferException e) {
                     parsedMessage = (SubMessage) e.getUnfinishedMessage();
                     throw e.unwrapIOException();
-                } finally {
+                }
+                finally {
                     if (parsedMessage != null) {
                         mergeFrom(parsedMessage);
                     }
@@ -1818,7 +1925,8 @@ public final class TestMsg {
              * <code>string foo = 1;</code>
              */
             @Override
-            public String getFoo() {
+            public String getFoo()
+            {
                 Object ref = foo;
                 if (!(ref instanceof String)) {
                     com.google.protobuf.ByteString bs =
@@ -1826,7 +1934,8 @@ public final class TestMsg {
                     String s = bs.toStringUtf8();
                     foo = s;
                     return s;
-                } else {
+                }
+                else {
                     return (String) ref;
                 }
             }
@@ -1835,7 +1944,8 @@ public final class TestMsg {
              * <code>string foo = 1;</code>
              */
             public Builder setFoo(
-                    String value) {
+                    String value)
+            {
                 if (value == null) {
                     throw new NullPointerException();
                 }
@@ -1849,7 +1959,8 @@ public final class TestMsg {
              * <code>string foo = 1;</code>
              */
             @Override
-            public com.google.protobuf.ByteString getFooBytes() {
+            public com.google.protobuf.ByteString getFooBytes()
+            {
                 Object ref = foo;
                 if (ref instanceof String) {
                     com.google.protobuf.ByteString b =
@@ -1857,7 +1968,8 @@ public final class TestMsg {
                                     (String) ref);
                     foo = b;
                     return b;
-                } else {
+                }
+                else {
                     return (com.google.protobuf.ByteString) ref;
                 }
             }
@@ -1866,7 +1978,8 @@ public final class TestMsg {
              * <code>string foo = 1;</code>
              */
             public Builder setFooBytes(
-                    com.google.protobuf.ByteString value) {
+                    com.google.protobuf.ByteString value)
+            {
                 if (value == null) {
                     throw new NullPointerException();
                 }
@@ -1880,7 +1993,8 @@ public final class TestMsg {
             /**
              * <code>string foo = 1;</code>
              */
-            public Builder clearFoo() {
+            public Builder clearFoo()
+            {
                 foo = getDefaultInstance().getFoo();
                 onChanged();
                 return this;
@@ -1890,14 +2004,16 @@ public final class TestMsg {
              * <code>double bar = 2;</code>
              */
             @Override
-            public double getBar() {
+            public double getBar()
+            {
                 return bar;
             }
 
             /**
              * <code>double bar = 2;</code>
              */
-            public Builder setBar(double value) {
+            public Builder setBar(double value)
+            {
                 bar = value;
                 onChanged();
                 return this;
@@ -1906,7 +2022,8 @@ public final class TestMsg {
             /**
              * <code>double bar = 2;</code>
              */
-            public Builder clearBar() {
+            public Builder clearBar()
+            {
                 bar = 0D;
                 onChanged();
                 return this;
@@ -1916,7 +2033,8 @@ public final class TestMsg {
              * <code>.proto.SubMessage.NestedMessage nestedMessage = 3;</code>
              */
             @Override
-            public boolean hasNestedMessage() {
+            public boolean hasNestedMessage()
+            {
                 return nestedMessageBuilder != null || nestedMessage != null;
             }
 
@@ -1924,10 +2042,12 @@ public final class TestMsg {
              * <code>.proto.SubMessage.NestedMessage nestedMessage = 3;</code>
              */
             @Override
-            public NestedMessage getNestedMessage() {
+            public NestedMessage getNestedMessage()
+            {
                 if (nestedMessageBuilder == null) {
                     return nestedMessage == null ? NestedMessage.getDefaultInstance() : nestedMessage;
-                } else {
+                }
+                else {
                     return nestedMessageBuilder.getMessage();
                 }
             }
@@ -1935,14 +2055,16 @@ public final class TestMsg {
             /**
              * <code>.proto.SubMessage.NestedMessage nestedMessage = 3;</code>
              */
-            public Builder setNestedMessage(NestedMessage value) {
+            public Builder setNestedMessage(NestedMessage value)
+            {
                 if (nestedMessageBuilder == null) {
                     if (value == null) {
                         throw new NullPointerException();
                     }
                     nestedMessage = value;
                     onChanged();
-                } else {
+                }
+                else {
                     nestedMessageBuilder.setMessage(value);
                 }
 
@@ -1953,11 +2075,13 @@ public final class TestMsg {
              * <code>.proto.SubMessage.NestedMessage nestedMessage = 3;</code>
              */
             public Builder setNestedMessage(
-                    NestedMessage.Builder builderForValue) {
+                    NestedMessage.Builder builderForValue)
+            {
                 if (nestedMessageBuilder == null) {
                     nestedMessage = builderForValue.build();
                     onChanged();
-                } else {
+                }
+                else {
                     nestedMessageBuilder.setMessage(builderForValue.build());
                 }
 
@@ -1967,16 +2091,19 @@ public final class TestMsg {
             /**
              * <code>.proto.SubMessage.NestedMessage nestedMessage = 3;</code>
              */
-            public Builder mergeNestedMessage(NestedMessage value) {
+            public Builder mergeNestedMessage(NestedMessage value)
+            {
                 if (nestedMessageBuilder == null) {
                     if (nestedMessage != null) {
                         nestedMessage =
                                 NestedMessage.newBuilder(nestedMessage).mergeFrom(value).buildPartial();
-                    } else {
+                    }
+                    else {
                         nestedMessage = value;
                     }
                     onChanged();
-                } else {
+                }
+                else {
                     nestedMessageBuilder.mergeFrom(value);
                 }
 
@@ -1986,11 +2113,13 @@ public final class TestMsg {
             /**
              * <code>.proto.SubMessage.NestedMessage nestedMessage = 3;</code>
              */
-            public Builder clearNestedMessage() {
+            public Builder clearNestedMessage()
+            {
                 if (nestedMessageBuilder == null) {
                     nestedMessage = null;
                     onChanged();
-                } else {
+                }
+                else {
                     nestedMessage = null;
                     nestedMessageBuilder = null;
                 }
@@ -2001,7 +2130,8 @@ public final class TestMsg {
             /**
              * <code>.proto.SubMessage.NestedMessage nestedMessage = 3;</code>
              */
-            public NestedMessage.Builder getNestedMessageBuilder() {
+            public NestedMessage.Builder getNestedMessageBuilder()
+            {
                 onChanged();
                 return getNestedMessageFieldBuilder().getBuilder();
             }
@@ -2010,10 +2140,12 @@ public final class TestMsg {
              * <code>.proto.SubMessage.NestedMessage nestedMessage = 3;</code>
              */
             @Override
-            public NestedMessageOrBuilder getNestedMessageOrBuilder() {
+            public NestedMessageOrBuilder getNestedMessageOrBuilder()
+            {
                 if (nestedMessageBuilder != null) {
                     return nestedMessageBuilder.getMessageOrBuilder();
-                } else {
+                }
+                else {
                     return nestedMessage == null ?
                             NestedMessage.getDefaultInstance() : nestedMessage;
                 }
@@ -2023,8 +2155,8 @@ public final class TestMsg {
              * <code>.proto.SubMessage.NestedMessage nestedMessage = 3;</code>
              */
             private com.google.protobuf.SingleFieldBuilderV3<
-                    NestedMessage, NestedMessage.Builder, NestedMessageOrBuilder>
-            getNestedMessageFieldBuilder() {
+                    NestedMessage, NestedMessage.Builder, NestedMessageOrBuilder> getNestedMessageFieldBuilder()
+            {
                 if (nestedMessageBuilder == null) {
                     nestedMessageBuilder = new com.google.protobuf.SingleFieldBuilderV3<
                             NestedMessage, NestedMessage.Builder, NestedMessageOrBuilder>(
@@ -2038,13 +2170,15 @@ public final class TestMsg {
 
             @Override
             public Builder setUnknownFields(
-                    final com.google.protobuf.UnknownFieldSet unknownFields) {
+                    final com.google.protobuf.UnknownFieldSet unknownFields)
+            {
                 return super.setUnknownFieldsProto3(unknownFields);
             }
 
             @Override
             public Builder mergeUnknownFields(
-                    final com.google.protobuf.UnknownFieldSet unknownFields) {
+                    final com.google.protobuf.UnknownFieldSet unknownFields)
+            {
                 return super.mergeUnknownFields(unknownFields);
             }
 
@@ -2059,7 +2193,8 @@ public final class TestMsg {
             extends com.google.protobuf.GeneratedMessageV3
             implements
             // @@protoc_insertion_point(message_implements:proto.TestMessage)
-            TestMessageOrBuilder {
+            TestMessageOrBuilder
+    {
         public static final int STRINGFIELD_FIELD_NUMBER = 1;
         public static final int DOUBLEFIELD_FIELD_NUMBER = 2;
         public static final int FLOATFIELD_FIELD_NUMBER = 3;
@@ -2083,16 +2218,17 @@ public final class TestMsg {
         // @@protoc_insertion_point(class_scope:proto.TestMessage)
         private static final TestMessage DEFAULT_INSTANCE;
         private static final com.google.protobuf.Parser<TestMessage>
-                PARSER = new com.google.protobuf.AbstractParser<TestMessage>() {
-            @Override
-            public TestMessage parsePartialFrom(
-                    com.google.protobuf.CodedInputStream input,
-                    com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                    throws com.google.protobuf.InvalidProtocolBufferException {
-                return new TestMessage(input, extensionRegistry);
-            }
-        };
-
+                PARSER = new com.google.protobuf.AbstractParser<TestMessage>()
+                         {
+                            @Override
+                            public TestMessage parsePartialFrom(
+                                   com.google.protobuf.CodedInputStream input,
+                                   com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+                                   throws com.google.protobuf.InvalidProtocolBufferException
+                             {
+                                return new TestMessage(input, extensionRegistry);
+                             }
+                         };
         static {
             DEFAULT_INSTANCE = new TestMessage();
         }
@@ -2120,11 +2256,13 @@ public final class TestMsg {
         private byte memoizedIsInitialized = -1;
 
         // Use TestMessage.newBuilder() to construct.
-        private TestMessage(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        private TestMessage(com.google.protobuf.GeneratedMessageV3.Builder<?> builder)
+        {
             super(builder);
         }
 
-        private TestMessage() {
+        private TestMessage()
+        {
             stringField = "";
             doubleField = 0D;
             floatField = 0F;
@@ -2147,7 +2285,8 @@ public final class TestMsg {
         private TestMessage(
                 com.google.protobuf.CodedInputStream input,
                 com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                throws com.google.protobuf.InvalidProtocolBufferException {
+                throws com.google.protobuf.InvalidProtocolBufferException
+        {
             this();
             if (extensionRegistry == null) {
                 throw new NullPointerException();
@@ -2274,12 +2413,15 @@ public final class TestMsg {
                         }
                     }
                 }
-            } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            }
+            catch (com.google.protobuf.InvalidProtocolBufferException e) {
                 throw e.setUnfinishedMessage(this);
-            } catch (java.io.IOException e) {
+            }
+            catch (java.io.IOException e) {
                 throw new com.google.protobuf.InvalidProtocolBufferException(
                         e).setUnfinishedMessage(this);
-            } finally {
+            }
+            finally {
                 if (((mutableBitField0 & 0x00020000) == 0x00020000)) {
                     repeatedField = repeatedField.getUnmodifiableView();
                 }
@@ -2288,50 +2430,58 @@ public final class TestMsg {
             }
         }
 
-        public static com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+        public static com.google.protobuf.Descriptors.Descriptor getDescriptor()
+        {
             return TestMsg.internal_static_proto_TestMessage_descriptor;
         }
 
         public static TestMessage parseFrom(
                 java.nio.ByteBuffer data)
-                throws com.google.protobuf.InvalidProtocolBufferException {
+                throws com.google.protobuf.InvalidProtocolBufferException
+        {
             return PARSER.parseFrom(data);
         }
 
         public static TestMessage parseFrom(
                 java.nio.ByteBuffer data,
                 com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                throws com.google.protobuf.InvalidProtocolBufferException {
+                throws com.google.protobuf.InvalidProtocolBufferException
+        {
             return PARSER.parseFrom(data, extensionRegistry);
         }
 
         public static TestMessage parseFrom(
                 com.google.protobuf.ByteString data)
-                throws com.google.protobuf.InvalidProtocolBufferException {
+                throws com.google.protobuf.InvalidProtocolBufferException
+        {
             return PARSER.parseFrom(data);
         }
 
         public static TestMessage parseFrom(
                 com.google.protobuf.ByteString data,
                 com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                throws com.google.protobuf.InvalidProtocolBufferException {
+                throws com.google.protobuf.InvalidProtocolBufferException
+        {
             return PARSER.parseFrom(data, extensionRegistry);
         }
 
         public static TestMessage parseFrom(byte[] data)
-                throws com.google.protobuf.InvalidProtocolBufferException {
+                throws com.google.protobuf.InvalidProtocolBufferException
+        {
             return PARSER.parseFrom(data);
         }
 
         public static TestMessage parseFrom(
                 byte[] data,
                 com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                throws com.google.protobuf.InvalidProtocolBufferException {
+                throws com.google.protobuf.InvalidProtocolBufferException
+        {
             return PARSER.parseFrom(data, extensionRegistry);
         }
 
         public static TestMessage parseFrom(java.io.InputStream input)
-                throws java.io.IOException {
+                throws java.io.IOException
+        {
             return com.google.protobuf.GeneratedMessageV3
                     .parseWithIOException(PARSER, input);
         }
@@ -2339,13 +2489,15 @@ public final class TestMsg {
         public static TestMessage parseFrom(
                 java.io.InputStream input,
                 com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                throws java.io.IOException {
+                throws java.io.IOException
+        {
             return com.google.protobuf.GeneratedMessageV3
                     .parseWithIOException(PARSER, input, extensionRegistry);
         }
 
         public static TestMessage parseDelimitedFrom(java.io.InputStream input)
-                throws java.io.IOException {
+                throws java.io.IOException
+        {
             return com.google.protobuf.GeneratedMessageV3
                     .parseDelimitedWithIOException(PARSER, input);
         }
@@ -2353,14 +2505,16 @@ public final class TestMsg {
         public static TestMessage parseDelimitedFrom(
                 java.io.InputStream input,
                 com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                throws java.io.IOException {
+                throws java.io.IOException
+        {
             return com.google.protobuf.GeneratedMessageV3
                     .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
         }
 
         public static TestMessage parseFrom(
                 com.google.protobuf.CodedInputStream input)
-                throws java.io.IOException {
+                throws java.io.IOException
+        {
             return com.google.protobuf.GeneratedMessageV3
                     .parseWithIOException(PARSER, input);
         }
@@ -2368,36 +2522,43 @@ public final class TestMsg {
         public static TestMessage parseFrom(
                 com.google.protobuf.CodedInputStream input,
                 com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                throws java.io.IOException {
+                throws java.io.IOException
+        {
             return com.google.protobuf.GeneratedMessageV3
                     .parseWithIOException(PARSER, input, extensionRegistry);
         }
 
-        public static Builder newBuilder() {
+        public static Builder newBuilder()
+        {
             return DEFAULT_INSTANCE.toBuilder();
         }
 
-        public static Builder newBuilder(TestMessage prototype) {
+        public static Builder newBuilder(TestMessage prototype)
+        {
             return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
         }
 
-        public static TestMessage getDefaultInstance() {
+        public static TestMessage getDefaultInstance()
+        {
             return DEFAULT_INSTANCE;
         }
 
-        public static com.google.protobuf.Parser<TestMessage> parser() {
+        public static com.google.protobuf.Parser<TestMessage> parser()
+        {
             return PARSER;
         }
 
         @Override
-        public com.google.protobuf.UnknownFieldSet getUnknownFields() {
+        public com.google.protobuf.UnknownFieldSet getUnknownFields()
+        {
             return this.unknownFields;
         }
 
         @SuppressWarnings("rawtypes")
         @Override
         protected com.google.protobuf.MapField internalGetMapField(
-                int number) {
+                int number)
+        {
             switch (number) {
                 case 19:
                     return internalGetMapField();
@@ -2408,7 +2569,8 @@ public final class TestMsg {
         }
 
         @Override
-        protected FieldAccessorTable internalGetFieldAccessorTable() {
+        protected FieldAccessorTable internalGetFieldAccessorTable()
+        {
             return TestMsg.internal_static_proto_TestMessage_fieldAccessorTable
                     .ensureFieldAccessorsInitialized(
                             TestMessage.class, Builder.class);
@@ -2418,11 +2580,13 @@ public final class TestMsg {
          * <code>string stringField = 1;</code>
          */
         @Override
-        public String getStringField() {
+        public String getStringField()
+        {
             Object ref = stringField;
             if (ref instanceof String) {
                 return (String) ref;
-            } else {
+            }
+            else {
                 com.google.protobuf.ByteString bs =
                         (com.google.protobuf.ByteString) ref;
                 String s = bs.toStringUtf8();
@@ -2435,7 +2599,8 @@ public final class TestMsg {
          * <code>string stringField = 1;</code>
          */
         @Override
-        public com.google.protobuf.ByteString getStringFieldBytes() {
+        public com.google.protobuf.ByteString getStringFieldBytes()
+        {
             Object ref = stringField;
             if (ref instanceof String) {
                 com.google.protobuf.ByteString b =
@@ -2443,7 +2608,8 @@ public final class TestMsg {
                                 (String) ref);
                 stringField = b;
                 return b;
-            } else {
+            }
+            else {
                 return (com.google.protobuf.ByteString) ref;
             }
         }
@@ -2452,7 +2618,8 @@ public final class TestMsg {
          * <code>double doubleField = 2;</code>
          */
         @Override
-        public double getDoubleField() {
+        public double getDoubleField()
+        {
             return doubleField;
         }
 
@@ -2460,7 +2627,8 @@ public final class TestMsg {
          * <code>float floatField = 3;</code>
          */
         @Override
-        public float getFloatField() {
+        public float getFloatField()
+        {
             return floatField;
         }
 
@@ -2468,7 +2636,8 @@ public final class TestMsg {
          * <code>int32 int32Field = 4;</code>
          */
         @Override
-        public int getInt32Field() {
+        public int getInt32Field()
+        {
             return int32Field;
         }
 
@@ -2476,7 +2645,8 @@ public final class TestMsg {
          * <code>int64 int64Field = 5;</code>
          */
         @Override
-        public long getInt64Field() {
+        public long getInt64Field()
+        {
             return int64Field;
         }
 
@@ -2484,7 +2654,8 @@ public final class TestMsg {
          * <code>uint32 uint32Field = 6;</code>
          */
         @Override
-        public int getUint32Field() {
+        public int getUint32Field()
+        {
             return uint32Field;
         }
 
@@ -2492,7 +2663,8 @@ public final class TestMsg {
          * <code>uint64 uint64Field = 7;</code>
          */
         @Override
-        public long getUint64Field() {
+        public long getUint64Field()
+        {
             return uint64Field;
         }
 
@@ -2500,7 +2672,8 @@ public final class TestMsg {
          * <code>sint32 sint32Field = 8;</code>
          */
         @Override
-        public int getSint32Field() {
+        public int getSint32Field()
+        {
             return sint32Field;
         }
 
@@ -2508,7 +2681,8 @@ public final class TestMsg {
          * <code>sint64 sint64Field = 9;</code>
          */
         @Override
-        public long getSint64Field() {
+        public long getSint64Field()
+        {
             return sint64Field;
         }
 
@@ -2516,7 +2690,8 @@ public final class TestMsg {
          * <code>fixed32 fixed32Field = 10;</code>
          */
         @Override
-        public int getFixed32Field() {
+        public int getFixed32Field()
+        {
             return fixed32Field;
         }
 
@@ -2524,7 +2699,8 @@ public final class TestMsg {
          * <code>fixed64 fixed64Field = 11;</code>
          */
         @Override
-        public long getFixed64Field() {
+        public long getFixed64Field()
+        {
             return fixed64Field;
         }
 
@@ -2532,7 +2708,8 @@ public final class TestMsg {
          * <code>sfixed32 sfixed32Field = 12;</code>
          */
         @Override
-        public int getSfixed32Field() {
+        public int getSfixed32Field()
+        {
             return sfixed32Field;
         }
 
@@ -2540,7 +2717,8 @@ public final class TestMsg {
          * <code>sfixed64 sfixed64Field = 13;</code>
          */
         @Override
-        public long getSfixed64Field() {
+        public long getSfixed64Field()
+        {
             return sfixed64Field;
         }
 
@@ -2548,7 +2726,8 @@ public final class TestMsg {
          * <code>bool boolField = 14;</code>
          */
         @Override
-        public boolean getBoolField() {
+        public boolean getBoolField()
+        {
             return boolField;
         }
 
@@ -2556,7 +2735,8 @@ public final class TestMsg {
          * <code>bytes bytesField = 15;</code>
          */
         @Override
-        public com.google.protobuf.ByteString getBytesField() {
+        public com.google.protobuf.ByteString getBytesField()
+        {
             return bytesField;
         }
 
@@ -2564,7 +2744,8 @@ public final class TestMsg {
          * <code>.proto.TestEnum testEnum = 16;</code>
          */
         @Override
-        public int getTestEnumValue() {
+        public int getTestEnumValue()
+        {
             return testEnum;
         }
 
@@ -2572,7 +2753,8 @@ public final class TestMsg {
          * <code>.proto.TestEnum testEnum = 16;</code>
          */
         @Override
-        public TestEnum getTestEnum() {
+        public TestEnum getTestEnum()
+        {
             TestEnum result = TestEnum.valueOf(testEnum);
             return result == null ? TestEnum.UNRECOGNIZED : result;
         }
@@ -2581,7 +2763,8 @@ public final class TestMsg {
          * <code>.proto.SubMessage subMessage = 17;</code>
          */
         @Override
-        public boolean hasSubMessage() {
+        public boolean hasSubMessage()
+        {
             return subMessage != null;
         }
 
@@ -2589,7 +2772,8 @@ public final class TestMsg {
          * <code>.proto.SubMessage subMessage = 17;</code>
          */
         @Override
-        public SubMessage getSubMessage() {
+        public SubMessage getSubMessage()
+        {
             return subMessage == null ? SubMessage.getDefaultInstance() : subMessage;
         }
 
@@ -2597,7 +2781,8 @@ public final class TestMsg {
          * <code>.proto.SubMessage subMessage = 17;</code>
          */
         @Override
-        public SubMessageOrBuilder getSubMessageOrBuilder() {
+        public SubMessageOrBuilder getSubMessageOrBuilder()
+        {
             return getSubMessage();
         }
 
@@ -2605,7 +2790,8 @@ public final class TestMsg {
          * <code>repeated string repeatedField = 18;</code>
          */
         @Override
-        public com.google.protobuf.ProtocolStringList getRepeatedFieldList() {
+        public com.google.protobuf.ProtocolStringList getRepeatedFieldList()
+        {
             return repeatedField;
         }
 
@@ -2613,7 +2799,8 @@ public final class TestMsg {
          * <code>repeated string repeatedField = 18;</code>
          */
         @Override
-        public int getRepeatedFieldCount() {
+        public int getRepeatedFieldCount()
+        {
             return repeatedField.size();
         }
 
@@ -2621,7 +2808,8 @@ public final class TestMsg {
          * <code>repeated string repeatedField = 18;</code>
          */
         @Override
-        public String getRepeatedField(int index) {
+        public String getRepeatedField(int index)
+        {
             return repeatedField.get(index);
         }
 
@@ -2629,11 +2817,13 @@ public final class TestMsg {
          * <code>repeated string repeatedField = 18;</code>
          */
         @Override
-        public com.google.protobuf.ByteString getRepeatedFieldBytes(int index) {
+        public com.google.protobuf.ByteString getRepeatedFieldBytes(int index)
+        {
             return repeatedField.getByteString(index);
         }
 
-        private com.google.protobuf.MapField<String, Double> internalGetMapField() {
+        private com.google.protobuf.MapField<String, Double> internalGetMapField()
+        {
             if (mapField == null) {
                 return com.google.protobuf.MapField.emptyMapField(
                         MapFieldDefaultEntryHolder.defaultEntry);
@@ -2642,7 +2832,8 @@ public final class TestMsg {
         }
 
         @Override
-        public int getMapFieldCount() {
+        public int getMapFieldCount()
+        {
             return internalGetMapField().getMap().size();
         }
 
@@ -2651,7 +2842,8 @@ public final class TestMsg {
          */
         @Override
         public boolean containsMapField(
-                String key) {
+                String key)
+        {
             if (key == null) {
                 throw new NullPointerException();
             }
@@ -2663,7 +2855,8 @@ public final class TestMsg {
          */
         @Override
         @Deprecated
-        public java.util.Map<String, Double> getMapField() {
+        public java.util.Map<String, Double> getMapField()
+        {
             return getMapFieldMap();
         }
 
@@ -2671,7 +2864,8 @@ public final class TestMsg {
          * <code>map&lt;string, double&gt; mapField = 19;</code>
          */
         @Override
-        public java.util.Map<String, Double> getMapFieldMap() {
+        public java.util.Map<String, Double> getMapFieldMap()
+        {
             return internalGetMapField().getMap();
         }
 
@@ -2682,7 +2876,8 @@ public final class TestMsg {
         @Override
         public double getMapFieldOrDefault(
                 String key,
-                double defaultValue) {
+                double defaultValue)
+        {
             if (key == null) {
                 throw new NullPointerException();
             }
@@ -2696,7 +2891,8 @@ public final class TestMsg {
          */
         @Override
         public double getMapFieldOrThrow(
-                String key) {
+                String key)
+        {
             if (key == null) {
                 throw new NullPointerException();
             }
@@ -2709,7 +2905,8 @@ public final class TestMsg {
         }
 
         @Override
-        public boolean isInitialized() {
+        public boolean isInitialized()
+        {
             byte isInitialized = memoizedIsInitialized;
             if (isInitialized == 1) {
                 return true;
@@ -2724,7 +2921,8 @@ public final class TestMsg {
 
         @Override
         public void writeTo(com.google.protobuf.CodedOutputStream output)
-                throws java.io.IOException {
+                throws java.io.IOException
+        {
             if (!getStringFieldBytes().isEmpty()) {
                 com.google.protobuf.GeneratedMessageV3.writeString(output, 1, stringField);
             }
@@ -2789,7 +2987,8 @@ public final class TestMsg {
         }
 
         @Override
-        public int getSerializedSize() {
+        public int getSerializedSize()
+        {
             int size = memoizedSize;
             if (size != -1) {
                 return size;
@@ -2887,7 +3086,8 @@ public final class TestMsg {
         }
 
         @Override
-        public boolean equals(final Object obj) {
+        public boolean equals(final Object obj)
+        {
             if (obj == this) {
                 return true;
             }
@@ -2945,7 +3145,8 @@ public final class TestMsg {
         }
 
         @Override
-        public int hashCode() {
+        public int hashCode()
+        {
             if (memoizedHashCode != 0) {
                 return memoizedHashCode;
             }
@@ -3009,34 +3210,40 @@ public final class TestMsg {
         }
 
         @Override
-        public Builder newBuilderForType() {
+        public Builder newBuilderForType()
+        {
             return newBuilder();
         }
 
         @Override
-        public Builder toBuilder() {
+        public Builder toBuilder()
+        {
             return this == DEFAULT_INSTANCE
                     ? new Builder() : new Builder().mergeFrom(this);
         }
 
         @Override
         protected Builder newBuilderForType(
-                BuilderParent parent) {
+                BuilderParent parent)
+        {
             Builder builder = new Builder(parent);
             return builder;
         }
 
         @Override
-        public com.google.protobuf.Parser<TestMessage> getParserForType() {
+        public com.google.protobuf.Parser<TestMessage> getParserForType()
+        {
             return PARSER;
         }
 
         @Override
-        public TestMessage getDefaultInstanceForType() {
+        public TestMessage getDefaultInstanceForType()
+        {
             return DEFAULT_INSTANCE;
         }
 
-        private static final class MapFieldDefaultEntryHolder {
+        private static final class MapFieldDefaultEntryHolder
+        {
             static final com.google.protobuf.MapEntry<
                     String, Double> defaultEntry =
                     com.google.protobuf.MapEntry
@@ -3055,7 +3262,8 @@ public final class TestMsg {
                 extends com.google.protobuf.GeneratedMessageV3.Builder<Builder>
                 implements
                 // @@protoc_insertion_point(builder_implements:proto.TestMessage)
-                TestMessageOrBuilder {
+                TestMessageOrBuilder
+        {
             private int bitField0;
             private Object stringField = "";
             private double doubleField;
@@ -3081,24 +3289,28 @@ public final class TestMsg {
                     String, Double> mapField;
 
             // Construct using io.trino.plugin.pulsar.decoder.protobufnative.TestMsg.TestMessage.newBuilder()
-            private Builder() {
+            private Builder()
+            {
                 maybeForceBuilderInitialization();
             }
 
             private Builder(
-                    BuilderParent parent) {
+                    BuilderParent parent)
+            {
                 super(parent);
                 maybeForceBuilderInitialization();
             }
 
-            public static com.google.protobuf.Descriptors.Descriptor getDescriptor() {
+            public static com.google.protobuf.Descriptors.Descriptor getDescriptor()
+            {
                 return TestMsg.internal_static_proto_TestMessage_descriptor;
             }
 
             @SuppressWarnings("rawtypes")
             @Override
             protected com.google.protobuf.MapField internalGetMapField(
-                    int number) {
+                    int number)
+            {
                 switch (number) {
                     case 19:
                         return internalGetMapField();
@@ -3111,7 +3323,8 @@ public final class TestMsg {
             @SuppressWarnings("rawtypes")
             @Override
             protected com.google.protobuf.MapField internalGetMutableMapField(
-                    int number) {
+                    int number)
+            {
                 switch (number) {
                     case 19:
                         return internalGetMutableMapField();
@@ -3122,17 +3335,20 @@ public final class TestMsg {
             }
 
             @Override
-            protected FieldAccessorTable internalGetFieldAccessorTable() {
+            protected FieldAccessorTable internalGetFieldAccessorTable()
+            {
                 return TestMsg.internal_static_proto_TestMessage_fieldAccessorTable
                         .ensureFieldAccessorsInitialized(
                                 TestMessage.class, Builder.class);
             }
 
-            private void maybeForceBuilderInitialization() {
+            private void maybeForceBuilderInitialization()
+            {
             }
 
             @Override
-            public Builder clear() {
+            public Builder clear()
+            {
                 super.clear();
                 stringField = "";
 
@@ -3168,7 +3384,8 @@ public final class TestMsg {
 
                 if (subMessageBuilder == null) {
                     subMessage = null;
-                } else {
+                }
+                else {
                     subMessage = null;
                     subMessageBuilder = null;
                 }
@@ -3179,17 +3396,20 @@ public final class TestMsg {
             }
 
             @Override
-            public com.google.protobuf.Descriptors.Descriptor getDescriptorForType() {
+            public com.google.protobuf.Descriptors.Descriptor getDescriptorForType()
+            {
                 return TestMsg.internal_static_proto_TestMessage_descriptor;
             }
 
             @Override
-            public TestMessage getDefaultInstanceForType() {
+            public TestMessage getDefaultInstanceForType()
+            {
                 return TestMessage.getDefaultInstance();
             }
 
             @Override
-            public TestMessage build() {
+            public TestMessage build()
+            {
                 TestMessage result = buildPartial();
                 if (!result.isInitialized()) {
                     throw newUninitializedMessageException(result);
@@ -3198,7 +3418,8 @@ public final class TestMsg {
             }
 
             @Override
-            public TestMessage buildPartial() {
+            public TestMessage buildPartial()
+            {
                 TestMessage result = new TestMessage(this);
                 result.stringField = stringField;
                 result.doubleField = doubleField;
@@ -3218,7 +3439,8 @@ public final class TestMsg {
                 result.testEnum = testEnum;
                 if (subMessageBuilder == null) {
                     result.subMessage = subMessage;
-                } else {
+                }
+                else {
                     result.subMessage = subMessageBuilder.build();
                 }
                 if (((bitField0 & 0x00020000) == 0x00020000)) {
@@ -3233,54 +3455,63 @@ public final class TestMsg {
             }
 
             @Override
-            public Builder clone() {
+            public Builder clone()
+            {
                 return super.clone();
             }
 
             @Override
             public Builder setField(
                     com.google.protobuf.Descriptors.FieldDescriptor field,
-                    Object value) {
+                    Object value)
+            {
                 return super.setField(field, value);
             }
 
             @Override
             public Builder clearField(
-                    com.google.protobuf.Descriptors.FieldDescriptor field) {
+                    com.google.protobuf.Descriptors.FieldDescriptor field)
+            {
                 return super.clearField(field);
             }
 
             @Override
             public Builder clearOneof(
-                    com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+                    com.google.protobuf.Descriptors.OneofDescriptor oneof)
+            {
                 return super.clearOneof(oneof);
             }
 
             @Override
             public Builder setRepeatedField(
                     com.google.protobuf.Descriptors.FieldDescriptor field,
-                    int index, Object value) {
+                    int index, Object value)
+            {
                 return super.setRepeatedField(field, index, value);
             }
 
             @Override
             public Builder addRepeatedField(
                     com.google.protobuf.Descriptors.FieldDescriptor field,
-                    Object value) {
+                    Object value)
+            {
                 return super.addRepeatedField(field, value);
             }
 
             @Override
-            public Builder mergeFrom(com.google.protobuf.Message other) {
+            public Builder mergeFrom(com.google.protobuf.Message other)
+            {
                 if (other instanceof TestMessage) {
                     return mergeFrom((TestMessage) other);
-                } else {
+                }
+                else {
                     super.mergeFrom(other);
                     return this;
                 }
             }
 
-            public Builder mergeFrom(TestMessage other) {
+            public Builder mergeFrom(TestMessage other)
+            {
                 if (other == TestMessage.getDefaultInstance()) {
                     return this;
                 }
@@ -3340,7 +3571,8 @@ public final class TestMsg {
                     if (repeatedField.isEmpty()) {
                         repeatedField = other.repeatedField;
                         bitField0 = (bitField0 & ~0x00020000);
-                    } else {
+                    }
+                    else {
                         ensureRepeatedFieldIsMutable();
                         repeatedField.addAll(other.repeatedField);
                     }
@@ -3354,7 +3586,8 @@ public final class TestMsg {
             }
 
             @Override
-            public boolean isInitialized() {
+            public boolean isInitialized()
+            {
                 return true;
             }
 
@@ -3362,14 +3595,17 @@ public final class TestMsg {
             public Builder mergeFrom(
                     com.google.protobuf.CodedInputStream input,
                     com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                    throws java.io.IOException {
+                    throws java.io.IOException
+            {
                 TestMessage parsedMessage = null;
                 try {
                     parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-                } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+                }
+                catch (com.google.protobuf.InvalidProtocolBufferException e) {
                     parsedMessage = (TestMessage) e.getUnfinishedMessage();
                     throw e.unwrapIOException();
-                } finally {
+                }
+                finally {
                     if (parsedMessage != null) {
                         mergeFrom(parsedMessage);
                     }
@@ -3381,7 +3617,8 @@ public final class TestMsg {
              * <code>string stringField = 1;</code>
              */
             @Override
-            public String getStringField() {
+            public String getStringField()
+            {
                 Object ref = stringField;
                 if (!(ref instanceof String)) {
                     com.google.protobuf.ByteString bs =
@@ -3389,7 +3626,8 @@ public final class TestMsg {
                     String s = bs.toStringUtf8();
                     stringField = s;
                     return s;
-                } else {
+                }
+                else {
                     return (String) ref;
                 }
             }
@@ -3398,7 +3636,8 @@ public final class TestMsg {
              * <code>string stringField = 1;</code>
              */
             public Builder setStringField(
-                    String value) {
+                    String value)
+            {
                 if (value == null) {
                     throw new NullPointerException();
                 }
@@ -3412,7 +3651,8 @@ public final class TestMsg {
              * <code>string stringField = 1;</code>
              */
             @Override
-            public com.google.protobuf.ByteString getStringFieldBytes() {
+            public com.google.protobuf.ByteString getStringFieldBytes()
+            {
                 Object ref = stringField;
                 if (ref instanceof String) {
                     com.google.protobuf.ByteString b =
@@ -3420,7 +3660,8 @@ public final class TestMsg {
                                     (String) ref);
                     stringField = b;
                     return b;
-                } else {
+                }
+                else {
                     return (com.google.protobuf.ByteString) ref;
                 }
             }
@@ -3429,7 +3670,8 @@ public final class TestMsg {
              * <code>string stringField = 1;</code>
              */
             public Builder setStringFieldBytes(
-                    com.google.protobuf.ByteString value) {
+                    com.google.protobuf.ByteString value)
+            {
                 if (value == null) {
                     throw new NullPointerException();
                 }
@@ -3443,7 +3685,8 @@ public final class TestMsg {
             /**
              * <code>string stringField = 1;</code>
              */
-            public Builder clearStringField() {
+            public Builder clearStringField()
+            {
                 stringField = getDefaultInstance().getStringField();
                 onChanged();
                 return this;
@@ -3453,14 +3696,16 @@ public final class TestMsg {
              * <code>double doubleField = 2;</code>
              */
             @Override
-            public double getDoubleField() {
+            public double getDoubleField()
+            {
                 return doubleField;
             }
 
             /**
              * <code>double doubleField = 2;</code>
              */
-            public Builder setDoubleField(double value) {
+            public Builder setDoubleField(double value)
+            {
                 doubleField = value;
                 onChanged();
                 return this;
@@ -3469,7 +3714,8 @@ public final class TestMsg {
             /**
              * <code>double doubleField = 2;</code>
              */
-            public Builder clearDoubleField() {
+            public Builder clearDoubleField()
+            {
                 doubleField = 0D;
                 onChanged();
                 return this;
@@ -3479,14 +3725,16 @@ public final class TestMsg {
              * <code>float floatField = 3;</code>
              */
             @Override
-            public float getFloatField() {
+            public float getFloatField()
+            {
                 return floatField;
             }
 
             /**
              * <code>float floatField = 3;</code>
              */
-            public Builder setFloatField(float value) {
+            public Builder setFloatField(float value)
+            {
                 floatField = value;
                 onChanged();
                 return this;
@@ -3495,7 +3743,8 @@ public final class TestMsg {
             /**
              * <code>float floatField = 3;</code>
              */
-            public Builder clearFloatField() {
+            public Builder clearFloatField()
+            {
                 floatField = 0F;
                 onChanged();
                 return this;
@@ -3505,14 +3754,16 @@ public final class TestMsg {
              * <code>int32 int32Field = 4;</code>
              */
             @Override
-            public int getInt32Field() {
+            public int getInt32Field()
+            {
                 return int32Field;
             }
 
             /**
              * <code>int32 int32Field = 4;</code>
              */
-            public Builder setInt32Field(int value) {
+            public Builder setInt32Field(int value)
+            {
                 int32Field = value;
                 onChanged();
                 return this;
@@ -3521,7 +3772,8 @@ public final class TestMsg {
             /**
              * <code>int32 int32Field = 4;</code>
              */
-            public Builder clearInt32Field() {
+            public Builder clearInt32Field()
+            {
                 int32Field = 0;
                 onChanged();
                 return this;
@@ -3531,14 +3783,16 @@ public final class TestMsg {
              * <code>int64 int64Field = 5;</code>
              */
             @Override
-            public long getInt64Field() {
+            public long getInt64Field()
+            {
                 return int64Field;
             }
 
             /**
              * <code>int64 int64Field = 5;</code>
              */
-            public Builder setInt64Field(long value) {
+            public Builder setInt64Field(long value)
+            {
                 int64Field = value;
                 onChanged();
                 return this;
@@ -3547,7 +3801,8 @@ public final class TestMsg {
             /**
              * <code>int64 int64Field = 5;</code>
              */
-            public Builder clearInt64Field() {
+            public Builder clearInt64Field()
+            {
                 int64Field = 0L;
                 onChanged();
                 return this;
@@ -3557,14 +3812,16 @@ public final class TestMsg {
              * <code>uint32 uint32Field = 6;</code>
              */
             @Override
-            public int getUint32Field() {
+            public int getUint32Field()
+            {
                 return uint32Field;
             }
 
             /**
              * <code>uint32 uint32Field = 6;</code>
              */
-            public Builder setUint32Field(int value) {
+            public Builder setUint32Field(int value)
+            {
                 uint32Field = value;
                 onChanged();
                 return this;
@@ -3573,7 +3830,8 @@ public final class TestMsg {
             /**
              * <code>uint32 uint32Field = 6;</code>
              */
-            public Builder clearUint32Field() {
+            public Builder clearUint32Field()
+            {
                 uint32Field = 0;
                 onChanged();
                 return this;
@@ -3583,14 +3841,16 @@ public final class TestMsg {
              * <code>uint64 uint64Field = 7;</code>
              */
             @Override
-            public long getUint64Field() {
+            public long getUint64Field()
+            {
                 return uint64Field;
             }
 
             /**
              * <code>uint64 uint64Field = 7;</code>
              */
-            public Builder setUint64Field(long value) {
+            public Builder setUint64Field(long value)
+            {
                 uint64Field = value;
                 onChanged();
                 return this;
@@ -3599,7 +3859,8 @@ public final class TestMsg {
             /**
              * <code>uint64 uint64Field = 7;</code>
              */
-            public Builder clearUint64Field() {
+            public Builder clearUint64Field()
+            {
                 uint64Field = 0L;
                 onChanged();
                 return this;
@@ -3609,14 +3870,16 @@ public final class TestMsg {
              * <code>sint32 sint32Field = 8;</code>
              */
             @Override
-            public int getSint32Field() {
+            public int getSint32Field()
+            {
                 return sint32Field;
             }
 
             /**
              * <code>sint32 sint32Field = 8;</code>
              */
-            public Builder setSint32Field(int value) {
+            public Builder setSint32Field(int value)
+            {
                 sint32Field = value;
                 onChanged();
                 return this;
@@ -3625,7 +3888,8 @@ public final class TestMsg {
             /**
              * <code>sint32 sint32Field = 8;</code>
              */
-            public Builder clearSint32Field() {
+            public Builder clearSint32Field()
+            {
                 sint32Field = 0;
                 onChanged();
                 return this;
@@ -3635,14 +3899,16 @@ public final class TestMsg {
              * <code>sint64 sint64Field = 9;</code>
              */
             @Override
-            public long getSint64Field() {
+            public long getSint64Field()
+            {
                 return sint64Field;
             }
 
             /**
              * <code>sint64 sint64Field = 9;</code>
              */
-            public Builder setSint64Field(long value) {
+            public Builder setSint64Field(long value)
+            {
                 sint64Field = value;
                 onChanged();
                 return this;
@@ -3651,7 +3917,8 @@ public final class TestMsg {
             /**
              * <code>sint64 sint64Field = 9;</code>
              */
-            public Builder clearSint64Field() {
+            public Builder clearSint64Field()
+            {
                 sint64Field = 0L;
                 onChanged();
                 return this;
@@ -3661,14 +3928,16 @@ public final class TestMsg {
              * <code>fixed32 fixed32Field = 10;</code>
              */
             @Override
-            public int getFixed32Field() {
+            public int getFixed32Field()
+            {
                 return fixed32Field;
             }
 
             /**
              * <code>fixed32 fixed32Field = 10;</code>
              */
-            public Builder setFixed32Field(int value) {
+            public Builder setFixed32Field(int value)
+            {
                 fixed32Field = value;
                 onChanged();
                 return this;
@@ -3677,7 +3946,8 @@ public final class TestMsg {
             /**
              * <code>fixed32 fixed32Field = 10;</code>
              */
-            public Builder clearFixed32Field() {
+            public Builder clearFixed32Field()
+            {
                 fixed32Field = 0;
                 onChanged();
                 return this;
@@ -3687,14 +3957,16 @@ public final class TestMsg {
              * <code>fixed64 fixed64Field = 11;</code>
              */
             @Override
-            public long getFixed64Field() {
+            public long getFixed64Field()
+            {
                 return fixed64Field;
             }
 
             /**
              * <code>fixed64 fixed64Field = 11;</code>
              */
-            public Builder setFixed64Field(long value) {
+            public Builder setFixed64Field(long value)
+            {
                 fixed64Field = value;
                 onChanged();
                 return this;
@@ -3703,7 +3975,8 @@ public final class TestMsg {
             /**
              * <code>fixed64 fixed64Field = 11;</code>
              */
-            public Builder clearFixed64Field() {
+            public Builder clearFixed64Field()
+            {
                 fixed64Field = 0L;
                 onChanged();
                 return this;
@@ -3713,14 +3986,16 @@ public final class TestMsg {
              * <code>sfixed32 sfixed32Field = 12;</code>
              */
             @Override
-            public int getSfixed32Field() {
+            public int getSfixed32Field()
+            {
                 return sfixed32Field;
             }
 
             /**
              * <code>sfixed32 sfixed32Field = 12;</code>
              */
-            public Builder setSfixed32Field(int value) {
+            public Builder setSfixed32Field(int value)
+            {
                 sfixed32Field = value;
                 onChanged();
                 return this;
@@ -3729,7 +4004,8 @@ public final class TestMsg {
             /**
              * <code>sfixed32 sfixed32Field = 12;</code>
              */
-            public Builder clearSfixed32Field() {
+            public Builder clearSfixed32Field()
+            {
                 sfixed32Field = 0;
                 onChanged();
                 return this;
@@ -3739,14 +4015,16 @@ public final class TestMsg {
              * <code>sfixed64 sfixed64Field = 13;</code>
              */
             @Override
-            public long getSfixed64Field() {
+            public long getSfixed64Field()
+            {
                 return sfixed64Field;
             }
 
             /**
              * <code>sfixed64 sfixed64Field = 13;</code>
              */
-            public Builder setSfixed64Field(long value) {
+            public Builder setSfixed64Field(long value)
+            {
                 sfixed64Field = value;
                 onChanged();
                 return this;
@@ -3755,7 +4033,8 @@ public final class TestMsg {
             /**
              * <code>sfixed64 sfixed64Field = 13;</code>
              */
-            public Builder clearSfixed64Field() {
+            public Builder clearSfixed64Field()
+            {
                 sfixed64Field = 0L;
                 onChanged();
                 return this;
@@ -3765,14 +4044,16 @@ public final class TestMsg {
              * <code>bool boolField = 14;</code>
              */
             @Override
-            public boolean getBoolField() {
+            public boolean getBoolField()
+            {
                 return boolField;
             }
 
             /**
              * <code>bool boolField = 14;</code>
              */
-            public Builder setBoolField(boolean value) {
+            public Builder setBoolField(boolean value)
+            {
                 boolField = value;
                 onChanged();
                 return this;
@@ -3781,7 +4062,8 @@ public final class TestMsg {
             /**
              * <code>bool boolField = 14;</code>
              */
-            public Builder clearBoolField() {
+            public Builder clearBoolField()
+            {
                 boolField = false;
                 onChanged();
                 return this;
@@ -3791,14 +4073,16 @@ public final class TestMsg {
              * <code>bytes bytesField = 15;</code>
              */
             @Override
-            public com.google.protobuf.ByteString getBytesField() {
+            public com.google.protobuf.ByteString getBytesField()
+            {
                 return bytesField;
             }
 
             /**
              * <code>bytes bytesField = 15;</code>
              */
-            public Builder setBytesField(com.google.protobuf.ByteString value) {
+            public Builder setBytesField(com.google.protobuf.ByteString value)
+            {
                 if (value == null) {
                     throw new NullPointerException();
                 }
@@ -3811,7 +4095,8 @@ public final class TestMsg {
             /**
              * <code>bytes bytesField = 15;</code>
              */
-            public Builder clearBytesField() {
+            public Builder clearBytesField()
+            {
                 bytesField = getDefaultInstance().getBytesField();
                 onChanged();
                 return this;
@@ -3821,14 +4106,16 @@ public final class TestMsg {
              * <code>.proto.TestEnum testEnum = 16;</code>
              */
             @Override
-            public int getTestEnumValue() {
+            public int getTestEnumValue()
+            {
                 return testEnum;
             }
 
             /**
              * <code>.proto.TestEnum testEnum = 16;</code>
              */
-            public Builder setTestEnumValue(int value) {
+            public Builder setTestEnumValue(int value)
+            {
                 testEnum = value;
                 onChanged();
                 return this;
@@ -3838,7 +4125,8 @@ public final class TestMsg {
              * <code>.proto.TestEnum testEnum = 16;</code>
              */
             @Override
-            public TestEnum getTestEnum() {
+            public TestEnum getTestEnum()
+            {
                 TestEnum result = TestEnum.valueOf(testEnum);
                 return result == null ? TestEnum.UNRECOGNIZED : result;
             }
@@ -3846,7 +4134,8 @@ public final class TestMsg {
             /**
              * <code>.proto.TestEnum testEnum = 16;</code>
              */
-            public Builder setTestEnum(TestEnum value) {
+            public Builder setTestEnum(TestEnum value)
+            {
                 if (value == null) {
                     throw new NullPointerException();
                 }
@@ -3859,7 +4148,8 @@ public final class TestMsg {
             /**
              * <code>.proto.TestEnum testEnum = 16;</code>
              */
-            public Builder clearTestEnum() {
+            public Builder clearTestEnum()
+            {
                 testEnum = 0;
                 onChanged();
                 return this;
@@ -3869,7 +4159,8 @@ public final class TestMsg {
              * <code>.proto.SubMessage subMessage = 17;</code>
              */
             @Override
-            public boolean hasSubMessage() {
+            public boolean hasSubMessage()
+            {
                 return subMessageBuilder != null || subMessage != null;
             }
 
@@ -3877,10 +4168,12 @@ public final class TestMsg {
              * <code>.proto.SubMessage subMessage = 17;</code>
              */
             @Override
-            public SubMessage getSubMessage() {
+            public SubMessage getSubMessage()
+            {
                 if (subMessageBuilder == null) {
                     return subMessage == null ? SubMessage.getDefaultInstance() : subMessage;
-                } else {
+                }
+                else {
                     return subMessageBuilder.getMessage();
                 }
             }
@@ -3888,14 +4181,16 @@ public final class TestMsg {
             /**
              * <code>.proto.SubMessage subMessage = 17;</code>
              */
-            public Builder setSubMessage(SubMessage value) {
+            public Builder setSubMessage(SubMessage value)
+            {
                 if (subMessageBuilder == null) {
                     if (value == null) {
                         throw new NullPointerException();
                     }
                     subMessage = value;
                     onChanged();
-                } else {
+                }
+                else {
                     subMessageBuilder.setMessage(value);
                 }
 
@@ -3906,11 +4201,13 @@ public final class TestMsg {
              * <code>.proto.SubMessage subMessage = 17;</code>
              */
             public Builder setSubMessage(
-                    SubMessage.Builder builderForValue) {
+                    SubMessage.Builder builderForValue)
+            {
                 if (subMessageBuilder == null) {
                     subMessage = builderForValue.build();
                     onChanged();
-                } else {
+                }
+                else {
                     subMessageBuilder.setMessage(builderForValue.build());
                 }
 
@@ -3920,16 +4217,19 @@ public final class TestMsg {
             /**
              * <code>.proto.SubMessage subMessage = 17;</code>
              */
-            public Builder mergeSubMessage(SubMessage value) {
+            public Builder mergeSubMessage(SubMessage value)
+            {
                 if (subMessageBuilder == null) {
                     if (subMessage != null) {
                         subMessage =
                                 SubMessage.newBuilder(subMessage).mergeFrom(value).buildPartial();
-                    } else {
+                    }
+                    else {
                         subMessage = value;
                     }
                     onChanged();
-                } else {
+                }
+                else {
                     subMessageBuilder.mergeFrom(value);
                 }
 
@@ -3939,11 +4239,13 @@ public final class TestMsg {
             /**
              * <code>.proto.SubMessage subMessage = 17;</code>
              */
-            public Builder clearSubMessage() {
+            public Builder clearSubMessage()
+            {
                 if (subMessageBuilder == null) {
                     subMessage = null;
                     onChanged();
-                } else {
+                }
+                else {
                     subMessage = null;
                     subMessageBuilder = null;
                 }
@@ -3954,7 +4256,8 @@ public final class TestMsg {
             /**
              * <code>.proto.SubMessage subMessage = 17;</code>
              */
-            public SubMessage.Builder getSubMessageBuilder() {
+            public SubMessage.Builder getSubMessageBuilder()
+            {
                 onChanged();
                 return getSubMessageFieldBuilder().getBuilder();
             }
@@ -3963,10 +4266,12 @@ public final class TestMsg {
              * <code>.proto.SubMessage subMessage = 17;</code>
              */
             @Override
-            public SubMessageOrBuilder getSubMessageOrBuilder() {
+            public SubMessageOrBuilder getSubMessageOrBuilder()
+            {
                 if (subMessageBuilder != null) {
                     return subMessageBuilder.getMessageOrBuilder();
-                } else {
+                }
+                else {
                     return subMessage == null ?
                             SubMessage.getDefaultInstance() : subMessage;
                 }
@@ -3977,7 +4282,8 @@ public final class TestMsg {
              */
             private com.google.protobuf.SingleFieldBuilderV3<
                     SubMessage, SubMessage.Builder, SubMessageOrBuilder>
-            getSubMessageFieldBuilder() {
+                    getSubMessageFieldBuilder()
+            {
                 if (subMessageBuilder == null) {
                     subMessageBuilder = new com.google.protobuf.SingleFieldBuilderV3<
                             SubMessage, SubMessage.Builder, SubMessageOrBuilder>(
@@ -3989,7 +4295,8 @@ public final class TestMsg {
                 return subMessageBuilder;
             }
 
-            private void ensureRepeatedFieldIsMutable() {
+            private void ensureRepeatedFieldIsMutable()
+            {
                 if (!((bitField0 & 0x00020000) == 0x00020000)) {
                     repeatedField = new com.google.protobuf.LazyStringArrayList(repeatedField);
                     bitField0 |= 0x00020000;
@@ -4000,7 +4307,8 @@ public final class TestMsg {
              * <code>repeated string repeatedField = 18;</code>
              */
             @Override
-            public com.google.protobuf.ProtocolStringList getRepeatedFieldList() {
+            public com.google.protobuf.ProtocolStringList getRepeatedFieldList()
+            {
                 return repeatedField.getUnmodifiableView();
             }
 
@@ -4008,7 +4316,8 @@ public final class TestMsg {
              * <code>repeated string repeatedField = 18;</code>
              */
             @Override
-            public int getRepeatedFieldCount() {
+            public int getRepeatedFieldCount()
+            {
                 return repeatedField.size();
             }
 
@@ -4016,7 +4325,8 @@ public final class TestMsg {
              * <code>repeated string repeatedField = 18;</code>
              */
             @Override
-            public String getRepeatedField(int index) {
+            public String getRepeatedField(int index)
+            {
                 return repeatedField.get(index);
             }
 
@@ -4024,7 +4334,8 @@ public final class TestMsg {
              * <code>repeated string repeatedField = 18;</code>
              */
             @Override
-            public com.google.protobuf.ByteString getRepeatedFieldBytes(int index) {
+            public com.google.protobuf.ByteString getRepeatedFieldBytes(int index)
+            {
                 return repeatedField.getByteString(index);
             }
 
@@ -4032,7 +4343,8 @@ public final class TestMsg {
              * <code>repeated string repeatedField = 18;</code>
              */
             public Builder setRepeatedField(
-                    int index, String value) {
+                    int index, String value)
+            {
                 if (value == null) {
                     throw new NullPointerException();
                 }
@@ -4046,7 +4358,8 @@ public final class TestMsg {
              * <code>repeated string repeatedField = 18;</code>
              */
             public Builder addRepeatedField(
-                    String value) {
+                    String value)
+            {
                 if (value == null) {
                     throw new NullPointerException();
                 }
@@ -4060,7 +4373,8 @@ public final class TestMsg {
              * <code>repeated string repeatedField = 18;</code>
              */
             public Builder addAllRepeatedField(
-                    Iterable<String> values) {
+                    Iterable<String> values)
+            {
                 ensureRepeatedFieldIsMutable();
                 com.google.protobuf.AbstractMessageLite.Builder.addAll(
                         values, repeatedField);
@@ -4071,7 +4385,8 @@ public final class TestMsg {
             /**
              * <code>repeated string repeatedField = 18;</code>
              */
-            public Builder clearRepeatedField() {
+            public Builder clearRepeatedField()
+            {
                 repeatedField = com.google.protobuf.LazyStringArrayList.EMPTY;
                 bitField0 = (bitField0 & ~0x00020000);
                 onChanged();
@@ -4082,7 +4397,8 @@ public final class TestMsg {
              * <code>repeated string repeatedField = 18;</code>
              */
             public Builder addRepeatedFieldBytes(
-                    com.google.protobuf.ByteString value) {
+                    com.google.protobuf.ByteString value)
+            {
                 if (value == null) {
                     throw new NullPointerException();
                 }
@@ -4093,7 +4409,8 @@ public final class TestMsg {
                 return this;
             }
 
-            private com.google.protobuf.MapField<String, Double> internalGetMapField() {
+            private com.google.protobuf.MapField<String, Double> internalGetMapField()
+            {
                 if (mapField == null) {
                     return com.google.protobuf.MapField.emptyMapField(
                             MapFieldDefaultEntryHolder.defaultEntry);
@@ -4101,7 +4418,8 @@ public final class TestMsg {
                 return mapField;
             }
 
-            private com.google.protobuf.MapField<String, Double> internalGetMutableMapField() {
+            private com.google.protobuf.MapField<String, Double> internalGetMutableMapField()
+            {
                 onChanged();
                 if (mapField == null) {
                     mapField = com.google.protobuf.MapField.newMapField(
@@ -4114,7 +4432,8 @@ public final class TestMsg {
             }
 
             @Override
-            public int getMapFieldCount() {
+            public int getMapFieldCount()
+            {
                 return internalGetMapField().getMap().size();
             }
 
@@ -4123,7 +4442,8 @@ public final class TestMsg {
              */
             @Override
             public boolean containsMapField(
-                    String key) {
+                    String key)
+            {
                 if (key == null) {
                     throw new NullPointerException();
                 }
@@ -4135,7 +4455,8 @@ public final class TestMsg {
              */
             @Override
             @Deprecated
-            public java.util.Map<String, Double> getMapField() {
+            public java.util.Map<String, Double> getMapField()
+            {
                 return getMapFieldMap();
             }
 
@@ -4143,7 +4464,8 @@ public final class TestMsg {
              * <code>map&lt;string, double&gt; mapField = 19;</code>
              */
             @Override
-            public java.util.Map<String, Double> getMapFieldMap() {
+            public java.util.Map<String, Double> getMapFieldMap()
+            {
                 return internalGetMapField().getMap();
             }
 
@@ -4153,7 +4475,8 @@ public final class TestMsg {
             @Override
             public double getMapFieldOrDefault(
                     String key,
-                    double defaultValue) {
+                    double defaultValue)
+            {
                 if (key == null) {
                     throw new NullPointerException();
                 }
@@ -4167,7 +4490,8 @@ public final class TestMsg {
              */
             @Override
             public double getMapFieldOrThrow(
-                    String key) {
+                    String key)
+            {
                 if (key == null) {
                     throw new NullPointerException();
                 }
@@ -4179,7 +4503,8 @@ public final class TestMsg {
                 return map.get(key);
             }
 
-            public Builder clearMapField() {
+            public Builder clearMapField()
+            {
                 internalGetMutableMapField().getMutableMap()
                         .clear();
                 return this;
@@ -4190,7 +4515,8 @@ public final class TestMsg {
              */
 
             public Builder removeMapField(
-                    String key) {
+                    String key)
+            {
                 if (key == null) {
                     throw new NullPointerException();
                 }
@@ -4203,7 +4529,8 @@ public final class TestMsg {
              * Use alternate mutation accessors instead.
              */
             @Deprecated
-            public java.util.Map<String, Double> getMutableMapField() {
+            public java.util.Map<String, Double> getMutableMapField()
+            {
                 return internalGetMutableMapField().getMutableMap();
             }
 
@@ -4212,7 +4539,8 @@ public final class TestMsg {
              */
             public Builder putMapField(
                     String key,
-                    double value) {
+                    double value)
+            {
                 if (key == null) {
                     throw new NullPointerException();
                 }
@@ -4227,7 +4555,8 @@ public final class TestMsg {
              */
 
             public Builder putAllMapField(
-                    java.util.Map<String, Double> values) {
+                    java.util.Map<String, Double> values)
+            {
                 internalGetMutableMapField().getMutableMap()
                         .putAll(values);
                 return this;
@@ -4235,13 +4564,15 @@ public final class TestMsg {
 
             @Override
             public Builder setUnknownFields(
-                    final com.google.protobuf.UnknownFieldSet unknownFields) {
+                    final com.google.protobuf.UnknownFieldSet unknownFields)
+            {
                 return super.setUnknownFieldsProto3(unknownFields);
             }
 
             @Override
             public Builder mergeUnknownFields(
-                    final com.google.protobuf.UnknownFieldSet unknownFields) {
+                    final com.google.protobuf.UnknownFieldSet unknownFields)
+            {
                 return super.mergeUnknownFields(unknownFields);
             }
             // @@protoc_insertion_point(builder_scope:proto.TestMessage)
