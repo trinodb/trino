@@ -169,8 +169,8 @@ public class GcsFileSystem
             for (List<Location> locationBatch : partition(locations, batchSize)) {
                 StorageBatch batch = storage.batch();
                 for (Location location : locationBatch) {
-                    getBlob(storage, new GcsLocation(location))
-                            .ifPresent(blob -> batch.delete(blob.getBlobId()));
+                    GcsLocation gcsLocation = new GcsLocation(location);
+                    batch.delete(BlobId.of(gcsLocation.bucket(), gcsLocation.path()));
                 }
                 batchFutures.add(executorService.submit(batch::submit));
             }
