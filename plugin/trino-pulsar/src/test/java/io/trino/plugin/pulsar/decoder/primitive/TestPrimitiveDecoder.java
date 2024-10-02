@@ -50,18 +50,22 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 
 @Test(singleThreaded = true)
 public class TestPrimitiveDecoder
-        extends AbstractDecoderTester {
+        extends AbstractDecoderTester
+{
     public static final String PRIMITIVE_COLUMN_NAME = "__value__";
 
     @Override
     @BeforeMethod
-    public void init() throws PulsarClientException {
+    public void init()
+            throws PulsarClientException
+    {
         decoderTestUtil = new PrimitiveDecoderTestUtil();
         super.init();
     }
 
     @Test(singleThreaded = true)
-    public void testPrimitiveType() {
+    public void testPrimitiveType()
+    {
         byte int8Value = 1;
         SchemaInfo schemaInfoInt8 = SchemaInfoImpl.builder().type(SchemaType.INT8).build();
         Schema schemaInt8 = Schema.getSchema(schemaInfoInt8);
