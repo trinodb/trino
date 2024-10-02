@@ -103,7 +103,6 @@
         <module>plugin/trino-postgresql</module>
         <module>plugin/trino-prometheus</module>       
         <module>plugin/trino-pulsar</module>
-        <module>plugin/trino-raptor-legacy</module>
         <module>plugin/trino-redis</module>
         <module>plugin/trino-redshift</module>
         <module>plugin/trino-resource-group-managers</module>

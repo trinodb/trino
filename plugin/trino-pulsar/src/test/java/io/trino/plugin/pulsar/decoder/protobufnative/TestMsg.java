@@ -13,21 +13,19 @@
  */
 package io.trino.plugin.pulsar.decoder.protobufnative;
 
-public final class TestMsg {
+public final class TestMsg
+{
     private static final com.google.protobuf.Descriptors.Descriptor
             internal_static_proto_SubMessage_descriptor;
-    private static final
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+    private static final com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
             internal_static_proto_SubMessage_fieldAccessorTable;
     private static final com.google.protobuf.Descriptors.Descriptor
             internal_static_proto_SubMessage_NestedMessage_descriptor;
-    private static final
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+    private static final com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
             internal_static_proto_SubMessage_NestedMessage_fieldAccessorTable;
     private static final com.google.protobuf.Descriptors.Descriptor
             internal_static_proto_TestMessage_descriptor;
-    private static final
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+    private static final com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
             internal_static_proto_TestMessage_fieldAccessorTable;
     private static final com.google.protobuf.Descriptors.Descriptor
             internal_static_proto_TestMessage_MapFieldEntry_descriptor;
@@ -59,10 +57,11 @@ public final class TestMsg {
                         "oto3"
         };
         com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
-                new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
+                new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner()
+                {
                     @Override
-                    public com.google.protobuf.ExtensionRegistry assignDescriptors(
-                            com.google.protobuf.Descriptors.FileDescriptor root) {
+                    public com.google.protobuf.ExtensionRegistry assignDescriptors(com.google.protobuf.Descriptors.FileDescriptor root)
+                    {
                         descriptor = root;
                         return null;
                     }
@@ -73,40 +72,38 @@ public final class TestMsg {
                         }, assigner);
         internal_static_proto_SubMessage_descriptor =
                 getDescriptor().getMessageTypes().get(0);
-        internal_static_proto_SubMessage_fieldAccessorTable = new
-                com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-                internal_static_proto_SubMessage_descriptor,
-                new String[]{"Foo", "Bar", "NestedMessage"});
+        internal_static_proto_SubMessage_fieldAccessorTable = new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+                internal_static_proto_SubMessage_descriptor, new String[] {"Foo", "Bar", "NestedMessage"});
         internal_static_proto_SubMessage_NestedMessage_descriptor =
                 internal_static_proto_SubMessage_descriptor.getNestedTypes().get(0);
-        internal_static_proto_SubMessage_NestedMessage_fieldAccessorTable = new
-                com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-                internal_static_proto_SubMessage_NestedMessage_descriptor,
-                new String[]{"Title", "Urls"});
+        internal_static_proto_SubMessage_NestedMessage_fieldAccessorTable = new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+                internal_static_proto_SubMessage_NestedMessage_descriptor, new String[] {"Title", "Urls"});
         internal_static_proto_TestMessage_descriptor =
                 getDescriptor().getMessageTypes().get(1);
-        internal_static_proto_TestMessage_fieldAccessorTable = new
-                com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-                internal_static_proto_TestMessage_descriptor,
-                new String[]{"StringField", "DoubleField", "FloatField", "Int32Field", "Int64Field", "Uint32Field", "Uint64Field", "Sint32Field", "Sint64Field", "Fixed32Field", "Fixed64Field", "Sfixed32Field", "Sfixed64Field", "BoolField", "BytesField", "TestEnum", "SubMessage", "RepeatedField", "MapField"});
+        internal_static_proto_TestMessage_fieldAccessorTable = new com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+                internal_static_proto_TestMessage_descriptor, new String[] {"StringField", "DoubleField", "FloatField", "Int32Field", "Int64Field", "Uint32Field", "Uint64Field", "Sint32Field", "Sint64Field", "Fixed32Field", "Fixed64Field", "Sfixed32Field", "Sfixed64Field", "BoolField", "BytesField", "TestEnum", "SubMessage", "RepeatedField", "MapField"});
         internal_static_proto_TestMessage_MapFieldEntry_descriptor =
                 internal_static_proto_TestMessage_descriptor.getNestedTypes().get(0);
     }
 
-    private TestMsg() {
+    private TestMsg()
+    {
     }
 
     public static void registerAllExtensions(
-            com.google.protobuf.ExtensionRegistryLite registry) {
+            com.google.protobuf.ExtensionRegistryLite registry)
+    {
     }
 
     public static void registerAllExtensions(
-            com.google.protobuf.ExtensionRegistry registry) {
+            com.google.protobuf.ExtensionRegistry registry)
+    {
         registerAllExtensions(
                 (com.google.protobuf.ExtensionRegistryLite) registry);
     }
 
-    public static com.google.protobuf.Descriptors.FileDescriptor getDescriptor() {
+    public static com.google.protobuf.Descriptors.FileDescriptor getDescriptor()
+    {
         return descriptor;
     }
 
@@ -114,7 +111,8 @@ public final class TestMsg {
      * Protobuf enum {@code proto.TestEnum}
      */
     public enum TestEnum
-            implements com.google.protobuf.ProtocolMessageEnum {
+            implements com.google.protobuf.ProtocolMessageEnum
+    {
         /**
          * <code>SHARED = 0;</code>
          */
@@ -123,8 +121,7 @@ public final class TestMsg {
          * <code>FAILOVER = 1;</code>
          */
         FAILOVER(1),
-        UNRECOGNIZED(-1),
-        ;
+        UNRECOGNIZED(-1),;
 
         /**
          * <code>SHARED = 0;</code>
@@ -136,9 +133,11 @@ public final class TestMsg {
         public static final int FAILOVER_VALUE = 1;
         private static final com.google.protobuf.Internal.EnumLiteMap<
                 TestEnum> internalValueMap =
-                new com.google.protobuf.Internal.EnumLiteMap<TestEnum>() {
+                new com.google.protobuf.Internal.EnumLiteMap<TestEnum>()
+                {
                     @Override
-                    public TestEnum findValueByNumber(int number) {
+                    public TestEnum findValueByNumber(int number)
+                    {
                         return TestEnum.forNumber(number);
                     }
                 };
@@ -176,13 +175,14 @@ public final class TestMsg {
             return internalValueMap;
         }
 
-        public static final com.google.protobuf.Descriptors.EnumDescriptor
-        getDescriptor() {
+        public static com.google.protobuf.Descriptors.EnumDescriptor getDescriptor()
+        {
             return TestMsg.getDescriptor().getEnumTypes().get(0);
         }
 
         public static TestEnum valueOf(
-                com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
+                com.google.protobuf.Descriptors.EnumValueDescriptor desc)
+        {
             if (desc.getType() != getDescriptor()) {
                 throw new IllegalArgumentException(
                         "EnumValueDescriptor is not for this type.");
@@ -194,7 +194,8 @@ public final class TestMsg {
         }
 
         @Override
-        public final int getNumber() {
+        public final int getNumber()
+        {
             if (this == UNRECOGNIZED) {
                 throw new IllegalArgumentException(
                         "Can't get the number of an unknown enum value.");
@@ -203,14 +204,14 @@ public final class TestMsg {
         }
 
         @Override
-        public final com.google.protobuf.Descriptors.EnumValueDescriptor
-        getValueDescriptor() {
+        public final com.google.protobuf.Descriptors.EnumValueDescriptor getValueDescriptor()
+        {
             return getDescriptor().getValues().get(ordinal());
         }
 
         @Override
-        public final com.google.protobuf.Descriptors.EnumDescriptor
-        getDescriptorForType() {
+        public final com.google.protobuf.Descriptors.EnumDescriptor getDescriptorForType()
+        {
             return getDescriptor();
         }
 
@@ -220,7 +221,8 @@ public final class TestMsg {
     public interface SubMessageOrBuilder
             extends
             // @@protoc_insertion_point(interface_extends:proto.SubMessage)
-            com.google.protobuf.MessageOrBuilder {
+            com.google.protobuf.MessageOrBuilder
+    {
         /**
          * <code>string foo = 1;</code>
          */
@@ -229,8 +231,7 @@ public final class TestMsg {
         /**
          * <code>string foo = 1;</code>
          */
-        com.google.protobuf.ByteString
-        getFooBytes();
+        com.google.protobuf.ByteString getFooBytes();
 
         /**
          * <code>double bar = 2;</code>
@@ -256,7 +257,8 @@ public final class TestMsg {
     public interface TestMessageOrBuilder
             extends
             // @@protoc_insertion_point(interface_extends:proto.TestMessage)
-            com.google.protobuf.MessageOrBuilder {
+            com.google.protobuf.MessageOrBuilder
+    {
         /**
          * <code>string stringField = 1;</code>
          */
@@ -427,7 +429,8 @@ public final class TestMsg {
             extends com.google.protobuf.GeneratedMessageV3
             implements
             // @@protoc_insertion_point(message_implements:proto.SubMessage)
-            SubMessageOrBuilder {
+            SubMessageOrBuilder
+    {
         public static final int FOO_FIELD_NUMBER = 1;
         public static final int BAR_FIELD_NUMBER = 2;
         public static final int NESTEDMESSAGE_FIELD_NUMBER = 3;
@@ -435,15 +438,15 @@ public final class TestMsg {
         // @@protoc_insertion_point(class_scope:proto.SubMessage)
         private static final SubMessage DEFAULT_INSTANCE;
         private static final com.google.protobuf.Parser<SubMessage>
-                PARSER = new com.google.protobuf.AbstractParser<SubMessage>() {
-            @Override
-            public SubMessage parsePartialFrom(
-                    com.google.protobuf.CodedInputStream input,
-                    com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                    throws com.google.protobuf.InvalidProtocolBufferException {
-                return new SubMessage(input, extensionRegistry);
-            }
-        };
+                PARSER = new com.google.protobuf.AbstractParser<SubMessage>()
+                {
+                    @Override
+                    public SubMessage parsePartialFrom(com.google.protobuf.CodedInputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+                            throws com.google.protobuf.InvalidProtocolBufferException
+                    {
+                        return new SubMessage(input, extensionRegistry);
+                    }
+                };
 
         static {
             DEFAULT_INSTANCE = new SubMessage();
@@ -455,11 +458,13 @@ public final class TestMsg {
         private byte memoizedIsInitialized = -1;
 
         // Use SubMessage.newBuilder() to construct.
-        private SubMessage(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        private SubMessage(com.google.protobuf.GeneratedMessageV3.Builder<?> builder)
+        {
             super(builder);
         }
 
-        private SubMessage() {
+        private SubMessage()
+        {
             foo = "";
             bar = 0D;
         }
@@ -467,7 +472,8 @@ public final class TestMsg {
         private SubMessage(
                 com.google.protobuf.CodedInputStream input,
                 com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                throws com.google.protobuf.InvalidProtocolBufferException {
+                throws com.google.protobuf.InvalidProtocolBufferException
+        {
             this();
             if (extensionRegistry == null) {
                 throw new NullPointerException();
@@ -514,62 +520,72 @@ public final class TestMsg {
                         }
                     }
                 }
-            } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            }
+            catch (com.google.protobuf.InvalidProtocolBufferException e) {
                 throw e.setUnfinishedMessage(this);
-            } catch (java.io.IOException e) {
+            }
+            catch (java.io.IOException e) {
                 throw new com.google.protobuf.InvalidProtocolBufferException(
                         e).setUnfinishedMessage(this);
-            } finally {
+            }
+            finally {
                 this.unknownFields = unknownFields.build();
                 makeExtensionsImmutable();
             }
         }
 
-        public static com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
+        public static com.google.protobuf.Descriptors.Descriptor getDescriptor()
+        {
             return TestMsg.internal_static_proto_SubMessage_descriptor;
         }
 
         public static SubMessage parseFrom(
                 java.nio.ByteBuffer data)
-                throws com.google.protobuf.InvalidProtocolBufferException {
+                throws com.google.protobuf.InvalidProtocolBufferException
+        {
             return PARSER.parseFrom(data);
         }
 
         public static SubMessage parseFrom(
                 java.nio.ByteBuffer data,
                 com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                throws com.google.protobuf.InvalidProtocolBufferException {
+                throws com.google.protobuf.InvalidProtocolBufferException
+        {
             return PARSER.parseFrom(data, extensionRegistry);
         }
 
         public static SubMessage parseFrom(
                 com.google.protobuf.ByteString data)
-                throws com.google.protobuf.InvalidProtocolBufferException {
+                throws com.google.protobuf.InvalidProtocolBufferException
+        {
             return PARSER.parseFrom(data);
         }
 
         public static SubMessage parseFrom(
                 com.google.protobuf.ByteString data,
                 com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                throws com.google.protobuf.InvalidProtocolBufferException {
+                throws com.google.protobuf.InvalidProtocolBufferException
+        {
             return PARSER.parseFrom(data, extensionRegistry);
         }
 
         public static SubMessage parseFrom(byte[] data)
-                throws com.google.protobuf.InvalidProtocolBufferException {
+                throws com.google.protobuf.InvalidProtocolBufferException
+        {
             return PARSER.parseFrom(data);
         }
 
         public static SubMessage parseFrom(
                 byte[] data,
                 com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                throws com.google.protobuf.InvalidProtocolBufferException {
+                throws com.google.protobuf.InvalidProtocolBufferException
+        {
             return PARSER.parseFrom(data, extensionRegistry);
         }
 
         public static SubMessage parseFrom(java.io.InputStream input)
-                throws java.io.IOException {
+                throws java.io.IOException
+        {
             return com.google.protobuf.GeneratedMessageV3
                     .parseWithIOException(PARSER, input);
         }
@@ -577,13 +593,15 @@ public final class TestMsg {
         public static SubMessage parseFrom(
                 java.io.InputStream input,
                 com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                throws java.io.IOException {
+                throws java.io.IOException
+        {
             return com.google.protobuf.GeneratedMessageV3
                     .parseWithIOException(PARSER, input, extensionRegistry);
         }
 
         public static SubMessage parseDelimitedFrom(java.io.InputStream input)
-                throws java.io.IOException {
+                throws java.io.IOException
+        {
             return com.google.protobuf.GeneratedMessageV3
                     .parseDelimitedWithIOException(PARSER, input);
         }
@@ -591,14 +609,16 @@ public final class TestMsg {
         public static SubMessage parseDelimitedFrom(
                 java.io.InputStream input,
                 com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                throws java.io.IOException {
+                throws java.io.IOException
+        {
             return com.google.protobuf.GeneratedMessageV3
                     .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
         }
 
         public static SubMessage parseFrom(
                 com.google.protobuf.CodedInputStream input)
-                throws java.io.IOException {
+                throws java.io.IOException
+        {
             return com.google.protobuf.GeneratedMessageV3
                     .parseWithIOException(PARSER, input);
         }
@@ -606,36 +626,41 @@ public final class TestMsg {
         public static SubMessage parseFrom(
                 com.google.protobuf.CodedInputStream input,
                 com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                throws java.io.IOException {
+                throws java.io.IOException
+        {
             return com.google.protobuf.GeneratedMessageV3
                     .parseWithIOException(PARSER, input, extensionRegistry);
         }
 
-        public static Builder newBuilder() {
+        public static Builder newBuilder()
+        {
             return DEFAULT_INSTANCE.toBuilder();
         }
 
-        public static Builder newBuilder(SubMessage prototype) {
+        public static Builder newBuilder(SubMessage prototype)
+        {
             return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
         }
 
-        public static SubMessage getDefaultInstance() {
+        public static SubMessage getDefaultInstance()
+        {
             return DEFAULT_INSTANCE;
         }
 
-        public static com.google.protobuf.Parser<SubMessage> parser() {
+        public static com.google.protobuf.Parser<SubMessage> parser()
+        {
             return PARSER;
         }
 
         @Override
-        public com.google.protobuf.UnknownFieldSet
-        getUnknownFields() {
+        public com.google.protobuf.UnknownFieldSet getUnknownFields()
+        {
             return unknownFields;
         }
 
         @Override
-        protected FieldAccessorTable
-        internalGetFieldAccessorTable() {
+        protected FieldAccessorTable internalGetFieldAccessorTable()
+        {
             return TestMsg.internal_static_proto_SubMessage_fieldAccessorTable
                     .ensureFieldAccessorsInitialized(
                             SubMessage.class, Builder.class);
@@ -645,11 +670,13 @@ public final class TestMsg {
          * <code>string foo = 1;</code>
          */
         @Override
-        public String getFoo() {
+        public String getFoo()
+        {
             Object ref = foo;
             if (ref instanceof String) {
                 return (String) ref;
-            } else {
+            }
+            else {
                 com.google.protobuf.ByteString bs =
                         (com.google.protobuf.ByteString) ref;
                 String s = bs.toStringUtf8();
@@ -662,7 +689,8 @@ public final class TestMsg {
          * <code>string foo = 1;</code>
          */
         @Override
-        public com.google.protobuf.ByteString getFooBytes() {
+        public com.google.protobuf.ByteString getFooBytes()
+        {
             Object ref = foo;
             if (ref instanceof String) {
                 com.google.protobuf.ByteString b =
@@ -670,7 +698,8 @@ public final class TestMsg {
                                 (String) ref);
                 foo = b;
                 return b;
-            } else {
+            }
+            else {
                 return (com.google.protobuf.ByteString) ref;
             }
         }
@@ -679,7 +708,8 @@ public final class TestMsg {
          * <code>double bar = 2;</code>
          */
         @Override
-        public double getBar() {
+        public double getBar()
+        {
             return bar;
         }
 
@@ -687,7 +717,8 @@ public final class TestMsg {
          * <code>.proto.SubMessage.NestedMessage nestedMessage = 3;</code>
          */
         @Override
-        public boolean hasNestedMessage() {
+        public boolean hasNestedMessage()
+        {
             return nestedMessage != null;
         }
 
@@ -695,7 +726,8 @@ public final class TestMsg {
          * <code>.proto.SubMessage.NestedMessage nestedMessage = 3;</code>
          */
         @Override
-        public NestedMessage getNestedMessage() {
+        public NestedMessage getNestedMessage()
+        {
             return nestedMessage == null ? NestedMessage.getDefaultInstance() : nestedMessage;
         }
 
@@ -703,12 +735,14 @@ public final class TestMsg {
          * <code>.proto.SubMessage.NestedMessage nestedMessage = 3;</code>
          */
         @Override
-        public NestedMessageOrBuilder getNestedMessageOrBuilder() {
+        public NestedMessageOrBuilder getNestedMessageOrBuilder()
+        {
             return getNestedMessage();
         }
 
         @Override
-        public boolean isInitialized() {
+        public boolean isInitialized()
+        {
             byte isInitialized = memoizedIsInitialized;
             if (isInitialized == 1) {
                 return true;
@@ -723,7 +757,8 @@ public final class TestMsg {
 
         @Override
         public void writeTo(com.google.protobuf.CodedOutputStream output)
-                throws java.io.IOException {
+                throws java.io.IOException
+        {
             if (!getFooBytes().isEmpty()) {
                 com.google.protobuf.GeneratedMessageV3.writeString(output, 1, foo);
             }
@@ -737,7 +772,8 @@ public final class TestMsg {
         }
 
         @Override
-        public int getSerializedSize() {
+        public int getSerializedSize()
+        {
             int size = memoizedSize;
             if (size != -1) {
                 return size;
@@ -761,7 +797,8 @@ public final class TestMsg {
         }
 
         @Override
-        public boolean equals(final Object obj) {
+        public boolean equals(final Object obj)
+        {
             if (obj == this) {
                 return true;
             }
@@ -786,7 +823,8 @@ public final class TestMsg {
         }
 
         @Override
-        public int hashCode() {
+        public int hashCode()
+        {
             if (memoizedHashCode != 0) {
                 return memoizedHashCode;
             }
@@ -807,37 +845,43 @@ public final class TestMsg {
         }
 
         @Override
-        public Builder newBuilderForType() {
+        public Builder newBuilderForType()
+        {
             return newBuilder();
         }
 
         @Override
-        public Builder toBuilder() {
+        public Builder toBuilder()
+        {
             return this == DEFAULT_INSTANCE
                     ? new Builder() : new Builder().mergeFrom(this);
         }
 
         @Override
         protected Builder newBuilderForType(
-                BuilderParent parent) {
+                BuilderParent parent)
+        {
             Builder builder = new Builder(parent);
             return builder;
         }
 
         @Override
-        public com.google.protobuf.Parser<SubMessage> getParserForType() {
+        public com.google.protobuf.Parser<SubMessage> getParserForType()
+        {
             return PARSER;
         }
 
         @Override
-        public SubMessage getDefaultInstanceForType() {
+        public SubMessage getDefaultInstanceForType()
+        {
             return DEFAULT_INSTANCE;
         }
 
         public interface NestedMessageOrBuilder
                 extends
                 // @@protoc_insertion_point(interface_extends:proto.SubMessage.NestedMessage)
-                com.google.protobuf.MessageOrBuilder {
+                com.google.protobuf.MessageOrBuilder
+        {
             /**
              * <code>string title = 1;</code>
              */
@@ -846,14 +890,12 @@ public final class TestMsg {
             /**
              * <code>string title = 1;</code>
              */
-            com.google.protobuf.ByteString
-            getTitleBytes();
+            com.google.protobuf.ByteString getTitleBytes();
 
             /**
              * <code>repeated string urls = 2;</code>
              */
-            java.util.List<String>
-            getUrlsList();
+            java.util.List<String> getUrlsList();
 
             /**
              * <code>repeated string urls = 2;</code>
@@ -868,8 +910,7 @@ public final class TestMsg {
             /**
              * <code>repeated string urls = 2;</code>
              */
-            com.google.protobuf.ByteString
-            getUrlsBytes(int index);
+            com.google.protobuf.ByteString getUrlsBytes(int index);
         }
 
         /**
@@ -879,7 +920,8 @@ public final class TestMsg {
                 extends com.google.protobuf.GeneratedMessageV3
                 implements
                 // @@protoc_insertion_point(message_implements:proto.SubMessage.NestedMessage)
-                NestedMessageOrBuilder {
+                NestedMessageOrBuilder
+        {
             public static final int TITLE_FIELD_NUMBER = 1;
             public static final int URLS_FIELD_NUMBER = 2;
             private static final long serialVersionUID = 0L;
@@ -887,16 +929,14 @@ public final class TestMsg {
             private static final NestedMessage DEFAULT_INSTANCE;
             private static final com.google.protobuf.Parser<NestedMessage>
                     PARSER = new com.google.protobuf.AbstractParser<NestedMessage>()
-                {
-                   @Override
-                   public NestedMessage parsePartialFrom(
-                        com.google.protobuf.CodedInputStream input,
-                        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                        throws com.google.protobuf.InvalidProtocolBufferException
-                   {
-                       return new NestedMessage(input, extensionRegistry);
-                   }
-               };
+                    {
+                        @Override
+                        public NestedMessage parsePartialFrom(com.google.protobuf.CodedInputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+                                throws com.google.protobuf.InvalidProtocolBufferException
+                        {
+                            return new NestedMessage(input, extensionRegistry);
+                        }
+                    };
 
             static {
                 DEFAULT_INSTANCE = new NestedMessage();
@@ -2222,16 +2262,15 @@ public final class TestMsg {
         private static final TestMessage DEFAULT_INSTANCE;
         private static final com.google.protobuf.Parser<TestMessage>
                 PARSER = new com.google.protobuf.AbstractParser<TestMessage>()
-                         {
-                            @Override
-                            public TestMessage parsePartialFrom(
-                                   com.google.protobuf.CodedInputStream input,
-                                   com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-                                   throws com.google.protobuf.InvalidProtocolBufferException
-                             {
-                                return new TestMessage(input, extensionRegistry);
-                             }
-                         };
+                {
+                    @Override
+                    public TestMessage parsePartialFrom(com.google.protobuf.CodedInputStream input, com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+                            throws com.google.protobuf.InvalidProtocolBufferException
+                    {
+                        return new TestMessage(input, extensionRegistry);
+                    }
+                };
+
         static {
             DEFAULT_INSTANCE = new TestMessage();
         }
