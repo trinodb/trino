@@ -273,14 +273,9 @@ public class TrinoResultSet
                 progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
                 warningsManager.addWarnings(results.getWarnings());
                 Iterable<List<Object>> data = client.currentData().getData();
-
-                try {
-                    client.advance();
+                if (!client.advance() && data == null) {
+                    break; // No more rows, query finished
                 }
-                catch (RuntimeException e) {
-                    throw e;
-                }
-
                 if (data != null) {
                     return data;
                 }
