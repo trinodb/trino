@@ -39,7 +39,7 @@ class TestFileSystemSpooledSegmentHandle
         Instant expireAt = Instant.ofEpochMilli(90000);
         FileSystemSpooledSegmentHandle handle = FileSystemSpooledSegmentHandle.random(new NotARandomAtAll(), context, expireAt);
         assertThat(handle.storageObjectName())
-                .isEqualTo("0000002QWG0G2081040G208104::query_id");
+                .isEqualTo("0000002QWG0G2081040G208104-query_id");
     }
 
     @Test
