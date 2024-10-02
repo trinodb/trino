@@ -763,7 +763,7 @@ abstract class AbstractTrinoResultSet
     private static BigDecimal parseBigDecimal(String value)
             throws SQLException
     {
-        return toBigDecimal(String.valueOf(value))
+        return toBigDecimal(value)
                 .orElseThrow(() -> new SQLException("Value is not a number: " + value));
     }
 
