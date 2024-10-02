@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.trino.annotation.NotThreadSafe;
@@ -63,6 +65,8 @@ import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_
 import static org.apache.iceberg.TableMetadataParser.getFileExtension;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION_DEFAULT;
+import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
+import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 
@@ -302,5 +306,22 @@ public abstract class AbstractIcebergTableOperations
                         Optional.empty(),
                         Map.of()))
                 .collect(toImmutableList());
+    }
+
+    protected void deleteRemovedMetadataFiles(TableMetadata base, TableMetadata metadata)
+    {
+        if (base == null) {
+            return;
+        }
+
+        boolean deleteAfterCommit = metadata.propertyAsBoolean(METADATA_DELETE_AFTER_COMMIT_ENABLED, METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT);
+        if (deleteAfterCommit) {
+            Sets.SetView<TableMetadata.MetadataLogEntry> metadataFileToBeRemoved = Sets.difference(
+                    ImmutableSet.copyOf(base.previousFiles()),
+                    ImmutableSet.copyOf(metadata.previousFiles()));
+            metadataFileToBeRemoved
+                    .stream().map(TableMetadata.MetadataLogEntry::file)
+                    .forEach(fileIo::deleteFile);
+        }
     }
 }
