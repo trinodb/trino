@@ -62,6 +62,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.inlineIf;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
+import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.columnar.FilterEvaluator.isNotExpression;
 import static io.trino.sql.gen.columnar.IsNotNullColumnarFilter.createIsNotNullColumnarFilter;
@@ -179,7 +180,7 @@ public class ColumnarFilterCompiler
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
-                throw new TrinoException(COMPILER_ERROR,
+                throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT,
                         "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.", e);
             }
             throw new TrinoException(COMPILER_ERROR, e.getCause());

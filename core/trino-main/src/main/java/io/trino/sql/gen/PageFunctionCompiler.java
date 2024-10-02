@@ -92,6 +92,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.project.PageFieldsToInputParametersRewriter.rewritePageFieldsToInputParameters;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
+import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
 import static io.trino.sql.gen.BytecodeUtils.generateWrite;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
@@ -206,7 +207,7 @@ public class PageFunctionCompiler
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
-                throw new TrinoException(COMPILER_ERROR,
+                throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT,
                         "Query exceeded maximum columns. Please reduce the number of columns referenced and re-run the query.", e);
             }
             throw new TrinoException(COMPILER_ERROR, e);
@@ -400,7 +401,7 @@ public class PageFunctionCompiler
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
-                throw new TrinoException(COMPILER_ERROR,
+                throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT,
                         "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.", e);
             }
             throw new TrinoException(COMPILER_ERROR, filter.toString(), e.getCause());
