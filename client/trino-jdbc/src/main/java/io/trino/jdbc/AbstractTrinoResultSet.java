@@ -90,6 +90,8 @@ import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
 abstract class AbstractTrinoResultSet
         implements ResultSet
 {
+    private static final ZoneId SYSTEM_DEFAULT_ZONE_ID = ZoneId.systemDefault();
+
     private static final Pattern DATETIME_PATTERN = Pattern.compile("" +
             "(?<year>[-+]?\\d{4,})-(?<month>\\d{1,2})-(?<day>\\d{1,2})" +
             "( (?:(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
@@ -118,8 +120,8 @@ abstract class AbstractTrinoResultSet
 
     private static final int MAX_DATETIME_PRECISION = 12;
 
-    private static final DateTimeZone CURRENT_TIME_ZONE = DateTimeZone.forID(ZoneId.systemDefault().getId());
-    private static final TimeZone CURRENT_JAVA_TIME_ZONE = TimeZone.getTimeZone(ZoneId.of(CURRENT_TIME_ZONE.getID()));
+    private static final DateTimeZone CURRENT_TIME_ZONE = DateTimeZone.forID(SYSTEM_DEFAULT_ZONE_ID.getId());
+    private static final TimeZone CURRENT_JAVA_TIME_ZONE = TimeZone.getTimeZone(SYSTEM_DEFAULT_ZONE_ID);
 
     private static final int MILLISECONDS_PER_SECOND = 1000;
     private static final int MILLISECONDS_PER_MINUTE = 60 * MILLISECONDS_PER_SECOND;
@@ -155,9 +157,9 @@ abstract class AbstractTrinoResultSet
                     .add("varbinary", byte[].class, String.class, value -> "0x" + BaseEncoding.base16().encode(value))
                     .add("date", String.class, Date.class, string -> parseDate(string, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE))
                     .add("date", String.class, java.time.LocalDate.class, string -> parseDate(string, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE).toLocalDate())
-                    .add("time", String.class, Time.class, string -> parseTime(string, ZoneId.systemDefault()))
+                    .add("time", String.class, Time.class, string -> parseTime(string, SYSTEM_DEFAULT_ZONE_ID))
                     .add("time with time zone", String.class, Time.class, AbstractTrinoResultSet::parseTimeWithTimeZone)
-                    .add("timestamp", String.class, Timestamp.class, string -> parseTimestampAsSqlTimestamp(string, ZoneId.systemDefault()))
+                    .add("timestamp", String.class, Timestamp.class, string -> parseTimestampAsSqlTimestamp(string, SYSTEM_DEFAULT_ZONE_ID))
                     .add("timestamp with time zone", String.class, Timestamp.class, AbstractTrinoResultSet::parseTimestampWithTimeZoneAsSqlTimestamp)
                     .add("timestamp with time zone", String.class, ZonedDateTime.class, AbstractTrinoResultSet::parseTimestampWithTimeZone)
                     .add("interval year to month", String.class, TrinoIntervalYearMonth.class, AbstractTrinoResultSet::parseIntervalYearMonth)
