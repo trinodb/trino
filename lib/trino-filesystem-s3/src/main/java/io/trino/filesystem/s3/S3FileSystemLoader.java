@@ -166,8 +166,6 @@ final class S3FileSystemLoader
                 s3.crossRegionAccessEnabled(true);
             }
 
-            region.map(Region::of).ifPresent(s3::region);
-            endpoint.map(URI::create).ifPresent(s3::endpointOverride);
             s3.forcePathStyle(pathStyleAccess);
 
             if (useWebIdentityTokenCredentialsProvider) {
