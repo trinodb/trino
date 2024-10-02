@@ -90,11 +90,13 @@ public class FileSystemSegmentPruner
     }
 
     @VisibleForTesting
-    void pruneExpiredBefore(Instant expiredBefore)
+    long pruneExpiredBefore(Instant expiredBefore)
     {
         if (closed) {
-            return;
+            return 0;
         }
+        long pruned = 0;
+
         try {
             List<Location> expiredSegments = new ArrayList<>();
             FileIterator iterator = orderDetectingIterator(fileSystem.listFiles(location));
@@ -109,20 +111,24 @@ public class FileSystemSegmentPruner
                 if (handle.get().isBefore(expiredBefore)) {
                     expiredSegments.add(file.location());
                     if (expiredSegments.size() >= batchSize) {
+                        pruned += expiredSegments.size();
                         pruneExpiredSegments(expiredBefore, expiredSegments);
+                        expiredSegments.clear();
                     }
                 }
                 else if (filesAreOrdered) {
                     // First non expired segment was found, no need to check the rest
                     // since we know that files are lexicographically ordered.
                     pruneExpiredSegments(expiredBefore, expiredSegments);
-                    return;
+                    return pruned + expiredSegments.size();
                 }
             }
             pruneExpiredSegments(expiredBefore, expiredSegments);
+            return pruned + expiredSegments.size();
         }
         catch (IOException e) {
             log.error(e, "Failed to prune segments");
+            return pruned;
         }
     }
 
