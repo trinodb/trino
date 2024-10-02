@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ContiguousSet;
@@ -270,6 +271,7 @@ import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.FunctionType;
+import org.objectweb.asm.MethodTooLargeException;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
@@ -350,6 +352,7 @@ import static io.trino.operator.window.FrameInfo.Ordering.DESCENDING;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.CLASSIFIER;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
+import static io.trino.spi.StandardErrorCode.QUERY_EXCEEDED_COMPILER_LIMIT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -2067,11 +2070,12 @@ public class LocalExecutionPlanner
                 throw e;
             }
             catch (RuntimeException e) {
-                throw new TrinoException(
-                        COMPILER_ERROR,
-                        "Compiler failed. Possible reasons include: the query may have too many or too complex expressions, " +
-                                "or the underlying tables may have too many columns",
-                        e);
+                if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
+                    throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT,
+                            "Compiler failed. Possible reasons include: the query may have too many or too complex expressions, " +
+                                    "or the underlying tables may have too many columns", e);
+                }
+                throw new TrinoException(COMPILER_ERROR, e);
             }
         }
 
