@@ -115,6 +115,7 @@ public class S3FileSystemConfig
     private RetryMode retryMode = RetryMode.LEGACY;
     private int maxErrorRetries = 10;
     private boolean supportsExclusiveCreate = true;
+    private boolean crossRegionAccessEnabled;
 
     public String getAwsAccessKey()
     {
@@ -509,6 +510,19 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setSupportsExclusiveCreate(boolean supportsExclusiveCreate)
     {
         this.supportsExclusiveCreate = supportsExclusiveCreate;
+        return this;
+    }
+
+    public boolean isCrossRegionAccessEnabled()
+    {
+        return crossRegionAccessEnabled;
+    }
+
+    @Config("s3.cross-region-access-enabled")
+    @ConfigDescription("Whether to allow cross-region bucket access")
+    public S3FileSystemConfig setCrossRegionAccessEnabled(boolean crossRegionAccessEnabled)
+    {
+        this.crossRegionAccessEnabled = crossRegionAccessEnabled;
         return this;
     }
 }
