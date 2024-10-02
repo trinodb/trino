@@ -181,12 +181,15 @@ documentation](https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java
   - `INSERT`: [INSERT](/sql/insert), [CREATE TABLE AS](/sql/create-table-as),
     and [REFRESH MATERIALIZED VIEW](/sql/refresh-materialized-view) queries.
   - `UPDATE`: [UPDATE](/sql/update) queries.
+  - `MERGE`: [MERGE](/sql/merge) queries.
   - `DELETE`: [DELETE](/sql/delete) queries.
   - `ANALYZE`: [ANALYZE](/sql/analyze) queries.
   - `DATA_DEFINITION`: Queries that affect the data definition. These include
     `CREATE`, `ALTER`, and `DROP` statements for schemas, tables, views, and
     materialized views, as well as statements that manage prepared statements,
     privileges, sessions, and transactions.
+  - `ALTER_TABLE_EXECUTE`: Queries that execute table procedures with [ALTER
+    TABLE EXECUTE](alter-table-execute).
 
 - `clientTags` (optional): list of tags. To match, every tag in this list must be in the list of
   client-provided tags associated with the query.
