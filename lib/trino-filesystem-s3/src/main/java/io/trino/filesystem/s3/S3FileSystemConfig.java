@@ -519,7 +519,7 @@ public class S3FileSystemConfig
     }
 
     @Config("s3.cross-region-access-enabled")
-    @ConfigDescription("Whether to allow cross-region bucket access. No s3 endpoint should be set when this is enabled")
+    @ConfigDescription("Whether to allow cross-region bucket access. This will be ignored when s3 endpoint is set")
     public S3FileSystemConfig setCrossRegionAccessEnabled(boolean crossRegionAccessEnabled)
     {
         this.crossRegionAccessEnabled = crossRegionAccessEnabled;
