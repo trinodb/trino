@@ -27,18 +27,24 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Abstract util superclass for  XXDecoderTestUtil (e.g. AvroDecoderTestUtil 、JsonDecoderTestUtil)
  */
-public abstract class DecoderTestUtil {
+public abstract class DecoderTestUtil
+{
     protected static final CatalogName catalogName = new CatalogName("test-connector");
 
-    protected DecoderTestUtil() {
+    protected DecoderTestUtil()
+    {
     }
 
-    public static CatalogName getCatalogName() {
+    public static CatalogName getCatalogName()
+    {
         assertNotNull(catalogName);
         return catalogName;
     }
@@ -51,7 +57,8 @@ public abstract class DecoderTestUtil {
 
     public abstract void checkPrimitiveValue(Object actual, Object expected);
 
-    public void checkField(Block actualBlock, Type type, int position, Object expectedValue) {
+    public void checkField(Block actualBlock, Type type, int position, Object expectedValue)
+    {
         assertNotNull("Type is null", type);
         assertNotNull("actualBlock is null", actualBlock);
         assertFalse(actualBlock.isNull(position));
@@ -60,72 +67,85 @@ public abstract class DecoderTestUtil {
         if (type instanceof ArrayType) {
             //checkRowValues(actualBlock.getObject(position, Block.class), type, expectedValue);
             checkArrayValues(actualBlock, type, expectedValue);
-        } else if (type instanceof MapType) {
+        }
+        else if (type instanceof MapType) {
             //checkRowValues(actualBlock.getObject(position, Block.class), type, expectedValue);
             checkMapValues(actualBlock, type, expectedValue);
-        } else if (type instanceof RowType) {
+        }
+        else if (type instanceof RowType) {
             //checkRowValues(actualBlock.getObject(position, Block.class), type, expectedValue);
             checkRowValues(actualBlock, type, expectedValue);
-        } else {
+        }
+        else {
             checkPrimitiveValue(getObjectValue(type, actualBlock, position), expectedValue);
         }
     }
 
-    public boolean isIntegralType(Object value) {
+    public boolean isIntegralType(Object value)
+    {
         return value instanceof Long
                 || value instanceof Integer
                 || value instanceof Short
                 || value instanceof Byte;
     }
 
-    public boolean isRealType(Object value) {
+    public boolean isRealType(Object value)
+    {
         return value instanceof Float || value instanceof Double;
     }
 
-    public Object getObjectValue(Type type, Block block, int position) {
+    public Object getObjectValue(Type type, Block block, int position)
+    {
         if (block.isNull(position)) {
             return null;
         }
         return type.getObjectValue(SESSION, block, position);
     }
 
-    public void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Slice value) {
+    public void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Slice value)
+    {
         FieldValueProvider provider = decodedRow.get(handle);
         assertNotNull(provider);
         assertEquals(provider.getSlice(), value);
     }
 
-    public void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, BigDecimal value) {
+    public void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, BigDecimal value)
+    {
         FieldValueProvider provider = decodedRow.get(handle);
         assertNotNull(provider);
         assertEquals(provider.getSlice(), value);
     }
 
-    public void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, String value) {
+    public void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, String value)
+    {
         FieldValueProvider provider = decodedRow.get(handle);
         assertNotNull(provider);
         assertEquals(provider.getSlice().toStringUtf8(), value);
     }
 
-    public void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, long value) {
+    public void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, long value)
+    {
         FieldValueProvider provider = decodedRow.get(handle);
         assertNotNull(provider);
         assertEquals(provider.getLong(), value);
     }
 
-    public void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, double value) {
+    public void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, double value)
+    {
         FieldValueProvider provider = decodedRow.get(handle);
         assertNotNull(provider);
         assertEquals(provider.getDouble(), value, 0.0001);
     }
 
-    public void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, boolean value) {
+    public void checkValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, boolean value)
+    {
         FieldValueProvider provider = decodedRow.get(handle);
         assertNotNull(provider);
         assertEquals(provider.getBoolean(), value);
     }
 
-    public void checkIsNull(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle) {
+    public void checkIsNull(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle)
+    {
         FieldValueProvider provider = decodedRow.get(handle);
         assertNotNull(provider);
         assertTrue(provider.isNull());
