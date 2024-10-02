@@ -145,7 +145,8 @@ public final class TestMsg {
         private static final TestEnum[] VALUES = values();
         private final int value;
 
-        TestEnum(int value) {
+        TestEnum(int value)
+        {
             this.value = value;
         }
 
@@ -153,11 +154,13 @@ public final class TestMsg {
          * @deprecated Use {@link #forNumber(int)} instead.
          */
         @Deprecated
-        public static TestEnum valueOf(int value) {
+        public static TestEnum valueOf(int value)
+        {
             return forNumber(value);
         }
 
-        public static TestEnum forNumber(int value) {
+        public static TestEnum forNumber(int value)
+        {
             switch (value) {
                 case 0:
                     return SHARED;
@@ -168,8 +171,8 @@ public final class TestMsg {
             }
         }
 
-        public static com.google.protobuf.Internal.EnumLiteMap<TestEnum>
-        internalGetValueMap() {
+        public static com.google.protobuf.Internal.EnumLiteMap<TestEnum> internalGetValueMap()
+        {
             return internalValueMap;
         }
 
