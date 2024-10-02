@@ -44,7 +44,8 @@ class TestFileSystemSegmentPruner
     private static final String TEST_LOCATION = "memory://";
 
     private static final FileSystemSpoolingConfig SPOOLING_CONFIG = new FileSystemSpoolingConfig()
-            .setLocation(TEST_LOCATION);
+            .setLocation(TEST_LOCATION)
+            .setPruningBatchSize(1);
 
     @Test
     public void shouldPruneExpiredSegments()
@@ -60,6 +61,32 @@ class TestFileSystemSegmentPruner
             Location nonExpiredSegment = createNewDummySegment(fileSystem, queryId, now.plusSeconds(1));
 
             pruner.pruneExpiredBefore(now.truncatedTo(MILLIS));
+
+            List<Location> files = listFiles(fileSystem, queryId);
+            assertThat(files)
+                    .hasSize(1)
+                    .containsOnly(nonExpiredSegment);
+        }
+    }
+
+    @Test
+    public void shouldPruneExpiredSegmentsOnceAndClear()
+    {
+        MemoryFileSystem fileSystem = new MemoryFileSystem();
+        try (ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor()) {
+            FileSystemSegmentPruner pruner = new FileSystemSegmentPruner(SPOOLING_CONFIG, _ -> fileSystem, executorService);
+
+            Instant now = Instant.now();
+            QueryId queryId = QueryId.valueOf("prune_expired");
+
+            Location _ = createNewDummySegment(fileSystem, queryId, now.minusSeconds(1));
+            Location _ = createNewDummySegment(fileSystem, queryId, now.minusSeconds(1));
+            Location _ = createNewDummySegment(fileSystem, queryId, now.minusSeconds(1));
+
+            Location nonExpiredSegment = createNewDummySegment(fileSystem, queryId, now.plusSeconds(1));
+
+            assertThat(pruner.pruneExpiredBefore(now.truncatedTo(MILLIS)))
+                    .isEqualTo(3);
 
             List<Location> files = listFiles(fileSystem, queryId);
             assertThat(files)
