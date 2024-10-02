@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.base.VerifyException;
+import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import io.trino.client.spooling.encoding.JsonDecodingUtils.TypeDecoder;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
@@ -56,7 +57,7 @@ public class JsonQueryDataAccess
     public Iterable<List<Object>> toIterable()
             throws IOException
     {
-        return new RowWiseIterator(stream, decoders);
+        return new RowWiseIterator(JSON_FACTORY.createParser(ByteStreams.toByteArray(stream)), decoders);
     }
 
     private static class RowWiseIterator
@@ -67,12 +68,11 @@ public class JsonQueryDataAccess
         private final JsonParser parser;
         private final TypeDecoder[] decoders;
 
-        public RowWiseIterator(InputStream stream, TypeDecoder[] decoders)
+        public RowWiseIterator(JsonParser parser, TypeDecoder[] decoders)
                 throws IOException
         {
-            this.parser = JSON_FACTORY.createParser(stream);
+            this.parser = requireNonNull(parser, "parser is null");
             this.decoders = requireNonNull(decoders, "decoders is null");
-            closer.register(stream);
             closer.register(parser);
 
             // Non-empty result set starts with [[
