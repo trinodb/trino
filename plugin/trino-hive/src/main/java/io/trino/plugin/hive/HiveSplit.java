@@ -34,7 +34,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -49,7 +48,7 @@ public class HiveSplit
     private final long length;
     private final long estimatedFileSize;
     private final long fileModifiedTime;
-    private final Map<String, String> schema;
+    private final Schema schema;
     private final List<HivePartitionKey> partitionKeys;
     private final List<HostAddress> addresses;
     private final String partitionName;
@@ -70,7 +69,7 @@ public class HiveSplit
             @JsonProperty("length") long length,
             @JsonProperty("estimatedFileSize") long estimatedFileSize,
             @JsonProperty("fileModifiedTime") long fileModifiedTime,
-            @JsonProperty("schema") Map<String, String> schema,
+            @JsonProperty("schema") Schema schema,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
             @JsonProperty("readBucketNumber") OptionalInt readBucketNumber,
             @JsonProperty("tableBucketNumber") OptionalInt tableBucketNumber,
@@ -108,7 +107,7 @@ public class HiveSplit
             long length,
             long estimatedFileSize,
             long fileModifiedTime,
-            Map<String, String> schema,
+            Schema schema,
             List<HivePartitionKey> partitionKeys,
             List<HostAddress> addresses,
             OptionalInt readBucketNumber,
@@ -191,7 +190,7 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public Map<String, String> getSchema()
+    public Schema getSchema()
     {
         return schema;
     }
@@ -270,7 +269,7 @@ public class HiveSplit
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
-                + estimatedSizeOf(schema, key -> estimatedSizeOf((String) key), value -> estimatedSizeOf((String) value))
+                + schema.getRetainedSizeInBytes()
                 + estimatedSizeOf(partitionKeys, HivePartitionKey::estimatedSizeInBytes)
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
                 + estimatedSizeOf(partitionName)
@@ -294,7 +293,7 @@ public class HiveSplit
                 .put("hosts", addresses.stream().map(HostAddress::toString).collect(joining(",")))
                 .put("forceLocalScheduling", String.valueOf(forceLocalScheduling))
                 .put("partitionName", partitionName)
-                .put("deserializerClassName", getDeserializerClassName(schema))
+                .put("serializationLibraryName", schema.serializationLibraryName())
                 .buildOrThrow();
     }
 

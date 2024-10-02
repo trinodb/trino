@@ -115,7 +115,7 @@ public class TestKuduIntegrationDecimalColumns
             MaterializedResult result = computeActual(format("SELECT id, CAST((dec - (DECIMAL '%s')) as DOUBLE) FROM %s", insertValue, testTable.getName()));
             assertThat(result.getRowCount()).isEqualTo(1);
             Object obj = result.getMaterializedRows().get(0).getField(1);
-            assertThat(obj instanceof Double).isTrue();
+            assertThat(obj).isInstanceOf(Double.class);
             Double actual = (Double) obj;
             assertThat(actual)
                     .describedAs("p=" + decimal.precision + ",s=" + decimal.scale + " => " + actual + ",insert = " + insertValue)

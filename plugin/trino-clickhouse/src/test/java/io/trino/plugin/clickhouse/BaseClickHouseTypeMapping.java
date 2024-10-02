@@ -40,6 +40,8 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.TPCH_SCHEMA;
+import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -1112,6 +1114,17 @@ public abstract class BaseClickHouseTypeMapping
                 .addRoundTrip("Nullable(IPv4)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
                 .addRoundTrip("Nullable(IPv6)", "NULL", IPADDRESS, "CAST(NULL AS IPADDRESS)")
                 .execute(getQueryRunner(), clickhouseCreateAndTrinoInsert("tpch.test_ip"));
+    }
+
+    @Test
+    public void testUnsupportedPoint()
+    {
+        Session convertToVarchar = Session.builder(getSession())
+                .setCatalogSessionProperty("clickhouse", UNSUPPORTED_TYPE_HANDLING, CONVERT_TO_VARCHAR.name())
+                .build();
+        SqlDataTypeTest.create()
+                .addRoundTrip("Point", "(10, 10)", VARCHAR, "varchar '(10.0,10.0)'")
+                .execute(getQueryRunner(), convertToVarchar, clickhouseCreateAndInsert("tpch.point"));
     }
 
     protected static Session mapStringAsVarcharSession()

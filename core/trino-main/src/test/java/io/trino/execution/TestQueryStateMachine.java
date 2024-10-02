@@ -689,13 +689,13 @@ public class TestQueryStateMachine
         QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
         assertThat(queryInfo.getQueryId()).isEqualTo(TEST_SESSION.getQueryId());
         assertThat(queryInfo.getSelf()).isEqualTo(LOCATION);
-        assertThat(queryInfo.getOutputStage().isPresent()).isFalse();
+        assertThat(queryInfo.getOutputStage()).isEmpty();
         assertThat(queryInfo.getQuery()).isEqualTo(QUERY);
         assertThat(queryInfo.getInputs()).containsExactlyElementsOf(INPUTS);
         assertThat(queryInfo.getOutput()).isEqualTo(OUTPUT);
         assertThat(queryInfo.getFieldNames()).containsExactlyElementsOf(OUTPUT_FIELD_NAMES);
         assertThat(queryInfo.getUpdateType()).isEqualTo(UPDATE_TYPE);
-        assertThat(queryInfo.getQueryType().isPresent()).isTrue();
+        assertThat(queryInfo.getQueryType()).isPresent();
         assertThat(queryInfo.getQueryType().get()).isEqualTo(QUERY_TYPE.get());
 
         QueryStats queryStats = queryInfo.getQueryStats();

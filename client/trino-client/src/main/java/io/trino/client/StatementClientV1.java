@@ -122,11 +122,11 @@ class StatementClientV1
         this.timeZone = session.getTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
-        this.user = Stream.of(session.getAuthorizationUser(), session.getUser(), session.getPrincipal())
+        this.user = Stream.of(session.getAuthorizationUser(), session.getSessionUser(), session.getUser())
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
-        this.originalUser = Stream.of(session.getUser(), session.getPrincipal())
+        this.originalUser = Stream.of(session.getSessionUser(), session.getUser())
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();

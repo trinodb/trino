@@ -248,7 +248,6 @@ public class ServerMainModule
         binder.bind(InternalNodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(DiscoveryNodeManager.class).withGeneratedName();
         install(internalHttpClientModule("node-manager", ForNodeManager.class)
-                .withTracing()
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
@@ -346,8 +345,6 @@ public class ServerMainModule
         // exchange client
         binder.bind(DirectExchangeClientSupplier.class).to(DirectExchangeClientFactory.class).in(Scopes.SINGLETON);
         install(internalHttpClientModule("exchange", ForExchange.class)
-                .withTracing()
-                .withFilter(GenerateTraceTokenRequestFilter.class)
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));

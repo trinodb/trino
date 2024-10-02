@@ -35,13 +35,13 @@ public class TestStochasticPriorityQueue
         for (int i = 1; i < 100; i += 2) {
             assertThat(queue.contains("test" + i)).isTrue();
         }
-        assertThat(queue.isEmpty()).isFalse();
-        assertThat(queue.size()).isEqualTo(50);
+        assertThat(queue).isNotEmpty();
+        assertThat(queue).hasSize(50);
         for (int i = 1; i < 100; i += 2) {
             assertThat(queue.remove("test" + i)).isTrue();
         }
-        assertThat(queue.isEmpty()).isTrue();
-        assertThat(queue.size()).isEqualTo(0);
+        assertThat(queue).isEmpty();
+        assertThat(queue).hasSize(0);
     }
 
     @Test

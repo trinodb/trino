@@ -6,46 +6,10 @@ which covers thing like development philosophy and contribution process.
 More information about the writing and building the documentation can
 be found in the [docs module](../docs).
 
-* [Commits and pull requests](#commits-and-pull-requests)
 * [Code style](#code-style)
 * [Additional IDE configuration](#additional-ide-configuration)
 * [Building the Web UI](#building-the-web-ui)
 * [CI pipeline](#ci-pipeline)
-
-## Commits and pull requests
-
-### Format Git commit messages
-
-When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
-
-### Git merge strategy
-
-Pull requests are usually merged into `master` using the  [`rebase and merge`](https://docs.github.com/en/github/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/about-pull-request-merges#rebase-and-merge-your-pull-request-commits) strategy.
-
-A typical pull request should strive to contain a single logical change (but not
-necessarily a single commit). Unrelated changes should generally be extracted
-into their own PRs.
-
-If a pull request contains a stack of more than one commit, then
-popping any number of commits from the top of the stack, should not
-break the PR, ie. every commit should build and pass all tests.
-
-Commit messages and history are important as well, because they are
-used by other developers to keep track of the motivation behind
-changes. Keep logical diffs grouped together in separate commits and
-order commits in a way that explains by itself the evolution of the
-change. Rewriting and reordering commits is a natural part of the
-review process. Mechanical changes like refactoring, renaming, removing
-duplication, extracting helper methods, static imports should be kept
-separated from logical and functional changes like adding a new feature
-or modifying code behaviour. This makes reviewing the code much easier
-and reduces the chance of introducing unintended changes in behavior.
-
-Whenever in doubt on splitting a change into a separate commit, ask
-yourself the following question: if all other work in the PR needs to
-be reverted after merging to master for some objective reason (eg. a
-bug has been discovered), is it worth keeping that commit still in
-master.
 
 ## Code Style
 
@@ -262,16 +226,22 @@ Trino aims for frequent releases, generally once per week. This is a goal but
 not a guarantee, as critical bugs may lead to a release being pushed back or
 require an extra emergency release to patch the issue.
 
-At the start of each release cycle, a GitHub issue is filed and pinned to track
-all necessary release notes. For example, see [the issue for Trino 395](https://github.com/trinodb/trino/issues/13913).
-In addition, a release notes pull request is updated and maintained throughout
-the week, tracking all merged commits to ensure every change is properly
-documented and noted. This uses the [release note template](../docs/release-template.md),
-with changes in each section arranged to have new features first, performance
-improvements second, and bugfixes third. See [the release notes for 395](https://github.com/trinodb/trino/pull/13975)
-as an example.
+At the start of each release cycle, a release notes pull request (PR) is started
+and maintained throughout the week, tracking all merged PRs to ensure every
+change is properly documented and noted.
 
-Once it is time to release, the release process is kicked off. A code freeze is
-announced on the Trino Slack in the #releases channel, and then a maintainer
-utilizes the [release scripts](https://github.com/trinodb/release-scripts) to
-update Trino to the next version.
+The PR uses the [release note template](../docs/release-template.md) and follows
+the [release notes
+guidelines](https://trino.io/development/process#release-note) to use and
+improve the proposed release note entries from the merged PRs. When necessary,
+documentation and clarification for the release notes entries is requested from
+the merging maintainer and the contributor.
+
+See [the release notes for
+455](https://github.com/trinodb/trino/pull/23096) as an example.
+
+Once it is time to release, the release notes PR is merged and the process is
+kicked off. A code freeze is announced on the Trino Slack in the #releases
+channel, and then a maintainer utilizes the [release
+scripts](https://github.com/trinodb/release-scripts) to update Trino to the next
+version.

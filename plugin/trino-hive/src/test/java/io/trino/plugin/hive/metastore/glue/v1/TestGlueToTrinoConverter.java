@@ -141,7 +141,7 @@ public class TestGlueToTrinoConverter
     {
         testTable.setPartitionKeys(null);
         io.trino.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
-        assertThat(trinoTable.getPartitionColumns().isEmpty()).isTrue();
+        assertThat(trinoTable.getPartitionColumns()).isEmpty();
     }
 
     @Test

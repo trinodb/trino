@@ -97,7 +97,7 @@ public class TestExternalAuthorizerOAuth2
         try (Connection connection = DriverManager.getConnection(jdbcUrl);
                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {
-            assertThat(forResultSet(results)).matches(TpchTableResults.PRESTO_NATION_RESULT);
+            assertThat(forResultSet(results)).matches(TpchTableResults.TRINO_NATION_RESULT);
         }
     }
 
@@ -109,13 +109,13 @@ public class TestExternalAuthorizerOAuth2
         try (Connection connection = DriverManager.getConnection(jdbcUrl);
                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {
-            assertThat(forResultSet(results)).matches(TpchTableResults.PRESTO_NATION_RESULT);
+            assertThat(forResultSet(results)).matches(TpchTableResults.TRINO_NATION_RESULT);
             //Wait until the token expires. See: HydraIdentityProvider.TTL_ACCESS_TOKEN_IN_SECONDS
             SECONDS.sleep(10);
 
             try (PreparedStatement repeatedStatement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                     ResultSet repeatedResults = repeatedStatement.executeQuery()) {
-                assertThat(forResultSet(repeatedResults)).matches(TpchTableResults.PRESTO_NATION_RESULT);
+                assertThat(forResultSet(repeatedResults)).matches(TpchTableResults.TRINO_NATION_RESULT);
             }
         }
     }

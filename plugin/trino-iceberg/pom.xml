@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>459-SNAPSHOT</version>
+        <version>460-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,7 +15,7 @@
 
     <properties>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.97.1</dep.nessie.version>
+        <dep.nessie.version>0.99.0</dep.nessie.version>
     </properties>
 
     <dependencies>

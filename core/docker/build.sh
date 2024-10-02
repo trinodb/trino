@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -xeuo pipefail
+set -euo pipefail
 
 usage() {
     cat <<EOF 1>&2
@@ -11,6 +11,7 @@ Builds the Trino Docker image
 -a       Build the specified comma-separated architectures, defaults to amd64,arm64,ppc64le
 -r       Build the specified Trino release version, downloads all required artifacts
 -j       Build the Trino release with specified JDK distribution
+-x       Skip image tests
 EOF
 }
 
@@ -26,7 +27,9 @@ TRINO_VERSION=
 JDK_RELEASE=$(cat "${SOURCE_DIR}/core/jdk/current")
 JDKS_PATH="${SOURCE_DIR}/core/jdk"
 
-while getopts ":a:h:r:j:" o; do
+SKIP_TESTS=false
+
+while getopts ":a:h:r:j:x" o; do
     case "${o}" in
         a)
             IFS=, read -ra ARCH_ARG <<< "$OPTARG"
@@ -48,6 +51,9 @@ while getopts ":a:h:r:j:" o; do
         j)
             JDK_RELEASE="${OPTARG}"
             ;;
+        x)
+           SKIP_TESTS=true
+           ;;
         *)
             usage
             exit 1
@@ -125,10 +131,15 @@ done
 echo "🧹 Cleaning up the build context directory"
 rm -r "${WORK_DIR}"
 
-echo "🏃 Testing built images"
-source container-test.sh
+echo -n "🏃 Testing built images"
+if [[ "${SKIP_TESTS}" == "true" ]];then
+  echo " (skipped)"
+else
+  echo
+  source container-test.sh
+  for arch in "${ARCHITECTURES[@]}"; do
+      test_container "${TAG_PREFIX}-$arch" "linux/$arch"
+      docker image inspect -f '🚀 Built {{.RepoTags}} {{.Id}}' "${TAG_PREFIX}-$arch"
+  done
+fi
 
-for arch in "${ARCHITECTURES[@]}"; do
-    test_container "${TAG_PREFIX}-$arch" "linux/$arch"
-    docker image inspect -f '🚀 Built {{.RepoTags}} {{.Id}}' "${TAG_PREFIX}-$arch"
-done

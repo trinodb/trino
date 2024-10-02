@@ -70,19 +70,19 @@ public class TestKuduIntegrationIntegerColumns
         Object obj = result.getMaterializedRows().get(0).getField(1);
         switch (test.bits) {
             case 64:
-                assertThat(obj instanceof Long).isTrue();
+                assertThat(obj).isInstanceOf(Long.class);
                 assertThat(((Long) obj).longValue()).isEqualTo(casted);
                 break;
             case 32:
-                assertThat(obj instanceof Integer).isTrue();
+                assertThat(obj).isInstanceOf(Integer.class);
                 assertThat(((Integer) obj).longValue()).isEqualTo(casted);
                 break;
             case 16:
-                assertThat(obj instanceof Short).isTrue();
+                assertThat(obj).isInstanceOf(Short.class);
                 assertThat(((Short) obj).longValue()).isEqualTo(casted);
                 break;
             case 8:
-                assertThat(obj instanceof Byte).isTrue();
+                assertThat(obj).isInstanceOf(Byte.class);
                 assertThat(((Byte) obj).longValue()).isEqualTo(casted);
                 break;
             default:

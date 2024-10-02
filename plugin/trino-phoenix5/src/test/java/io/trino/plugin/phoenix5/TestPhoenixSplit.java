@@ -41,8 +41,6 @@ public class TestPhoenixSplit
                 addresses,
                 SerializedPhoenixInputSplit.serialize(phoenixInputSplit));
 
-        assertThat(objectMapper.canSerialize(PhoenixSplit.class)).isTrue();
-
         String json = objectMapper.writeValueAsString(expected);
         PhoenixSplit actual = objectMapper.readValue(json, PhoenixSplit.class);
         assertThat(actual.getPhoenixInputSplit()).isEqualTo(expected.getPhoenixInputSplit());

@@ -31,6 +31,7 @@ import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceProvider;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.util.HiveTypeTranslator;
 import io.trino.spi.Page;
@@ -183,7 +184,13 @@ class TestOrcPredicates
                         length,
                         length,
                         inputFile.lastModified().toEpochMilli(),
-                        getTableProperties(),
+                        new Schema(
+                                ORC.getSerde(),
+                                false,
+                                ImmutableMap.<String, String>builder()
+                                        .put(LIST_COLUMNS, COLUMNS.stream().map(HiveColumnHandle::getName).collect(Collectors.joining(",")))
+                                        .put(LIST_COLUMN_TYPES, COLUMNS.stream().map(HiveColumnHandle::getHiveType).map(HiveType::toString).collect(Collectors.joining(",")))
+                                        .buildOrThrow()),
                         effectivePredicate,
                         TESTING_TYPE_MANAGER,
                         Optional.empty(),

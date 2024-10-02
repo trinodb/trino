@@ -21,6 +21,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
+import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
@@ -155,6 +156,37 @@ final class SwitchingFileSystem
             throws IOException
     {
         return fileSystem(targetPath).preSignedUri(targetPath, ttl);
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, EncryptionKey key)
+    {
+        return fileSystem(location).newEncryptedInputFile(location, key);
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, long length, EncryptionKey key)
+    {
+        return fileSystem(location).newEncryptedInputFile(location, length, key);
+    }
+
+    @Override
+    public TrinoInputFile newEncryptedInputFile(Location location, long length, Instant lastModified, EncryptionKey key)
+    {
+        return fileSystem(location).newEncryptedInputFile(location, length, lastModified, key);
+    }
+
+    @Override
+    public TrinoOutputFile newEncryptedOutputFile(Location location, EncryptionKey key)
+    {
+        return fileSystem(location).newEncryptedOutputFile(location, key);
+    }
+
+    @Override
+    public Optional<UriLocation> encryptedPreSignedUri(Location location, Duration ttl, EncryptionKey key)
+            throws IOException
+    {
+        return fileSystem(location).encryptedPreSignedUri(location, ttl, key);
     }
 
     private TrinoFileSystem fileSystem(Location location)

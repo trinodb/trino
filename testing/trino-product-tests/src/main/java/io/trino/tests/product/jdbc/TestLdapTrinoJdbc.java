@@ -32,7 +32,7 @@ import static io.trino.tests.product.TestGroups.LDAP_AND_FILE;
 import static io.trino.tests.product.TestGroups.LDAP_MULTIPLE_BINDS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.TRINO_JDBC;
-import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
+import static io.trino.tests.product.TpchTableResults.TRINO_NATION_RESULT;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,7 +59,7 @@ public class TestLdapTrinoJdbc
     public void shouldRunQueryWithLdap()
             throws SQLException
     {
-        assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, ldapUserName, ldapUserPassword)).matches(PRESTO_NATION_RESULT);
+        assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, ldapUserName, ldapUserPassword)).matches(TRINO_NATION_RESULT);
     }
 
     @Requires(ImmutableNationTable.class)
@@ -68,7 +68,7 @@ public class TestLdapTrinoJdbc
             throws SQLException
     {
         String name = USER_IN_AMERICA.getAttributes().get("cn");
-        assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, name, ldapUserPassword)).matches(PRESTO_NATION_RESULT);
+        assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, name, ldapUserPassword)).matches(TRINO_NATION_RESULT);
     }
 
     @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -153,7 +153,7 @@ public class TestLdapTrinoJdbc
     public void shouldRunQueryWithFileAuthenticator()
             throws SQLException
     {
-        assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, ldapUserName, fileUserPassword)).matches(PRESTO_NATION_RESULT);
+        assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, ldapUserName, fileUserPassword)).matches(TRINO_NATION_RESULT);
     }
 
     @Requires(ImmutableNationTable.class)
@@ -161,7 +161,7 @@ public class TestLdapTrinoJdbc
     public void shouldRunQueryForAnotherUserWithOnlyFileAuthenticator()
             throws SQLException
     {
-        assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, "OnlyFileUser", onlyFileUserPassword)).matches(PRESTO_NATION_RESULT);
+        assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, "OnlyFileUser", onlyFileUserPassword)).matches(TRINO_NATION_RESULT);
     }
 
     private void expectQueryToFailForUserNotInGroup(String user)

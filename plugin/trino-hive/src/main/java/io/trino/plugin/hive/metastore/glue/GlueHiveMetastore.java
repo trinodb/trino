@@ -1459,6 +1459,7 @@ public class GlueHiveMetastore
                     .collect(toImmutableList()));
         }
         catch (software.amazon.awssdk.services.glue.model.EntityNotFoundException | AccessDeniedException e) {
+            log.warn(e, "Failed to get SQL routines for pattern: %s in schema: %s", functionNamePattern, databaseName);
             return ImmutableList.of();
         }
         catch (SdkException e) {

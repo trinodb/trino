@@ -58,7 +58,7 @@ public class SimplifyContinuousInValues
         }
 
         Type valueType = in.value().type();
-        if (!isDirectLongComparisonValidType(valueType)) {
+        if (!isDirectLongComparisonValidForContinuousValues(valueType)) {
             return Optional.empty();
         }
 
@@ -96,10 +96,11 @@ public class SimplifyContinuousInValues
         return Optional.empty();
     }
 
-    private static boolean isDirectLongComparisonValidType(Type type)
+    private static boolean isDirectLongComparisonValidForContinuousValues(Type type)
     {
         // Types for which we can safely use equality and comparison on the stored long value
-        // instead of going through type specific methods
+        // instead of going through type specific methods and where the next consecutive value
+        // can be obtained by incrementing the stored long value by 1
         return type instanceof TinyintType ||
                 type instanceof SmallintType ||
                 type instanceof IntegerType ||

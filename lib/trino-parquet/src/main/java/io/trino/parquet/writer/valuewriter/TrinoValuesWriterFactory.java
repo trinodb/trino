@@ -66,38 +66,38 @@ public class TrinoValuesWriterFactory
 
     private ValuesWriter getBinaryValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = createBloomFilterValuesWriter(new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()), bloomFilter);
-        return dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter);
+        ValuesWriter fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+        return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
     private ValuesWriter getInt32ValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = createBloomFilterValuesWriter(new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()), bloomFilter);
-        return dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter);
+        ValuesWriter fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+        return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
     private ValuesWriter getInt64ValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = createBloomFilterValuesWriter(new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()), bloomFilter);
-        return dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter);
+        ValuesWriter fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+        return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
     private ValuesWriter getInt96ValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = createBloomFilterValuesWriter(new FixedLenByteArrayPlainValuesWriter(12, INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()), bloomFilter);
-        return dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter);
+        ValuesWriter fallbackWriter = new FixedLenByteArrayPlainValuesWriter(12, INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+        return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
     private ValuesWriter getDoubleValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = createBloomFilterValuesWriter(new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()), bloomFilter);
-        return dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter);
+        ValuesWriter fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+        return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
     private ValuesWriter getFloatValuesWriter(ColumnDescriptor path, Optional<BloomFilter> bloomFilter)
     {
-        ValuesWriter fallbackWriter = createBloomFilterValuesWriter(new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator()), bloomFilter);
-        return dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter);
+        ValuesWriter fallbackWriter = new PlainValuesWriter(INITIAL_SLAB_SIZE, maxPageSize, new HeapByteBufferAllocator());
+        return createBloomFilterValuesWriter(dictWriterWithFallBack(path, getEncodingForDictionaryPage(), getEncodingForDataPage(), fallbackWriter), bloomFilter);
     }
 
     @SuppressWarnings("deprecation")

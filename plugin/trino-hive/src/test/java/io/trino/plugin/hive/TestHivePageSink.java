@@ -85,7 +85,6 @@ import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.creat
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -329,7 +328,6 @@ public class TestHivePageSink
         long length = fileSystemFactory.create(ConnectorIdentity.ofUser("test")).newInputFile(location).length();
         Map<String, String> splitProperties = ImmutableMap.<String, String>builder()
                 .put(FILE_INPUT_FORMAT, config.getHiveStorageFormat().getInputFormat())
-                .put(SERIALIZATION_LIB, config.getHiveStorageFormat().getSerde())
                 .put(LIST_COLUMNS, Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getName).collect(toImmutableList())))
                 .put(LIST_COLUMN_TYPES, Joiner.on(',').join(getColumnHandles().stream().map(HiveColumnHandle::getHiveType).map(hiveType -> hiveType.getHiveTypeName().toString()).collect(toImmutableList())))
                 .buildOrThrow();
@@ -340,7 +338,7 @@ public class TestHivePageSink
                 length,
                 length,
                 0,
-                splitProperties,
+                new Schema(config.getHiveStorageFormat().getSerde(), false, splitProperties),
                 ImmutableList.of(),
                 ImmutableList.of(),
                 OptionalInt.empty(),

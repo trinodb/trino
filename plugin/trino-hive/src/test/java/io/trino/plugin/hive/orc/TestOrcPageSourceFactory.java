@@ -26,6 +26,7 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.ReaderPageSource;
+import io.trino.plugin.hive.Schema;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.predicate.Domain;
@@ -51,15 +52,12 @@ import java.util.function.LongPredicate;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
-import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
-import static io.trino.plugin.hive.HiveTableProperties.TRANSACTIONAL;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
-import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -328,13 +326,9 @@ public class TestOrcPageSourceFactory
                 Optional.empty());
     }
 
-    private static Map<String, String> createSchema()
+    private static Schema createSchema()
     {
-        return ImmutableMap.<String, String>builder()
-                .put(SERIALIZATION_LIB, ORC.getSerde())
-                .put(FILE_INPUT_FORMAT, ORC.getInputFormat())
-                .put(TRANSACTIONAL, "true")
-                .buildOrThrow();
+        return new Schema(ORC.getSerde(), true, ImmutableMap.of());
     }
 
     private static void assertEqualsByColumns(Set<NationColumn> columns, List<Nation> actualRows, List<Nation> expectedRows)

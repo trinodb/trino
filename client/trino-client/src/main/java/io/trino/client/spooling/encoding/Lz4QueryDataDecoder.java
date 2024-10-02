@@ -32,16 +32,16 @@ public class Lz4QueryDataDecoder
     }
 
     @Override
-    InputStream decompress(InputStream stream, int uncompressedSize)
+    InputStream decompress(InputStream stream, int expectedDecompressedSize)
             throws IOException
     {
         Lz4Decompressor decompressor = new Lz4Decompressor();
         byte[] bytes = ByteStreams.toByteArray(stream);
-        byte[] output = new byte[uncompressedSize];
+        byte[] output = new byte[expectedDecompressedSize];
 
         int decompressedSize = decompressor.decompress(bytes, 0, bytes.length, output, 0, output.length);
-        if (decompressedSize != uncompressedSize) {
-            throw new IOException(format("Decompressed size does not match expected segment size, expected %d, got %d", decompressedSize, uncompressedSize));
+        if (decompressedSize != expectedDecompressedSize) {
+            throw new IOException(format("Decompressed size does not match expected segment size, expected %d, got %d", decompressedSize, expectedDecompressedSize));
         }
         return new ByteArrayInputStream(output);
     }

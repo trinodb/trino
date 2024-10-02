@@ -7,7 +7,6 @@ from different data sources.
 :maxdepth: 1
 
 Accumulo        <connector/accumulo>
-Atop            <connector/atop>
 BigQuery        <connector/bigquery>
 Black Hole      <connector/blackhole>
 Cassandra       <connector/cassandra>
@@ -25,7 +24,6 @@ JMX             <connector/jmx>
 Kafka           <connector/kafka>
 Kinesis         <connector/kinesis>
 Kudu            <connector/kudu>
-Local File      <connector/localfile>
 MariaDB         <connector/mariadb>
 Memory          <connector/memory>
 MongoDB         <connector/mongodb>

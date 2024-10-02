@@ -1208,20 +1208,20 @@ public class TestSignatureBinder
 
         public BindSignatureAssertion succeeds()
         {
-            Assertions.assertThat(bindVariables().isPresent()).isTrue();
+            Assertions.assertThat(bindVariables()).isPresent();
             return this;
         }
 
         public BindSignatureAssertion fails()
         {
-            Assertions.assertThat(bindVariables().isPresent()).isFalse();
+            Assertions.assertThat(bindVariables()).isEmpty();
             return this;
         }
 
         public BindSignatureAssertion produces(TypeVariables expected)
         {
             Optional<TypeVariables> actual = bindVariables();
-            Assertions.assertThat(actual.isPresent()).isTrue();
+            Assertions.assertThat(actual).isPresent();
             Assertions.assertThat(actual.get()).isEqualTo(expected);
             return this;
         }

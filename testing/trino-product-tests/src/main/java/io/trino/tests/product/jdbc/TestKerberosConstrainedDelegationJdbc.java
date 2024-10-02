@@ -80,7 +80,7 @@ public class TestKerberosConstrainedDelegationJdbc
         try (Connection connection = DriverManager.getConnection(jdbcUrl, driverProperties);
                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {
-            assertThat(forResultSet(results)).matches(TpchTableResults.PRESTO_NATION_RESULT);
+            assertThat(forResultSet(results)).matches(TpchTableResults.TRINO_NATION_RESULT);
         }
         finally {
             credential.dispose();

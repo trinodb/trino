@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -33,6 +34,8 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createSequenceBlockOfReal;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregationFails;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -442,6 +445,72 @@ public class TestApproximatePercentileAggregation
                 createBlockOfReals(1.0f, 2.0f, 3.0f),
                 createDoublesBlock(4.0, 2.0, 1.0),
                 createRleBlock(ImmutableList.of(0.5, 0.8), 3));
+
+        // invalid inputs
+        for (Float invalidValue : List.of(Float.NaN, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY)) {
+            assertAggregationFails(FUNCTION_RESOLUTION,
+                    "approx_percentile",
+                    FLOAT_APPROXIMATE_PERCENTILE,
+                    createBlockOfReals(invalidValue),
+                    createRleBlock(0.5, 1))
+                    .isInstanceOf(TrinoException.class)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+            assertAggregationFails(FUNCTION_RESOLUTION,
+                    "approx_percentile",
+                    FLOAT_APPROXIMATE_PERCENTILE_ARRAY,
+                    createBlockOfReals(invalidValue),
+                    createRleBlock(ImmutableList.of(0.5, 0.75), 1))
+                    .isInstanceOf(TrinoException.class)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+            assertAggregationFails(FUNCTION_RESOLUTION,
+                    "approx_percentile",
+                    FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED,
+                    createBlockOfReals(1.0f),
+                    createDoublesBlock((double) invalidValue),
+                    createDoublesBlock(0.5))
+                    .isInstanceOf(TrinoException.class)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+            assertAggregationFails(FUNCTION_RESOLUTION,
+                    "approx_percentile",
+                    FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED,
+                    createBlockOfReals(invalidValue),
+                    createDoublesBlock(1.0),
+                    createRleBlock(0.5, 1))
+                    .isInstanceOf(TrinoException.class)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+            assertAggregationFails(FUNCTION_RESOLUTION,
+                    "approx_percentile",
+                    FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED,
+                    createBlockOfReals(invalidValue),
+                    createDoublesBlock(1.0),
+                    createRleBlock(ImmutableList.of(0.5, 0.75), 1))
+                    .isInstanceOf(TrinoException.class)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+            assertAggregationFails(FUNCTION_RESOLUTION,
+                    "approx_percentile",
+                    FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED,
+                    createBlockOfReals(1.0f),
+                    createDoublesBlock((double) invalidValue),
+                    createRleBlock(ImmutableList.of(0.5, 0.75), 1))
+                    .isInstanceOf(TrinoException.class)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+            // for deprecated approx_percentile with accuracy we only validate accuracy for backward compatibility
+            assertAggregationFails(
+                    FUNCTION_RESOLUTION,
+                    "approx_percentile",
+                    FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY,
+                    createBlockOfReals(1.0f),
+                    createDoublesBlock(1.0),
+                    createDoublesBlock(0.99),
+                    createDoublesBlock((double) invalidValue))
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+        }
     }
 
     @Test
@@ -620,6 +689,72 @@ public class TestApproximatePercentileAggregation
                 createDoublesBlock(1.0, 2.0, 3.0),
                 createDoublesBlock(4.0, 2.0, 1.0),
                 createRleBlock(ImmutableList.of(0.5, 0.8), 3));
+
+        // invalid inputs
+        for (Double invalidValue : List.of(Double.NaN, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)) {
+            assertAggregationFails(FUNCTION_RESOLUTION,
+                    "approx_percentile",
+                    DOUBLE_APPROXIMATE_PERCENTILE,
+                    createDoublesBlock(invalidValue),
+                    createDoublesBlock(0.5))
+                    .isInstanceOf(TrinoException.class)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+            assertAggregationFails(FUNCTION_RESOLUTION,
+                    "approx_percentile",
+                    DOUBLE_APPROXIMATE_PERCENTILE_ARRAY,
+                    createDoublesBlock(invalidValue),
+                    createRleBlock(ImmutableList.of(0.5, 0.75), 1))
+                    .isInstanceOf(TrinoException.class)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+            assertAggregationFails(FUNCTION_RESOLUTION,
+                    "approx_percentile",
+                    DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED,
+                    createDoublesBlock(invalidValue),
+                    createDoublesBlock(1.0),
+                    createRleBlock(0.5, 1))
+                    .isInstanceOf(TrinoException.class)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+            assertAggregationFails(FUNCTION_RESOLUTION,
+                    "approx_percentile",
+                    DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED,
+                    createDoublesBlock(1.0),
+                    createDoublesBlock(invalidValue),
+                    createRleBlock(0.5, 1))
+                    .isInstanceOf(TrinoException.class)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+            assertAggregationFails(FUNCTION_RESOLUTION,
+                    "approx_percentile",
+                    DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED,
+                    createDoublesBlock(1.0),
+                    createDoublesBlock(invalidValue),
+                    createRleBlock(ImmutableList.of(0.5, 0.75), 1))
+                    .isInstanceOf(TrinoException.class)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+            assertAggregationFails(FUNCTION_RESOLUTION,
+                    "approx_percentile",
+                    DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED,
+                    createDoublesBlock(invalidValue),
+                    createDoublesBlock(1.0),
+                    createRleBlock(ImmutableList.of(0.5, 0.75), 1))
+                    .isInstanceOf(TrinoException.class)
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+            // for deprecated approx_percentile with accuracy we only validate accuracy for backward compatibility
+            assertAggregationFails(
+                    FUNCTION_RESOLUTION,
+                    "approx_percentile",
+                    DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_WITH_ACCURACY,
+                    createDoublesBlock(1.0),
+                    createDoublesBlock(1.0),
+                    createDoublesBlock(0.99),
+                    createDoublesBlock(invalidValue))
+                    .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+        }
     }
 
     private static Block createRleBlock(double percentile, int positionCount)

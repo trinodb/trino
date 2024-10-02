@@ -98,6 +98,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.builderWithExpectedSize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -182,6 +183,7 @@ import static org.apache.iceberg.util.PropertyUtil.propertyAsBoolean;
 public final class IcebergUtil
 {
     public static final String TRINO_TABLE_METADATA_INFO_VALID_FOR = "trino_table_metadata_info_valid_for";
+    public static final String TRINO_TABLE_COMMENT_CACHE_PREVENTED = "trino_table_comment_cache_prevented";
     public static final String COLUMN_TRINO_NOT_NULL_PROPERTY = "trino_not_null";
     public static final String COLUMN_TRINO_TYPE_ID_PROPERTY = "trino_type_id";
 
@@ -238,32 +240,46 @@ public final class IcebergUtil
 
     public static List<IcebergColumnHandle> getProjectedColumns(Schema schema, TypeManager typeManager)
     {
-        ImmutableList.Builder<IcebergColumnHandle> projectedColumns = ImmutableList.builder();
-        StructType schemaAsStruct = schema.asStruct();
-        Map<Integer, NestedField> indexById = TypeUtil.indexById(schemaAsStruct);
-        Map<Integer, Integer> indexParents = TypeUtil.indexParents(schemaAsStruct);
-        Map<Integer, List<Integer>> indexPaths = indexById.entrySet().stream()
-                .collect(toImmutableMap(Entry::getKey, e -> ImmutableList.copyOf(buildPath(indexParents, e.getKey()))));
-
-        for (Map.Entry<Integer, NestedField> entry : indexById.entrySet()) {
-            int fieldId = entry.getKey();
-            NestedField childField = entry.getValue();
-            NestedField baseField = childField;
-
-            List<Integer> path = requireNonNull(indexPaths.get(fieldId));
-            if (!path.isEmpty()) {
-                baseField = indexById.get(path.getFirst());
-                path = ImmutableList.<Integer>builder()
-                        .addAll(path.subList(1, path.size())) // Base column id shouldn't exist in IcebergColumnHandle.path
-                        .add(fieldId) // Append the leaf field id
-                        .build();
-            }
-            projectedColumns.add(createColumnHandle(baseField, childField, typeManager, path));
-        }
-        return projectedColumns.build();
+        Map<Integer, NestedField> indexById = TypeUtil.indexById(schema.asStruct());
+        return getProjectedColumns(schema, typeManager, indexById, indexById.keySet() /* project all columns */);
     }
 
-    private static List<Integer> buildPath(Map<Integer, Integer> indexParents, int fieldId)
+    public static List<IcebergColumnHandle> getProjectedColumns(Schema schema, TypeManager typeManager, Set<Integer> fieldIds)
+    {
+        Map<Integer, NestedField> indexById = TypeUtil.indexById(schema.asStruct());
+        return getProjectedColumns(schema, typeManager, indexById, fieldIds /* project selected columns */);
+    }
+
+    private static List<IcebergColumnHandle> getProjectedColumns(Schema schema, TypeManager typeManager, Map<Integer, NestedField> indexById, Set<Integer> fieldIds)
+    {
+        ImmutableList.Builder<IcebergColumnHandle> columns = builderWithExpectedSize(fieldIds.size());
+        Map<Integer, Integer> indexParents = TypeUtil.indexParents(schema.asStruct());
+        Map<Integer, List<Integer>> indexPaths = indexById.entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, entry -> ImmutableList.copyOf(buildPath(indexParents, entry.getKey()))));
+
+        for (int fieldId : fieldIds) {
+            columns.add(createColumnHandle(typeManager, fieldId, indexById, indexPaths));
+        }
+        return columns.build();
+    }
+
+    public static IcebergColumnHandle createColumnHandle(TypeManager typeManager, int fieldId, Map<Integer, NestedField> indexById, Map<Integer, List<Integer>> indexPaths)
+    {
+        NestedField childField = indexById.get(fieldId);
+        NestedField baseField = childField;
+
+        List<Integer> path = requireNonNull(indexPaths.get(fieldId));
+        if (!path.isEmpty()) {
+            baseField = indexById.get(path.getFirst());
+            path = ImmutableList.<Integer>builder()
+                    .addAll(path.subList(1, path.size())) // Base column id shouldn't exist in IcebergColumnHandle.path
+                    .add(fieldId) // Append the leaf field id
+                    .build();
+        }
+        return createColumnHandle(baseField, childField, typeManager, path);
+    }
+
+    public static List<Integer> buildPath(Map<Integer, Integer> indexParents, int fieldId)
     {
         List<Integer> path = new ArrayList<>();
         while (indexParents.containsKey(fieldId)) {
@@ -356,7 +372,7 @@ public final class IcebergUtil
     public static List<ColumnMetadata> getColumnMetadatas(Schema schema, TypeManager typeManager)
     {
         List<NestedField> icebergColumns = schema.columns();
-        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(icebergColumns.size() + 2);
+        ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 2);
 
         icebergColumns.stream()
                 .map(column ->

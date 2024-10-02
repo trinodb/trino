@@ -221,7 +221,6 @@ public class CoordinatorModule
         // cluster memory manager
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
         install(internalHttpClientModule("memoryManager", ForMemoryManager.class)
-                .withTracing()
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
@@ -331,8 +330,6 @@ public class CoordinatorModule
         newExporter(binder).export(RemoteTaskStats.class).withGeneratedName();
 
         install(internalHttpClientModule("scheduler", ForScheduler.class)
-                .withTracing()
-                .withFilter(GenerateTraceTokenRequestFilter.class)
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(60, SECONDS));
                     config.setRequestTimeout(new Duration(20, SECONDS));

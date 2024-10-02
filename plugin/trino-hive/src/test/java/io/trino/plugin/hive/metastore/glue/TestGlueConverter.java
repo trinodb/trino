@@ -308,7 +308,7 @@ class TestGlueConverter
                 .partitionKeys(ImmutableList.of())
                 .build();
         io.trino.metastore.Table trinoTable = GlueConverter.fromGlueTable(table, table.databaseName());
-        assertThat(trinoTable.getPartitionColumns().isEmpty()).isTrue();
+        assertThat(trinoTable.getPartitionColumns()).isEmpty();
     }
 
     @Test

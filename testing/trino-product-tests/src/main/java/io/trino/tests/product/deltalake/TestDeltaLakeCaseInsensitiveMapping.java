@@ -27,14 +27,18 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_104;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_113;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_122;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_133;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_143;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_143_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnDelta;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnTrino;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,7 +76,7 @@ public class TestDeltaLakeCaseInsensitiveMapping
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_104, DELTA_LAKE_DATABRICKS_113, DELTA_LAKE_DATABRICKS_122, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_104, DELTA_LAKE_DATABRICKS_113, DELTA_LAKE_DATABRICKS_122, DELTA_LAKE_DATABRICKS_133, DELTA_LAKE_DATABRICKS_143, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testNonLowercaseFieldNames()
     {
@@ -161,6 +165,11 @@ public class TestDeltaLakeCaseInsensitiveMapping
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testGeneratedColumnWithNonLowerCaseColumnName()
     {
+        if (getDatabricksRuntimeVersion().orElseThrow().isAtLeast(DATABRICKS_143_RUNTIME_VERSION)) {
+            // The following COMMENT statement throws an exception (expected) because version >= 14.3 stores 'generatedColumns' writer feature
+            return;
+        }
+
         String tableName = "test_dl_generated_column_uppercase_name" + randomNameSuffix();
 
         onDelta().executeQuery("" +
@@ -209,6 +218,11 @@ public class TestDeltaLakeCaseInsensitiveMapping
             assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
                     "ON (t.data = s.data) WHEN MATCHED THEN UPDATE SET data = 1"))
                     .hasMessageContaining("Writing to tables with identity columns is not supported");
+
+            if (getDatabricksRuntimeVersion().orElseThrow().isAtLeast(DATABRICKS_143_RUNTIME_VERSION)) {
+                // The following statement throws an exception (expected) because version >= 14.3 stores 'identityColumns' writer feature
+                return;
+            }
 
             // Verify column operations preserves the identify column name and property
             onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col integer");

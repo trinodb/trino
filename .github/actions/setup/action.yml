@@ -42,6 +42,35 @@ runs:
         with:
           distribution: 'temurin' # use same JDK distro as in Trino docker images
           java-version: ${{ inputs.java-version }}
+      - name: Get NodeJS version from parent pom
+        shell: bash
+        run: |
+          node_version=$(grep -m 1 '<dep.frontend-node.version>' "pom.xml" | sed -n 's/.*<dep.frontend-node.version>\(.*\)<\/dep.frontend-node.version>.*/\1/p')
+          if [ -n "$node_version" ]; then
+            echo "node version is $node_version"
+            echo "NODE_VERSION=$node_version" >>${GITHUB_ENV}
+            exit 0
+          fi
+      - name: Cache and Restore local NodeJS
+        id: cache-nodejs
+        if: ${{ format('{0}', inputs.cache) == 'true' && env.NODE_VERSION != '' }}
+        uses: actions/cache@v4
+        with:
+          # Note: must be same set of paths as for cache:restore mode
+          path: .node
+          key: ${{ runner.os }}-nodejs-${{ env.NODE_VERSION }}
+          restore-keys: |
+            ${{ runner.os }}-nodejs-
+      - name: Restore local NodeJS
+        id: cache_restore-nodejs
+        if: ${{ format('{0}', inputs.cache) == 'restore' && env.NODE_VERSION != '' }}
+        uses: actions/cache/restore@v4
+        with:
+          # Note: must be same set of paths as for cache:true mode
+          path: .node
+          key: ${{ runner.os }}-nodejs-${{ env.NODE_VERSION }}
+          restore-keys: |
+            ${{ runner.os }}-nodejs-
       - name: Cache and Restore local Maven repo
         id: cache
         if: ${{ format('{0}', inputs.cache) == 'true' }}

@@ -159,7 +159,7 @@ public abstract class AbstractTestingTrinoClient<T>
         estimates.getPeakMemoryBytes().ifPresent(e -> resourceEstimates.put(PEAK_MEMORY, e.toString()));
         return ClientSession.builder()
                 .server(server)
-                .principal(Optional.of(session.getIdentity().getUser()))
+                .user(Optional.of(session.getIdentity().getUser()))
                 .source(session.getSource().orElse("test"))
                 .traceToken(session.getTraceToken())
                 .clientTags(session.getClientTags())

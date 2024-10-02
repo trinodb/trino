@@ -107,8 +107,8 @@ public class TestPinotSplitManager
     private void assertSegmentSplitWellFormed(PinotSplit split)
     {
         assertThat(split.getSplitType()).isEqualTo(SEGMENT);
-        assertThat(split.getSegmentHost().isPresent()).isTrue();
-        assertThat(split.getSegments().isEmpty()).isFalse();
+        assertThat(split.getSegmentHost()).isPresent();
+        assertThat(split.getSegments()).isNotEmpty();
     }
 
     public static ConnectorSession createSessionWithNumSplits(int numSegmentsPerSplit, boolean forbidSegmentQueries, PinotConfig pinotConfig)

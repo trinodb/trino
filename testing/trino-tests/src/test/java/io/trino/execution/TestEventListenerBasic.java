@@ -850,16 +850,16 @@ public class TestEventListenerBasic
         assertThat(queryCreatedEvent.getContext().getEnvironment()).isEqualTo("testing");
         assertThat(queryCreatedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
         assertThat(queryCreatedEvent.getMetadata().getQuery()).isEqualTo(prepareQuery);
-        assertThat(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent()).isFalse();
+        assertThat(queryCreatedEvent.getMetadata().getPreparedQuery()).isEmpty();
 
         QueryCompletedEvent queryCompletedEvent = queryEvents.getQueryCompletedEvent();
-        assertThat(queryCompletedEvent.getContext().getResourceGroupId().isPresent()).isTrue();
+        assertThat(queryCompletedEvent.getContext().getResourceGroupId()).isPresent();
         assertThat(queryCompletedEvent.getContext().getResourceGroupId().get()).isEqualTo(createResourceGroupId("global", "user-user"));
         assertThat(queryCompletedEvent.getIoMetadata().getOutput()).isEqualTo(Optional.empty());
         assertThat(queryCompletedEvent.getIoMetadata().getInputs().size()).isEqualTo(0);  // Prepare has no inputs
         assertThat(queryCompletedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
         assertThat(queryCreatedEvent.getMetadata().getQueryId()).isEqualTo(queryCompletedEvent.getMetadata().getQueryId());
-        assertThat(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent()).isFalse();
+        assertThat(queryCompletedEvent.getMetadata().getPreparedQuery()).isEmpty();
         assertThat(queryCompletedEvent.getStatistics().getCompletedSplits()).isEqualTo(0); // Prepare has no splits
 
         // Add prepared statement to a new session to eliminate any impact on other tests in this suite.
@@ -873,18 +873,18 @@ public class TestEventListenerBasic
         assertThat(queryCreatedEvent.getContext().getEnvironment()).isEqualTo("testing");
         assertThat(queryCreatedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
         assertThat(queryCreatedEvent.getMetadata().getQuery()).isEqualTo("EXECUTE stmt USING 'SHIP'");
-        assertThat(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent()).isTrue();
+        assertThat(queryCreatedEvent.getMetadata().getPreparedQuery()).isPresent();
         assertThat(queryCreatedEvent.getMetadata().getPreparedQuery().get()).isEqualTo(selectQuery);
 
         queryCompletedEvent = queryEvents.getQueryCompletedEvent();
-        assertThat(queryCompletedEvent.getContext().getResourceGroupId().isPresent()).isTrue();
+        assertThat(queryCompletedEvent.getContext().getResourceGroupId()).isPresent();
         assertThat(queryCompletedEvent.getContext().getResourceGroupId().get()).isEqualTo(createResourceGroupId("global", "user-user"));
         assertThat(queryCompletedEvent.getIoMetadata().getOutput()).isEqualTo(Optional.empty());
         assertThat(queryCompletedEvent.getIoMetadata().getInputs().size()).isEqualTo(1);
         assertThat(queryCompletedEvent.getContext().getClientInfo().get()).isEqualTo("{\"clientVersion\":\"testVersion\"}");
         assertThat(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getCatalogName()).isEqualTo("tpch");
         assertThat(queryCreatedEvent.getMetadata().getQueryId()).isEqualTo(queryCompletedEvent.getMetadata().getQueryId());
-        assertThat(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent()).isTrue();
+        assertThat(queryCompletedEvent.getMetadata().getPreparedQuery()).isPresent();
         assertThat(queryCompletedEvent.getMetadata().getPreparedQuery().get()).isEqualTo(selectQuery);
     }
 

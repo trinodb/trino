@@ -57,7 +57,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { java-version: 23, cache: 'restore', cleanup-node: true }
+          - { java-version: 23, cache: 'true', cleanup-node: true }
           - { java-version: 24-ea, cache: 'restore', cleanup-node: true }
     timeout-minutes: 45
     steps:
@@ -370,7 +370,6 @@ jobs:
             !:trino-phoenix5,
             !:trino-pinot,
             !:trino-postgresql,
-            !:trino-raptor-legacy,
             !:trino-redis,
             !:trino-redshift,
             !:trino-resource-group-managers,
@@ -476,7 +475,6 @@ jobs:
             - { modules: plugin/trino-phoenix5 }
             - { modules: plugin/trino-pinot }
             - { modules: plugin/trino-postgresql }
-            - { modules: plugin/trino-raptor-legacy }
             - { modules: plugin/trino-redis }
             - { modules: plugin/trino-redshift }
             - { modules: plugin/trino-redshift, profile: cloud-tests }
@@ -881,6 +879,8 @@ jobs:
             - suite-delta-lake-databricks113
             - suite-delta-lake-databricks122
             - suite-delta-lake-databricks133
+            - suite-delta-lake-databricks143
+            - suite-delta-lake-databricks154
             - suite-databricks-unity-http-hms
             - suite-gcs
             - suite-clients
@@ -927,6 +927,12 @@ jobs:
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks133
+              ignore exclusion if: >-
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
+            - suite: suite-delta-lake-databricks143
+              ignore exclusion if: >-
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
+            - suite: suite-delta-lake-databricks154
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-databricks-unity-http-hms
@@ -987,6 +993,8 @@ jobs:
           DATABRICKS_113_JDBC_URL: ""
           DATABRICKS_122_JDBC_URL: ""
           DATABRICKS_133_JDBC_URL: ""
+          DATABRICKS_143_JDBC_URL: ""
+          DATABRICKS_154_JDBC_URL: ""
           DATABRICKS_UNITY_JDBC_URL: ""
           DATABRICKS_UNITY_CATALOG_NAME: ""
           DATABRICKS_UNITY_EXTERNAL_LOCATION: ""
@@ -1063,6 +1071,8 @@ jobs:
           DATABRICKS_113_JDBC_URL: ${{ vars.DATABRICKS_113_JDBC_URL }}
           DATABRICKS_122_JDBC_URL: ${{ vars.DATABRICKS_122_JDBC_URL }}
           DATABRICKS_133_JDBC_URL: ${{ vars.DATABRICKS_133_JDBC_URL }}
+          DATABRICKS_143_JDBC_URL: ${{ vars.DATABRICKS_143_JDBC_URL }}
+          DATABRICKS_154_JDBC_URL: ${{ vars.DATABRICKS_154_JDBC_URL }}
           DATABRICKS_UNITY_JDBC_URL: ${{ vars.DATABRICKS_UNITY_JDBC_URL }}
           DATABRICKS_UNITY_CATALOG_NAME: ${{ vars.DATABRICKS_UNITY_CATALOG_NAME }}
           DATABRICKS_UNITY_EXTERNAL_LOCATION: ${{ vars.DATABRICKS_UNITY_EXTERNAL_LOCATION }}

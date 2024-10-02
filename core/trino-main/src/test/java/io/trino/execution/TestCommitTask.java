@@ -80,14 +80,14 @@ public class TestCommitTask
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, transactionManager);
-        assertThat(stateMachine.getSession().getTransactionId().isPresent()).isTrue();
+        assertThat(stateMachine.getSession().getTransactionId()).isPresent();
         assertThat(transactionManager.getAllTransactionInfos().size()).isEqualTo(1);
 
         getFutureValue(new CommitTask(transactionManager).execute(new Commit(new NodeLocation(1, 1)), stateMachine, emptyList(), WarningCollector.NOOP));
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isTrue();
-        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId()).isEmpty();
 
-        assertThat(transactionManager.getAllTransactionInfos().isEmpty()).isTrue();
+        assertThat(transactionManager.getAllTransactionInfos()).isEmpty();
     }
 
     @Test
@@ -104,9 +104,9 @@ public class TestCommitTask
                 .hasErrorCode(NOT_IN_TRANSACTION);
 
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isFalse();
-        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId()).isEmpty();
 
-        assertThat(transactionManager.getAllTransactionInfos().isEmpty()).isTrue();
+        assertThat(transactionManager.getAllTransactionInfos()).isEmpty();
     }
 
     @Test
@@ -124,9 +124,9 @@ public class TestCommitTask
                 .hasErrorCode(UNKNOWN_TRANSACTION);
 
         assertThat(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()).isTrue(); // Still issue clear signal
-        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent()).isFalse();
+        assertThat(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId()).isEmpty();
 
-        assertThat(transactionManager.getAllTransactionInfos().isEmpty()).isTrue();
+        assertThat(transactionManager.getAllTransactionInfos()).isEmpty();
     }
 
     private QueryStateMachine createQueryStateMachine(String query, Session session, TransactionManager transactionManager)

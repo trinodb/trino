@@ -88,7 +88,7 @@ public final class EnvMultinodePostgresqlSpooling
         builder.configureContainer(MINIO_CONTAINER_NAME, container ->
                 container.withCopyFileToContainer(forHostPath(minioBucketDirectory), "/data/" + S3_SPOOLING_BUCKET));
 
-        String temptoConfig = "/docker/presto-product-tests/conf/tempto/tempto-configuration-spooling.yaml";
+        String temptoConfig = "/docker/trino-product-tests/conf/tempto/tempto-configuration-spooling.yaml";
         builder.configureContainer(TESTS, testContainer -> {
             testContainer
                     .withCopyFileToContainer(forHostPath(configDir.getPath("tempto-configuration.yaml")), temptoConfig)

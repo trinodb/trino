@@ -124,7 +124,7 @@ public class TestJsonDecoder
         RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, emptyMap(), columns));
 
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(json);
-        assertThat(decodedRow.isPresent()).isTrue();
+        assertThat(decodedRow).isPresent();
 
         assertThat(decodedRow.get().size()).isEqualTo(columns.size());
 

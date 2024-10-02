@@ -24,7 +24,6 @@ import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -42,19 +41,12 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.block.BlockAssertions.createBlockOfReals;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
@@ -75,6 +67,8 @@ import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.util.DynamicFiltersTestUtil.TestingDynamicFilter;
+import static io.trino.util.DynamicFiltersTestUtil.createDynamicFilterEvaluator;
 import static java.lang.Float.floatToRawIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -467,43 +461,6 @@ public class TestDynamicPageFilter
         }
     }
 
-    private static FilterEvaluator createDynamicFilterEvaluator(
-            TupleDomain<ColumnHandle> tupleDomain,
-            Map<ColumnHandle, Integer> channels)
-    {
-        return createDynamicFilterEvaluator(tupleDomain, channels, 1);
-    }
-
-    private static FilterEvaluator createDynamicFilterEvaluator(
-            TupleDomain<ColumnHandle> tupleDomain,
-            Map<ColumnHandle, Integer> channels,
-            double selectivityThreshold)
-    {
-        TestingDynamicFilter dynamicFilter = new TestingDynamicFilter(1);
-        dynamicFilter.update(tupleDomain);
-        Map<ColumnHandle, Type> types = tupleDomain.getDomains().orElse(ImmutableMap.of())
-                .entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getType()));
-        int index = 0;
-        ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
-        ImmutableMap.Builder<Symbol, Integer> layout = ImmutableMap.builder();
-        for (Map.Entry<ColumnHandle, Integer> entry : channels.entrySet()) {
-            ColumnHandle column = entry.getKey();
-            Symbol symbol = new Symbol(types.get(column), "col" + index++);
-            columns.put(symbol, column);
-            int channel = entry.getValue();
-            layout.put(symbol, channel);
-        }
-        return new DynamicPageFilter(
-                PLANNER_CONTEXT,
-                SESSION,
-                columns.buildOrThrow(),
-                layout.buildOrThrow(),
-                selectivityThreshold)
-                .createDynamicPageFilterEvaluator(COMPILER, dynamicFilter)
-                .get();
-    }
-
     private static SelectedPositions filterPage(Page page, FilterEvaluator filterEvaluator)
     {
         FilterEvaluator.SelectionResult result = filterEvaluator.evaluate(FULL_CONNECTOR_SESSION, positionsRange(0, page.getPositionCount()), page);
@@ -537,82 +494,5 @@ public class TestDynamicPageFilter
     private static Domain getRangePredicate(long start, long end)
     {
         return Domain.create(ValueSet.ofRanges(Range.range(BIGINT, start, true, end, false)), false);
-    }
-
-    private static class TestingDynamicFilter
-            implements DynamicFilter
-    {
-        private CompletableFuture<?> isBlocked;
-        private TupleDomain<ColumnHandle> currentPredicate;
-        private int futuresLeft;
-
-        private TestingDynamicFilter(int expectedFilters)
-        {
-            this.futuresLeft = expectedFilters;
-            this.isBlocked = expectedFilters == 0 ? NOT_BLOCKED : new CompletableFuture<>();
-            this.currentPredicate = TupleDomain.all();
-        }
-
-        public void update(TupleDomain<ColumnHandle> predicate)
-        {
-            futuresLeft -= 1;
-            verify(futuresLeft >= 0);
-            currentPredicate = currentPredicate.intersect(predicate);
-            CompletableFuture<?> currentFuture = isBlocked;
-            // create next blocking future (if needed)
-            isBlocked = isComplete() ? NOT_BLOCKED : new CompletableFuture<>();
-            verify(currentFuture.complete(null));
-        }
-
-        @Override
-        public Set<ColumnHandle> getColumnsCovered()
-        {
-            return currentPredicate.getDomains().orElseThrow().keySet();
-        }
-
-        @Override
-        public CompletableFuture<?> isBlocked()
-        {
-            return unmodifiableFuture(isBlocked);
-        }
-
-        @Override
-        public boolean isComplete()
-        {
-            return futuresLeft == 0;
-        }
-
-        @Override
-        public boolean isAwaitable()
-        {
-            return futuresLeft > 0;
-        }
-
-        @Override
-        public TupleDomain<ColumnHandle> getCurrentPredicate()
-        {
-            return currentPredicate;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            TestingDynamicFilter that = (TestingDynamicFilter) o;
-            return futuresLeft == that.futuresLeft
-                    && Objects.equals(isBlocked, that.isBlocked)
-                    && Objects.equals(currentPredicate, that.currentPredicate);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(isBlocked, currentPredicate, futuresLeft);
-        }
     }
 }

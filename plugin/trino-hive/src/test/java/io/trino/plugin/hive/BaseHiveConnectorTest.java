@@ -3827,7 +3827,7 @@ public abstract class BaseHiveConnectorTest
                 .readOnly()
                 .execute(session, transactionSession -> {
                     Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, schema, tableName));
-                    assertThat(tableHandle.isPresent()).isTrue();
+                    assertThat(tableHandle).isPresent();
                     return metadata.getTableMetadata(transactionSession, tableHandle.get());
                 });
     }
@@ -4822,7 +4822,7 @@ public abstract class BaseHiveConnectorTest
             int bucket = (int) row.getField(2);
 
             assertThat(col1).isEqualTo(col0 + 11);
-            assertThat(col1 % 2 == 0).isTrue();
+            assertThat(col1 % 2).isZero();
 
             // Because Hive's hash function for integer n is h(n) = n.
             assertThat(bucket).isEqualTo(col0 % 2);
@@ -5983,8 +5983,8 @@ public abstract class BaseHiveConnectorTest
         assertQuery("SELECT foo FROM " + tableName + " WHERE root.foo = 'b'", "VALUES ('a')");
         assertQuery("SELECT foo FROM " + tableName + " WHERE foo = 'a' AND root.foo = 'b'", "VALUES ('a')");
 
-        assertThat(computeActual("SELECT foo FROM " + tableName + " WHERE foo = 'a' AND root.foo = 'a'").getMaterializedRows().isEmpty()).isTrue();
-        assertThat(computeActual("SELECT foo FROM " + tableName + " WHERE foo = 'b' AND root.foo = 'b'").getMaterializedRows().isEmpty()).isTrue();
+        assertThat(computeActual("SELECT foo FROM " + tableName + " WHERE foo = 'a' AND root.foo = 'a'").getMaterializedRows()).isEmpty();
+        assertThat(computeActual("SELECT foo FROM " + tableName + " WHERE foo = 'b' AND root.foo = 'b'").getMaterializedRows()).isEmpty();
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -9373,7 +9373,7 @@ public abstract class BaseHiveConnectorTest
                 .getConstraint()
                 .getColumnConstraints();
 
-        assertThat(constraints.containsAll(expected)).isTrue();
+        assertThat(constraints).containsAll(expected);
     }
 
     private void verifyPartition(boolean hasPartition, TableMetadata tableMetadata, List<String> partitionKeys)

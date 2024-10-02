@@ -176,11 +176,11 @@ public class TestTrinoValuesWriterFactory
 
     private void validateFallbackWriterBloomFilter(ValuesWriter writer, Class<? extends ValuesWriter> initialWriterClass, Class<? extends ValuesWriter> fallbackWriterClass)
     {
-        validateWriterType(writer, DictionaryFallbackValuesWriter.class);
+        validateWriterType(writer, BloomFilterValuesWriter.class);
 
-        DictionaryFallbackValuesWriter fallbackValuesWriter = (DictionaryFallbackValuesWriter) writer;
+        BloomFilterValuesWriter bloomFilterValuesWriter = (BloomFilterValuesWriter) writer;
+        DictionaryFallbackValuesWriter fallbackValuesWriter = (DictionaryFallbackValuesWriter) bloomFilterValuesWriter.getWriter();
         validateWriterType(fallbackValuesWriter.getInitialWriter(), initialWriterClass);
-        BloomFilterValuesWriter bloomFilterValuesWriter = (BloomFilterValuesWriter) fallbackValuesWriter.getFallBackWriter();
-        validateWriterType(bloomFilterValuesWriter.getWriter(), fallbackWriterClass);
+        validateWriterType(fallbackValuesWriter.getFallBackWriter(), fallbackWriterClass);
     }
 }

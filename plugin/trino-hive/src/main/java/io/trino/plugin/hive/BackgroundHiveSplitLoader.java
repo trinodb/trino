@@ -115,11 +115,11 @@ import static io.trino.plugin.hive.util.AcidTables.readAcidVersionFile;
 import static io.trino.plugin.hive.util.HiveBucketing.getBucketingVersion;
 import static io.trino.plugin.hive.util.HiveTypeUtil.typeSupported;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
-import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.getFooterCount;
 import static io.trino.plugin.hive.util.HiveUtil.getHeaderCount;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormatName;
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
+import static io.trino.plugin.hive.util.HiveUtil.getSerializationLibraryName;
 import static io.trino.plugin.hive.util.PartitionMatchSupplier.createPartitionMatchSupplier;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Integer.parseInt;
@@ -414,7 +414,7 @@ public class BackgroundHiveSplitLoader
             if (tableBucketInfo.isPresent()) {
                 throw new TrinoException(NOT_SUPPORTED, "Bucketed table in SymlinkTextInputFormat is not yet supported");
             }
-            HiveStorageFormat targetStorageFormat = getSymlinkStorageFormat(getDeserializerClassName(schema));
+            HiveStorageFormat targetStorageFormat = getSymlinkStorageFormat(getSerializationLibraryName(schema));
             ListMultimap<Location, Location> targets = getTargetLocationsByParentFromSymlink(location);
 
             InternalHiveSplitFactory splitFactory = new InternalHiveSplitFactory(

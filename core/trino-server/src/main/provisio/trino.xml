@@ -39,12 +39,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/atop">
-        <artifact id="${project.groupId}:trino-atop:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/bigquery">
         <artifact id="${project.groupId}:trino-bigquery:zip:${project.version}">
             <unpack />
@@ -201,12 +195,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/local-file">
-        <artifact id="${project.groupId}:trino-local-file:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/mariadb">
         <artifact id="${project.groupId}:trino-mariadb:zip:${project.version}">
             <unpack />
@@ -287,12 +275,6 @@
 
     <artifactSet to="plugin/prometheus">
         <artifact id="${project.groupId}:trino-prometheus:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="plugin/raptor-legacy">
-        <artifact id="${project.groupId}:trino-raptor-legacy:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

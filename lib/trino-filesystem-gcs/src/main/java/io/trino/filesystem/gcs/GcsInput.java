@@ -16,14 +16,18 @@ package io.trino.filesystem.gcs;
 import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.Storage.BlobGetOption;
 import io.trino.filesystem.TrinoInput;
+import io.trino.filesystem.encryption.EncryptionKey;
 
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.filesystem.gcs.GcsUtils.encodedKey;
 import static io.trino.filesystem.gcs.GcsUtils.getBlobOrThrow;
 import static io.trino.filesystem.gcs.GcsUtils.getReadChannel;
 import static io.trino.filesystem.gcs.GcsUtils.handleGcsException;
@@ -37,15 +41,17 @@ final class GcsInput
     private final Storage storage;
     private final int readBlockSize;
     private final OptionalLong length;
+    private final Optional<EncryptionKey> key;
     private boolean closed;
 
-    public GcsInput(GcsLocation location, Storage storage, int readBlockSize, OptionalLong length)
+    public GcsInput(GcsLocation location, Storage storage, int readBlockSize, OptionalLong length, Optional<EncryptionKey> key)
     {
         this.location = requireNonNull(location, "location is null");
         this.storage = requireNonNull(storage, "storage is null");
         checkArgument(readBlockSize >= 0, "readBlockSize is negative");
         this.readBlockSize = readBlockSize;
         this.length = requireNonNull(length, "length is null");
+        this.key = requireNonNull(key, "key is null");
     }
 
     @Override
@@ -61,7 +67,7 @@ final class GcsInput
             return;
         }
 
-        try (ReadChannel readChannel = getReadChannel(getBlobOrThrow(storage, location), location, position, readBlockSize, length)) {
+        try (ReadChannel readChannel = getReadChannel(getBlobOrThrow(storage, location, blobGetOptions()), location, position, readBlockSize, length, key)) {
             int readSize = readNBytes(readChannel, buffer, bufferOffset, bufferLength);
             if (readSize != bufferLength) {
                 throw new EOFException("End of file reached before reading fully: " + location);
@@ -78,9 +84,9 @@ final class GcsInput
     {
         ensureOpen();
         checkFromIndexSize(bufferOffset, bufferLength, buffer.length);
-        Blob blob = getBlobOrThrow(storage, location);
+        Blob blob = getBlobOrThrow(storage, location, blobGetOptions());
         long offset = Math.max(0, length.orElse(blob.getSize()) - bufferLength);
-        try (ReadChannel readChannel = getReadChannel(blob, location, offset, readBlockSize, length)) {
+        try (ReadChannel readChannel = getReadChannel(blob, location, offset, readBlockSize, length, key)) {
             return readNBytes(readChannel, buffer, bufferOffset, bufferLength);
         }
         catch (RuntimeException e) {
@@ -121,5 +127,12 @@ final class GcsInput
             readSize += bytesRead;
         }
         return readSize;
+    }
+
+    private BlobGetOption[] blobGetOptions()
+    {
+        return key
+                .map(encryption -> new BlobGetOption[] {BlobGetOption.decryptionKey(encodedKey(encryption))})
+                .orElseGet(() -> new BlobGetOption[0]);
     }
 }

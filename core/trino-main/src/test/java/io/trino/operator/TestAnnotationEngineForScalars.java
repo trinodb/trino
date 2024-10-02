@@ -99,7 +99,7 @@ public class TestAnnotationEngineForScalars
         ChoicesSpecializedSqlScalarFunction specialized = (ChoicesSpecializedSqlScalarFunction) scalar.specialize(
                 boundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
-        assertThat(specialized.getChoices().get(0).getInstanceFactory().isPresent()).isFalse();
+        assertThat(specialized.getChoices().get(0).getInstanceFactory()).isEmpty();
     }
 
     @ScalarFunction(value = "hidden_scalar_function", hidden = true)
@@ -187,7 +187,7 @@ public class TestAnnotationEngineForScalars
         ChoicesSpecializedSqlScalarFunction specialized = (ChoicesSpecializedSqlScalarFunction) scalar.specialize(
                 boundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
-        assertThat(specialized.getChoices().get(0).getInstanceFactory().isPresent()).isFalse();
+        assertThat(specialized.getChoices().get(0).getInstanceFactory()).isEmpty();
     }
 
     @ScalarFunction("scalar_with_nullable_complex")
@@ -228,7 +228,7 @@ public class TestAnnotationEngineForScalars
         ChoicesSpecializedSqlScalarFunction specialized = (ChoicesSpecializedSqlScalarFunction) scalar.specialize(
                 boundSignature,
                 new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, ImmutableMap.of(), ImmutableSet.of()));
-        assertThat(specialized.getChoices().get(0).getInstanceFactory().isPresent()).isFalse();
+        assertThat(specialized.getChoices().get(0).getInstanceFactory()).isEmpty();
     }
 
     public static final class StaticMethodScalarFunction
@@ -428,7 +428,7 @@ public class TestAnnotationEngineForScalars
         assertThat(parametricScalarImplementationChoices.size()).isEqualTo(1);
         List<ImplementationDependency> dependencies = parametricScalarImplementationChoices.get(0).getDependencies();
         assertThat(dependencies.size()).isEqualTo(1);
-        assertThat(dependencies.get(0) instanceof LiteralImplementationDependency).isTrue();
+        assertThat(dependencies.get(0)).isInstanceOf(LiteralImplementationDependency.class);
 
         FunctionMetadata functionMetadata = scalar.getFunctionMetadata();
         assertThat(functionMetadata.getSignature()).isEqualTo(expectedSignature);
@@ -483,7 +483,7 @@ public class TestAnnotationEngineForScalars
         assertThat(dependencies.size()).isEqualTo(0);
         List<ImplementationDependency> constructorDependencies = parametricScalarImplementationChoices.get(0).getConstructorDependencies();
         assertThat(constructorDependencies.size()).isEqualTo(1);
-        assertThat(constructorDependencies.get(0) instanceof TypeImplementationDependency).isTrue();
+        assertThat(constructorDependencies.get(0)).isInstanceOf(TypeImplementationDependency.class);
 
         FunctionMetadata functionMetadata = scalar.getFunctionMetadata();
         assertThat(functionMetadata.getSignature()).isEqualTo(expectedSignature);

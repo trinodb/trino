@@ -1134,7 +1134,7 @@ public class TestIcebergSparkCompatibility
 
         QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
-        assertThat(((String) queryResult.getOnlyValue()).contains(dataPath)).isTrue();
+        assertThat(((String) queryResult.getOnlyValue())).contains(dataPath);
 
         // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
         assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
@@ -1163,7 +1163,7 @@ public class TestIcebergSparkCompatibility
 
         QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
-        assertThat(((String) queryResult.getOnlyValue()).contains(dataPath)).isTrue();
+        assertThat(((String) queryResult.getOnlyValue())).contains(dataPath);
 
         assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
                 .hasMessageContaining("contains Iceberg path override properties and cannot be dropped from Trino");

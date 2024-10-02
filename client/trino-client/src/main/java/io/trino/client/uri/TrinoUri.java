@@ -491,10 +491,10 @@ public class TrinoUri
     {
         return ClientSession.builder()
                 .server(getHttpUri())
-                .principal(getUser())
+                .user(getUser())
                 .path(getPath().orElse(ImmutableList.of()))
                 .clientRequestTimeout(getTimeout())
-                .user(getSessionUser())
+                .sessionUser(getSessionUser())
                 .clientTags(getClientTags().orElse(ImmutableSet.of()))
                 .source(getSource().orElse(null))
                 .traceToken(getTraceToken())

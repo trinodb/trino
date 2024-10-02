@@ -30,6 +30,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Optional;
 
+import static io.opentelemetry.api.common.AttributeKey.longKey;
 import static io.opentelemetry.api.common.AttributeKey.stringKey;
 import static java.util.Objects.requireNonNull;
 
@@ -39,6 +40,9 @@ public class TracingSpoolingManager
     public static final AttributeKey<String> SEGMENT_ID = stringKey("trino.segment.id");
     public static final AttributeKey<String> SEGMENT_QUERY_ID = stringKey("trino.segment.query_id");
     public static final AttributeKey<String> SEGMENT_ENCODING = stringKey("trino.segment.encoding");
+    public static final AttributeKey<Long> SEGMENT_SIZE = longKey("trino.segment.size");
+    public static final AttributeKey<Long> SEGMENT_ROWS = longKey("trino.segment.rows");
+    public static final AttributeKey<String> SEGMENT_EXPIRATION = stringKey("trino.segment.expiration");
 
     private final Tracer tracer;
     private final SpoolingManager delegate;
@@ -55,6 +59,8 @@ public class TracingSpoolingManager
         Span span = tracer.spanBuilder("SpoolingManager.create")
                 .setAttribute(SEGMENT_QUERY_ID, context.queryId().toString())
                 .setAttribute(SEGMENT_ENCODING, context.encoding())
+                .setAttribute(SEGMENT_ROWS, context.rows())
+                .setAttribute(SEGMENT_SIZE, context.size())
                 .startSpan();
         return withTracing(span, () -> delegate.create(context));
     }
@@ -63,48 +69,28 @@ public class TracingSpoolingManager
     public OutputStream createOutputStream(SpooledSegmentHandle handle)
             throws IOException
     {
-        Span span = tracer.spanBuilder("SpoolingManager.createOutputStream")
-                .setAttribute(SEGMENT_QUERY_ID, handle.queryId().toString())
-                .setAttribute(SEGMENT_ID, handle.identifier())
-                .setAttribute(SEGMENT_ENCODING, handle.encoding())
-                .startSpan();
-        return withTracing(span, () -> delegate.createOutputStream(handle));
+        return withTracing(span(tracer, handle, "createOutputStream"), () -> delegate.createOutputStream(handle));
     }
 
     @Override
     public InputStream openInputStream(SpooledSegmentHandle handle)
             throws IOException
     {
-        Span span = tracer.spanBuilder("SpoolingManager.openInputStream")
-                .setAttribute(SEGMENT_QUERY_ID, handle.queryId().toString())
-                .setAttribute(SEGMENT_ID, handle.identifier())
-                .setAttribute(SEGMENT_ENCODING, handle.encoding())
-                .startSpan();
-        return withTracing(span, () -> delegate.openInputStream(handle));
+        return withTracing(span(tracer, handle, "openInputStream"), () -> delegate.openInputStream(handle));
     }
 
     @Override
     public void acknowledge(SpooledSegmentHandle handle)
             throws IOException
     {
-        Span span = tracer.spanBuilder("SpoolingManager.acknowledge")
-                .setAttribute(SEGMENT_QUERY_ID, handle.queryId().toString())
-                .setAttribute(SEGMENT_ID, handle.identifier())
-                .setAttribute(SEGMENT_ENCODING, handle.encoding())
-                .startSpan();
-        withTracing(span, () -> delegate.acknowledge(handle));
+        withTracing(span(tracer, handle, "acknowledge"), () -> delegate.acknowledge(handle));
     }
 
     @Override
     public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
             throws IOException
     {
-        Span span = tracer.spanBuilder("SpoolingManager.directLocation")
-                .setAttribute(SEGMENT_QUERY_ID, handle.queryId().toString())
-                .setAttribute(SEGMENT_ID, handle.identifier())
-                .setAttribute(SEGMENT_ENCODING, handle.encoding())
-                .startSpan();
-        return withTracing(span, () -> delegate.directLocation(handle));
+        return withTracing(span(tracer, handle, "directLocation"), () -> delegate.directLocation(handle));
     }
 
     // Methods below do not need to be traced as they are not doing any I/O
@@ -127,6 +113,17 @@ public class TracingSpoolingManager
             runnable.run();
             return null;
         });
+    }
+
+    public static Span span(Tracer tracer, SpooledSegmentHandle handle, String name)
+    {
+        return tracer
+                .spanBuilder("SpoolingManager." + name)
+                .setAttribute(SEGMENT_ID, handle.identifier())
+                .setAttribute(SEGMENT_QUERY_ID, handle.queryId().toString())
+                .setAttribute(SEGMENT_ENCODING, handle.encoding())
+                .setAttribute(SEGMENT_EXPIRATION, handle.expirationTime().toString())
+                .startSpan();
     }
 
     public static <T, E extends Exception> T withTracing(Span span, CheckedSupplier<T, E> supplier)

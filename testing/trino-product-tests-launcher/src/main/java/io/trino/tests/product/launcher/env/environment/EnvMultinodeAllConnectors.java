@@ -48,7 +48,6 @@ public final class EnvMultinodeAllConnectors
         List.of(
                         // TODO accumulo needs to connect to ZooKeeper, it won't start otherwise
                         //"accumulo",
-                        "atop",
                         "bigquery",
                         "cassandra",
                         "clickhouse",
@@ -63,7 +62,6 @@ public final class EnvMultinodeAllConnectors
                         "kafka",
                         "kinesis",
                         "kudu",
-                        "localfile",
                         "mariadb",
                         "memory",
                         "singlestore",
@@ -75,7 +73,6 @@ public final class EnvMultinodeAllConnectors
                         "pinot",
                         "postgresql",
                         "prometheus",
-                        "raptor_legacy",
                         "redis",
                         "redshift",
                         "snowflake",

@@ -26,10 +26,8 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcPlugin;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
-import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
 import org.postgresql.Driver;
 
@@ -37,11 +35,9 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
-import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.util.Objects.requireNonNull;
@@ -54,6 +50,27 @@ public class TestPostgreSqlJdbcConnectionCreation
             throws Exception
     {
         TestingPostgreSqlServer postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
+        this.connectionFactory = getConnectionCountingConnectionFactory(postgreSqlServer);
+        DistributedQueryRunner queryRunner = PostgreSqlQueryRunner.builder(postgreSqlServer)
+                // to make sure we always open connections in the same way
+                .addCoordinatorProperty("node-scheduler.include-coordinator", "false")
+                .amendSession(sessionBuilder -> sessionBuilder.setCatalog("counting_postgresql"))
+                .setAdditionalSetup(runner -> {
+                    runner.installPlugin(new JdbcPlugin(
+                            "counting_postgresql",
+                            combine(new PostgreSqlClientModule(), new TestingPostgreSqlModule(connectionFactory))));
+                    runner.createCatalog("counting_postgresql", "counting_postgresql", ImmutableMap.of(
+                            "connection-url", postgreSqlServer.getJdbcUrl(),
+                            "connection-user", postgreSqlServer.getUser(),
+                            "connection-password", postgreSqlServer.getPassword()));
+                })
+                .build();
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, ImmutableList.of(NATION, REGION));
+        return queryRunner;
+    }
+
+    private static ConnectionCountingConnectionFactory getConnectionCountingConnectionFactory(TestingPostgreSqlServer postgreSqlServer)
+    {
         Properties connectionProperties = new Properties();
         CredentialProvider credentialProvider = new StaticCredentialProvider(
                 Optional.of(postgreSqlServer.getUser()),
@@ -61,8 +78,7 @@ public class TestPostgreSqlJdbcConnectionCreation
         DriverConnectionFactory delegate = DriverConnectionFactory.builder(new Driver(), postgreSqlServer.getJdbcUrl(), credentialProvider)
                 .setConnectionProperties(connectionProperties)
                 .build();
-        this.connectionFactory = new ConnectionCountingConnectionFactory(delegate);
-        return createPostgreSqlQueryRunner(postgreSqlServer, ImmutableList.of(NATION, REGION), connectionFactory);
+        return new ConnectionCountingConnectionFactory(delegate);
     }
 
     @Test
@@ -89,38 +105,7 @@ public class TestPostgreSqlJdbcConnectionCreation
         assertJdbcConnections("SHOW SCHEMAS", 1, Optional.empty());
         assertJdbcConnections("SHOW TABLES", 1, Optional.empty());
         assertJdbcConnections("SHOW STATS FOR nation", 2, Optional.empty());
-    }
-
-    private static QueryRunner createPostgreSqlQueryRunner(
-            TestingPostgreSqlServer server,
-            Iterable<TpchTable<?>> tables,
-            ConnectionCountingConnectionFactory connectionCountingConnectionFactory)
-            throws Exception
-    {
-        QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
-                        .setCatalog("postgresql")
-                        .setSchema("tpch")
-                        .build())
-                // to make sure we always open connections in the same way
-                .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
-                .build();
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.installPlugin(new JdbcPlugin(
-                    "postgresql",
-                    combine(new PostgreSqlClientModule(), new TestingPostgreSqlModule(connectionCountingConnectionFactory))));
-            queryRunner.createCatalog("tpch", "tpch");
-            queryRunner.createCatalog("postgresql", "postgresql", ImmutableMap.of(
-                    "connection-url", server.getJdbcUrl(),
-                    "connection-user", server.getUser(),
-                    "connection-password", server.getPassword()));
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, tables);
-            return queryRunner;
-        }
-        catch (Throwable e) {
-            closeAllSuppress(e, queryRunner);
-            throw e;
-        }
+        assertJdbcConnections("SELECT * FROM system.jdbc.columns WHERE table_cat = 'counting_postgresql'", 1, Optional.empty());
     }
 
     private static final class TestingPostgreSqlModule

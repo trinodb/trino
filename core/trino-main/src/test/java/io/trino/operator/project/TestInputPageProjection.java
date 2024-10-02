@@ -32,11 +32,11 @@ public class TestInputPageProjection
         InputPageProjection projection = new InputPageProjection(0, BIGINT);
         Block block = createLongSequenceBlock(0, 100);
         Block result = projection.project(SESSION, new DriverYieldSignal(), new Page(block), SelectedPositions.positionsRange(0, 100)).getResult();
-        assertThat(result instanceof LazyBlock).isFalse();
+        assertThat(result).isNotInstanceOf(LazyBlock.class);
 
         block = lazyWrapper(block);
         result = projection.project(SESSION, new DriverYieldSignal(), new Page(block), SelectedPositions.positionsRange(0, 100)).getResult();
-        assertThat(result instanceof LazyBlock).isTrue();
+        assertThat(result).isInstanceOf(LazyBlock.class);
         assertThat(result.isLoaded()).isFalse();
     }
 

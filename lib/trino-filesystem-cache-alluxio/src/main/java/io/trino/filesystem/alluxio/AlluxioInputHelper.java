@@ -136,7 +136,7 @@ public class AlluxioInputHelper
         CacheContext cacheContext = status.getCacheContext();
         PageId pageId = new PageId(cacheContext.getCacheIdentifier(), currentPage);
         if (bytesLeftInPage > length && bufferSize > length) { // Read page into buffer
-            int putBytes = putBuffer(position, currentPageOffset, pageId, cacheContext);
+            int putBytes = putBuffer(currentPageOffset, pageId, cacheContext);
             if (putBytes <= 0) {
                 return putBytes;
             }
@@ -147,10 +147,11 @@ public class AlluxioInputHelper
         }
     }
 
-    private int putBuffer(long position, int pageOffset, PageId pageId, CacheContext cacheContext)
+    private int putBuffer(int pageOffset, PageId pageId, CacheContext cacheContext)
     {
         pageOffset = min(pageOffset, max(pageSize - bufferSize, 0));
-        int bytesToReadInPage = Ints.saturatedCast(min(pageSize - pageOffset, fileLength - position));
+        long bufferStart = pageOffset + (pageId.getPageIndex() * pageSize);
+        int bytesToReadInPage = Ints.saturatedCast(min(pageSize - pageOffset, fileLength - bufferStart));
         int bytesRead = cacheManager.get(pageId, pageOffset, min(bytesToReadInPage, bufferSize), readBuffer, 0, cacheContext);
         if (bytesRead < 0) {
             // Buffer could be corrupted

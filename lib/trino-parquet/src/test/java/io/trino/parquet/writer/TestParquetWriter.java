@@ -69,6 +69,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.scalar.CharacterStringCasts.varcharToVarcharSaturatedFloorCast;
+import static io.trino.parquet.BloomFilterStore.hasBloomFilter;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
 import static io.trino.parquet.ParquetTestUtils.createParquetWriter;
@@ -354,6 +355,10 @@ public class TestParquetWriter
             assertThat(chunkMetaData.getDictionaryPageOffset()).isGreaterThan(0);
             int dictionaryPageSize = toIntExact(chunkMetaData.getFirstDataPageOffset() - chunkMetaData.getDictionaryPageOffset());
             assertThat(dictionaryPageSize).isGreaterThan(0);
+            assertThat(chunkMetaData.getEncodingStats().hasDictionaryPages()).isTrue();
+            assertThat(chunkMetaData.getEncodingStats().hasDictionaryEncodedPages()).isTrue();
+            assertThat(chunkMetaData.getEncodingStats().hasNonDictionaryEncodedPages()).isFalse();
+            assertThat(hasBloomFilter(chunkMetaData)).isFalse();
 
             // verify reading dictionary page
             SliceInput inputStream = dataSource.readFully(chunkMetaData.getStartingPos(), dictionaryPageSize).getInput();
@@ -379,9 +384,8 @@ public class TestParquetWriter
     public void testWriteBloomFilters(Type type, List<?> data)
             throws IOException
     {
-        String columnName = "column";
-        List<String> columnNames = ImmutableList.of(columnName);
-        List<Type> types = ImmutableList.of(type);
+        List<String> columnNames = ImmutableList.of("columnA", "columnB");
+        List<Type> types = ImmutableList.of(type, type);
         ParquetDataSource dataSource = new TestingParquetDataSource(
                 writeParquetFile(
                         ParquetWriterOptions.builder()
@@ -397,9 +401,17 @@ public class TestParquetWriter
         // Check that bloom filters are right after each other
         int bloomFilterSize = Integer.highestOneBit(BlockSplitBloomFilter.optimalNumOfBits(BLOOM_FILTER_EXPECTED_ENTRIES, DEFAULT_BLOOM_FILTER_FPP) / 8) << 1;
         for (BlockMetadata block : parquetMetadata.getBlocks()) {
-            for (int i = 1; i < block.columns().size(); i++) {
-                assertThat(block.columns().get(i - 1).getBloomFilterOffset() + bloomFilterSize + 17) // + 17 bytes for Bloom filter metadata
-                        .isEqualTo(block.columns().get(i).getBloomFilterOffset());
+            for (int i = 0; i < block.columns().size(); i++) {
+                ColumnChunkMetadata chunkMetaData = block.columns().get(i);
+                assertThat(hasBloomFilter(chunkMetaData)).isTrue();
+                assertThat(chunkMetaData.getEncodingStats().hasDictionaryPages()).isFalse();
+                assertThat(chunkMetaData.getEncodingStats().hasDictionaryEncodedPages()).isFalse();
+                assertThat(chunkMetaData.getEncodingStats().hasNonDictionaryEncodedPages()).isTrue();
+
+                if (i < block.columns().size() - 1) {
+                    assertThat(chunkMetaData.getBloomFilterOffset() + bloomFilterSize + 17) // + 17 bytes for Bloom filter metadata
+                            .isEqualTo(block.columns().get(i + 1).getBloomFilterOffset());
+                }
             }
         }
         int rowGroupCount = parquetMetadata.getBlocks().size();
@@ -407,7 +419,7 @@ public class TestParquetWriter
 
         TupleDomain<String> predicate = TupleDomain.withColumnDomains(
                 ImmutableMap.of(
-                        columnName, Domain.singleValue(type, data.get(data.size() / 2))));
+                        "columnA", Domain.singleValue(type, data.get(data.size() / 2))));
         try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, new ParquetReaderOptions().withBloomFilter(true), newSimpleAggregatedMemoryContext(), types, columnNames, predicate)) {
             Page page = reader.nextPage();
             int rowsRead = 0;
@@ -427,6 +439,36 @@ public class TestParquetWriter
             }
             assertThat(rowsRead).isEqualTo(data.size());
         }
+    }
+
+    @Test
+    void testBloomFilterWithDictionaryFallback()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("column");
+        List<Type> types = ImmutableList.of(BIGINT);
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setMaxPageValueCount(200)
+                                .setBloomFilterColumns(ImmutableSet.copyOf(columnNames))
+                                .build(),
+                        types,
+                        columnNames,
+                        ImmutableList.<io.trino.spi.Page>builder()
+                                .addAll(generateInputPages(types, 10, 10))
+                                // Max size of dictionary page is 1024 * 1024
+                                .addAll(generateInputPages(types, 200, shuffle(new Random(42), (1024 * 1025) / Long.BYTES)))
+                                .build()),
+                new ParquetReaderOptions());
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        BlockMetadata blockMetaData = getOnlyElement(parquetMetadata.getBlocks());
+        ColumnChunkMetadata chunkMetaData = getOnlyElement(blockMetaData.columns());
+        assertThat(chunkMetaData.getEncodingStats().hasDictionaryPages()).isTrue();
+        assertThat(chunkMetaData.getEncodingStats().hasDictionaryEncodedPages()).isTrue();
+        assertThat(chunkMetaData.getEncodingStats().hasNonDictionaryEncodedPages()).isTrue();
+        assertThat(hasBloomFilter(chunkMetaData)).isTrue();
     }
 
     public static Stream<Arguments> testWriteBloomFiltersParams()
