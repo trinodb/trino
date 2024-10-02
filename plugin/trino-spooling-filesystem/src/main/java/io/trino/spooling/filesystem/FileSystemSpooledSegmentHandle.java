@@ -35,7 +35,7 @@ public record FileSystemSpooledSegmentHandle(
         Optional<EncryptionKey> encryptionKey)
         implements SpooledSegmentHandle
 {
-    private static final String OBJECT_NAME_SEPARATOR = "::";
+    private static final String OBJECT_NAME_SEPARATOR = "-";
 
     public FileSystemSpooledSegmentHandle
     {
