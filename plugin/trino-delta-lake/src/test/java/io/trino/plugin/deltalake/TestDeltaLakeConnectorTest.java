@@ -1326,6 +1326,33 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testCreateTableWithChangeDataFeed()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cdf", "(x int) WITH (change_data_feed_enabled = true)")) {
+            assertThat(query("SELECT * FROM \"" + table.getName() + "$properties\""))
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "('delta.enableChangeDataFeed', 'true')," +
+                            "('delta.enableDeletionVectors', 'false')," +
+                            "('delta.minReaderVersion', '1')," +
+                            "('delta.minWriterVersion', '4')");
+        }
+
+        // timestamp type requires reader version 3 and writer version 7
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_cdf", "(x timestamp) WITH (change_data_feed_enabled = true)")) {
+            assertThat(query("SELECT * FROM \"" + table.getName() + "$properties\""))
+                    .skippingTypesCheck()
+                    .matches("VALUES " +
+                            "('delta.enableChangeDataFeed', 'true')," +
+                            "('delta.enableDeletionVectors', 'false')," +
+                            "('delta.minReaderVersion', '3')," +
+                            "('delta.minWriterVersion', '7')," +
+                            "('delta.feature.timestampNtz', 'supported')," +
+                            "('delta.feature.changeDataFeed', 'supported')");
+        }
+    }
+
+    @Test
     public void testUnsupportedCreateTableWithChangeDataFeed()
     {
         for (String columnName : CHANGE_DATA_FEED_COLUMN_NAMES) {
