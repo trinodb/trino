@@ -253,6 +253,7 @@ import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMe
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.verifyDeltaLakeTable;
 import static io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId.OPTIMIZE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.APPEND_ONLY_CONFIGURATION_KEY;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.CHANGE_DATA_FEED_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.COLUMN_MAPPING_PHYSICAL_NAME_CONFIGURATION_KEY;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.ID;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NAME;
@@ -381,6 +382,9 @@ public class DeltaLakeMetadata
     // The highest reader and writer versions Trino supports
     private static final int MAX_READER_VERSION = 3;
     public static final int MAX_WRITER_VERSION = 7;
+    // The lowest versions Delta Lake supports reader and writer features
+    private static final int MIN_READER_FEATURE_VERSION = 3;
+    private static final int MIN_WRITER_FEATURE_VERSION = 7;
     private static final int CDF_SUPPORTED_WRITER_VERSION = 4;
     private static final int COLUMN_MAPPING_MODE_SUPPORTED_READER_VERSION = 2;
     private static final int COLUMN_MAPPING_MODE_SUPPORTED_WRITER_VERSION = 5;
@@ -2905,6 +2909,7 @@ public class DeltaLakeMetadata
         if (changeDataFeedEnabled.isPresent() && changeDataFeedEnabled.get()) {
             // Enabling cdf (change data feed) requires setting the writer version to 4
             writerVersion = CDF_SUPPORTED_WRITER_VERSION;
+            writerFeatures.add(CHANGE_DATA_FEED_FEATURE_NAME);
         }
         ColumnMappingMode columnMappingMode = getColumnMappingMode(properties);
         if (columnMappingMode == ID || columnMappingMode == NAME) {
@@ -2926,8 +2931,8 @@ public class DeltaLakeMetadata
         return new ProtocolEntry(
                 readerVersion,
                 writerVersion,
-                readerFeatures.isEmpty() ? Optional.empty() : Optional.of(readerFeatures),
-                writerFeatures.isEmpty() ? Optional.empty() : Optional.of(writerFeatures));
+                readerVersion < MIN_READER_FEATURE_VERSION || readerFeatures.isEmpty() ? Optional.empty() : Optional.of(readerFeatures),
+                writerVersion < MIN_WRITER_FEATURE_VERSION || writerFeatures.isEmpty() ? Optional.empty() : Optional.of(writerFeatures));
     }
 
     private void writeCheckpointIfNeeded(
