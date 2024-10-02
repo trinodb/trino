@@ -23,24 +23,30 @@ import io.trino.spi.type.Type;
  * invoked.
  */
 public class PrimitiveDecoderTestUtil
-        extends DecoderTestUtil {
-    public PrimitiveDecoderTestUtil() {
+        extends DecoderTestUtil
+{
+    public PrimitiveDecoderTestUtil()
+    {
         super();
     }
 
     @Override
-    public void checkArrayValues(Block block, Type type, Object value) {
+    public void checkArrayValues(Block block, Type type, Object value)
+    {
     }
 
     @Override
-    public void checkMapValues(Block block, Type type, Object value) {
+    public void checkMapValues(Block block, Type type, Object value)
+    {
     }
 
     @Override
-    public void checkRowValues(Block block, Type type, Object value) {
+    public void checkRowValues(Block block, Type type, Object value)
+    {
     }
 
     @Override
-    public void checkPrimitiveValue(Object actual, Object expected) {
+    public void checkPrimitiveValue(Object actual, Object expected)
+    {
     }
 }

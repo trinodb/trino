@@ -22,7 +22,13 @@ import io.trino.plugin.pulsar.PulsarColumnHandle;
 import io.trino.plugin.pulsar.decoder.AbstractDecoderTester;
 import io.trino.plugin.pulsar.decoder.DecoderTestMessage;
 import io.trino.spi.TrinoException;
-import io.trino.spi.type.*;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.VarcharType;
 import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.impl.schema.JSONSchema;
 import org.apache.pulsar.client.impl.schema.generic.GenericJsonRecord;
@@ -34,7 +40,11 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 
 import static io.trino.plugin.pulsar.decoder.DecoderTestUtil.getCatalogName;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -45,16 +55,21 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Math.toIntExact;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestJsonDecoder
-        extends AbstractDecoderTester {
+        extends AbstractDecoderTester
+{
     private JSONSchema schema;
 
     @Override
     @BeforeMethod
-    public void init() throws PulsarClientException {
+    public void init()
+            throws PulsarClientException
+    {
         super.init();
         schema = JSONSchema.of(DecoderTestMessage.class);
         schemaInfo = schema.getSchemaInfo();
@@ -65,7 +80,8 @@ public class TestJsonDecoder
     }
 
     @Test
-    public void testPrimitiveType() {
+    public void testPrimitiveType()
+    {
         DecoderTestMessage message = new DecoderTestMessage();
         message.stringField = "message_1";
         message.intField = 22;
@@ -117,7 +133,8 @@ public class TestJsonDecoder
     }
 
     @Test
-    public void testArray() {
+    public void testArray()
+    {
         DecoderTestMessage message = new DecoderTestMessage();
         message.arrayField = Arrays.asList("message_1", "message_2", "message_3");
 
@@ -135,7 +152,8 @@ public class TestJsonDecoder
     }
 
     @Test
-    public void testRow() {
+    public void testRow()
+    {
         DecoderTestMessage message = new DecoderTestMessage();
         message.stringField = "message_2";
         DecoderTestMessage.TestRow testRow = new DecoderTestMessage.TestRow();
@@ -169,12 +187,12 @@ public class TestJsonDecoder
     }
 
     @Test
-    public void testMap() {
+    public void testMap()
+    {
         DecoderTestMessage message = new DecoderTestMessage();
-        message.mapField = new HashMap<String, Long>() {{
-            put("key1", 2L);
-            put("key2", 22L);
-        }};
+        message.mapField = new HashMap<String, Long>();
+        message.mapField.put("key1", 2L);
+        message.mapField.put("key2", 22L);
 
         byte[] bytes = schema.encode(message);
         ByteBuf payload = Unpooled.copiedBuffer(bytes);
@@ -190,7 +208,8 @@ public class TestJsonDecoder
     }
 
     @Test
-    public void testCompositeType() {
+    public void testCompositeType()
+    {
         DecoderTestMessage message = new DecoderTestMessage();
 
         DecoderTestMessage.NestedRow nestedRow = new DecoderTestMessage.NestedRow();
@@ -207,20 +226,17 @@ public class TestJsonDecoder
         compositeRow.arrayField = Arrays.asList(nestedRow1, nestedRow2);
         compositeRow.stringField = "compositeRow_1";
 
-        compositeRow.mapField = new HashMap<String, DecoderTestMessage.NestedRow>() {{
-            put("key1", nestedRow1);
-            put("key2", nestedRow2);
-        }};
+        compositeRow.mapField = new HashMap<String, DecoderTestMessage.NestedRow>();
+        compositeRow.mapField.put("key1", nestedRow1);
+        compositeRow.mapField.put("key2", nestedRow2);
+
         compositeRow.nestedRow = nestedRow;
-        new HashMap<String, Long>() {{
-            put("key1_1", 2L);
-            put("key1_2", 22L);
-        }};
-        compositeRow.structedField = new HashMap<String, List<Long>>() {{
-            put("key2_1", Arrays.asList(2L, 3L));
-            put("key2_2", Arrays.asList(2L, 3L));
-            put("key2_3", Arrays.asList(2L, 3L));
-        }};
+
+        compositeRow.structedField = new HashMap<String, List<Long>>();
+        compositeRow.structedField.put("key2_1", Arrays.asList(2L, 3L));
+        compositeRow.structedField.put("key2_2", Arrays.asList(2L, 3L));
+        compositeRow.structedField.put("key2_3", Arrays.asList(2L, 3L));
+
         message.compositeRow = compositeRow;
 
         byte[] bytes = schema.encode(message);
@@ -258,7 +274,8 @@ public class TestJsonDecoder
     }
 
     @Test(singleThreaded = true)
-    public void testCyclicDefinitionDetect() {
+    public void testCyclicDefinitionDetect()
+    {
         JSONSchema cyclicSchema = JSONSchema.of(DecoderTestMessage.CyclicFoo.class);
         TrinoException exception = assertThrows(TrinoException.class,
                 () -> {
