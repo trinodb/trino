@@ -25,14 +25,14 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spooling.filesystem.encryption.HeadersUtils.getOnlyHeader;
 
-public class S3EncryptionHeadersTranslator
+class S3EncryptionHeadersTranslator
         implements EncryptionHeadersTranslator
 {
     @Override
     public EncryptionKey extractKey(Map<String, List<String>> headers)
     {
         byte[] key = Base64.getDecoder().decode(getOnlyHeader(headers, "x-amz-server-side-encryption-customer-key"));
-        String md5Checksum = getOnlyHeader(headers, "x-amz-server-side-encryption-customer-key-MD5");
+        String md5Checksum = getOnlyHeader(headers, "x-amz-server-side-encryption-customer-key-md5");
         EncryptionKey encryption = new EncryptionKey(key, getOnlyHeader(headers, "x-amz-server-side-encryption-customer-algorithm"));
         checkArgument(md5(encryption).equals(md5Checksum), "Key MD5 checksum does not match");
         return encryption;
@@ -44,7 +44,7 @@ public class S3EncryptionHeadersTranslator
         return ImmutableMap.of(
                 "x-amz-server-side-encryption-customer-algorithm", ImmutableList.of(encryption.algorithm()),
                 "x-amz-server-side-encryption-customer-key", ImmutableList.of(encoded(encryption)),
-                "x-amz-server-side-encryption-customer-key-MD5", ImmutableList.of(md5(encryption)));
+                "x-amz-server-side-encryption-customer-key-md5", ImmutableList.of(md5(encryption)));
     }
 
     public static String encoded(EncryptionKey key)

@@ -14,19 +14,23 @@
 package io.trino.spooling.filesystem.encryption;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterators;
 import io.trino.filesystem.encryption.EncryptionKey;
 import org.junit.jupiter.api.Test;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestAzureEncryptionHeadersTranslator
 {
-    private static final EncryptionHeadersTranslator SSE = new AzureEncryptionHeadersTranslator();
+    private static final EncryptionHeadersTranslator SSE = EncryptionHeadersTranslator.forScheme("abfs");
 
     @Test
     public void testKnownKey()
@@ -50,6 +54,14 @@ class TestAzureEncryptionHeadersTranslator
     }
 
     @Test
+    public void testRoundTripWithMixedCaseHeaders()
+    {
+        EncryptionKey key = EncryptionKey.randomAes256();
+        Map<String, List<String>> headers = mixCase(SSE.createHeaders(key));
+        assertThat(SSE.extractKey(headers)).isEqualTo(key);
+    }
+
+    @Test
     public void testThrowsOnInvalidChecksum()
     {
         Map<String, List<String>> headers = ImmutableMap.of(
@@ -60,5 +72,19 @@ class TestAzureEncryptionHeadersTranslator
         assertThatThrownBy(() -> SSE.extractKey(headers))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Key SHA256 checksum does not match");
+    }
+
+    private static Map<String, List<String>> mixCase(Map<String, List<String>> headers)
+    {
+        Iterator<Function<String, String>> iterator = Iterators.cycle(
+                String::toUpperCase,
+                value -> value.replaceFirst("x-ms-", "X-Ms-"),
+                value -> value.replaceFirst("x-ms-encryption", "X-ms-Encryption"));
+
+        return headers.entrySet()
+                .stream()
+                .collect(toImmutableMap(
+                        entry -> iterator.next().apply(entry.getKey()),
+                        Map.Entry::getValue));
     }
 }

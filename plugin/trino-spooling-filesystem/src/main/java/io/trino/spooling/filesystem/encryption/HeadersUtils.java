@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Locale.ENGLISH;
 
 public class HeadersUtils
 {
@@ -24,9 +26,24 @@ public class HeadersUtils
 
     public static String getOnlyHeader(Map<String, List<String>> headers, String name)
     {
-        List<String> values = headers.get(name);
-        checkArgument(values != null && !values.isEmpty(), "Required header " + name + " was not found");
-        checkArgument(values.size() == 1, "Required header " + name + " contains more than one value");
+        String headerName = normalizeHeaderNameCase(name);
+        List<String> values = headers.get(headerName);
+        checkArgument(values != null && !values.isEmpty(), "Required header %s was not found", headerName);
+        checkArgument(values.size() == 1, "Required header %s contains more than one value", headerName);
         return values.getFirst();
+    }
+
+    static Map<String, List<String>> normalizeHeaders(Map<String, List<String>> headers)
+    {
+        return headers.entrySet()
+                .stream()
+                .collect(toImmutableMap(
+                        entry -> normalizeHeaderNameCase(entry.getKey()),
+                        entry -> List.copyOf(entry.getValue())));
+    }
+
+    static String normalizeHeaderNameCase(String headerName)
+    {
+        return headerName.toLowerCase(ENGLISH);
     }
 }
