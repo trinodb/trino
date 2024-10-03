@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
-import org.joda.time.DateTimeZone;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -299,7 +298,7 @@ public class TrinoPreparedStatement
     {
         requireNonNull(value, "value is null");
         if (value instanceof java.util.Date) {
-            return DATE_FORMATTER.print(((java.util.Date) value).getTime());
+            return DATE_FORMATTER.format(((java.util.Date) value).toInstant());
         }
         if (value instanceof LocalDate) {
             return ISO_LOCAL_DATE.format(((LocalDate) value));
@@ -340,7 +339,7 @@ public class TrinoPreparedStatement
             throws SQLException
     {
         if (value instanceof java.util.Date) {
-            return TIME_FORMATTER.print(((java.util.Date) value).getTime());
+            return TIME_FORMATTER.format(((java.util.Date) value).toInstant());
         }
         if (value instanceof LocalTime) {
             return ISO_LOCAL_TIME.format((LocalTime) value);
@@ -403,7 +402,7 @@ public class TrinoPreparedStatement
             throws SQLException
     {
         if (value instanceof java.util.Date) {
-            return TIMESTAMP_FORMATTER.print(((java.util.Date) value).getTime());
+            return TIMESTAMP_FORMATTER.format(((java.util.Date) value).toInstant());
         }
         if (value instanceof LocalDateTime) {
             return LOCAL_DATE_TIME_FORMATTER.format(((LocalDateTime) value));
@@ -444,7 +443,7 @@ public class TrinoPreparedStatement
             setTimestamp(parameterIndex, x);
         }
         else {
-            String formattedDateTime = TIMESTAMP_FORMATTER.withZone(DateTimeZone.forTimeZone(cal.getTimeZone())).print(x.getTime());
+            String formattedDateTime = TIMESTAMP_FORMATTER.withZone(cal.getTimeZone().toZoneId()).format(x.toLocalDateTime());
             setParameter(parameterIndex, formatLiteral("TIMESTAMP", formattedDateTime));
         }
     }

@@ -28,11 +28,6 @@ import io.trino.client.QueryError;
 import io.trino.client.QueryStatusInfo;
 import io.trino.jdbc.ColumnInfo.Nullable;
 import io.trino.jdbc.TypeConversions.NoConversionRegisteredException;
-import org.joda.time.DateTimeZone;
-import org.joda.time.LocalDate;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -57,9 +52,13 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.Iterator;
@@ -81,15 +80,24 @@ import static io.trino.jdbc.ColumnInfo.setTypeInfo;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
+import static java.time.format.DateTimeFormatter.ISO_DATE;
+import static java.time.temporal.ChronoField.DAY_OF_MONTH;
+import static java.time.temporal.ChronoField.HOUR_OF_DAY;
+import static java.time.temporal.ChronoField.MILLI_OF_SECOND;
+import static java.time.temporal.ChronoField.MINUTE_OF_HOUR;
+import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
+import static java.time.temporal.ChronoField.SECOND_OF_DAY;
+import static java.time.temporal.ChronoField.YEAR;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
 
 abstract class AbstractTrinoResultSet
         implements ResultSet
 {
+    private static final int SECONDS_PER_DAY = 86400;
+
     private static final Pattern DATETIME_PATTERN = Pattern.compile("" +
             "(?<year>[-+]?\\d{4,})-(?<month>\\d{1,2})-(?<day>\\d{1,2})" +
             "( (?:(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
@@ -118,17 +126,40 @@ abstract class AbstractTrinoResultSet
 
     private static final int MAX_DATETIME_PRECISION = 12;
 
-    private static final DateTimeZone CURRENT_TIME_ZONE = DateTimeZone.forID(ZoneId.systemDefault().getId());
-    private static final TimeZone CURRENT_JAVA_TIME_ZONE = TimeZone.getTimeZone(ZoneId.of(CURRENT_TIME_ZONE.getID()));
+    private static final ZoneId CURRENT_ZONE_ID = ZoneId.systemDefault();
 
     private static final int MILLISECONDS_PER_SECOND = 1000;
     private static final int MILLISECONDS_PER_MINUTE = 60 * MILLISECONDS_PER_SECOND;
     private static final long NANOSECONDS_PER_SECOND = 1_000_000_000;
     private static final int PICOSECONDS_PER_NANOSECOND = 1_000;
 
-    static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
-    static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
-    static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+
+    static final DateTimeFormatter TIME_FORMATTER = new DateTimeFormatterBuilder()
+                .appendValue(HOUR_OF_DAY, 2)
+                .appendLiteral(':')
+                .appendValue(MINUTE_OF_HOUR, 2)
+                .appendLiteral(':')
+                .appendValue(SECOND_OF_DAY, 2)
+                .appendLiteral('.')
+                .appendValue(MILLI_OF_SECOND, 3)
+                .toFormatter();
+
+    static final DateTimeFormatter TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
+            .appendValue(YEAR, 4)
+            .appendLiteral('-')
+            .appendValue(MONTH_OF_YEAR, 2)
+            .appendLiteral('-')
+            .appendValue(DAY_OF_MONTH, 2)
+            .appendLiteral(' ')
+            .appendValue(HOUR_OF_DAY, 2)
+            .appendLiteral(':')
+            .appendValue(MINUTE_OF_HOUR, 2)
+            .appendLiteral(':')
+            .appendValue(SECOND_OF_DAY, 2)
+            .appendLiteral('.')
+            .appendValue(MILLI_OF_SECOND, 3)
+            .toFormatter();
 
     // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
     // Since January 1, 1900 UTC is still December 31, 1899 in other zones, we are adding a 1 year margin.
@@ -153,8 +184,8 @@ abstract class AbstractTrinoResultSet
             TypeConversions.builder()
                     .add("decimal", String.class, BigDecimal.class, AbstractTrinoResultSet::parseBigDecimal)
                     .add("varbinary", byte[].class, String.class, value -> "0x" + BaseEncoding.base16().encode(value))
-                    .add("date", String.class, Date.class, string -> parseDate(string, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE))
-                    .add("date", String.class, java.time.LocalDate.class, string -> parseDate(string, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE).toLocalDate())
+                    .add("date", String.class, Date.class, string -> parseDate(string, CURRENT_ZONE_ID))
+                    .add("date", String.class, java.time.LocalDate.class, string -> parseDate(string, CURRENT_ZONE_ID).toLocalDate())
                     .add("time", String.class, Time.class, string -> parseTime(string, ZoneId.systemDefault()))
                     .add("time with time zone", String.class, Time.class, AbstractTrinoResultSet::parseTimeWithTimeZone)
                     .add("timestamp", String.class, Timestamp.class, string -> parseTimestampAsSqlTimestamp(string, ZoneId.systemDefault()))
@@ -332,10 +363,15 @@ abstract class AbstractTrinoResultSet
     public Date getDate(int columnIndex)
             throws SQLException
     {
-        return getDate(columnIndex, CURRENT_TIME_ZONE, CURRENT_JAVA_TIME_ZONE);
+        try {
+            return getDate(columnIndex, CURRENT_ZONE_ID);
+        }
+        catch (DateTimeParseException e) {
+            throw new SQLException("Expected value to be a date but is: " + getString(columnIndex), e);
+        }
     }
 
-    private Date getDate(int columnIndex, DateTimeZone localTimeZone, TimeZone localJavaTimeZone)
+    private Date getDate(int columnIndex, ZoneId zoneId)
             throws SQLException
     {
         Object value = column(columnIndex);
@@ -344,17 +380,17 @@ abstract class AbstractTrinoResultSet
         }
 
         try {
-            return parseDate(String.valueOf(value), localTimeZone, localJavaTimeZone);
+            return parseDate(String.valueOf(value), zoneId);
         }
         catch (IllegalArgumentException e) {
             throw new SQLException("Expected value to be a date but is: " + value, e);
         }
     }
 
-    private static Date parseDate(String value, DateTimeZone localTimeZone, TimeZone localJavaTimeZone)
+    private static Date parseDate(String value, ZoneId zoneId)
     {
-        LocalDate localDate = DATE_FORMATTER.parseLocalDate(value);
-        long millis = localDate.toDateTimeAtStartOfDay(localTimeZone).getMillis();
+        LocalDate localDate = LocalDate.parse(value, ISO_DATE);
+        long millis = localDate.atStartOfDay(zoneId).toEpochSecond() * 1000;
         if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
             return new Date(millis);
         }
@@ -366,8 +402,8 @@ abstract class AbstractTrinoResultSet
         // expensive GregorianCalendar; note that Joda also has a chronology that works for
         // older dates, but it uses a slightly different algorithm and yields results that
         // are not compatible with java.sql.Date.
-        Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthOfYear() - 1, localDate.getDayOfMonth());
-        calendar.setTimeZone(localJavaTimeZone);
+        Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthValue() - 1, localDate.getDayOfMonth());
+        calendar.setTimeZone(TimeZone.getTimeZone(zoneId));
 
         return new Date(calendar.getTimeInMillis());
     }
@@ -376,10 +412,15 @@ abstract class AbstractTrinoResultSet
     public Time getTime(int columnIndex)
             throws SQLException
     {
-        return getTime(columnIndex, CURRENT_TIME_ZONE);
+        try {
+            return getTime(columnIndex, CURRENT_ZONE_ID);
+        }
+        catch (DateTimeParseException e) {
+            throw new SQLException(e);
+        }
     }
 
-    private Time getTime(int columnIndex, DateTimeZone localTimeZone)
+    private Time getTime(int columnIndex, ZoneId zoneId)
             throws SQLException
     {
         Object value = column(columnIndex);
@@ -390,7 +431,7 @@ abstract class AbstractTrinoResultSet
         ColumnInfo columnInfo = columnInfo(columnIndex);
         if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("time")) {
             try {
-                return parseTime((String) value, ZoneId.of(localTimeZone.getID()));
+                return parseTime((String) value, zoneId);
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid time from server: " + value, e);
@@ -413,10 +454,10 @@ abstract class AbstractTrinoResultSet
     public Timestamp getTimestamp(int columnIndex)
             throws SQLException
     {
-        return getTimestamp(columnIndex, CURRENT_TIME_ZONE);
+        return getTimestamp(columnIndex, CURRENT_ZONE_ID);
     }
 
-    private Timestamp getTimestamp(int columnIndex, DateTimeZone localTimeZone)
+    private Timestamp getTimestamp(int columnIndex, ZoneId zoneId)
             throws SQLException
     {
         Object value = column(columnIndex);
@@ -427,7 +468,7 @@ abstract class AbstractTrinoResultSet
         ColumnInfo columnInfo = columnInfo(columnIndex);
         if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("timestamp")) {
             try {
-                return parseTimestampAsSqlTimestamp((String) value, ZoneId.of(localTimeZone.getID()));
+                return parseTimestampAsSqlTimestamp((String) value, zoneId);
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid timestamp from server: " + value, e);
@@ -1349,7 +1390,7 @@ abstract class AbstractTrinoResultSet
     public Date getDate(int columnIndex, Calendar cal)
             throws SQLException
     {
-        return getDate(columnIndex, DateTimeZone.forTimeZone(cal.getTimeZone()), cal.getTimeZone());
+        return getDate(columnIndex, cal.getTimeZone().toZoneId());
     }
 
     @Override
@@ -1363,7 +1404,7 @@ abstract class AbstractTrinoResultSet
     public Time getTime(int columnIndex, Calendar cal)
             throws SQLException
     {
-        return getTime(columnIndex, DateTimeZone.forTimeZone(cal.getTimeZone()));
+        return getTime(columnIndex, cal.getTimeZone().toZoneId());
     }
 
     @Override
@@ -1377,7 +1418,7 @@ abstract class AbstractTrinoResultSet
     public Timestamp getTimestamp(int columnIndex, Calendar cal)
             throws SQLException
     {
-        return getTimestamp(columnIndex, DateTimeZone.forTimeZone(cal.getTimeZone()));
+        return getTimestamp(columnIndex, cal.getTimeZone().toZoneId());
     }
 
     @Override
