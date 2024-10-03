@@ -14,20 +14,23 @@
 package io.trino.spooling.filesystem.encryption;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterators;
 import io.trino.filesystem.encryption.EncryptionKey;
-import org.assertj.core.api.AssertionsForClassTypes;
 import org.junit.jupiter.api.Test;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestGcsEncryptionHeadersTranslator
 {
-    private static final EncryptionHeadersTranslator SSE = new GcsEncryptionHeadersTranslator();
+    private static final EncryptionHeadersTranslator SSE = EncryptionHeadersTranslator.forScheme("gs");
 
     @Test
     public void testKnownKey()
@@ -47,7 +50,15 @@ class TestGcsEncryptionHeadersTranslator
     public void testRoundTrip()
     {
         EncryptionKey key = EncryptionKey.randomAes256();
-        AssertionsForClassTypes.assertThat(SSE.extractKey(SSE.createHeaders(key))).isEqualTo(key);
+        assertThat(SSE.extractKey(SSE.createHeaders(key))).isEqualTo(key);
+    }
+
+    @Test
+    public void testRoundTripWithMixedCaseHeaders()
+    {
+        EncryptionKey key = EncryptionKey.randomAes256();
+        Map<String, List<String>> headers = mixCase(SSE.createHeaders(key));
+        assertThat(SSE.extractKey(headers)).isEqualTo(key);
     }
 
     @Test
@@ -61,5 +72,19 @@ class TestGcsEncryptionHeadersTranslator
         assertThatThrownBy(() -> SSE.extractKey(headers))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Key SHA256 checksum does not match");
+    }
+
+    private static Map<String, List<String>> mixCase(Map<String, List<String>> headers)
+    {
+        Iterator<Function<String, String>> iterator = Iterators.cycle(
+                String::toUpperCase,
+                value -> value.replaceFirst("x-goog-", "X-Goog-"),
+                value -> value.replaceFirst("x-goog-encryption", "X-goog-Encryption"));
+
+        return headers.entrySet()
+                .stream()
+                .collect(toImmutableMap(
+                        entry -> iterator.next().apply(entry.getKey()),
+                        Map.Entry::getValue));
     }
 }

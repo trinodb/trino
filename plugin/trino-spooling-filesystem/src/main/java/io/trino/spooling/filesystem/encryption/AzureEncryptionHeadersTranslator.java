@@ -24,7 +24,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spooling.filesystem.encryption.HeadersUtils.getOnlyHeader;
 
-public class AzureEncryptionHeadersTranslator
+class AzureEncryptionHeadersTranslator
         implements EncryptionHeadersTranslator
 {
     @Override

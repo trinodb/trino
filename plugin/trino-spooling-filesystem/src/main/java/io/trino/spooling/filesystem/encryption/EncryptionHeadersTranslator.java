@@ -19,6 +19,7 @@ import io.trino.filesystem.encryption.EncryptionKey;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.spooling.filesystem.encryption.HeadersUtils.normalizeHeaders;
 import static java.util.Objects.requireNonNull;
 
 public interface EncryptionHeadersTranslator
@@ -35,14 +36,40 @@ public interface EncryptionHeadersTranslator
                 .orElseThrow(() -> new IllegalArgumentException("Unknown location scheme: " + location));
     }
 
-    private static EncryptionHeadersTranslator forScheme(String scheme)
+    static EncryptionHeadersTranslator forScheme(String scheme)
     {
         // These should match schemes supported in the FileSystemSpoolingModule
-        return switch (scheme) {
+        EncryptionHeadersTranslator schemeHeadersTranslator = switch (scheme) {
             case "s3" -> new S3EncryptionHeadersTranslator();
             case "gs" -> new GcsEncryptionHeadersTranslator();
             case "abfs" -> new AzureEncryptionHeadersTranslator();
             default -> throw new IllegalArgumentException("Unknown file system scheme: " + scheme);
         };
+
+        // Normalize header case so it won't matter which case we will get from the client
+        return new NormalizingHeadersTranslator(schemeHeadersTranslator);
+    }
+
+    class NormalizingHeadersTranslator
+            implements EncryptionHeadersTranslator
+    {
+        private final EncryptionHeadersTranslator delegate;
+
+        NormalizingHeadersTranslator(EncryptionHeadersTranslator delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+        }
+
+        @Override
+        public EncryptionKey extractKey(Map<String, List<String>> headers)
+        {
+            return delegate.extractKey(normalizeHeaders(headers));
+        }
+
+        @Override
+        public Map<String, List<String>> createHeaders(EncryptionKey encryption)
+        {
+            return normalizeHeaders(delegate.createHeaders(encryption));
+        }
     }
 }

@@ -25,7 +25,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spooling.filesystem.encryption.HeadersUtils.getOnlyHeader;
 
-public class GcsEncryptionHeadersTranslator
+class GcsEncryptionHeadersTranslator
         implements EncryptionHeadersTranslator
 {
     @Override
