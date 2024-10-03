@@ -55,11 +55,7 @@ jobs:
         if: env.S3_BUCKET != '' && env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != ''
         shell: bash --noprofile --norc -euo pipefail {0}
         run: |
-          # 1. Don't prefix attributes, because +@ (the default prefix) is not a valid character in nested row field names in the Hive connector for JSON files.
-          # 2. When converting to JSON, make sure 'testcase' is always an array: https://mikefarah.gitbook.io/yq/usage/xml#parse-xml-force-as-an-array
-          # 3. Remove system-err and system-out, because they cannot be easily parsed and add significant bloat, making storing and processing the data much more costly.
-          # 4. Remove properties, because they leak secret values.
-          # 5. Truncate all strings to 1k characters to avoid having lines longer than 100MB.
+          # Don't prefix attributes, because +@ (the default prefix) is not a valid character in nested row field names in the Hive connector for JSON files.
           yq_opts=(
               --input-format=xml
               --output-format=json
@@ -67,17 +63,28 @@ jobs:
               --xml-content-name='content'
               --xml-skip-directives
               --xml-skip-proc-inst
-              '.testsuite.testcase |= ([] + .) | .testsuite.testcase[] |= del(.system-err, .system-out) | .testsuite |= del(.properties) | .. |= select(tag == "!!str") |= sub("(.{0,1000}).*", "${1}")'
           )
+
+          # 1. When converting to JSON, make sure 'testcase' is always an array: https://mikefarah.gitbook.io/yq/usage/xml#parse-xml-force-as-an-array
+          # 2. Remove system-err and system-out, because they cannot be easily parsed and add significant bloat, making storing and processing the data much more costly.
+          # 3. Remove properties, because they leak secret values.
+          # 4. Truncate all strings to 1k characters to avoid having lines longer than 100MB.
+          surefire_selector='.testsuite.testcase |= ([] + .) | .testsuite.testcase[] |= del(.system-err, .system-out) | .testsuite |= del(.properties) | .. |= select(tag == "!!str") |= sub("(.{0,1000}).*", "${1}")'
+
+          # 1. Convert dashes to underscores in all map keys.
+          # 2. Make sure all arrays with only one item never get converted to an object
+          # 3. Truncate all strings to 1k characters to avoid having lines longer than 100MB.
+          testng_selector='.. |= select(tag == "!!map") |= with_entries(.key |= sub("-", "_")) | .suite.group.method |= ([] + .) | .suite.test.class[].test_method |= ([] + .) | .suite.test.class[].test_method[].params |= ([] + .) | .. |= select(tag == "!!str") |= sub("(.{0,1000}).*", "${1}")'
+
           artifact_id='${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}.json.gz'
 
           find . \
             -name TEST-\*.xml \
-            -exec yq "${yq_opts[@]}" {} \; \
+            -exec yq "${yq_opts[@]}" "$surefire_selector" {} \; \
                 | jq -c > surefire.ndjson
           find . \
             -name testng-results.xml \
-            -exec yq "${yq_opts[@]}" {} \; \
+            -exec yq "${yq_opts[@]}" "$testng_selector" {} \; \
                 | jq -c > testng.ndjson
 
           for filename in *.ndjson; do
