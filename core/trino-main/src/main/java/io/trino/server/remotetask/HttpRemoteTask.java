@@ -103,6 +103,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.preparePost;
@@ -974,11 +975,13 @@ public final class HttpRemoteTask
             @Override
             public void onSuccess(JsonResponse<TaskInfo> result)
             {
+                if (result.getStatusCode() != OK.code()) {
+                    onFailure(new RuntimeException("Unexpected http status code " + result.getStatusCode()));
+                    return;
+                }
+
                 try {
-                    if (!result.hasValue()) {
-                        log.warn("TaskInfo result did not contain JSON payload; payload=" + result.getResponseBody());
-                        throw new IllegalArgumentException("TaskInfo result did not contain JSON payload");
-                    }
+                    checkArgument(result.hasValue(), "TaskInfo result did not contain JSON payload; payload=%s", result.getResponseBody());
                     updateTaskInfo(result.getValue());
                 }
                 finally {
