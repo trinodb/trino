@@ -29,7 +29,7 @@ public class JsonQueryDataDecoder
 {
     private final TypeDecoder[] decoders;
 
-    public JsonQueryDataDecoder(TypeDecoder[] decoders)
+    JsonQueryDataDecoder(TypeDecoder[] decoders)
     {
         this.decoders = requireNonNull(decoders, "decoders is null");
     }
