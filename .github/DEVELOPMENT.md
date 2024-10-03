@@ -1,10 +1,22 @@
 # Development
 
-Developers should read [the development section of the website](https://trino.io/development),
-which covers thing like development philosophy and contribution process.
+Learn about development for all Trino organization projects:
 
-More information about the writing and building the documentation can
-be found in the [docs module](../docs).
+* [Vision](https://trino.io/development/vision)
+* [Contribution process](https://trino.io/development/process#contribution-process)
+* [Pull request and commit guidelines](https://trino.io/development/process#pull-request-and-commit-guidelines-)
+* [Release note guidelines](https://trino.io/development/process#release-note-guidelines-)
+
+Further information in the [development section of the
+website](https://trino.io/development) includes different roles, like
+contributors, reviewers, and maintainers, related processes, and other aspects.
+
+See [the Trino developer guide](https://trino.io/docs/current/develop.html) for
+information about the SPI, implementing connectors and other plugins plugins,
+the client protocol, writing tests and other lower level details.
+
+More information about writing and building the documentation can be found in
+the [docs module](../docs).
 
 * [Code style](#code-style)
 * [Additional IDE configuration](#additional-ide-configuration)
