@@ -163,10 +163,15 @@ public class BufferingSplitSource
                         public void onSuccess(SplitBatch splitBatch)
                         {
                             synchronized (GetNextBatch.this) {
-                                if (processBatch(splitBatch)) {
-                                    return;
+                                try {
+                                    if (processBatch(splitBatch)) {
+                                        return;
+                                    }
+                                    fetchSplits();
                                 }
-                                fetchSplits();
+                                catch (Exception e) {
+                                    setException(e);
+                                }
                             }
                         }
 
