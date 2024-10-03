@@ -57,7 +57,7 @@ class TestFileSystemSegmentPruner
             Instant now = Instant.now();
             QueryId queryId = QueryId.valueOf("prune_expired");
 
-            Location _ = createNewDummySegment(fileSystem, queryId, now.minusSeconds(1));
+            createNewDummySegment(fileSystem, queryId, now.minusSeconds(1));
             Location nonExpiredSegment = createNewDummySegment(fileSystem, queryId, now.plusSeconds(1));
 
             pruner.pruneExpiredBefore(now.truncatedTo(MILLIS));
@@ -79,9 +79,9 @@ class TestFileSystemSegmentPruner
             Instant now = Instant.now();
             QueryId queryId = QueryId.valueOf("prune_expired");
 
-            Location _ = createNewDummySegment(fileSystem, queryId, now.minusSeconds(1));
-            Location _ = createNewDummySegment(fileSystem, queryId, now.minusSeconds(1));
-            Location _ = createNewDummySegment(fileSystem, queryId, now.minusSeconds(1));
+            createNewDummySegment(fileSystem, queryId, now.minusSeconds(1));
+            createNewDummySegment(fileSystem, queryId, now.minusSeconds(1));
+            createNewDummySegment(fileSystem, queryId, now.minusSeconds(1));
 
             Location nonExpiredSegment = createNewDummySegment(fileSystem, queryId, now.plusSeconds(1));
 
@@ -106,8 +106,8 @@ class TestFileSystemSegmentPruner
 
             QueryId queryId = QueryId.valueOf("prune_live");
 
-            Location _ = createNewDummySegment(fileSystem, queryId, now.plusSeconds(1));
-            Location _ = createNewDummySegment(fileSystem, queryId, now.plusSeconds(2));
+            createNewDummySegment(fileSystem, queryId, now.plusSeconds(1));
+            createNewDummySegment(fileSystem, queryId, now.plusSeconds(2));
 
             pruner.pruneExpiredBefore(now.truncatedTo(MILLIS));
 
