@@ -53,6 +53,7 @@ import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.trino.plugin.hive.util.HiveUtil.getFooterCount;
 import static io.trino.plugin.hive.util.HiveUtil.getHeaderCount;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public abstract class LinePageSourceFactory
@@ -126,11 +127,6 @@ public abstract class LinePageSourceFactory
                     schema.serdeProperties());
         }
 
-        // Skip empty inputs
-        if (length == 0) {
-            return Optional.of(noProjectionAdaptation(new EmptyPageSource()));
-        }
-
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
         TrinoInputFile inputFile = trinoFileSystem.newInputFile(path);
         try {
@@ -141,6 +137,13 @@ public abstract class LinePageSourceFactory
                     inputFile = new MemoryInputFile(path, Slices.wrappedBuffer(data));
                 }
             }
+            length = min(inputFile.length() - start, length);
+
+            // Skip empty inputs
+            if (length <= 0) {
+                return Optional.of(noProjectionAdaptation(new EmptyPageSource()));
+            }
+
             LineReader lineReader = lineReaderFactory.createLineReader(inputFile, start, length, headerCount, footerCount);
             // Split may be empty after discovering the real file size and skipping headers
             if (lineReader.isClosed()) {
