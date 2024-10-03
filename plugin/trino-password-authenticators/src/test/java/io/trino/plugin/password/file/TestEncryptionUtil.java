@@ -27,8 +27,10 @@ public class TestEncryptionUtil
     @Test
     public void testHashingAlgorithmBCrypt()
     {
-        String password = "$2y$10$BqTb8hScP5DfcpmHo5PeyugxHz5Ky/qf3wrpD7SNm8sWuA3VlGqsa";
-        assertThat(getHashingAlgorithm(password)).isEqualTo(BCRYPT);
+        assertThat(getHashingAlgorithm("$2x$10$BqTb8hScP5DfcpmHo5PeyugxHz5Ky/qf3wrpD7SNm8sWuA3VlGqsa")).isEqualTo(BCRYPT);
+        assertThat(getHashingAlgorithm("$2y$10$BqTb8hScP5DfcpmHo5PeyugxHz5Ky/qf3wrpD7SNm8sWuA3VlGqsa")).isEqualTo(BCRYPT);
+        assertThat(getHashingAlgorithm("$2a$10$BqTb8hScP5DfcpmHo5PeyugxHz5Ky/qf3wrpD7SNm8sWuA3VlGqsa")).isEqualTo(BCRYPT);
+        assertThat(getHashingAlgorithm("$2b$10$BqTb8hScP5DfcpmHo5PeyugxHz5Ky/qf3wrpD7SNm8sWuA3VlGqsa")).isEqualTo(BCRYPT);
     }
 
     @Test
