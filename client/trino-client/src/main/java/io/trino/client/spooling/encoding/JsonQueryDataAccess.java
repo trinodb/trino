@@ -39,7 +39,7 @@ import static com.google.common.collect.Iterators.unmodifiableIterator;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
-public class JsonQueryDataAccess
+class JsonQueryDataAccess
         implements QueryDataAccess
 {
     private static final JsonFactory JSON_FACTORY = createJsonFactory();
@@ -47,7 +47,7 @@ public class JsonQueryDataAccess
     private final InputStream stream;
     private final TypeDecoder[] decoders;
 
-    public JsonQueryDataAccess(TypeDecoder[] decoders, InputStream stream)
+    JsonQueryDataAccess(TypeDecoder[] decoders, InputStream stream)
     {
         this.decoders = requireNonNull(decoders, "decoders is null");
         this.stream = requireNonNull(stream, "stream is null");
