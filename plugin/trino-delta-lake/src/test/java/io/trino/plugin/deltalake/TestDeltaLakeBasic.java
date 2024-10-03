@@ -1010,6 +1010,9 @@ public class TestDeltaLakeBasic
         assertQueryFails(
                 "MERGE INTO " + tableName + " t USING " + tableName + " s ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET a = 1",
                 "Writing to tables with identity columns is not supported");
+        assertQueryFails(
+                "ALTER TABLE " + tableName + " EXECUTE optimize",
+                "Writing to tables with identity columns is not supported");
     }
 
     @Test
