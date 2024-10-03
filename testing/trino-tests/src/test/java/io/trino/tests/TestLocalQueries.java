@@ -15,6 +15,7 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.QueryRunner;
@@ -50,8 +51,20 @@ public class TestLocalQueries
         QueryRunner queryRunner = new StandaloneQueryRunner(defaultSession);
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog(defaultSession.getCatalog().get(), "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
+        queryRunner.installPlugin(new MemoryPlugin());
+        queryRunner.createCatalog("memory", "memory");
 
         return queryRunner;
+    }
+
+    @Test
+    public void testDDL()
+    {
+        assertQuerySucceeds("CREATE SCHEMA memory.test_schema");
+        assertQuerySucceeds("CREATE TABLE memory.test_schema.test_table (c) AS VALUES 1");
+        assertQuerySucceeds("SELECT count(*) FROM memory.test_schema.test_table");
+        assertQuerySucceeds("DROP TABLE memory.test_schema.test_table");
+        assertQuerySucceeds("DROP SCHEMA memory.test_schema");
     }
 
     @Test

@@ -57,6 +57,7 @@ import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.FINISHED;
+import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -118,7 +119,11 @@ class DirectTrinoClient
             });
 
             PageDeserializer pageDeserializer = new PagesSerdeFactory(blockEncodingSerde, NONE).createDeserializer(Optional.empty());
-            for (QueryState state = queryManager.getQueryState(queryId); (state != FAILED) && !exchangeClient.isFinished(); state = queryManager.getQueryState(queryId)) {
+            for (QueryState state = queryManager.getQueryState(queryId);
+                    (state != FAILED) &&
+                            !exchangeClient.isFinished() &&
+                            !(dispatchQuery.getState() == FINISHING && dispatchQuery.getFullQueryInfo().getOutputStage().isEmpty());
+                    state = queryManager.getQueryState(queryId)) {
                 for (Slice serializedPage = exchangeClient.pollPage(); serializedPage != null; serializedPage = exchangeClient.pollPage()) {
                     Page page = pageDeserializer.deserialize(serializedPage);
                     pages.add(page);
@@ -158,6 +163,19 @@ class DirectTrinoClient
             }
             RuntimeException remoteException = queryInfo.getFailureInfo().toException();
             throw new QueryFailedException(queryInfo.getQueryId(), Optional.ofNullable(remoteException.getMessage()).orElseGet(remoteException::toString), remoteException);
+        }
+        if (pages.isEmpty() && columnTypes == null) {
+            // the query did not produce any output
+            return new MaterializedResult(
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    queryInfo.getSetSessionProperties(),
+                    queryInfo.getResetSessionProperties(),
+                    Optional.ofNullable(queryInfo.getUpdateType()),
+                    OptionalLong.empty(),
+                    mappedCopy(queryInfo.getWarnings(), ProtocolUtil::toClientWarning),
+                    Optional.of(ProtocolUtil.toStatementStats(new ResultQueryInfo(queryInfo))));
         }
 
         List<MaterializedRow> materializedRows = toMaterializedRows(session, columnTypes, pages);
