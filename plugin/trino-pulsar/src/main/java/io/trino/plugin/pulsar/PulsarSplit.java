@@ -36,8 +36,9 @@ import static java.util.Objects.requireNonNull;
 /**
  * This class represents information for a split.
  */
-public class PulsarSplit implements ConnectorSplit {
-
+public class PulsarSplit
+            implements ConnectorSplit
+{
     private static final Logger log = Logger.get(PulsarSplit.class);
 
     private final long splitId;
@@ -78,7 +79,9 @@ public class PulsarSplit implements ConnectorSplit {
             @JsonProperty("endPositionLedgerId") long endPositionLedgerId,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
             @JsonProperty("schemaInfoProperties") String schemaInfoProperties,
-            @JsonProperty("offloadPolicies") OffloadPoliciesImpl offloadPolicies) throws IOException {
+            @JsonProperty("offloadPolicies") OffloadPoliciesImpl offloadPolicies)
+            throws IOException
+    {
         this.splitId = splitId;
         requireNonNull(schemaName, "schema name is null");
         this.originSchemaName = originSchemaName;
@@ -108,100 +111,120 @@ public class PulsarSplit implements ConnectorSplit {
     }
 
     @JsonProperty
-    public long getSplitId() {
+    public long getSplitId()
+    {
         return splitId;
     }
 
     @JsonProperty
-    public String getConnectorId() {
+    public String getConnectorId()
+    {
         return connectorId;
     }
 
     @JsonProperty
-    public String getSchemaName() {
+    public String getSchemaName()
+    {
         return schemaName;
     }
 
     @JsonProperty
-    public SchemaType getSchemaType() {
+    public SchemaType getSchemaType()
+    {
         return schemaType;
     }
 
     @JsonProperty
-    public String getTableName() {
+    public String getTableName()
+    {
         return tableName;
     }
 
     @JsonProperty
-    public long getSplitSize() {
+    public long getSplitSize()
+    {
         return splitSize;
     }
 
     @JsonProperty
-    public String getOriginSchemaName() {
+    public String getOriginSchemaName()
+    {
         return originSchemaName;
     }
 
     @JsonProperty
-    public String getSchema() {
+    public String getSchema()
+    {
         return schema;
     }
 
     @JsonProperty
-    public long getStartPositionEntryId() {
+    public long getStartPositionEntryId()
+    {
         return startPositionEntryId;
     }
 
     @JsonProperty
-    public long getEndPositionEntryId() {
+    public long getEndPositionEntryId()
+    {
         return endPositionEntryId;
     }
 
     @JsonProperty
-    public long getStartPositionLedgerId() {
+    public long getStartPositionLedgerId()
+    {
         return startPositionLedgerId;
     }
 
     @JsonProperty
-    public long getEndPositionLedgerId() {
+    public long getEndPositionLedgerId()
+    {
         return endPositionLedgerId;
     }
 
     @JsonProperty
-    public TupleDomain<ColumnHandle> getTupleDomain() {
+    public TupleDomain<ColumnHandle> getTupleDomain()
+    {
         return tupleDomain;
     }
 
-    public ImmutablePositionImpl getStartPosition() {
+    public ImmutablePositionImpl getStartPosition()
+    {
         return startPosition;
     }
 
-    public ImmutablePositionImpl getEndPosition() {
+    public ImmutablePositionImpl getEndPosition()
+    {
         return endPosition;
     }
 
     @JsonProperty
-    public String getSchemaInfoProperties() {
+    public String getSchemaInfoProperties()
+    {
         return schemaInfoProperties;
     }
 
     @JsonProperty
-    public OffloadPoliciesImpl getOffloadPolicies() {
+    public OffloadPoliciesImpl getOffloadPolicies()
+    {
         return offloadPolicies;
     }
 
     @Override
-    public boolean isRemotelyAccessible() {
+    public boolean isRemotelyAccessible()
+    {
         return true;
     }
 
     @Override
-    public List<HostAddress> getAddresses() {
+    public List<HostAddress> getAddresses()
+    {
         return ImmutableList.of(HostAddress.fromParts("localhost", 12345));
     }
 
     @Override
-    public String toString() {
+    public String toString()
+    {
         return "PulsarSplit{"
                 + "splitId=" + splitId
                 + ", connectorId='" + connectorId + '\''
@@ -220,7 +243,8 @@ public class PulsarSplit implements ConnectorSplit {
                 + '}';
     }
 
-    public SchemaInfo getSchemaInfo() {
+    public SchemaInfo getSchemaInfo()
+    {
         return schemaInfo;
     }
 }
