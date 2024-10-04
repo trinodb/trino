@@ -31,7 +31,14 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
-import org.apache.bookkeeper.mledger.*;
+import org.apache.bookkeeper.mledger.AsyncCallbacks;
+import org.apache.bookkeeper.mledger.Entry;
+import org.apache.bookkeeper.mledger.ManagedLedgerConfig;
+import org.apache.bookkeeper.mledger.ManagedLedgerException;
+import org.apache.bookkeeper.mledger.ManagedLedgerFactory;
+import org.apache.bookkeeper.mledger.Position;
+import org.apache.bookkeeper.mledger.PositionFactory;
+import org.apache.bookkeeper.mledger.ReadOnlyCursor;
 import org.apache.bookkeeper.mledger.impl.ReadOnlyCursorImpl;
 import org.apache.bookkeeper.util.collections.ConcurrentOpenHashMap;
 import org.apache.pulsar.client.api.PulsarClientException;
@@ -53,7 +60,12 @@ import org.jctools.queues.MessagePassingQueue;
 import org.jctools.queues.SpscArrayQueue;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -63,13 +75,14 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.decoder.FieldValueProviders.bytesValueProvider;
 import static io.trino.decoder.FieldValueProviders.longValueProvider;
-
+import static java.lang.Math.toIntExact;
 
 /**
  * Implementation of a cursor to read records.
  */
-public class PulsarRecordCursor implements RecordCursor {
-
+public class PulsarRecordCursor
+            implements RecordCursor
+{
     private static final Logger log = Logger.get(PulsarRecordCursor.class);
     // Used to make sure we don't finish before all entries are processed since entries that have been dequeued
     // but not been deserialized and added messages to the message queue can be missed if we just check if the queues
@@ -88,7 +101,7 @@ public class PulsarRecordCursor implements RecordCursor {
     private CacheSizeAllocator entryQueueCacheSizeAllocator;
     private RawMessage currentMessage;
     private int maxBatchSize;
-    private long completedBytes = 0;
+    private long completedBytes;
     private ReadEntries readEntries;
     private DeserializeEntries deserializeEntries;
     private TopicName topicName;
@@ -96,22 +109,24 @@ public class PulsarRecordCursor implements RecordCursor {
     private boolean readOffloaded;
     // Stats total execution time of split
     private long startTime;
-    private long entriesProcessed = 0;
+    private long entriesProcessed;
     private int partition = -1;
     private volatile Throwable deserializingError;
     private PulsarSqlSchemaInfoProvider schemaInfoProvider;
-    private FieldValueProvider[] currentRowValues = null;
+    private FieldValueProvider[] currentRowValues;
 
     public PulsarRecordCursor(List<PulsarColumnHandle> columnHandles, PulsarSplit pulsarSplit,
                               PulsarConnectorConfig pulsarConnectorConfig,
-                              PulsarDispatchingRowDecoderFactory decoderFactory) {
+                              PulsarDispatchingRowDecoderFactory decoderFactory)
+    {
         this.splitSize = pulsarSplit.getSplitSize();
         // Set start time for split
         this.startTime = System.nanoTime();
         PulsarConnectorCache pulsarConnectorCache;
         try {
             pulsarConnectorCache = PulsarConnectorCache.getConnectorCache(pulsarConnectorConfig);
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.error(e, "Failed to initialize Pulsar connector cache");
             close();
             throw new RuntimeException(e);
@@ -138,7 +153,8 @@ public class PulsarRecordCursor implements RecordCursor {
     PulsarRecordCursor(List<PulsarColumnHandle> columnHandles, PulsarSplit pulsarSplit, PulsarConnectorConfig
             pulsarConnectorConfig, ManagedLedgerFactory managedLedgerFactory, ManagedLedgerConfig managedLedgerConfig,
                        PulsarConnectorMetricsTracker pulsarConnectorMetricsTracker,
-                       PulsarDispatchingRowDecoderFactory decoderFactory) {
+                       PulsarDispatchingRowDecoderFactory decoderFactory)
+    {
         this.splitSize = pulsarSplit.getSplitSize();
         initialize(columnHandles, pulsarSplit, pulsarConnectorConfig, managedLedgerFactory, managedLedgerConfig,
                 pulsarConnectorMetricsTracker);
@@ -147,7 +163,8 @@ public class PulsarRecordCursor implements RecordCursor {
 
     private void initialize(List<PulsarColumnHandle> columnHandles, PulsarSplit pulsarSplit, PulsarConnectorConfig
             pulsarConnectorConfig, ManagedLedgerFactory managedLedgerFactory, ManagedLedgerConfig managedLedgerConfig,
-                            PulsarConnectorMetricsTracker pulsarConnectorMetricsTracker) {
+                            PulsarConnectorMetricsTracker pulsarConnectorMetricsTracker)
+    {
         this.columnHandles = columnHandles;
         this.currentRowValues = new FieldValueProvider[columnHandles.size()];
         this.pulsarSplit = pulsarSplit;
@@ -167,17 +184,18 @@ public class PulsarRecordCursor implements RecordCursor {
         try {
             this.schemaInfoProvider = new PulsarSqlSchemaInfoProvider(this.topicName,
                     pulsarConnectorConfig.getPulsarAdmin());
-        } catch (PulsarClientException e) {
+        }
+        catch (PulsarClientException e) {
             log.error(e, "Failed to init  Pulsar SchemaInfo Provider");
             throw new RuntimeException(e);
-
         }
         log.info("Initializing split with parameters: %s", pulsarSplit);
 
         try {
             this.cursor = getCursor(TopicName.get("persistent", NamespaceName.get(pulsarSplit.getSchemaName()),
                     pulsarSplit.getTableName()), pulsarSplit.getStartPosition(), managedLedgerFactory, managedLedgerConfig);
-        } catch (ManagedLedgerException | InterruptedException e) {
+        }
+        catch (ManagedLedgerException | InterruptedException e) {
             log.error(e, "Failed to get read only cursor");
             close();
             throw new RuntimeException(e);
@@ -186,8 +204,8 @@ public class PulsarRecordCursor implements RecordCursor {
 
     private ReadOnlyCursor getCursor(TopicName topicName, Position startPosition, ManagedLedgerFactory
             managedLedgerFactory, ManagedLedgerConfig managedLedgerConfig)
-            throws ManagedLedgerException, InterruptedException {
-
+            throws ManagedLedgerException, InterruptedException
+    {
         ReadOnlyCursor cursor = managedLedgerFactory.openReadOnlyCursor(topicName.getPersistenceNamingEncoding(),
                 startPosition, managedLedgerConfig);
 
@@ -195,27 +213,32 @@ public class PulsarRecordCursor implements RecordCursor {
     }
 
     @Override
-    public long getCompletedBytes() {
+    public long getCompletedBytes()
+    {
         return this.completedBytes;
     }
 
     @Override
-    public long getReadTimeNanos() {
+    public long getReadTimeNanos()
+    {
         return 0;
     }
 
     @Override
-    public Type getType(int field) {
+    public Type getType(int field)
+    {
         checkArgument(field < columnHandles.size(), "Invalid field index");
         return columnHandles.get(field).getType();
     }
 
     @VisibleForTesting
-    public void setPulsarSqlSchemaInfoProvider(PulsarSqlSchemaInfoProvider schemaInfoProvider) {
+    public void setPulsarSqlSchemaInfoProvider(PulsarSqlSchemaInfoProvider schemaInfoProvider)
+    {
         this.schemaInfoProvider = schemaInfoProvider;
     }
 
-    private boolean entryExceedSplitEndPosition(Entry entry) {
+    private boolean entryExceedSplitEndPosition(Entry entry)
+    {
         return entry.getPosition().compareTo(pulsarSplit.getEndPosition()) >= 0;
     }
 
@@ -225,7 +248,8 @@ public class PulsarRecordCursor implements RecordCursor {
      * 2. If the available cache size > 0, return true.
      * 3. If the available cache size is invalid and the queue size == 0, return true, ensure not block the query.
      */
-    private boolean haveAvailableCacheSize(CacheSizeAllocator cacheSizeAllocator, SpscArrayQueue queue) {
+    private boolean haveAvailableCacheSize(CacheSizeAllocator cacheSizeAllocator, SpscArrayQueue queue)
+    {
         if (cacheSizeAllocator instanceof NullCacheSizeAllocator) {
             return true;
         }
@@ -233,8 +257,8 @@ public class PulsarRecordCursor implements RecordCursor {
     }
 
     @Override
-    public boolean advanceNextPosition() {
-
+    public boolean advanceNextPosition()
+    {
         if (readEntries == null) {
             // start deserialize thread
             deserializeEntries = new DeserializeEntries();
@@ -265,14 +289,17 @@ public class PulsarRecordCursor implements RecordCursor {
             if (currentMessage != null) {
                 messageQueueCacheSizeAllocator.release(currentMessage.getData().readableBytes());
                 break;
-            } else if (deserializingError != null) {
+            }
+            else if (deserializingError != null) {
                 throw new RuntimeException(deserializingError);
-            } else {
+            }
+            else {
                 try {
                     Thread.sleep(1);
                     // stats for time spent wait to read from message queue because its empty
                     metricsTracker.register_MESSAGE_QUEUE_DEQUEUE_WAIT_TIME(1);
-                } catch (InterruptedException e) {
+                }
+                catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
             }
@@ -296,7 +323,8 @@ public class PulsarRecordCursor implements RecordCursor {
                 keyByteBuf = dataPayload.readSlice(keyLength);
                 int valueLength = dataPayload.readInt();
                 valueByteBuf = dataPayload.readSlice(valueLength);
-            } else {
+            }
+            else {
                 keyByteBuf = this.currentMessage.getKeyBytes().get();
                 valueByteBuf = this.currentMessage.getData();
             }
@@ -309,9 +337,7 @@ public class PulsarRecordCursor implements RecordCursor {
                     .collect(toImmutableSet());
             PulsarRowDecoder keyDecoder = null;
             if (keyColumnHandles.size() > 0) {
-                keyDecoder = decoderFactory.createRowDecoder(topicName,
-                        kvSchemaInfo.getKey(), keyColumnHandles
-                );
+                keyDecoder = decoderFactory.createRowDecoder(topicName, kvSchemaInfo.getKey(), keyColumnHandles);
             }
 
             Set<DecoderColumnHandle> valueColumnHandles = columnHandles.stream()
@@ -336,7 +362,8 @@ public class PulsarRecordCursor implements RecordCursor {
                         valueDecoder.decodeRow(valueByteBuf);
                 decodedValue.ifPresent(currentRowValuesMap::putAll);
             }
-        } else {
+        }
+        else {
             PulsarRowDecoder messageDecoder = decoderFactory.createRowDecoder(topicName,
                     schemaInfo,
                     columnHandles.stream()
@@ -383,7 +410,8 @@ public class PulsarRecordCursor implements RecordCursor {
                         try {
                             currentRowValuesMap.put(columnHandle, bytesValueProvider(
                                     new ObjectMapper().writeValueAsBytes(this.currentMessage.getProperties())));
-                        } catch (JsonProcessingException e) {
+                        }
+                        catch (JsonProcessingException e) {
                             throw new RuntimeException(e);
                         }
                         break;
@@ -414,7 +442,8 @@ public class PulsarRecordCursor implements RecordCursor {
      * 4. If the schema version of the message is not null, get the specific version schema by PulsarAdmin.
      * 5. If the final schema is null throw a runtime exception.
      */
-    private SchemaInfo getSchemaInfo(PulsarSplit pulsarSplit) {
+    private SchemaInfo getSchemaInfo(PulsarSplit pulsarSplit)
+    {
         SchemaInfo schemaInfo = getBytesSchemaInfo(pulsarSplit.getSchemaType(), pulsarSplit.getSchemaName());
         if (schemaInfo != null) {
             return schemaInfo;
@@ -422,10 +451,12 @@ public class PulsarRecordCursor implements RecordCursor {
         try {
             if (this.currentMessage.getSchemaVersion() == null || this.currentMessage.getSchemaVersion().length == 0) {
                 schemaInfo = pulsarSplit.getSchemaInfo();
-            } else {
+            }
+            else {
                 schemaInfo = schemaInfoProvider.getSchemaByVersion(this.currentMessage.getSchemaVersion()).get();
             }
-        } catch (InterruptedException | ExecutionException e) {
+        }
+        catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
         }
         if (schemaInfo == null) {
@@ -437,58 +468,69 @@ public class PulsarRecordCursor implements RecordCursor {
         return schemaInfo;
     }
 
-    private SchemaInfo getBytesSchemaInfo(SchemaType schemaType, String schemaName) {
+    private SchemaInfo getBytesSchemaInfo(SchemaType schemaType, String schemaName)
+    {
         if (!schemaType.equals(SchemaType.BYTES) && !schemaType.equals(SchemaType.NONE)) {
             return null;
         }
         if (schemaName.equals(Schema.BYTES.getSchemaInfo().getName())) {
             return Schema.BYTES.getSchemaInfo();
-        } else if (schemaName.equals(Schema.BYTEBUFFER.getSchemaInfo().getName())) {
+        }
+        else if (schemaName.equals(Schema.BYTEBUFFER.getSchemaInfo().getName())) {
             return Schema.BYTEBUFFER.getSchemaInfo();
-        } else {
+        }
+        else {
             return Schema.BYTES.getSchemaInfo();
         }
     }
 
     @Override
-    public boolean getBoolean(int field) {
+    public boolean getBoolean(int field)
+    {
         return getFieldValueProvider(field, boolean.class).getBoolean();
     }
 
     @Override
-    public long getLong(int field) {
+    public long getLong(int field)
+    {
         return getFieldValueProvider(field, long.class).getLong();
     }
 
     @Override
-    public double getDouble(int field) {
+    public double getDouble(int field)
+    {
         return getFieldValueProvider(field, double.class).getDouble();
     }
 
     @Override
-    public Slice getSlice(int field) {
+    public Slice getSlice(int field)
+    {
         return getFieldValueProvider(field, Slice.class).getSlice();
     }
 
-    private FieldValueProvider getFieldValueProvider(int fieldIndex, Class<?> expectedType) {
+    private FieldValueProvider getFieldValueProvider(int fieldIndex, Class<?> expectedType)
+    {
         checkArgument(fieldIndex < columnHandles.size(), "Invalid field index");
         checkFieldType(fieldIndex, expectedType);
         return currentRowValues[fieldIndex];
     }
 
     @Override
-    public Object getObject(int field) {
+    public Object getObject(int field)
+    {
         return getFieldValueProvider(field, Block.class).getObject();
     }
 
     @Override
-    public boolean isNull(int field) {
+    public boolean isNull(int field)
+    {
         FieldValueProvider provider = currentRowValues[field];
         return provider == null || provider.isNull();
     }
 
     @Override
-    public void close() {
+    public void close()
+    {
         log.info("Closing cursor record");
 
         if (deserializeEntries != null) {
@@ -508,7 +550,8 @@ public class PulsarRecordCursor implements RecordCursor {
         if (this.cursor != null) {
             try {
                 this.cursor.close();
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 log.error(e);
             }
         }
@@ -518,15 +561,16 @@ public class PulsarRecordCursor implements RecordCursor {
             this.metricsTracker.register_TOTAL_EXECUTION_TIME(System.nanoTime() - startTime);
             this.metricsTracker.close();
         }
-
     }
 
-    private void checkFieldType(int field, Class<?> expected) {
+    private void checkFieldType(int field, Class<?> expected)
+    {
         Class<?> actual = getType(field).getJavaType();
         checkArgument(actual == expected, "Expected field %s to be type %s but is %s", field, expected, actual);
     }
 
-    private void initEntryCacheSizeAllocator(PulsarConnectorConfig connectorConfig) {
+    private void initEntryCacheSizeAllocator(PulsarConnectorConfig connectorConfig)
+    {
         if (connectorConfig.getMaxSplitQueueSizeBytes() >= 0) {
             this.entryQueueCacheSizeAllocator = new NoStrictCacheSizeAllocator(
                     connectorConfig.getMaxSplitQueueSizeBytes() / 2);
@@ -534,14 +578,16 @@ public class PulsarRecordCursor implements RecordCursor {
                     connectorConfig.getMaxSplitQueueSizeBytes() / 2);
             log.info("Init cacheSizeAllocator with maxSplitEntryQueueSizeBytes %d.",
                     connectorConfig.getMaxSplitQueueSizeBytes());
-        } else {
+        }
+        else {
             this.entryQueueCacheSizeAllocator = new NullCacheSizeAllocator();
             this.messageQueueCacheSizeAllocator = new NullCacheSizeAllocator();
             log.info("Init cacheSizeAllocator with NullCacheSizeAllocator.");
         }
     }
 
-    private RawMessage processChunkedMessages(RawMessage message) {
+    private RawMessage processChunkedMessages(RawMessage message)
+    {
         final String uuid = message.getUUID();
         final int chunkId = message.getChunkId();
         final int totalChunkMsgSize = message.getTotalChunkMsgSize();
@@ -599,10 +645,12 @@ public class PulsarRecordCursor implements RecordCursor {
         return ((RawMessageImpl) message).updatePayloadForChunkedMessage(unCompressedPayload);
     }
 
-    static class ChunkedMessageCtx {
-
-        private static final Recycler<ChunkedMessageCtx> RECYCLER = new Recycler<ChunkedMessageCtx>() {
-            protected ChunkedMessageCtx newObject(Recycler.Handle<ChunkedMessageCtx> handle) {
+    static class ChunkedMessageCtx
+    {
+        private static final Recycler<ChunkedMessageCtx> RECYCLER = new Recycler<ChunkedMessageCtx>()
+        {
+            protected ChunkedMessageCtx newObject(Recycler.Handle<ChunkedMessageCtx> handle)
+            {
                 return new ChunkedMessageCtx(handle);
             }
         };
@@ -611,18 +659,21 @@ public class PulsarRecordCursor implements RecordCursor {
         protected ByteBuf chunkedMsgBuffer;
         protected int lastChunkedMessageId = -1;
 
-        private ChunkedMessageCtx(Recycler.Handle<ChunkedMessageCtx> recyclerHandle) {
+        private ChunkedMessageCtx(Recycler.Handle<ChunkedMessageCtx> recyclerHandle)
+        {
             this.recyclerHandle = recyclerHandle;
         }
 
-        static ChunkedMessageCtx get(int numChunksFromMsg, ByteBuf chunkedMsgBuffer) {
+        static ChunkedMessageCtx get(int numChunksFromMsg, ByteBuf chunkedMsgBuffer)
+        {
             ChunkedMessageCtx ctx = RECYCLER.get();
             ctx.totalChunks = numChunksFromMsg;
             ctx.chunkedMsgBuffer = chunkedMsgBuffer;
             return ctx;
         }
 
-        public void recycle() {
+        public void recycle()
+        {
             this.totalChunks = -1;
             this.chunkedMsgBuffer = null;
             this.lastChunkedMessageId = -1;
@@ -631,26 +682,30 @@ public class PulsarRecordCursor implements RecordCursor {
     }
 
     @VisibleForTesting
-    class DeserializeEntries extends Thread {
-
+    class DeserializeEntries
+            extends Thread
+    {
         private final AtomicBoolean isRunning;
 
         private final CompletableFuture<Void> closeHandle;
 
-        public DeserializeEntries() {
+        public DeserializeEntries()
+        {
             super("deserialize-thread-split-" + pulsarSplit.getSplitId());
             this.isRunning = new AtomicBoolean(false);
             this.closeHandle = new CompletableFuture<>();
         }
 
         @Override
-        public void start() {
+        public void start()
+        {
             if (isRunning.compareAndSet(false, true)) {
                 super.start();
             }
         }
 
-        public CompletableFuture<Void> close() {
+        public CompletableFuture<Void> close()
+        {
             if (isRunning.compareAndSet(true, false)) {
                 super.interrupt();
             }
@@ -658,13 +713,14 @@ public class PulsarRecordCursor implements RecordCursor {
         }
 
         @Override
-        public void run() {
+        public void run()
+        {
             try {
                 while (isRunning.get()) {
                     int read = entryQueue.drain(new MessagePassingQueue.Consumer<Entry>() {
                         @Override
-                        public void accept(Entry entry) {
-
+                        public void accept(Entry entry)
+                        {
                             try {
                                 entryQueueCacheSizeAllocator.release(entry.getLength());
 
@@ -691,7 +747,8 @@ public class PulsarRecordCursor implements RecordCursor {
 
                                                     if (message.getNumChunksFromMsg() > 1) {
                                                         message = processChunkedMessages(message);
-                                                    } else if (entryExceedSplitEndPosition(entry)) {
+                                                    }
+                                                    else if (entryExceedSplitEndPosition(entry)) {
                                                         // skip no chunk or no multi chunk message
                                                         // that exceed split end position
                                                         message.release();
@@ -703,7 +760,8 @@ public class PulsarRecordCursor implements RecordCursor {
                                                                     messageQueueCacheSizeAllocator, messageQueue)
                                                                     || !messageQueue.offer(message)) {
                                                                 Thread.sleep(1);
-                                                            } else {
+                                                            }
+                                                            else {
                                                                 messageQueueCacheSizeAllocator.allocate(
                                                                         message.getData().readableBytes());
                                                                 break;
@@ -715,12 +773,13 @@ public class PulsarRecordCursor implements RecordCursor {
                                                     metricsTracker.end_MESSAGE_QUEUE_ENQUEUE_WAIT_TIME();
                                                     // stats for number of messages read
                                                     metricsTracker.incr_NUM_MESSAGES_DESERIALIZED_PER_ENTRY();
-
-                                                } catch (InterruptedException e) {
+                                                }
+                                                catch (InterruptedException e) {
                                                     //no-op
                                                 }
                                             }, pulsarConnectorConfig.getMaxMessageSize());
-                                } catch (IOException e) {
+                                }
+                                catch (IOException e) {
                                     log.error(e, "Failed to parse message from pulsar topic %s", topicName.toString());
                                     throw new RuntimeException(e);
                                 }
@@ -729,8 +788,8 @@ public class PulsarRecordCursor implements RecordCursor {
 
                                 // stats for num messages per entry
                                 metricsTracker.end_NUM_MESSAGES_DESERIALIZED_PER_ENTRY();
-
-                            } finally {
+                            }
+                            finally {
                                 entriesProcessed++;
                                 entry.release();
                             }
@@ -740,13 +799,15 @@ public class PulsarRecordCursor implements RecordCursor {
                     if (read <= 0) {
                         try {
                             Thread.sleep(1);
-                        } catch (InterruptedException e) {
+                        }
+                        catch (InterruptedException e) {
                             return;
                         }
                     }
                 }
                 closeHandle.complete(null);
-            } catch (Throwable ex) {
+            }
+            catch (Throwable ex) {
                 log.error(ex, "Stop running DeserializeEntries");
                 closeHandle.completeExceptionally(ex);
                 throw ex;
@@ -755,27 +816,27 @@ public class PulsarRecordCursor implements RecordCursor {
     }
 
     @VisibleForTesting
-    class ReadEntries implements AsyncCallbacks.ReadEntriesCallback {
-
+    class ReadEntries
+            implements AsyncCallbacks.ReadEntriesCallback
+    {
         //num of outstanding read requests
         // set to 1 because we can only read one batch a time
         private final AtomicLong outstandingReadsRequests = new AtomicLong(1);
+
         // indicate whether there are any additional entries left to read
-        private boolean isDone = false;
+        private boolean isDone;
 
-        public void run() {
-
+        public void run()
+        {
             if (outstandingReadsRequests.get() > 0) {
                 if (!cursor.hasMoreEntries()
                         || (cursor.getReadPosition().compareTo(pulsarSplit.getEndPosition()) >= 0
                         && chunkedMessagesMap.isEmpty())) {
                     isDone = true;
-
-                } else {
+                }
+                else {
                     int batchSize = Math.min(maxBatchSize, entryQueue.capacity() - entryQueue.size());
-
                     if (batchSize > 0) {
-
                         ReadOnlyCursorImpl readOnlyCursorImpl = ((ReadOnlyCursorImpl) cursor);
                         // check if ledger is offloaded
                         if (!readOffloaded && readOnlyCursorImpl.getCurrentLedgerInfo().hasOffloadContext()) {
@@ -786,10 +847,11 @@ public class PulsarRecordCursor implements RecordCursor {
                             long numEntries = readOnlyCursorImpl.getCurrentLedgerInfo().getEntries();
                             long entriesToSkip =
                                     (numEntries - cursor.getReadPosition().getEntryId()) + 1;
-                            cursor.skipEntries(Math.toIntExact((entriesToSkip)));
+                            cursor.skipEntries(toIntExact((entriesToSkip)));
 
                             entriesProcessed += entriesToSkip;
-                        } else {
+                        }
+                        else {
                             if (!haveAvailableCacheSize(entryQueueCacheSizeAllocator, entryQueue)) {
                                 metricsTracker.incr_READ_ATTEMPTS_FAIL();
                                 return;
@@ -802,7 +864,8 @@ public class PulsarRecordCursor implements RecordCursor {
 
                         // stats for successful read request
                         metricsTracker.incr_READ_ATTEMPTS_SUCCESS();
-                    } else {
+                    }
+                    else {
                         // stats for failed read request because entry queue is full
                         metricsTracker.incr_READ_ATTEMPTS_FAIL();
                     }
@@ -811,13 +874,14 @@ public class PulsarRecordCursor implements RecordCursor {
         }
 
         @Override
-        public void readEntriesComplete(List<Entry> entries, Object ctx) {
-
+        public void readEntriesComplete(List<Entry> entries, Object ctx)
+        {
             entryQueue.fill(new MessagePassingQueue.Supplier<Entry>() {
-                private int i = 0;
+                private int i;
 
                 @Override
-                public Entry get() {
+                public Entry get()
+                {
                     Entry entry = entries.get(i);
                     i++;
                     entryQueueCacheSizeAllocator.allocate(entry.getLength());
@@ -833,13 +897,15 @@ public class PulsarRecordCursor implements RecordCursor {
             metricsTracker.incr_NUM_ENTRIES_PER_BATCH_SUCCESS(entries.size());
         }
 
-        public boolean hasFinished() {
+        public boolean hasFinished()
+        {
             return messageQueue.isEmpty() && isDone && outstandingReadsRequests.get() >= 1
                     && splitSize <= entriesProcessed && chunkedMessagesMap.isEmpty();
         }
 
         @Override
-        public void readEntriesFailed(ManagedLedgerException exception, Object ctx) {
+        public void readEntriesFailed(ManagedLedgerException exception, Object ctx)
+        {
             if (log.isDebugEnabled()) {
                 log.debug(exception, "Failed to read entries from topic %s", topicName.toString());
             }
@@ -851,5 +917,4 @@ public class PulsarRecordCursor implements RecordCursor {
             metricsTracker.incr_NUM_ENTRIES_PER_BATCH_FAIL(maxBatchSize);
         }
     }
-
 }

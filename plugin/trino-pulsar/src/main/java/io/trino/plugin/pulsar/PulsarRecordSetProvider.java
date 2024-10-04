@@ -14,7 +14,13 @@
 package io.trino.plugin.pulsar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.connector.*;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.RecordSet;
 import jakarta.inject.Inject;
 
 import java.util.List;
@@ -22,7 +28,8 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 public class PulsarRecordSetProvider
-        implements ConnectorRecordSetProvider {
+            implements ConnectorRecordSetProvider
+{
     private final PulsarConnectorConfig pulsarConnectorConfig;
 
     private final PulsarDispatchingRowDecoderFactory decoderFactory;
@@ -33,7 +40,8 @@ public class PulsarRecordSetProvider
     public PulsarRecordSetProvider(
             PulsarConnectorConfig pulsarConnectorConfig,
             PulsarDispatchingRowDecoderFactory decoderFactory,
-            PulsarConnectorCache pulsarConnectorManagedLedgerFactory) {
+            PulsarConnectorCache pulsarConnectorManagedLedgerFactory)
+    {
         this.decoderFactory = requireNonNull(decoderFactory, "decoderFactory is null");
         this.pulsarConnectorConfig = requireNonNull(pulsarConnectorConfig, "pulsarConnectorConfig is null");
         this.pulsarConnectorManagedLedgerFactory = requireNonNull(pulsarConnectorManagedLedgerFactory, "pulsarConnectorManagedLedgerFactory is null");
@@ -47,7 +55,8 @@ public class PulsarRecordSetProvider
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
-            List<? extends ColumnHandle> columns) {
+            List<? extends ColumnHandle> columns)
+    {
         requireNonNull(split, "Connector split is null");
         PulsarSplit pulsarSplit = (PulsarSplit) split;
 

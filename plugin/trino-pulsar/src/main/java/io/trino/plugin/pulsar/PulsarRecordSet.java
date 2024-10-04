@@ -25,8 +25,9 @@ import static java.util.Objects.requireNonNull;
 /**
  * Implementation of a record set.
  */
-public class PulsarRecordSet implements RecordSet {
-
+public class PulsarRecordSet
+            implements RecordSet
+{
     private final List<PulsarColumnHandle> columnHandles;
     private final List<Type> columnTypes;
     private final PulsarSplit pulsarSplit;
@@ -35,7 +36,8 @@ public class PulsarRecordSet implements RecordSet {
     private final PulsarDispatchingRowDecoderFactory decoderFactory;
 
     public PulsarRecordSet(PulsarSplit split, List<PulsarColumnHandle> columnHandles, PulsarConnectorConfig
-            pulsarConnectorConfig, PulsarDispatchingRowDecoderFactory decoderFactory) {
+            pulsarConnectorConfig, PulsarDispatchingRowDecoderFactory decoderFactory)
+    {
         requireNonNull(split, "split is null");
         this.columnHandles = requireNonNull(columnHandles, "column handles is null");
         ImmutableList.Builder<Type> types = ImmutableList.builder();
@@ -51,14 +53,15 @@ public class PulsarRecordSet implements RecordSet {
         this.decoderFactory = decoderFactory;
     }
 
-
     @Override
-    public List<Type> getColumnTypes() {
+    public List<Type> getColumnTypes()
+    {
         return this.columnTypes;
     }
 
     @Override
-    public RecordCursor cursor() {
+    public RecordCursor cursor()
+    {
         return new PulsarRecordCursor(this.columnHandles, this.pulsarSplit,
                 this.pulsarConnectorConfig, this.decoderFactory);
     }
