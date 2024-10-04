@@ -99,22 +99,24 @@ public class DeleteAndInsertMergeProcessor
         int originalPositionCount = inputPage.getPositionCount();
         checkArgument(originalPositionCount > 0, "originalPositionCount should be > 0, but is %s", originalPositionCount);
 
-        List<Block> fields = getRowFieldsFromBlock(inputPage.getBlock(mergeRowChannel));
+        Block mergeRow = inputPage.getBlock(mergeRowChannel);
+        List<Block> fields = getRowFieldsFromBlock(mergeRow);
         Block operationChannelBlock = fields.get(fields.size() - 2);
 
         int updatePositions = 0;
         int insertPositions = 0;
         int deletePositions = 0;
         for (int position = 0; position < originalPositionCount; position++) {
-            byte operation = TINYINT.getByte(operationChannelBlock, position);
-            switch (operation) {
-                case DEFAULT_CASE_OPERATION_NUMBER -> { /* ignored */ }
-                case INSERT_OPERATION_NUMBER -> insertPositions++;
-                case DELETE_OPERATION_NUMBER -> deletePositions++;
-                case UPDATE_OPERATION_NUMBER -> updatePositions++;
-                // This class will create such rows, they are not expected on input
-                case UPDATE_INSERT_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER -> throw new IllegalArgumentException("Unexpected operator number: " + operation);
-                default -> throw new IllegalArgumentException("Unknown operator number: " + operation);
+            if (!mergeRow.isNull(position)) {
+                byte operation = TINYINT.getByte(operationChannelBlock, position);
+                switch (operation) {
+                    case INSERT_OPERATION_NUMBER -> insertPositions++;
+                    case DELETE_OPERATION_NUMBER -> deletePositions++;
+                    case UPDATE_OPERATION_NUMBER -> updatePositions++;
+                    // This class will create such rows, they are not expected on input
+                    case UPDATE_INSERT_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER -> throw new IllegalArgumentException("Unexpected operator number: " + operation);
+                    default -> throw new IllegalArgumentException("Unknown operator number: " + operation);
+                }
             }
         }
 
@@ -128,8 +130,8 @@ public class DeleteAndInsertMergeProcessor
 
         PageBuilder pageBuilder = new PageBuilder(totalPositions, pageTypes);
         for (int position = 0; position < originalPositionCount; position++) {
-            byte operation = TINYINT.getByte(operationChannelBlock, position);
-            if (operation != DEFAULT_CASE_OPERATION_NUMBER) {
+            if (!mergeRow.isNull(position)) {
+                byte operation = TINYINT.getByte(operationChannelBlock, position);
                 // Delete and Update because both create a delete row
                 if (operation == DELETE_OPERATION_NUMBER || operation == UPDATE_OPERATION_NUMBER) {
                     addDeleteRow(pageBuilder, inputPage, position, operation != DELETE_OPERATION_NUMBER);
