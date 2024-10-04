@@ -78,22 +78,14 @@ public class HudiCompactionOperation
     public Object get(int field)
     {
         return switch (field) {
-            case 0:
-                yield baseInstantTime;
-            case 1:
-                yield deltaFilePaths;
-            case 2:
-                yield dataFilePath;
-            case 3:
-                yield fileId;
-            case 4:
-                yield partitionPath;
-            case 5:
-                yield metrics;
-            case 6:
-                yield bootstrapFilePath;
-            default:
-                throw new IndexOutOfBoundsException("Invalid index: " + field);
+            case 0 -> baseInstantTime;
+            case 1 -> deltaFilePaths;
+            case 2 -> dataFilePath;
+            case 3 -> fileId;
+            case 4 -> partitionPath;
+            case 5 -> metrics;
+            case 6 -> bootstrapFilePath;
+            default -> throw new IndexOutOfBoundsException("Invalid index: " + field);
         };
     }
 
