@@ -195,7 +195,7 @@
         <dep.drift.version>1.22</dep.drift.version>
         <!-- temporary downgrade due to https://github.com/google/error-prone/issues/4598 -->
         <dep.errorprone.version>2.32.0</dep.errorprone.version>
-        <dep.flyway.version>10.18.2</dep.flyway.version>
+        <dep.flyway.version>10.19.0</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v20.17.0</dep.frontend-node.version>
         <dep.frontend-npm.version>10.8.3</dep.frontend-npm.version>
