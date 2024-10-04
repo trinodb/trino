@@ -28,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
@@ -39,8 +40,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 /**
  * Multi version schema info provider for Pulsar SQL leverage guava cache.
  */
-public class PulsarSqlSchemaInfoProvider implements SchemaInfoProvider {
-
+public class PulsarSqlSchemaInfoProvider
+            implements SchemaInfoProvider
+{
     private static final Logger LOG = LoggerFactory.getLogger(PulsarSqlSchemaInfoProvider.class);
 
     private final TopicName topicName;
@@ -53,28 +55,33 @@ public class PulsarSqlSchemaInfoProvider implements SchemaInfoProvider {
             .build(new CacheLoader<>() {
                 @Nonnull
                 @Override
-                public CompletableFuture<SchemaInfo> load(@Nonnull BytesSchemaVersion schemaVersion) {
+                public CompletableFuture<SchemaInfo> load(@Nonnull BytesSchemaVersion schemaVersion)
+                {
                     return loadSchema(schemaVersion);
                 }
             });
 
-    public PulsarSqlSchemaInfoProvider(TopicName topicName, PulsarAdmin pulsarAdmin) {
+    public PulsarSqlSchemaInfoProvider(TopicName topicName, PulsarAdmin pulsarAdmin)
+    {
         this.topicName = topicName;
         this.pulsarAdmin = pulsarAdmin;
     }
 
-    public static SchemaInfo defaultSchema() {
+    public static SchemaInfo defaultSchema()
+    {
         return Schema.BYTES.getSchemaInfo();
     }
 
     @Override
-    public CompletableFuture<SchemaInfo> getSchemaByVersion(byte[] schemaVersion) {
+    public CompletableFuture<SchemaInfo> getSchemaByVersion(byte[] schemaVersion)
+    {
         try {
             if (null == schemaVersion) {
                 return completedFuture(null);
             }
             return cache.get(BytesSchemaVersion.of(schemaVersion));
-        } catch (ExecutionException e) {
+        }
+        catch (ExecutionException e) {
             LOG.error("Can't get generic schema for topic %s schema version %s",
                     topicName.toString(), new String(schemaVersion, StandardCharsets.UTF_8), e);
             return FutureUtil.failedFuture(e.getCause());
@@ -82,24 +89,27 @@ public class PulsarSqlSchemaInfoProvider implements SchemaInfoProvider {
     }
 
     @Override
-    public CompletableFuture<SchemaInfo> getLatestSchema() {
+    public CompletableFuture<SchemaInfo> getLatestSchema()
+    {
         return pulsarAdmin.schemas().getSchemaInfoAsync(topicName.toString());
     }
 
     @Override
-    public String getTopicName() {
+    public String getTopicName()
+    {
         return topicName.getLocalName();
     }
 
-    private CompletableFuture<SchemaInfo> loadSchema(BytesSchemaVersion bytesSchemaVersion) {
+    private CompletableFuture<SchemaInfo> loadSchema(BytesSchemaVersion bytesSchemaVersion)
+    {
         ClassLoader originalContextLoader = Thread.currentThread().getContextClassLoader();
         try {
             Thread.currentThread().setContextClassLoader(InjectionManagerFactory.class.getClassLoader());
             long version = ByteBuffer.wrap(bytesSchemaVersion.get()).getLong();
             return pulsarAdmin.schemas().getSchemaInfoAsync(topicName.toString(), version);
-        } finally {
+        }
+        finally {
             Thread.currentThread().setContextClassLoader(originalContextLoader);
         }
     }
-
 }

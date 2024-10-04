@@ -21,7 +21,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
-public class PulsarTopicDescription {
+public class PulsarTopicDescription
+{
     private final String tableName;
     private final String topicName;
     private final String schemaName;
@@ -45,17 +46,20 @@ public class PulsarTopicDescription {
     }
 
     @JsonProperty
-    public String getTableName() {
+    public String getTableName()
+    {
         return tableName;
     }
 
     @JsonProperty
-    public String getTopicName() {
+    public String getTopicName()
+    {
         return topicName;
     }
 
     @JsonProperty
-    public String getSchemaName() {
+    public String getSchemaName()
+    {
         return schemaName;
     }
 
@@ -71,7 +75,8 @@ public class PulsarTopicDescription {
         return message;
     }*/
     @Override
-    public String toString() {
+    public String toString()
+    {
         return toStringHelper(this)
                 .add("tableName", tableName)
                 .add("topicName", topicName)

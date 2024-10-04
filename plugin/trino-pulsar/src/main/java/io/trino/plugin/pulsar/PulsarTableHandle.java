@@ -24,7 +24,8 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class PulsarTableHandle
-        implements ConnectorTableHandle {
+            implements ConnectorTableHandle
+{
     /**
      * Connector id.
      */
@@ -59,7 +60,8 @@ public class PulsarTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("topicName") String topicName/*,
             @JsonProperty("key") Optional<PulsarTopicFieldGroup> key,
-            @JsonProperty("message") Optional<PulsarTopicFieldGroup> message*/) {
+            @JsonProperty("message") Optional<PulsarTopicFieldGroup> message*/)
+    {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -69,26 +71,31 @@ public class PulsarTableHandle
     }
 
     @JsonProperty
-    public String getConnectorId() {
+    public String getConnectorId()
+    {
         return connectorId;
     }
 
     @JsonProperty
-    public String getSchemaName() {
+    public String getSchemaName()
+    {
         return schemaName;
     }
 
     @JsonProperty
-    public String getTableName() {
+    public String getTableName()
+    {
         return tableName;
     }
 
     @JsonProperty
-    public String getTopicName() {
+    public String getTopicName()
+    {
         return topicName;
     }
 
-    public SchemaTableName toSchemaTableName() {
+    public SchemaTableName toSchemaTableName()
+    {
         return new SchemaTableName(schemaName, tableName);
     }
 
@@ -105,12 +112,14 @@ public class PulsarTableHandle
     }*/
 
     @Override
-    public int hashCode() {
+    public int hashCode()
+    {
         return Objects.hash(connectorId, schemaName, tableName, topicName);
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(Object obj)
+    {
         if (this == obj) {
             return true;
         }
@@ -126,7 +135,8 @@ public class PulsarTableHandle
     }
 
     @Override
-    public String toString() {
+    public String toString()
+    {
         return toStringHelper(this)
                 .add("connectorId", connectorId)
                 .add("schemaName", schemaName)
