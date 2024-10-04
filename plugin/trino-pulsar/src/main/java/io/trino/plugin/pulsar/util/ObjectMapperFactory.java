@@ -20,18 +20,23 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.netty.util.concurrent.FastThreadLocal;
 
-public class ObjectMapperFactory {
+public class ObjectMapperFactory
+{
     private static final FastThreadLocal<ObjectMapper> JSON_MAPPER = new FastThreadLocal<ObjectMapper>() {
         @Override
-        protected ObjectMapper initialValue() throws Exception {
+        protected ObjectMapper initialValue()
+                throws Exception
+        {
             return create();
         }
     };
 
-    private ObjectMapperFactory() {
+    private ObjectMapperFactory()
+    {
     }
 
-    private static ObjectMapper create() {
+    private static ObjectMapper create()
+    {
         ObjectMapper mapper = new ObjectMapper();
         // forward compatibility for the properties may go away in the future
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -40,11 +45,14 @@ public class ObjectMapperFactory {
         return mapper;
     }
 
-    public static com.fasterxml.jackson.databind.JsonNode toOriginalJsonNode(JsonNode jsonNode) throws JsonProcessingException {
+    public static com.fasterxml.jackson.databind.JsonNode toOriginalJsonNode(JsonNode jsonNode)
+            throws JsonProcessingException
+    {
         return ObjectMapperFactory.getThreadLocal().readTree(jsonNode.toString());
     }
 
-    public static ObjectMapper getThreadLocal() {
+    public static ObjectMapper getThreadLocal()
+    {
         return JSON_MAPPER.get();
     }
 }

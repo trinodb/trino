@@ -16,7 +16,8 @@ package io.trino.plugin.pulsar.util;
 /**
  * An allocator manage size of entries read from BookKeeper and messages deserialized from entries.
  */
-public interface CacheSizeAllocator {
+public interface CacheSizeAllocator
+{
     /**
      * Get available cache size.
      *
