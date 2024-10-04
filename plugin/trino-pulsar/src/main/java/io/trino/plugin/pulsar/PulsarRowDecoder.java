@@ -20,12 +20,7 @@ import io.trino.decoder.FieldValueProvider;
 import java.util.Map;
 import java.util.Optional;
 
-public interface PulsarRowDecoder {
-    /**
-     * decode byteBuf to Column FieldValueProvider.
-     *
-     * @param byteBuf
-     * @return
-     */
+public interface PulsarRowDecoder
+{
     Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(ByteBuf byteBuf);
 }

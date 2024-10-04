@@ -24,26 +24,9 @@ import java.util.Set;
 /**
  * Pulsar customized RowDecoderFactory interface.
  */
-public interface PulsarRowDecoderFactory {
+public interface PulsarRowDecoderFactory
+{
+    List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo, PulsarColumnHandle.HandleKeyValueType handleKeyValueType);
 
-    /**
-     * extract ColumnMetadata from pulsar SchemaInfo and HandleKeyValueType.
-     *
-     * @param schemaInfo
-     * @param handleKeyValueType
-     * @return
-     */
-    List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo,
-                                               PulsarColumnHandle.HandleKeyValueType handleKeyValueType);
-
-    /**
-     * createRowDecoder RowDecoder by pulsar SchemaInfo and column DecoderColumnHandles.
-     *
-     * @param schemaInfo
-     * @param columns
-     * @return
-     */
-    PulsarRowDecoder createRowDecoder(TopicName topicName, SchemaInfo schemaInfo,
-                                      Set<DecoderColumnHandle> columns);
-
+    PulsarRowDecoder createRowDecoder(TopicName topicName, SchemaInfo schemaInfo, Set<DecoderColumnHandle> columns);
 }
