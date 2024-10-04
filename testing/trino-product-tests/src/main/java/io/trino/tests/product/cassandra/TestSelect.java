@@ -23,11 +23,8 @@ import io.trino.tempto.internal.query.CassandraQueryExecutor;
 import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.function.Consumer;
 
 import static io.trino.tempto.Requirements.compose;
@@ -38,25 +35,12 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TpchTableResults.TRINO_NATION_RESULT;
 import static io.trino.tests.product.cassandra.CassandraTpchTableDefinitions.CASSANDRA_NATION;
 import static io.trino.tests.product.cassandra.CassandraTpchTableDefinitions.CASSANDRA_SUPPLIER;
-import static io.trino.tests.product.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
 import static io.trino.tests.product.cassandra.TestConstants.CONNECTOR_NAME;
 import static io.trino.tests.product.cassandra.TestConstants.KEY_SPACE;
 import static io.trino.tests.product.utils.QueryAssertions.assertContainsEventually;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.sql.JDBCType.BIGINT;
-import static java.sql.JDBCType.BOOLEAN;
-import static java.sql.JDBCType.DATE;
-import static java.sql.JDBCType.DOUBLE;
-import static java.sql.JDBCType.INTEGER;
-import static java.sql.JDBCType.JAVA_OBJECT;
-import static java.sql.JDBCType.REAL;
-import static java.sql.JDBCType.SMALLINT;
-import static java.sql.JDBCType.TIMESTAMP_WITH_TIMEZONE;
-import static java.sql.JDBCType.TINYINT;
-import static java.sql.JDBCType.VARBINARY;
-import static java.sql.JDBCType.VARCHAR;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -72,8 +56,7 @@ public class TestSelect
         this.configuration = configuration;
         return compose(
                 immutableTable(CASSANDRA_NATION),
-                immutableTable(CASSANDRA_SUPPLIER),
-                immutableTable(CASSANDRA_ALL_TYPES));
+                immutableTable(CASSANDRA_SUPPLIER));
     }
 
     @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
@@ -175,67 +158,6 @@ public class TestSelect
     }
 
     @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
-    public void testAllDataTypes()
-    {
-        // NOTE: DECIMAL is treated like DOUBLE
-        QueryResult query = onTrino().executeQuery(format(
-                "SELECT a, b, bl, bo, d, do, dt, f, fr, i, integer, l, m, s, si, t, ti, ts, tu, u, v, vari FROM %s.%s.%s",
-                CONNECTOR_NAME, KEY_SPACE, CASSANDRA_ALL_TYPES.getName()));
-
-        assertThat(query)
-                .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, DATE, REAL, VARCHAR, JAVA_OBJECT,
-                        INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP_WITH_TIMEZONE, JAVA_OBJECT, JAVA_OBJECT,
-                        VARCHAR, VARCHAR)
-                .containsOnly(
-                        row("\0",
-                                Long.MIN_VALUE,
-                                new byte[] {0},
-                                false,
-                                0f,
-                                Double.MIN_VALUE,
-                                Date.valueOf("1970-01-02"),
-                                Float.MIN_VALUE,
-                                "[0]",
-                                "0.0.0.0",
-                                Integer.MIN_VALUE,
-                                "[0]",
-                                "{\"\\u0000\":-2147483648,\"a\":0}",
-                                "[0]",
-                                Short.MIN_VALUE,
-                                "\0",
-                                Byte.MIN_VALUE,
-                                Timestamp.from(OffsetDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC).toInstant()),
-                                "d2177dd0-eaa2-11de-a572-001b779c76e3",
-                                "01234567-0123-0123-0123-0123456789ab",
-                                "\0",
-                                String.valueOf(Long.MIN_VALUE)),
-                        row("the quick brown fox jumped over the lazy dog",
-                                9223372036854775807L,
-                                "01234".getBytes(UTF_8),
-                                true,
-                                Double.valueOf("99999999999999999999999999999999999999"),
-                                Double.MAX_VALUE,
-                                Date.valueOf("9999-12-31"),
-                                Float.MAX_VALUE,
-                                "[4,5,6,7]",
-                                "255.255.255.255",
-                                Integer.MAX_VALUE,
-                                "[4,5,6]",
-                                "{\"a\":1,\"b\":2}",
-                                "[4,5,6]",
-                                Short.MAX_VALUE,
-                                "this is a text value",
-                                Byte.MAX_VALUE,
-                                Timestamp.from(OffsetDateTime.of(9999, 12, 31, 23, 59, 59, 0, ZoneOffset.UTC).toInstant()),
-                                "d2177dd0-eaa2-11de-a572-001b779c76e3",
-                                "01234567-0123-0123-0123-0123456789ab",
-                                "abc",
-                                String.valueOf(Long.MAX_VALUE)),
-                        row("def", null, null, null, null, null, null, null, null, null, null,
-                                null, null, null, null, null, null, null, null, null, null, null));
-    }
-
-    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testNationJoinNation()
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_NATION.getName());
@@ -270,61 +192,6 @@ public class TestSelect
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row("CANADA", "AMERICA"));
-    }
-
-    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
-    public void testSelectAllTypePartitioningMaterializedView()
-    {
-        String materializedViewName = format("%s_partitioned_mv", CASSANDRA_ALL_TYPES.getName());
-        onCassandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, materializedViewName));
-        onCassandra(format("CREATE MATERIALIZED VIEW %s.%s AS SELECT * FROM %s.%s WHERE b IS NOT NULL PRIMARY KEY (a, b)",
-                KEY_SPACE,
-                materializedViewName,
-                KEY_SPACE,
-                CASSANDRA_ALL_TYPES.getName()));
-
-        assertContainsEventually(() -> onTrino().executeQuery(format("SHOW TABLES FROM %s.%s", CONNECTOR_NAME, KEY_SPACE)),
-                onTrino().executeQuery(format("SELECT '%s'", materializedViewName)),
-                new Duration(1, MINUTES));
-
-        // Materialized view may not return all results during the creation
-        assertContainsEventually(() -> onTrino().executeQuery(format("SELECT status_replicated FROM %s.system.built_views WHERE view_name = '%s'", CONNECTOR_NAME, materializedViewName)),
-                onTrino().executeQuery("SELECT true"),
-                new Duration(1, MINUTES));
-
-        QueryResult query = onTrino().executeQuery(format(
-                "SELECT a, b, bl, bo, d, do, dt, f, fr, i, integer, l, m, s, si, t, ti, ts, tu, u, v, vari FROM %s.%s.%s WHERE a = '\0'",
-                CONNECTOR_NAME, KEY_SPACE, materializedViewName));
-
-        assertThat(query)
-                .hasColumns(VARCHAR, BIGINT, VARBINARY, BOOLEAN, DOUBLE, DOUBLE, DATE, REAL, VARCHAR, JAVA_OBJECT,
-                        INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP_WITH_TIMEZONE, JAVA_OBJECT, JAVA_OBJECT,
-                        VARCHAR, VARCHAR)
-                .containsOnly(
-                        row("\0",
-                                Long.MIN_VALUE,
-                                new byte[] {0},
-                                false,
-                                0f,
-                                Double.MIN_VALUE,
-                                Date.valueOf("1970-01-02"),
-                                Float.MIN_VALUE,
-                                "[0]",
-                                "0.0.0.0",
-                                Integer.MIN_VALUE,
-                                "[0]",
-                                "{\"\\u0000\":-2147483648,\"a\":0}",
-                                "[0]",
-                                Short.MIN_VALUE,
-                                "\0",
-                                Byte.MIN_VALUE,
-                                Timestamp.from(OffsetDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC).toInstant()),
-                                "d2177dd0-eaa2-11de-a572-001b779c76e3",
-                                "01234567-0123-0123-0123-0123456789ab",
-                                "\0",
-                                String.valueOf(Long.MIN_VALUE)));
-
-        onCassandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, materializedViewName));
     }
 
     @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
