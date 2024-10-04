@@ -17,7 +17,6 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.base.VerifyException;
-import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import io.trino.client.spooling.encoding.JsonDecodingUtils.TypeDecoder;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
@@ -57,7 +56,7 @@ class JsonQueryDataAccess
     public Iterable<List<Object>> toIterable()
             throws IOException
     {
-        return new RowWiseIterator(JSON_FACTORY.createParser(ByteStreams.toByteArray(stream)), decoders);
+        return new RowWiseIterator(stream, decoders);
     }
 
     private static class RowWiseIterator
@@ -68,12 +67,16 @@ class JsonQueryDataAccess
         private final JsonParser parser;
         private final TypeDecoder[] decoders;
 
-        public RowWiseIterator(JsonParser parser, TypeDecoder[] decoders)
+        public RowWiseIterator(InputStream stream, TypeDecoder[] decoders)
                 throws IOException
         {
-            this.parser = requireNonNull(parser, "parser is null");
-            this.decoders = requireNonNull(decoders, "decoders is null");
+            requireNonNull(decoders, "decoders is null");
+            requireNonNull(stream, "stream is null");
+
+            this.parser = JSON_FACTORY.createParser(stream);
+            this.decoders = decoders;
             closer.register(parser);
+            closer.register(stream);
 
             // Non-empty result set starts with [[
             verify(parser.nextToken() == START_ARRAY, "Expected start of an array, but got %s", parser.currentToken());
