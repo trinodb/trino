@@ -66,12 +66,6 @@ public class ChangeOnlyUpdatedColumnsMergeProcessor
         checkArgument(positionCount > 0, "positionCount should be > 0, but is %s", positionCount);
 
         Block mergeRow = inputPage.getBlock(mergeRowChannel).getLoadedBlock();
-        if (mergeRow.mayHaveNull()) {
-            for (int position = 0; position < positionCount; position++) {
-                checkArgument(!mergeRow.isNull(position), "The mergeRow may not have null rows");
-            }
-        }
-
         List<Block> fields = getRowFieldsFromBlock(mergeRow);
         List<Block> builder = new ArrayList<>(dataColumnChannels.size() + 3);
         for (int channel : dataColumnChannels) {
@@ -86,7 +80,7 @@ public class ChangeOnlyUpdatedColumnsMergeProcessor
 
         int defaultCaseCount = 0;
         for (int position = 0; position < positionCount; position++) {
-            if (TINYINT.getByte(operationChannelBlock, position) == DEFAULT_CASE_OPERATION_NUMBER) {
+            if (mergeRow.isNull(position)) {
                 defaultCaseCount++;
             }
         }
@@ -97,7 +91,7 @@ public class ChangeOnlyUpdatedColumnsMergeProcessor
         int usedCases = 0;
         int[] positions = new int[positionCount - defaultCaseCount];
         for (int position = 0; position < positionCount; position++) {
-            if (TINYINT.getByte(operationChannelBlock, position) != DEFAULT_CASE_OPERATION_NUMBER) {
+            if (!mergeRow.isNull(position)) {
                 positions[usedCases] = position;
                 usedCases++;
             }
