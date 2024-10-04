@@ -13,13 +13,10 @@
  */
 package io.trino.client.spooling.encoding;
 
-import com.google.common.io.ByteStreams;
 import io.airlift.compress.lz4.Lz4Decompressor;
 import io.trino.client.QueryDataDecoder;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 
 import static java.lang.String.format;
 
@@ -32,18 +29,14 @@ public class Lz4QueryDataDecoder
     }
 
     @Override
-    InputStream decompress(InputStream stream, int expectedDecompressedSize)
+    void decompress(byte[] input, byte[] output)
             throws IOException
     {
         Lz4Decompressor decompressor = new Lz4Decompressor();
-        byte[] bytes = ByteStreams.toByteArray(stream);
-        byte[] output = new byte[expectedDecompressedSize];
-
-        int decompressedSize = decompressor.decompress(bytes, 0, bytes.length, output, 0, output.length);
-        if (decompressedSize != expectedDecompressedSize) {
-            throw new IOException(format("Decompressed size does not match expected segment size, expected %d, got %d", decompressedSize, expectedDecompressedSize));
+        int decompressedSize = decompressor.decompress(input, 0, input.length, output, 0, output.length);
+        if (decompressedSize != output.length) {
+            throw new IOException(format("Decompressed size does not match expected segment size, expected %d, got %d", decompressedSize, output.length));
         }
-        return new ByteArrayInputStream(output);
     }
 
     @Override
