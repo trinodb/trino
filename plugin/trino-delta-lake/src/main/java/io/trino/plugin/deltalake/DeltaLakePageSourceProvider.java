@@ -166,12 +166,9 @@ public class DeltaLakePageSourceProvider
                 DeltaLakeColumnMetadata partitionColumn = columnsMetadataByName.get(partitionColumnName);
                 checkState(partitionColumn != null, "Partition column %s not found", partitionColumnName);
                 Optional<String> value = switch (columnMappingMode) {
-                    case NONE:
-                        yield partitionKeys.get(partitionColumn.name());
-                    case ID, NAME:
-                        yield partitionKeys.get(partitionColumn.physicalName());
-                    default:
-                        throw new IllegalStateException("Unknown column mapping mode");
+                    case NONE -> partitionKeys.get(partitionColumn.name());
+                    case ID, NAME -> partitionKeys.get(partitionColumn.physicalName());
+                    default -> throw new IllegalStateException("Unknown column mapping mode");
                 };
                 // Fill partition values in the same order as the partition columns are specified in the table definition
                 partitionValues.get().add(value.orElse(null));
