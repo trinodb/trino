@@ -86,8 +86,7 @@ class JsonQueryDataAccess
                 verify(parser.nextToken() == END_ARRAY, "Expected end of data array, but got %s", parser.currentToken());
                 switch (parser.nextToken()) {
                     case END_ARRAY:
-                        closed = true;
-                        closer.close();
+                        close();
                         break;
                     case START_ARRAY:
                         break;
@@ -132,6 +131,13 @@ class JsonQueryDataAccess
         public Iterator<List<Object>> iterator()
         {
             return unmodifiableIterator(this);
+        }
+
+        private void close()
+                throws IOException
+        {
+            this.closed = true;
+            closer.close();
         }
     }
 
