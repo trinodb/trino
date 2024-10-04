@@ -1733,7 +1733,7 @@ public final class SystemSessionProperties
         return session.getSystemProperty(MAX_TASKS_WAITING_FOR_EXECUTION_PER_QUERY, Integer.class);
     }
 
-    public static int getMaxTasksWaitingForNodePerStage(Session session)
+    public static int getMaxTasksWaitingForNodePerQuery(Session session)
     {
         return session.getSystemProperty(MAX_TASKS_WAITING_FOR_NODE_PER_QUERY, Integer.class);
     }
