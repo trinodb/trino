@@ -55,7 +55,7 @@ public class IcebergNodePartitioningProvider
         // when there is a single bucket partition function, inform the engine there is a limit on the number of buckets
         // TODO: when there are multiple bucket partition functions, we could compute the product of bucket counts, but this causes the engine to create too many writers
         if (partitionFunctions.size() == 1 && partitionFunctions.getFirst().transform() == BUCKET) {
-            return Optional.of(createBucketNodeMap(partitionFunctions.getFirst().size().orElseThrow()));
+            return Optional.of(createBucketNodeMap(partitionFunctions.getFirst().size().orElseThrow()).withCacheKeyHint(handle.getCacheKeyHint()));
         }
         return Optional.empty();
     }

@@ -15,6 +15,8 @@ package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
 import io.trino.metastore.HiveType;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
@@ -70,6 +72,17 @@ public class HivePartitioningHandle
     public boolean isUsePartitionedBucketing()
     {
         return usePartitionedBucketing;
+    }
+
+    public long getCacheKeyHint()
+    {
+        Hasher hasher = Hashing.goodFastHash(64).newHasher();
+        hasher.putInt(bucketingVersion.getVersion());
+        hasher.putInt(bucketCount);
+        for (HiveType hiveType : hiveTypes) {
+            hasher.putString(hiveType.toString(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        return hasher.hash().asLong();
     }
 
     @Override
