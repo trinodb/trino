@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import io.airlift.slice.XxHash64;
 import io.trino.client.NodeVersion;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
@@ -27,6 +28,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.node.AddressToHostname.tryDecodeHostnameToAddress;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -39,6 +41,7 @@ public class InternalNode
     private final URI internalUri;
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
+    private final long longHashCode;
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
@@ -47,6 +50,11 @@ public class InternalNode
         this.internalUri = requireNonNull(internalUri, "internalUri is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
+        this.longHashCode = new XxHash64(coordinator ? 1 : 0)
+                .update(nodeIdentifier.getBytes(UTF_8))
+                .update(internalUri.toString().getBytes(UTF_8))
+                .update(nodeVersion.getVersion().getBytes(UTF_8))
+                .hash();
     }
 
     @Override
@@ -115,10 +123,15 @@ public class InternalNode
                 Objects.equals(nodeVersion, o.nodeVersion);
     }
 
+    public long longHashCode()
+    {
+        return longHashCode;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(nodeIdentifier, internalUri, nodeVersion, coordinator);
+        return (int) longHashCode;
     }
 
     @Override
