@@ -19,11 +19,15 @@ import org.apache.pulsar.client.api.PulsarClientException;
 
 import javax.ws.rs.client.ClientBuilder;
 
-public class PulsarAdminClientProvider {
-    private PulsarAdminClientProvider() {
+public class PulsarAdminClientProvider
+{
+    private PulsarAdminClientProvider()
+    {
     }
 
-    public static PulsarAdmin getPulsarAdmin(PulsarConnectorConfig config) throws PulsarClientException {
+    public static PulsarAdmin getPulsarAdmin(PulsarConnectorConfig config)
+            throws PulsarClientException
+    {
         PulsarAdminBuilder builder = PulsarAdmin.builder();
 
         if (config.getAuthPlugin() != null && config.getAuthParams() != null) {
