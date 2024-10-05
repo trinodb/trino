@@ -52,7 +52,7 @@ public class IcebergNodePartitioningProvider
         if (handle.getBucketCount().isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(createBucketNodeMap(handle.getBucketCount().getAsInt()));
+        return Optional.of(createBucketNodeMap(handle.getBucketCount().getAsInt()).withCacheKeyHint(handle.getCacheKeyHint()));
     }
 
     @Override
