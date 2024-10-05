@@ -143,11 +143,13 @@ class TestNodeLocalDynamicSplitPruning
                         ImmutableList.of(),
                         ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE),
                         Optional.of(new HiveTablePartitioning(
-                                ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE),
+                                true,
                                 BUCKETING_V1,
                                 20,
-                                20,
-                                ImmutableList.of()))),
+                                ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE),
+                                false,
+                                ImmutableList.of(),
+                                true))),
                 transaction);
 
         HivePageSourceProvider provider = new HivePageSourceProvider(

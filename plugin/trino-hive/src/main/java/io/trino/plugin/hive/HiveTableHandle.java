@@ -306,6 +306,28 @@ public class HiveTableHandle
                 maxScannedFileSize);
     }
 
+    public HiveTableHandle withTablePartitioning(Optional<HiveTablePartitioning> hiveTablePartitioning)
+    {
+        return new HiveTableHandle(
+                schemaName,
+                tableName,
+                tableParameters,
+                partitionColumns,
+                dataColumns,
+                partitionNames,
+                partitions,
+                compactEffectivePredicate,
+                enforcedConstraint,
+                hiveTablePartitioning,
+                bucketFilter,
+                analyzePartitionValues,
+                constraintColumns,
+                projectedColumns,
+                transaction,
+                recordScannedFiles,
+                maxScannedFileSize);
+    }
+
     @JsonProperty
     public String getSchemaName()
     {
@@ -497,7 +519,7 @@ public class HiveTableHandle
                     .collect(joining(", ", "[", "]")));
         }
         tablePartitioning.ifPresent(bucket -> {
-            builder.append(" buckets=").append(bucket.readBucketCount());
+            builder.append(" buckets=").append(bucket.partitioningHandle().getBucketCount());
             if (!bucket.sortedBy().isEmpty()) {
                 builder.append(" sorted_by=")
                         .append(bucket.sortedBy().stream()

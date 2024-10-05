@@ -223,7 +223,7 @@ public class TestBackgroundHiveSplitLoader
                 LOCATION_DOMAIN,
                 Optional.of(new HiveBucketFilter(Set.of(0, 1))),
                 PARTITIONED_TABLE,
-                Optional.of(new HiveTablePartitioning(BUCKET_COLUMN_HANDLES, BUCKETING_V1, BUCKET_COUNT, BUCKET_COUNT, List.of())));
+                Optional.of(new HiveTablePartitioning(true, BUCKETING_V1, BUCKET_COUNT, BUCKET_COLUMN_HANDLES, false, List.of(), true)));
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -243,11 +243,13 @@ public class TestBackgroundHiveSplitLoader
                 PARTITIONED_TABLE,
                 Optional.of(
                         new HiveTablePartitioning(
-                                getRegularColumnHandles(PARTITIONED_TABLE, TESTING_TYPE_MANAGER, DEFAULT_PRECISION),
+                                true,
                                 BUCKETING_V1,
                                 BUCKET_COUNT,
-                                BUCKET_COUNT,
-                                List.of())));
+                                getRegularColumnHandles(PARTITIONED_TABLE, TESTING_TYPE_MANAGER, DEFAULT_PRECISION),
+                                false,
+                                List.of(),
+                                true)));
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
@@ -511,7 +513,7 @@ public class TestBackgroundHiveSplitLoader
                 TupleDomain.all(),
                 Optional.empty(),
                 SIMPLE_TABLE,
-                Optional.of(new HiveTablePartitioning(BUCKET_COLUMN_HANDLES, BUCKETING_V1, BUCKET_COUNT, BUCKET_COUNT, List.of())),
+                Optional.of(new HiveTablePartitioning(true, BUCKETING_V1, BUCKET_COUNT, BUCKET_COLUMN_HANDLES, false, List.of(), true)),
                 Optional.empty());
 
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
