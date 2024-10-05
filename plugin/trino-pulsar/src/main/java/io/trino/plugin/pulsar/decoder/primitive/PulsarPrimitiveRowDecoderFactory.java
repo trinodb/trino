@@ -20,7 +20,19 @@ import io.trino.plugin.pulsar.PulsarColumnMetadata;
 import io.trino.plugin.pulsar.PulsarRowDecoder;
 import io.trino.plugin.pulsar.PulsarRowDecoderFactory;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.type.*;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 import org.apache.pulsar.client.impl.schema.AbstractSchema;
 import org.apache.pulsar.client.impl.schema.AutoConsumeSchema;
 import org.apache.pulsar.common.naming.TopicName;
@@ -33,18 +45,21 @@ import java.util.Set;
 /**
  * Primitive Schema PulsarRowDecoderFactory.
  */
-public class PulsarPrimitiveRowDecoderFactory implements PulsarRowDecoderFactory {
-
+public class PulsarPrimitiveRowDecoderFactory
+            implements PulsarRowDecoderFactory
+{
     public static final String PRIMITIVE_COLUMN_NAME = "__value__";
     private static final Logger log = Logger.get(PulsarPrimitiveRowDecoderFactory.class);
 
     @Override
     public PulsarRowDecoder createRowDecoder(TopicName topicName, SchemaInfo schemaInfo,
-                                             Set<DecoderColumnHandle> columns) {
+                                             Set<DecoderColumnHandle> columns)
+    {
         if (columns.size() == 1) {
             return new PulsarPrimitiveRowDecoder((AbstractSchema<?>) AutoConsumeSchema.getSchema(schemaInfo),
                     columns.iterator().next());
-        } else {
+        }
+        else {
             return new PulsarPrimitiveRowDecoder((AbstractSchema<?>) AutoConsumeSchema.getSchema(schemaInfo),
                     null);
         }
@@ -52,7 +67,8 @@ public class PulsarPrimitiveRowDecoderFactory implements PulsarRowDecoderFactory
 
     @Override
     public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo,
-                                                      PulsarColumnHandle.HandleKeyValueType handleKeyValueType) {
+                                                      PulsarColumnHandle.HandleKeyValueType handleKeyValueType)
+    {
         ColumnMetadata valueColumn = new PulsarColumnMetadata(
                 PulsarColumnMetadata.getColumnName(handleKeyValueType, PRIMITIVE_COLUMN_NAME),
                 parsePrimitivePrestoType(PRIMITIVE_COLUMN_NAME, schemaInfo.getType()),
@@ -62,7 +78,8 @@ public class PulsarPrimitiveRowDecoderFactory implements PulsarRowDecoderFactory
         return List.of(valueColumn);
     }
 
-    private Type parsePrimitivePrestoType(String fieldName, SchemaType pulsarType) {
+    private Type parsePrimitivePrestoType(String fieldName, SchemaType pulsarType)
+    {
         switch (pulsarType) {
             case BOOLEAN:
                 return BooleanType.BOOLEAN;
@@ -93,6 +110,5 @@ public class PulsarPrimitiveRowDecoderFactory implements PulsarRowDecoderFactory
                 log.error("Can't convert type: %s for %s", pulsarType, fieldName);
                 return null;
         }
-
     }
 }
