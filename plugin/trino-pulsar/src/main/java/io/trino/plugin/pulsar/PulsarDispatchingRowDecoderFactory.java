@@ -35,12 +35,14 @@ import static java.lang.String.format;
  * dispatcher RowDecoderFactory for {@link org.apache.pulsar.common.schema.SchemaType}.
  */
 //@Slf4j
-public class PulsarDispatchingRowDecoderFactory {
+public class PulsarDispatchingRowDecoderFactory
+{
     private final Function<SchemaType, PulsarRowDecoderFactory> decoderFactories;
     private final TypeManager typeManager;
 
     @Inject
-    public PulsarDispatchingRowDecoderFactory(TypeManager typeManager) {
+    public PulsarDispatchingRowDecoderFactory(TypeManager typeManager)
+    {
         this.typeManager = typeManager;
 
         final PulsarRowDecoderFactory avro = new PulsarAvroRowDecoderFactory(typeManager);
@@ -50,31 +52,38 @@ public class PulsarDispatchingRowDecoderFactory {
         this.decoderFactories = (schema) -> {
             if (SchemaType.AVRO.equals(schema)) {
                 return avro;
-            } else if (SchemaType.JSON.equals(schema)) {
+            }
+            else if (SchemaType.JSON.equals(schema)) {
                 return json;
-            } else if (SchemaType.PROTOBUF_NATIVE.equals(schema)) {
+            }
+            else if (SchemaType.PROTOBUF_NATIVE.equals(schema)) {
                 return protobufNative;
-            } else if (schema.isPrimitive()) {
+            }
+            else if (schema.isPrimitive()) {
                 return primitive;
-            } else {
+            }
+            else {
                 return null;
             }
         };
     }
 
     public PulsarRowDecoder createRowDecoder(TopicName topicName, SchemaInfo schemaInfo,
-                                             Set<DecoderColumnHandle> columns) {
+                                             Set<DecoderColumnHandle> columns)
+    {
         PulsarRowDecoderFactory rowDecoderFactory = createDecoderFactory(schemaInfo);
         return rowDecoderFactory.createRowDecoder(topicName, schemaInfo, columns);
     }
 
     public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo,
-                                                      PulsarColumnHandle.HandleKeyValueType handleKeyValueType) {
+                                                      PulsarColumnHandle.HandleKeyValueType handleKeyValueType)
+    {
         PulsarRowDecoderFactory rowDecoderFactory = createDecoderFactory(schemaInfo);
         return rowDecoderFactory.extractColumnMetadata(topicName, schemaInfo, handleKeyValueType);
     }
 
-    private PulsarRowDecoderFactory createDecoderFactory(SchemaInfo schemaInfo) {
+    private PulsarRowDecoderFactory createDecoderFactory(SchemaInfo schemaInfo)
+    {
         PulsarRowDecoderFactory decoderFactory = decoderFactories.apply(schemaInfo.getType());
         if (decoderFactory == null) {
             throw new RuntimeException(format("'%s' is unsupported type '%s'",
@@ -83,7 +92,8 @@ public class PulsarDispatchingRowDecoderFactory {
         return decoderFactory;
     }
 
-    public TypeManager getTypeManager() {
+    public TypeManager getTypeManager()
+    {
         return typeManager;
     }
 }
