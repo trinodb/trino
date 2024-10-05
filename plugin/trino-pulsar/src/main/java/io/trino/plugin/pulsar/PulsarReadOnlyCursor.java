@@ -21,6 +21,7 @@ import org.apache.bookkeeper.mledger.proto.MLDataFormats;
  * to make it possible to create mock class for testing.
  */
 public interface PulsarReadOnlyCursor
-        extends ReadOnlyCursor {
+        extends ReadOnlyCursor
+{
     MLDataFormats.ManagedLedgerInfo.LedgerInfo getCurrentLedgerInfo();
 }
