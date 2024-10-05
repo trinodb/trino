@@ -31,18 +31,21 @@ import static java.util.Objects.requireNonNull;
 /**
  * This class defines binding of classes in the Presto connector.
  */
-public class PulsarConnectorModule implements Module {
-
+public class PulsarConnectorModule
+            implements Module
+{
     private final String connectorId;
     private final TypeManager typeManager;
 
-    public PulsarConnectorModule(String connectorId, TypeManager typeManager) {
+    public PulsarConnectorModule(String connectorId, TypeManager typeManager)
+    {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
-    public void configure(Binder binder) {
+    public void configure(Binder binder)
+    {
         binder.bind(TypeManager.class).toInstance(typeManager);
 
         binder.bind(PulsarConnector.class).in(Scopes.SINGLETON);
@@ -60,28 +63,29 @@ public class PulsarConnectorModule implements Module {
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
 
         binder.install(new DecoderModule());
-
     }
 
     /**
      * A wrapper to deserialize the Presto types.
      */
     public static final class TypeDeserializer
-            extends FromStringDeserializer<Type> {
+            extends FromStringDeserializer<Type>
+    {
         private static final long serialVersionUID = 1L;
 
         private final TypeManager typeManager;
 
         @Inject
-        public TypeDeserializer(TypeManager typeManager) {
+        public TypeDeserializer(TypeManager typeManager)
+        {
             super(Type.class);
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
         @Override
-        protected Type _deserialize(String value, DeserializationContext context) {
+        protected Type _deserialize(String value, DeserializationContext context)
+        {
             return typeManager.getType(TypeId.of(value));
         }
     }
 }
-
