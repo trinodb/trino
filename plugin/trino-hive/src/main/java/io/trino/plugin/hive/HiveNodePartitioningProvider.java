@@ -73,7 +73,7 @@ public class HiveNodePartitioningProvider
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
         if (!handle.isUsePartitionedBucketing()) {
-            return Optional.of(createBucketNodeMap(handle.getBucketCount()));
+            return Optional.of(createBucketNodeMap(handle.getBucketCount()).withCacheKeyHint(handle.getCacheKeyHint()));
         }
         return Optional.empty();
     }

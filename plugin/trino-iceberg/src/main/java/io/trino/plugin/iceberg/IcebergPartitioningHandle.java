@@ -14,6 +14,8 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.PartitionField;
@@ -31,6 +33,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.iceberg.IcebergPartitionFunction.Transform.BUCKET;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public record IcebergPartitioningHandle(boolean update, List<IcebergPartitionFunction> partitionFunctions)
@@ -120,5 +123,18 @@ public record IcebergPartitioningHandle(boolean update, List<IcebergPartitionFun
             currentPaths.removeLast();
         }
         return hasPartitionFields;
+    }
+
+    public long getCacheKeyHint()
+    {
+        Hasher hasher = Hashing.goodFastHash(64).newHasher();
+        hasher.putBoolean(update);
+        for (IcebergPartitionFunction function : partitionFunctions) {
+            hasher.putInt(function.transform().ordinal());
+            function.dataPath().forEach(hasher::putInt);
+            hasher.putString(function.type().getTypeSignature().toString(), UTF_8);
+            function.size().ifPresent(hasher::putInt);
+        }
+        return hasher.hash().asLong();
     }
 }

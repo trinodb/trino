@@ -17,6 +17,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.slice.XxHash64;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.scheduler.BucketNodeMap;
@@ -37,17 +38,14 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.split.EmptySplit;
 import io.trino.sql.planner.SystemPartitioningHandle.SystemPartitioning;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -192,7 +190,7 @@ public class NodePartitioningManager
                 CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
                 bucketToNode = bucketToNodeCache.computeIfAbsent(
                         connectorBucketNodeMap.getBucketCount(),
-                        bucketCount -> createArbitraryBucketToNode(getAllNodes(session, catalogHandle), bucketCount));
+                        bucketCount -> createArbitraryBucketToNode(connectorBucketNodeMap.getCacheKeyHint(), getAllNodes(session, catalogHandle), bucketCount));
             }
         }
 
@@ -250,8 +248,9 @@ public class NodePartitioningManager
             return new BucketNodeMap(splitToBucket, getFixedMapping(bucketNodeMap.get()));
         }
 
+        long seed = bucketNodeMap.map(ConnectorBucketNodeMap::getCacheKeyHint).orElse(ThreadLocalRandom.current().nextLong());
         List<InternalNode> nodes = getAllNodes(session, requiredCatalogHandle(partitioningHandle));
-        return new BucketNodeMap(splitToBucket, createArbitraryBucketToNode(nodes, bucketCount));
+        return new BucketNodeMap(splitToBucket, createArbitraryBucketToNode(seed, nodes, bucketCount));
     }
 
     /**
@@ -350,17 +349,31 @@ public class NodePartitioningManager
                 new IllegalStateException("No catalog handle for partitioning handle: " + partitioningHandle));
     }
 
-    private static List<InternalNode> createArbitraryBucketToNode(List<InternalNode> nodes, int bucketCount)
+    private static List<InternalNode> createArbitraryBucketToNode(long seed, List<InternalNode> nodes, int bucketCount)
     {
-        return cyclingShuffledStream(nodes)
-                .limit(bucketCount)
-                .collect(toImmutableList());
-    }
+        requireNonNull(nodes, "nodes is null");
+        checkArgument(!nodes.isEmpty(), "nodes is empty");
+        checkArgument(bucketCount > 0, "bucketCount must be greater than zero");
 
-    private static <T> Stream<T> cyclingShuffledStream(Collection<T> collection)
-    {
-        List<T> list = new ArrayList<>(collection);
-        Collections.shuffle(list);
-        return Stream.generate(() -> list).flatMap(List::stream);
+        // Assign each bucket to the machine with the highest weight (hash)
+        // This is simple Rendezvous Hashing (Highest Random Weight) algorithm
+        ImmutableList.Builder<InternalNode> bucketAssignments = ImmutableList.builderWithExpectedSize(bucketCount);
+        for (int bucket = 0; bucket < bucketCount; bucket++) {
+            long bucketHash = XxHash64.hash(seed, bucket);
+
+            InternalNode bestNode = null;
+            long highestWeight = Long.MIN_VALUE;
+            for (InternalNode node : nodes) {
+                long weight = XxHash64.hash(node.longHashCode(), bucketHash);
+                if (weight >= highestWeight) {
+                    highestWeight = weight;
+                    bestNode = node;
+                }
+            }
+
+            bucketAssignments.add(requireNonNull(bestNode));
+        }
+
+        return bucketAssignments.build();
     }
 }
