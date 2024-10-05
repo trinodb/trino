@@ -28,22 +28,30 @@ import java.util.Map;
 import java.util.Properties;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.spi.type.Timestamps.*;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.round;
 import static java.lang.Math.toIntExact;
 import static java.time.ZoneOffset.UTC;
 
 /**
  * A helper class containing repeatable logic used in the other classes.
  */
-public class PulsarConnectorUtils {
+public class PulsarConnectorUtils
+{
+    private PulsarConnectorUtils()
+    {}
 
-    public static Schema parseSchema(String schemaJson) {
+    public static Schema parseSchema(String schemaJson)
+    {
         Schema.Parser parser = new Schema.Parser();
         parser.setValidateDefaults(false);
         return parser.parse(schemaJson);
     }
 
-    public static boolean isPartitionedTopic(TopicName topicName, PulsarConnectorConfig pulsarConnectorConfig) throws PulsarClientException, PulsarAdminException {
+    public static boolean isPartitionedTopic(TopicName topicName, PulsarConnectorConfig pulsarConnectorConfig)
+            throws PulsarClientException, PulsarAdminException
+    {
         try (PulsarAdmin pulsarAdmin = PulsarAdminClientProvider.getPulsarAdmin(pulsarConnectorConfig)) {
             return pulsarAdmin.topics().getPartitionedTopicMetadata(topicName.toString()).partitions > 0;
         }
@@ -60,11 +68,13 @@ public class PulsarConnectorUtils {
      */
     public static <T> T createInstance(String userClassName,
                                        Class<T> xface,
-                                       ClassLoader classLoader) {
+                                       ClassLoader classLoader)
+    {
         Class<?> theCls;
         try {
             theCls = Class.forName(userClassName, true, classLoader);
-        } catch (ClassNotFoundException | NoClassDefFoundError cnfe) {
+        }
+        catch (ClassNotFoundException | NoClassDefFoundError cnfe) {
             throw new RuntimeException("User class must be in class path", cnfe);
         }
         if (!xface.isAssignableFrom(theCls)) {
@@ -74,18 +84,23 @@ public class PulsarConnectorUtils {
         try {
             Constructor<T> meth = tCls.getDeclaredConstructor();
             return meth.newInstance();
-        } catch (InstantiationException ie) {
+        }
+        catch (InstantiationException ie) {
             throw new RuntimeException("User class must be concrete", ie);
-        } catch (NoSuchMethodException e) {
+        }
+        catch (NoSuchMethodException e) {
             throw new RuntimeException("User class must have a no-arg constructor", e);
-        } catch (IllegalAccessException e) {
+        }
+        catch (IllegalAccessException e) {
             throw new RuntimeException("User class must a public constructor", e);
-        } catch (InvocationTargetException e) {
+        }
+        catch (InvocationTargetException e) {
             throw new RuntimeException("User class constructor throws exception", e);
         }
     }
 
-    public static Properties getProperties(Map<String, String> configMap) {
+    public static Properties getProperties(Map<String, String> configMap)
+    {
         Properties properties = new Properties();
         for (Map.Entry<String, String> entry : configMap.entrySet()) {
             properties.setProperty(entry.getKey(), entry.getValue());
@@ -93,20 +108,22 @@ public class PulsarConnectorUtils {
         return properties;
     }
 
-
-    public static String rewriteNamespaceDelimiterIfNeeded(String namespace, PulsarConnectorConfig config) {
+    public static String rewriteNamespaceDelimiterIfNeeded(String namespace, PulsarConnectorConfig config)
+    {
         return config.getNamespaceDelimiterRewriteEnable()
                 ? namespace.replace("/", config.getRewriteNamespaceDelimiter())
                 : namespace;
     }
 
-    public static String restoreNamespaceDelimiterIfNeeded(String namespace, PulsarConnectorConfig config) {
+    public static String restoreNamespaceDelimiterIfNeeded(String namespace, PulsarConnectorConfig config)
+    {
         return config.getNamespaceDelimiterRewriteEnable()
                 ? namespace.replace(config.getRewriteNamespaceDelimiter(), "/")
                 : namespace;
     }
 
-    public static long roundToTrinoTime(long timestamp) {
+    public static long roundToTrinoTime(long timestamp)
+    {
         Instant.ofEpochMilli(timestamp);
         LocalDateTime date = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneId.systemDefault());
         int roundedNanos = toIntExact(round(date.getNano(), 6));
