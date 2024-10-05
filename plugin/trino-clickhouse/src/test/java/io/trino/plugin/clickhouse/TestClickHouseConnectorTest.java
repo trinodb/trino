@@ -600,11 +600,17 @@ public class TestClickHouseConnectorTest
 
             case "time":
             case "time(6)":
-            case "timestamp":
-            case "timestamp(6)":
-            case "timestamp(3) with time zone":
-            case "timestamp(6) with time zone":
                 return Optional.of(dataMappingTestSetup.asUnsupported());
+            case "timestamp(3) with time zone":
+                if (dataMappingTestSetup.getHighValueLiteral().equals("TIMESTAMP '9999-12-31 23:59:59.999 +12:00'")) {
+                    return Optional.empty();
+                }
+                break;
+            case "timestamp(6) with time zone":
+                if (dataMappingTestSetup.getHighValueLiteral().equals("TIMESTAMP '9999-12-31 23:59:59.999999 +12:00'")) {
+                    return Optional.empty();
+                }
+                break;
         }
 
         return Optional.of(dataMappingTestSetup);
