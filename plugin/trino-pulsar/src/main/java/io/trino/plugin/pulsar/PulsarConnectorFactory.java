@@ -29,28 +29,27 @@ import static java.util.Objects.requireNonNull;
 /**
  * The factory class which helps to build the presto connector.
  */
-public class PulsarConnectorFactory implements ConnectorFactory {
-
+public class PulsarConnectorFactory
+            implements ConnectorFactory
+{
     private static final Logger log = Logger.get(PulsarConnectorFactory.class);
 
     @Override
-    public String getName() {
+    public String getName()
+    {
         return "pulsar";
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context) {
+    public Connector create(String connectorId, Map<String, String> config, ConnectorContext context)
+    {
         requireNonNull(config, "requiredConfig is null");
         if (log.isDebugEnabled()) {
             log.debug("Creating Pulsar connector with configs: %s", config);
         }
         try {
             // A plugin is not required to use Guice; it is just very convenient
-            Bootstrap app = new Bootstrap(
-                    new JsonModule(),
-                    new PulsarConnectorModule(connectorId, context.getTypeManager())
-            );
-
+            Bootstrap app = new Bootstrap(new JsonModule(), new PulsarConnectorModule(connectorId, context.getTypeManager()));
             Injector injector = app
                     //.strictConfig()
                     .doNotInitializeLogging()
@@ -60,7 +59,8 @@ public class PulsarConnectorFactory implements ConnectorFactory {
             PulsarConnector connector = injector.getInstance(PulsarConnector.class);
             connector.initConnectorCache();
             return connector;
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throwIfUnchecked(e);
             throw new RuntimeException(e);
         }

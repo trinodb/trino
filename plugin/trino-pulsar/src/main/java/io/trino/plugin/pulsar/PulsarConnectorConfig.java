@@ -27,6 +27,7 @@ import org.apache.pulsar.common.protocol.Commands;
 
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.client.ClientBuilder;
+
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,10 +37,10 @@ import java.util.regex.Matcher;
 /**
  * This object handles configuration of the Pulsar connector for the Presto engine.
  */
-public class PulsarConnectorConfig implements AutoCloseable {
-
-    private boolean hasMetadataUrl = false;
-
+public class PulsarConnectorConfig
+            implements AutoCloseable
+{
+    private boolean hasMetadataUrl; // = false;
     private String brokerServiceUrl = "http://localhost:8080";
     private String brokerBinaryServiceUrl = "pulsar://localhost:6650/";
     private String webServiceUrl = ""; //leave empty
@@ -59,79 +60,88 @@ public class PulsarConnectorConfig implements AutoCloseable {
     private Boolean tlsAllowInsecureConnection;
     private Boolean tlsHostnameVerificationEnable;
 
-    private boolean namespaceDelimiterRewriteEnable = false;
+    private boolean namespaceDelimiterRewriteEnable; // = false;
     private String rewriteNamespaceDelimiter = "/";
 
-    private boolean authorizationEnabled = false;
+    private boolean authorizationEnabled; // = false;
 
     // --- Ledger Offloading ---
-    private String managedLedgerOffloadDriver = null;
+    private String managedLedgerOffloadDriver; // = null;
     private int managedLedgerOffloadMaxThreads = 2;
     private String offloadersDirectory = "./offloaders";
     private Map<String, String> offloaderProperties = new HashMap<>();
 
     //--- Ledger metrics ---
-    private boolean exposeTopicLevelMetricsInPrometheus = false;
-    private boolean exposeManagedLedgerMetricsInPrometheus = false;
+    private boolean exposeTopicLevelMetricsInPrometheus; // = false;
+    private boolean exposeManagedLedgerMetricsInPrometheus; // = false;
     private int managedLedgerStatsPeriodSeconds = 60;
 
     private PulsarAdmin pulsarAdmin;
 
     // --- Bookkeeper
-    private int bookkeeperThrottleValue = 0;
+    private int bookkeeperThrottleValue; // = 0;
     private int bookkeeperNumIOThreads = 2 * Runtime.getRuntime().availableProcessors();
     private int bookkeeperNumWorkerThreads = Runtime.getRuntime().availableProcessors();
     private boolean bookkeeperUseV2Protocol = true;
-    private int bookkeeperExplicitInterval = 0;
+    private int bookkeeperExplicitInterval; // = 0;
 
     // --- ManagedLedger
-    private long managedLedgerCacheSizeMB = 0L;
+    private long managedLedgerCacheSizeMB; // = 0L;
     private int managedLedgerNumSchedulerThreads = Runtime.getRuntime().availableProcessors();
 
     // --- Nar extraction
     private String narExtractionDirectory = NarClassLoader.DEFAULT_NAR_EXTRACTION_DIR;
 
     @NotNull
-    public String getBrokerServiceUrl() {
+    public String getBrokerServiceUrl()
+    {
         if (StringUtils.isEmpty(webServiceUrl)) {
             return brokerServiceUrl;
-        } else {
+        }
+        else {
             return getWebServiceUrl();
         }
     }
 
     @Config("pulsar.broker-service-url")
-    public PulsarConnectorConfig setBrokerServiceUrl(String brokerServiceUrl) {
+    public PulsarConnectorConfig setBrokerServiceUrl(String brokerServiceUrl)
+    {
         this.brokerServiceUrl = brokerServiceUrl;
         return this;
     }
 
-    public String getBrokerBinaryServiceUrl() {
+    public String getBrokerBinaryServiceUrl()
+    {
         return this.brokerBinaryServiceUrl;
     }
 
     @Config("pulsar.broker-binary-service-url")
-    public PulsarConnectorConfig setBrokerBinaryServiceUrl(String brokerBinaryServiceUrl) {
+    public PulsarConnectorConfig setBrokerBinaryServiceUrl(String brokerBinaryServiceUrl)
+    {
         this.brokerBinaryServiceUrl = brokerBinaryServiceUrl;
         return this;
     }
 
-    public String getWebServiceUrl() {
+    public String getWebServiceUrl()
+    {
         return webServiceUrl;
     }
 
     @Config("pulsar.web-service-url")
-    public PulsarConnectorConfig setWebServiceUrl(String webServiceUrl) {
+    public PulsarConnectorConfig setWebServiceUrl(String webServiceUrl)
+    {
         this.webServiceUrl = webServiceUrl;
         return this;
     }
 
-    public int getMaxMessageSize() {
+    public int getMaxMessageSize()
+    {
         return this.maxMessageSize;
     }
 
     @Config("pulsar.max-message-size")
-    public PulsarConnectorConfig setMaxMessageSize(int maxMessageSize) {
+    public PulsarConnectorConfig setMaxMessageSize(int maxMessageSize)
+    {
         this.maxMessageSize = maxMessageSize;
         return this;
     }
@@ -141,7 +151,8 @@ public class PulsarConnectorConfig implements AutoCloseable {
      */
     @Deprecated
     @NotNull
-    public String getZookeeperUri() {
+    public String getZookeeperUri()
+    {
         return getMetadataUrl();
     }
 
@@ -150,7 +161,8 @@ public class PulsarConnectorConfig implements AutoCloseable {
      */
     @Deprecated
     @Config("pulsar.zookeeper-uri")
-    public PulsarConnectorConfig setZookeeperUri(String zookeeperUri) {
+    public PulsarConnectorConfig setZookeeperUri(String zookeeperUri)
+    {
         if (hasMetadataUrl) {
             return this;
         }
@@ -159,344 +171,412 @@ public class PulsarConnectorConfig implements AutoCloseable {
     }
 
     @NotNull
-    public String getMetadataUrl() {
+    public String getMetadataUrl()
+    {
         return this.metadataUrl;
     }
 
     @Config("pulsar.metadata-url")
-    public PulsarConnectorConfig setMetadataUrl(String metadataUrl) {
+    public PulsarConnectorConfig setMetadataUrl(String metadataUrl)
+    {
         this.hasMetadataUrl = true;
         this.metadataUrl = metadataUrl;
         return this;
     }
 
     @NotNull
-    public int getMaxEntryReadBatchSize() {
+    public int getMaxEntryReadBatchSize()
+    {
         return this.entryReadBatchSize;
     }
 
     @Config("pulsar.max-entry-read-batch-size")
-    public PulsarConnectorConfig setMaxEntryReadBatchSize(int batchSize) {
+    public PulsarConnectorConfig setMaxEntryReadBatchSize(int batchSize)
+    {
         this.entryReadBatchSize = batchSize;
         return this;
     }
 
     @NotNull
-    public int getTargetNumSplits() {
+    public int getTargetNumSplits()
+    {
         return this.targetNumSplits;
     }
 
     @Config("pulsar.target-num-splits")
-    public PulsarConnectorConfig setTargetNumSplits(int targetNumSplits) {
+    public PulsarConnectorConfig setTargetNumSplits(int targetNumSplits)
+    {
         this.targetNumSplits = targetNumSplits;
         return this;
     }
 
     @NotNull
-    public int getMaxSplitMessageQueueSize() {
+    public int getMaxSplitMessageQueueSize()
+    {
         return this.maxSplitMessageQueueSize;
     }
 
     @Config("pulsar.max-split-message-queue-size")
-    public PulsarConnectorConfig setMaxSplitMessageQueueSize(int maxSplitMessageQueueSize) {
+    public PulsarConnectorConfig setMaxSplitMessageQueueSize(int maxSplitMessageQueueSize)
+    {
         this.maxSplitMessageQueueSize = maxSplitMessageQueueSize;
         return this;
     }
 
     @NotNull
-    public int getMaxSplitEntryQueueSize() {
+    public int getMaxSplitEntryQueueSize()
+    {
         return this.maxSplitEntryQueueSize;
     }
 
     @Config("pulsar.max-split-entry-queue-size")
-    public PulsarConnectorConfig setMaxSplitEntryQueueSize(int maxSplitEntryQueueSize) {
+    public PulsarConnectorConfig setMaxSplitEntryQueueSize(int maxSplitEntryQueueSize)
+    {
         this.maxSplitEntryQueueSize = maxSplitEntryQueueSize;
         return this;
     }
 
     @NotNull
-    public long getMaxSplitQueueSizeBytes() {
+    public long getMaxSplitQueueSizeBytes()
+    {
         return this.maxSplitQueueSizeBytes;
     }
 
     @Config("pulsar.max-split-queue-cache-size")
-    public PulsarConnectorConfig setMaxSplitQueueSizeBytes(long maxSplitQueueSizeBytes) {
+    public PulsarConnectorConfig setMaxSplitQueueSizeBytes(long maxSplitQueueSizeBytes)
+    {
         this.maxSplitQueueSizeBytes = maxSplitQueueSizeBytes;
         return this;
     }
 
     @NotNull
-    public String getStatsProvider() {
+    public String getStatsProvider()
+    {
         return statsProvider;
     }
 
     @Config("pulsar.stats-provider")
-    public PulsarConnectorConfig setStatsProvider(String statsProvider) {
+    public PulsarConnectorConfig setStatsProvider(String statsProvider)
+    {
         this.statsProvider = statsProvider;
         return this;
     }
 
     @NotNull
-    public Map<String, String> getStatsProviderConfigs() {
+    public Map<String, String> getStatsProviderConfigs()
+    {
         return statsProviderConfigs;
     }
 
     @Config("pulsar.stats-provider-configs")
-    public PulsarConnectorConfig setStatsProviderConfigs(String statsProviderConfigs) throws IOException {
+    public PulsarConnectorConfig setStatsProviderConfigs(String statsProviderConfigs)
+            throws IOException
+    {
         this.statsProviderConfigs = new ObjectMapper().readValue(statsProviderConfigs, Map.class);
         return this;
     }
 
-    public String getRewriteNamespaceDelimiter() {
+    public String getRewriteNamespaceDelimiter()
+    {
         return rewriteNamespaceDelimiter;
     }
 
     @Config("pulsar.rewrite-namespace-delimiter")
-    public PulsarConnectorConfig setRewriteNamespaceDelimiter(String rewriteNamespaceDelimiter) {
+    public PulsarConnectorConfig setRewriteNamespaceDelimiter(String rewriteNamespaceDelimiter)
+    {
         Matcher m = NamedEntity.NAMED_ENTITY_PATTERN.matcher(rewriteNamespaceDelimiter);
         if (m.matches()) {
             throw new IllegalArgumentException(
                     "Can't use " + rewriteNamespaceDelimiter + "as delimiter, "
-                            + "because delimiter must contain characters which name of namespace not allowed"
-            );
+                            + "because delimiter must contain characters which name of namespace not allowed");
         }
         this.rewriteNamespaceDelimiter = rewriteNamespaceDelimiter;
         return this;
     }
 
-    public boolean getNamespaceDelimiterRewriteEnable() {
+    public boolean getNamespaceDelimiterRewriteEnable()
+    {
         return namespaceDelimiterRewriteEnable;
     }
 
     @Config("pulsar.namespace-delimiter-rewrite-enable")
-    public PulsarConnectorConfig setNamespaceDelimiterRewriteEnable(boolean namespaceDelimiterRewriteEnable) {
+    public PulsarConnectorConfig setNamespaceDelimiterRewriteEnable(boolean namespaceDelimiterRewriteEnable)
+    {
         this.namespaceDelimiterRewriteEnable = namespaceDelimiterRewriteEnable;
         return this;
     }
 
-    public boolean getAuthorizationEnabled() {
+    public boolean getAuthorizationEnabled()
+    {
         return authorizationEnabled;
     }
 
     @Config("pulsar.authorization-enabled")
-    public PulsarConnectorConfig setAuthorizationEnabled(boolean authorizationEnabled) {
+    public PulsarConnectorConfig setAuthorizationEnabled(boolean authorizationEnabled)
+    {
         this.authorizationEnabled = authorizationEnabled;
         return this;
     }
 
     // --- Ledger Offloading ---
 
-    public int getManagedLedgerOffloadMaxThreads() {
+    public int getManagedLedgerOffloadMaxThreads()
+    {
         return this.managedLedgerOffloadMaxThreads;
     }
 
     @Config("pulsar.managed-ledger-offload-max-threads")
     public PulsarConnectorConfig setManagedLedgerOffloadMaxThreads(int managedLedgerOffloadMaxThreads)
-            throws IOException {
+            throws IOException
+    {
         this.managedLedgerOffloadMaxThreads = managedLedgerOffloadMaxThreads;
         return this;
     }
 
-    public String getManagedLedgerOffloadDriver() {
+    public String getManagedLedgerOffloadDriver()
+    {
         return this.managedLedgerOffloadDriver;
     }
 
     @Config("pulsar.managed-ledger-offload-driver")
-    public PulsarConnectorConfig setManagedLedgerOffloadDriver(String managedLedgerOffloadDriver) throws IOException {
+    public PulsarConnectorConfig setManagedLedgerOffloadDriver(String managedLedgerOffloadDriver)
+             throws IOException
+    {
         this.managedLedgerOffloadDriver = managedLedgerOffloadDriver;
         return this;
     }
 
-    public String getOffloadersDirectory() {
+    public String getOffloadersDirectory()
+    {
         return this.offloadersDirectory;
     }
 
-
     @Config("pulsar.offloaders-directory")
-    public PulsarConnectorConfig setOffloadersDirectory(String offloadersDirectory) throws IOException {
+    public PulsarConnectorConfig setOffloadersDirectory(String offloadersDirectory)
+            throws IOException
+    {
         this.offloadersDirectory = offloadersDirectory;
         return this;
     }
 
-    public Map<String, String> getOffloaderProperties() {
+    public Map<String, String> getOffloaderProperties()
+    {
         return this.offloaderProperties;
     }
 
     @Config("pulsar.offloader-properties")
-    public PulsarConnectorConfig setOffloaderProperties(String offloaderProperties) throws IOException {
+    public PulsarConnectorConfig setOffloaderProperties(String offloaderProperties)
+            throws IOException
+    {
         this.offloaderProperties = new ObjectMapper().readValue(offloaderProperties, Map.class);
         return this;
     }
 
-    public boolean isExposeTopicLevelMetricsInPrometheus() {
+    public boolean isExposeTopicLevelMetricsInPrometheus()
+    {
         return exposeTopicLevelMetricsInPrometheus;
     }
 
     @Config("pulsar.expose-topic-level-metrics-in-prometheus")
-    public PulsarConnectorConfig setExposeTopicLevelMetricsInPrometheus(boolean exposeTopicLevelMetricsInPrometheus) {
+    public PulsarConnectorConfig setExposeTopicLevelMetricsInPrometheus(boolean exposeTopicLevelMetricsInPrometheus)
+    {
         this.exposeTopicLevelMetricsInPrometheus = exposeTopicLevelMetricsInPrometheus;
         return this;
     }
 
-    public boolean isExposeManagedLedgerMetricsInPrometheus() {
+    public boolean isExposeManagedLedgerMetricsInPrometheus()
+    {
         return exposeManagedLedgerMetricsInPrometheus;
     }
 
     @Config("pulsar.expose-managed-ledger-metrics-in-prometheus")
     public PulsarConnectorConfig setExposeManagedLedgerMetricsInPrometheus(
-            boolean exposeManagedLedgerMetricsInPrometheus) {
+            boolean exposeManagedLedgerMetricsInPrometheus)
+    {
         this.exposeManagedLedgerMetricsInPrometheus = exposeManagedLedgerMetricsInPrometheus;
         return this;
     }
 
-    public int getManagedLedgerStatsPeriodSeconds() {
+    public int getManagedLedgerStatsPeriodSeconds()
+    {
         return managedLedgerStatsPeriodSeconds;
     }
 
     @Config("pulsar.managed-ledger-stats-period-seconds")
-    public PulsarConnectorConfig setManagedLedgerStatsPeriodSeconds(int managedLedgerStatsPeriodSeconds) {
+    public PulsarConnectorConfig setManagedLedgerStatsPeriodSeconds(int managedLedgerStatsPeriodSeconds)
+    {
         this.managedLedgerStatsPeriodSeconds = managedLedgerStatsPeriodSeconds;
         return this;
     }
 
     // --- Authentication ---
 
-    public String getAuthPlugin() {
+    public String getAuthPlugin()
+    {
         return this.authPluginClassName;
     }
 
     @Config("pulsar.auth-plugin")
-    public PulsarConnectorConfig setAuthPlugin(String authPluginClassName) throws IOException {
+    public PulsarConnectorConfig setAuthPlugin(String authPluginClassName)
+            throws IOException
+    {
         this.authPluginClassName = authPluginClassName;
         return this;
     }
 
-    public String getAuthParams() {
+    public String getAuthParams()
+    {
         return this.authParams;
     }
 
     @Config("pulsar.auth-params")
-    public PulsarConnectorConfig setAuthParams(String authParams) throws IOException {
+    public PulsarConnectorConfig setAuthParams(String authParams)
+            throws IOException
+    {
         this.authParams = authParams;
         return this;
     }
 
-    public Boolean isTlsAllowInsecureConnection() {
+    public Boolean isTlsAllowInsecureConnection()
+    {
         return tlsAllowInsecureConnection;
     }
 
     @Config("pulsar.tls-allow-insecure-connection")
-    public PulsarConnectorConfig setTlsAllowInsecureConnection(boolean tlsAllowInsecureConnection) {
+    public PulsarConnectorConfig setTlsAllowInsecureConnection(boolean tlsAllowInsecureConnection)
+    {
         this.tlsAllowInsecureConnection = tlsAllowInsecureConnection;
         return this;
     }
 
-    public Boolean isTlsHostnameVerificationEnable() {
+    public Boolean isTlsHostnameVerificationEnable()
+    {
         return tlsHostnameVerificationEnable;
     }
 
     @Config("pulsar.tls-hostname-verification-enable")
-    public PulsarConnectorConfig setTlsHostnameVerificationEnable(boolean tlsHostnameVerificationEnable) {
+    public PulsarConnectorConfig setTlsHostnameVerificationEnable(boolean tlsHostnameVerificationEnable)
+    {
         this.tlsHostnameVerificationEnable = tlsHostnameVerificationEnable;
         return this;
     }
 
-    public String getTlsTrustCertsFilePath() {
+    public String getTlsTrustCertsFilePath()
+    {
         return tlsTrustCertsFilePath;
     }
 
     @Config("pulsar.tls-trust-cert-file-path")
-    public PulsarConnectorConfig setTlsTrustCertsFilePath(String tlsTrustCertsFilePath) {
+    public PulsarConnectorConfig setTlsTrustCertsFilePath(String tlsTrustCertsFilePath)
+    {
         this.tlsTrustCertsFilePath = tlsTrustCertsFilePath;
         return this;
     }
 
     // --- Bookkeeper Config ---
 
-    public int getBookkeeperThrottleValue() {
+    public int getBookkeeperThrottleValue()
+    {
         return bookkeeperThrottleValue;
     }
 
     @Config("pulsar.bookkeeper-throttle-value")
-    public PulsarConnectorConfig setBookkeeperThrottleValue(int bookkeeperThrottleValue) {
+    public PulsarConnectorConfig setBookkeeperThrottleValue(int bookkeeperThrottleValue)
+    {
         this.bookkeeperThrottleValue = bookkeeperThrottleValue;
         return this;
     }
 
-    public int getBookkeeperNumIOThreads() {
+    public int getBookkeeperNumIOThreads()
+    {
         return bookkeeperNumIOThreads;
     }
 
     @Config("pulsar.bookkeeper-num-io-threads")
-    public PulsarConnectorConfig setBookkeeperNumIOThreads(int bookkeeperNumIOThreads) {
+    public PulsarConnectorConfig setBookkeeperNumIOThreads(int bookkeeperNumIOThreads)
+    {
         this.bookkeeperNumIOThreads = bookkeeperNumIOThreads;
         return this;
     }
 
-    public int getBookkeeperNumWorkerThreads() {
+    public int getBookkeeperNumWorkerThreads()
+    {
         return bookkeeperNumWorkerThreads;
     }
 
     @Config("pulsar.bookkeeper-num-worker-threads")
-    public PulsarConnectorConfig setBookkeeperNumWorkerThreads(int bookkeeperNumWorkerThreads) {
+    public PulsarConnectorConfig setBookkeeperNumWorkerThreads(int bookkeeperNumWorkerThreads)
+    {
         this.bookkeeperNumWorkerThreads = bookkeeperNumWorkerThreads;
         return this;
     }
 
-    public boolean getBookkeeperUseV2Protocol() {
+    public boolean getBookkeeperUseV2Protocol()
+    {
         return bookkeeperUseV2Protocol;
     }
 
     @Config("pulsar.bookkeeper-use-v2-protocol")
-    public PulsarConnectorConfig setBookkeeperUseV2Protocol(boolean bookkeeperUseV2Protocol) {
+    public PulsarConnectorConfig setBookkeeperUseV2Protocol(boolean bookkeeperUseV2Protocol)
+    {
         this.bookkeeperUseV2Protocol = bookkeeperUseV2Protocol;
         return this;
     }
 
-    public int getBookkeeperExplicitInterval() {
+    public int getBookkeeperExplicitInterval()
+    {
         return bookkeeperExplicitInterval;
     }
 
     @Config("pulsar.bookkeeper-explicit-interval")
-    public PulsarConnectorConfig setBookkeeperExplicitInterval(int bookkeeperExplicitInterval) {
+    public PulsarConnectorConfig setBookkeeperExplicitInterval(int bookkeeperExplicitInterval)
+    {
         this.bookkeeperExplicitInterval = bookkeeperExplicitInterval;
         return this;
     }
 
     // --- ManagedLedger
-    public long getManagedLedgerCacheSizeMB() {
+    public long getManagedLedgerCacheSizeMB()
+    {
         return managedLedgerCacheSizeMB;
     }
 
     @Config("pulsar.managed-ledger-cache-size-MB")
-    public PulsarConnectorConfig setManagedLedgerCacheSizeMB(int managedLedgerCacheSizeMB) {
+    public PulsarConnectorConfig setManagedLedgerCacheSizeMB(int managedLedgerCacheSizeMB)
+    {
         this.managedLedgerCacheSizeMB = (long) managedLedgerCacheSizeMB * 1024 * 1024;
         return this;
     }
 
-    public int getManagedLedgerNumSchedulerThreads() {
+    public int getManagedLedgerNumSchedulerThreads()
+    {
         return managedLedgerNumSchedulerThreads;
     }
 
     @Config("pulsar.managed-ledger-num-scheduler-threads")
-    public PulsarConnectorConfig setManagedLedgerNumSchedulerThreads(int managedLedgerNumSchedulerThreads) {
+    public PulsarConnectorConfig setManagedLedgerNumSchedulerThreads(int managedLedgerNumSchedulerThreads)
+    {
         this.managedLedgerNumSchedulerThreads = managedLedgerNumSchedulerThreads;
         return this;
     }
 
     // --- Nar extraction config
-    public String getNarExtractionDirectory() {
+    public String getNarExtractionDirectory()
+    {
         return narExtractionDirectory;
     }
 
     @Config("pulsar.nar-extraction-directory")
-    public PulsarConnectorConfig setNarExtractionDirectory(String narExtractionDirectory) {
+    public PulsarConnectorConfig setNarExtractionDirectory(String narExtractionDirectory)
+    {
         this.narExtractionDirectory = narExtractionDirectory;
         return this;
     }
 
     @NotNull
-    public PulsarAdmin getPulsarAdmin() throws PulsarClientException {
+    public PulsarAdmin getPulsarAdmin()
+            throws PulsarClientException
+    {
         if (this.pulsarAdmin == null) {
             PulsarAdminBuilder builder = PulsarAdmin.builder();
 
@@ -522,7 +602,8 @@ public class PulsarConnectorConfig implements AutoCloseable {
         return this.pulsarAdmin;
     }
 
-    public OffloadPoliciesImpl getOffloadPolices() {
+    public OffloadPoliciesImpl getOffloadPolices()
+    {
         Properties offloadProperties = new Properties();
         offloadProperties.putAll(getOffloaderProperties());
         OffloadPoliciesImpl offloadPolicies = OffloadPoliciesImpl.create(offloadProperties);
@@ -533,17 +614,21 @@ public class PulsarConnectorConfig implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close()
+            throws Exception
+    {
         this.pulsarAdmin.close();
     }
 
     @Override
-    public String toString() {
+    public String toString()
+    {
         if (StringUtils.isEmpty(webServiceUrl)) {
             return "PulsarConnectorConfig{"
                     + "brokerServiceUrl='" + brokerServiceUrl + '\''
                     + '}';
-        } else {
+        }
+        else {
             return "PulsarConnectorConfig{"
                     + "brokerServiceUrl='" + webServiceUrl + '\''
                     + '}';

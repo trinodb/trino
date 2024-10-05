@@ -16,7 +16,12 @@ package io.trino.plugin.pulsar;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
-import io.trino.spi.connector.*;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 import jakarta.inject.Inject;
 
@@ -27,8 +32,9 @@ import static java.util.Objects.requireNonNull;
 /**
  * This file contains implementation of the connector to the Presto engine.
  */
-public class PulsarConnector implements Connector {
-
+public class PulsarConnector
+            implements Connector
+{
     private static final Logger log = Logger.get(PulsarConnector.class);
 
     private final LifeCycleManager lifeCycleManager;
@@ -43,8 +49,8 @@ public class PulsarConnector implements Connector {
             PulsarMetadata metadata,
             PulsarSplitManager splitManager,
             PulsarRecordSetProvider recordSetProvider,
-            PulsarConnectorConfig pulsarConnectorConfig
-    ) {
+            PulsarConnectorConfig pulsarConnectorConfig)
+    {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -53,40 +59,49 @@ public class PulsarConnector implements Connector {
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit) {
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
+    {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);
         return PulsarTransactionHandle.INSTANCE;
     }
 
     @Override
-    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle) {
+    public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
+    {
         return new ClassLoaderSafeConnectorMetadata(metadata, getClass().getClassLoader());
     }
 
     @Override
-    public ConnectorSplitManager getSplitManager() {
+    public ConnectorSplitManager getSplitManager()
+    {
         return splitManager;
     }
 
     @Override
-    public ConnectorRecordSetProvider getRecordSetProvider() {
+    public ConnectorRecordSetProvider getRecordSetProvider()
+    {
         return recordSetProvider;
     }
 
-    public void initConnectorCache() throws Exception {
+    public void initConnectorCache()
+            throws Exception
+    {
         PulsarConnectorCache.getConnectorCache(pulsarConnectorConfig);
     }
 
     @Override
-    public final void shutdown() {
+    public final void shutdown()
+    {
         try {
             this.pulsarConnectorConfig.close();
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.error(e, "Failed to close pulsar connector");
         }
         try {
             lifeCycleManager.stop();
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.error(e, "Error shutting down connector");
         }
     }

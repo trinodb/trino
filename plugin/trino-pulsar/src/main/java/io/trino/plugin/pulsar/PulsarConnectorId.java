@@ -18,20 +18,24 @@ import static java.util.Objects.requireNonNull;
 /**
  * Unique identifier of a connector.
  */
-public class PulsarConnectorId {
+public class PulsarConnectorId
+{
     private final String id;
 
-    public PulsarConnectorId(String id) {
+    public PulsarConnectorId(String id)
+    {
         this.id = requireNonNull(id, "id is null");
     }
 
     @Override
-    public String toString() {
+    public String toString()
+    {
         return id;
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(Object o)
+    {
         if (this == o) {
             return true;
         }
@@ -45,7 +49,8 @@ public class PulsarConnectorId {
     }
 
     @Override
-    public int hashCode() {
+    public int hashCode()
+    {
         return id.hashCode();
     }
 }
