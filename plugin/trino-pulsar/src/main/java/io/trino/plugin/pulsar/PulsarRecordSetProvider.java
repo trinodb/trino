@@ -46,7 +46,7 @@ public class PulsarRecordSetProvider
         this.pulsarConnectorConfig = requireNonNull(pulsarConnectorConfig, "pulsarConnectorConfig is null");
         this.pulsarConnectorManagedLedgerFactory = requireNonNull(pulsarConnectorManagedLedgerFactory, "pulsarConnectorManagedLedgerFactory is null");
         requireNonNull(this.pulsarConnectorConfig.getWebServiceUrl(), "web-service-url is null");
-        requireNonNull(this.pulsarConnectorConfig.getZookeeperUri(), "zookeeper-uri is null");
+        requireNonNull(this.pulsarConnectorConfig.getMetadataUrl(), "metadata-uri is null");
     }
 
     @Override

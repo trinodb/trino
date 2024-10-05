@@ -72,7 +72,7 @@ public class JsonDecoderTestUtil
             assertEquals(((Number) actual).longValue(), ((JsonNode) expected).asLong());
         }
         else if (isRealType(actual)) {
-            assertEquals(((Number) actual).doubleValue(), ((JsonNode) expected).asDouble());
+            assertEquals((Number) actual, (JsonNode) expected);
         }
         else {
             assertEquals(actual, expected);

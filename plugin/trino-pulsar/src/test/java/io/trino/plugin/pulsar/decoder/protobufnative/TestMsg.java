@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.pulsar.decoder.protobufnative;
 
+@SuppressWarnings("deprecation")
 public final class TestMsg
 {
     private static final com.google.protobuf.Descriptors.Descriptor

@@ -31,7 +31,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
 import jakarta.inject.Inject;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -283,7 +282,7 @@ public class PulsarMetadata
         return convertColumnHandle(columnHandle).getColumnMetadata();
     }
 
-    @Override
+    /*@Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix
             prefix)
     {
@@ -307,7 +306,7 @@ public class PulsarMetadata
         }
 
         return columns.build();
-    }
+    }*/
 
     @Override
     public void cleanupQuery(ConnectorSession session)

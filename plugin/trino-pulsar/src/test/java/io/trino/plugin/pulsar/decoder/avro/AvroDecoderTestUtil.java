@@ -74,7 +74,7 @@ public class AvroDecoderTestUtil
             assertEquals(((Number) actual).longValue(), ((Number) expected).longValue());
         }
         else if (isRealType(actual) && isRealType(expected)) {
-            assertEquals(((Number) actual).doubleValue(), ((Number) expected).doubleValue());
+            assertEquals((Number) actual, (Number) expected);
         }
         else {
             assertEquals(actual, expected);
