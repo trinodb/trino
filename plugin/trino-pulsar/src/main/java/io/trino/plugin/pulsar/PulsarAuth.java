@@ -40,8 +40,8 @@ import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
  * It will check permissions against the session-topic pair by trying to subscribe to a topic using the Pulsar Reader
  * to check the consumption privilege. The same topic will only be checked once during the same session.
  */
-public class PulsarAuth {
-
+public class PulsarAuth
+{
     private static final Logger log = Logger.get(PulsarAuth.class);
     private static final String CREDENTIALS_AUTH_PLUGIN = "auth-plugin";
     private static final String CREDENTIALS_AUTH_PARAMS = "auth-params";
@@ -50,7 +50,8 @@ public class PulsarAuth {
     private final PulsarConnectorConfig pulsarConnectorConfig;
 
     @Inject
-    public PulsarAuth(PulsarConnectorConfig pulsarConnectorConfig) {
+    public PulsarAuth(PulsarConnectorConfig pulsarConnectorConfig)
+    {
         this.pulsarConnectorConfig = pulsarConnectorConfig;
         if (pulsarConnectorConfig.getAuthorizationEnabled() && StringUtils.isEmpty(
                 pulsarConnectorConfig.getBrokerBinaryServiceUrl())) {
@@ -64,7 +65,8 @@ public class PulsarAuth {
      * It will try to subscribe to that topic using the Pulsar Reader to check the consumption privilege.
      * The same topic will only be checked once during the same session.
      */
-    public void checkTopicAuth(ConnectorSession session, String topic) {
+    public void checkTopicAuth(ConnectorSession session, String topic)
+    {
         Set<String> authorizedTopics =
                 authorizedQueryTopicsMap.computeIfAbsent(session.getQueryId(), query -> new HashSet<>());
         if (authorizedTopics.contains(topic)) {
@@ -113,10 +115,12 @@ public class PulsarAuth {
             if (log.isDebugEnabled()) {
                 log.debug("Check the authorization for the topic %s successfully.", topic);
             }
-        } catch (PulsarClientException.AuthenticationException | PulsarClientException.AuthorizationException e) {
+        }
+        catch (PulsarClientException.AuthenticationException | PulsarClientException.AuthorizationException e) {
             throw new TrinoException(PERMISSION_DENIED,
                     String.format("Failed to access topic %s: %s", topic, e.getLocalizedMessage()));
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new TrinoException(QUERY_REJECTED,
                     String.format("Failed to check authorization for topic %s: %s", topic, e.getLocalizedMessage()));
         }
@@ -125,7 +129,8 @@ public class PulsarAuth {
     /**
      * When the session is closed, this method needs to be called to clear the session's auth verification status.
      */
-    public void cleanSession(ConnectorSession session) {
+    public void cleanSession(ConnectorSession session)
+    {
         authorizedQueryTopicsMap.remove(session.getQueryId());
     }
 }
