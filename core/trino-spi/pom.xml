@@ -265,6 +265,10 @@
                                     <old>interface io.trino.spi.protocol.SpoolingManagerFactory</old>
                                     <justification>Spooling SPI marked as experimental</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.connector.ConnectorTableHandle io.trino.spi.connector.ConnectorMetadata::makeCompatiblePartitioning(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorPartitioningHandle)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

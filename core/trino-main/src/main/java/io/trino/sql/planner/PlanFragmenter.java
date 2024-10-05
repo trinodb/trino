@@ -74,6 +74,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getQueryMaxStageCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static io.trino.spi.connector.StandardWarningCode.TOO_MANY_STAGES;
 import static io.trino.sql.planner.AdaptivePlanner.ExchangeSourceId;
@@ -796,17 +797,23 @@ public class PlanFragmenter
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
-            PartitioningHandle partitioning = metadata.getTableProperties(session, node.getTable())
-                    .getTablePartitioning()
-                    .filter(value -> node.isUseConnectorNodePartitioning())
-                    .map(TablePartitioning::partitioningHandle)
-                    .orElse(SOURCE_DISTRIBUTION);
-            if (partitioning.equals(fragmentPartitioningHandle)) {
+            Optional<TablePartitioning> tablePartitioning = metadata.getTableProperties(session, node.getTable()).getTablePartitioning();
+            if (tablePartitioning.isEmpty() || !node.isUseConnectorNodePartitioning()) {
+                if (!fragmentPartitioningHandle.equals(SOURCE_DISTRIBUTION)) {
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid query plan: Expected SOURCE_DISTRIBUTION for unpartitioned table scan node, but got " + fragmentPartitioningHandle);
+                }
+                return node;
+            }
+
+            if (tablePartitioning.get().partitioningHandle().equals(fragmentPartitioningHandle)) {
                 // do nothing if the current scan node's partitioning matches the fragment's
                 return node;
             }
 
-            TableHandle newTable = metadata.makeCompatiblePartitioning(session, node.getTable(), fragmentPartitioningHandle);
+            // The table partitioning is incompatible with the fragment's partitioning, so push partitioning into the table scan.
+            // The applyPartitioning is expected to succeed, because the only way to get here is if getCommonPartitioning returned a non-empty value.
+            TableHandle newTable = metadata.applyPartitioning(session, node.getTable(), Optional.of(fragmentPartitioningHandle), tablePartitioning.get().partitioningColumns())
+                    .orElseThrow(() -> new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid query plan: Table partitioning not compatible with fragment partitioning"));
             return new TableScanNode(
                     node.getId(),
                     newTable,
@@ -817,7 +824,7 @@ public class PlanFragmenter
                     node.isUpdateTarget(),
                     // plan was already fragmented with scan node's partitioning
                     // and new partitioning is compatible with previous one
-                    node.getUseConnectorNodePartitioning());
+                    Optional.of(true));
         }
     }
 
