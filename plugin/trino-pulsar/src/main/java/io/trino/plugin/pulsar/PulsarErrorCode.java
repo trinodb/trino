@@ -20,7 +20,8 @@ import io.trino.spi.ErrorType;
 import static io.trino.spi.ErrorType.EXTERNAL;
 
 public enum PulsarErrorCode
-        implements ErrorCodeSupplier {
+            implements ErrorCodeSupplier
+{
     PULSAR_SPLIT_ERROR(0, EXTERNAL),
     PULSAR_SCHEMA_ERROR(1, EXTERNAL),
     PULSAR_ADMIN_ERROR(2, EXTERNAL),
@@ -29,12 +30,14 @@ public enum PulsarErrorCode
 
     private final ErrorCode errorCode;
 
-    PulsarErrorCode(int code, ErrorType type) {
+    PulsarErrorCode(int code, ErrorType type)
+    {
         errorCode = new ErrorCode(code + 0x0107_0000, name(), type);
     }
 
     @Override
-    public ErrorCode toErrorCode() {
+    public ErrorCode toErrorCode()
+    {
         return errorCode;
     }
 }

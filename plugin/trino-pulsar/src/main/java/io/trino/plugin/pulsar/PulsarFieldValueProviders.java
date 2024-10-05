@@ -15,19 +15,25 @@ package io.trino.plugin.pulsar;
 
 import io.trino.decoder.FieldValueProvider;
 
-public class PulsarFieldValueProviders {
-    private PulsarFieldValueProviders() {
+public class PulsarFieldValueProviders
+{
+    private PulsarFieldValueProviders()
+    {
     }
 
-    public static FieldValueProvider doubleValueProvider(double value) {
-        return new FieldValueProvider() {
+    public static FieldValueProvider doubleValueProvider(double value)
+    {
+        return new FieldValueProvider()
+        {
             @Override
-            public double getDouble() {
+            public double getDouble()
+            {
                 return value;
             }
 
             @Override
-            public boolean isNull() {
+            public boolean isNull()
+            {
                 return false;
             }
         };
@@ -36,19 +42,20 @@ public class PulsarFieldValueProviders {
     /**
      * FieldValueProvider for Time (Data,Timstamp etc.) with indicate Null instead of longValueProvider.
      *
-     * @param value
-     * @param isNull
-     * @return
      */
-    public static FieldValueProvider timeValueProvider(long value, boolean isNull) {
-        return new FieldValueProvider() {
+    public static FieldValueProvider timeValueProvider(long value, boolean isNull)
+    {
+        return new FieldValueProvider()
+        {
             @Override
-            public long getLong() {
+            public long getLong()
+            {
                 return value;
             }
 
             @Override
-            public boolean isNull() {
+            public boolean isNull()
+            {
                 return isNull;
             }
         };
