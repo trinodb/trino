@@ -228,9 +228,9 @@ public class HiveSplitManager
         Optional<HiveTablePartitioning> tablePartitioning = hiveTable.getTablePartitioning();
 
         tablePartitioning.ifPresent(bucketing ->
-                verify(bucketing.readBucketCount() <= bucketing.tableBucketCount(),
+                verify(bucketing.partitioningHandle().getBucketCount() <= bucketing.tableBucketCount(),
                         "readBucketCount (%s) is greater than the tableBucketCount (%s) which generally points to an issue in plan generation",
-                        bucketing.readBucketCount(),
+                        bucketing.partitioningHandle().getBucketCount(),
                         bucketing.tableBucketCount()));
 
         // get partitions

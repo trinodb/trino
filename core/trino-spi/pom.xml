@@ -244,6 +244,10 @@
                                     <new>method io.trino.spi.eventlistener.EventListener io.trino.spi.eventlistener.EventListenerFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.eventlistener.EventListenerFactory.EventListenerContext)</new>
                                     <justification>Added EventListenerContext</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.connector.ConnectorTableHandle io.trino.spi.connector.ConnectorMetadata::makeCompatiblePartitioning(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorPartitioningHandle)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

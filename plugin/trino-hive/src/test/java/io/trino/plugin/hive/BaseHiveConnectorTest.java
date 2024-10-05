@@ -48,6 +48,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.planprinter.IoPlanPrinter;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.ColumnConstraint;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.EstimatedStatsAndCost;
@@ -6110,11 +6111,22 @@ public abstract class BaseHiveConnectorTest
                     .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, "false")
                     .build();
 
-            @Language("SQL") String query = "SELECT count(value1) FROM test_bucketed_select GROUP BY key1";
-            @Language("SQL") String expectedQuery = "SELECT count(comment) FROM orders GROUP BY orderkey";
+            // a basic scan should not use a partitioned read as it is not helpful to the query
+            @Language("SQL") String query = "SELECT value1 FROM test_bucketed_select WHERE key1 < 10";
+            @Language("SQL") String expectedQuery = "SELECT comment FROM orders WHERE orderkey < 10";
+            assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertNoReadPartitioning("key1"));
 
+            // aggregation on key1 should not require a remote exchange
+            query = "SELECT count(value1) FROM test_bucketed_select GROUP BY key1";
+            expectedQuery = "SELECT count(comment) FROM orders GROUP BY orderkey";
             assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
             assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
+
+            // join on key1 should not require a remote exchange
+            query = "SELECT key1 FROM test_bucketed_select JOIN test_bucketed_select USING (key1)";
+            expectedQuery = "SELECT a.orderkey FROM orders a JOIN orders USING (orderkey)";
+            assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(0));
+            assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(2));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_bucketed_select");
@@ -6318,6 +6330,25 @@ public abstract class BaseHiveConnectorTest
                         expectedRemoteExchangesCount,
                         actualRemoteExchangesCount,
                         formatPlan(session, plan)));
+            }
+        };
+    }
+
+    private Consumer<Plan> assertNoReadPartitioning(String... columnNames)
+    {
+        return plan -> {
+            List<TableScanNode> tableScanNodes = searchFrom(plan.getRoot()).where(node -> node instanceof TableScanNode)
+                    .findAll().stream()
+                    .map(TableScanNode.class::cast)
+                    .toList();
+            for (TableScanNode tableScanNode : tableScanNodes) {
+                assertThat(tableScanNode.getUseConnectorNodePartitioning().orElseThrow()).isFalse();
+                HiveTableHandle tableHandle = (HiveTableHandle) tableScanNode.getTable().connectorHandle();
+
+                // hive table should have partitioning for the columns but should not be active
+                assertThat(tableHandle.getTablePartitioning()).isPresent();
+                assertThat(tableHandle.getTablePartitioning().orElseThrow().columns().stream().map(HiveColumnHandle::getName).collect(toSet())).containsExactlyInAnyOrder(columnNames);
+                assertThat(tableHandle.getTablePartitioning().orElseThrow().active()).isFalse();
             }
         };
     }

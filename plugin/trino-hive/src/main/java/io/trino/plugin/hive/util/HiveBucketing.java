@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveBucketProperty;
 import io.trino.metastore.HiveType;
-import io.trino.metastore.SortingColumn;
 import io.trino.metastore.Table;
 import io.trino.metastore.type.ListTypeInfo;
 import io.trino.metastore.type.MapTypeInfo;
@@ -58,6 +57,7 @@ import static io.trino.hive.thrift.metastore.hive_metastoreConstants.TABLE_BUCKE
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
+import static io.trino.plugin.hive.HiveSessionProperties.isParallelPartitionedBucketedWrites;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
@@ -167,7 +167,17 @@ public final class HiveBucketing
         return (hashCode & Integer.MAX_VALUE) % bucketCount;
     }
 
-    public static Optional<HiveTablePartitioning> getHiveTablePartitioning(ConnectorSession session, Table table, TypeManager typeManager)
+    public static Optional<HiveTablePartitioning> getHiveTablePartitioningForRead(ConnectorSession session, Table table, TypeManager typeManager)
+    {
+        return getHiveTablePartitioning(false, session, table, typeManager);
+    }
+
+    public static Optional<HiveTablePartitioning> getHiveTablePartitioningForWrite(ConnectorSession session, Table table, TypeManager typeManager)
+    {
+        return getHiveTablePartitioning(true, session, table, typeManager);
+    }
+
+    private static Optional<HiveTablePartitioning> getHiveTablePartitioning(boolean forWrite, ConnectorSession session, Table table, TypeManager typeManager)
     {
         if (table.getParameters().containsKey(SPARK_TABLE_PROVIDER_KEY)) {
             return Optional.empty();
@@ -197,10 +207,14 @@ public final class HiveBucketing
             bucketColumns.add(bucketColumnHandle);
         }
 
-        BucketingVersion bucketingVersion = getBucketingVersion(table.getParameters());
-        int bucketCount = hiveBucketProperty.get().bucketCount();
-        List<SortingColumn> sortedBy = hiveBucketProperty.get().sortedBy();
-        return Optional.of(new HiveTablePartitioning(bucketColumns.build(), bucketingVersion, bucketCount, bucketCount, sortedBy));
+        return Optional.of(new HiveTablePartitioning(
+                forWrite,
+                getBucketingVersion(table.getParameters()),
+                hiveBucketProperty.get().bucketCount(),
+                bucketColumns.build(),
+                forWrite && !table.getPartitionColumns().isEmpty() && isParallelPartitionedBucketedWrites(session),
+                hiveBucketProperty.get().sortedBy(),
+                forWrite));
     }
 
     public static Optional<HiveBucketFilter> getHiveBucketFilter(HiveTableHandle hiveTable, TupleDomain<ColumnHandle> effectivePredicate)
@@ -217,7 +231,7 @@ public final class HiveBucketing
         if (bindings.isEmpty()) {
             return Optional.empty();
         }
-        BucketingVersion bucketingVersion = hiveTable.getTablePartitioning().get().bucketingVersion();
+        BucketingVersion bucketingVersion = hiveTable.getTablePartitioning().get().partitioningHandle().getBucketingVersion();
         Optional<Set<Integer>> buckets = getHiveBuckets(bucketingVersion, hiveBucketProperty, dataColumns, bindings.get());
         if (buckets.isPresent()) {
             return Optional.of(new HiveBucketFilter(buckets.get()));
