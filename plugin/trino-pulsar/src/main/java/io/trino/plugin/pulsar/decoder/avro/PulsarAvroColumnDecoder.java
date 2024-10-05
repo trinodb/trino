@@ -22,8 +22,27 @@ import io.trino.decoder.FieldValueProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.*;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Timestamps;
+import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.UuidType;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 import org.apache.avro.generic.GenericEnumSymbol;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
@@ -55,7 +74,8 @@ import static java.util.Objects.requireNonNull;
  * 2) support {@link RealType}.
  * 3) support {@link DecimalType}.
  */
-public class PulsarAvroColumnDecoder {
+public class PulsarAvroColumnDecoder
+{
     private static final Set<Type> SUPPORTED_PRIMITIVE_TYPES = ImmutableSet.of(
             BooleanType.BOOLEAN,
             TinyintType.TINYINT,
@@ -74,7 +94,8 @@ public class PulsarAvroColumnDecoder {
     private final String columnMapping;
     private final String columnName;
 
-    public PulsarAvroColumnDecoder(DecoderColumnHandle columnHandle) {
+    public PulsarAvroColumnDecoder(DecoderColumnHandle columnHandle)
+    {
         try {
             requireNonNull(columnHandle, "columnHandle is null");
             this.columnType = columnHandle.getType();
@@ -90,12 +111,14 @@ public class PulsarAvroColumnDecoder {
                     "mapping not defined for column '%s'", columnName);
             checkArgument(isSupportedType(columnType),
                     "Unsupported column type '%s' for column '%s'", columnType, columnName);
-        } catch (IllegalArgumentException e) {
+        }
+        catch (IllegalArgumentException e) {
             throw new TrinoException(GENERIC_USER_ERROR, e);
         }
     }
 
-    private static Object locateNode(GenericRecord element, String columnMapping) {
+    private static Object locateNode(GenericRecord element, String columnMapping)
+    {
         Object value = element;
         for (String pathElement : Splitter.on('/').omitEmptyStrings().split(columnMapping)) {
             if (value == null) {
@@ -106,7 +129,8 @@ public class PulsarAvroColumnDecoder {
         return value;
     }
 
-    private static Slice getSlice(Object value, Type type, String columnName) {
+    private static Slice getSlice(Object value, Type type, String columnName)
+    {
         if (type instanceof VarcharType && (value instanceof CharSequence || value instanceof GenericEnumSymbol)) {
             return truncateToLength(utf8Slice(value.toString()), type);
         }
@@ -114,7 +138,8 @@ public class PulsarAvroColumnDecoder {
         if (type instanceof VarbinaryType) {
             if (value instanceof ByteBuffer) {
                 return Slices.wrappedHeapBuffer((ByteBuffer) value);
-            } else if (value instanceof GenericFixed) {
+            }
+            else if (value instanceof GenericFixed) {
                 return Slices.wrappedBuffer(((GenericFixed) value).bytes());
             }
         }
@@ -128,7 +153,8 @@ public class PulsarAvroColumnDecoder {
                         value.getClass(), type, columnName));
     }
 
-    private static Block serializeObject(BlockBuilder builder, Object value, Type type, String columnName) {
+    private static Block serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
+    {
         if (type instanceof ArrayType) {
             return serializeList(builder, value, type, columnName);
         }
@@ -145,7 +171,8 @@ public class PulsarAvroColumnDecoder {
         return null;
     }
 
-    private static Block serializeList(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName) {
+    private static Block serializeList(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
+    {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parentBlockBuilder is null");
             parentBlockBuilder.appendNull();
@@ -167,11 +194,13 @@ public class PulsarAvroColumnDecoder {
     }
 
     private static Block serializeLongDecimal(
-            BlockBuilder parentBlockBuilder, Object value, Type type, String columnName) {
+            BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
+    {
         final BlockBuilder blockBuilder;
         if (parentBlockBuilder != null) {
             blockBuilder = parentBlockBuilder;
-        } else {
+        }
+        else {
             blockBuilder = type.createBlockBuilder(null, 1);
         }
         final ByteBuffer buffer = (ByteBuffer) value;
@@ -182,7 +211,8 @@ public class PulsarAvroColumnDecoder {
         return null;
     }
 
-    private static void serializePrimitive(BlockBuilder blockBuilder, Object value, Type type, String columnName) {
+    private static void serializePrimitive(BlockBuilder blockBuilder, Object value, Type type, String columnName)
+    {
         requireNonNull(blockBuilder, "parent blockBuilder is null");
 
         if (value == null) {
@@ -232,7 +262,8 @@ public class PulsarAvroColumnDecoder {
                         value.getClass(), type, columnName));
     }
 
-    private static Block serializeMap(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName) {
+    private static Block serializeMap(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
+    {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parentBlockBuilder is null");
             parentBlockBuilder.appendNull();
@@ -247,11 +278,12 @@ public class PulsarAvroColumnDecoder {
         BlockBuilder blockBuilder;
         if (parentBlockBuilder != null) {
             blockBuilder = parentBlockBuilder;
-        } else {
+        }
+        else {
             blockBuilder = type.createBlockBuilder(null, 1);
         }
 
-        BlockBuilder entryBuilder = blockBuilder.newBlockBuilderLike(blockBuilder.getPositionCount(), null);//.beginBlockEntry();
+        BlockBuilder entryBuilder = blockBuilder.newBlockBuilderLike(blockBuilder.getPositionCount(), null); //.beginBlockEntry();
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             if (entry.getKey() != null) {
                 keyType.writeSlice(entryBuilder, truncateToLength(utf8Slice(entry.getKey().toString()), keyType));
@@ -261,12 +293,13 @@ public class PulsarAvroColumnDecoder {
         //blockBuilder.closeEntry();
 
         if (parentBlockBuilder == null) {
-            return blockBuilder.build();//.getObject(0, Block.class);
+            return blockBuilder.build(); //.getObject(0, Block.class);
         }
         return null;
     }
 
-    private static Block serializeRow(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName) {
+    private static Block serializeRow(BlockBuilder parentBlockBuilder, Object value, Type type, String columnName)
+    {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parent block builder is null");
             parentBlockBuilder.appendNull();
@@ -276,10 +309,11 @@ public class PulsarAvroColumnDecoder {
         BlockBuilder blockBuilder;
         if (parentBlockBuilder != null) {
             blockBuilder = parentBlockBuilder;
-        } else {
+        }
+        else {
             blockBuilder = type.createBlockBuilder(null, 1);
         }
-        BlockBuilder singleRowBuilder = blockBuilder.newBlockBuilderLike(blockBuilder.getPositionCount(), null);//.beginBlockEntry();
+        BlockBuilder singleRowBuilder = blockBuilder.newBlockBuilderLike(blockBuilder.getPositionCount(), null); //.beginBlockEntry();
         GenericRecord record = (GenericRecord) value;
         List<Field> fields = ((RowType) type).getFields();
         for (Field field : fields) {
@@ -288,12 +322,13 @@ public class PulsarAvroColumnDecoder {
         }
         //blockBuilder.closeEntry();
         if (parentBlockBuilder == null) {
-            return blockBuilder.build();//.getObject(0, Block.class);
+            return blockBuilder.build(); //.getObject(0, Block.class);
         }
         return null;
     }
 
-    private boolean isSupportedType(Type type) {
+    private boolean isSupportedType(Type type)
+    {
         if (isSupportedPrimitive(type)) {
             return true;
         }
@@ -324,34 +359,40 @@ public class PulsarAvroColumnDecoder {
         return false;
     }
 
-    private boolean isSupportedPrimitive(Type type) {
+    private boolean isSupportedPrimitive(Type type)
+    {
         return type instanceof VarcharType || type instanceof DecimalType || SUPPORTED_PRIMITIVE_TYPES.contains(type);
     }
 
-    public FieldValueProvider decodeField(GenericRecord avroRecord) {
+    public FieldValueProvider decodeField(GenericRecord avroRecord)
+    {
         Object avroColumnValue = locateNode(avroRecord, columnMapping);
         return new ObjectValueProvider(avroColumnValue, columnType, columnName);
     }
 
     private static class ObjectValueProvider
-            extends FieldValueProvider {
+            extends FieldValueProvider
+    {
         private final Object value;
         private final Type columnType;
         private final String columnName;
 
-        public ObjectValueProvider(Object value, Type columnType, String columnName) {
+        public ObjectValueProvider(Object value, Type columnType, String columnName)
+        {
             this.value = value;
             this.columnType = columnType;
             this.columnName = columnName;
         }
 
         @Override
-        public boolean isNull() {
+        public boolean isNull()
+        {
             return value == null;
         }
 
         @Override
-        public double getDouble() {
+        public double getDouble()
+        {
             if (value instanceof Double || value instanceof Float) {
                 return ((Number) value).doubleValue();
             }
@@ -361,7 +402,8 @@ public class PulsarAvroColumnDecoder {
         }
 
         @Override
-        public boolean getBoolean() {
+        public boolean getBoolean()
+        {
             if (value instanceof Boolean) {
                 return (Boolean) value;
             }
@@ -371,7 +413,8 @@ public class PulsarAvroColumnDecoder {
         }
 
         @Override
-        public long getLong() {
+        public long getLong()
+        {
             if (value instanceof Long || value instanceof Integer) {
                 final long payload = ((Number) value).longValue();
                 if (TimestampType.TIMESTAMP_MILLIS.equals(columnType)) {
@@ -400,12 +443,14 @@ public class PulsarAvroColumnDecoder {
         }
 
         @Override
-        public Slice getSlice() {
+        public Slice getSlice()
+        {
             return PulsarAvroColumnDecoder.getSlice(value, columnType, columnName);
         }
 
         @Override
-        public Object getObject() {
+        public Object getObject()
+        {
             return serializeObject(null, value, columnType, columnName);
         }
     }

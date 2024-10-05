@@ -22,7 +22,25 @@ import io.trino.plugin.pulsar.PulsarRowDecoder;
 import io.trino.plugin.pulsar.PulsarRowDecoderFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.type.*;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.UuidType;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
@@ -46,24 +64,28 @@ import static java.util.stream.Collectors.toList;
 /**
  * PulsarRowDecoderFactory for {@link org.apache.pulsar.common.schema.SchemaType#AVRO}.
  */
-public class PulsarAvroRowDecoderFactory implements PulsarRowDecoderFactory {
-
+public class PulsarAvroRowDecoderFactory
+            implements PulsarRowDecoderFactory
+{
     private static final Logger log = Logger.get(PulsarAvroRowDecoderFactory.class);
     private final TypeManager typeManager;
 
-    public PulsarAvroRowDecoderFactory(TypeManager typeManager) {
+    public PulsarAvroRowDecoderFactory(TypeManager typeManager)
+    {
         this.typeManager = typeManager;
     }
 
     @Override
     public PulsarRowDecoder createRowDecoder(TopicName topicName, SchemaInfo schemaInfo,
-                                             Set<DecoderColumnHandle> columns) {
+                                             Set<DecoderColumnHandle> columns)
+    {
         return new PulsarAvroRowDecoder((GenericAvroSchema) GenericAvroSchema.of(schemaInfo), columns);
     }
 
     @Override
     public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo,
-                                                      PulsarColumnHandle.HandleKeyValueType handleKeyValueType) {
+                                                      PulsarColumnHandle.HandleKeyValueType handleKeyValueType)
+    {
         List<ColumnMetadata> columnMetadata;
         String schemaJson = new String(schemaInfo.getSchema());
         if (StringUtils.isBlank(schemaJson)) {
@@ -73,7 +95,8 @@ public class PulsarAvroRowDecoderFactory implements PulsarRowDecoderFactory {
         Schema schema;
         try {
             schema = GenericJsonSchema.of(schemaInfo).getAvroSchema();
-        } catch (SchemaParseException ex) {
+        }
+        catch (SchemaParseException ex) {
             throw new TrinoException(NOT_SUPPORTED, "Topic "
                     + topicName.toString() + " does not have a valid schema");
         }
@@ -88,7 +111,8 @@ public class PulsarAvroRowDecoderFactory implements PulsarRowDecoderFactory {
                                     null, null), null)
 
                     ).collect(toList());
-        } catch (StackOverflowError e) {
+        }
+        catch (StackOverflowError e) {
             log.warn(e, "Topic "
                     + topicName.toString() + " extractColumnMetadata failed.");
             throw new TrinoException(NOT_SUPPORTED, "Topic "
@@ -97,7 +121,8 @@ public class PulsarAvroRowDecoderFactory implements PulsarRowDecoderFactory {
         return columnMetadata;
     }
 
-    private Type parseAvroPrestoType(String fieldName, Schema schema) {
+    private Type parseAvroPrestoType(String fieldName, Schema schema)
+    {
         Schema.Type type = schema.getType();
         LogicalType logicalType = schema.getLogicalType();
         switch (type) {
@@ -125,7 +150,8 @@ public class PulsarAvroRowDecoderFactory implements PulsarRowDecoderFactory {
             case INT:
                 if (logicalType == LogicalTypes.timeMillis()) {
                     return TimeType.TIME_MILLIS;
-                } else if (logicalType == LogicalTypes.date()) {
+                }
+                else if (logicalType == LogicalTypes.date()) {
                     return DateType.DATE;
                 }
                 return IntegerType.INTEGER;
@@ -154,7 +180,8 @@ public class PulsarAvroRowDecoderFactory implements PulsarRowDecoderFactory {
                             .map(field -> new RowType.Field(Optional.of(field.name()),
                                     parseAvroPrestoType(field.name(), field.schema())))
                             .collect(toImmutableList()));
-                } else {
+                }
+                else {
                     throw new UnsupportedOperationException(format(
                             "field '%s' of record type has no fields, "
                                     + "please check schema definition. ", fieldName));
@@ -173,5 +200,4 @@ public class PulsarAvroRowDecoderFactory implements PulsarRowDecoderFactory {
                         schema.getType(), schema.getFullName()));
         }
     }
-
 }

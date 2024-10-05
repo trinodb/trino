@@ -31,34 +31,37 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
-public class PulsarAvroRowDecoder implements PulsarRowDecoder {
-
+public class PulsarAvroRowDecoder
+            implements PulsarRowDecoder
+{
     private final GenericAvroSchema genericAvroSchema;
     private final Map<DecoderColumnHandle, PulsarAvroColumnDecoder> columnDecoders;
 
-    public PulsarAvroRowDecoder(GenericAvroSchema genericAvroSchema, Set<DecoderColumnHandle> columns) {
+    public PulsarAvroRowDecoder(GenericAvroSchema genericAvroSchema, Set<DecoderColumnHandle> columns)
+    {
         this.genericAvroSchema = requireNonNull(genericAvroSchema, "genericAvroSchema is null");
         columnDecoders = columns.stream()
                 .collect(toImmutableMap(identity(), this::createColumnDecoder));
     }
 
-    private PulsarAvroColumnDecoder createColumnDecoder(DecoderColumnHandle columnHandle) {
+    private PulsarAvroColumnDecoder createColumnDecoder(DecoderColumnHandle columnHandle)
+    {
         return new PulsarAvroColumnDecoder(columnHandle);
     }
 
     /**
      * decode ByteBuf by {@link org.apache.pulsar.client.api.schema.GenericSchema}.
      *
-     * @param byteBuf
-     * @return
      */
     @Override
-    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(ByteBuf byteBuf) {
+    public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(ByteBuf byteBuf)
+    {
         GenericRecord avroRecord;
         try {
             GenericAvroRecord record = (GenericAvroRecord) genericAvroSchema.decode(byteBuf.array());
             avroRecord = record.getAvroRecord();
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             e.printStackTrace();
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Decoding avro record failed.", e);
         }
@@ -67,5 +70,4 @@ public class PulsarAvroRowDecoder implements PulsarRowDecoder {
                         Map.Entry::getKey,
                         entry -> entry.getValue().decodeField(avroRecord))));
     }
-
 }
