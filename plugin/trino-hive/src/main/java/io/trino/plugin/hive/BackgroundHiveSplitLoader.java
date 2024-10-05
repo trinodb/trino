@@ -910,9 +910,9 @@ public class BackgroundHiveSplitLoader
                 return Optional.empty();
             }
 
-            BucketingVersion bucketingVersion = tablePartitioning.get().bucketingVersion();
+            BucketingVersion bucketingVersion = tablePartitioning.get().partitioningHandle().getBucketingVersion();
             int tableBucketCount = tablePartitioning.get().tableBucketCount();
-            int readBucketCount = tablePartitioning.get().readBucketCount();
+            int readBucketCount = tablePartitioning.get().partitioningHandle().getBucketCount();
 
             List<HiveColumnHandle> bucketColumns = tablePartitioning.get().columns();
             IntPredicate predicate = bucketFilter
