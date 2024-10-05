@@ -24,7 +24,20 @@ import io.trino.plugin.pulsar.PulsarRowDecoder;
 import io.trino.plugin.pulsar.PulsarRowDecoderFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.type.*;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.VarbinaryType;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.client.impl.schema.generic.GenericProtobufNativeSchema;
 import org.apache.pulsar.common.naming.TopicName;
@@ -42,25 +55,29 @@ import static java.util.stream.Collectors.toList;
 /**
  * PulsarRowDecoderFactory for {@link org.apache.pulsar.common.schema.SchemaType#PROTOBUF_NATIVE}.
  */
-public class PulsarProtobufNativeRowDecoderFactory implements PulsarRowDecoderFactory {
-
+public class PulsarProtobufNativeRowDecoderFactory
+            implements PulsarRowDecoderFactory
+{
     private static final Logger log = Logger.get(PulsarProtobufNativeRowDecoderFactory.class);
     private final TypeManager typeManager;
 
-    public PulsarProtobufNativeRowDecoderFactory(TypeManager typeManager) {
+    public PulsarProtobufNativeRowDecoderFactory(TypeManager typeManager)
+    {
         this.typeManager = typeManager;
     }
 
     @Override
     public PulsarRowDecoder createRowDecoder(TopicName topicName, SchemaInfo schemaInfo,
-                                             Set<DecoderColumnHandle> columns) {
+                                             Set<DecoderColumnHandle> columns)
+    {
         return new PulsarProtobufNativeRowDecoder((GenericProtobufNativeSchema)
                 GenericProtobufNativeSchema.of(schemaInfo), columns);
     }
 
     @Override
     public List<ColumnMetadata> extractColumnMetadata(TopicName topicName, SchemaInfo schemaInfo,
-                                                      PulsarColumnHandle.HandleKeyValueType handleKeyValueType) {
+                                                      PulsarColumnHandle.HandleKeyValueType handleKeyValueType)
+    {
         List<ColumnMetadata> columnMetadata;
         String schemaJson = new String(schemaInfo.getSchema());
         if (StringUtils.isBlank(schemaJson)) {
@@ -72,7 +89,8 @@ public class PulsarProtobufNativeRowDecoderFactory implements PulsarRowDecoderFa
             schema =
                     ((GenericProtobufNativeSchema) GenericProtobufNativeSchema.of(schemaInfo))
                             .getProtobufNativeSchema();
-        } catch (Exception ex) {
+        }
+        catch (Exception ex) {
             log.error(ex);
             throw new TrinoException(NOT_SUPPORTED, "Topic "
                     + topicName.toString() + " does not have a valid schema");
@@ -91,7 +109,8 @@ public class PulsarProtobufNativeRowDecoderFactory implements PulsarRowDecoderFa
         return columnMetadata;
     }
 
-    private Type parseProtobufPrestoType(Descriptors.FieldDescriptor field) {
+    private Type parseProtobufPrestoType(Descriptors.FieldDescriptor field)
+    {
         //parse by proto JavaType
         Descriptors.FieldDescriptor.JavaType type = field.getJavaType();
         Type dataType;
@@ -131,11 +150,13 @@ public class PulsarProtobufNativeRowDecoderFactory implements PulsarRowDecoderFa
                     return typeManager.getParameterizedType(StandardTypes.MAP,
                             ImmutableList.of(TypeSignatureParameter.typeParameter(keyType),
                                     TypeSignatureParameter.typeParameter(valueType)));
-                } else {
+                }
+                else {
                     if (TimestampProto.getDescriptor().toProto().getName().equals(msg.getFile().toProto().getName())) {
                         //if msg type is protobuf/timestamp
                         dataType = TimestampType.TIMESTAMP_MILLIS;
-                    } else {
+                    }
+                    else {
                         //row
                         dataType = RowType.from(msg.getFields().stream()
                                 .map(rowField -> new RowType.Field(Optional.of(rowField.getName()),
@@ -155,5 +176,4 @@ public class PulsarProtobufNativeRowDecoderFactory implements PulsarRowDecoderFa
 
         return dataType;
     }
-
 }
