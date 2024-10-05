@@ -18,7 +18,8 @@ import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
 public class PulsarPlugin
-        implements Plugin {
+            implements Plugin
+{
     /*
     * private final List<com.google.inject.Module> extensions;
 
@@ -39,7 +40,8 @@ public class PulsarPlugin
     }
     * */
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories() {
+    public Iterable<ConnectorFactory> getConnectorFactories()
+    {
         return ImmutableList.of(new PulsarConnectorFactory());
     }
 }
