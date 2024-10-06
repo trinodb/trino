@@ -108,6 +108,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/faker">
+        <artifact id="${project.groupId}:trino-faker:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/geospatial">
         <artifact id="${project.groupId}:trino-geospatial:zip:${project.version}">
             <unpack />
