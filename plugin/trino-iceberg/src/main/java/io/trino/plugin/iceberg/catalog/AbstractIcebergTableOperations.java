@@ -325,25 +325,34 @@ public abstract class AbstractIcebergTableOperations
         if (base == null) {
             return;
         }
-        boolean deleteAfterCommit = metadata.propertyAsBoolean(METADATA_DELETE_AFTER_COMMIT_ENABLED, METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT);
+
+        boolean deleteAfterCommit =
+                metadata.propertyAsBoolean(
+                        METADATA_DELETE_AFTER_COMMIT_ENABLED,
+                        METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT);
+
         if (deleteAfterCommit) {
-            Set<TableMetadata.MetadataLogEntry> removedPreviousMetadataFiles = Sets.newHashSet(base.previousFiles());
+            Set<TableMetadata.MetadataLogEntry> removedPreviousMetadataFiles =
+                    Sets.newHashSet(base.previousFiles());
             // TableMetadata#addPreviousFile builds up the metadata log and uses
             // TableProperties.METADATA_PREVIOUS_VERSIONS_MAX to determine how many files should stay in
             // the log, thus we don't include metadata.previousFiles() for deletion - everything else can
             // be removed
             metadata.previousFiles().forEach(removedPreviousMetadataFiles::remove);
             if (io() instanceof SupportsBulkOperations supportsBulkOperations) {
-                supportsBulkOperations.deleteFiles(Iterables.transform(removedPreviousMetadataFiles, TableMetadata.MetadataLogEntry::file));
+                supportsBulkOperations
+                        .deleteFiles(
+                                Iterables.transform(
+                                        removedPreviousMetadataFiles, TableMetadata.MetadataLogEntry::file));
             }
             else {
                 removedPreviousMetadataFiles.forEach(
-                        file -> {
+                        f -> {
                             try {
-                                io().deleteFile(file.file());
+                                io().deleteFile(f.file());
                             }
                             catch (RuntimeException e) {
-                                log.warn(e, "Delete failed for previous metadata file: %s", file);
+                                log.warn(e, "Delete failed for previous metadata file: %s", f);
                             }
                         });
             }
