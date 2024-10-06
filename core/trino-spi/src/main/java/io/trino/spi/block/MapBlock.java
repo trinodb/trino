@@ -186,6 +186,20 @@ public final class MapBlock
         this.retainedSizeInBytes = INSTANCE_SIZE + sizeOf(offsets) + sizeOf(mapIsNull);
     }
 
+    public Block getKeyBlock()
+    {
+        int start = offsets[startOffset];
+        int end = offsets[startOffset + positionCount];
+        return keyBlock.getRegion(start, end - start);
+    }
+
+    public Block getValueBlock()
+    {
+        int start = offsets[startOffset];
+        int end = offsets[startOffset + positionCount];
+        return valueBlock.getRegion(start, end - start);
+    }
+
     Block getRawKeyBlock()
     {
         return keyBlock;
