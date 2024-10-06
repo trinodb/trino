@@ -120,6 +120,8 @@ public class JoinCompiler
             CacheLoader.from(key ->
                     internalCompileHashStrategy(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel())));
 
+    private static final int initChannelFieldsThreshold = 500;
+
     @Inject
     public JoinCompiler(TypeOperators typeOperators)
     {
@@ -223,10 +225,22 @@ public class JoinCompiler
                 type(PagesHashStrategy.class));
 
         FieldDefinition instanceSizeField = generateInstanceSize(classDefinition);
-        FieldDefinition sizeField = classDefinition.declareField(a(PRIVATE, FINAL), "size", type(long.class));
+        FieldDefinition sizeField = null;
+        if (types.size() < initChannelFieldsThreshold) {
+            sizeField = classDefinition.declareField(a(PRIVATE, FINAL), "size", type(long.class));
+        }
+        else {
+            sizeField = classDefinition.declareField(a(PRIVATE), "size", type(long.class));
+        }
         List<FieldDefinition> channelFields = new ArrayList<>();
         for (int i = 0; i < types.size(); i++) {
-            FieldDefinition channelField = classDefinition.declareField(a(PRIVATE, FINAL), "channel_" + i, type(List.class, Block.class));
+            FieldDefinition channelField = null;
+            if (i < initChannelFieldsThreshold) {
+                channelField = classDefinition.declareField(a(PRIVATE, FINAL), "channel_" + i, type(List.class, Block.class));
+            }
+            else {
+                channelField = classDefinition.declareField(a(PRIVATE), "channel_" + i, type(List.class, Block.class));
+            }
             channelFields.add(channelField);
         }
         List<Type> joinChannelTypes = new ArrayList<>();
@@ -287,40 +301,16 @@ public class JoinCompiler
 
         constructor.comment("Set channel fields");
 
-        for (int index = 0; index < channelFields.size(); index++) {
-            BytecodeExpression channel = channels.invoke("get", Object.class, constantInt(index))
-                    .cast(type(ObjectArrayList.class, Block.class));
-
-            constructor.append(thisVariable.setField(channelFields.get(index), channel));
-
-            BytecodeBlock loopBody = new BytecodeBlock();
-
-            constructor.comment("for(blockIndex = 0; blockIndex < channel.size(); blockIndex++) { size += channel.get(i).getRetainedSizeInBytes() }")
-                    .append(new ForLoop()
-                            .initialize(blockIndex.set(constantInt(0)))
-                            .condition(new BytecodeBlock()
-                                    .append(blockIndex)
-                                    .append(channel.invoke("size", int.class))
-                                    .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
-                            .update(new BytecodeBlock().incrementVariable(blockIndex, (byte) 1))
-                            .body(loopBody));
-
-            loopBody.append(thisVariable)
-                    .append(thisVariable)
-                    .getField(sizeField)
-                    .append(
-                            channel.invoke("get", Object.class, blockIndex)
-                                    .cast(type(Block.class))
-                                    .invoke("getRetainedSizeInBytes", long.class))
-                    .longAdd()
-                    .putField(sizeField);
-
-            constructor.append(thisVariable)
-                    .append(thisVariable)
-                    .getField(sizeField)
-                    .append(invokeStatic(SizeOf.class, "sizeOf", long.class, channel.invoke("elements", Object[].class)))
-                    .longAdd()
-                    .putField(sizeField);
+        for (int index = 0; index < (channelFields.size() / initChannelFieldsThreshold) + 1; index++) {
+            if (index == 0) {
+                // First 500 fields initialization is inlined in the constructor
+                generateInitChannelField(constructor, sizeField, channelFields, channels, thisVariable, blockIndex, 0, Math.min(initChannelFieldsThreshold, channelFields.size()));
+            }
+            else {
+                // After first 500 fields will be initialized in separate methods
+                MethodDefinition methodDefinition = generateInitChannelFieldsMethod(classDefinition, sizeField, channelFields, index, index * initChannelFieldsThreshold, Math.min((index + 1) * initChannelFieldsThreshold, channelFields.size()));
+                constructor.append(thisVariable.invoke(methodDefinition, ImmutableList.of(channels)));
+            }
         }
 
         constructor.comment("Set join channel fields");
@@ -341,6 +331,75 @@ public class JoinCompiler
                         hashChannelField,
                         constantNull(hashChannelField.getType()))));
         constructor.ret();
+    }
+
+    private static MethodDefinition generateInitChannelFieldsMethod(
+            ClassDefinition classDefinition,
+            FieldDefinition sizeField,
+            List<FieldDefinition> channelFields,
+            int methodIndex,
+            int from,
+            int until)
+    {
+        Parameter channels = arg("channels", type(List.class, type(List.class, Block.class)));
+        MethodDefinition methodDefinition = classDefinition.declareMethod(a(PRIVATE), "initChannel_" + methodIndex, type(void.class), channels);
+
+        Variable thisVariable = methodDefinition.getThis();
+        Variable blockIndex = methodDefinition.getScope().declareVariable(int.class, "blockIndex");
+        BytecodeBlock methodBody = methodDefinition.getBody();
+
+        generateInitChannelField(methodBody, sizeField, channelFields, channels, thisVariable, blockIndex, from, until);
+
+        methodBody.ret();
+
+        return methodDefinition;
+    }
+
+    private static void generateInitChannelField(
+            BytecodeBlock block,
+            FieldDefinition sizeField,
+            List<FieldDefinition> channelFields,
+            Parameter channels,
+            Variable thisVariable,
+            Variable blockIndex,
+            int from,
+            int until)
+    {
+        for (int index = from; index < until; index++) {
+            BytecodeExpression channel = channels.invoke("get", Object.class, constantInt(index))
+                    .cast(type(ObjectArrayList.class, Block.class));
+
+            block.append(thisVariable.setField(channelFields.get(index), channel));
+
+            BytecodeBlock loopBody = new BytecodeBlock();
+
+            block.comment("for(blockIndex = 0; blockIndex < channel.size(); blockIndex++) { size += channel.get(i).getRetainedSizeInBytes() }")
+                    .append(new ForLoop()
+                            .initialize(blockIndex.set(constantInt(0)))
+                            .condition(new BytecodeBlock()
+                                    .append(blockIndex)
+                                    .append(channel.invoke("size", int.class))
+                                    .invokeStatic(CompilerOperations.class, "lessThan", boolean.class, int.class, int.class))
+                            .update(new BytecodeBlock().incrementVariable(blockIndex, (byte) 1))
+                            .body(loopBody));
+
+            loopBody.append(thisVariable)
+                    .append(thisVariable)
+                    .getField(sizeField)
+                    .append(
+                            channel.invoke("get", Object.class, blockIndex)
+                                    .cast(type(Block.class))
+                                    .invoke("getRetainedSizeInBytes", long.class))
+                    .longAdd()
+                    .putField(sizeField);
+
+            block.append(thisVariable)
+                    .append(thisVariable)
+                    .getField(sizeField)
+                    .append(invokeStatic(SizeOf.class, "sizeOf", long.class, channel.invoke("elements", Object[].class)))
+                    .longAdd()
+                    .putField(sizeField);
+        }
     }
 
     private static void generateGetChannelCountMethod(ClassDefinition classDefinition, int outputChannelCount)

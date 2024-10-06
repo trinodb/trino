@@ -295,6 +295,131 @@ public class TestJoinCompiler
     }
 
     @Test
+    public void testTooManyChannels()
+    {
+        int channelCount = 1000; // Test with 1000 channels
+
+        for (boolean hashEnabled : Arrays.asList(true, false)) {
+            // compile a 1000 channels hash strategy
+            ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
+            ImmutableList.Builder<ObjectArrayList<Block>> channelsBuilder = ImmutableList.builder();
+            for (int i = 0; i < channelCount; i++) {
+                typesBuilder.add(BIGINT);
+
+                ObjectArrayList<Block> longChannel = new ObjectArrayList<>();
+                longChannel.add(BlockAssertions.createLongSequenceBlock(10, 20));
+                longChannel.add(BlockAssertions.createLongSequenceBlock(20, 30));
+                longChannel.add(BlockAssertions.createLongSequenceBlock(15, 25));
+                channelsBuilder.add(longChannel);
+            }
+
+            List<Integer> joinChannels = Ints.asList(0);
+            List<Type> outputTypes = ImmutableList.of(BIGINT);
+            List<Integer> outputChannels = Ints.asList(0);
+            OptionalInt hashChannel = OptionalInt.empty();
+            ObjectArrayList<Block> precomputedHash = new ObjectArrayList<>();
+            if (hashEnabled) {
+                precomputedHash.add(TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), BlockAssertions.createLongSequenceBlock(10, 20)));
+                precomputedHash.add(TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), BlockAssertions.createLongSequenceBlock(20, 30)));
+                precomputedHash.add(TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), BlockAssertions.createLongSequenceBlock(15, 25)));
+
+                channelsBuilder.add(precomputedHash);
+                typesBuilder.add(BIGINT);
+
+                hashChannel = OptionalInt.of(channelCount);
+                outputTypes = ImmutableList.of(BIGINT, BIGINT);
+                outputChannels = Ints.asList(0, channelCount);
+            }
+            List<Type> types = typesBuilder.build();
+            List<ObjectArrayList<Block>> channels = channelsBuilder.build();
+
+            PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(types, joinChannels, Optional.of(outputChannels));
+            PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
+
+            PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, outputChannels, channels, joinChannels, hashChannel, Optional.empty(), blockTypeOperators);
+
+            // verify channel count
+            assertThat(hashStrategy.getChannelCount()).isEqualTo(outputChannels.size());
+
+            // verify size
+            int instanceSize = instanceSize(hashStrategy.getClass());
+            long sizeInBytes = instanceSize +
+                    (channels.size() > 0 ? sizeOf(channels.get(0).elements()) * channels.size() : 0) +
+                    channels.stream()
+                            .flatMap(List::stream)
+                            .mapToLong(Block::getRetainedSizeInBytes)
+                            .sum();
+            assertThat(hashStrategy.getSizeInBytes()).isEqualTo(sizeInBytes);
+
+            // verify hashStrategy is consistent with equals and hash code from block
+            for (int leftBlockIndex = 0; leftBlockIndex < 3; leftBlockIndex++) {
+                PageBuilder pageBuilder = new PageBuilder(outputTypes);
+                Block[] leftBlocks = new Block[channelCount];
+                for (int i = 0; i < channelCount; i++) {
+                    leftBlocks[i] = channels.get(i).get(leftBlockIndex);
+                }
+                int leftPositionCount = channels.getFirst().get(leftBlockIndex).getPositionCount();
+                for (int leftBlockPosition = 0; leftBlockPosition < leftPositionCount; leftBlockPosition++) {
+                    // hash code of position must match block hash
+                    assertThat(hashStrategy.hashPosition(leftBlockIndex, leftBlockPosition)).isEqualTo(expectedHashStrategy.hashPosition(leftBlockIndex, leftBlockPosition));
+
+                    // position must be equal to itself
+                    assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition)).isTrue();
+                    assertThat(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition)).isTrue();
+                    assertThat(hashStrategy.positionIdenticalToPosition(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition)).isTrue();
+
+                    // check equality of every position against every other position in the block
+                    for (int rightBlockIndex = 0; rightBlockIndex < channels.getFirst().size(); rightBlockIndex++) {
+                        Block rightBlock = channels.getFirst().get(rightBlockIndex);
+                        for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
+                            assertThat(hashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition)).isEqualTo(expectedHashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition));
+                            assertThat(hashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition)).isEqualTo(expectedHashStrategy.positionEqualsPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition));
+                            assertThat(hashStrategy.positionIdenticalToPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition)).isEqualTo(expectedHashStrategy.positionIdenticalToPosition(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition));
+                        }
+                    }
+
+                    // check equality of every position against every other position in the block cursor
+                    for (int rightBlockIndex = 0; rightBlockIndex < channels.getFirst().size(); rightBlockIndex++) {
+                        Block[] rightBlocks = new Block[1];
+                        rightBlocks[0] = channels.getFirst().get(rightBlockIndex);
+
+                        int rightPositionCount = channels.getFirst().get(rightBlockIndex).getPositionCount();
+                        for (int rightPosition = 0; rightPosition < rightPositionCount; rightPosition++) {
+                            boolean expected = expectedHashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, new Page(rightBlocks));
+                            boolean expectedIdentical = expectedHashStrategy.positionIdenticalToRow(leftBlockIndex, leftBlockPosition, rightPosition, new Page(rightBlocks));
+
+                            assertThat(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightPosition, new Page(rightBlocks))).isEqualTo(expected);
+                            assertThat(hashStrategy.positionIdenticalToRow(leftBlockIndex, leftBlockPosition, rightPosition, new Page(rightBlocks))).isEqualTo(expectedIdentical);
+                            assertThat(hashStrategy.rowEqualsRow(leftBlockPosition, new Page(leftBlocks), rightPosition, new Page(rightBlocks))).isEqualTo(expected);
+                            assertThat(hashStrategy.rowIdenticalToRow(leftBlockPosition, new Page(leftBlocks), rightPosition, new Page(rightBlocks))).isEqualTo(expectedIdentical);
+                            assertThat(hashStrategy.positionEqualsRowIgnoreNulls(leftBlockIndex, leftBlockPosition, rightPosition, new Page(rightBlocks))).isEqualTo(expected);
+                        }
+                    }
+
+                    // write position to output block
+                    pageBuilder.declarePosition();
+                    hashStrategy.appendTo(leftBlockIndex, leftBlockPosition, pageBuilder, 0);
+                }
+
+                // verify output block matches
+                assertBlockEquals(BIGINT, pageBuilder.build().getBlock(0), channels.getFirst().get(leftBlockIndex));
+
+                // verify output block matches
+                Page page = pageBuilder.build();
+                if (hashEnabled) {
+                    assertPageEquals(outputTypes, page, new Page(
+                            channels.getFirst().get(leftBlockIndex),
+                            precomputedHash.get(leftBlockIndex)));
+                }
+                else {
+                    assertPageEquals(outputTypes, page, new Page(
+                            channels.getFirst().get(leftBlockIndex)));
+                }
+            }
+        }
+    }
+
+    @Test
     public void testIdentical()
     {
         List<Type> joinTypes = ImmutableList.of(DOUBLE);
