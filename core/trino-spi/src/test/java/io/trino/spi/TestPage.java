@@ -68,8 +68,6 @@ public class TestPage
     {
         Page page = new Page(100);
         assertThat(page.getSizeInBytes()).isEqualTo(0);
-        assertThat(page.getLogicalSizeInBytes()).isEqualTo(0);
-        assertThat(page.getRetainedSizeInBytes()).isEqualTo(Page.INSTANCE_SIZE); // does not include the blocks array
     }
 
     @Test

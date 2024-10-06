@@ -100,7 +100,7 @@ public class ParquetWriter
     private final OutputStreamSliceOutput outputStream;
     private final ParquetWriterOptions writerOption;
     private final MessageType messageType;
-    private final int chunkMaxLogicalBytes;
+    private final int chunkMaxBytes;
     private final Map<List<String>, Type> primitiveTypes;
     private final CompressionCodec compressionCodec;
     private final Optional<DateTimeZone> parquetTimeZone;
@@ -142,7 +142,7 @@ public class ParquetWriter
         recordValidation(validation -> validation.setColumns(messageType.getColumns()));
         recordValidation(validation -> validation.setCreatedBy(createdBy));
         initColumnWriters();
-        this.chunkMaxLogicalBytes = max(1, writerOption.getMaxRowGroupSize() / 2);
+        this.chunkMaxBytes = max(1, writerOption.getMaxRowGroupSize() / 2);
     }
 
     public long getWrittenBytes()
@@ -174,6 +174,9 @@ public class ParquetWriter
 
         checkArgument(page.getChannelCount() == columnWriters.size());
 
+        // page should already be loaded, but double check
+        page = page.getLoadedPage();
+
         Page validationPage = page;
         recordValidation(validation -> validation.addPage(validationPage));
 
@@ -182,7 +185,7 @@ public class ParquetWriter
             Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, writerOption.getBatchSize()));
 
             // avoid chunk with huge logical size
-            while (chunk.getPositionCount() > 1 && chunk.getLogicalSizeInBytes() > chunkMaxLogicalBytes) {
+            while (chunk.getPositionCount() > 1 && chunk.getSizeInBytes() > chunkMaxBytes) {
                 chunk = page.getRegion(writeOffset, chunk.getPositionCount() / 2);
             }
 
