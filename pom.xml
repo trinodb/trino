@@ -74,6 +74,7 @@
         <module>plugin/trino-exasol</module>
         <module>plugin/trino-exchange-filesystem</module>
         <module>plugin/trino-exchange-hdfs</module>
+        <module>plugin/trino-faker</module>
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>
@@ -1058,6 +1059,12 @@
                 <artifactId>trino-exchange-filesystem</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-faker</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
