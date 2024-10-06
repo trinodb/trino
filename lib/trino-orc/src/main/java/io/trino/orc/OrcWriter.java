@@ -100,7 +100,7 @@ public final class OrcWriter
     private final List<Type> types;
     private final CompressionKind compression;
     private final int stripeMaxBytes;
-    private final int chunkMaxLogicalBytes;
+    private final int chunkMaxBytes;
     private final int stripeMaxRowCount;
     private final int rowGroupMaxRowCount;
     private final int maxCompressionBufferSize;
@@ -153,7 +153,7 @@ public final class OrcWriter
         checkArgument(options.getStripeMaxSize().compareTo(options.getStripeMinSize()) >= 0, "stripeMaxSize must be greater than or equal to stripeMinSize");
         int stripeMinBytes = toIntExact(requireNonNull(options.getStripeMinSize(), "stripeMinSize is null").toBytes());
         this.stripeMaxBytes = toIntExact(requireNonNull(options.getStripeMaxSize(), "stripeMaxSize is null").toBytes());
-        this.chunkMaxLogicalBytes = Math.max(1, stripeMaxBytes / 2);
+        this.chunkMaxBytes = Math.max(1, stripeMaxBytes / 2);
         this.stripeMaxRowCount = options.getStripeMaxRowCount();
         this.rowGroupMaxRowCount = options.getRowGroupMaxRowCount();
         recordValidation(validation -> validation.setRowGroupMaxRowCount(rowGroupMaxRowCount));
@@ -254,6 +254,8 @@ public final class OrcWriter
         }
 
         checkArgument(page.getChannelCount() == columnWriters.size());
+        // page should already be loaded, but double check
+        page = page.getLoadedPage();
 
         if (validationBuilder != null) {
             validationBuilder.addPage(page);
@@ -264,8 +266,8 @@ public final class OrcWriter
             // align page to row group boundaries
             Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, min(rowGroupMaxRowCount - rowGroupRowCount, stripeMaxRowCount - stripeRowCount)));
 
-            // avoid chunk with huge logical size
-            while (chunk.getPositionCount() > 1 && chunk.getLogicalSizeInBytes() > chunkMaxLogicalBytes) {
+            // avoid chunk with huge size
+            while (chunk.getPositionCount() > 1 && chunk.getSizeInBytes() > chunkMaxBytes) {
                 chunk = page.getRegion(writeOffset, chunk.getPositionCount() / 2);
             }
 

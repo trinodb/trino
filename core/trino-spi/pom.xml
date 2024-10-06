@@ -265,6 +265,26 @@
                                     <old>interface io.trino.spi.protocol.SpoolingManagerFactory</old>
                                     <justification>Spooling SPI marked as experimental</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.Page::getLogicalSizeInBytes()</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.Block::getLogicalSizeInBytes()</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.DictionaryBlock::getLogicalSizeInBytes()</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.block.RunLengthEncodedBlock::getLogicalSizeInBytes()</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

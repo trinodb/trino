@@ -51,7 +51,6 @@ public final class Page
     private final int positionCount;
     private volatile long sizeInBytes = -1;
     private volatile long retainedSizeInBytes = -1;
-    private volatile long logicalSizeInBytes = -1;
 
     public Page(Block... blocks)
     {
@@ -78,7 +77,6 @@ public final class Page
         if (blocks.length == 0) {
             this.blocks = EMPTY_BLOCKS;
             this.sizeInBytes = 0;
-            this.logicalSizeInBytes = 0;
             // Empty blocks are not considered "retained" by any particular page
             this.retainedSizeInBytes = INSTANCE_SIZE;
         }
@@ -112,19 +110,6 @@ public final class Page
             this.sizeInBytes = sizeInBytes;
         }
         return sizeInBytes;
-    }
-
-    public long getLogicalSizeInBytes()
-    {
-        long logicalSizeInBytes = this.logicalSizeInBytes;
-        if (logicalSizeInBytes < 0) {
-            logicalSizeInBytes = 0;
-            for (Block block : blocks) {
-                logicalSizeInBytes += block.getLogicalSizeInBytes();
-            }
-            this.logicalSizeInBytes = logicalSizeInBytes;
-        }
-        return logicalSizeInBytes;
     }
 
     public long getRetainedSizeInBytes()

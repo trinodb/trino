@@ -51,7 +51,14 @@ import io.trino.server.protocol.spooling.QueryDataProducer;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
+import io.trino.spi.block.ArrayBlock;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.MapBlock;
+import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.Type;
@@ -562,7 +569,9 @@ class Query
                 }
 
                 Page page = deserializer.deserialize(serializedPage);
-                bytes += page.getLogicalSizeInBytes();
+                // page should already be loaded since it was just deserialized
+                page = page.getLoadedPage();
+                bytes += estimateJsonSize(page);
                 resultBuilder.addPage(page);
             }
             if (exchangeDataSource.isFinished()) {
@@ -575,6 +584,38 @@ class Query
         }
 
         return resultBuilder.build();
+    }
+
+    private static long estimateJsonSize(Page page)
+    {
+        long estimatedSize = 0;
+        for (int i = 0; i < page.getChannelCount(); i++) {
+            estimatedSize += estimateJsonSize(page.getBlock(i));
+        }
+        return estimatedSize;
+    }
+
+    private static long estimateJsonSize(Block block)
+    {
+        switch (block) {
+            case RunLengthEncodedBlock rleBlock:
+                return estimateJsonSize(rleBlock.getValue()) * rleBlock.getPositionCount();
+            case DictionaryBlock dictionaryBlock:
+                ValueBlock dictionary = dictionaryBlock.getDictionary();
+                double averageSizePerEntry = (double) estimateJsonSize(dictionary) / dictionary.getPositionCount();
+                return (long) (averageSizePerEntry * block.getPositionCount());
+            case RowBlock rowBlock:
+                return rowBlock.getFieldBlocks().stream()
+                        .mapToLong(Query::estimateJsonSize)
+                        .sum();
+            case ArrayBlock arrayBlock:
+                return estimateJsonSize(arrayBlock.getElementsBlock());
+            case MapBlock mapBlock:
+                return estimateJsonSize(mapBlock.getKeyBlock()) +
+                        estimateJsonSize(mapBlock.getValueBlock());
+            default:
+                return block.getSizeInBytes();
+        }
     }
 
     private void closeExchangeIfNecessary(ResultQueryInfo queryInfo)

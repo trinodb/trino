@@ -85,31 +85,6 @@ public class TestDictionaryBlock
     }
 
     @Test
-    public void testLogicalSizeInBytes()
-    {
-        // The 10 Slices in the array will be of lengths 0 to 9.
-        Slice[] expectedValues = createExpectedValues(10);
-
-        // The dictionary within the dictionary block is expected to be a VariableWidthBlock of size 95 bytes.
-        // 45 bytes for the expectedValues Slices (sum of seq(0,9)) and 50 bytes for the position and isNull array (total 10 positions).
-        DictionaryBlock dictionaryBlock = createDictionaryBlock(expectedValues, 100);
-        assertThat(dictionaryBlock.getDictionary().getLogicalSizeInBytes()).isEqualTo(95);
-
-        // The 100 positions in the dictionary block index to 10 positions in the underlying dictionary (10 each).
-        // Logical size calculation accounts for 4 bytes of offset and 1 byte of isNull. Therefore the expected unoptimized
-        // size is 10 times the size of the underlying dictionary (VariableWidthBlock).
-        assertThat(dictionaryBlock.getLogicalSizeInBytes()).isEqualTo(95 * 10);
-
-        // With alternating nulls, we have 21 positions, with the same size calculation as above.
-        dictionaryBlock = createDictionaryBlock(alternatingNullValues(expectedValues), 210);
-        assertThat(dictionaryBlock.getDictionary().getPositionCount()).isEqualTo(21);
-        assertThat(dictionaryBlock.getDictionary().getLogicalSizeInBytes()).isEqualTo(150);
-
-        // The null positions should be included in the logical size.
-        assertThat(dictionaryBlock.getLogicalSizeInBytes()).isEqualTo(150 * 10);
-    }
-
-    @Test
     public void testCopyRegionCreatesCompactBlock()
     {
         Slice[] expectedValues = createExpectedValues(10);
