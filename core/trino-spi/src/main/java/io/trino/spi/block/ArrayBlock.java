@@ -165,6 +165,13 @@ public final class ArrayBlock
         consumer.accept(this, INSTANCE_SIZE);
     }
 
+    public Block getElementsBlock()
+    {
+        int start = offsets[arrayOffset];
+        int end = offsets[arrayOffset + positionCount];
+        return values.getRegion(start, end - start);
+    }
+
     Block getRawElementBlock()
     {
         return values;
