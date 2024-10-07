@@ -1550,6 +1550,7 @@ public final class MetadataManager
                         .collect(toImmutableList()),
                 view.getComment(),
                 runAsIdentity,
+                view.isHybrid(),
                 view.getPath());
     }
 
