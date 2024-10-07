@@ -103,6 +103,24 @@ public class ClassLoaderSafeSchemaRegistryClient
     }
 
     @Override
+    public RegisterSchemaResponse registerWithResponse(String subject, ParsedSchema schema, boolean normalize, boolean propagateSchemaTags)
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.registerWithResponse(subject, schema, normalize, propagateSchemaTags);
+        }
+    }
+
+    @Override
+    public Collection<String> getAllContexts()
+            throws IOException, RestClientException
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getAllContexts();
+        }
+    }
+
+    @Override
     @SuppressWarnings("deprecation")
     public Schema getByID(int id)
             throws IOException, RestClientException
