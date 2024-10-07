@@ -14,7 +14,6 @@
 package io.trino.tests.product.hudi;
 
 import io.trino.tempto.ProductTest;
-import io.trino.tests.product.iceberg.TestIcebergHiveTablesCompatibility;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -30,7 +29,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Tests interactions between Hudi and Hive connectors, when one tries to read a table created by the other.
  *
  * @see TestHudiHiveViewsCompatibility
- * @see TestIcebergHiveTablesCompatibility
  */
 public class TestHudiHiveTablesCompatibility
         extends ProductTest
@@ -92,7 +90,7 @@ public class TestHudiHiveTablesCompatibility
         String tableName = "test_hive_create_namesake_hudi_table_" + randomNameSuffix();
         assertQueryFailure(() -> onTrino().executeQuery("CREATE TABLE hudi.default." + tableName + "(a bigint)"))
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q This connector does not support creating tables");
-        // TODO implement test like TestIcebergHiveTablesCompatibility.testHiveCannotCreateTableNamesakeToIcebergTable when CREATE TABLE supported
+        // TODO implement test like BaseSharedMetastoreTest.testHiveCannotCreateTableNamesakeToIcebergTable when CREATE TABLE supported
     }
 
     @Test(groups = {HUDI, PROFILE_SPECIFIC_TESTS})

@@ -34,7 +34,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Tests interactions between Iceberg and Hive connectors, when one tries to read a view created by the other.
  *
- * @see TestIcebergHiveTablesCompatibility
  * @see TestHudiHiveViewsCompatibility
  */
 public class TestIcebergHiveViewsCompatibility

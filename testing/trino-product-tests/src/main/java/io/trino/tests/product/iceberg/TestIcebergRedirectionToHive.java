@@ -37,8 +37,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Tests interactions between Iceberg and Hive connectors, when one tries to read a table created by the other
  * with redirects enabled.
- *
- * @see TestIcebergHiveTablesCompatibility
  */
 public class TestIcebergRedirectionToHive
         extends ProductTest
