@@ -226,7 +226,7 @@ public final class SqlRoutineCompiler
         Map<IrVariable, Variable> variables = VariableExtractor.extract(routine).stream().distinct()
                 .collect(toImmutableMap(identity(), variable -> getOrDeclareVariable(scope, variable)));
 
-        BytecodeVisitor visitor = new BytecodeVisitor(cachedInstanceBinder, compiledLambdaMap, variables);
+        BytecodeVisitor visitor = new BytecodeVisitor(classDefinition, cachedInstanceBinder, compiledLambdaMap, variables);
         method.getBody().append(visitor.process(routine, scope));
     }
 
@@ -283,6 +283,7 @@ public final class SqlRoutineCompiler
     private class BytecodeVisitor
             implements IrNodeVisitor<Scope, BytecodeNode>
     {
+        private final ClassDefinition classDefinition;
         private final CachedInstanceBinder cachedInstanceBinder;
         private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
         private final Map<IrVariable, Variable> variables;
@@ -291,10 +292,12 @@ public final class SqlRoutineCompiler
         private final Map<IrLabel, LabelNode> breakLabels = new HashMap<>();
 
         public BytecodeVisitor(
+                ClassDefinition classDefinition,
                 CachedInstanceBinder cachedInstanceBinder,
                 Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
                 Map<IrVariable, Variable> variables)
         {
+            this.classDefinition = requireNonNull(classDefinition, "classDefinition is null");
             this.cachedInstanceBinder = requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
             this.compiledLambdaMap = requireNonNull(compiledLambdaMap, "compiledLambdaMap is null");
             this.variables = requireNonNull(variables, "variables is null");
@@ -462,11 +465,13 @@ public final class SqlRoutineCompiler
             }
 
             RowExpressionCompiler rowExpressionCompiler = new RowExpressionCompiler(
+                    classDefinition,
                     cachedInstanceBinder.getCallSiteBinder(),
                     cachedInstanceBinder,
                     FieldReferenceCompiler.INSTANCE,
                     functionManager,
-                    compiledLambdaMap);
+                    compiledLambdaMap,
+                    ImmutableList.of());
 
             return new BytecodeBlock()
                     .comment("boolean wasNull = false;")

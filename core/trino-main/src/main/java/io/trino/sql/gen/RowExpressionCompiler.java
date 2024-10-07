@@ -17,6 +17,8 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.trino.metadata.FunctionManager;
@@ -31,6 +33,7 @@ import io.trino.sql.relational.RowExpressionVisitor;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.VariableReferenceExpression;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -45,24 +48,30 @@ import static io.trino.sql.gen.LambdaBytecodeGenerator.generateLambda;
 
 public class RowExpressionCompiler
 {
+    private final ClassDefinition classDefinition;
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
     private final RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler;
     private final FunctionManager functionManager;
     private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
+    private final List<Parameter> contextArguments;  // arguments that need to be propagates to generated methods
 
     public RowExpressionCompiler(
+            ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler,
             FunctionManager functionManager,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap)
+            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
+            List<Parameter> contextArguments)
     {
+        this.classDefinition = classDefinition;
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.fieldReferenceCompiler = fieldReferenceCompiler;
         this.functionManager = functionManager;
         this.compiledLambdaMap = compiledLambdaMap;
+        this.contextArguments = ImmutableList.copyOf(contextArguments);
     }
 
     public BytecodeNode compile(RowExpression rowExpression, Scope scope)
@@ -86,7 +95,9 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    functionManager);
+                    functionManager,
+                    classDefinition,
+                    contextArguments);
 
             return generatorContext.generateFullCall(call.resolvedFunction(), call.arguments());
         }
@@ -116,7 +127,9 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    functionManager);
+                    functionManager,
+                    classDefinition,
+                    contextArguments);
 
             return generator.generateExpression(generatorContext);
         }
@@ -178,7 +191,9 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    functionManager);
+                    functionManager,
+                    classDefinition,
+                    contextArguments);
 
             return generateLambda(
                     generatorContext,
