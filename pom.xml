@@ -206,6 +206,7 @@
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>3.8.0</dep.kafka-clients.version>
+        <dep.lucene.version>9.12.0</dep.lucene.version>
         <dep.okio.version>3.9.1</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.14.3</dep.parquet.version>
@@ -2018,6 +2019,12 @@
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-api</artifactId>
                 <version>2.24.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.lucene</groupId>
+                <artifactId>lucene-analysis-common</artifactId>
+                <version>${dep.lucene.version}</version>
             </dependency>
 
             <dependency>
