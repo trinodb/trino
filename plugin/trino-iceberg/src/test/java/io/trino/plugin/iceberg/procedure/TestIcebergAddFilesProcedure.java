@@ -173,7 +173,63 @@ final class TestIcebergAddFilesProcedure
     }
 
     @Test
-    void testAddFilesDifferentDataColumnDefinitions()
+    void testAddFilesFromLessColumnTable()
+    {
+        for (String format : List.of("ORC", "PARQUET", "AVRO")) {
+            String hiveTableName = "test_add_files_" + randomNameSuffix();
+            String icebergTableName = "test_add_files_" + randomNameSuffix();
+
+            assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = '" + format + "') AS SELECT 1 x", 1);
+            assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (format = '" + format + "') AS SELECT 2 x, 20 y", 1);
+
+            assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')");
+            assertQuery("SELECT * FROM iceberg.tpch." + icebergTableName, "VALUES (1, NULL), (2, 20)");
+
+            assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
+            assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
+        }
+    }
+
+    @Test
+    void testAddFilesFromLessColumnTableNotNull()
+    {
+        for (String format : List.of("ORC", "PARQUET", "AVRO")) {
+            String hiveTableName = "test_add_files_" + randomNameSuffix();
+            String icebergTableName = "test_add_files_" + randomNameSuffix();
+
+            assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = '" + format + "') AS SELECT 1 x", 1);
+            assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + "(x int, y int NOT NULL) WITH (format = '" + format + "')");
+
+            assertQueryFails(
+                    "ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')",
+                    ".*NULL value not allowed for NOT NULL column: y");
+
+            assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
+            assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
+        }
+    }
+
+    @Test
+    void testAddFilesFromMoreColumnTable()
+    {
+        for (String format : List.of("ORC", "PARQUET", "AVRO")) {
+            String hiveTableName = "test_add_files_" + randomNameSuffix();
+            String icebergTableName = "test_add_files_" + randomNameSuffix();
+
+            assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = '" + format + "') AS SELECT 1 x, 'extra' y", 1);
+            assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (format = '" + format + "') AS SELECT 2 x", 1);
+
+            assertQueryFails(
+                    "ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')",
+                    "Target table should have at least 2 columns but got 1");
+
+            assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
+            assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
+        }
+    }
+
+    @Test
+    void testAddFilesDifferentAllDataColumnDefinitions()
     {
         for (String format : List.of("ORC", "PARQUET", "AVRO")) {
             String hiveTableName = "test_add_files_" + randomNameSuffix();
@@ -182,7 +238,9 @@ final class TestIcebergAddFilesProcedure
             assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (format = '" + format + "') AS SELECT 1 x", 1);
             assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (format = '" + format + "') AS SELECT 2 y", 1);
 
-            assertQueryFails("ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')", "Column 'x' does not exist");
+            assertQueryFails(
+                    "ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')",
+                    "All columns in the source table do not exist in the target table");
 
             assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
             assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
@@ -200,7 +258,24 @@ final class TestIcebergAddFilesProcedure
 
         assertQueryFails(
                 "ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "', map(ARRAY['hive_part'], ARRAY['10']))",
-                "Column 'hive_part' does not exist");
+                "Partition column 'hive_part' does not exist");
+
+        assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
+        assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
+    }
+
+    @Test
+    void testAddFilesFromNonPartitionTable()
+    {
+        String hiveTableName = "test_add_files_" + randomNameSuffix();
+        String icebergTableName = "test_add_files_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " AS SELECT 1 x", 1);
+        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (partitioning = ARRAY['iceberg_part']) AS SELECT 2 x, 20 iceberg_part", 1);
+
+        assertQueryFails(
+                "ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "')",
+                "Numbers of partition columns should be equivalent. target: 1, source: 0");
 
         assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
         assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
@@ -249,7 +324,7 @@ final class TestIcebergAddFilesProcedure
 
         assertQueryFails(
                 "ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "', map(ARRAY['part'], ARRAY['test1']))",
-                "Partition filter is not supported for non-partitioned tables");
+                "Numbers of partition columns should be equivalent. target: 1, source: 0");
 
         assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
         assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
