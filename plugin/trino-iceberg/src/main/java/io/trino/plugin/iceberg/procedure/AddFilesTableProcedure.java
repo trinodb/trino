@@ -57,6 +57,12 @@ public class AddFilesTableProcedure
                                 RecursiveDirectory.class,
                                 RecursiveDirectory.FAIL,
                                 false))
+                        .add(enumProperty(
+                                "duplicate_file",
+                                "Duplicate file",
+                                MigrationUtils.DuplicateFile.class,
+                                MigrationUtils.DuplicateFile.FAIL,
+                                false))
                         .build());
     }
 }

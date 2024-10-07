@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.procedure;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import io.trino.plugin.iceberg.procedure.MigrationUtils.DuplicateFile;
 import io.trino.plugin.iceberg.procedure.MigrationUtils.RecursiveDirectory;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.session.PropertyMetadata;
@@ -73,6 +74,12 @@ public class AddFilesTableFromTableProcedure
                                 "Recursive directory",
                                 RecursiveDirectory.class,
                                 RecursiveDirectory.FAIL,
+                                false))
+                        .add(enumProperty(
+                                "duplicate_file",
+                                "Duplicate file",
+                                DuplicateFile.class,
+                                DuplicateFile.FAIL,
                                 false))
                         .build());
     }

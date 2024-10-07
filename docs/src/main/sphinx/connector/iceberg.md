@@ -575,10 +575,6 @@ Use the procedure `system.add_files_from_table` to add existing files from the H
 table or `system.add_files` to add existing files from specified locations. 
 The data files must be the Parquet, ORC, or Avro file format.
 
-:::{warning}
-The procedure does not check if files are already present in the target table.
-:::
-
 The procedure must be called for a specific catalog `example` with the
 relevant schema and table names supplied with the required parameters
 `schema_name` and `table_name`:
@@ -623,6 +619,12 @@ ALTER TABLE testdb.iceberg_customer_orders EXECUTE add_files(
     location => 's3://my-bucket/a/path',
     format => 'ORC')
 ```
+
+Both `add_files` and `add_files_from_table` procedures support `duplicate_file` 
+argument (defaults to `fail`).
+* `fail`: throws an exception if a file with the same path already exists in the table.
+* `skip`: skips the file if a file with the same path already exists in the table.
+* `add`: adds the file even if a file with the same path already exists in the table.
 
 (iceberg-data-management)=
 ### Data management

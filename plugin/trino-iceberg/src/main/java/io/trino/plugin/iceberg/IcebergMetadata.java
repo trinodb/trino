@@ -54,6 +54,7 @@ import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
 import io.trino.plugin.iceberg.procedure.IcebergRemoveOrphanFilesHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableProcedureId;
+import io.trino.plugin.iceberg.procedure.MigrationUtils.DuplicateFile;
 import io.trino.plugin.iceberg.procedure.MigrationUtils.RecursiveDirectory;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.ErrorCode;
@@ -1489,13 +1490,14 @@ public class IcebergMetadata
         String location = (String) requireProcedureArgument(executeProperties, "location");
         HiveStorageFormat format = (HiveStorageFormat) requireProcedureArgument(executeProperties, "format");
         RecursiveDirectory recursiveDirectory = (RecursiveDirectory) executeProperties.getOrDefault("recursive_directory", "fail");
+        DuplicateFile duplicateFile = (DuplicateFile) executeProperties.getOrDefault("duplicate_file", "fail");
 
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
 
         return Optional.of(new IcebergTableExecuteHandle(
                 tableHandle.getSchemaTableName(),
                 ADD_FILES,
-                new IcebergAddFilesHandle(location, format, recursiveDirectory),
+                new IcebergAddFilesHandle(location, format, recursiveDirectory, duplicateFile),
                 icebergTable.location(),
                 icebergTable.io().properties()));
     }
@@ -1509,6 +1511,7 @@ public class IcebergMetadata
         @SuppressWarnings("unchecked")
         Map<String, String> partitionFilter = (Map<String, String>) executeProperties.get("partition_filter");
         RecursiveDirectory recursiveDirectory = (RecursiveDirectory) executeProperties.getOrDefault("recursive_directory", "fail");
+        DuplicateFile duplicateFile = (DuplicateFile) executeProperties.getOrDefault("duplicate_file", "fail");
 
         HiveMetastore metastore = metastoreFactory.orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "This catalog does not support add_files_from_table procedure"))
                 .createMetastore(Optional.of(session.getIdentity()));
@@ -1560,7 +1563,7 @@ public class IcebergMetadata
         return Optional.of(new IcebergTableExecuteHandle(
                 tableHandle.getSchemaTableName(),
                 ADD_FILES_FROM_TABLE,
-                new IcebergAddFilesFromTableHandle(sourceTable, partitionFilter, recursiveDirectory),
+                new IcebergAddFilesFromTableHandle(sourceTable, partitionFilter, recursiveDirectory, duplicateFile),
                 icebergTable.location(),
                 icebergTable.io().properties()));
     }
@@ -1983,7 +1986,8 @@ public class IcebergMetadata
                 executeHandle.schemaTableName(),
                 addFilesHandle.location(),
                 addFilesHandle.format(),
-                addFilesHandle.recursiveDirectory());
+                addFilesHandle.recursiveDirectory(),
+                addFilesHandle.duplicateFile());
     }
 
     public void executeAddFilesFromTable(ConnectorSession session, IcebergTableExecuteHandle executeHandle)
@@ -1998,7 +2002,8 @@ public class IcebergMetadata
                 table,
                 addFilesHandle.table(),
                 addFilesHandle.partitionFilter(),
-                addFilesHandle.recursiveDirectory());
+                addFilesHandle.recursiveDirectory(),
+                addFilesHandle.duplicateFile());
     }
 
     private static ManifestReader<? extends ContentFile<?>> readerForManifest(Table table, ManifestFile manifest)

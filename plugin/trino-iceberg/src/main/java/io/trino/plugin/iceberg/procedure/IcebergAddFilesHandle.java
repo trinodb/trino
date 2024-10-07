@@ -14,11 +14,12 @@
 package io.trino.plugin.iceberg.procedure;
 
 import io.trino.plugin.hive.HiveStorageFormat;
+import io.trino.plugin.iceberg.procedure.MigrationUtils.DuplicateFile;
 import io.trino.plugin.iceberg.procedure.MigrationUtils.RecursiveDirectory;
 
 import static java.util.Objects.requireNonNull;
 
-public record IcebergAddFilesHandle(String location, HiveStorageFormat format, RecursiveDirectory recursiveDirectory)
+public record IcebergAddFilesHandle(String location, HiveStorageFormat format, RecursiveDirectory recursiveDirectory, DuplicateFile duplicateFile)
         implements IcebergProcedureHandle
 {
     public IcebergAddFilesHandle
@@ -26,5 +27,6 @@ public record IcebergAddFilesHandle(String location, HiveStorageFormat format, R
         requireNonNull(location, "location is null");
         requireNonNull(format, "format is null");
         requireNonNull(recursiveDirectory, "recursiveDirectory is null");
+        requireNonNull(duplicateFile, "duplicateFile is null");
     }
 }
