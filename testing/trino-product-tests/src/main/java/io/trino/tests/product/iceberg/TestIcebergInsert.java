@@ -41,7 +41,6 @@ public class TestIcebergInsert
         extends ProductTest
 {
     /**
-     * @see TestIcebergCreateTable#testCreateTable() See TestIcebergCreateTable for a non-concurrent INSERT test coverage.
      * @see TestIcebergSparkCompatibility#testTrinoSparkConcurrentInsert()
      */
     @Test(groups = {ICEBERG, STORAGE_FORMATS_DETAILED, HMS_ONLY}, timeOut = 60_000)
