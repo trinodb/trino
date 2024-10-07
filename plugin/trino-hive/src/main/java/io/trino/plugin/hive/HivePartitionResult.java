@@ -39,7 +39,7 @@ public class HivePartitionResult
     private final Iterable<HivePartition> partitions;
     private final TupleDomain<ColumnHandle> effectivePredicate;
     private final TupleDomain<HiveColumnHandle> compactEffectivePredicate;
-    private final Optional<HiveBucketHandle> bucketHandle;
+    private final Optional<HiveTablePartitioning> tablePartitioning;
     private final Optional<HiveBucketFilter> bucketFilter;
     private final Optional<List<String>> partitionNames;
 
@@ -49,7 +49,7 @@ public class HivePartitionResult
             Iterable<HivePartition> partitions,
             TupleDomain<ColumnHandle> effectivePredicate,
             TupleDomain<HiveColumnHandle> compactEffectivePredicate,
-            Optional<HiveBucketHandle> bucketHandle,
+            Optional<HiveTablePartitioning> tablePartitioning,
             Optional<HiveBucketFilter> bucketFilter)
     {
         this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
@@ -57,7 +57,7 @@ public class HivePartitionResult
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.compactEffectivePredicate = requireNonNull(compactEffectivePredicate, "compactEffectivePredicate is null");
-        this.bucketHandle = requireNonNull(bucketHandle, "bucketHandle is null");
+        this.tablePartitioning = requireNonNull(tablePartitioning, "tablePartitioning is null");
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
     }
 
@@ -86,9 +86,9 @@ public class HivePartitionResult
         return compactEffectivePredicate;
     }
 
-    public Optional<HiveBucketHandle> getBucketHandle()
+    public Optional<HiveTablePartitioning> getTablePartitioning()
     {
-        return bucketHandle;
+        return tablePartitioning;
     }
 
     public Optional<HiveBucketFilter> getBucketFilter()

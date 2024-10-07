@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import io.trino.Session;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -32,6 +33,9 @@ import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Determines if optional table partitioning should be used for the query.
+ */
 public class DetermineTableScanNodePartitioning
         implements Rule<TableScanNode>
 {
@@ -58,27 +62,42 @@ public class DetermineTableScanNodePartitioning
     @Override
     public Result apply(TableScanNode node, Captures captures, Context context)
     {
-        TableProperties properties = metadata.getTableProperties(context.getSession(), node.getTable());
+        return Result.ofPlanNode(setUseConnectorNodePartitioning(metadata, nodePartitioningManager, taskCountEstimator, context.getSession(), node));
+    }
+
+    /**
+     * Determines if the table scan node should use connector node partitioning.
+     * If a table has a fixed bucket to node mapping, the partitioning must be used.
+     * Otherwise, the partitioning is used if the number of buckets is greater
+     * than some percentage of the available workers.
+     */
+    public static TableScanNode setUseConnectorNodePartitioning(
+            Metadata metadata,
+            NodePartitioningManager nodePartitioningManager,
+            TaskCountEstimator taskCountEstimator,
+            Session session,
+            TableScanNode node)
+    {
+        TableProperties properties = metadata.getTableProperties(session, node.getTable());
         if (properties.getTablePartitioning().isEmpty()) {
-            return Result.ofPlanNode(node.withUseConnectorNodePartitioning(false));
+            return node.withUseConnectorNodePartitioning(false);
         }
 
         TablePartitioning partitioning = properties.getTablePartitioning().get();
-        Optional<ConnectorBucketNodeMap> bucketNodeMap = nodePartitioningManager.getConnectorBucketNodeMap(context.getSession(), partitioning.partitioningHandle());
+        Optional<ConnectorBucketNodeMap> bucketNodeMap = nodePartitioningManager.getConnectorBucketNodeMap(session, partitioning.partitioningHandle());
         if (bucketNodeMap.map(ConnectorBucketNodeMap::hasFixedMapping).orElse(false)) {
-            // use connector table scan node partitioning when bucket to node assignments are fixed
-            return Result.ofPlanNode(node.withUseConnectorNodePartitioning(true));
+            // The table requires a partitioning across a specific set of nodes, so the partitioning must be used
+            return node.withUseConnectorNodePartitioning(true);
         }
 
-        if (!isUseTableScanNodePartitioning(context.getSession())) {
-            return Result.ofPlanNode(node.withUseConnectorNodePartitioning(false));
+        if (!isUseTableScanNodePartitioning(session)) {
+            return node.withUseConnectorNodePartitioning(false);
         }
 
         int numberOfBuckets = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount)
-                .orElseGet(() -> nodePartitioningManager.getNodeCount(context.getSession(), partitioning.partitioningHandle()));
-        int numberOfTasks = max(taskCountEstimator.estimateSourceDistributedTaskCount(context.getSession()), 1);
+                .orElseGet(() -> nodePartitioningManager.getNodeCount(session, partitioning.partitioningHandle()));
+        int numberOfTasks = max(taskCountEstimator.estimateSourceDistributedTaskCount(session), 1);
 
-        return Result.ofPlanNode(node
-                .withUseConnectorNodePartitioning((double) numberOfBuckets / numberOfTasks >= getTableScanNodePartitioningMinBucketToTaskRatio(context.getSession())));
+        return node.withUseConnectorNodePartitioning((double) numberOfBuckets / numberOfTasks >= getTableScanNodePartitioningMinBucketToTaskRatio(session));
     }
 }

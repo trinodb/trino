@@ -222,12 +222,12 @@ public class HiveSplitManager
         Optional<HiveBucketFilter> bucketFilter = hiveTable.getBucketFilter();
 
         // validate bucket bucketed execution
-        Optional<HiveBucketHandle> bucketHandle = hiveTable.getBucketHandle();
+        Optional<HiveTablePartitioning> tablePartitioning = hiveTable.getTablePartitioning();
 
-        bucketHandle.ifPresent(bucketing ->
-                verify(bucketing.readBucketCount() <= bucketing.tableBucketCount(),
+        tablePartitioning.ifPresent(bucketing ->
+                verify(bucketing.partitioningHandle().getBucketCount() <= bucketing.tableBucketCount(),
                         "readBucketCount (%s) is greater than the tableBucketCount (%s) which generally points to an issue in plan generation",
-                        bucketing.readBucketCount(),
+                        bucketing.partitioningHandle().getBucketCount(),
                         bucketing.tableBucketCount()));
 
         // get partitions
@@ -251,7 +251,7 @@ public class HiveSplitManager
                 metastore,
                 table,
                 peekingIterator(partitions),
-                bucketHandle.map(HiveBucketHandle::toTableBucketProperty),
+                tablePartitioning.map(HiveTablePartitioning::toTableBucketProperty),
                 neededColumnNames);
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
@@ -261,7 +261,7 @@ public class HiveSplitManager
                 dynamicFilter,
                 getDynamicFilteringWaitTimeout(session),
                 typeManager,
-                createBucketSplitInfo(bucketHandle, bucketFilter),
+                createBucketSplitInfo(tablePartitioning, bucketFilter),
                 session,
                 fileSystemFactory,
                 transactionalMetadata.getDirectoryLister(),

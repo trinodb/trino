@@ -21,6 +21,7 @@ import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
@@ -32,6 +33,8 @@ import io.trino.execution.TaskState;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.MemoryPool;
+import io.trino.metadata.FunctionManager;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
@@ -80,6 +83,7 @@ import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
+import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
@@ -608,6 +612,13 @@ public abstract class AbstractTestQueryFramework
     protected String formatSqlText(@Language("SQL") String sql)
     {
         return formatSql(SQL_PARSER.createStatement(sql));
+    }
+
+    protected String formatPlan(Session session, Plan plan)
+    {
+        Metadata metadata = getDistributedQueryRunner().getPlannerContext().getMetadata();
+        FunctionManager functionManager = getDistributedQueryRunner().getPlannerContext().getFunctionManager();
+        return inTransaction(session, transactionSession -> textLogicalPlan(plan.getRoot(), metadata, functionManager, StatsAndCosts.empty(), transactionSession, 0, false));
     }
 
     protected String getExplainPlan(@Language("SQL") String query, ExplainType.Type planType)

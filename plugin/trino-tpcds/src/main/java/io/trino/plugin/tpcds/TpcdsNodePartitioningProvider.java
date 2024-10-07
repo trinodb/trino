@@ -67,7 +67,11 @@ public class TpcdsNodePartitioningProvider
     }
 
     @Override
-    public ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    public ToIntFunction<ConnectorSplit> getSplitBucketFunction(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorPartitioningHandle partitioningHandle,
+            int bucketCount)
     {
         return value -> ((TpcdsSplit) value).getPartNumber();
     }

@@ -81,15 +81,29 @@ public class FaultTolerantPartitioningSchemeFactory
         if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION) || partitioningHandle.equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
             return createSystemSchema(partitionCount.orElse(maxPartitionCount));
         }
-        if (partitioningHandle.getCatalogHandle().isPresent()) {
-            Optional<ConnectorBucketNodeMap> connectorBucketNodeMap = nodePartitioningManager.getConnectorBucketNodeMap(session, partitioningHandle);
-            if (connectorBucketNodeMap.isEmpty()) {
-                return createSystemSchema(partitionCount.orElse(maxPartitionCount));
-            }
-            ToIntFunction<Split> splitToBucket = nodePartitioningManager.getSplitToBucket(session, partitioningHandle);
-            return createConnectorSpecificSchema(partitionCount.orElse(maxPartitionCount), connectorBucketNodeMap.get(), splitToBucket);
+
+        // if there is no partitioning handle, use a single partition
+        if (partitioningHandle.getCatalogHandle().isEmpty()) {
+            return new FaultTolerantPartitioningScheme(1, Optional.empty(), Optional.empty(), Optional.empty());
         }
-        return new FaultTolerantPartitioningScheme(1, Optional.empty(), Optional.empty(), Optional.empty());
+
+        Optional<ConnectorBucketNodeMap> optionalNodeMap = nodePartitioningManager.getConnectorBucketNodeMap(session, partitioningHandle);
+        int bucketCount;
+        if (optionalNodeMap.isPresent()) {
+            ConnectorBucketNodeMap bucketNodeMap = optionalNodeMap.get();
+            bucketCount = bucketNodeMap.getBucketCount();
+
+            if (bucketNodeMap.hasFixedMapping()) {
+                // fixed mappings have special handling in FTE to ensure that the required node assignments are respected
+                ToIntFunction<Split> splitToBucket = nodePartitioningManager.getSplitToBucket(session, partitioningHandle, bucketCount);
+                return createFixedConnectorSpecificSchema(bucketNodeMap.getFixedMapping(), splitToBucket);
+            }
+        }
+        else {
+            bucketCount = partitionCount.orElse(maxPartitionCount);
+        }
+
+        return createArbitraryConnectorSpecificSchema(partitionCount.orElse(maxPartitionCount), bucketCount, partitioningHandle);
     }
 
     private static FaultTolerantPartitioningScheme createSystemSchema(int partitionCount)
@@ -99,14 +113,6 @@ public class FaultTolerantPartitioningSchemeFactory
                 Optional.of(IntStream.range(0, partitionCount).toArray()),
                 Optional.empty(),
                 Optional.empty());
-    }
-
-    private static FaultTolerantPartitioningScheme createConnectorSpecificSchema(int partitionCount, ConnectorBucketNodeMap bucketNodeMap, ToIntFunction<Split> splitToBucket)
-    {
-        if (bucketNodeMap.hasFixedMapping()) {
-            return createFixedConnectorSpecificSchema(bucketNodeMap.getFixedMapping(), splitToBucket);
-        }
-        return createArbitraryConnectorSpecificSchema(partitionCount, bucketNodeMap.getBucketCount(), splitToBucket);
     }
 
     private static FaultTolerantPartitioningScheme createFixedConnectorSpecificSchema(List<Node> fixedMapping, ToIntFunction<Split> splitToBucket)
@@ -133,12 +139,15 @@ public class FaultTolerantPartitioningSchemeFactory
                 Optional.of(ImmutableList.copyOf(partitionToNodeMap)));
     }
 
-    private static FaultTolerantPartitioningScheme createArbitraryConnectorSpecificSchema(int partitionCount, int bucketCount, ToIntFunction<Split> splitToBucket)
+    private FaultTolerantPartitioningScheme createArbitraryConnectorSpecificSchema(int partitionCount, int bucketCount, PartitioningHandle partitioningHandle)
     {
+        // buckets are assigned round-robin to partitions
         int[] bucketToPartition = new int[bucketCount];
         for (int bucket = 0; bucket < bucketCount; bucket++) {
             bucketToPartition[bucket] = bucket % partitionCount;
         }
+
+        ToIntFunction<Split> splitToBucket = nodePartitioningManager.getSplitToBucket(session, partitioningHandle, bucketCount);
         return new FaultTolerantPartitioningScheme(
                 // TODO: It may be possible to set the number of partitions to the number of buckets when it is known that a
                 // TODO: stage contains no remote sources and the engine doesn't have to partition any data
