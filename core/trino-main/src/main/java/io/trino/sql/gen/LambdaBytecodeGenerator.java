@@ -131,11 +131,13 @@ public final class LambdaBytecodeGenerator
         }
 
         RowExpressionCompiler innerExpressionCompiler = new RowExpressionCompiler(
+                classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
                 variableReferenceCompiler(parameterMapBuilder.buildOrThrow()),
                 functionManager,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                parameters.build());
 
         return defineLambdaMethod(
                 innerExpressionCompiler,
@@ -266,18 +268,30 @@ public final class LambdaBytecodeGenerator
         scope.declareVariable("session", body, method.getThis().getField(sessionField));
 
         RowExpressionCompiler rowExpressionCompiler = new RowExpressionCompiler(
+                lambdaProviderClassDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
                 variableReferenceCompiler(ImmutableMap.of()),
                 functionManager,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                ImmutableList.of());
+
+        List<Parameter> parameters = new ArrayList<>();
+        parameters.add(arg("session", ConnectorSession.class));
+        for (int i = 0; i < lambdaExpression.arguments().size(); i++) {
+            Symbol argument = lambdaExpression.arguments().get(i);
+            Class<?> type = Primitives.wrap(argument.type().getJavaType());
+            parameters.add(arg("lambda_" + i + "_" + BytecodeUtils.sanitizeName(argument.name()), type));
+        }
 
         BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
                 rowExpressionCompiler,
                 scope,
                 callSiteBinder,
                 cachedInstanceBinder,
-                functionManager);
+                functionManager,
+                lambdaProviderClassDefinition,
+                parameters);
 
         body.append(
                 generateLambda(
