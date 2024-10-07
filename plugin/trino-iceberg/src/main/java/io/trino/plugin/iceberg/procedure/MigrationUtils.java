@@ -274,9 +274,10 @@ public final class MigrationUtils
 
         if (!requiredFields.isEmpty()) {
             for (DataFile dataFile : dataFiles) {
-                Map<Integer, Long> nullValueCounts = dataFile.nullValueCounts();
+                Map<Integer, Long> nullValueCounts = firstNonNull(dataFile.nullValueCounts(), Map.of());
                 for (Integer field : requiredFields) {
-                    if (nullValueCounts.get(field) > 0) {
+                    Long nullCount = nullValueCounts.get(field);
+                    if (nullCount == null || nullCount > 0) {
                         throw new TrinoException(CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + schema.findField(field).name());
                     }
                 }

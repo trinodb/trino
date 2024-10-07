@@ -1521,8 +1521,11 @@ public class IcebergMetadata
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
 
         checkProcedureArgument(
-                icebergTable.schemas().size() == sourceTable.getDataColumns().size(),
-                "Data column count mismatch: %d vs %d", icebergTable.schemas().size(), sourceTable.getDataColumns().size());
+                icebergTable.schemas().size() >= sourceTable.getDataColumns().size(),
+                "Target table should have at least %d columns but got %d", sourceTable.getDataColumns().size(), icebergTable.schemas().size());
+        checkProcedureArgument(
+                icebergTable.spec().fields().size() == sourceTable.getPartitionColumns().size(),
+                "Numbers of partition columns should be equivalent. target: %d, source: %d", icebergTable.spec().fields().size(), sourceTable.getPartitionColumns().size());
 
         // TODO Add files from all partitions when partition filter is not provided
         checkProcedureArgument(
@@ -1543,12 +1546,17 @@ public class IcebergMetadata
             throw new TrinoException(NOT_SUPPORTED, "Partition filter is not supported for non-partitioned tables");
         }
 
+        Set<String> missingDataColumns = new HashSet<>();
         Stream.of(sourceTable.getDataColumns(), sourceTable.getPartitionColumns())
                 .flatMap(List::stream)
                 .forEach(sourceColumn -> {
                     Types.NestedField targetColumn = icebergTable.schema().caseInsensitiveFindField(sourceColumn.getName());
                     if (targetColumn == null) {
-                        throw new TrinoException(COLUMN_NOT_FOUND, "Column '%s' does not exist".formatted(sourceColumn.getName()));
+                        if (sourceTable.getPartitionColumns().contains(sourceColumn)) {
+                            throw new TrinoException(COLUMN_NOT_FOUND, "Partition column '%s' does not exist".formatted(sourceColumn.getName()));
+                        }
+                        missingDataColumns.add(sourceColumn.getName());
+                        return;
                     }
                     ColumnIdentity columnIdentity = createColumnIdentity(targetColumn);
                     org.apache.iceberg.types.Type sourceColumnType = toIcebergType(typeManager.getType(getTypeSignature(sourceColumn.getType(), DEFAULT_PRECISION)), columnIdentity);
@@ -1556,6 +1564,9 @@ public class IcebergMetadata
                         throw new TrinoException(TYPE_MISMATCH, "Target '%s' column is '%s' type, but got source '%s' type".formatted(targetColumn.name(), targetColumn.type(), sourceColumnType));
                     }
                 });
+        if (missingDataColumns.size() == sourceTable.getDataColumns().size()) {
+            throw new TrinoException(COLUMN_NOT_FOUND, "All columns in the source table do not exist in the target table");
+        }
 
         return Optional.of(new IcebergTableExecuteHandle(
                 tableHandle.getSchemaTableName(),
