@@ -21,6 +21,7 @@ import io.trino.plugin.jdbc.CastDataTypeTestTable;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -79,9 +80,16 @@ public class TestRedshiftCastPushdown
                 .addColumn("c_numeric_10_2", "numeric(10, 2)", asList(1.23, 2.67, null))
                 .addColumn("c_numeric_19_2", "numeric(19, 2)", asList(1.23, 2.67, null)) // Equal to REDSHIFT_DECIMAL_CUTOFF_PRECISION
                 .addColumn("c_numeric_30_2", "numeric(30, 2)", asList(1.23, 2.67, null))
+                .addColumn("c_char", "char", asList("'I'", "'P'", null))
                 .addColumn("c_char_10", "char(10)", asList("'India'", "'Poland'", null))
                 .addColumn("c_char_50", "char(50)", asList("'India'", "'Poland'", null))
                 .addColumn("c_char_4096", "char(4096)", asList("'India'", "'Poland'", null)) // Equal to REDSHIFT_MAX_CHAR
+
+                // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
+                .addColumn("c_varchar_15_unicode", "varchar(15)", asList("'攻殻機動隊'", "'😂'", null))
+                .addColumn("c_nvarchar_15_unicode", "nvarchar(15)", asList("'攻殻機動隊'", "'😂'", null))
+
+                .addColumn("c_nchar", "nchar", asList("'I'", "'P'", null))
                 .addColumn("c_nchar_10", "nchar(10)", asList("'India'", "'Poland'", null))
                 .addColumn("c_nchar_50", "nchar(50)", asList("'India'", "'Poland'", null))
                 .addColumn("c_nchar_4096", "nchar(4096)", asList("'India'", "'Poland'", null)) // Equal to REDSHIFT_MAX_CHAR
@@ -91,6 +99,7 @@ public class TestRedshiftCastPushdown
                 .addColumn("c_varchar_65535", "varchar(65535)", asList("'India'", "'Poland'", null)) // Equal to REDSHIFT_MAX_VARCHAR
                 .addColumn("c_nvarchar_10", "nvarchar(10)", asList("'India'", "'Poland'", null))
                 .addColumn("c_nvarchar_50", "nvarchar(50)", asList("'India'", "'Poland'", null))
+                .addColumn("c_nvarchar", "nvarchar", asList("'India'", "'Poland'", null))
                 .addColumn("c_nvarchar_65535", "nvarchar(65535)", asList("'India'", "'Poland'", null)) // Greater than REDSHIFT_MAX_VARCHAR
                 .addColumn("c_text", "text", asList("'India'", "'Poland'", null))
                 .addColumn("c_varbinary", "varbinary", asList("'\\x66696E6465706920726F636B7321'", "'\\x000102f0feee'", null))
@@ -144,9 +153,16 @@ public class TestRedshiftCastPushdown
                 .addColumn("c_numeric_10_2", "numeric(10, 2)", asList(1.23, 22.67, null))
                 .addColumn("c_numeric_19_2", "numeric(19, 2)", asList(1.23, 22.67, null)) // Equal to REDSHIFT_DECIMAL_CUTOFF_PRECISION
                 .addColumn("c_numeric_30_2", "numeric(30, 2)", asList(1.23, 22.67, null))
+                .addColumn("c_char", "char", asList("'I'", "'F'", null))
                 .addColumn("c_char_10", "char(10)", asList("'India'", "'France'", null))
                 .addColumn("c_char_50", "char(50)", asList("'India'", "'France'", null))
                 .addColumn("c_char_4096", "char(4096)", asList("'India'", "'France'", null)) // Equal to REDSHIFT_MAX_CHAR
+
+                // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
+                .addColumn("c_varchar_15_unicode", "varchar(15)", asList("'攻殻機動隊'", "'😂'", null))
+                .addColumn("c_nvarchar_15_unicode", "nvarchar(15)", asList("'攻殻機動隊'", "'😂'", null))
+
+                .addColumn("c_nchar", "nchar", asList("'I'", "'F'", null))
                 .addColumn("c_nchar_10", "nchar(10)", asList("'India'", "'France'", null))
                 .addColumn("c_nchar_50", "nchar(50)", asList("'India'", "'France'", null))
                 .addColumn("c_nchar_4096", "nchar(4096)", asList("'India'", "'France'", null)) // Equal to REDSHIFT_MAX_CHAR
@@ -156,6 +172,7 @@ public class TestRedshiftCastPushdown
                 .addColumn("c_varchar_65535", "varchar(65535)", asList("'India'", "'France'", null)) // Equal to REDSHIFT_MAX_VARCHAR
                 .addColumn("c_nvarchar_10", "nvarchar(10)", asList("'India'", "'France'", null))
                 .addColumn("c_nvarchar_50", "nvarchar(50)", asList("'India'", "'France'", null))
+                .addColumn("c_nvarchar", "nvarchar", asList("'India'", "'France'", null))
                 .addColumn("c_nvarchar_65535", "nvarchar(65535)", asList("'India'", "'France'", null)) // Equal to REDSHIFT_MAX_VARCHAR
                 .addColumn("c_text", "text", asList("'India'", "'France'", null))
                 .addColumn("c_varbinary", "varbinary", asList("'\\x66696E6465706920726F636B7321'", "'\\x4672616E6365'", null))
@@ -242,6 +259,17 @@ public class TestRedshiftCastPushdown
                 .isFullyPushedDown();
         // Full Join pushdown is not supported
         assertThat(query("SELECT l.id FROM %s l FULL JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
+                .joinIsNotFullyPushedDown();
+
+        testCase = new CastTestCase("c_varchar_10", "varchar(200)", "c_varchar_50");
+        assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
+                .isFullyPushedDown();
+        assertThat(query("SELECT l.id FROM %s l RIGHT JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
+                .isFullyPushedDown();
+        assertThat(query("SELECT l.id FROM %s l INNER JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
+                .isFullyPushedDown();
+        // Full Join pushdown is not supported
+        assertThat(query("SELECT l.id FROM %s l FULL JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
                 .joinIsNotFullyPushedDown();
     }
 
@@ -364,6 +392,16 @@ public class TestRedshiftCastPushdown
                 .isNotFullyPushedDown(ProjectNode.class);
     }
 
+    @Test
+    void testCastPushdownWithForcedTypedToVarchar()
+    {
+        // These column types are not supported by default by trino. These types are forced mapped to varchar.
+        assertThat(query("SELECT CAST(c_timetz AS VARCHAR(100)) FROM " + leftTable()))
+                .isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT CAST(c_super AS VARCHAR(100)) FROM " + leftTable()))
+                .isNotFullyPushedDown(ProjectNode.class);
+    }
+
     @Override
     protected List<CastTestCase> supportedCastTypePushdown()
     {
@@ -400,7 +438,30 @@ public class TestRedshiftCastPushdown
                 new CastTestCase("c_decimal_10_2", "bigint", "c_bigint"),
                 new CastTestCase("c_decimal_19_2", "bigint", "c_bigint"),
                 new CastTestCase("c_decimal_30_2", "bigint", "c_bigint"),
-                new CastTestCase("c_decimal_negative", "bigint", "c_bigint"));
+                new CastTestCase("c_decimal_negative", "bigint", "c_bigint"),
+
+                new CastTestCase("c_char", "char(1)", "c_nchar"),
+                new CastTestCase("c_char_50", "char(10)", "c_char_10"),
+                new CastTestCase("c_char_50", "char(10)", "c_nchar_10"),
+                new CastTestCase("c_bpchar", "char(10)", "c_char_10"),
+                new CastTestCase("c_char_10", "char(50)", "c_char_50"),
+                new CastTestCase("c_char_10", "char(256)", "c_bpchar"),
+                new CastTestCase("c_char", "char(4096)", "c_char_4096"),
+
+                new CastTestCase("c_varchar_10", "varchar(10)", "c_varchar_10"),
+                new CastTestCase("c_varchar_15_unicode", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_nvarchar_15_unicode", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_varchar_50", "varchar(10)", "c_varchar_10"),
+                new CastTestCase("c_nvarchar_50", "varchar(10)", "c_nvarchar_10"),
+                new CastTestCase("c_text", "varchar(10)", "c_varchar_10"),
+                new CastTestCase("c_varchar_10", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_nvarchar_10", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_nvarchar", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_text", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_varchar_10", "varchar(256)", "c_text"),
+                new CastTestCase("c_varchar_65535", "varchar(256)", "c_text"),
+                new CastTestCase("c_varchar_10", "varchar(65535)", "c_varchar_65535"),
+                new CastTestCase("c_varchar_10", "varchar(65535)", "c_nvarchar_65535"));
     }
 
     @Override
@@ -460,11 +521,34 @@ public class TestRedshiftCastPushdown
                 new CastTestCase("c_real", "double", "c_double_precision"),
                 new CastTestCase("c_double_precision", "real", "c_real"),
                 new CastTestCase("c_double_precision", "decimal(10,2)", "c_decimal_10_2"),
-                new CastTestCase("c_char_10", "char(50)", "c_char_50"),
-                new CastTestCase("c_char_10", "char(256)", "c_bpchar"),
-                new CastTestCase("c_varchar_10", "varchar(50)", "c_varchar_50"),
-                new CastTestCase("c_nvarchar_10", "varchar(50)", "c_nvarchar_50"),
-                new CastTestCase("c_varchar_10", "varchar(50)", "c_text"),
+
+                new CastTestCase("c_varchar_15_unicode", "char(50)", "c_char_50"),
+                new CastTestCase("c_nvarchar_15_unicode", "char(50)", "c_char_50"),
+                new CastTestCase("c_varchar_50", "char(50)", "c_char_50"),
+
+                new CastTestCase("c_char_50", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_boolean", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_smallint", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_int2", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_integer", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_int", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_int4", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_bigint", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_int8", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_real", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_float4", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_float", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_float8", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_double_precision", "varchar(50)", "c_varchar_50"),
+
+                new CastTestCase("c_varchar_10", "varchar", "c_varchar_65535"),
+                new CastTestCase("c_varchar_15_unicode", "varchar", "c_varchar_65535"),
+                new CastTestCase("c_nvarchar_15_unicode", "varchar", "c_varchar_65535"),
+                new CastTestCase("c_text", "varchar", "c_varchar_65535"),
+
+                new CastTestCase("c_timestamp", "varchar(50)", "c_varchar_50"),
+                new CastTestCase("c_date", "varchar(50)", "c_varchar_50"),
+
                 new CastTestCase("c_timestamp", "date", "c_date"),
                 new CastTestCase("c_timestamp", "time", "c_time"),
                 new CastTestCase("c_date", "timestamp", "c_timestamp"),
@@ -490,5 +574,20 @@ public class TestRedshiftCastPushdown
                 new InvalidCastTestCase("c_timetz", "smallint"),
                 new InvalidCastTestCase("c_timetz", "int"),
                 new InvalidCastTestCase("c_timetz", "bigint"));
+    }
+
+    @Test
+    void testCastPushdownWithCharConvertedToVarchar()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                TEST_SCHEMA + "." + "char_converted_to_varchar_",
+                "(a char(4097))", // char(REDSHIFT_MAX_CHAR` + 1) in Trino is mapped to varchar(REDSHIFT_MAX_CHAR` + 1) in Redshift
+                ImmutableList.of("'hello'"))) {
+            assertThat(query("SELECT cast(a AS varchar(50)) FROM " + table.getName()))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT cast(a AS char(50)) FROM " + table.getName()))
+                    .isNotFullyPushedDown(ProjectNode.class);
+        }
     }
 }
