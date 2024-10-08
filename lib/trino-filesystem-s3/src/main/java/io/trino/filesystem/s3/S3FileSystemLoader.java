@@ -38,7 +38,9 @@ import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
@@ -58,6 +60,7 @@ final class S3FileSystemLoader
     private final S3Presigner preSigner;
     private final S3Context context;
     private final ExecutorService uploadExecutor = newCachedThreadPool(daemonThreadsNamed("s3-upload-%s"));
+    private final Map<Optional<S3SecurityMappingResult>, S3Client> clients = new ConcurrentHashMap<>();
 
     @Inject
     public S3FileSystemLoader(S3SecurityMappingProvider mappingProvider, OpenTelemetry openTelemetry, S3FileSystemConfig config, S3FileSystemStats stats)
@@ -95,7 +98,18 @@ final class S3FileSystemLoader
     @Override
     public TrinoFileSystemFactory apply(Location location)
     {
-        return new S3SecurityMappingFileSystemFactory(mappingProvider.orElseThrow(), clientFactory, preSigner, context, location, uploadExecutor);
+        return identity -> {
+            Optional<S3SecurityMappingResult> mapping = mappingProvider.orElseThrow().getMapping(identity, location);
+
+            S3Client client = clients.computeIfAbsent(mapping, _ -> clientFactory.create(mapping));
+            S3Context context = this.context.withCredentials(identity);
+
+            if (mapping.isPresent() && mapping.get().kmsKeyId().isPresent()) {
+                context = context.withKmsKeyId(mapping.get().kmsKeyId().get());
+            }
+
+            return new S3FileSystem(uploadExecutor, client, preSigner, context);
+        };
     }
 
     @PreDestroy
