@@ -158,7 +158,7 @@ public class TestJoinCompiler
             List<Integer> joinChannels = Ints.asList(1, 2, 3, 4);
             List<Integer> outputChannels = Ints.asList(1, 2, 3, 4, 0);
 
-            // crate hash strategy with a single channel blocks -- make sure there is some overlap in values
+            // create hash strategy with a single channel blocks -- make sure there is some overlap in values
             ObjectArrayList<Block> extraChannel = new ObjectArrayList<>();
             extraChannel.add(BlockAssertions.createStringSequenceBlock(10, 20));
             extraChannel.add(BlockAssertions.createStringSequenceBlock(20, 30));
