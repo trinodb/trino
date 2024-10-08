@@ -174,6 +174,7 @@ import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
+import static io.trino.spi.StandardErrorCode.VIEW_REDIRECTION_ERROR;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -189,6 +190,7 @@ public final class MetadataManager
 
     @VisibleForTesting
     public static final int MAX_TABLE_REDIRECTIONS = 10;
+    public static final int MAX_VIEW_REDIRECTIONS = 5;
 
     private final AccessControl accessControl;
     private final GlobalFunctionCatalog functions;
@@ -1933,6 +1935,51 @@ public final class MetadataManager
         throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table redirected too many times (%d): %s", MAX_TABLE_REDIRECTIONS, visitedTableNames));
     }
 
+    private QualifiedObjectName getRedirectedViewName(Session session, QualifiedObjectName originalViewName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(originalViewName, "originalViewName is null");
+        if (cannotExist(originalViewName)) {
+            return originalViewName;
+        }
+
+        QualifiedObjectName viewName = originalViewName;
+        Set<QualifiedObjectName> visitedTableNames = new LinkedHashSet<>();
+        visitedTableNames.add(viewName);
+
+        for (int count = 0; count < MAX_VIEW_REDIRECTIONS; count++) {
+            Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
+
+            if (catalog.isEmpty()) {
+                // Stop redirection
+                return viewName;
+            }
+
+            CatalogMetadata catalogMetadata = catalog.get();
+            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, viewName, toConnectorVersion(startVersion), toConnectorVersion(endVersion));
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+
+            Optional<QualifiedObjectName> redirectedViewName = metadata.redirectView(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName())
+                    .map(name -> convertFromSchemaTableName(String.valueOf(name.getCatalogName())).apply(originalViewName.asSchemaTableName()));
+
+            if (redirectedViewName.isEmpty()) {
+                return viewName;
+            }
+
+            viewName = redirectedViewName.get();
+
+            // Check for loop in redirection
+            if (!visitedTableNames.add(viewName)) {
+                throw new TrinoException(VIEW_REDIRECTION_ERROR,
+                        format("View redirections form a loop: %s",
+                                Streams.concat(visitedTableNames.stream(), Stream.of(viewName))
+                                        .map(QualifiedObjectName::toString)
+                                        .collect(Collectors.joining(" -> "))));
+            }
+        }
+        throw new TrinoException(VIEW_REDIRECTION_ERROR, format("View redirected too many times (%d): %s", MAX_VIEW_REDIRECTIONS, visitedTableNames));
+    }
+
     @Override
     public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName)
     {
@@ -1960,6 +2007,22 @@ public final class MetadataManager
             throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target schema '%s' does not exist", tableName, targetTableName, targetTableName.schemaName()));
         }
         throw new TrinoException(TABLE_REDIRECTION_ERROR, format("Table '%s' redirected to '%s', but the target table '%s' does not exist", tableName, targetTableName, targetTableName));
+    }
+
+    @Override
+    public RedirectionAwareViewHandle getRedirectionAwareViewHandle(Session session, QualifiedObjectName viewName)
+    {
+        return getRedirectionAwareViewHandle(session, viewName, Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public RedirectionAwareViewHandle getRedirectionAwareViewHandle(Session session, QualifiedObjectName viewName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    {
+        QualifiedObjectName targetViewName = getRedirectedViewName(session, viewName, startVersion, endVersion);
+        if (targetViewName.equals(viewName)) {
+            return RedirectionAwareViewHandle.noRedirection();
+        }
+        return RedirectionAwareViewHandle.withRedirectionTo(targetViewName);
     }
 
     @Override

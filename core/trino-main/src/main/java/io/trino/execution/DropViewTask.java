@@ -19,11 +19,14 @@ import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.RedirectionAwareViewHandle;
+import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.Expression;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -59,6 +62,15 @@ public class DropViewTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
+
+        RedirectionAwareViewHandle redirectionView = metadata.getRedirectionAwareViewHandle(session, name);
+        Optional<QualifiedObjectName> targetViewName = redirectionView.redirectedViewName();
+        if (targetViewName.isPresent()) {
+            Optional<ViewDefinition> targetView = metadata.getView(session, targetViewName.get());
+            if (targetView.isPresent()) {
+                name = targetViewName.get();
+            }
+        }
 
         if (metadata.isMaterializedView(session, name)) {
             throw semanticException(
