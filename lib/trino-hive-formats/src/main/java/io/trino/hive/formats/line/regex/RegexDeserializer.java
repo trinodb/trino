@@ -32,12 +32,14 @@ import io.trino.spi.type.VarcharType;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveTimestamp;
+import static io.trino.hive.formats.line.LineDeserializerUtils.parseError;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -66,11 +68,13 @@ public class RegexDeserializer
 {
     private final Pattern inputPattern;
     private final List<Column> columns;
+    private final boolean nullOnParseError;
 
-    public RegexDeserializer(List<Column> columns, String regex, boolean caseSensitive)
+    public RegexDeserializer(List<Column> columns, String regex, boolean caseSensitive, boolean nullOnParseError)
     {
         this.inputPattern = Pattern.compile(regex, DOTALL + (caseSensitive ? Pattern.CASE_INSENSITIVE : 0));
         this.columns = ImmutableList.copyOf(columns);
+        this.nullOnParseError = nullOnParseError;
     }
 
     @Override
@@ -103,11 +107,11 @@ public class RegexDeserializer
                 blockBuilder.appendNull();
                 continue;
             }
-            serializeValue(value, column, blockBuilder);
+            serializeValue(value, column, blockBuilder, this.nullOnParseError);
         }
     }
 
-    private static void serializeValue(String value, Column column, BlockBuilder builder)
+    private static void serializeValue(String value, Column column, BlockBuilder builder, boolean nullOnParseError)
     {
         try {
             Type type = column.type();
@@ -153,11 +157,16 @@ public class RegexDeserializer
             }
         }
         catch (UnsupportedTypeException e) {
-            throw e;
+            throw parseError(e.getMessage(), Optional.of(e));
         }
         catch (RuntimeException e) {
             // invalid columns are ignored
-            builder.appendNull();
+            if (nullOnParseError) {
+                builder.appendNull();
+            }
+            else {
+                throw parseError(e.getMessage(), Optional.of(e));
+            }
         }
     }
 
