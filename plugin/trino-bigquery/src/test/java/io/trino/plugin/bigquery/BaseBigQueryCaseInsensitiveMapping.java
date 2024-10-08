@@ -13,11 +13,9 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import org.junit.jupiter.api.Test;
@@ -32,23 +30,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
 // Some tests here create colliding names which can cause any other concurrent test to fail.
-public class TestBigQueryCaseInsensitiveMapping
+public abstract class BaseBigQueryCaseInsensitiveMapping
         // TODO extends BaseCaseInsensitiveMappingTest - https://github.com/trinodb/trino/issues/7864
         extends AbstractTestQueryFramework
 {
     private final BigQuerySqlExecutor bigQuerySqlExecutor = new BigQuerySqlExecutor();
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return BigQueryQueryRunner.builder()
-                .setConnectorProperties(ImmutableMap.<String, String>builder()
-                        .put("bigquery.case-insensitive-name-matching", "true")
-                        .put("bigquery.case-insensitive-name-matching.cache-ttl", "1m")
-                        .buildOrThrow())
-                .build();
-    }
 
     @Test
     public void testNonLowerCaseSchemaName()
