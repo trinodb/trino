@@ -105,8 +105,8 @@ jobs:
           script: |
             cd $(Build.SourcesDirectory)/core/docker
             chmod g+w ${HOME}
-            chmod ug+x ./build-trino-base.sh
-            ./build-trino-base.sh -a amd64 -t $(Build.BuildId)
+            chmod ug+x ./build.sh
+            ./build.sh -a amd64 -t $(Build.BuildId)
             if [ $? -ne 0 ]; then
             echo "Docker build failed"
             exit 1

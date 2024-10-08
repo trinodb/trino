@@ -9,9 +9,9 @@ Builds the Trino Docker image
 
 -h       Display help
 -a       Build the specified comma-separated architectures, defaults to amd64,arm64,ppc64le
--b       Build the Trino release with the base image tag
 -r       Build the specified Trino release version, downloads all required artifacts
--t       Build the Trino release with specified Temurin JDK release
+-j       Build the Trino release with specified JDK distribution
+-x       Skip image tests
 EOF
 }
 
@@ -28,7 +28,9 @@ TRINO_VERSION=
 JDK_RELEASE=$(cat "${SOURCE_DIR}/core/jdk/current")
 JDKS_PATH="${SOURCE_DIR}/core/jdk"
 
-while getopts ":a:b:h:r:t" o; do
+SKIP_TESTS=true
+
+while getopts ":a:h:r:j:x:t" o; do
     case "${o}" in
         a)
             IFS=, read -ra ARCH_ARG <<< "$OPTARG"
@@ -40,9 +42,6 @@ while getopts ":a:b:h:r:t" o; do
             done
             ARCHITECTURES=("${ARCH_ARG[@]}")
             ;;
-        b)
-            BASE_IMAGE_TAG="${OPTARG}"
-            ;;
         r)
             TRINO_VERSION=${OPTARG}
             ;;
@@ -52,6 +51,9 @@ while getopts ":a:b:h:r:t" o; do
             ;;
         j)
             JDK_RELEASE="${OPTARG}"
+            ;;
+        t)
+            BASE_IMAGE_TAG="${OPTARG}"
             ;;
         x)
            SKIP_TESTS=true
@@ -89,12 +91,32 @@ function jdk_download_link() {
 
 check_environment
 
-TRINO_VERSION=$("${SOURCE_DIR}/mvnw" -f "${SOURCE_DIR}/pom.xml" --quiet help:evaluate -Dexpression=project.version -DforceStdout)
+if [ -n "$TRINO_VERSION" ]; then
+    echo "🎣 Downloading server and client artifacts for release version ${TRINO_VERSION}"
+    for artifactId in io.trino:trino-server:"${TRINO_VERSION}":tar.gz io.trino:trino-cli:"${TRINO_VERSION}":jar:executable; do
+        "${SOURCE_DIR}/mvnw" -C dependency:get -Dtransitive=false -Dartifact="$artifactId"
+    done
+    local_repo=$("${SOURCE_DIR}/mvnw" -B help:evaluate -Dexpression=settings.localRepository -q -DforceStdout)
+    trino_server="$local_repo/io/trino/trino-server/${TRINO_VERSION}/trino-server-${TRINO_VERSION}.tar.gz"
+    trino_client="$local_repo/io/trino/trino-cli/${TRINO_VERSION}/trino-cli-${TRINO_VERSION}-executable.jar"
+    chmod +x "$trino_client"
+else
+    TRINO_VERSION=$("${SOURCE_DIR}/mvnw" -f "${SOURCE_DIR}/pom.xml" --quiet help:evaluate -Dexpression=project.version -DforceStdout)
+    echo "🎯 Using currently built artifacts from the core/trino-server and client/trino-cli modules and version ${TRINO_VERSION}"
+    trino_server="${SOURCE_DIR}/core/trino-server/target/trino-server-${TRINO_VERSION}.tar.gz"
+    trino_client="${SOURCE_DIR}/client/trino-cli/target/trino-cli-${TRINO_VERSION}-executable.jar"
+fi
 
 echo "🧱 Preparing the image build context directory"
 WORK_DIR="$(mktemp -d)"
+cp "$trino_server" "${WORK_DIR}/"
+cp "$trino_client" "${WORK_DIR}/"
+tar -C "${WORK_DIR}" -xzf "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
+rm "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
+cp -R bin "${WORK_DIR}/trino-server-${TRINO_VERSION}"
+cp -R default "${WORK_DIR}/"
 
-TAG_PREFIX="uchimera.azurecr.io/cccs/ubi-minimal-jdk:${BASE_IMAGE_TAG}"
+TAG_PREFIX="trino:${TRINO_VERSION}"
 
 for arch in "${ARCHITECTURES[@]}"; do
     echo "🫙  Building the image for $arch with JDK ${JDK_RELEASE}"
@@ -102,13 +124,26 @@ for arch in "${ARCHITECTURES[@]}"; do
         "${WORK_DIR}" \
         --progress=plain \
         --pull \
-        --build-arg JDK_VERSION="${JDK_RELEASE}" \
-        --build-arg JDK_DOWNLOAD_LINK="$(jdk_download_link "${JDKS_PATH}/${JDK_RELEASE}" "${arch}")" \
+        --build-arg "BASE_IMAGE_TAG=${BASE_IMAGE_TAG}" \
+        # --build-arg JDK_VERSION="${JDK_RELEASE}" \
+        # --build-arg JDK_DOWNLOAD_LINK="$(jdk_download_link "${JDKS_PATH}/${JDK_RELEASE}" "${arch}")" \
         --platform "linux/$arch" \
-        -f Dockerfile \
+        -f trino-base.Dockerfile \
         -t "${TAG_PREFIX}-$arch" \
-
+        --build-arg "TRINO_VERSION=${TRINO_VERSION}"
 done
 
 echo "🧹 Cleaning up the build context directory"
 rm -r "${WORK_DIR}"
+
+echo -n "🏃 Testing built images"
+if [[ "${SKIP_TESTS}" == "true" ]];then
+  echo " (skipped)"
+else
+  echo
+  source container-test.sh
+  for arch in "${ARCHITECTURES[@]}"; do
+      test_container "${TAG_PREFIX}-$arch" "linux/$arch"
+      docker image inspect -f '🚀 Built {{.RepoTags}} {{.Id}}' "${TAG_PREFIX}-$arch"
+  done
+fi
