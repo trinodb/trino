@@ -61,6 +61,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDATION_
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcStringStatisticsLimit;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxDictionaryMemory;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxRowGroupRows;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxStripeRows;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxStripeSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMinStripeSize;
@@ -244,6 +245,7 @@ public class IcebergFileWriterFactory
                             .withStripeMinSize(getOrcWriterMinStripeSize(session))
                             .withStripeMaxSize(getOrcWriterMaxStripeSize(session))
                             .withStripeMaxRowCount(getOrcWriterMaxStripeRows(session))
+                            .withRowGroupMaxRowCount(getOrcWriterMaxRowGroupRows(session))
                             .withDictionaryMaxMemory(getOrcWriterMaxDictionaryMemory(session))
                             .withMaxStringStatisticsLimit(stringStatisticsLimit),
                     IntStream.range(0, fileColumnNames.size()).toArray(),
