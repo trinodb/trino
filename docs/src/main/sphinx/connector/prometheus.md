@@ -91,6 +91,14 @@ The following configuration properties are available:
      with the values as `value1` and `value2`. Escape comma (`,`) or colon(`:`)
      characters in a header name or value with a backslash (`\`).
   -
+* - `prometheus.query.match.string`
+  -  Match string to send as part of query to Prometheus to filter the data on Prometheus server.
+     The equivalent catalog session property is `query_match_string`.
+  -
+* - `prometheus.query.functions`
+  -  Comma separated list of functions to be sent to Prometheus HTTP API as part of query.
+     The equivalent catalog session property is `query_functions`.
+  -
 :::
 
 ## Not exhausting your Trino available heap
