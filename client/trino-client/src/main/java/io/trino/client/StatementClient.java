@@ -45,6 +45,11 @@ public interface StatementClient
 
     QueryStatusInfo finalStatusInfo();
 
+    default Optional<String> getEncoding()
+    {
+        return Optional.empty();
+    }
+
     Optional<String> getSetCatalog();
 
     Optional<String> getSetSchema();
