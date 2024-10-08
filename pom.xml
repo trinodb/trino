@@ -102,6 +102,7 @@
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
         <module>plugin/trino-prometheus</module>
+        <module>plugin/trino-ranger</module>
         <module>plugin/trino-redis</module>
         <module>plugin/trino-redshift</module>
         <module>plugin/trino-resource-group-managers</module>
@@ -190,6 +191,7 @@
         <dep.avro.version>1.12.0</dep.avro.version>
         <dep.aws-sdk.version>1.12.773</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
+        <dep.commons.collections.version>3.2.2</dep.commons.collections.version>
         <dep.confluent.version>7.7.1</dep.confluent.version>
         <dep.docker.images.version>100</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
@@ -200,7 +202,11 @@
         <dep.frontend-node.version>v20.17.0</dep.frontend-node.version>
         <dep.frontend-npm.version>10.8.3</dep.frontend-npm.version>
         <dep.google.http.client.version>1.45.0</dep.google.http.client.version>
+        <dep.graalvm.version>24.1.0</dep.graalvm.version>
+        <dep.hadoop-shaded-guava.version>1.2.0</dep.hadoop-shaded-guava.version>
+        <dep.hppc.version>0.8.1</dep.hppc.version>
         <dep.iceberg.version>1.6.1</dep.iceberg.version>
+        <dep.jersey-client.version>1.19.3</dep.jersey-client.version>
         <dep.jna.version>5.15.0</dep.jna.version>
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
@@ -211,6 +217,7 @@
         <dep.parquet.version>1.14.3</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.5</dep.protobuf.version>
+        <dep.ranger.version>2.5.0</dep.ranger.version>
         <dep.snowflake.version>3.19.0</dep.snowflake.version>
         <dep.swagger.version>2.2.25</dep.swagger.version>
         <dep.takari.version>2.2.0</dep.takari.version>
@@ -1393,6 +1400,19 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-product-tests-groups</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-ranger</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-ranger</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
             </dependency>
 
             <dependency>
