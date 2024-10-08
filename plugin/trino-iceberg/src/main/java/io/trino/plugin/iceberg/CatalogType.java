@@ -20,7 +20,6 @@ public enum CatalogType
     GLUE,
     REST,
     JDBC,
-    HADOOP,
     NESSIE,
     SNOWFLAKE,
     /**/;
