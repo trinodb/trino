@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static io.trino.plugin.redshift.TestingRedshiftServer.TEST_SCHEMA;
+import static io.trino.plugin.redshift.TestingRedshiftServer.executeInRedshift;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -224,6 +226,25 @@ public class TestRedshiftCastPushdown
         CastTestCase testCase = new CastTestCase("c_decimal_10_2", "bigint", "c_bigint");
         assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON CAST(CAST(l.%s AS %s) AS integer) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn())))
                 .isFullyPushedDown();
+    }
+
+    @Test
+    public void testCaseSensitiveComparison()
+    {
+        String schemaAndTable1 = TEST_SCHEMA + "." + "case_sensitive_1_" + randomNameSuffix();
+        String schemaAndTable2 = TEST_SCHEMA + "." + "case_sensitive_2_" + randomNameSuffix();
+
+        executeInRedshift("CREATE TABLE " + schemaAndTable1 + "(c_casesensitive VARCHAR(10) COLLATE CASE_SENSITIVE, c_caseinsensitive VARCHAR(10) COLLATE CASE_INSENSITIVE)");
+        executeInRedshift("CREATE TABLE " + schemaAndTable2 + "(c_casesensitive VARCHAR(20) COLLATE CASE_SENSITIVE, c_caseinsensitive VARCHAR(20) COLLATE CASE_INSENSITIVE)");
+
+        executeInRedshift("INSERT INTO " + schemaAndTable1 + " VALUES ('MiXeD1', 'MiXeD2')");
+        executeInRedshift("INSERT INTO " + schemaAndTable2 + " VALUES ('mIxEd1', 'mIxEd2')");
+
+        assertThat(query("SELECT t1.c_caseinsensitive, t2.c_caseinsensitive FROM " + schemaAndTable1 + " t1 JOIN " + schemaAndTable2 + " t2 ON t1.c_caseinsensitive = t2.c_caseinsensitive"))
+                .isFullyPushedDown();
+
+        executeInRedshift("DROP TABLE IF EXISTS " + schemaAndTable1);
+        executeInRedshift("DROP TABLE IF EXISTS " + schemaAndTable2);
     }
 
     @Test
