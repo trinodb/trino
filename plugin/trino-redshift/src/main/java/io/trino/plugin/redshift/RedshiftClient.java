@@ -244,6 +244,8 @@ public class RedshiftClient
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
         connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                .withTypeClass("varchar_type", ImmutableSet.of("char", "varchar"))
+                .map("$equal(left: varchar_type, right: varchar_type)").to("COLLATE(left, 'case_sensitive') = COLLATE(right, 'case_sensitive')")
                 .addStandardRules(this::quoted)
                 .add(new RewriteComparison(ImmutableSet.of(ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL)))
                 .map("$less_than(left, right)").to("left < right")
