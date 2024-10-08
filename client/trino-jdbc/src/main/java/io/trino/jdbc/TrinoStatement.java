@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static io.trino.jdbc.AbstractTrinoResultSet.resultsException;
+import static io.trino.jdbc.ResultUtils.resultsException;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
