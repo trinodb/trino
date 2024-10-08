@@ -701,17 +701,17 @@ public class TestRedshiftConnectorTest
         try (TestTable leftTable = new TestTable(
                 getQueryRunner()::execute,
                 "left_table_",
-                "(id int, c_boolean boolean, c_tinyint tinyint, c_smallint smallint, c_integer integer, c_bigint bigint, c_real real, c_double_precision double precision, c_decimal_10_2 decimal(10, 2))",
+                "(id int, c_boolean boolean, c_tinyint tinyint, c_smallint smallint, c_integer integer, c_bigint bigint, c_real real, c_double_precision double precision, c_decimal_10_2 decimal(10, 2), c_varchar_50 varchar(50))",
                 ImmutableList.of(
-                        "(11, true, 12, 12, 12, 12, 12.34, 12.34, 12.34)",
-                        "(12, false, 123, 123, 123, 123, 123.67, 123.67, 123.67)"));
+                        "(11, true, 12, 12, 12, 12, 12.34, 12.34, 12.34, 'India')",
+                        "(12, false, 123, 123, 123, 123, 123.67, 123.67, 123.67, 'Poland')"));
                 TestTable rightTable = new TestTable(
                         getQueryRunner()::execute,
                         "right_table_",
-                        "(id int, c_boolean boolean, c_tinyint tinyint, c_smallint smallint, c_integer integer, c_bigint bigint, c_real real, c_double_precision double precision, c_decimal_10_2 decimal(10, 2))",
+                        "(id int, c_boolean boolean, c_tinyint tinyint, c_smallint smallint, c_integer integer, c_bigint bigint, c_real real, c_double_precision double precision, c_decimal_10_2 decimal(10, 2), c_varchar_100 varchar(100), c_varchar varchar)",
                         ImmutableList.of(
-                                "(21, true, 12, 12, 12, 12, 12.34, 12.34, 12.34)",
-                                "(22, true, 234, 234, 234, 234, 234.67, 234.67, 234.67)"))) {
+                                "(21, true, 12, 12, 12, 12, 12.34, 12.34, 12.34, 'India', 'Japan')",
+                                "(22, true, 234, 234, 234, 234, 234.67, 234.67, 234.67, 'France', 'Poland')"))) {
             Session session = joinPushdownEnabled(getSession());
             String joinQuery = "SELECT l.id FROM " + leftTable.getName() + " l %s " + rightTable.getName() + " r ON %s";
 
@@ -775,6 +775,30 @@ public class TestRedshiftConnectorTest
                     .joinIsNotFullyPushedDown();
             // Full Join pushdown is not supported
             assertThat(query(session, joinQuery.formatted("FULL JOIN", "l.c_decimal_10_2 = r.c_bigint")))
+                    .joinIsNotFullyPushedDown();
+
+            // Implicit cast between bounded varchar
+            String joinWithBoundedVarchar = "SELECT l.id FROM %s l %s %s r ON l.c_varchar_50 = r.c_varchar_100".formatted(leftTable.getName(), "%s", rightTable.getName());
+            assertThat(query(session, joinWithBoundedVarchar.formatted("LEFT JOIN")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinWithBoundedVarchar.formatted("RIGHT JOIN")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinWithBoundedVarchar.formatted("INNER JOIN")))
+                    .isFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinWithBoundedVarchar.formatted("FULL JOIN")))
+                    .joinIsNotFullyPushedDown();
+
+            // Implicit cast between bounded and max allowed precision varchar
+            String joinWithMaxPrecisionVarchar = "SELECT l.id FROM %s l %s %s r ON l.c_varchar_50 = r.c_varchar".formatted(leftTable.getName(), "%s", rightTable.getName());
+            assertThat(query(session, joinWithMaxPrecisionVarchar.formatted("LEFT JOIN")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinWithMaxPrecisionVarchar.formatted("RIGHT JOIN")))
+                    .isFullyPushedDown();
+            assertThat(query(session, joinWithMaxPrecisionVarchar.formatted("INNER JOIN")))
+                    .isFullyPushedDown();
+            // Full Join pushdown is not supported
+            assertThat(query(session, joinWithMaxPrecisionVarchar.formatted("FULL JOIN")))
                     .joinIsNotFullyPushedDown();
         }
     }
