@@ -670,10 +670,7 @@ public class RedshiftClient
                         RedshiftClient::writeChar));
 
             case Types.VARCHAR: {
-                if (type.columnSize().isEmpty()) {
-                    throw new TrinoException(REDSHIFT_INVALID_TYPE, "column size not present");
-                }
-                int length = type.requiredColumnSize();
+                int length = type.columnSize().orElse(VarcharType.MAX_LENGTH);
                 return Optional.of(varcharColumnMapping(
                         length < VarcharType.MAX_LENGTH
                                 ? createVarcharType(length)
