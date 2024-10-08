@@ -136,7 +136,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
-import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_INVALID_TYPE;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -666,10 +665,9 @@ public class RedshiftClient
                         RedshiftClient::writeChar));
 
             case Types.VARCHAR: {
-                if (type.columnSize().isEmpty()) {
-                    throw new TrinoException(REDSHIFT_INVALID_TYPE, "column size not present");
-                }
-                int length = type.requiredColumnSize();
+                // Redshift column exposes precision with max precision upto `REDSHIFT_MAX_VARCHAR`.
+                // Defaulting to `VarcharType.MAX_LENGTH`(instead of `REDSHIFT_MAX_VARCHAR`) as synthetic column created by Trino creates unbounded varchar.
+                int length = type.columnSize().orElse(VarcharType.MAX_LENGTH);
                 return Optional.of(varcharColumnMapping(
                         length < VarcharType.MAX_LENGTH
                                 ? createVarcharType(length)
