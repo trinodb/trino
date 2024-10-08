@@ -600,4 +600,25 @@ public class TestRedshiftCastPushdown
                     .isNotFullyPushedDown(ProjectNode.class);
         }
     }
+
+    @Test
+    void testCaseSensitiveComparison()
+    {
+        try (TestTable testTable1 = new TestTable(
+                TestingRedshiftServer::executeInRedshift,
+                TEST_SCHEMA + "." + "case_sensitive_1_",
+                "(c_casesensitive VARCHAR(10) COLLATE CASE_SENSITIVE, c_caseinsensitive VARCHAR(10) COLLATE CASE_INSENSITIVE)",
+                ImmutableList.of("'MiXeD1', 'MiXeD2'"))) {
+            try (TestTable testTable2 = new TestTable(
+                    TestingRedshiftServer::executeInRedshift,
+                    TEST_SCHEMA + "." + "case_sensitive_2_",
+                    "(c_casesensitive VARCHAR(20) COLLATE CASE_SENSITIVE, c_caseinsensitive VARCHAR(20) COLLATE CASE_INSENSITIVE)",
+                    ImmutableList.of("'mIxEd1', 'mIxEd2'"))) {
+                assertThat(query("SELECT t1.c_caseinsensitive, t2.c_caseinsensitive FROM " + testTable1.getName() + " t1 JOIN " + testTable2.getName() + " t2 ON t1.c_caseinsensitive = t2.c_caseinsensitive"))
+                        .isFullyPushedDown();
+                assertThat(query("SELECT t1.c_caseinsensitive, t2.c_caseinsensitive FROM " + testTable1.getName() + " t1 JOIN " + testTable2.getName() + " t2 ON t1.c_caseinsensitive != t2.c_caseinsensitive"))
+                        .joinIsNotFullyPushedDown();
+            }
+        }
+    }
 }
