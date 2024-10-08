@@ -81,9 +81,17 @@ public class TestRedshiftCastPushdown
                 .addColumn("c_numeric_10_2", "numeric(10, 2)", asList(1.23, 2.67, null))
                 .addColumn("c_numeric_19_2", "numeric(19, 2)", asList(1.23, 2.67, null)) // Equal to REDSHIFT_DECIMAL_CUTOFF_PRECISION
                 .addColumn("c_numeric_30_2", "numeric(30, 2)", asList(1.23, 2.67, null))
+                .addColumn("c_char", "char", asList("'A'", "'B'", null))
+                .addColumn("c_character", "character", asList("'A'", "'B'", null))
                 .addColumn("c_char_10", "char(10)", asList("'India'", "'Poland'", null))
                 .addColumn("c_char_50", "char(50)", asList("'India'", "'Poland'", null))
                 .addColumn("c_char_4096", "char(4096)", asList("'India'", "'Poland'", null)) // Equal to REDSHIFT_MAX_CHAR
+
+                // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
+                .addColumn("c_varchar_unicode", "varchar(15)", asList("'攻殻機動隊'", "'😂'", null))
+                .addColumn("c_nvarchar_unicode", "nvarchar(15)", asList("'攻殻機動隊'", "'😂'", null))
+
+                .addColumn("c_nchar", "nchar", asList("'Y'", "'Z'", null))
                 .addColumn("c_nchar_10", "nchar(10)", asList("'India'", "'Poland'", null))
                 .addColumn("c_nchar_50", "nchar(50)", asList("'India'", "'Poland'", null))
                 .addColumn("c_nchar_4096", "nchar(4096)", asList("'India'", "'Poland'", null)) // Equal to REDSHIFT_MAX_CHAR
@@ -91,6 +99,7 @@ public class TestRedshiftCastPushdown
                 .addColumn("c_varchar_10", "varchar(10)", asList("'India'", "'Poland'", null))
                 .addColumn("c_varchar_50", "varchar(50)", asList("'India'", "'Poland'", null))
                 .addColumn("c_varchar_65535", "varchar(65535)", asList("'India'", "'Poland'", null)) // Equal to REDSHIFT_MAX_VARCHAR
+                .addColumn("c_nvarchar", "nvarchar", asList("'India'", "'France'", null))
                 .addColumn("c_nvarchar_10", "nvarchar(10)", asList("'India'", "'Poland'", null))
                 .addColumn("c_nvarchar_50", "nvarchar(50)", asList("'India'", "'Poland'", null))
                 .addColumn("c_nvarchar_65535", "nvarchar(65535)", asList("'India'", "'Poland'", null)) // Greater than REDSHIFT_MAX_VARCHAR
@@ -146,9 +155,17 @@ public class TestRedshiftCastPushdown
                 .addColumn("c_numeric_10_2", "numeric(10, 2)", asList(1.23, 22.67, null))
                 .addColumn("c_numeric_19_2", "numeric(19, 2)", asList(1.23, 22.67, null)) // Equal to REDSHIFT_DECIMAL_CUTOFF_PRECISION
                 .addColumn("c_numeric_30_2", "numeric(30, 2)", asList(1.23, 22.67, null))
+                .addColumn("c_char", "char", asList("'A'", "'B'", null))
+                .addColumn("c_character", "character", asList("'A'", "'B'", null))
                 .addColumn("c_char_10", "char(10)", asList("'India'", "'France'", null))
                 .addColumn("c_char_50", "char(50)", asList("'India'", "'France'", null))
                 .addColumn("c_char_4096", "char(4096)", asList("'India'", "'France'", null)) // Equal to REDSHIFT_MAX_CHAR
+
+                // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
+                .addColumn("c_varchar_unicode", "varchar(15)", asList("'攻殻機動隊'", "'😂'", null))
+                .addColumn("c_nvarchar_unicode", "nvarchar(15)", asList("'攻殻機動隊'", "'😂'", null))
+
+                .addColumn("c_nchar", "nchar", asList("'Y'", "'Z'", null))
                 .addColumn("c_nchar_10", "nchar(10)", asList("'India'", "'France'", null))
                 .addColumn("c_nchar_50", "nchar(50)", asList("'India'", "'France'", null))
                 .addColumn("c_nchar_4096", "nchar(4096)", asList("'India'", "'France'", null)) // Equal to REDSHIFT_MAX_CHAR
@@ -156,6 +173,7 @@ public class TestRedshiftCastPushdown
                 .addColumn("c_varchar_10", "varchar(10)", asList("'India'", "'France'", null))
                 .addColumn("c_varchar_50", "varchar(50)", asList("'India'", "'France'", null))
                 .addColumn("c_varchar_65535", "varchar(65535)", asList("'India'", "'France'", null)) // Equal to REDSHIFT_MAX_VARCHAR
+                .addColumn("c_nvarchar", "nvarchar", asList("'India'", "'France'", null))
                 .addColumn("c_nvarchar_10", "nvarchar(10)", asList("'India'", "'France'", null))
                 .addColumn("c_nvarchar_50", "nvarchar(50)", asList("'India'", "'France'", null))
                 .addColumn("c_nvarchar_65535", "nvarchar(65535)", asList("'India'", "'France'", null)) // Equal to REDSHIFT_MAX_VARCHAR
@@ -244,6 +262,17 @@ public class TestRedshiftCastPushdown
                 .isFullyPushedDown();
         // Full Join pushdown is not supported
         assertThat(query("SELECT l.id FROM %s l FULL JOIN %s r ON CAST(l.%s AS %s) = r.%s".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .joinIsNotFullyPushedDown();
+
+        testCase = new CastTestCase("c_varchar_10", "varchar(200)", Optional.of("c_varchar_50"));
+        assertThat(query("SELECT l.id FROM %s l LEFT JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .isFullyPushedDown();
+        assertThat(query("SELECT l.id FROM %s l RIGHT JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .isFullyPushedDown();
+        assertThat(query("SELECT l.id FROM %s l INNER JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
+                .isFullyPushedDown();
+        // Full Join pushdown is not supported
+        assertThat(query("SELECT l.id FROM %s l FULL JOIN %s r ON CAST(l.%3$s AS %4$s) = CAST(r.%5$s AS %4$s)".formatted(leftTable(), rightTable(), testCase.sourceColumn(), testCase.castType(), testCase.targetColumn().orElseThrow())))
                 .joinIsNotFullyPushedDown();
     }
 
@@ -491,6 +520,44 @@ public class TestRedshiftCastPushdown
                 new CastTestCase("c_numeric_30_2", "integer", Optional.of("c_integer")),
                 new CastTestCase("c_decimal_negative", "integer", Optional.of("c_integer")),
 
+                new CastTestCase("c_char_10", "char(50)", Optional.of("c_char_50")),
+                new CastTestCase("c_char_10", "char(256)", Optional.of("c_bpchar")),
+                new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_nvarchar_10", "varchar(50)", Optional.of("c_nvarchar_50")),
+                new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_text")),
+
+                new CastTestCase("c_char_50", "char(10)", Optional.of("c_char_10")),
+                new CastTestCase("c_bpchar", "char(10)", Optional.of("c_char_10")),
+                new CastTestCase("c_varchar_50", "varchar(10)", Optional.of("c_varchar_10")),
+                new CastTestCase("c_nvarchar_50", "varchar(10)", Optional.of("c_nvarchar_10")),
+                new CastTestCase("c_text", "varchar(10)", Optional.of("c_varchar_10")),
+
+                new CastTestCase("c_char", "varchar(10)", Optional.of("c_varchar_10")),
+                new CastTestCase("c_char", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_char", "varchar(65535)", Optional.of("c_varchar_65535")),
+                new CastTestCase("c_char", "varchar(65535)", Optional.of("c_varchar_65535")),
+
+                new CastTestCase("c_char_10", "char(50)", Optional.of("c_char_50")),
+                new CastTestCase("c_char_10", "char(256)", Optional.of("c_bpchar")),
+                new CastTestCase("c_char", "char(4096)", Optional.of("c_char_4096")),
+                new CastTestCase("c_char", "char(1)", Optional.of("c_nchar")),
+                new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_nvarchar_10", "varchar(50)", Optional.of("c_nvarchar_50")),
+                new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_text")),
+
+                new CastTestCase("c_varchar_50", "varchar(10)", Optional.of("c_varchar_10")),
+
+                new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_varchar_10", "varchar(65535)", Optional.of("c_varchar_65535")),
+                new CastTestCase("c_varchar_10", "varchar(256)", Optional.of("c_nvarchar")),
+                new CastTestCase("c_varchar_10", "varchar(10)", Optional.of("c_nvarchar_10")),
+                new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_nvarchar_50")),
+                new CastTestCase("c_varchar_10", "varchar(65535)", Optional.of("c_nvarchar_65535")),
+                new CastTestCase("c_varchar_10", "varchar(256)", Optional.of("c_text")),
+
+                new CastTestCase("c_varchar_unicode", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_nvarchar_unicode", "varchar(50)", Optional.of("c_varchar_50")),
+
                 new CastTestCase("c_boolean", "bigint", Optional.of("c_bigint")),
                 new CastTestCase("c_smallint", "bigint", Optional.of("c_bigint")),
                 new CastTestCase("c_integer", "bigint", Optional.of("c_bigint")),
@@ -519,11 +586,29 @@ public class TestRedshiftCastPushdown
                 new CastTestCase("c_real", "double", Optional.of("c_double_precision")),
                 new CastTestCase("c_double_precision", "real", Optional.of("c_real")),
                 new CastTestCase("c_double_precision", "decimal(10,2)", Optional.of("c_decimal_10_2")),
-                new CastTestCase("c_char_10", "char(50)", Optional.of("c_char_50")),
-                new CastTestCase("c_char_10", "char(256)", Optional.of("c_bpchar")),
-                new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_varchar_50")),
-                new CastTestCase("c_nvarchar_10", "varchar(50)", Optional.of("c_nvarchar_50")),
-                new CastTestCase("c_varchar_10", "varchar(50)", Optional.of("c_text")),
+
+                new CastTestCase("c_boolean", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_smallint", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_int2", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_integer", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_int", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_int4", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_bigint", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_int8", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_real", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_float4", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_double_precision", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_float", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_float8", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_double_precision", "varchar(50)", Optional.of("c_varchar_50")),
+
+                new CastTestCase("c_timestamp", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_date", "varchar(50)", Optional.of("c_varchar_50")),
+                new CastTestCase("c_date", "varchar(50)", Optional.of("c_varchar_50")),
+
+                new CastTestCase("c_varchar_unicode", "char(50)", Optional.of("c_char_50")),
+                new CastTestCase("c_nvarchar_unicode", "char(50)", Optional.of("c_char_50")),
+
                 new CastTestCase("c_timestamp", "date", Optional.of("c_date")),
                 new CastTestCase("c_timestamp", "time", Optional.of("c_time")),
                 new CastTestCase("c_date", "timestamp", Optional.of("c_timestamp")));

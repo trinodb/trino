@@ -17,11 +17,13 @@ import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.expression.AbstractRewriteCast;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.BigintType;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,10 +31,12 @@ import java.util.function.BiFunction;
 
 import static java.sql.Types.BIGINT;
 import static java.sql.Types.BIT;
+import static java.sql.Types.CHAR;
 import static java.sql.Types.INTEGER;
 import static java.sql.Types.NUMERIC;
 import static java.sql.Types.SMALLINT;
 import static java.sql.Types.TINYINT;
+import static java.sql.Types.VARCHAR;
 
 public class RewriteCast
         extends AbstractRewriteCast
@@ -58,6 +62,10 @@ public class RewriteCast
                     Optional.of(new JdbcTypeHandle(INTEGER, Optional.of(integerType.getBaseName()), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
             case BigintType bigintType ->
                     Optional.of(new JdbcTypeHandle(BIGINT, Optional.of(bigintType.getBaseName()), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+            case VarcharType varcharType ->
+                    Optional.of(new JdbcTypeHandle(VARCHAR, Optional.of(varcharType.getBaseName()), varcharType.getLength(), Optional.empty(), Optional.empty(), Optional.empty()));
+            case CharType charType ->
+                    Optional.of(new JdbcTypeHandle(CHAR, Optional.of(charType.getBaseName()), Optional.of(charType.getLength()), Optional.empty(), Optional.empty(), Optional.empty()));
             default -> Optional.empty();
         };
     }
@@ -67,6 +75,10 @@ public class RewriteCast
         return switch (targetType) {
             case TinyintType _, SmallintType _, IntegerType _, BigintType _ ->
                     List.of(BIT, TINYINT, SMALLINT, INTEGER, BIGINT, NUMERIC).contains(sourceType.jdbcType());
+            case VarcharType _ ->
+                    supportedSourceTypeToCastToVarcharType(sourceType);
+            case CharType _ ->
+                    supportedSourceTypeToCastToCharType(sourceType);
             default -> false;
         };
     }
@@ -80,6 +92,23 @@ public class RewriteCast
             return "CAST(ROUND(%s) AS %s)".formatted(expression, castType);
         }
         return "CAST(%s AS %s)".formatted(expression, castType);
+    }
+
+    private static boolean supportedSourceTypeToCastToCharType(JdbcTypeHandle sourceType)
+    {
+        // varchar -> char is unsupported as varchar supports UNICODE characters but char doesn't.
+        return switch (sourceType.jdbcType()) {
+            case CHAR -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean supportedSourceTypeToCastToVarcharType(JdbcTypeHandle sourceType)
+    {
+        return switch (sourceType.jdbcType()) {
+            case CHAR, VARCHAR -> true;
+            default -> false;
+        };
     }
 
     private boolean isIntegralType(Type type)
